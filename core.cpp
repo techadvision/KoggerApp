@@ -1258,7 +1258,7 @@ void Core::saveLLARefToSettings()
 {
     auto ref = datasetPtr_->getLlaRef();
 
-    QSettings settings("KOGGER", "KoggerApp");
+    QSettings settings("TechAdVision", "Pulse");
     QString group{"LLARef"};
 
     settings.beginGroup(group);
@@ -1278,7 +1278,7 @@ void Core::saveLLARefToSettings()
 
 void Core::loadLLARefFromSettings()
 {
-    QSettings settings("KOGGER", "KoggerApp");
+    QSettings settings("TechAdVision", "Pulse");
     QString group{"LLARef"};
 
     settings.beginGroup(group);
