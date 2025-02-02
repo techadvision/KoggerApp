@@ -362,6 +362,7 @@ typedef struct ComplexSignal {
 typedef QMap<int, ComplexSignal> ComplexSignals;
 
 class Epoch {
+
 public:
     typedef struct {
         typedef enum {
@@ -633,7 +634,7 @@ public:
     }
 
 
-    float rangeFinder() {
+    float rangeFinder() const {
         if(_rangeFinders.size() > 0) {
             return _rangeFinders.first();
         }
@@ -889,8 +890,25 @@ public:
         kConnection
     };
 
+    Q_PROPERTY(int dist READ dist NOTIFY distChanged)
+    Q_PROPERTY(float temp READ temp NOTIFY tempChanged)
+    //Q_PROPERTY(float depth READ currentDepth NOTIFY dataUpdate)
+
     /*methods*/
     Dataset();
+
+    /*
+    float currentDepth() const {
+        if (!_pool.isEmpty()) {
+            return _pool.last().rangeFinder(); // Fetch depth from the last epoch
+        }
+        return NAN; // No data available
+    }
+*/
+
+    int dist() const { return _dist; }
+    float temp() const { return _temp; }
+    //float depth() const { return _depth; }
 
     void setState(DatasetState state);
     DatasetState getState() const;
@@ -1023,12 +1041,19 @@ public slots:
     void interpolateData(bool fromStart);
 
 signals:
+    void distChanged();
+    void tempChanged();
     void channelsListUpdates(QList<DatasetChannel> channels);
     void dataUpdate();
     void bottomTrackUpdated(int lEpoch, int rEpoch);
     void boatTrackUpdated();
     void updatedInterpolatedData(int indx);
     void updatedLlaRef();
+
+private:
+    int _dist; // Stores the distance value
+    float _temp; // Stores the temperature value
+    //float _depth; // Stores the depth value
 
 protected:
     int lastEventTimestamp = 0;
