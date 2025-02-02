@@ -198,7 +198,7 @@ SpinBox {
         width: control.spinner ? control.width - downCanvas.width - upCanvas.width : control.width
         height: control.height
 
-        color: isValid ? theme.controlBackColor : "red"
+        color: isValid ? theme.controlBackColor : "orange"
         border.color: theme.controlBorderColor
     }
 
