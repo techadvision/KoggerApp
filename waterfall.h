@@ -32,6 +32,11 @@ public:
 
     void sendSyncEvent(int epoch_index) override final;
 
+    //Pulse app updates
+    Q_INVOKABLE void updatePlot() { plotUpdate(); };
+    Q_INVOKABLE void setHorizontalNow() {setHorizontal(true);}
+    Q_INVOKABLE void setVerticalNow() {setHorizontal(false);}
+
 protected:
     Dataset* m_plot = nullptr;
     QTimer* m_updateTimer;
@@ -80,10 +85,20 @@ public slots:
     void plotVelocityRange(float velocity) { setVelocityRange(velocity); }
 
     void plotDistanceAutoRange(int auto_range_type) { setDistanceAutoRange(auto_range_type); }
+    //Added
+    void plotDistanceRange(float max_range) { setDistance(-1 * max_range, max_range); }
+    void plotDistanceRange2d(float max_range) { setDistance(0, max_range); }
+    Q_INVOKABLE int getMaxDepth() { return maxDepth(); }
+    Q_INVOKABLE bool isViewHorizontal() { return isHorizontal(); }
+    Q_INVOKABLE void setMeasuresMetricNow(bool metric) { setMeasuresMetric(metric); }
+    Q_INVOKABLE void setIntensityValue (float intensity) { setEchogramHightLevel(intensity); }
+    Q_INVOKABLE void setFilteringValue (float filter) { setEchogramLowLevel(filter); }
 
     void plotEchogramSetLevels(float low, float hight) {
         setEchogramLowLevel(low);
         setEchogramHightLevel(hight);
+        qDebug() << "TAV: waterfall plotEchogramSetLevels,  setEchogramLowLevel: " << low;
+        qDebug() << "TAV: waterfall plotEchogramSetLevels,  setEchogramHightLevel: " << hight;
     }
 
     void doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz);
