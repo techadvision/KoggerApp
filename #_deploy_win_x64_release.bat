@@ -4,10 +4,10 @@ REM ask if user wants to archive
 set /p archive=Do you want to archive the output directory? (y/n): 
 
 REM local paths:
-set binPath=build\MinGW_8_1_0_x64_desktop-Release\release\KoggerApp.exe
+set binPath=build\MinGW_8_1_0_x64_desktop-Release\release\Pulse.exe
 set qmlPath=QML
 set outPath=out_x64
-set zip_file=out_x64\KoggerApp_win_x64.zip
+set zip_file=out_x64\Pulse_win_x64.zip
 echo executable file path: "%binPath%"
 echo QML project files path: "%qmlPath%"
 echo output path: "%outPath%"
