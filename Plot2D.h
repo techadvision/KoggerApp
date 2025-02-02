@@ -810,6 +810,9 @@ public:
     void setVetricalNumber(int grids) { _lines = grids; }
     void setVelocityVisible(bool visible) { _velocityVisible = visible; }
     void setRangeFinderVisible(bool visible) { _rangeFinderLastVisible = visible; }
+    //Pulse
+    void setMeasuresMetric(bool metric);
+
 protected:
     bool angleVisibility_;
     bool _velocityVisible = true;
@@ -817,6 +820,7 @@ protected:
     int _lines = 20;
     int _lineWidth = 1;
     QColor _lineColor = QColor(255, 255, 255, 255);
+    bool isMetric_ = true;
 
 };
 
@@ -836,10 +840,21 @@ protected:
 };
 
 
-class Plot2D
-{
+class Plot2D {
+
+   //Q_OBJECT
+
+    // Add this property to expose the value to QML
+    //Q_PROPERTY(int maxDepth READ maxDepth NOTIFY maxDepthChanged)
+
 public:
     Plot2D();
+
+    // Getter method for max depth
+
+    int maxDepth() const {
+        return static_cast<int>(ceil(_cursor.distance.from + (_cursor.distance.to - _cursor.distance.from)));
+    }
 
     void setDataset(Dataset* dataset) {
         _dataset = dataset;
@@ -907,6 +922,8 @@ public:
     virtual void sendSyncEvent(int epoch_index) {
         Q_UNUSED(epoch_index);
     }
+    void setMeasuresMetric (bool metric);
+
 
 protected:
     Dataset* _dataset = NULL;
