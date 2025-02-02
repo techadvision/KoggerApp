@@ -57,6 +57,8 @@ Item {
 
             MenuButton {
                 id: menuSettings
+                //TAV PULSE: We do not need this
+                //visible: false
                 icon.source: "./icons/plug.svg"
                 Layout.fillWidth: true
 
@@ -72,6 +74,8 @@ Item {
 
             MenuButton {
                 id: menuDisplay
+                //TAV PULSE: We do not need this
+                visible: false
                 Layout.fillWidth: true
                 icon.source: "./settings-outline.svg"
 
@@ -99,7 +103,9 @@ Item {
 
             CheckButton {
                 id: settings3DButton
-                visible: instruments > 0
+                //TAV PULSE: We do not need this
+                //visible: instruments > 0
+                visible: false
                 implicitWidth: theme.controlHeight*1.2
                 icon.source: "./icons/map.svg"
                 backColor: theme.controlBackColor
@@ -120,7 +126,9 @@ Item {
 
             CheckButton {
                 id: visible2dButton
-                visible: instruments > 0
+                //TAV PULSE: We do not need this
+                //visible: instruments > 0
+                visible: false
                 implicitWidth: theme.controlHeight*1.2
                 icon.source: "./icons/ripple.svg"
 
