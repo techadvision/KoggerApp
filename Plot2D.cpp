@@ -19,7 +19,7 @@ Plot2D::Plot2D()
    _cursor.attitude.from = -180;
    _cursor.attitude.to = 180;
 
-    _cursor.distance.set(0, 20);
+    _cursor.distance.set(0, 4);
 //    _cursor.velocity.set(-1, 1);
 }
 
@@ -123,11 +123,13 @@ void Plot2D::setDataChannel(int channel, int channel2) {
 }
 
 void Plot2D::setEchogramLowLevel(float low) {
+    qDebug() << "TAV: setEchogramLowLevel low: " << low;
     _echogram.setLowLevel(low);
     plotUpdate();
 }
 
 void Plot2D::setEchogramHightLevel(float high) {
+    qDebug() << "TAV: setEchogramLowLevel high: " << high;
     _echogram.setHightLevel(high);
     plotUpdate();
 }
@@ -598,4 +600,10 @@ bool Plot2DAim::draw(Canvas &canvas, Dataset *dataset, DatasetCursor cursor)
     p->drawText(textRect.topLeft(), distanceText);
 
     return true;
+}
+
+//Pulse
+void Plot2D::setMeasuresMetric(bool metric) {
+    _grid.setMeasuresMetric(metric);
+    plotUpdate();
 }
