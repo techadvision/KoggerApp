@@ -17,7 +17,7 @@ Window  {
     height:        512
     minimumHeight: 256
     color:         "black"
-    title:         qsTr("KoggerApp, KOGGER")
+    title:         qsTr("Pulse, TechAdVision")
 
     readonly property int _rightBarWidth:                360
     readonly property int _activeObjectParamsMenuHeight: 500
@@ -87,6 +87,7 @@ Window  {
 
     DropArea {
         anchors.fill: parent
+        //Do we need this?
 
         onEntered: {
             if (!showBanner) {
@@ -126,6 +127,7 @@ Window  {
     // drag-n-drop <-
 
     SplitView {
+        //Do need all of this?
         visible: !showBanner
         Layout.fillHeight: true
         Layout.fillWidth:  true
@@ -456,6 +458,8 @@ Window  {
 
                     CSlider {
                         id: historyScroll
+                        //TAV - hide
+                        visible: false
                         Layout.margins: 0
                         Layout.fillWidth: true
                         Layout.fillHeight: false
@@ -489,7 +493,9 @@ Window  {
     MenuFrame {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
+        //Do we need this?
+        //visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
+        visible: false
         isDraggable: true
         isOpacityControlled: true
 
@@ -610,6 +616,7 @@ Window  {
         Keys.forwardTo:    [mousearea3D]
         height: visualisationLayout.height
         targetPlot: waterView
+        //Do we really need this
         visible: !showBanner
     }
 
@@ -637,7 +644,9 @@ Window  {
         opacity: 0.8
         radius: 10
         anchors.centerIn: parent
+        //Do we need this?
         visible: core.isFileOpening && !core.isSeparateReading
+        //visible: false
         implicitWidth: textItem.implicitWidth + 40
         implicitHeight: textItem.implicitHeight + 40
 
