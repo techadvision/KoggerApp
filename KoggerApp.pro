@@ -111,8 +111,18 @@ SOURCES += \
 }
 
 TRANSLATIONS += languages/translation_en.ts \
+                languages/translation_de.ts \
                 languages/translation_ru.ts \
                 languages/translation_pl.ts
+
+# Target to update .ts files
+#update_translations.target = update_translations
+#update_translations.commands = lupdate $$PWD/KoggerApp.pro -ts $$TRANSLATIONS
+#update_translations.CONFIG += no_clean
+#QMAKE_EXTRA_TARGETS += update_translations
+
+# Automatically generate .qm files after every build
+#QMAKE_POST_LINK += lrelease $$TRANSLATIONS
 
 RESOURCES += QML/qml.qrc \
     icons.qrc \
@@ -228,6 +238,9 @@ DISTFILES += \
     QML/UpgradeBox.qml \
     QML/FlashBox.qml \
     QML/main.qml \
+    QML/DepthAndTemperature.qml \
+    QML/HorizontalControllerIcons.qml \
+    QML/HorizontalController.qml \
     android_build/AndroidManifest.xml \
     android_build/build.gradle \
     android_build/gradle.properties \
@@ -235,6 +248,12 @@ DISTFILES += \
     android_build/gradle/wrapper/gradle-wrapper.properties \
     android_build/gradlew \
     android_build/gradlew.bat \
+    android_build/res/drawable-hdpi/icon.png \
+    android_build/res/drawable-mdpi/icon.png \
+    android_build/res/drawable-ldpi/icon.png \
+    android_build/res/drawable-xhdpi/icon.png \
+    android_build/res/drawable-xxhdpi/icon.png \
+    android_build/res/drawable-xxxhdpi/icon.png \
     android_build/res/values/libs.xml \
     tools/models.pri \
     tools/tools.pri
@@ -274,8 +293,8 @@ include ($$PWD/events/events.pri)
 
 android {
     ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android_build
-#    ANDROID_ABIS = arm64-v8a
-##    ANDROID_ABIS = x86
+    ANDROID_ABIS = arm64-v8a
+    ANDROID_ABIS = x86_64
 }
 
 ANDROID_ABIS = armeabi-v7a arm64-v8a
