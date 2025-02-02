@@ -14,7 +14,7 @@ ColumnLayout {
 
     Timer {
         id: delayTimer
-        interval: 1000
+        interval: 3000
         repeat: !settingsCompleted
         onTriggered: {
 
@@ -28,6 +28,7 @@ ColumnLayout {
                 console.log("No further trying to modify settings after we've set it once");
                 return
             } else {
+
                 settingsCompleted = true
 
                 // ECHOGRAM
