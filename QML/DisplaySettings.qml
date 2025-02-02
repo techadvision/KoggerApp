@@ -1079,8 +1079,8 @@ GridLayout {
                 CCombo  {
                     id: appLanguage
                     Layout.fillWidth: true
-                    model: [qsTr("English"), qsTr("Russian"), qsTr("Polish")]
-                    currentIndex: 0
+                    model: [qsTr("English"), qsTr("Russian"), qsTr("Polish"), qsTr("German")]
+                    currentIndex: 3
 
                     function getLanguageByIndex(index) {
                             switch (index) {
@@ -1090,6 +1090,8 @@ GridLayout {
                                     return qsTr("Russian");
                                 case 2:
                                     return qsTr("Polish");
+                                case 3:
+                                    return qsTr("German");
                                 default:
                                     return qsTr("English");
                             }
