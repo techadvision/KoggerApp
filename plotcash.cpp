@@ -39,6 +39,7 @@ void Epoch::setDist(int dist) {
 
 void Epoch::setRangefinder(int channel, float distance) {
     _rangeFinders[channel] = distance;
+
 }
 
 void Epoch::setDopplerBeam(IDBinDVL::BeamSolution *beams, uint16_t cnt) {
@@ -207,7 +208,8 @@ Dataset::Dataset() :
     interpolator_(this),
     lastBoatTrackEpoch_(0),
     lastBottomTrackEpoch_(0),
-    boatTrackValidPosCounter_(0)
+    boatTrackValidPosCounter_(0),
+    _dist(0)
 {
     resetDataset();
 }
@@ -447,13 +449,21 @@ void Dataset::rawDataRecieved(RawData raw_data) {
 }
 
 void Dataset::addDist(int dist) {
+    //qDebug("Received distance in addDist: %d", dist);
     int pool_index = endIndex();
     if(pool_index < 0 || _pool[pool_index].distAvail() == true) {
         addNewEpoch();
         pool_index = endIndex();
     }
 
+    if (_dist != dist) {
+        _dist = dist;
+        emit distChanged();
+        //qDebug("emitted distChanged: %d", _dist);
+    }
+
     _pool[endIndex()].setDist(dist);
+
     emit dataUpdate();
 }
 
@@ -465,6 +475,7 @@ void Dataset::addRangefinder(float distance) {
 
     epoch->setDist(distance*1000);
     emit dataUpdate();
+    qDebug("Received distance in addRangefinder: %f", distance*1000);
 }
 
 void Dataset::addUsblSolution(IDBinUsblSolution::UsblSolution data) {
@@ -635,6 +646,13 @@ void Dataset::addTemp(float temp_c) {
         addNewEpoch();
         pool_index = endIndex();
     }
+
+    if (_temp != temp_c) {
+        _temp = temp_c;
+        emit tempChanged();
+        qDebug("emitted distChanged: %f", _temp);
+    }
+
     _pool[pool_index].setTemp(temp_c);
     emit dataUpdate();
 }
