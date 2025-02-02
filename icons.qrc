@@ -74,5 +74,25 @@
         <file>icons/radar.svg</file>
         <file>icons/submarine.svg</file>
         <file>icons/arrow-bar-down.svg</file>
+        <file>icons/pulse_arrow_left.svg</file>
+        <file>icons/pulse_arrow_right.svg</file>
+        <file>icons/pulse_filter.svg</file>
+        <file>icons/pulse_measure_depth.svg</file>
+        <file>icons/pulse_sun.svg</file>
+        <file>icons/pulse_color_choice.svg</file>
+        <file>icons/pulse_cone.svg</file>
+        <file>icons/pulse_color_blue.svg</file>
+        <file>icons/pulse_color_BW.svg</file>
+        <file>icons/pulse_color_sepia.svg</file>
+        <file>icons/pulse_color_WB.svg</file>
+        <file>icons/pulse_color_WRGDB.svg</file>
+        <file>icons/pulse_2d.svg</file>
+        <file>icons/pulse_sidescan.svg</file>
+        <file>icons/pulse_view_downscan.svg</file>
+        <file>icons/pulse_view_sidescan.svg</file>
+        <file>icons/pulse_ruler.svg</file>
+        <file>icons/pulse_paint.svg</file>
+        <file>icons/pulse_aquarium.svg</file>
+        <file>icons/pulse_glasses.svg</file>
     </qresource>
 </RCC>

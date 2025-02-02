@@ -1,0 +1,7 @@
+<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="300" height="60" fill="rgb(0, 0, 0)" />
+  <rect x="0" y="60" width="300" height="60" fill="rgb(20,  5,   80)" />
+  <rect x="0" y="120" width="300" height="60" fill="rgb(50,  180, 230)" />
+  <rect x="0" y="180" width="300" height="60" fill="rgb(190, 240, 250)" />
+  <rect x="0" y="240" width="300" height="60" fill="rgb(255, 255, 255)" />
+</svg>
