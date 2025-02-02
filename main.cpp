@@ -26,10 +26,12 @@
 #include <QVector>
 #include <QString>
 
+#include "DevQProperty.h"
+
 Core core;
 Themes theme;
 QTranslator translator;
-QVector<QString> availableLanguages{"en", "ru", "pl"};
+QVector<QString> availableLanguages{"en", "ru", "pl", "de"};
 
 
 void loadLanguage(QGuiApplication &app)
@@ -100,9 +102,9 @@ int main(int argc, char *argv[])
     ::qputenv("QT_SUPPORT_GL_CHILD_WIDGETS", "1");
 #endif
 
-    QCoreApplication::setOrganizationName("KOGGER");
-    QCoreApplication::setOrganizationDomain("kogger.tech");
-    QCoreApplication::setApplicationName("KoggerApp");
+    QCoreApplication::setOrganizationName("TechAdVision");
+    QCoreApplication::setOrganizationDomain("techadvision.com");
+    QCoreApplication::setApplicationName("Pulse");
     QCoreApplication::setApplicationVersion("1-1-1");
 
 #if defined(Q_OS_WIN)
@@ -134,6 +136,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("linkManagerWrapper", core.getLinkManagerWrapperPtr());
     engine.rootContext()->setContextProperty("deviceManagerWrapper", core.getDeviceManagerWrapperPtr());
+
 #ifdef FLASHER
     engine.rootContext()->setContextProperty("flasher", &core.getFlasherPtr);
 #endif
