@@ -39,6 +39,14 @@ void sscan::PlotColorTable::setThemeById(int id)
         break;
     }
     case ThemeId::kWRGBD: {
+        colors = { QColor::fromRgb(48, 0, 128),
+                  QColor::fromRgb(0, 0, 255),
+                  QColor::fromRgb(0, 0, 255),
+                  QColor::fromRgb(255, 255, 0),
+                  QColor::fromRgb(255, 0, 0),
+                  QColor::fromRgb(255, 255, 255) };
+        levels = { 0, 30, 80, 120, 150, 255 };
+        /*
         colors = { QColor::fromRgb(0,   0,   0),
                    QColor::fromRgb(40,  0,   80),
                    QColor::fromRgb(0,   30,  150),
@@ -46,6 +54,7 @@ void sscan::PlotColorTable::setThemeById(int id)
                    QColor::fromRgb(255, 50,  20),
                    QColor::fromRgb(255, 255, 255) };
         levels = { 0, 30, 80, 120, 150, 255 };
+        */
         break;
     }
     case ThemeId::kWB: {
