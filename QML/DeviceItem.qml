@@ -10,6 +10,86 @@ ColumnLayout {
     spacing: 0
     Layout.margins: 0
     property var dev: null
+    property bool settingsCompleted: false
+
+    Timer {
+        id: delayTimer
+        interval: 1000
+        repeat: !settingsCompleted
+        onTriggered: {
+
+            /* -- PULSE: DEFAULT SETTINGS AT STARTUP -- */
+
+            if (dev === null) {
+                console.log("TAV: DEV is still null");
+                return
+            }
+            if (settingsCompleted) {
+                console.log("No further trying to modify settings after we've set it once");
+                return
+            } else {
+                settingsCompleted = true
+
+                // ECHOGRAM
+                dev.chartResolution = 10        // Resolution mm "10"
+                dev.chartSamples = 2000         // Number of samples "2.000"
+                dev.chartOffset = 0             // Offset of samples "0"
+
+                // RANGEFINDER
+                dev.distMax = 50000             // Max distance mm "20.000"
+                dev.distDeadZone = 10           // Dead zone "10"
+                dev.distConfidence = 13         // Confidence Threshold "13"
+
+                // TRANSDUCER
+                dev.transPulse = 10             // Pulse Count "10"
+                dev.transFreq = 710             // Frequency, kHz "710"
+                dev.transBoost = 0              // Booster "OFF"
+
+                // DSP
+                dev.dspHorSmooth = 0            // Horizontal Smoothing Factor "0"
+                dev.soundSpeed = 1500 * 1000    // Speed of sound m/s "1500"
+
+                // DATASET
+                dev.ch1Period = 50              // Period "50"
+                dev.datasetChart = 1            // Echogram "8-bit"
+                dev.datasetDist = 1             // Rangefinder "ON"
+                dev.datasetEuler = 0            // AHRS "OFF"
+                dev.datasetTemp = 1             // Temperature "ON"
+                dev.datasetTimestamp = 0        // Timestamp "OFF"
+
+                // RETRIEVE CONNECTED DEVICE INFO - Non-working getters are commented out
+                //console.log("TAV PULSE device address:", dev.getDevAddress);
+                //console.log("TAV PULSE bus address:", dev.getBusAddress);
+                console.log("TAV PULSE device name:", dev.devName);
+                //console.log("TAV PULSE device:", dev.boardVersion);
+                //console.log("TAV PULSE device serial number:", dev.devSerialNumber);
+                //console.log("TAV PULSE device PN:", dev.devPN);
+                //console.log("TAV PULSE device firmware version:", dev.fwVersion);
+                //console.log("TAV PULSE device board version:", dev.boardVersion);
+                console.log("TAV PULSE device is a sonar:", dev.isSonar);
+                console.log("TAV PULSE device is a recording device:", dev.isRecorder);
+                console.log("TAV PULSE device is a doppler device:", dev.isDoppler);
+                console.log("TAV PULSE device is a usbl beacon device:", dev.isUSBLBeacon);
+                console.log("TAV PULSE device is a usbl device:", dev.isUSBL);
+                console.log("TAV PULSE device can chart:", dev.isChartSupport);
+                console.log("TAV PULSE device can measure distance:", dev.isDistSupport);
+                console.log("TAV PULSE device can do DSP:", dev.isDSPSupport);
+                console.log("TAV PULSE device is transducer:", dev.isTransducerSupport);
+                console.log("TAV PULSE device has datset support:", dev.isDatasetSupport);
+                console.log("TAV PULSE device has sound of speed support:", dev.isSoundSpeedSupport);
+                console.log("TAV PULSE device has address support:", dev.isAddressSupport);
+                console.log("TAV PULSE device has upgrade support:", dev.isUpgradeSupport);
+
+
+                console.log("Applied TAV PULSE settings after timer");
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        console.log("TAV Device item completed, let's set the standardized settings");
+        delayTimer.start()
+    }
 
     ParamGroup {
         groupName: "Echogram"
