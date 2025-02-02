@@ -166,6 +166,7 @@ void LinkManager::doEmitAppendModifyModel(Link* linkPtr)
 
 void LinkManager::exportPinnedLinksToXML()
 {
+    return;
     TimerController(timer_.get());
 
     QString filePath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/pinned_links.xml";
@@ -241,14 +242,51 @@ void LinkManager::importPinnedLinksFromXML()
 {
     TimerController(timer_.get());
 
-    QString filePath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/pinned_links.xml";
+    const QString xmlData = R"(
+        <pinned_links>
+            <link>
+                <uuid>{2ad43efc-61d1-4321-a925-a8e0cd188caf}</uuid>
+                <control_type>0</control_type>
+                <port_name></port_name>
+                <baudrate>0</baudrate>
+                <parity>false</parity>
+                <link_type>2</link_type>
+                <address>192.168.2.1</address>
+                <source_port>14550</source_port>
+                <destination_port>14550</destination_port>
+                <is_pinned>true</is_pinned>
+                <is_hided>false</is_hided>
+                <is_not_available>false</is_not_available>
+                <connection_status>true</connection_status>
+            </link>
+            <link>
+                <uuid>{2ad43efc-61d1-4321-a925-a8e0cd188ca1}</uuid>
+                <control_type>0</control_type>
+                <port_name></port_name>
+                <baudrate>0</baudrate>
+                <parity>false</parity>
+                <link_type>2</link_type>
+                <address>10.0.0.10</address>
+                <source_port>14445</source_port>
+                <destination_port>14445</destination_port>
+                <is_pinned>true</is_pinned>
+                <is_hided>false</is_hided>
+                <is_not_available>false</is_not_available>
+                <connection_status>true</connection_status>
+            </link>
+        </pinned_links>
+    )";
 
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        return;
-    }
 
-    QXmlStreamReader xmlReader(&file);
+    //QString filePath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/pinned_links.xml";
+
+    //QFile file(filePath);
+    //if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+       // return;
+    //}
+
+    //QXmlStreamReader xmlReader(&file);
+    QXmlStreamReader xmlReader(xmlData);
 
     while (!xmlReader.atEnd() && !xmlReader.hasError()) {
         const QXmlStreamReader::TokenType token = xmlReader.readNext();
@@ -308,7 +346,7 @@ void LinkManager::importPinnedLinksFromXML()
         }
     }
 
-    file.close();
+    //file.close();
 }
 
 void LinkManager::onLinkConnectionStatusChanged(QUuid uuid)
