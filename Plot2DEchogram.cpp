@@ -59,12 +59,28 @@ void Plot2DEchogram::setThemeId(int theme_id) {
         levels = {0, 30, 130, 255};
     }else if(theme_id == WRGBDTheme) {
         coloros = {
+            QColor::fromRgb(255, 255, 255),
+            QColor::fromRgb(95, 19, 246),
+            QColor::fromRgb(0, 0, 255),
+            QColor::fromRgb(19, 238, 246),
+            QColor::fromRgb(253, 21, 21),
+            QColor::fromRgb(238, 253, 21),
+            /*
+            QColor::fromRgb(48, 0, 128),
+            QColor::fromRgb(0, 0, 255),
+            QColor::fromRgb(0, 0, 255),
+            QColor::fromRgb(255, 255, 0),
+            QColor::fromRgb(255, 0, 0),
+            QColor::fromRgb(255, 255, 255),
+            */
+            /*
             QColor::fromRgb(0, 0, 0),
             QColor::fromRgb(40, 0, 80),
             QColor::fromRgb(0, 30, 150),
             QColor::fromRgb(20, 230, 30),
             QColor::fromRgb(255, 50, 20),
             QColor::fromRgb(255, 255, 255),
+            */
         };
 
         levels = {0, 30, 80, 120, 150, 255};
