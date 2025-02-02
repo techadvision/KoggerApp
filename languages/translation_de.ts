@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="pl_PL">
+<TS version="2.1" language="de_DE">
 <context>
     <name>AdjBox</name>
     <message>
         <location filename="../QML/AdjBox.qml" line="9"/>
         <source>VALUE NAME:</source>
-        <translation>NAZWA:</translation>
+        <translation>WERTNAME:</translation>
     </message>
 </context>
 <context>
@@ -14,12 +14,12 @@
     <message>
         <location filename="../QML/BottomTrackControlMenu.qml" line="25"/>
         <source>Bottom track controls</source>
-        <translation>Kontrolki śledzenia dna</translation>
+        <translation>Untere Spursteuerung</translation>
     </message>
     <message>
         <location filename="../QML/BottomTrackControlMenu.qml" line="29"/>
         <source>Show</source>
-        <translation>Pokaż</translation>
+        <translation>Zeigen</translation>
     </message>
 </context>
 <context>
@@ -35,7 +35,7 @@
     <message>
         <location filename="../QML/CCheck.qml" line="6"/>
         <source>Check</source>
-        <translation>Sprawdź</translation>
+        <translation>Überprüfen</translation>
     </message>
 </context>
 <context>
@@ -51,7 +51,7 @@
     <message>
         <location filename="../QML/CPopup.qml" line="6"/>
         <source>Custom popup</source>
-        <translation>Niestandardowe wyskakujące okienko</translation>
+        <translation>Benutzerdefiniertes Popup</translation>
     </message>
 </context>
 <context>
@@ -67,7 +67,7 @@
     <message>
         <location filename="../QML/CalcMethodTINSettings.qml" line="10"/>
         <source>TIN edge length limit:</source>
-        <translation>TIN Limit długości krawędzi</translation>
+        <translation>TIN-Kantenlängenlimit</translation>
     </message>
 </context>
 <context>
@@ -75,32 +75,32 @@
     <message>
         <location filename="../QML/ChartBox.qml" line="21"/>
         <source>Chart</source>
-        <translation>Wykres</translation>
+        <translation>Diagramm</translation>
     </message>
     <message>
         <location filename="../QML/ChartBox.qml" line="30"/>
         <source>On</source>
-        <translation>Włącz</translation>
+        <translation>An</translation>
     </message>
     <message>
         <location filename="../QML/ChartBox.qml" line="43"/>
         <source>Shot</source>
-        <translation>Zrzut</translation>
+        <translation>Schuss</translation>
     </message>
     <message>
         <location filename="../QML/ChartBox.qml" line="98"/>
         <source>Resolution, mm</source>
-        <translation>Rozdzielczosć, mm</translation>
+        <translation>Auflösung, mm</translation>
     </message>
     <message>
         <location filename="../QML/ChartBox.qml" line="120"/>
         <source>Number of Samples</source>
-        <translation>Liczba próbek</translation>
+        <translation>Anzahl der Proben</translation>
     </message>
     <message>
         <location filename="../QML/ChartBox.qml" line="142"/>
         <source>Offset of Samples</source>
-        <translation>Przesunięcie</translation>
+        <translation>Offset der Samples</translation>
     </message>
 </context>
 <context>
@@ -108,7 +108,7 @@
     <message>
         <location filename="../QML/ConnectionButton.qml" line="11"/>
         <source>Serial</source>
-        <translation>Serial</translation>
+        <translation>Seriell</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionButton.qml" line="13"/>
@@ -126,17 +126,17 @@
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="65"/>
         <source>Settings</source>
-        <translation>Właściwości</translation>
+        <translation>Einstellungen</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="80"/>
         <source>Unpin</source>
-        <translation>Odepnij</translation>
+        <translation>Lösen</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="80"/>
         <source>Pin</source>
-        <translation>Przypnij</translation>
+        <translation>Anheften</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="96"/>
@@ -146,7 +146,7 @@
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="113"/>
         <source>Delete</source>
-        <translation>Usuń</translation>
+        <translation>Löschen</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="180"/>
@@ -171,12 +171,12 @@
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="323"/>
         <source>Close</source>
-        <translation>Zamknij</translation>
+        <translation>Schließen</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="323"/>
         <source>Open</source>
-        <translation>Otwórz</translation>
+        <translation>Offen</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="404"/>
@@ -191,27 +191,27 @@
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="435"/>
         <source>REC KLF</source>
-        <translation>ZAPIS KLF</translation>
+        <translation>REC KLF</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="456"/>
         <source>REC CSV</source>
-        <translation>ZAPISCSV</translation>
+        <translation>REC CSV</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="484"/>
         <source>Enter path</source>
-        <translation>Wprowadź ścieżkę</translation>
+        <translation>Pfad eingeben</translation>
     </message>
     <message>
         <location filename="../QML/ConnectionViewer.qml" line="510"/>
         <location filename="../QML/ConnectionViewer.qml" line="544"/>
         <source>Please choose a file</source>
-        <translation>Proszę wybrać plik</translation>
+        <translation>Bitte wählen Sie eine Datei</translation>
     </message>
     <message>
         <source>undefined</source>
-        <translation type="vanished">niezdefiniowany</translation>
+        <translation type="vanished">undefiniert</translation>
     </message>
 </context>
 <context>
@@ -219,12 +219,12 @@
     <message>
         <location filename="../QML/Console.qml" line="30"/>
         <source>Auto scroll</source>
-        <translation>Automatyczne przewijanie</translation>
+        <translation>Automatischer Bildlauf</translation>
     </message>
     <message>
         <location filename="../QML/Console.qml" line="41"/>
         <source>Binnary</source>
-        <translation>Binarny</translation>
+        <translation>Binär</translation>
     </message>
 </context>
 <context>
@@ -232,12 +232,12 @@
     <message>
         <location filename="../plotcash.cpp" line="1142"/>
         <source>None</source>
-        <translation>Brak</translation>
+        <translation>Keiner</translation>
     </message>
     <message>
         <location filename="../plotcash.cpp" line="1143"/>
         <source>First</source>
-        <translation>Pierwszy</translation>
+        <translation>Erste</translation>
     </message>
 </context>
 <context>
@@ -245,17 +245,17 @@
     <message>
         <location filename="../QML/DatasetBox.qml" line="21"/>
         <source>Dataset</source>
-        <translation>Zbiór danych</translation>
+        <translation>Datensatz</translation>
     </message>
     <message>
         <location filename="../QML/DatasetBox.qml" line="37"/>
         <source>Channel #1, ms:</source>
-        <translation>Kanał #1, ms</translation>
+        <translation>Kanal #1, ms</translation>
     </message>
     <message>
         <location filename="../QML/DatasetBox.qml" line="67"/>
         <source>Channel #2, ms:</source>
-        <translation>Kanał #2, ms</translation>
+        <translation>Kanal #2, ms</translation>
     </message>
 </context>
 <context>
@@ -263,27 +263,27 @@
     <message>
         <location filename="../QML/DatasetCheckBox.qml" line="13"/>
         <source>Chart</source>
-        <translation>Wykres</translation>
+        <translation>Diagramm</translation>
     </message>
     <message>
         <location filename="../QML/DatasetCheckBox.qml" line="27"/>
         <source>Distance</source>
-        <translation>Odległość</translation>
+        <translation>Distanz</translation>
     </message>
     <message>
         <location filename="../QML/DatasetCheckBox.qml" line="41"/>
         <source>Dist. NMEA</source>
-        <translation>Odl. NMEA</translation>
+        <translation>Dist. NMEA</translation>
     </message>
     <message>
         <location filename="../QML/DatasetCheckBox.qml" line="55"/>
         <source>Dist. NMEA#2</source>
-        <translation>Odl. NMEA#2</translation>
+        <translation>Dist. NMEA#2</translation>
     </message>
     <message>
         <location filename="../QML/DatasetCheckBox.qml" line="70"/>
         <source>Timestamp</source>
-        <translation>Znacznik czasu</translation>
+        <translation>Zeitstempel</translation>
     </message>
     <message>
         <location filename="../QML/DatasetCheckBox.qml" line="84"/>
@@ -301,27 +301,27 @@
     <message>
         <location filename="../QML/DevAddrBox.qml" line="19"/>
         <source>Bus settings</source>
-        <translation>Ustaw. magistrali</translation>
+        <translation>Buseinstellungen</translation>
     </message>
     <message>
         <location filename="../QML/DevAddrBox.qml" line="32"/>
         <source>Bus address:</source>
-        <translation>Adres magistrali:</translation>
+        <translation>Busadresse:</translation>
     </message>
     <message>
         <location filename="../QML/DevAddrBox.qml" line="67"/>
         <source>Set Device&apos;s address</source>
-        <translation>Ustaw adres urządzenia</translation>
+        <translation>Geräteadresse einstellen</translation>
     </message>
     <message>
         <location filename="../QML/DevAddrBox.qml" line="88"/>
         <source>Set baudrate</source>
-        <translation>Ustaw prędkość transmisji</translation>
+        <translation>Baudrate einstellen</translation>
     </message>
     <message>
         <location filename="../QML/DevAddrBox.qml" line="104"/>
         <source>Set default device&apos;s address:</source>
-        <translation>Ustaw domyślny adres urządzenia</translation>
+        <translation>Standard-Geräteadresse einstellen</translation>
     </message>
 </context>
 <context>
@@ -329,12 +329,12 @@
     <message>
         <location filename="../QML/DisplaySettings.qml" line="23"/>
         <source>Plot</source>
-        <translation>Wykres</translation>
+        <translation>Zeichnen</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="37"/>
         <source>Dataset #1</source>
-        <translation>Zbiór danych #1</translation>
+        <translation>Datensatz #1</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="59"/>
@@ -350,17 +350,17 @@
         <location filename="../QML/DisplaySettings.qml" line="84"/>
         <location filename="../QML/DisplaySettings.qml" line="85"/>
         <source>First</source>
-        <translation>Pierwszy</translation>
+        <translation>Keiner</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="99"/>
         <source>Echogram</source>
-        <translation>Echogram</translation>
+        <translation>Echogramm</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="108"/>
         <source>Blue</source>
-        <translation>Niebieski</translation>
+        <translation>Blau</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="108"/>
@@ -375,336 +375,336 @@
     <message>
         <location filename="../QML/DisplaySettings.qml" line="108"/>
         <source>WhiteBlack</source>
-        <translation>Biało-Czarny</translation>
+        <translation>WeißSchwarz</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="108"/>
         <source>BlackWhite</source>
-        <translation>Czarno-Biały</translation>
+        <translation>SchwarzWeiß</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="123"/>
         <source>Raw</source>
-        <translation>Raw</translation>
+        <translation>Roh</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="123"/>
         <source>Side-Scan</source>
-        <translation>Skan boczny</translation>
+        <translation>Seitenscan</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="140"/>
         <source>Bottom-Track</source>
-        <translation>Śledzenie dna</translation>
+        <translation>Untere Schiene</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="149"/>
         <source>Line1</source>
-        <translation>Linia 1</translation>
+        <translation>Zeile 1</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="149"/>
         <source>Line2</source>
-        <translation>Linia 2</translation>
+        <translation>Zeile 2</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="149"/>
         <source>Dot1</source>
-        <translation>Kropka 1</translation>
+        <translation>Punkt 1</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="149"/>
         <source>Dot2</source>
-        <translation>Kropka 2</translation>
+        <translation>Punkt 2</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="149"/>
         <source>DotLine</source>
-        <translation>LiniaKropka</translation>
+        <translation>Punktlinie</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="165"/>
         <source>Rangefinder</source>
-        <translation>Głębokość</translation>
+        <translation>Entfernungsmesser</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="172"/>
         <source>Text</source>
-        <translation>Tekst</translation>
+        <translation>Text</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="172"/>
         <source>Line</source>
-        <translation>Linia</translation>
+        <translation>Linie</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="172"/>
         <source>Dot</source>
-        <translation>Kropka</translation>
+        <translation>Punkt</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="188"/>
         <source>Attitude</source>
-        <translation>Ratio</translation>
+        <translation>Attitüde</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="206"/>
         <source>Doppler Beams</source>
-        <translation>Promienie Dopplera</translation>
+        <translation>Dopplerstrahlen</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="271"/>
         <source>Doppler Instrument</source>
-        <translation>Instrument Dopplera</translation>
+        <translation>Doppler-Instrument</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="310"/>
         <source>Doppler Profiler</source>
-        <translation>Profil Dopplera</translation>
+        <translation>Doppler-Profiler</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="320"/>
         <source>GNSS data</source>
-        <translation>Dane GNSS</translation>
+        <translation>GNSS-Daten</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="337"/>
         <source>Grid</source>
-        <translation>Siatka</translation>
+        <translation>Raster</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="343"/>
         <source>fill</source>
-        <translation>wypełnienie</translation>
+        <translation>füll</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="378"/>
         <source>Angle range, °</source>
-        <translation>Zakres kątowy, °</translation>
+        <translation>Winkelbereich, °</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="426"/>
         <source>Velocity range, m/s</source>
-        <translation>Zakres prędkości, m/s</translation>
+        <translation>Geschwindigkeitsbereich, m/s</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="479"/>
         <source>Distance auto range</source>
-        <translation>Automatyczny zakres odległości</translation>
+        <translation>Automatische Entfernungsmessung</translation>
     </message>
     <message>
         <source>Last data         </source>
-        <translation type="vanished">Ostatnie dane</translation>
+        <translation type="vanished">Aktuelle Daten</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="493"/>
         <source>Last on screen</source>
-        <translation>Ostatnie na ekranie</translation>
+        <translation>Zuletzt auf dem Bildschirm</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="493"/>
         <source>Max on screen</source>
-        <translation>Maks. na ekranie</translation>
+        <translation>Max auf dem Bildschirm</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="493"/>
         <source>Last data       </source>
-        <translation>Ostatnie dane       </translation>
+        <translation>Aktuelle Daten       </translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="507"/>
         <source>Horizontal</source>
-        <translation>Poziomy</translation>
+        <translation>Horizontal</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="531"/>
         <source>Bottom-Track processing</source>
-        <translation>Przetwarzanie śledzenia dna</translation>
+        <translation>Verarbeitung der unteren Spur</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="564"/>
         <source>Preset:</source>
-        <translation>Ustaw:</translation>
+        <translation>Vorgabe:</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="570"/>
         <source>Normal 2D</source>
-        <translation>Normalne 2D</translation>
+        <translation>Normales 2D</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="570"/>
         <source>Narrow 2D</source>
-        <translation>Wąskie 2D</translation>
+        <translation>Schmal 2D</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="570"/>
         <source>Echogram Side-Scan</source>
-        <translation>Echogram skanu bocznego</translation>
+        <translation>Echogramm-Seitenscan</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="590"/>
         <source>Gain slope:</source>
-        <translation>Nachylenie wzmocnienia</translation>
+        <translation>Steigung der Verstärkung</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="642"/>
         <source>Threshold:</source>
-        <translation>Próg</translation>
+        <translation>Schwelle</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="694"/>
         <source>Horizontal window:</source>
-        <translation>Orientacja pozioma</translation>
+        <translation>Horizontales Fenster</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="731"/>
         <source>Vertical gap, %:</source>
-        <translation>Pionowa szczelina, %</translation>
+        <translation>Vertikale Lücke, %</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="769"/>
         <source>Min range, m:</source>
-        <translation>Min. zasięg, m</translation>
+        <translation>Min. Bereich, m</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="825"/>
         <source>Max range, m:</source>
-        <translation>Maks. zasięg, m</translation>
+        <translation>Maks. Bereich, m</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="880"/>
         <source>Sonar offset XYZ, mm:</source>
-        <translation>Przesunięcie sonaru XYZ, mm</translation>
+        <translation>Sonar-Offset XYZ XYZ, mm</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="962"/>
         <source>Processing</source>
-        <translation>Przetwarzanie</translation>
+        <translation>Verarbeitung</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="971"/>
         <source>Export</source>
-        <translation>Eksport</translation>
+        <translation>Export</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="982"/>
         <source>Enter path</source>
-        <translation>Wprowadź ścieżkę</translation>
+        <translation>Pfad eingeben</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1020"/>
         <source>Decimation, m:</source>
-        <translation>Redukcja, m</translation>
+        <translation>Dezimierung, m</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1040"/>
         <source>Export to CSV</source>
-        <translation>Eksport do CSV</translation>
+        <translation>Als CSV exportieren</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1048"/>
         <source>Export to XTF</source>
-        <translation>Eksport do XTF</translation>
+        <translation>Als XTF exportieren</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1056"/>
         <source>Complex signal to CSV</source>
-        <translation>Sygnał kompletny do CSV</translation>
+        <translation>Komplexes Signal nach CSV</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1064"/>
         <source>USBL to CSV</source>
-        <translation>USBL do CSV</translation>
+        <translation>USBL zu CSV</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1074"/>
         <source>Preference</source>
-        <translation>Preferencje</translation>
+        <translation>Präferenz</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1077"/>
         <source>Language:</source>
-        <translation>Język:</translation>
+        <translation>Sprache:</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1082"/>
         <location filename="../QML/DisplaySettings.qml" line="1088"/>
         <location filename="../QML/DisplaySettings.qml" line="1096"/>
         <source>English</source>
-        <translation>Angielski</translation>
+        <translation>Englisch</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1082"/>
         <location filename="../QML/DisplaySettings.qml" line="1090"/>
         <source>Russian</source>
-        <translation>Rosyjski</translation>
+        <translation>Russisch</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1082"/>
         <location filename="../QML/DisplaySettings.qml" line="1092"/>
         <source>Polish</source>
-        <translation>Polski</translation>
+        <translation>Polnisch</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1082"/>
         <location filename="../QML/DisplaySettings.qml" line="1094"/>
         <source>German</source>
-        <translation>Niemiecki</translation>
+        <translation>Deutsch</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1111"/>
         <source>Display theme:</source>
-        <translation>Motyw:</translation>
+        <translation>Anzeigethema:</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Dark</source>
-        <translation>Ciemny</translation>
+        <translation>Dunkel</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Super Dark</source>
-        <translation>Super Ciemny</translation>
+        <translation>Super Dunkel</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Light</source>
-        <translation>Super Ciemny</translation>
+        <translation>Licht</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Super Light</source>
-        <translation>Super Jasny</translation>
+        <translation>Super Licht</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1129"/>
         <source>Instrumets grade:</source>
-        <translation>Klasa instrumentów</translation>
+        <translation>Instrumente Klasse</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1134"/>
         <source>Fish Finders</source>
-        <translation>Wykrywanie ryb</translation>
+        <translation>Fischfinder</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1134"/>
         <source>Bottom Tracking</source>
-        <translation>Śledzenie dna</translation>
+        <translation>Bodenverfolgung</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1134"/>
         <source>Maximum</source>
-        <translation>Maksimum</translation>
+        <translation>Maximal</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1149"/>
         <source>Interface</source>
-        <translation>Interfejs</translation>
+        <translation>Schnittstelle</translation>
     </message>
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1153"/>
         <source>Console</source>
-        <translation>Konsola</translation>
+        <translation>Konsole</translation>
     </message>
 </context>
 <context>
@@ -712,27 +712,27 @@
     <message>
         <location filename="../QML/DopplerBox.qml" line="18"/>
         <source>Range Modes</source>
-        <translation>Tryby zasięgu</translation>
+        <translation>Reichweitenmodi</translation>
     </message>
     <message>
         <location filename="../QML/DopplerBox.qml" line="27"/>
         <source>Mode1</source>
-        <translation>Tryb 1</translation>
+        <translation>Modus 1</translation>
     </message>
     <message>
         <location filename="../QML/DopplerBox.qml" line="39"/>
         <source>Mode2</source>
-        <translation>Tryb 2</translation>
+        <translation>Modus 2</translation>
     </message>
     <message>
         <location filename="../QML/DopplerBox.qml" line="51"/>
         <source>Mode3</source>
-        <translation>Tryb 3</translation>
+        <translation>Modus 3</translation>
     </message>
     <message>
         <location filename="../QML/DopplerBox.qml" line="63"/>
         <source>Mode4 range, m</source>
-        <translation>Tryb4 zasięg, m</translation>
+        <translation>Modus 4 Reichweite, m</translation>
     </message>
 </context>
 <context>
@@ -740,17 +740,17 @@
     <message>
         <location filename="../QML/ExportDist.qml" line="26"/>
         <source>Export:</source>
-        <translation>Eksport:</translation>
+        <translation>Export:</translation>
     </message>
     <message>
         <location filename="../QML/ExportDist.qml" line="33"/>
         <source>Distance</source>
-        <translation>Odległość</translation>
+        <translation>Distanz</translation>
     </message>
     <message>
         <location filename="../QML/ExportDist.qml" line="46"/>
         <source>Export to CSV</source>
-        <translation>Eksport do CSV</translation>
+        <translation>Export als CSV</translation>
     </message>
 </context>
 <context>
@@ -758,12 +758,12 @@
     <message>
         <location filename="../QML/FactoryBox.qml" line="13"/>
         <source>Please choose a file</source>
-        <translation>Proszę wybrać plik</translation>
+        <translation>Bitte wählen Sie eine Datei</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="41"/>
         <source>Factory</source>
-        <translation>Ustawienia fabryczne</translation>
+        <translation>Fabrik</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="44"/>
@@ -773,37 +773,37 @@
     <message>
         <location filename="../QML/FactoryBox.qml" line="51"/>
         <source>Enter PN</source>
-        <translation>Wprowadź PN</translation>
+        <translation>PN eingeben</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="240"/>
         <source>Write</source>
-        <translation>Zapis</translation>
+        <translation>Schreiben</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="254"/>
         <source>Read</source>
-        <translation>Odczyt</translation>
+        <translation>Lesen</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="268"/>
         <source>Check</source>
-        <translation>Sprawdź</translation>
+        <translation>Überprüfen</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="282"/>
         <source>Upgrade</source>
-        <translation>Aktualizacja</translation>
+        <translation>Aktualisierung</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="301"/>
         <source>FLASH</source>
-        <translation>PROGRAMUJ</translation>
+        <translation>FLASH</translation>
     </message>
     <message>
         <location filename="../QML/FactoryBox.qml" line="316"/>
         <source>Simple FLASH</source>
-        <translation>Proste PROG.</translation>
+        <translation>SimpleFLASH</translation>
     </message>
 </context>
 <context>
@@ -811,17 +811,17 @@
     <message>
         <location filename="../QML/FlashBox.qml" line="28"/>
         <source>Write</source>
-        <translation>Zapis</translation>
+        <translation>Schreiben</translation>
     </message>
     <message>
         <location filename="../QML/FlashBox.qml" line="38"/>
         <source>Erase</source>
-        <translation>Czyść</translation>
+        <translation>Löschen</translation>
     </message>
     <message>
         <location filename="../QML/FlashBox.qml" line="48"/>
         <source>Reboot</source>
-        <translation>Uruchom ponownie</translation>
+        <translation>Neustart</translation>
     </message>
 </context>
 <context>
@@ -837,7 +837,7 @@
     <message>
         <location filename="../QML/KoggerCommon/KCheck.qml" line="6"/>
         <source>Check</source>
-        <translation>Sprawdź</translation>
+        <translation>Überprüfen</translation>
     </message>
 </context>
 <context>
@@ -845,7 +845,7 @@
     <message>
         <location filename="../QML/KoggerCommon/KParamGroup.qml" line="8"/>
         <source>Group</source>
-        <translation>Grupa</translation>
+        <translation>Gruppe</translation>
     </message>
 </context>
 <context>
@@ -853,7 +853,7 @@
     <message>
         <location filename="../QML/KoggerCommon/KParamSetup.qml" line="9"/>
         <source>Param</source>
-        <translation>Parametry</translation>
+        <translation>Parameter</translation>
     </message>
 </context>
 <context>
@@ -869,7 +869,7 @@
     <message>
         <location filename="../QML/KoggerCommon/KWaitProgressBar.qml" line="6"/>
         <source>Please, wait...</source>
-        <translation>Proszę czekać...</translation>
+        <translation>Bitte warten...</translation>
     </message>
 </context>
 <context>
@@ -877,22 +877,22 @@
     <message>
         <location filename="../QML/MenuBar.qml" line="64"/>
         <source>Connections</source>
-        <translation>Połączenia</translation>
+        <translation>Anschlüsse</translation>
     </message>
     <message>
         <location filename="../QML/MenuBar.qml" line="79"/>
         <source>Settings</source>
-        <translation>Właściwości</translation>
+        <translation>Einstellungen</translation>
     </message>
     <message>
         <location filename="../QML/MenuBar.qml" line="110"/>
         <source>Display 3D</source>
-        <translation>Wyświetlacz 3D</translation>
+        <translation>3D-Anzeige</translation>
     </message>
     <message>
         <location filename="../QML/MenuBar.qml" line="128"/>
         <source>Display 2D</source>
-        <translation>Wyświetlacz 2D</translation>
+        <translation>2D-Anzeige</translation>
     </message>
 </context>
 <context>
@@ -900,7 +900,7 @@
     <message>
         <location filename="../QML/MotorViewer.qml" line="252"/>
         <source>Enter path</source>
-        <translation>Wprowadź ścieżkę</translation>
+        <translation>Pfad eingeben</translation>
     </message>
 </context>
 <context>
@@ -908,7 +908,7 @@
     <message>
         <location filename="../QML/MpcFilterControlMenu.qml" line="27"/>
         <source>Points count: </source>
-        <translation>Liczba punktów:</translation>
+        <translation>Anzahl Punkte:</translation>
     </message>
 </context>
 <context>
@@ -916,7 +916,7 @@
     <message>
         <location filename="../QML/NpdFilterControlMenu.qml" line="27"/>
         <source>Distance: </source>
-        <translation>Odległość:</translation>
+        <translation>Distanz:</translation>
     </message>
 </context>
 <context>
@@ -924,7 +924,7 @@
     <message>
         <location filename="../QML/ParamGroup.qml" line="8"/>
         <source>Group</source>
-        <translation>Grupa</translation>
+        <translation>Gruppe</translation>
     </message>
 </context>
 <context>
@@ -932,7 +932,7 @@
     <message>
         <location filename="../QML/ParamSetup.qml" line="9"/>
         <source>Param</source>
-        <translation>Parametry</translation>
+        <translation>Parameter</translation>
     </message>
 </context>
 <context>
@@ -940,22 +940,22 @@
     <message>
         <location filename="../QML/PointGroupControlMenu.qml" line="145"/>
         <source>Point list is empty. Add point to list or import list from file.</source>
-        <translation>Lista punktów jest pusta. Dodaj punkt do listy lub zaimportuj listę z pliku.</translation>
+        <translation>Die Punkteliste ist leer. Fügen Sie der Liste einen Punkt hinzu oder importieren Sie eine Liste aus einer Datei.</translation>
     </message>
     <message>
         <location filename="../QML/PointGroupControlMenu.qml" line="178"/>
         <source>Selected point</source>
-        <translation>Wybrany punkt</translation>
+        <translation>Ausgewählter Punkt</translation>
     </message>
     <message>
         <location filename="../QML/PointGroupControlMenu.qml" line="241"/>
         <source>width: </source>
-        <translation>szerokość</translation>
+        <translation>Breite:</translation>
     </message>
     <message>
         <location filename="../QML/PointGroupControlMenu.qml" line="262"/>
         <source>Add point</source>
-        <translation>Dodaj punkt</translation>
+        <translation>Punkt zufügen</translation>
     </message>
 </context>
 <context>
@@ -963,22 +963,22 @@
     <message>
         <location filename="../QML/PolygonGroupControlMenu.qml" line="29"/>
         <source>Polygon group controls</source>
-        <translation>Kontrola grupy poligonów</translation>
+        <translation>Steuerelemente für Polygongruppen</translation>
     </message>
     <message>
         <location filename="../QML/PolygonGroupControlMenu.qml" line="38"/>
         <source>Show</source>
-        <translation>Pokaż</translation>
+        <translation>Anzeigen</translation>
     </message>
     <message>
         <location filename="../QML/PolygonGroupControlMenu.qml" line="147"/>
         <source>Selected point</source>
-        <translation>Wybrany punkt</translation>
+        <translation>Ausgewählte Punkt</translation>
     </message>
     <message>
         <location filename="../QML/PolygonGroupControlMenu.qml" line="212"/>
         <source>Add polygon</source>
-        <translation>Dodaj poligon</translation>
+        <translation>Polygon zufügen</translation>
     </message>
 </context>
 <context>
@@ -1011,37 +1011,37 @@
     <message>
         <location filename="../QML/RecorderBox.qml" line="161"/>
         <source>Update list</source>
-        <translation>Aktualizuj listę</translation>
+        <translation>Liste aktualisieren</translation>
     </message>
     <message>
         <location filename="../QML/RecorderBox.qml" line="171"/>
         <source>Download</source>
-        <translation>Pobierz</translation>
+        <translation>Herunterladen</translation>
     </message>
     <message>
         <location filename="../QML/RecorderBox.qml" line="181"/>
         <source>Pause</source>
-        <translation>Pauza</translation>
+        <translation>Pause</translation>
     </message>
     <message>
         <location filename="../QML/RecorderBox.qml" line="203"/>
         <source>Set baudrate</source>
-        <translation>Ustaw prędkość transmisji</translation>
+        <translation>Baudrate einstellen</translation>
     </message>
     <message>
         <location filename="../QML/RecorderBox.qml" line="218"/>
         <source>Flash settings</source>
-        <translation>Ustawienia flashowania</translation>
+        <translation>Flash Einstellungen</translation>
     </message>
     <message>
         <location filename="../QML/RecorderBox.qml" line="228"/>
         <source>Erase settings</source>
-        <translation>Wyczyść ustawienia</translation>
+        <translation>Einstellungen löschen</translation>
     </message>
     <message>
         <location filename="../QML/RecorderBox.qml" line="238"/>
         <source>Reboot</source>
-        <translation>Uruchom ponownie</translation>
+        <translation>Neustart</translation>
     </message>
 </context>
 <context>
@@ -1049,12 +1049,12 @@
     <message>
         <location filename="../QML/Scene3DControlMenu.qml" line="28"/>
         <source>Show scene bounding box</source>
-        <translation>Pokaż ramkę sceny</translation>
+        <translation>Begrenzungsrahmen der Szene anzeigen</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DControlMenu.qml" line="36"/>
         <source>Vertical scale: </source>
-        <translation>Skala pionowa:</translation>
+        <translation>Vertikale Skalierung:</translation>
     </message>
 </context>
 <context>
@@ -1062,32 +1062,32 @@
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="45"/>
         <source>Edge limit, m:</source>
-        <translation>Limit krawędzi, m:</translation>
+        <translation>Randbegrenzung, m:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="62"/>
         <source>Decimation by:</source>
-        <translation>Redukcja przez:</translation>
+        <translation>Dezimierung durch:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="66"/>
         <source>Count</source>
-        <translation>Zliczaj</translation>
+        <translation>Anzahl</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="77"/>
         <source>Distance</source>
-        <translation>Odległość</translation>
+        <translation>Distanz</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="92"/>
         <source>Point count:</source>
-        <translation>Liczba punktów</translation>
+        <translation>Anzahl Punkte</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="110"/>
         <source>Decimation, m:</source>
-        <translation>Redukcja, m</translation>
+        <translation>Dezimierung, m</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="128"/>
@@ -1097,58 +1097,58 @@
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="132"/>
         <source>Triangle</source>
-        <translation>Trójkąt</translation>
+        <translation>Dreieck</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="143"/>
         <source>Grid</source>
-        <translation>Siatka</translation>
+        <translation>Raster</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="158"/>
         <source>Grid step, m:</source>
-        <translation>Szer. segmentu, m</translation>
+        <translation>Rasterschritt, m</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="180"/>
         <source>Show contour</source>
-        <translation>Pokaż kontury</translation>
+        <translation>Kontur anzeigen</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="193"/>
         <source>Show grid</source>
-        <translation>Pokaż siatkę</translation>
+        <translation>Raster anzeigen</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="207"/>
         <location filename="../QML/Scene3DToolbar.qml" line="680"/>
         <source>Update</source>
-        <translation>Aktualizuj</translation>
+        <translation>Aktualisieren</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="660"/>
         <source>Clear</source>
-        <translation>Wyczyść</translation>
+        <translation>Löschen</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="322"/>
         <source>Realtime processing</source>
-        <translation>Obliczenia w czasie rzeczywistym</translation>
+        <translation>Echtzeitverarbeitung</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="347"/>
         <source>Track last data</source>
-        <translation>Bądź na bieżąco z najnowszymi danymi</translation>
+        <translation>Aktuelle Daten verfolgen</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="370"/>
         <source>Theme:</source>
-        <translation>Temat:</translation>
+        <translation>Thema:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="378"/>
         <source>Blue</source>
-        <translation>Niebieski</translation>
+        <translation>Blau</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="378"/>
@@ -1163,75 +1163,75 @@
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="378"/>
         <source>WhiteBlack</source>
-        <translation>Biało-Czarny</translation>
+        <translation>WeissSchwarz</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="378"/>
         <source>BlackWhite</source>
-        <translation>Czarno-Biały</translation>
+        <translation>SchwarzWeiss</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="401"/>
         <source>Angle offset, °</source>
-        <translation>Przesunięcie narożnika, °</translation>
+        <translation>Winkelversatz, °</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="412"/>
         <source>left:</source>
-        <translation>po lewej:</translation>
+        <translation>links:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="445"/>
         <source>right:</source>
-        <translation>po prawej:</translation>
+        <translation>rechts:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="481"/>
         <source>Tile side pixel size:</source>
-        <translation>Bok kafelka w pikselach:</translation>
+        <translation>Pixelgröße der Kachelseite:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="505"/>
         <source>Tile height matrix ratio:</source>
-        <translation>Współczynnik macierzy wysokości:</translation>
+        <translation>Matrixverhältnis der Kachelhöhe:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="527"/>
         <source>Tile resolution, pix/m:</source>
-        <translation>Rozdzielczość kafelka, pix/m:</translation>
+        <translation>Kachelauflösung, pix/m:</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="548"/>
         <source>Reinit global mesh</source>
-        <translation>Ponowna inicjalizacja globalnej siatki</translation>
+        <translation>Globales Mesh neu erstellen</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="565"/>
         <source>Use linear filter</source>
-        <translation>Filtr liniowy</translation>
+        <translation>Linearen Filter verwenden</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="588"/>
         <source>Grid/contour visible</source>
-        <translation>Widoczność siatki/konturu</translation>
+        <translation>Raster/Kontur sichtbar</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="612"/>
         <source>Measuse lines visible</source>
-        <translation>Widoczność linii pomiarowych</translation>
+        <translation>Messlinien sichtbar</translation>
     </message>
     <message>
         <location filename="../QML/Scene3DToolbar.qml" line="636"/>
         <source>Generate grid/contour</source>
-        <translation>Obliczanie siatki/konturu</translation>
+        <translation>Raster/Kontur generieren</translation>
     </message>
     <message>
         <source>Select an image</source>
-        <translation type="vanished">Wybierz obraz</translation>
+        <translation type="vanished">Wählen Sie ein Bild aus</translation>
     </message>
     <message>
         <source>Please choose an image file (.png, .jpg, .bmp)</source>
-        <translation type="vanished">Wybierz plik obrazu (.png, .jpg, .bmp)</translation>
+        <translation type="vanished">Bitte wählen Sie eine Bilddatei (.png, .jpg, .bmp)</translation>
     </message>
 </context>
 <context>
@@ -1239,81 +1239,81 @@
     <message>
         <location filename="../QML/SceneControlMenu.qml" line="55"/>
         <source>Bottom track</source>
-        <translation>Śledzenie dna</translation>
+        <translation>Untere Spur</translation>
     </message>
     <message>
         <location filename="../QML/SceneControlMenu.qml" line="67"/>
         <source>Surface</source>
-        <translation>Powierzchnia</translation>
+        <translation>Oberfläche</translation>
     </message>
     <message>
         <location filename="../QML/SceneControlMenu.qml" line="80"/>
         <source>Point group</source>
-        <translation>Grupa punktów</translation>
+        <translation>Punktgruppe</translation>
     </message>
     <message>
         <location filename="../QML/SceneControlMenu.qml" line="92"/>
         <source>Polygon group</source>
-        <translation>Grupa wielokątów</translation>
+        <translation>Polygongruppe</translation>
     </message>
 </context>
 <context>
     <name>SonarBox</name>
     <message>
         <source>Echogram</source>
-        <translation type="vanished">Echogram</translation>
+        <translation type="vanished">Echogramm</translation>
     </message>
     <message>
         <source>Resolution, mm</source>
-        <translation type="vanished">Rozdzielczosć, mm</translation>
+        <translation type="vanished">Auflösung, mm</translation>
     </message>
     <message>
         <source>Number of Samples</source>
-        <translation type="vanished">Liczba próbek</translation>
+        <translation type="vanished">Anzahl der Proben</translation>
     </message>
     <message>
         <source>Offset of Samples</source>
-        <translation type="vanished">Przesunięcie</translation>
+        <translation type="vanished">Offset der Proben</translation>
     </message>
     <message>
         <source>Rangefinder</source>
-        <translation type="vanished">Głębokość</translation>
+        <translation type="vanished">Entfernungsmesser</translation>
     </message>
     <message>
         <source>Max distance, mm</source>
-        <translation type="vanished">Maks. odległość, mm</translation>
+        <translation type="vanished">Maximale Entfernung, mm</translation>
     </message>
     <message>
         <source>Dead zone, mm</source>
-        <translation type="vanished">Martwa strefa, mm</translation>
+        <translation type="vanished">Todeszone, mm</translation>
     </message>
     <message>
         <source>Confidence threshold, %</source>
-        <translation type="vanished">Próg zaufania, %</translation>
+        <translation type="vanished">Konfidenzschwelle, %</translation>
     </message>
     <message>
         <source>Transducer</source>
-        <translation type="vanished">Przetwornik</translation>
+        <translation type="vanished">Geber</translation>
     </message>
     <message>
         <source>Pulse count</source>
-        <translation type="vanished">Liczba impulsów</translation>
+        <translation type="vanished">Pulszählung</translation>
     </message>
     <message>
         <source>Frequency, kHz</source>
-        <translation type="vanished">Częstotliwość, kHz</translation>
+        <translation type="vanished">Frequenz, kHz</translation>
     </message>
     <message>
         <source>Booster</source>
-        <translation type="vanished">Wzmacniacz</translation>
+        <translation type="vanished">Booster</translation>
     </message>
     <message>
         <source>Off</source>
-        <translation type="vanished">Wyłącz</translation>
+        <translation type="vanished">Aus</translation>
     </message>
     <message>
         <source>On</source>
-        <translation type="vanished">Włącz</translation>
+        <translation type="vanished">An</translation>
     </message>
     <message>
         <source>DSP</source>
@@ -1321,11 +1321,11 @@
     </message>
     <message>
         <source>Horizontal smoothing factor</source>
-        <translation type="vanished">Współczynnik wygładzania poziomego</translation>
+        <translation type="vanished">Horizontaler Glättungsfaktor</translation>
     </message>
     <message>
         <source>Speed of Sound, m/s</source>
-        <translation type="vanished">Prędkość dźwięku, m/s</translation>
+        <translation type="vanished">Schallgeschwindigkeit, m/s</translation>
     </message>
     <message>
         <source>Dataset</source>
@@ -1333,15 +1333,15 @@
     </message>
     <message>
         <source>Period, ms</source>
-        <translation type="vanished">Zakres, ms</translation>
+        <translation type="vanished">Datensatz, ms</translation>
     </message>
     <message>
         <source>8-bit</source>
-        <translation type="vanished">8-bitowy</translation>
+        <translation type="vanished">8 Bit</translation>
     </message>
     <message>
         <source>16-bit</source>
-        <translation type="vanished">16-bitowy</translation>
+        <translation type="vanished">16 Bit</translation>
     </message>
     <message>
         <source>NMEA</source>
@@ -1357,65 +1357,65 @@
     </message>
     <message>
         <source>Quat.</source>
-        <translation type="vanished">Kwaterion</translation>
+        <translation type="vanished">Quat.</translation>
     </message>
     <message>
         <source>Temperature</source>
-        <translation type="vanished">Temperatura</translation>
+        <translation type="vanished">Temperatur</translation>
     </message>
     <message>
         <source>Timestamp</source>
-        <translation type="vanished">Znacznik czasu</translation>
+        <translation type="vanished">Zeitstempel</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="21"/>
         <source>Actions</source>
-        <translation>Opcje</translation>
+        <translation>Aktionen</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="31"/>
         <source>Flash settings</source>
-        <translation>Ustawienia flashowania</translation>
+        <translation>Flash Einstellungen</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="41"/>
         <source>Erase settings</source>
-        <translation>Wyczyść ustawienia</translation>
+        <translation>Einstellungen löschen</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="51"/>
         <source>Reboot</source>
-        <translation>Uruchom ponownie</translation>
+        <translation>Neustart</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="71"/>
         <source>Set baudrate</source>
-        <translation>Ustaw prędkość transmisji</translation>
+        <translation>UBaudrate einstellen</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="81"/>
         <source>Settings</source>
-        <translation>Właściwości</translation>
+        <translation>Einstellungen</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="85"/>
         <source>Open file</source>
-        <translation>Otwórz plik</translation>
+        <translation>Datei öffnen</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="102"/>
         <source>Save as file</source>
-        <translation>Zapisz jako plik</translation>
+        <translation>Als Datei speichern</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="120"/>
         <source>Import</source>
-        <translation>Import</translation>
+        <translation>Importieren</translation>
     </message>
     <message>
         <location filename="../QML/SonarBox.qml" line="127"/>
         <source>Export</source>
-        <translation>Eksport</translation>
+        <translation>Exportieren</translation>
     </message>
 </context>
 <context>
@@ -1423,57 +1423,57 @@
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="72"/>
         <source>Surface controls</source>
-        <translation>Kontrola powierzchni</translation>
+        <translation>Oberflächensteuerung</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="76"/>
         <source>Show</source>
-        <translation>Pokaż</translation>
+        <translation>Aneigen</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="86"/>
         <source>Show contour</source>
-        <translation>Pokaż kontury</translation>
+        <translation>Kontur anzeigen</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="119"/>
         <source>Show grid</source>
-        <translation>Pokaż siatkę</translation>
+        <translation>Raster Anzeigen</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="149"/>
         <source>Triangle edge length limit: </source>
-        <translation>Limit długości krawędzi trójkąta</translation>
+        <translation>Kantenlängenbegrenzung für Dreiecke</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="163"/>
         <source>Enable grid interpolation</source>
-        <translation>Włącz interpolację siatki</translation>
+        <translation>Gitterinterpolation aktivieren</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="170"/>
         <source>Grid cell size: </source>
-        <translation>Rozmiar komórki siatki</translation>
+        <translation>Rasterzellengröße</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="188"/>
         <source>None</source>
-        <translation>Brak</translation>
+        <translation>Keiner</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="188"/>
         <source>Max points count</source>
-        <translation>Maks. liczba punktów</translation>
+        <translation>Maximale Punktzahl</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="188"/>
         <source>Nearest point distance</source>
-        <translation>Najbliższa odległość punktu</translation>
+        <translation>Entfernung zum nächsten Punkt</translation>
     </message>
     <message>
         <location filename="../QML/SurfaceControlMenu.qml" line="220"/>
         <source>Update surface</source>
-        <translation>Aktualizuj powierzchnię</translation>
+        <translation>Oberfläche aktualisieren</translation>
     </message>
 </context>
 <context>
@@ -1481,13 +1481,13 @@
     <message>
         <location filename="../QML/TitleMeasurement.qml" line="11"/>
         <source>TITLE</source>
-        <translation>TYTUŁ</translation>
+        <translation>TITEL</translation>
     </message>
     <message>
         <location filename="../QML/TitleMeasurement.qml" line="65"/>
         <location filename="../QML/TitleMeasurement.qml" line="80"/>
         <source>OFF</source>
-        <translation>Wyłącz</translation>
+        <translation>AUS</translation>
     </message>
     <message>
         <location filename="../QML/TitleMeasurement.qml" line="67"/>
@@ -1507,7 +1507,7 @@
     <message>
         <location filename="../QML/TitleMenuBox.qml" line="14"/>
         <source>TitleBox</source>
-        <translation>Pole tytułu</translation>
+        <translation>TitelBox</translation>
     </message>
 </context>
 <context>
@@ -1515,7 +1515,7 @@
     <message>
         <location filename="../QML/TitleSetup.qml" line="9"/>
         <source>TITLE</source>
-        <translation>TYTUŁ</translation>
+        <translation>TITEL</translation>
     </message>
 </context>
 <context>
@@ -1523,22 +1523,22 @@
     <message>
         <location filename="../QML/UpgradeBox.qml" line="14"/>
         <source>Please choose a file</source>
-        <translation>Proszę wybrać plik</translation>
+        <translation>Bitte wählen Sie eine Datei</translation>
     </message>
     <message>
         <location filename="../QML/UpgradeBox.qml" line="33"/>
         <source>Upgrade</source>
-        <translation>Aktualizacja</translation>
+        <translation>Aktualisierung</translation>
     </message>
     <message>
         <location filename="../QML/UpgradeBox.qml" line="57"/>
         <source>Enter path</source>
-        <translation>Wprowadź ścieżkę</translation>
+        <translation>Pfad eingeben</translation>
     </message>
     <message>
         <location filename="../QML/UpgradeBox.qml" line="69"/>
         <source>UPGRADE</source>
-        <translation>Aktualizacja</translation>
+        <translation>AKTUALISIERUNG</translation>
     </message>
 </context>
 <context>
@@ -1551,12 +1551,12 @@
     <message>
         <location filename="../QML/main.qml" line="40"/>
         <source>Undefined</source>
-        <translation>niezdefiniowany</translation>
+        <translation>Undefiniert</translation>
     </message>
     <message>
         <location filename="../QML/main.qml" line="54"/>
         <source>Please restart the application to apply the language change</source>
-        <translation>Proszę zrestartować aplikację, aby zastosować zmianę języka</translation>
+        <translation>Bitte starten Sie die Anwendung neu, um die Sprachänderung anzuwenden</translation>
     </message>
     <message>
         <location filename="../QML/main.qml" line="63"/>
@@ -1567,21 +1567,21 @@
         <location filename="../QML/main.qml" line="201"/>
         <source>Calculating surface
 Please wait...</source>
-        <translation>Obliczanie powierzchni
-Proszę czekać...</translation>
+        <translation>Oberfläche berechnen
+Bitte warten...</translation>
     </message>
     <message>
         <location filename="../QML/main.qml" line="209"/>
         <source>Calculating mosaic
 Please wait...</source>
-        <translation>Obliczanie mozaiki
-Proszę czekać...</translation>
+        <translation>Mosaik berechnen
+Bitte warten...</translation>
     </message>
     <message>
         <source>Calculating surface.
 Please wait...</source>
-        <translation type="vanished">Obliczanie powierzchni.
-Proszę czekać...</translation>
+        <translation type="vanished">Oberfläche berechnen
+        Bitte warten...</translation>
     </message>
     <message>
         <location filename="../QML/main.qml" line="600"/>
@@ -1601,7 +1601,7 @@ Proszę czekać...</translation>
     <message>
         <location filename="../QML/main.qml" line="650"/>
         <source>Please wait, the file is opening</source>
-        <translation>Proszę czekać, plik się otwiera</translation>
+        <translation>Bitte warten, die Datei wird geöffnet</translation>
     </message>
 </context>
 </TS>

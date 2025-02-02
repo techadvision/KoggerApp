@@ -621,7 +621,7 @@
     <message>
         <location filename="../QML/DisplaySettings.qml" line="1082"/>
         <location filename="../QML/DisplaySettings.qml" line="1088"/>
-        <location filename="../QML/DisplaySettings.qml" line="1094"/>
+        <location filename="../QML/DisplaySettings.qml" line="1096"/>
         <source>English</source>
         <translation type="unfinished"></translation>
     </message>
@@ -638,57 +638,63 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1109"/>
+        <location filename="../QML/DisplaySettings.qml" line="1082"/>
+        <location filename="../QML/DisplaySettings.qml" line="1094"/>
+        <source>German</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../QML/DisplaySettings.qml" line="1111"/>
         <source>Display theme:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1114"/>
+        <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Dark</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1114"/>
+        <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Super Dark</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1114"/>
+        <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Light</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1114"/>
+        <location filename="../QML/DisplaySettings.qml" line="1116"/>
         <source>Super Light</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1127"/>
+        <location filename="../QML/DisplaySettings.qml" line="1129"/>
         <source>Instrumets grade:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1132"/>
+        <location filename="../QML/DisplaySettings.qml" line="1134"/>
         <source>Fish Finders</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1132"/>
+        <location filename="../QML/DisplaySettings.qml" line="1134"/>
         <source>Bottom Tracking</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1132"/>
+        <location filename="../QML/DisplaySettings.qml" line="1134"/>
         <source>Maximum</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1147"/>
+        <location filename="../QML/DisplaySettings.qml" line="1149"/>
         <source>Interface</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../QML/DisplaySettings.qml" line="1151"/>
+        <location filename="../QML/DisplaySettings.qml" line="1153"/>
         <source>Console</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1415,7 +1421,7 @@
     <name>main</name>
     <message>
         <location filename="../QML/main.qml" line="20"/>
-        <source>KoggerApp, KOGGER</source>
+        <source>Pulse, TechAdVision</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
