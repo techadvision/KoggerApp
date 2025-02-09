@@ -2,6 +2,8 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 import QtGraphicalEffects 1.15
+import org.techadvision.settings 1.0
+
 
 Item {
     id: depthAndTemperature
@@ -9,14 +11,13 @@ Item {
     height: 200
     clip: true
 
-    property bool isMetric: pulseSettings.useMetricValues
+    property bool isMetric: PulseSettings.useMetricValues
 
     signal swapUnits()
 
     function formatDepth() {
         let depthInMeters = dataset.dist * 0.001; // Convert depth to meters
         let decimalPlaces = depthInMeters >= 100 ? 0 : (depthInMeters >= 10 ? 1 : 2);
-        //let decimalPlaces = depthInMeters >= 10 ? 1 : 2; // Use 1 decimal if depth >= 10 meters, else 2 decimals
 
         return isMetric
             ? depthInMeters.toFixed(decimalPlaces) + ' m'
@@ -34,6 +35,7 @@ Item {
                 : Math.round(temperatureInFarenheit * 10) / 10 + ' \u00B0F';
     }
 
+
     Rectangle {
         width: depthAndTemperature.width
         height: depthAndTemperature.height
@@ -46,7 +48,7 @@ Item {
             anchors.centerIn: parent
             onClicked: {
                 depthAndTemperature.isMetric = !depthAndTemperature.isMetric
-                pulseSettings.useMetricValues = depthAndTemperature.isMetric
+                PulseSettings.useMetricValues = depthAndTemperature.isMetric
                 setMeasuresMetricNow(depthAndTemperature.isMetric)
             }
         }
@@ -59,8 +61,6 @@ Item {
             color: "#80000000"
             anchors.right: decimalPartRect.left
             anchors.bottom: decimalPartRect.bottom
-            //anchors.right: parent.right
-            //anchors.top: parent.top
             anchors.topMargin: 20
 
             Text {
@@ -83,9 +83,7 @@ Item {
             height: 96
             color: "#80000000"
             anchors.right: depthUnitRect.left
-            //anchors.right: parent.right
             anchors.top: parent.top
-            //anchors.top: wholeNumberRect.bottom
             anchors.topMargin: 10
 
             Text {
@@ -96,7 +94,6 @@ Item {
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.top: parent.top
-                //anchors.verticalCenter: parent.verticalCenter
             }
         }
 
@@ -132,7 +129,7 @@ Item {
             color: "#80000000"
             anchors.right: temperatureUnitRect.left
             anchors.top: temperatureUnitRect.top
-            //anchors.topMargin: 20
+            visible: PulseSettings.is2DTransducer
 
             Text {
                 id: temperatureValue
@@ -154,6 +151,7 @@ Item {
             anchors.right: depthUnitRect.right
             anchors.top: depthUnitRect.bottom
             anchors.topMargin: 20
+            visible: PulseSettings.is2DTransducer
 
             Text {
                 id: temperatureUnit
@@ -169,7 +167,7 @@ Item {
     }
 
     Component.onCompleted: {
-        setMeasuresMetricNow(pulseSettings.useMetricValues)
+        setMeasuresMetricNow(PulseSettings.useMetricValues)
     }
 
 }
