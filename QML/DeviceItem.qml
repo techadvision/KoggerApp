@@ -3,6 +3,7 @@ import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.1
+import org.techadvision.settings 1.0
 
 
 ColumnLayout {
@@ -11,84 +12,141 @@ ColumnLayout {
     Layout.margins: 0
     property var dev: null
     property bool settingsCompleted: false
+    property bool deviceIdentified: false
+    property bool persistentSettingsChecked: false
+    //property string pulseSideScanTransducer: "NAME_OF_SIDESCAN"
+    //property string pulse2DTransducer: "ECHO20"
+    property string pulseSideScanTransducer: "ECHO20"
+    property string pulse2DTransducer: "NAME_OF_SIDESCAN"
+    property string transducerName: "not_determined"
+
+    signal transducerDetected(string transducer)
+
+    onTransducerDetected: {
+        console.log("TAV: onTransducerDetected");
+        //columnItem.transducerName = name
+        //console.log("TAV: model was set:", model.toString());
+    }
+
+    function detectTransducer(name) {
+        // Trigger the signal when a transducer is detected
+        console.log("TAV: function detectTransducer requested with value:", name);
+        columnItem.transducerName = name
+        columnItem.transducerDetected(name)
+    }
+
+    function setTransducerFrequency (frequency) {
+        if (dev !== null) {
+            dev.transFreq = frequency
+        }
+    }
 
     Timer {
         id: delayTimer
         interval: 3000
-        repeat: !settingsCompleted
+        repeat: !settingsCompleted || !deviceIdentified
         onTriggered: {
 
             /* -- PULSE: DEFAULT SETTINGS AT STARTUP -- */
+            if (settingsCompleted && deviceIdentified) {
+                console.log("TAV: No further trying to modify settings after we've set it once");
+                return
+            }
 
             if (dev === null) {
                 console.log("TAV: DEV is still null");
                 return
             }
-            if (settingsCompleted) {
-                console.log("No further trying to modify settings after we've set it once");
-                return
-            } else {
 
-                settingsCompleted = true
+            if (!persistentSettingsChecked) {
+                persistentSettingsChecked = true
+                console.log("TAV: setting maxDepthValue ", PulseSettings.maxDepthValue);
+                console.log("TAV: setting autoRange ", PulseSettings.autoRange);
+                console.log("TAV: setting intensityDisplayValue ", PulseSettings.intensityDisplayValue);
+                console.log("TAV: setting intensityRealValue ", PulseSettings.intensityRealValue);
+                console.log("TAV: setting filterDisplayValue ", PulseSettings.filterDisplayValue);
+                console.log("TAV: setting filterRealValue ", PulseSettings.filterRealValue);
+                console.log("TAV: setting colorMapIndex ", PulseSettings.colorMapIndex);
+                console.log("TAV: setting ecoViewIndex ", PulseSettings.ecoViewIndex);
+                console.log("TAV: setting ecoConeIndex ", PulseSettings.ecoConeIndex);
+                console.log("TAV: setting useMetricValues ", PulseSettings.useMetricValues);
+                console.log("TAV: setting useEchogram ", PulseSettings.useEchogram);
+                console.log("TAV: setting useDistance ", PulseSettings.useDistance);
+                console.log("TAV: setting useTemperature ", PulseSettings.useTemperature);
+                console.log("TAV: setting is2DTransducer ", PulseSettings.is2DTransducer);
+            }
 
-                // ECHOGRAM
-                dev.chartResolution = 10        // Resolution mm "10"
-                dev.chartSamples = 2000         // Number of samples "2.000"
-                dev.chartOffset = 0             // Offset of samples "0"
+            if (!settingsCompleted || !deviceIdentified) {
 
-                // RANGEFINDER
-                dev.distMax = 50000             // Max distance mm "20.000"
-                dev.distDeadZone = 10           // Dead zone "10"
-                dev.distConfidence = 13         // Confidence Threshold "13"
+                if (!settingsCompleted) {
+                    settingsCompleted = true
 
-                // TRANSDUCER
-                dev.transPulse = 10             // Pulse Count "10"
-                dev.transFreq = 710             // Frequency, kHz "710"
-                dev.transBoost = 0              // Booster "OFF"
+                    // ECHOGRAM
+                    dev.chartResolution = 10            // Resolution mm:           2D & SS: 10
+                    dev.chartSamples    = 2000          // Number of samples:       2D: 2000, SS: 4000
+                    dev.chartOffset     = 0             // Offset of samples:       2D & SS: 0
 
-                // DSP
-                dev.dspHorSmooth = 0            // Horizontal Smoothing Factor "0"
-                dev.soundSpeed = 1500 * 1000    // Speed of sound m/s "1500"
+                    // RANGEFINDER
+                    dev.distMax         = 50000         // Max distance mm:         2D & SS: 50000
+                    dev.distDeadZone    = 0             // Dead zone:               2D & SS: 0
+                    dev.distConfidence  = 14            // Confidence Threshold:    2D & SS: 14
 
-                // DATASET
-                dev.ch1Period = 50              // Period "50"
-                dev.datasetChart = 1            // Echogram "8-bit"
-                dev.datasetDist = 1             // Rangefinder "ON"
-                dev.datasetEuler = 0            // AHRS "OFF"
-                dev.datasetTemp = 1             // Temperature "ON"
-                dev.datasetTimestamp = 0        // Timestamp "OFF"
+                    // TRANSDUCER
+                    dev.transPulse      = 10            // Pulse Count:             2D & SS: 10
+                    dev.transFreq       = 710           // Frequency, kHz:          2D & SS: 710 (235 = 21 degrees, 735 = 7 degrees)
+                    dev.transBoost      = 0             // Booster:                 2D: 0 & SS: 1
 
-                // RETRIEVE CONNECTED DEVICE INFO - Non-working getters are commented out
-                //console.log("TAV PULSE device address:", dev.getDevAddress);
-                //console.log("TAV PULSE bus address:", dev.getBusAddress);
-                console.log("TAV PULSE device name:", dev.devName);
-                //console.log("TAV PULSE device:", dev.boardVersion);
-                //console.log("TAV PULSE device serial number:", dev.devSerialNumber);
-                //console.log("TAV PULSE device PN:", dev.devPN);
-                //console.log("TAV PULSE device firmware version:", dev.fwVersion);
-                //console.log("TAV PULSE device board version:", dev.boardVersion);
-                console.log("TAV PULSE device is a sonar:", dev.isSonar);
-                console.log("TAV PULSE device is a recording device:", dev.isRecorder);
-                console.log("TAV PULSE device is a doppler device:", dev.isDoppler);
-                console.log("TAV PULSE device is a usbl beacon device:", dev.isUSBLBeacon);
-                console.log("TAV PULSE device is a usbl device:", dev.isUSBL);
-                console.log("TAV PULSE device can chart:", dev.isChartSupport);
-                console.log("TAV PULSE device can measure distance:", dev.isDistSupport);
-                console.log("TAV PULSE device can do DSP:", dev.isDSPSupport);
-                console.log("TAV PULSE device is transducer:", dev.isTransducerSupport);
-                console.log("TAV PULSE device has datset support:", dev.isDatasetSupport);
-                console.log("TAV PULSE device has sound of speed support:", dev.isSoundSpeedSupport);
-                console.log("TAV PULSE device has address support:", dev.isAddressSupport);
-                console.log("TAV PULSE device has upgrade support:", dev.isUpgradeSupport);
+                    // DSP
+                    dev.dspHorSmooth    = 0             // Horizontal Smoothing:    2D & SS: 0
+                    dev.soundSpeed      = 1480 * 1000   // Speed of sound m/s:      2D & SS: 1480
 
+                    // DATASET
+                    dev.ch1Period       = 50            // Period:                  2D & SS: 50
+                    dev.datasetChart    = 1             // Echogram:                2D & SS: 1 ("8-bit")
+                    dev.datasetDist     = 1             // Rangefinder:             2D & SS: 2 ("NMEA"), 1 = "on"
+                    dev.datasetEuler    = 0             // AHRS:                    2D & SS: 0  "OFF"
+                    dev.datasetTemp     = 0             // Temperature              2D & SS: 0  "OFF" (for now, later "1")
+                    dev.datasetTimestamp= 0             // Timestamp                2D & SS: 0  "OFF"
 
-                console.log("Applied TAV PULSE settings after timer");
+                    // LOG EVENT
+                    console.log("TAV: Applied general TechAdVision settings");
+                }
+
+                if (!deviceIdentified) {
+                    if (dev.devName === pulseSideScanTransducer) {
+                        deviceIdentified = true
+                        dev.chartSamples    = 4000
+                        PulseSettings.useTemperature = false
+                        PulseSettings.is2DTransducer = false
+                        detectTransducer(dev.devName)
+                        console.log("TAV: Adapted settings for a side scan sonar");
+                        console.log("TAV: useTemperature: ", PulseSettings.useTemperature);
+                        console.log("TAV: is2DTransducer: ", PulseSettings.is2DTransducer);
+                        PulseSettings.transducerChangeDetected = false
+                        PulseSettings.transducerChangeDetected = true
+                    }
+                    if (dev.devName === pulse2DTransducer) {
+                        deviceIdentified = true
+                        PulseSettings.useTemperature = true
+                        PulseSettings.is2DTransducer = true
+                        detectTransducer(dev.devName)
+                        console.log("TAV: Adapted settings for a 2D sonar");
+                        console.log("TAV: useTemperature: ", PulseSettings.useTemperature);
+                        console.log("TAV: is2DTransducer: ", PulseSettings.is2DTransducer);
+                        PulseSettings.transducerChangeDetected = false
+                        PulseSettings.transducerChangeDetected = true
+                    }
+                    if (!deviceIdentified) {
+                        console.log("TAV: Transducer named as ", dev.devName);
+                    }
+                }
             }
         }
     }
 
     Component.onCompleted: {
         console.log("TAV Device item completed, let's set the standardized settings");
+        //PREFERENCES
         delayTimer.start()
     }
 
