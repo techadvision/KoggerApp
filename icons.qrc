@@ -94,5 +94,8 @@
         <file>icons/pulse_paint.svg</file>
         <file>icons/pulse_aquarium.svg</file>
         <file>icons/pulse_glasses.svg</file>
+        <file>icons/pulse_cone_narrow.svg</file>
+        <file>icons/pulse_cone_narrow_ultra.svg</file>
+        <file>icons/pulse_cone_wide.svg</file>
     </qresource>
 </RCC>
