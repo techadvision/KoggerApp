@@ -272,8 +272,15 @@ void Plot2D::zoomDistance(float ratio) {
 
 
     if(_cursor.isChannelDoubled()) {
-        _cursor.distance.from = -ceil( new_range/2);
-        _cursor.distance.to = ceil( new_range/2);
+        if (isHorizontal()) {
+            //_cursor.distance.from = -ceil( new_range/2);
+            _cursor.distance.to = ceil(_cursor.distance.from + new_range);
+        } else {
+            _cursor.distance.from = -ceil( new_range/2);
+            _cursor.distance.to = ceil( new_range/2);
+        }
+        //_cursor.distance.from = -ceil( new_range/2);
+        //_cursor.distance.to = ceil( new_range/2);
     } else {
        _cursor.distance.to = ceil(_cursor.distance.from + new_range);
     }
