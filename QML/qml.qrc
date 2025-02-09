@@ -100,5 +100,6 @@
         <file>HorizontalController.qml</file>
         <file>HorizontalControllerIcon.qml</file>
         <file>PulseSettings.qml</file>
+        <file>CContact.qml</file>
     </qresource>
 </RCC>
