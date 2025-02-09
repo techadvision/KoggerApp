@@ -5,26 +5,15 @@ import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.1
 
 import WaterFall 1.0
+//import KoggerCommon 1.0
+import org.techadvision.settings 1.0
+//import "PulseSettings.qml" as PulseSettings
 
 WaterFall {
     id: plot
 
     property real quickChangeMaxRangeValue: 15
     signal echogramWasZoomed(real updatedMaxValue)
-
-    Settings {
-        id: pulseSettings
-        property int maxDepthValue: 15
-        property bool autoRange: false
-        property int intensityDisplayValue: 10
-        property int intensityRealValue: 90
-        property int filterDisplayValue: 2
-        property int filterRealValue: 5
-        property int colorMapIndex: 0
-        property int ecoViewIndex: 0
-        property bool useMetricValues: true
-    }
-
 
     PinchArea {
         id: pinch2D
@@ -79,7 +68,14 @@ WaterFall {
                 plot.verScrollEvent(pinch.previousCenter.y - pinch.center.y)
             }
             else if (zoomY) {
-                plot.verZoomEvent((pinch.previousScale - pinch.scale)*500.0)
+                console.log("TAV: onPinchUpdated, view is horizontal: ", plot.isViewHorizontal());
+                if (plot.isViewHorizontal()) {
+                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
+                } else {
+                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*500.0)
+                }
+
+                //plot.verZoomEvent((pinch.previousScale - pinch.scale)*500.0)
                 let newMaxDepthValue = plot.getMaxDepth()
                 if (newMaxDepthValue !== plot.quickChangeMaxRangeValue) {
                     plot.quickChangeMaxRangeValue = newMaxDepthValue
@@ -279,8 +275,18 @@ WaterFall {
         property real quickChangeStopValue: 120
         property real quickChangeDefaultIlluminationValue: 10
         property real quickChangeDefaultFilterValue: 1
+        property bool quickChangeScanVisible: false
+        property bool quickChangeConeVisible: false
 
         function reArrangeQuickChangeObject () {
+            quickChangeObjects.anchors.left = parent.left
+            quickChangeObjects.anchors.leftMargin = 20
+            quickChangeObjects.anchors.bottom = parent.bottom
+            quickChangeObjects.anchors.bottomMargin = 20
+
+            //Having trouble to properly get the signal for 2D vs SideScan
+            //Commented this out, always place at the bottom for now
+            /*
             console.log("TAV reArrangeQuickChangeObject ran, and isViewHorizontal is :", plot.isViewHorizontal());
             quickChangeObjects.anchors.left = undefined;
             quickChangeObjects.anchors.right = undefined;
@@ -301,6 +307,7 @@ WaterFall {
                 quickChangeObjects.anchors.bottom = parent.bottom
                 quickChangeObjects.anchors.bottomMargin = 20
             }
+            */
         }
 
         function pulsePlotPresets () {
@@ -410,17 +417,76 @@ WaterFall {
             console.log("TAV pulseBottomTrackingProcessingPresets ran");
         }
 
-        Component.onCompleted: {
-            pulsePlotPresets()
-            pulseBottomTrackingProcessingPresets()
-            if (pulseSettings.ecoViewIndex === 1) {
-                plot.setVerticalNow()
-            } else {
+        function setUserInterface () {
+            console.log("TAV function setUserInterface");
+            if (PulseSettings.is2DTransducer) {
+                console.log("TAV horizontal setUserInterface for 2D set");
                 plot.setHorizontalNow()
+                plot.plotDistanceRange2d(PulseSettings.maxDepthValue * 1.0)
+                console.log("TAV horizontal setUserInterface for 2D done");
+            } else {
+                if (PulseSettings.ecoViewIndex === 1) {
+                    console.log("TAV vertical setUserInterface for SS set");
+                    plot.setVerticalNow()
+                    plot.plotDistanceRange(PulseSettings.maxDepthValue * 1.0)
+                    console.log("TAV vertical setUserInterface for SS done");
+                } else {
+                    console.log("TAV horizontal setUserInterface for SS set");
+                    plot.setHorizontalNow()
+                    plot.plotDistanceRange2d(PulseSettings.maxDepthValue * 1.0)
+                    console.log("TAV horizontal setUserInterface for SS done");
+                }
             }
             reArrangeQuickChangeObject()
             plot.updatePlot()
         }
+
+        Component.onCompleted: {
+            console.log("TAV Plot2D onCompleted, let's rearrange the UI");
+            quickChangeObjects.pulsePlotPresets()
+            quickChangeObjects.pulseBottomTrackingProcessingPresets()
+            quickChangeObjects.setUserInterface()
+        }
+
+        Connections {
+            target: DeviceItem
+            onTransducerDetected: {
+                console.log("TAV onTransducerDetected, observed");
+                quickChangeObjects.setUserInterface()
+            }
+        }
+
+        Connections {
+            target: PulseSettings
+            // Note the use of the auto-generated property change signal: onTransducerChangeDetectedChanged
+            function onTransducerChangeDetectedChanged() {
+                if (PulseSettings.transducerChangeDetected) {
+                    console.log("TAV: onTransducerChangeDetected observed");
+                    // Reset the flag
+                    PulseSettings.transducerChangeDetected = false;
+                    quickChangeObjects.setUserInterface();
+                }
+            }
+        }
+
+
+
+        /*
+        Connections {
+            target: PulseSettings
+            onTransducerChangeDetected: {
+                console.log("TAV onTransducerChangeDetected, observed");
+                if (!PulseSettings.transducerChangeDetected) {
+                    console.log("TAV onTransducerChangeDetected is false, aborting");
+                    return
+                }
+                PulseSettings.transducerChangeDetected = false
+                console.log("TAV onTransducerChangeDetected, let's rearrange the UI");
+                quickChangeObjects.setUserInterface()
+            }
+        }
+        */
+
 
         RowLayout {
             spacing: 0
@@ -444,12 +510,12 @@ WaterFall {
                 minValue: 2
                 maxValue: 50
                 step: 1
-                defaultValue: pulseSettings.maxDepthValue
+                defaultValue: PulseSettings.maxDepthValue
                 iconSource: "./icons/pulse_ruler.svg"
 
                 onSelectorValueChanged: {
                     plot.quickChangeMaxRangeValue = value;
-                    pulseSettings.maxDepthValue = value;
+                    PulseSettings.maxDepthValue = value;
                     if (plot.isViewHorizontal()) {
                         plot.plotDistanceRange2d(value * 1.0)
                     } else {
@@ -461,15 +527,15 @@ WaterFall {
 
                 onDistanceAutoRangeRequested: {
                     console.log("TAV: Auto range requested");
-                    plot.plotDistanceAutoRange(1)
-                    pulseSettings.autoRange = true
+                    plot.plotDistanceAutoRange(0)
+                    PulseSettings.autoRange = true
                     plot.updatePlot()
                 }
 
                 onDistanceFixedRangeRequested: {
                     console.log("TAV: Fixed range requested");
                     plot.plotDistanceAutoRange(-1)
-                    pulseSettings.autoRange = false;
+                    PulseSettings.autoRange = false;
                     if (plot.isViewHorizontal()) {
                         plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
                     } else {
@@ -479,11 +545,11 @@ WaterFall {
                 }
 
                 Component.onCompleted: {
-                    if (pulseSettings.autoRange) {
-                        plot.plotDistanceAutoRange(1);
+                    if (PulseSettings.autoRange) {
+                        plot.plotDistanceAutoRange(0);
                     } else {
                         plot.plotDistanceAutoRange(-1);
-                        plot.plotDistanceRange(pulseSettings.maxDepthValue * 1.0)
+                        plot.plotDistanceRange(PulseSettings.maxDepthValue * 1.0)
                     }
                     plot.updatePlot();
                 }
@@ -503,13 +569,13 @@ WaterFall {
                 minValue: 0
                 maxValue: 20
                 step: 1
-                defaultValue: pulseSettings.intensityDisplayValue
+                defaultValue: PulseSettings.intensityDisplayValue
                 //defaultValue: Math.round((120 - echogramLevelsSlider.stopValue) / 3)
                 iconSource: "./icons/pulse_sun.svg"
                 onSelectorValueChanged: {
                     let actualValue = Math.round(120 - (value * 3));
-                    pulseSettings.intensityRealValue = actualValue;
-                    pulseSettings.intensityDisplayValue = value;
+                    PulseSettings.intensityRealValue = actualValue;
+                    PulseSettings.intensityDisplayValue = value;
                     quickChangeObjects.quickChangeStopValue = actualValue;
                     //echogramLevelsSlider.stopValue = actualValue;
                     //plot.plotEchogramSetLevels(quickChangeObjects.quickChangeStartValue, quickChangeObjects.quickChangeStopValue);
@@ -518,7 +584,7 @@ WaterFall {
                 }
 
                 Component.onCompleted: {
-                    plot.setIntensityValue(pulseSettings.intensityRealValue * 1.0)
+                    plot.setIntensityValue(PulseSettings.intensityRealValue * 1.0)
                 }
             }
 
@@ -535,13 +601,13 @@ WaterFall {
                 minValue: 0
                 maxValue: 20
                 step: 1
-                defaultValue: pulseSettings.filterDisplayValue
+                defaultValue: PulseSettings.filterDisplayValue
                 //defaultValue: Math.round(echogramLevelsSlider.startValue / 2.5)
                 iconSource: "./icons/pulse_filter.svg"
                 onSelectorValueChanged: {
                     let actualValue = Math.round(value * 2.5);
-                    pulseSettings.filterRealValue = actualValue
-                    pulseSettings.filterDisplayValue = value
+                    PulseSettings.filterRealValue = actualValue
+                    PulseSettings.filterDisplayValue = value
                     quickChangeObjects.quickChangeStartValue = actualValue;
                     plot.setFilteringValue(actualValue)
                     //echogramLevelsSlider.startValue = actualValue;
@@ -550,7 +616,7 @@ WaterFall {
                 }
 
                 Component.onCompleted: {
-                    plot.setFilteringValue(pulseSettings.filterRealValue)
+                    plot.setFilteringValue(PulseSettings.filterRealValue)
                 }
 
             }
@@ -570,15 +636,15 @@ WaterFall {
                     "./icons/pulse_color_WB.svg"
                 ]
                 iconSource: "./icons/pulse_paint.svg"
-                selectedIndex: pulseSettings.colorMapIndex
+                selectedIndex: PulseSettings.colorMapIndex
                 onIconSelected: {
                     plot.plotEchogramTheme(selectedIndex);
-                    pulseSettings.colorMapIndex = selectedIndex;
+                    PulseSettings.colorMapIndex = selectedIndex;
                     console.log("TAV: Selected theme index:", selectedIndex);
                 }
 
                 Component.onCompleted: {
-                    plot.plotEchogramTheme(pulseSettings.colorMapIndex)
+                    plot.plotEchogramTheme(PulseSettings.colorMapIndex)
                     plot.updatePlot();
                 }
             }
@@ -591,16 +657,17 @@ WaterFall {
 
             HorizontalControllerIcon {
                 id: themeSelector2
+                visible: !PulseSettings.is2DTransducer
                 model: [
                     "./icons/pulse_view_downscan.svg",
                     "./icons/pulse_view_sidescan.svg"
                 ]
                 iconSource: "./icons/pulse_glasses.svg"
-                selectedIndex: pulseSettings.ecoViewIndex
+                selectedIndex: PulseSettings.ecoViewIndex
                 onIconSelected: {
                     plot.plotEchogramCompensation(selectedIndex);
-                    pulseSettings.ecoViewIndex = selectedIndex
-                    if (selectedIndex == 0) {
+                    PulseSettings.ecoViewIndex = selectedIndex
+                    if (selectedIndex === 0) {
                         plot.setHorizontalNow()
                         plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
                     } else {
@@ -612,7 +679,7 @@ WaterFall {
                     console.log("TAV: Selected echosounder index:", selectedIndex);
                 }
                 Component.onCompleted: {
-                    if (pulseSettings.ecoViewIndex == 0) {
+                    if (PulseSettings.ecoViewIndex === 0) {
                         plot.setHorizontalNow()
                         plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
                     } else {
@@ -621,6 +688,49 @@ WaterFall {
                     }
                     plot.updatePlot();
                 }
+            }
+        }
+
+        RowLayout {
+            id: quickChangeCone
+            spacing: 10
+            Layout.topMargin: 10
+
+            HorizontalControllerIcon {
+                id: themeSelector3
+                visible: PulseSettings.is2DTransducer
+                property int coneWide: 235
+                property int coneNarrow: 710
+                model: [
+                    "./icons/pulse_cone_wide.svg",
+                    "./icons/pulse_cone_narrow_ultra.svg"
+                ]
+                iconSource: "./icons/pulse_glasses.svg"
+                selectedIndex: PulseSettings.ecoConeIndex
+                onIconSelected: {
+                    if (selectedIndex === 1) {
+                        DeviceItem.transFreq = themeSelector3.coneNarrow
+                        console.log("TAV: Selected echosounder cone:", themeSelector3.coneNarrow);
+                    } else {
+                        DeviceItem.transFreq = themeSelector3.coneWide
+                        console.log("TAV: Selected echosounder cone:", themeSelector3.coneWide);
+                    }
+                    PulseSettings.ecoConeIndex = selectedIndex
+
+                    console.log("TAV: Selected echosounder cone:", themeSelector3.selectedIndex);
+                }
+                Component.onCompleted: {
+                    console.log("TAV: quickChangeCone preference PulseSettings.ecoConeIndex:", PulseSettings.ecoConeIndex);
+                    if (PulseSettings.ecoConeIndex === 0) {
+                        DeviceItem.transFreq = themeSelector3.coneWide
+                        console.log("TAV: Preferred echosounder cone:", themeSelector3.coneWide);
+                    } else {
+                        DeviceItem.transFreq = themeSelector3.coneNarrow
+                        console.log("TAV: Preferred echosounder cone:", themeSelector3.coneNarrow);
+                    }
+                    plot.updatePlot();
+                }
+
             }
         }
     }
