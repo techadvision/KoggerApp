@@ -219,7 +219,7 @@ Item {
 
                         Component.onCompleted: {
                             if (controleName==="selectorMaxDepth") {
-                                root.isAutoRangeActive = pulseSettings.autoRange
+                                root.isAutoRangeActive = PulseSettings.autoRange
                             }
                         }
                     }
