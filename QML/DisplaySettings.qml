@@ -98,7 +98,8 @@ GridLayout {
                     checked: true
                     text: qsTr("Echogram")
                     onCheckedChanged: targetPlot.plotEchogramVisible(checked)
-                    Component.onCompleted: targetPlot.plotEchogramVisible(checked)
+                    //Component.onCompleted: targetPlot.plotEchogramVisible(checked)
+                    Component.onCompleted: targetPlot.plotEchogramVisible(true)
                 }
 
                 CCombo  {
@@ -512,13 +513,9 @@ GridLayout {
                 property alias rangefinderVisible: rangefinderVisible.checked
                 property alias postProcVisible: bottomTrackVisible.checked
                 property alias ahrsVisible: ahrsVisible.checked
-
                 property alias gridVisible: gridVisible.checked
-
-
                 property alias dopplerBeamVisible: dopplerBeamVisible.checked
                 property alias dopplerInstrumentVisible: dopplerInstrumentVisible.checked
-
                 property alias horisontalVertical: horisontalVertical.checked
             }
 
