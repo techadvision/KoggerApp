@@ -107,6 +107,8 @@ public slots:
     Q_INVOKABLE void setMeasuresMetricNow(bool metric) { setMeasuresMetric(metric); }
     Q_INVOKABLE void setIntensityValue (float intensity) { setEchogramHightLevel(intensity); }
     Q_INVOKABLE void setFilteringValue (float filter) { setEchogramLowLevel(filter); }
+    Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
+
 
     void plotEchogramSetLevels(float low, float hight) {
         setEchogramLowLevel(low);
