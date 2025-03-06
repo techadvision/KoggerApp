@@ -5,7 +5,7 @@ import QtQuick.Controls.Material 2.15
 
 Item {
     id: root
-    width: 310
+    width: 280
     height: 80 // Oval height
     property alias value: valueField.text
     property int minValue: 0
@@ -16,13 +16,20 @@ Item {
     property string iconSource: ""
     property string controleName: ""
     property string autoDepth: "auto"
+    property string autoFilter: "auto"
     property int autoRangeState: -1
 
-    // Custom properties for max depth behavior
+    // Custom properties for auto depth behavior
     property bool isAutoRangeActive: false
+    // Custom properties for auto filter behavior
+    property bool isAutoFilterActive: false
 
     signal distanceAutoRangeRequested()
     signal distanceFixedRangeRequested()
+
+    signal filterAutoRangeRequested()
+    signal filterFixedRangeRequested()
+
     signal selectorValueChanged(int newValue)
 
     property real quickChangeMaxRangeValue: root.defaultValue  // Sync this with default value
@@ -81,11 +88,11 @@ Item {
         radius: parent.height / 2 // Oval shape
         color: "#80000000" // Grey background for outer oval
         border.color: "transparent"
-        border.width: 2
+        border.width: 0
 
         RowLayout {
             anchors.centerIn: parent
-            spacing: 10
+            spacing: 5
 
             Image {
                 id: controlIcon
@@ -119,11 +126,18 @@ Item {
                     onClicked: {
                         longPressControlTimer.stop();
                         if (root.isAutoRangeActive && controleName === "selectorMaxDepth") {
-                            console.log("TAV: Auto was active, should disable");
+                            console.log("TAV: Auto range was active, should disable");
                             root.distanceFixedRangeRequested();
                             root.isAutoRangeActive = false;
                         } else {
-                            console.log("TAV: Auto was not active, just do minus");
+                            console.log("TAV: Auto range was not active, just do minus");
+                        }
+                        if (root.isAutoFilterActive && controleName === "selectorFiltering") {
+                            console.log("TAV: Auto filter was active, should disable");
+                            root.filterFixedRangeRequested();
+                            root.isAutoFilterActive = false;
+                        } else {
+                            console.log("TAV: Auto filterwas not active, just do minus");
                         }
 
                         let newValue = Math.max(minValue, parseInt(valueField.text) - step);
@@ -149,7 +163,7 @@ Item {
             // Value Display with Icon and Vertical Dividers
             Rectangle {
                 id: valueFieldBackground
-                width: 100
+                width: 60
                 height: 50
                 //radius: 25
                 color: "transparent"
@@ -159,13 +173,6 @@ Item {
                 RowLayout {
                     anchors.centerIn: parent
                     spacing: 5
-
-                    // Divider on the left
-                    Rectangle {
-                        width: 4
-                        height: parent.height * 0.8
-                        color: "white"
-                    }
 
                     // Value Display
                     Rectangle {
@@ -184,7 +191,9 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             onTextChanged: root.selectorValueChanged(parseInt(valueField.text))
-                            visible: !root.isAutoRangeActive
+                            visible: root.controleName === "selectorIntensity" ? true :
+                                     (root.controleName === "selectorMaxDepth" && !root.isAutoRangeActive) ||
+                                     (root.controleName === "selectorFiltering" && !root.isAutoFilterActive)
                         }
 
                         Text {
@@ -196,7 +205,8 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             onTextChanged: root.selectorValueChanged(parseInt(valueField.text))
-                            visible: root.isAutoRangeActive
+                            visible: (root.controleName === "selectorMaxDepth" && root.isAutoRangeActive) ||
+                                     (root.controleName === "selectorFiltering" && root.isAutoFilterActive)
                         }
 
 
@@ -205,13 +215,24 @@ Item {
                             onClicked: {
                                 if (controleName==="selectorMaxDepth") {
                                     if (root.isAutoRangeActive) {
-                                        console.log("TAV: Auto was active, should disable");
+                                        console.log("TAV: Auto range was active, should disable");
                                         root.distanceFixedRangeRequested();
                                         root.isAutoRangeActive = false;
                                     } else {
-                                        console.log("TAV: Auto was not active, should enable");
+                                        console.log("TAV: Auto range was not active, should enable");
                                         root.distanceAutoRangeRequested();
                                         root.isAutoRangeActive = true;
+                                    }
+                                }
+                                if (controleName==="selectorFiltering") {
+                                    if (root.isAutoFilterActive) {
+                                        console.log("TAV: Auto filter was active, should disable");
+                                        root.filterFixedRangeRequested();
+                                        root.isAutoFilterActive = false;
+                                    } else {
+                                        console.log("TAV: Auto filter was not active, should enable");
+                                        root.filterAutoRangeRequested();
+                                        root.isAutoFilterActive = true;
                                     }
                                 }
                             }
@@ -222,13 +243,6 @@ Item {
                                 root.isAutoRangeActive = PulseSettings.autoRange
                             }
                         }
-                    }
-
-                    // Divider on the right
-                    Rectangle {
-                        width: 2
-                        height: parent.height * 0.6
-                        color: "white"
                     }
                 }
             }
@@ -256,11 +270,18 @@ Item {
                     onClicked: {
                         longPressControlTimer.stop();
                         if (root.isAutoRangeActive && controleName === "selectorMaxDepth") {
-                            console.log("TAV: Auto was active, should send -1 to disable");
+                            console.log("TAV: Auto range was active, should disable");
                             root.distanceFixedRangeRequested();
                             root.isAutoRangeActive = false;
                         } else {
-                            console.log("TAV: Auto was not active, just do plus");
+                            console.log("TAV: Auto range was not active, just do minus");
+                        }
+                        if (root.isAutoFilterActive && controleName === "selectorFiltering") {
+                            console.log("TAV: Auto filter was active, should disable");
+                            root.filterFixedRangeRequested();
+                            root.isAutoFilterActive = false;
+                        } else {
+                            console.log("TAV: Auto filterwas not active, just do minus");
                         }
 
                         let newValue = Math.min(maxValue, parseInt(valueField.text) + step);
