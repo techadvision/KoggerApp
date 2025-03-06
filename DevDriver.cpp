@@ -2,6 +2,7 @@
 #include <time.h>
 #include <core.h>
 #include <QXmlStreamWriter>
+#include <QDebug>
 
 extern Core core;
 
@@ -257,6 +258,11 @@ void DevDriver::dvlChangeMode(bool ismode1, bool ismode2, bool ismode3, bool ism
 }
 
 void DevDriver::importSettingsFromXML(const QString& filePath) {
+    if (true) {
+        qDebug() << "TAV: trying to import from file: Blocked";
+        return;
+    }
+    qDebug() << "TAV: trying to import from file: Got around block";
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
@@ -570,6 +576,23 @@ void DevDriver::startConnection(bool duplex) {
     restartState();
 
     emit deviceVersionChanged();
+    qDebug() << "TAV m_devName:" << m_devName << "m_devType" << static_cast<int>(idVersion->boardVersion());
+    pulseDevice_ = m_devName;
+    qDebug() << "TAV pulseDevice_:" << pulseDevice_;
+    Q_EMIT pulseDeviceChanged();
+    // **New code to update the QML singleton property**
+    if (g_pulseRuntimeSettings) {
+        g_pulseRuntimeSettings->setProperty("devName", m_devName);
+        if (m_devName == "...") {
+            g_pulseRuntimeSettings->setProperty("devDetected", false);
+        } else {
+            g_pulseRuntimeSettings->setProperty("devDetected", true);
+        }
+
+        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
+    } else {
+        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
+    }
 }
 
 void DevDriver::stopConnection() {
@@ -577,6 +600,30 @@ void DevDriver::stopConnection() {
     m_processTimer.stop();
     m_devName = "...";
     emit deviceVersionChanged();
+    qDebug() << "TAV m_devName:" << m_devName << "m_devType" << static_cast<int>(idVersion->boardVersion());
+    pulseDevice_ = m_devName;
+    qDebug() << "TAV pulseDevice_:" << pulseDevice_;
+    Q_EMIT pulseDeviceChanged();
+    // **New code to update the QML singleton property**
+    if (g_pulseRuntimeSettings) {
+        g_pulseRuntimeSettings->setProperty("devName", m_devName);
+        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
+    } else {
+        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
+    }
+    // **New code to update the QML singleton property**
+    if (g_pulseRuntimeSettings) {
+        g_pulseRuntimeSettings->setProperty("devName", m_devName);
+        if (m_devName == "...") {
+            g_pulseRuntimeSettings->setProperty("devDetected", false);
+        } else {
+            g_pulseRuntimeSettings->setProperty("devDetected", true);
+        }
+        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
+    } else {
+        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
+    }
+
 }
 
 void DevDriver::restartState() {
@@ -1050,57 +1097,57 @@ void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
 
         if(ver == v0) {
             switch (idVersion->boardVersion()) {
-            case BoardNone:
-                if(idVersion->boardVersionMinor() == BoardAssist) {
-                    m_devName = "Assist";
-                } else {
+                case BoardNone:
+                    if(idVersion->boardVersionMinor() == BoardAssist) {
+                        m_devName = "Assist";
+                    } else {
+                        m_devName = QString("Device ID: %1.%2").arg(idVersion->boardVersion()).arg(idVersion->boardVersionMinor());
+                    }
+                    break;
+                case BoardEnhanced:
+                    m_devName = "2D-Enhanced";
+                    break;
+                case BoardChirp:
+                    m_devName = "2D-Chirp";
+                    break;
+                case BoardBase:
+                    m_devName = "2D-Base";
+                    break;
+                case BoardNBase:
+                    m_devName = "2D-Base";
+                    break;
+
+                case BoardAssist:
+                case BoardRecorderMini:
+                    m_devName = "Recorder";
+                    break;
+
+                case BoardNEnhanced:
+                    m_devName = "2D-Enhanced";
+                    break;
+                case BoardSideEnhanced:
+                    m_devName = "Side-Enhanced";
+                    break;
+                case BoardDVL:
+                    m_devName = "DVL";
+                    break;
+                case BoardEcho20:
+                    m_devName = "ECHO20";
+                    break;
+
+                case BoardNanoSSS:
+                    m_devName = "NanoSSS";
+                    break;
+
+                case BoardUSBL:
+                    m_devName = "USBL";
+                    break;
+
+                case BoardUSBLBeacon:
+                    m_devName = "Beacon";
+                    break;
+                default:
                     m_devName = QString("Device ID: %1.%2").arg(idVersion->boardVersion()).arg(idVersion->boardVersionMinor());
-                }
-                break;
-            case BoardEnhanced:
-                m_devName = "2D-Enhanced";
-                break;
-            case BoardChirp:
-                m_devName = "2D-Chirp";
-                break;
-            case BoardBase:
-                m_devName = "2D-Base";
-                break;
-            case BoardNBase:
-                m_devName = "2D-Base";
-                break;
-
-            case BoardAssist:
-            case BoardRecorderMini:
-                m_devName = "Recorder";
-                break;
-
-            case BoardNEnhanced:
-                m_devName = "2D-Enhanced";
-                break;
-            case BoardSideEnhanced:
-                m_devName = "Side-Enhanced";
-                break;
-            case BoardDVL:
-                m_devName = "DVL";
-                break;
-            case BoardEcho20:
-                m_devName = "ECHO20";
-                break;
-
-            case BoardNanoSSS:
-                m_devName = "NanoSSS";
-                break;
-
-            case BoardUSBL:
-                m_devName = "USBL";
-                break;
-
-            case BoardUSBLBeacon:
-                m_devName = "Beacon";
-                break;
-            default:
-                m_devName = QString("Device ID: %1.%2").arg(idVersion->boardVersion()).arg(idVersion->boardVersionMinor());
             }
 
 //            qInfo("board info %u", idVersion->boardVersion());
@@ -1114,9 +1161,30 @@ void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
 
             emit deviceVersionChanged();
         }
+        emit deviceVersionChanged();
 
+        qDebug() << "TAV m_devName:" << m_devName << "m_devType" << static_cast<int>(idVersion->boardVersion());
+        pulseDevice_ = m_devName;
+        if (m_devName == "...") {
+            qDebug() << "TAV pulseDevice_ still ...";
+        } else {
+            qDebug() << "TAV pulseDevice_ now:" << pulseDevice_;
+            Q_EMIT pulseDeviceChanged();
+            emit pulseDeviceChanged();
+        }
 
-
+    }
+    // **New code to update the QML singleton property**
+    if (g_pulseRuntimeSettings) {
+        g_pulseRuntimeSettings->setProperty("devName", m_devName);
+        if (m_devName == "...") {
+            g_pulseRuntimeSettings->setProperty("devDetected", false);
+        } else {
+            g_pulseRuntimeSettings->setProperty("devDetected", true);
+        }
+        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
+    } else {
+        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
     }
 }
 
@@ -1278,3 +1346,6 @@ void DevDriver::process() {
         }
     }
 }
+
+
+

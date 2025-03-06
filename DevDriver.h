@@ -7,12 +7,17 @@
 #include <QVector>
 #include "QTimer"
 
+extern QObject* g_pulseRuntimeSettings;
+
 using namespace Parsers;
 
 class DevDriver : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString pulseDevice READ pulseDevice NOTIFY pulseDeviceChanged)
+    Q_PROPERTY(QString devName READ devName NOTIFY deviceVersionChanged)
 public:
+
     explicit DevDriver(QObject *parent = nullptr);
     ~DevDriver();
     typedef enum {
@@ -108,7 +113,8 @@ public:
     void setDevDefAddress(int addr);
     int getDevDefAddress();
 
-    QString devName() { return m_devName; }
+    Q_INVOKABLE QString devName() { return m_devName; }
+
     int devType() const { return static_cast<int>(idVersion->boardVersion()); }
     uint32_t devSerialNumber();
     QString devPN();
@@ -163,6 +169,8 @@ public:
     bool getSoundSpeedState() { return soundSpeedState_; };
     bool getUartState() { return uartState_; };
 
+    Q_INVOKABLE QString pulseDevice() { return pulseDevice_; }
+
 signals:
     void binFrameOut(ProtoBinOut proto_out);
 
@@ -171,7 +179,7 @@ signals:
 
     void iqComplete(QByteArray data, uint8_t type);
     void attitudeComplete(float yaw, float pitch, float roll);
-    void distComplete(int dist);
+    Q_INVOKABLE void distComplete(int dist);
 
     void usblSolutionComplete(IDBinUsblSolution::UsblSolution data);
     void beaconActivationComplete(uint8_t id);
@@ -179,9 +187,9 @@ signals:
     void positionComplete(uint32_t date, uint32_t time, double lat, double lon);
     void chartSetupChanged();
     void dspSetupChanged();
-    void distSetupChanged();
+    Q_INVOKABLE void distSetupChanged();
     void datasetChanged();
-    void transChanged();
+    Q_INVOKABLE void transChanged();
     void soundChanged();
     void UARTChanged();
     void upgradeProgressChanged(int progress_status);
@@ -193,6 +201,8 @@ signals:
     void dopplerVeloComplete();
     void dopplerBeamComplete(IDBinDVL::BeamSolution *beams, uint16_t cnt);
     void dvlSolutionComplete(IDBinDVL::DVLSolution dvlSolution);
+
+    void pulseDeviceChanged();
 
 public slots:
     void protoComplete(FrameParser& proto);
@@ -365,6 +375,9 @@ protected slots:
 
     void receivedUSBL(Type type, Version ver, Resp resp);
 
+
+    //void setPulseDevice(Type type, Version ver, Resp resp);
+
 private:
     bool datasetState_;
     bool distSetupState_;
@@ -373,4 +386,5 @@ private:
     bool transcState_;
     bool soundSpeedState_;
     bool uartState_;
+    QString pulseDevice_;
 };
