@@ -101,5 +101,9 @@
         <file>HorizontalControllerIcon.qml</file>
         <file>PulseSettings.qml</file>
         <file>CContact.qml</file>
+        <file>PulseRuntimeSettings.qml</file>
+        <file>EchoSounderSelector.qml</file>
+        <file>LostConnectionOverlay.qml</file>
+        <file>HorizontalTapSelectController.qml</file>
     </qresource>
 </RCC>
