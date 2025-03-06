@@ -37,6 +37,7 @@ typedef struct DatasetCursor {
     int channel2 = CHANNEL_NONE;
     int numZeroEpoch = 0;
 
+
     bool isChannelDoubled() {
         return (CHANNEL_NONE != channel1 && CHANNEL_NONE != channel2);
     }
@@ -61,8 +62,8 @@ typedef struct DatasetCursor {
     struct {
         float from = NAN;
         float to = NAN;
-        AutoRangeMode mode = AutoRangeNone;
 
+        AutoRangeMode mode = AutoRangeNone;
 
         void set(float f, float t) {from = f; to = t;}
 
@@ -243,9 +244,16 @@ public:
     enum ThemeId {
         ClassicTheme,
         SepiaTheme,
-        WRGBDTheme,
         WBTheme,
-        BWTheme
+        RedTheme,
+        GreenTheme,
+        Ek500BlackTheme,
+        Ek500WhiteTheme,
+        FurunoBlackTheme,
+        FurunoWhiteTheme,
+        KaijoBlackTheme,
+        KaijoWhiteTheme,
+        SepiaTemeExtra
     };
 
     Plot2DEchogram();
@@ -819,6 +827,7 @@ public:
     void setRangeFinderVisible(bool visible) { _rangeFinderLastVisible = visible; }
     //Pulse
     void setMeasuresMetric(bool metric);
+    void setGridHorizontal (bool horizontal);
 
 protected:
     bool angleVisibility_;
@@ -828,6 +837,7 @@ protected:
     int _lineWidth = 1;
     QColor _lineColor = QColor(255, 255, 255, 255);
     bool isMetric_ = true;
+    bool isHorizontal_ = true;
 
 };
 
@@ -998,6 +1008,7 @@ public:
         Q_UNUSED(eventType);
     }
     void setMeasuresMetric (bool metric);
+    void setGridHorizontal (bool horiontal);
 
 
 protected:
