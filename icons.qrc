@@ -97,5 +97,19 @@
         <file>icons/pulse_cone_narrow.svg</file>
         <file>icons/pulse_cone_narrow_ultra.svg</file>
         <file>icons/pulse_cone_wide.svg</file>
+        <file>icons/patternDots.svg</file>
+        <file>icons/pulse_color_2d_e500_black.svg</file>
+        <file>icons/pulse_color_2d_e500_white.svg</file>
+        <file>icons/pulse_color_2d_furuno_black.svg</file>
+        <file>icons/pulse_color_2d_furuno_white.svg</file>
+        <file>icons/pulse_color_2d_kaijo_black.svg</file>
+        <file>icons/pulse_color_2d_kaijo_white.svg</file>
+        <file>icons/pulse_color_ss_blue.svg</file>
+        <file>icons/pulse_color_ss_gray.svg</file>
+        <file>icons/pulse_color_ss_red.svg</file>
+        <file>icons/pulse_color_ss_sepia.svg</file>
+        <file>icons/pulse_color_2d_sonic_black.svg</file>
+        <file>icons/pulse_color_2d_sonic_white.svg</file>
+        <file>icons/pulse_color_ss_green.svg</file>
     </qresource>
 </RCC>
