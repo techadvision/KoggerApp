@@ -680,7 +680,7 @@ public:
         return range;
     }
 
-    bool distAvail() { return flags.distAvail; }
+    Q_INVOKABLE bool distAvail() { return flags.distAvail; }
 
     double  distProccesing(int16_t channel) {
         if(channel == CHANNEL_FIRST) {
@@ -958,23 +958,15 @@ public:
         kConnection
     };
 
-    Q_PROPERTY(int dist READ dist NOTIFY distChanged)
-    Q_PROPERTY(float temp READ temp NOTIFY tempChanged)
     //Q_PROPERTY(float depth READ currentDepth NOTIFY dataUpdate)
+
+    Q_PROPERTY(float dist READ dist NOTIFY distChanged)
+    Q_PROPERTY(float temp READ temp NOTIFY tempChanged)
 
     /*methods*/
     Dataset();
 
-    /*
-    float currentDepth() const {
-        if (!_pool.isEmpty()) {
-            return _pool.last().rangeFinder(); // Fetch depth from the last epoch
-        }
-        return NAN; // No data available
-    }
-*/
-
-    int dist() const { return _dist; }
+    float dist() const { return _dist; }
     float temp() const { return _temp; }
     //float depth() const { return _depth; }
 
@@ -1119,7 +1111,7 @@ signals:
     void updatedLlaRef();
 
 private:
-    int _dist; // Stores the distance value
+    float _dist; // Stores the distance value
     float _temp; // Stores the temperature value
     //float _depth; // Stores the depth value
 
