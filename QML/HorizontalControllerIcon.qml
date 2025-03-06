@@ -12,6 +12,14 @@ Item {
     signal iconSelected(int index) // Notify when an icon is selected
     property string iconSource: ""
 
+    // Timer to reset the tap count after 5 seconds
+    Timer {
+        id: tapResetTimer
+        interval: 5000  // 5 seconds
+        repeat: false
+        onTriggered: depthTempRect.tapCount = 0
+    }
+
     // Outer oval shape for styling
     Rectangle {
         id: outerShape
@@ -85,20 +93,18 @@ Item {
 
                     // Icon Display
                     Rectangle {
+                        id: iconRect
                         width: 64
                         height: 64
                         radius: 5
                         color: "transparent"
-                        //anchors.centerIn: parent
-                        //Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
+                        property int tapCount: 0
 
                         Item {
                             anchors.fill: parent
                             anchors.centerIn: parent
 
                             Image {
-                                //anchors.fill: parent
-                                //anchors.centerIn: parent
                                 source: model[selectedIndex] // Dynamically set icon
                                 width: 64
                                 height: 64
@@ -106,6 +112,31 @@ Item {
                                 smooth: true
                             }
                         }
+
+                        MouseArea {
+                            width: parent.width
+                            height: parent.height
+                            anchors.centerIn: parent
+                            onClicked: {
+                                // Start the timer on first tap
+                                if (!tapResetTimer.running)
+                                    tapResetTimer.start();
+
+                                iconRect.tapCount++;
+
+                                // If more than 10 taps within 5 seconds, activate hidden feature
+                                if (iconRect.tapCount > 10) {
+                                    // Set your hidden feature flag (or call a function to enable tuning mode)
+                                    pulseRuntimeSettings.expertMode = !pulseRuntimeSettings.expertMode;
+                                    console.log("TAV: Activated the hidden features");
+
+                                    // Optionally, reset tap count and timer if you want one activation per sequence
+                                    tapResetTimer.stop();
+                                    iconRect.tapCount = 0;
+                                }
+                            }
+                        }
+
                     }
 
                     // Divider on the right
