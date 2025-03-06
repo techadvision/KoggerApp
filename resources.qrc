@@ -5,8 +5,11 @@
         <file>languages/translation_pl.qm</file>
         <file>assets/fonts/arial.ttf</file>
         <file>assets/fonts/PTSansCaption-Regular.ttf</file>
-		<file>assets/fonts/Roboto-VariableFont_wdth,wght.ttf</file>		
+        <file>assets/fonts/Roboto-VariableFont_wdth,wght.ttf</file>
         <file>version.txt</file>
         <file>languages/translation_de.qm</file>
+        <file>image/PulseBlueImage400.png</file>
+        <file>image/PulseRedImage400.png</file>
+        <file>image/techadvision_logo_color.png</file>
     </qresource>
 </RCC>
