@@ -70,6 +70,8 @@ public:
     Q_PROPERTY(bool isAddressSupport READ isAddressSupport NOTIFY deviceVersionChanged)
     Q_PROPERTY(bool isUpgradeSupport READ isUpgradeSupport NOTIFY deviceVersionChanged)
 
+
+
 };
 
 

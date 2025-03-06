@@ -652,9 +652,14 @@ void GraphicsScene3dView::setDataset(Dataset *dataset)
                                             QVector3D(pos.ned.n, pos.ned.e, !isfinite(pos.ned.d) ? 0.f : pos.ned.d), m_dataset->getLastYaw() - 90.f);
                                     }
 
+                                    //TODO - Disable only for testing
+
+
                                     if (!sideScanCalcState_ || sideScanView_->getWorkMode() != SideScanView::Mode::kRealtime) {
                                         return;
                                     }
+
+
 
                                     // bottom track
                                     int firstChannelId = CHANNEL_NONE;
