@@ -2,7 +2,7 @@
 #include <QObject>
 
 
-Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true)
+Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontal_(true)
 {}
 
 
@@ -65,11 +65,29 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
         if (isFillWidth())
             p->drawLine(0, posY, imageWidth, posY);
-        else
+        else if (isHorizontal_) {
             p->drawLine(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY, imageWidth, posY); // line
+        } else {
+            // For vertical mode, use a fixed line length instead of one based on text width.
+            const int fixedLineLength = 50; // Adjust this value as needed.
+            p->drawLine(imageWidth - textXOffset - fixedLineLength, posY, imageWidth - textXOffset, posY);
+        }
 
-        if (!lineText.isEmpty())
-            p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY - textYOffset, lineText);
+        if (!lineText.isEmpty()) {
+            if (isHorizontal_) {
+                p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY - textYOffset, lineText);
+            } else {
+                p->save();
+                int textWidth = fm.horizontalAdvance(lineText);
+                int pivotX = imageWidth - textXOffset;
+                int pivotY = posY - textYOffset;
+                p->translate(pivotX, pivotY);
+                p->rotate(90);
+                p->drawText(-textWidth, fm.ascent(), lineText);
+                p->restore();
+
+            }
+        }
     }
 
     if (cursor.distance.isValid()) {
@@ -83,19 +101,44 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         } else {
             range_text = QString::number(val, 'f', (val == static_cast<int>(val)) ? 0 : 1) + QObject::tr(" ft");
         }
-        p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
+        if (isHorizontal_) {
+            p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
+        } else {
+            p->save();
+            int textWidth = fm.horizontalAdvance(range_text);
+            int textHeight = fm.height();
+            // In horizontal mode the text's center X is:
+            int centerX = imageWidth - textXOffset / 2 - textWidth / 2;
+            // The Y remains the same as the horizontal drawing (bottom edge position)
+            int centerY = imageHeight - 30 - textHeight;
+            // Translate to that center pivot point.
+            p->translate(centerX, centerY);
+            // Rotate the text by +90 degrees (clockwise).
+            p->rotate(90);
+            // Draw the text so that its center aligns with the pivot.
+            // (drawText positions text at the baseline of the left edge,
+            // so we offset by half the text width and half the text height)
+            p->drawText(-textWidth / 2, textHeight / 2, range_text);
+            p->restore();
+        }
     }
 
-    if (_rangeFinderLastVisible && cursor.distance.isValid()) {
-        Epoch* lastEpoch = dataset->last();
-        Epoch* preLastEpoch = dataset->lastlast();
-        float distance = NAN;
-
-        if (lastEpoch != NULL && isfinite(lastEpoch->rangeFinder()))
+    Epoch* lastEpoch = dataset->last();
+    Epoch* preLastEpoch = dataset->lastlast();
+    float distance = NAN;
+    if (cursor.distance.isValid()) {
+        if (lastEpoch != NULL && isfinite(lastEpoch->rangeFinder())) {
             distance = lastEpoch->rangeFinder();
-        else if (preLastEpoch != NULL && isfinite(preLastEpoch->rangeFinder()))
+            //qDebug("TAV: Plot2DGrid calculated distance lastEpoch: %f", distance);
+        } else if (preLastEpoch != NULL && isfinite(preLastEpoch->rangeFinder())) {
             distance = preLastEpoch->rangeFinder();
+            //qDebug("TAV: Plot2DGrid calculated distance preLastEpoch: %f", distance);
+        }
+    } else {
+        qDebug("TAV: Plot2DGrid calculated distance not valid");
+    }
 
+    if (_rangeFinderLastVisible) {
         if (isfinite(distance)) {
             pen.setColor(QColor(250, 100, 0));
             p->setPen(pen);
@@ -105,8 +148,10 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
             //Changed to 1 decimal
             QString rangeText = QString::number(val, 'f', (val == static_cast<int>(val)) ? 0 : 1) + QObject::tr(" m");
             p->drawText(imageWidth / 2 - rangeText.count() * 32, imageHeight - 15, rangeText);
+            //qDebug("TAV: Plot2DGrid wrote distance to screen: %f", distance);
         }
     }
+
 
     return true;
 }
@@ -121,5 +166,11 @@ void Plot2DGrid::setMeasuresMetric(bool metric)
 {
     isMetric_ = metric;
 }
+
+void Plot2DGrid::setGridHorizontal(bool horizontal)
+{
+    isHorizontal_ = horizontal;
+}
+
 
 

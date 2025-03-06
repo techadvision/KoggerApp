@@ -1,6 +1,8 @@
 #include "Plot2D.h"
 #include <epochevent.h>
 
+extern QObject* g_pulseRuntimeSettings;
+
 
 Plot2D::Plot2D()
 {
@@ -19,7 +21,7 @@ Plot2D::Plot2D()
    _cursor.attitude.from = -180;
    _cursor.attitude.to = 180;
 
-    _cursor.distance.set(0, 4);
+    _cursor.distance.set(0, 100);
 //    _cursor.velocity.set(-1, 1);
 }
 
@@ -180,13 +182,13 @@ double Plot2D::getContactDepth()
 }
 
 void Plot2D::setEchogramLowLevel(float low) {
-    qDebug() << "TAV: setEchogramLowLevel low: " << low;
+    //qDebug() << "TAV: setEchogramLowLevel low: " << low;
     _echogram.setLowLevel(low);
     plotUpdate();
 }
 
 void Plot2D::setEchogramHightLevel(float high) {
-    qDebug() << "TAV: setEchogramLowLevel high: " << high;
+    //qDebug() << "TAV: setEchogramLowLevel high: " << high;
     _echogram.setHightLevel(high);
     plotUpdate();
 }
@@ -694,6 +696,18 @@ void Plot2D::reindexingCursor() {
 }
 
 void Plot2D::reRangeDistance() {
+    bool is2D = false;
+    bool doPulseAutoRange = false;
+    float pulseAutoRange = 2.0;
+    if (g_pulseRuntimeSettings) {
+        bool is2DTransducer = g_pulseRuntimeSettings->property("is2DTransducer").toBool();
+        bool isSSTransducerIn2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+        doPulseAutoRange = g_pulseRuntimeSettings->property("shouldDoAutoRange").toBool();
+        pulseAutoRange = g_pulseRuntimeSettings->property("autoDepthMaxLevel").toFloat();
+        if (is2DTransducer || isSSTransducerIn2DView) {
+            is2D = true;
+        }
+    }
     if(_dataset == NULL) { return; }
     float max_range = NAN;
 
@@ -733,14 +747,45 @@ void Plot2D::reRangeDistance() {
         }
     }
 
+    if (doPulseAutoRange) {
+        if(isfinite(max_range)) {
+            if(_cursor.isChannelDoubled()) {
+                _cursor.distance.from = -ceil(pulseAutoRange);;
+            } else {
+                _cursor.distance.from = 0;
+            }
+            if (is2D) {
+                _cursor.distance.from = 0;
+            }
+            _cursor.distance.to = ceil(pulseAutoRange);
+        }
+    } else {
+        if(isfinite(max_range)) {
+            if(_cursor.isChannelDoubled()) {
+                _cursor.distance.from = -ceil(max_range);;
+            } else {
+                _cursor.distance.from = 0;
+            }
+            if (is2D) {
+                _cursor.distance.from = 0;
+            }
+            _cursor.distance.to = ceil(max_range);
+        }
+    }
+
+    /*
     if(isfinite(max_range)) {
         if(_cursor.isChannelDoubled()) {
             _cursor.distance.from = -ceil(max_range);;
         } else {
             _cursor.distance.from = 0;
         }
+        if (is2D) {
+            _cursor.distance.from = 0;
+        }
         _cursor.distance.to = ceil(max_range);
     }
+    */
 }
 
 bool Plot2DAim::draw(Canvas &canvas, Dataset *dataset, DatasetCursor cursor) 
@@ -825,6 +870,12 @@ void Plot2D::setMeasuresMetric(bool metric) {
     _grid.setMeasuresMetric(metric);
     plotUpdate();
 }
+
+void Plot2D::setGridHorizontal(bool horizontal) {
+    _grid.setGridHorizontal(horizontal);
+    plotUpdate();
+}
+
 
 Plot2DContact::Plot2DContact()
 {
