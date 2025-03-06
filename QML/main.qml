@@ -7,6 +7,8 @@ import QtQuick.Dialogs 1.2
 import QtQuick.Controls 2.15
 import WaterFall 1.0
 import KoggerCommon 1.0
+import QtGraphicalEffects 1.15
+
 
 
 Window  {
@@ -23,9 +25,23 @@ Window  {
     readonly property int _activeObjectParamsMenuHeight: 500
     readonly property int _sceneObjectsListHeight:       300
 
+    property bool windowShadow: true
+    property var lostConnectionAlert: null
+
+    // Create an instance of the singleton.
+        // You can use an Item or a dummy object if no visual representation is needed.
+
     Settings {
             id: appSettings
             property bool isFullScreen: false
+    }
+
+    Connections {
+        target: core
+        function onSendIsFileOpening() {
+            console.log("TAV main onSendIsFileOpening");
+            pulseRuntimeSettings.isOpeningKlfFile = true
+        }
     }
 
     Component.onCompleted: {
@@ -50,6 +66,39 @@ Window  {
     // banner on languageChanged
     property bool showBanner: false
     property string selectedLanguageStr: qsTr("Undefined")
+
+    function showLostConnection () {
+
+        if (pulseRuntimeSettings.isOpeningKlfFile) {
+            console.log("TAV: showLostConnection, please do not when viewing a file");
+            return
+        }
+
+        if (lostConnectionAlert === null) {
+            var component = Qt.createComponent("LostConnectionOverlay.qml")
+            lostConnectionAlert = component.createObject( mainview, {"x": 0, "y": 0 } )
+            if (lostConnectionAlert !== null) {
+                lostConnectionAlert.anchors.centerIn = echoSounderSelector
+                //pulseRuntimeSettings.devName = "..."
+                console.log("TAV: showLostConnection, showing the alert");
+            } else {
+                console.log("TAV: showLostConnection is null, cannot show the alert");
+            }
+        }
+
+    }
+
+    function removeLostConnection () {
+
+        if (lostConnectionAlert !== null) {
+            lostConnectionAlert.destroy()
+            lostConnectionAlert = null
+            console.log("TAV: showLostConnection, removed the alert");
+        } else {
+            console.log("TAV: showLostConnection is null, cannot remove the alert or it was not there at all");
+        }
+    }
+
 
     Rectangle {
         id: banner
@@ -713,4 +762,226 @@ Window  {
             }
         }
     }
+
+
+    Rectangle {
+        id: hideBackground
+        anchors.fill: parent
+        color: "gray"
+        opacity: 0.8
+        visible: mainview.windowShadow
+
+        Image {
+                anchors.fill: parent
+                source: "./icons/patternDots.svg"
+                fillMode: Image.Tile
+                opacity: 0.8
+            }
+
+    }
+
+
+
+    // echosounder selector Screen
+    Rectangle {
+        id: echoSounderSelector
+        width: 1000
+        height: 350
+        anchors.centerIn: parent
+        // The selector is visible only if no echo sounder is detected
+        //visible: !pulseRuntimeSettings.devManualSelected
+        color: "transparent"
+
+        // These properties control which item was selected.
+        property bool selectionMade: false
+        property string selectedDevice: ""
+
+        Connections {
+            target: pulseRuntimeSettings
+            function onDevManualSelectedChanged() {
+                if (pulseRuntimeSettings.devManualSelected) {
+                    //echoSounderSelector.selectedDevice = pulseRuntimeSettings.devName
+                    //echoSounderSelector.selectionMade = true
+                    //console.log("TAV: echoSounderSelector onTransduceDetected true, model", echoSounderSelector.selectedDevice);
+
+                    mainview.windowShadow = false
+                } else {
+                    console.log("TAV: echoSounderSelector onDevManualSelectedChanged false, skip");
+                }
+            }
+            function onDevConfiguredChanged() {
+                echoSounderSelector.selectedDevice = pulseRuntimeSettings.devName
+                echoSounderSelector.selectionMade = true
+                mainview.windowShadow = false
+            }
+            function onHasDeviceLostConnectionChanged() {
+                if (pulseRuntimeSettings.didEverReceiveData) {
+                    console.log("TAV: hasDeviceLostConnection");
+                    if (pulseRuntimeSettings.hasDeviceLostConnection) {
+                        console.log("TAV: hasDeviceLostConnection, show alert");
+                        showLostConnection()
+                    } else {
+                        console.log("TAV: hasDeviceLostConnection, remove alert");
+                        removeLostConnection()
+                        pulseRuntimeSettings.hasDeviceLostConnection = false
+                    }
+                }
+            }
+        }
+
+        Connections {
+            target: dataset
+
+            function onDataUpdate () {
+                if (lostConnectionAlert !== null && pulseRuntimeSettings.hasDeviceLostConnection) {
+                    pulseRuntimeSettings.hasDeviceLostConnection = false
+                    pulseRuntimeSettings.isReceivingData = true
+                    console.log("TAV: got data update when hasDeviceLostConnection, remove alert");
+                    removeLostConnection()
+                }
+            }
+        }
+
+
+        Row {
+            id: rowContainer
+            anchors.centerIn: parent
+            spacing: 100
+
+            EchoSounderSelector {
+                id: pulseRedSelector
+                Layout.preferredWidth: 440
+                Layout.preferredHeight: parent.height
+                backgroundColor: "#ffe0e0"   // light red background
+                title: "pulseRed"
+                titleColor: "red"
+                description: "High-performance 2D echo sounder"
+                illustrationSource: "./image/PulseRedImage400.png"
+                versions: ["v1.0"]
+                version: "v1.0"
+                // When the user selects this item, record the selection.
+                onSelected: {
+                    pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseRed
+                    pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseRed
+                    PulseSettings.devName = pulseRuntimeSettings.modelPulseRed
+                    //PulseSettings.userManualSetName = PulseSettings.devName
+                    echoSounderSelector.selectedDevice = pulseRuntimeSettings.modelPulseRed
+                    echoSounderSelector.selectionMade = true
+                    pulseRuntimeSettings.devManualSelected = true
+
+                    //mainview.windowShadow = false
+                }
+            }
+
+            EchoSounderSelector {
+                id: pulseBlueSelector
+                Layout.preferredWidth: 440
+                Layout.preferredHeight: parent.height
+                backgroundColor: "#e0e0ff"   // light blue background
+                title: "pulseBlue"
+                titleColor: "blue"
+                description: "High-performance side-scan echo sounder"
+                illustrationSource: "./image/PulseBlueImage400.png"
+                versions: ["v1.0"]
+                version: "v1.0"
+                onSelected: {
+                    pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseBlue
+                    pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseBlue
+                    PulseSettings.devName = pulseRuntimeSettings.modelPulseBlue
+                    //PulseSettings.userManualSetName = PulseSettings.devName
+                    echoSounderSelector.selectedDevice = pulseRuntimeSettings.modelPulseBlue
+                    echoSounderSelector.selectionMade = true
+                    pulseRuntimeSettings.devManualSelected = true
+
+                    //mainview.windowShadow = false
+                }
+            }
+        }
+
+
+        // Define states for when a selection has been made.
+        states: [
+            State {
+                name: "selectedRed"
+                when: echoSounderSelector.selectionMade && echoSounderSelector.selectedDevice === pulseRuntimeSettings.modelPulseRed
+                // Hide the blue selector.
+                PropertyChanges { target: pulseBlueSelector; visible: false }
+                // Re-anchor pulseRedSelector to the center.
+                PropertyChanges {
+                    target: pulseRedSelector
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            },
+            State {
+                name: "selectedBlue"
+                when: echoSounderSelector.selectionMade && echoSounderSelector.selectedDevice === pulseRuntimeSettings.modelPulseBlue
+                PropertyChanges { target: pulseRedSelector; visible: false }
+                PropertyChanges {
+                    target: pulseBlueSelector
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+        ]
+
+        // Animate the movement of the selected item to the center.
+        transitions: [
+            Transition {
+                from: ""; to: "selectedRed"
+                NumberAnimation {
+                    target: pulseRedSelector;
+                    properties: "x,y";
+                    duration: 1500;
+                    easing.type: Easing.InOutQuad
+                }
+            },
+            Transition {
+                from: ""; to: "selectedBlue"
+                NumberAnimation {
+                    target: pulseBlueSelector;
+                    properties: "x,y";
+                    duration: 1500;
+                    easing.type: Easing.InOutQuad
+                }
+            }
+
+        ]
+
+
+        // After the glow effect, fade out the entire container.
+        SequentialAnimation on opacity {
+            // Start when a selection has been made.
+            running: echoSounderSelector.selectionMade
+            // Wait for the glow animation to complete.
+            PauseAnimation { duration: 2000 }
+            NumberAnimation { from: 1; to: 0; duration: 1000 }
+            ScriptAction {
+                script: {
+                    //echoSounderSelector.visible = false;
+                    pulseRuntimeSettings.devManualSelected = true;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: logo
+        anchors.horizontalCenter: echoSounderSelector.horizontalCenter
+        anchors.top: echoSounderSelector.bottom
+        anchors.topMargin: 10
+        width: 768
+        height: 432
+        color: "transparent"
+        visible: !pulseRuntimeSettings.devManualSelected || !pulseRuntimeSettings.appConfigured
+
+        Image {
+            id: logoImage
+            anchors.fill: parent
+            source: "./image/techadvision_logo_color.png"
+            fillMode: Image.PreserveAspectFit
+            //opacity: 0.2
+        }
+    }
+
 }
