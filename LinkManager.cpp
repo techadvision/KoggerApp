@@ -274,6 +274,21 @@ void LinkManager::importPinnedLinksFromXML()
                 <is_not_available>false</is_not_available>
                 <connection_status>true</connection_status>
             </link>
+            <link>
+                <uuid>{2ad43efc-61d1-4321-a925-a8e0cd188ca2}</uuid>
+                <control_type>1</control_type>
+                <port_name>/dev/bus/usb/001/002</port_name>
+                <baudrate>921600</baudrate>
+                <parity>false</parity>
+                <link_type>1</link_type>
+                <address></address>
+                <source_port></source_port>
+                <destination_port></destination_port>
+                <is_pinned>true</is_pinned>
+                <is_hided>false</is_hided>
+                <is_not_available>false</is_not_available>
+                <connection_status>true</connection_status>
+            </link>
         </pinned_links>
     )";
 
