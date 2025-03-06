@@ -4,23 +4,35 @@ import QtQuick.Controls 2.15
 import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.1
 import org.techadvision.settings 1.0
-
+import org.techadvision.runtime 1.0
 
 ColumnLayout {
     id: columnItem
     spacing: 0
     Layout.margins: 0
     property var dev: null
+    /*
+      State: Device is unknown
+
+      */
+    property bool settingsNotNull: false
     property bool settingsCompleted: false
     property bool deviceIdentified: false
+    property bool deviceSelected: false
     property bool persistentSettingsChecked: false
-    //property string pulseSideScanTransducer: "NAME_OF_SIDESCAN"
-    //property string pulse2DTransducer: "ECHO20"
-    property string pulseSideScanTransducer: "ECHO20"
-    property string pulse2DTransducer: "NAME_OF_SIDESCAN"
     property string transducerName: "not_determined"
+    property bool shouldLookForDevice: false
+    property bool dataUpdateDidChange: false
+    property var lostConnectionAlert: null
+    property bool showLostConnection: false
+    //TODO: reduce delayTimerRepeat to 200 ms when we have SSS transducer with a unique value and not ECHO20
+    property int delayTimerRepeat: 200
 
     signal transducerDetected(string transducer)
+
+    onDeviceIdentifiedChanged: {
+        console.log("TAV: received a onDeviceIdentifiedChanged");
+    }
 
     onTransducerDetected: {
         console.log("TAV: onTransducerDetected");
@@ -41,112 +53,303 @@ ColumnLayout {
         }
     }
 
+    function setPlotGeneral() {
+        // Default values for all Pulse devices
+        console.log("TAV: setPlotGeneral - start");
+        targetPlot.plotEchogramVisible(true)
+        targetPlot.plotRangefinderVisible(false)
+        targetPlot.plotGNSSVisible(false, 1)
+        targetPlot.plotGridVerticalNumber(5)
+        targetPlot.plotGridFillWidth(false)
+        targetPlot.plotAngleVisibility(false)
+        targetPlot.plotVelocityVisible(false)
+        targetPlot.plotDistanceAutoRange(0)
+
+        // Bottom BottomTrack
+        targetPlot.setPreset(0)
+
+        console.log("TAV: setPlotGeneral - done");
+    }
+
+    function setPlotPulseRed () {
+        // Device depentent values for PulseRed
+        console.log("TAV: setPlotPulseRed - start");
+
+        // General plot
+        targetPlot.plotEchogramCompensation(0)
+        targetPlot.plotDatasetChannel(32767, 32768)
+        core.setSideScanChannels(32767, 32768)
+
+        // Bottom tracking
+        if (pulseRuntimeSettings.processBottomTrack) {
+            doBottomTracking()
+        }
+
+
+        console.log("TAV: setPlotPulseRed - done");
+    }
+
+    function setPlotPulseBlue () {
+        // Device depentent values for PulseBlue
+        console.log("TAV: setPlotPulseBlue - start");
+
+        // General plot
+        targetPlot.plotEchogramCompensation(1)
+        targetPlot.plotDatasetChannel(32767, 1)
+        core.setSideScanChannels(32767, 1)
+
+        // Bottom tracking
+        if (pulseRuntimeSettings.processBottomTrack) {
+            doBottomTracking()
+        }
+
+
+        console.log("TAV: setPlotPulseBlue - done");
+    }
+
+    function doBottomTracking () {
+        console.log("TAV: doBottomTracking - start");
+        targetPlot.plotBottomTrackVisible(true)
+        targetPlot.plotRangefinderTheme(0)
+        console.log("TAV: doBottomTracking - distanceParams", pulseRuntimeSettings.distProcessing);
+        //targetPlot.refreshDistParams(pulseRuntimeSettings.distProcessing)
+        targetPlot.refreshDistParams(
+            pulseRuntimeSettings.distProcessing[0],
+            pulseRuntimeSettings.distProcessing[1],
+            pulseRuntimeSettings.distProcessing[2],
+            pulseRuntimeSettings.distProcessing[3],
+            pulseRuntimeSettings.distProcessing[4],
+            pulseRuntimeSettings.distProcessing[5],
+            pulseRuntimeSettings.distProcessing[6],
+            pulseRuntimeSettings.distProcessing[7],
+            pulseRuntimeSettings.distProcessing[8],
+            pulseRuntimeSettings.distProcessing[9]
+        )
+        targetPlot.doDistProcessing(
+            pulseRuntimeSettings.distProcessing[0],
+            pulseRuntimeSettings.distProcessing[1],
+            pulseRuntimeSettings.distProcessing[2],
+            pulseRuntimeSettings.distProcessing[3],
+            pulseRuntimeSettings.distProcessing[4],
+            pulseRuntimeSettings.distProcessing[5],
+            pulseRuntimeSettings.distProcessing[6],
+            pulseRuntimeSettings.distProcessing[7],
+            pulseRuntimeSettings.distProcessing[8],
+            pulseRuntimeSettings.distProcessing[9]
+        )
+        console.log("TAV: doBottomTracking - done");
+    }
+
+
+
+    function configurePulseDevice () {
+        // Function sets device values to match user's device, determined by the pulseRuntimeSettings.devName
+
+        console.log("TAV: pulseRuntimeSettings, plot specific, for", pulseRuntimeSettings.devName);
+
+        if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed) {
+            setPlotPulseRed()
+        } else {
+            setPlotPulseBlue()
+        }
+
+        console.log("TAV: pulseRuntimeSettings - for", pulseRuntimeSettings.devName);
+
+        // ECHOGRAM
+        dev.chartResolution = pulseRuntimeSettings.chartResolution
+        dev.chartSamples    = pulseRuntimeSettings.chartSamples
+        dev.chartOffset     = pulseRuntimeSettings.chartOffset
+
+        // RANGEFINDER
+        dev.distMax         = pulseRuntimeSettings.distMax
+        dev.distDeadZone    = pulseRuntimeSettings.distDeadZone
+        dev.distConfidence  = pulseRuntimeSettings.distConfidence
+
+        // TRANSDUCER
+        dev.transPulse      = pulseRuntimeSettings.transPulse
+        dev.transFreq       = pulseRuntimeSettings.transFreq
+        dev.transBoost      = pulseRuntimeSettings.transBoost
+
+        // DSP
+        dev.dspHorSmooth    = pulseRuntimeSettings.dspHorSmooth
+        dev.soundSpeed      = pulseRuntimeSettings.soundSpeed
+
+        // DATASET
+        dev.ch1Period       = pulseRuntimeSettings.ch1Period
+        dev.datasetChart    = pulseRuntimeSettings.datasetChart
+        dev.setDatasetDist  = pulseRuntimeSettings.datasetDist
+        dev.datasetSDDBT    = pulseRuntimeSettings.datasetSDDBT
+        dev.datasetEuler    = pulseRuntimeSettings.datasetEuler
+        dev.datasetTemp     = pulseRuntimeSettings.datasetTemp
+        dev.datasetTimestamp= pulseRuntimeSettings.datasetTimestamp
+
+        pulseRuntimeSettings.devIdentified = true
+
+        console.log("TAV: pulseSettings - done");
+    }
+
+
+    Connections {
+        target: pulseRuntimeSettings
+        //Manual selection in the user interface will trigger this.
+        //We will need to be able to for browsing a KLF with proper UI when no device is connected
+        /*
+        function onDevManualSelectedChanged() {
+            if (pulseRuntimeSettings.devManualSelected && dev.devName === "...") {
+                delayTimer.stop()
+                //dev.setDevName(pulseRuntimeSettings.devName)
+                PulseSettings.devName = pulseRuntimeSettings.devName
+                configurePulseDevice()
+                pulseRuntimeSettings.devIdentified = false //???
+                console.log("TAV: deviceItem onDevManualSelectedChanged true, model", echoSounderSelector.selectedDevice);
+            } else {
+                console.log("TAV: deviceItem onDevManualSelectedChanged false, skip");
+            }
+        }
+        */
+        //Update the runtime value
+        function onTransFreqChanged() {
+            dev.transFreq = pulseRuntimeSettings.transFreq
+            console.log("TAV: onTransFreqChanged new frequency is", pulseRuntimeSettings.transFreq);
+        }
+        //DevDriver sets the pulseRuntimeSettings.devName, triggering this alert. Name will be "..." for no device or real device name
+        function onDevNameChanged() {
+            console.log("TAV: onDevNameChanged to:", pulseRuntimeSettings.devName);
+            PulseSettings.devname = pulseRuntimeSettings.devName
+            if (pulseRuntimeSettings.devName === "...") {
+                pulseRuntimeSettings.devIdentified = false
+                pulseRuntimeSettings.isReceivingData = false
+                //deviceIdentified = false
+            } else {
+                //deviceIdentified = true
+                pulseRuntimeSettings.devIdentified = true
+                pulseRuntimeSettings.isReceivingData = true
+                pulseRuntimeSettings.didEverReceiveData = true
+            }
+            if (pulseRuntimeSettings.hasDeviceLostConnection) {
+                if (pulseRuntimeSettings.devName !== "...") {
+                    if (pulseRuntimeSettings.didEverReceiveData) {
+                        //dataUpdateDidChange = true
+                        pulseRuntimeSettings.isReceivingData = true
+                        pulseRuntimeSettings.hasDeviceLostConnection = false
+                        console.log("TAV: device is present, observed onTimelinePositionChanged reconnection");
+                    }
+                    if (!pulseRuntimeSettings.didEverReceiveData) {
+                        //dataUpdateDidChange = true
+                        pulseRuntimeSettings.isReceivingData = true
+                        pulseRuntimeSettings.didEverReceiveData = true
+                        pulseRuntimeSettings.hasDeviceLostConnection = false
+                        console.log("TAV: device is present, observed onTimelinePositionChanged");
+                    }
+                } else {
+                    console.log("TAV: new device name is ..., cannot assume we regained connection");
+                }
+
+
+            }
+        }
+    }
+
+    // Connections to detect the live data feed is still alive
+
+    Connections {
+        target: dataset
+        //Dataupdate is triggered by receiving data from transducer, but will also be triggered by loading a KLF file
+        //Data update restarts the lostConnectionTimer to avoid it being triggered
+        function onDataUpdate () {
+            lostConnectionTimer.restart();
+        }
+    }
+
+
+    // Timer to detect connection loss, this is shown in main
     Timer {
+        id: lostConnectionTimer
+        interval: 500  // 0.5 seconds
+        repeat: false
+        running: false
+        onTriggered: {
+            if (pulseRuntimeSettings.didEverReceiveData) {
+                if (pulseRuntimeSettings.devName !== "...") {
+                    pulseRuntimeSettings.isReceivingData = false;
+                    pulseRuntimeSettings.hasDeviceLostConnection = true
+                    dataUpdateDidChange = false
+                    console.log("TAV: lost connection will be triggered for device", pulseRuntimeSettings.devName);
+                } else {
+                    console.log("TAV: We do not loose connection for an unknown device", pulseRuntimeSettings.devNam);
+                }
+            } else {
+                console.log("TAV: We do not loose connection when we never received any data");
+            }
+        }
+    }
+
+
+    Timer {
+        //Delay timer was created when we could not reliably expect the device name to be delivered
+        //With a predictable solution where DevDriver sets PulseRuntimeSetting.devName we should no longer need this
+        //To be altered to a new solution:
+        //Initial blockers makes sense, as do the two booleans
         id: delayTimer
-        interval: 3000
+        interval: delayTimerRepeat
         repeat: !settingsCompleted || !deviceIdentified
         onTriggered: {
 
             /* -- PULSE: DEFAULT SETTINGS AT STARTUP -- */
             if (settingsCompleted && deviceIdentified) {
-                console.log("TAV: No further trying to modify settings after we've set it once");
+                console.log("TAV: delaytimer, settingsCompleted && deviceIdentified, all done!");
                 return
             }
 
-            if (dev === null) {
-                console.log("TAV: DEV is still null");
+            if (PulseSettings === null || pulseRuntimeSettings === null) {
+                console.log("TAV: delayTimer, settings === null, not ready to proceed");
                 return
             }
 
-            if (!persistentSettingsChecked) {
-                persistentSettingsChecked = true
-                console.log("TAV: setting maxDepthValue ", PulseSettings.maxDepthValue);
-                console.log("TAV: setting autoRange ", PulseSettings.autoRange);
-                console.log("TAV: setting intensityDisplayValue ", PulseSettings.intensityDisplayValue);
-                console.log("TAV: setting intensityRealValue ", PulseSettings.intensityRealValue);
-                console.log("TAV: setting filterDisplayValue ", PulseSettings.filterDisplayValue);
-                console.log("TAV: setting filterRealValue ", PulseSettings.filterRealValue);
-                console.log("TAV: setting colorMapIndex ", PulseSettings.colorMapIndex);
-                console.log("TAV: setting ecoViewIndex ", PulseSettings.ecoViewIndex);
-                console.log("TAV: setting ecoConeIndex ", PulseSettings.ecoConeIndex);
-                console.log("TAV: setting useMetricValues ", PulseSettings.useMetricValues);
-                console.log("TAV: setting useEchogram ", PulseSettings.useEchogram);
-                console.log("TAV: setting useDistance ", PulseSettings.useDistance);
-                console.log("TAV: setting useTemperature ", PulseSettings.useTemperature);
-                console.log("TAV: setting is2DTransducer ", PulseSettings.is2DTransducer);
+            if (dev === null && pulseRuntimeSettings.userManualSetName === "...") {
+                console.log("TAV: delayTimer, dev === null, not ready to proceed");
+                return
             }
 
             if (!settingsCompleted || !deviceIdentified) {
-
-                if (!settingsCompleted) {
-                    settingsCompleted = true
-
-                    // ECHOGRAM
-                    dev.chartResolution = 10            // Resolution mm:           2D & SS: 10
-                    dev.chartSamples    = 2000          // Number of samples:       2D: 2000, SS: 4000
-                    dev.chartOffset     = 0             // Offset of samples:       2D & SS: 0
-
-                    // RANGEFINDER
-                    dev.distMax         = 50000         // Max distance mm:         2D & SS: 50000
-                    dev.distDeadZone    = 0             // Dead zone:               2D & SS: 0
-                    dev.distConfidence  = 14            // Confidence Threshold:    2D & SS: 14
-
-                    // TRANSDUCER
-                    dev.transPulse      = 10            // Pulse Count:             2D & SS: 10
-                    dev.transFreq       = 710           // Frequency, kHz:          2D & SS: 710 (235 = 21 degrees, 735 = 7 degrees)
-                    dev.transBoost      = 0             // Booster:                 2D: 0 & SS: 1
-
-                    // DSP
-                    dev.dspHorSmooth    = 0             // Horizontal Smoothing:    2D & SS: 0
-                    dev.soundSpeed      = 1480 * 1000   // Speed of sound m/s:      2D & SS: 1480
-
-                    // DATASET
-                    dev.ch1Period       = 50            // Period:                  2D & SS: 50
-                    dev.datasetChart    = 1             // Echogram:                2D & SS: 1 ("8-bit")
-                    dev.datasetDist     = 1             // Rangefinder:             2D & SS: 2 ("NMEA"), 1 = "on"
-                    dev.datasetEuler    = 0             // AHRS:                    2D & SS: 0  "OFF"
-                    dev.datasetTemp     = 0             // Temperature              2D & SS: 0  "OFF" (for now, later "1")
-                    dev.datasetTimestamp= 0             // Timestamp                2D & SS: 0  "OFF"
-
-                    // LOG EVENT
-                    console.log("TAV: Applied general TechAdVision settings");
+                if (false) {
+                    //Automatically selected
+                    if (pulseRuntimeSettings.devIdentified && !pulseRuntimeSettings.devConfigured) {
+                        deviceIdentified = true
+                        settingsCompleted = true
+                        pulseRuntimeSettings.devConfigured = true
+                        pulseRuntimeSettings.devName = pulseRuntimeSettings.devName
+                        dev.devName === pulseRuntimeSettings.devName
+                        console.log("TAV: delayTimer, device automatically detected");
+                        configurePulseDevice()
+                        pulseRuntimeSettings.appConfigured = true
+                        //return
+                    }
                 }
 
-                if (!deviceIdentified) {
-                    if (dev.devName === pulseSideScanTransducer) {
-                        deviceIdentified = true
-                        dev.chartSamples    = 4000
-                        PulseSettings.useTemperature = false
-                        PulseSettings.is2DTransducer = false
-                        detectTransducer(dev.devName)
-                        console.log("TAV: Adapted settings for a side scan sonar");
-                        console.log("TAV: useTemperature: ", PulseSettings.useTemperature);
-                        console.log("TAV: is2DTransducer: ", PulseSettings.is2DTransducer);
-                        PulseSettings.transducerChangeDetected = false
-                        PulseSettings.transducerChangeDetected = true
-                    }
-                    if (dev.devName === pulse2DTransducer) {
-                        deviceIdentified = true
-                        PulseSettings.useTemperature = true
-                        PulseSettings.is2DTransducer = true
-                        detectTransducer(dev.devName)
-                        console.log("TAV: Adapted settings for a 2D sonar");
-                        console.log("TAV: useTemperature: ", PulseSettings.useTemperature);
-                        console.log("TAV: is2DTransducer: ", PulseSettings.is2DTransducer);
-                        PulseSettings.transducerChangeDetected = false
-                        PulseSettings.transducerChangeDetected = true
-                    }
-                    if (!deviceIdentified) {
-                        console.log("TAV: Transducer named as ", dev.devName);
-                    }
+                //Manually selected
+                if (pulseRuntimeSettings.devManualSelected && !deviceSelected) {
+                //if (!pulseRuntimeSettings.devIdentified && pulseRuntimeSettings.devManualSelected && !deviceSelected) {
+                    deviceSelected = true
+                    /*
+                      TODO: The below to be removed (deviceIdentified = true) when we have proper names for the SSS transducer
+                    */
+                    deviceIdentified = true
+                    // TODO: Remove the above later!!!
+                    dev.devName === pulseRuntimeSettings.devName
+                    //delayTimerRepeat = 5000
+                    console.log("TAV: delayTimer, was manually selected, will still try to look for the real device at every ms", delayTimerRepeat);
+                    configurePulseDevice()
+                    pulseRuntimeSettings.appConfigured = true
+                    //return
                 }
             }
         }
     }
 
     Component.onCompleted: {
-        console.log("TAV Device item completed, let's set the standardized settings");
-        //PREFERENCES
+        console.log("TAV deviceItem onCompleted");
+        setPlotGeneral()
         delayTimer.start()
     }
 
@@ -161,12 +364,14 @@ ColumnLayout {
                 to: 100
                 stepSize: 10
                 value: 0
-                devValue: dev !== null ? dev.chartResolution : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartResolution : 0
+                //devValue: dev !== null ? dev.chartResolution : 0
                 isValid: dev !== null ? dev.chartSetupState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.chartResolution = value
+                        pulseRuntimeSettings.chartResolution = value
+                        dev.chartResolution = pulseRuntimeSettings.chartResolution
                     }
                     isDriverChanged = false
                 }
@@ -181,12 +386,14 @@ ColumnLayout {
                 to: 15000
                 stepSize: 100
                 value: 0
-                devValue: dev !== null ? dev.chartSamples : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartSamples : 0
+                //devValue: dev !== null ? dev.chartSamples : 0
                 isValid: dev !== null ? dev.chartSetupState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.chartSamples = value
+                        pulseRuntimeSettings.chartSamples = value
+                        dev.chartSamples = pulseRuntimeSettings.chartSamples
                     }
                     isDriverChanged = false
                 }
@@ -201,12 +408,14 @@ ColumnLayout {
                 to: 10000
                 stepSize: 100
                 value:0
-                devValue: dev !== null ? dev.chartOffset : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartOffset : 0
+                //devValue: dev !== null ? dev.chartOffset : 0
                 isValid: dev !== null ? dev.chartSetupState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.chartOffset = value
+                        pulseRuntimeSettings.chartOffset = value
+                        dev.chartOffset = pulseRuntimeSettings.chartOffset
                     }
                     isDriverChanged = false
                 }
@@ -225,12 +434,14 @@ ColumnLayout {
                 to: 50000;
                 stepSize: 1000
                 value: 0
-                devValue: dev !== null ? dev.distMax : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distMax : 0
+                //devValue: dev !== null ? dev.distMax : 0
                 isValid: dev !== null ? dev.distSetupState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.distMax = value
+                        pulseRuntimeSettings.distMax = value
+                        dev.distMax = pulseRuntimeSettings.distMax
                     }
                     isDriverChanged = false
                 }
@@ -245,12 +456,14 @@ ColumnLayout {
                 to: 50000
                 stepSize: 100
                 value: 0
-                devValue: dev !== null ? dev.distDeadZone : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distDeadZone : 0
+                //devValue: dev !== null ? dev.distDeadZone : 0
                 isValid: dev !== null ? dev.distSetupState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.distDeadZone = value
+                        pulseRuntimeSettings.distDeadZone = value
+                        dev.distDeadZone = pulseRuntimeSettings.distDeadZone
                     }
                     isDriverChanged = false
                 }
@@ -265,12 +478,14 @@ ColumnLayout {
                 to: 100
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? dev.distConfidence : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distConfidence : 0
+                //devValue: dev !== null ? dev.distConfidence : 0
                 isValid: dev !== null ? dev.distSetupState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.distConfidence = value
+                        pulseRuntimeSettings.distConfidence = value
+                        dev.distConfidence = pulseRuntimeSettings.distConfidence
                     }
                     isDriverChanged = false
                 }
@@ -289,12 +504,14 @@ ColumnLayout {
                 to: 5000
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? dev.transPulse : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transPulse : 0
+                //devValue: dev !== null ? dev.transPulse : 0
                 isValid: dev !== null ? dev.transcState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.transPulse = value
+                        pulseRuntimeSettings.transPulse = value
+                        dev.transPulse = pulseRuntimeSettings.transPulse
                     }
                     isDriverChanged = false
                 }
@@ -309,12 +526,14 @@ ColumnLayout {
                 to: 6000
                 stepSize: 5
                 value: 0
-                devValue: dev !== null ? dev.transFreq : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transFreq : 0
+                //devValue: dev !== null ? dev.transFreq : 0
                 isValid: dev !== null ? dev.transcState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.transFreq = value
+                        pulseRuntimeSettings.transFreq = value
+                        dev.transFreq = pulseRuntimeSettings.transFreq
                     }
                     isDriverChanged = false
                 }
@@ -329,12 +548,14 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? dev.transBoost : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transBoost : 0
+                //devValue: dev !== null ? dev.transBoost : 0
                 isValid: dev !== null ? dev.transcState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.transBoost = value
+                        pulseRuntimeSettings.transBoost = value
+                        dev.transBoost = pulseRuntimeSettings.transBoost
                     }
                     isDriverChanged = false
                 }
@@ -371,12 +592,14 @@ ColumnLayout {
                 to: 4
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? dev.dspHorSmooth : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.dspHorSmooth : 0
+                //devValue: dev !== null ? dev.dspHorSmooth : 0
                 isValid: dev !== null ? dev.dspState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.dspHorSmooth = value
+                        pulseRuntimeSettings.dspHorSmooth = value
+                        dev.dspHorSmooth = pulseRuntimeSettings.dspHorSmooth
                     }
                     isDriverChanged = false
                 }
@@ -391,12 +614,14 @@ ColumnLayout {
                 to: 6000
                 stepSize: 5
                 value: 0
-                devValue: dev !== null ? dev.soundSpeed / 1000 : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.soundSpeed / 1000 : 0
+                //devValue: dev !== null ? dev.soundSpeed / 1000 : 0
                 isValid: dev !== null ? dev.soundState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.soundSpeed = value * 1000
+                        pulseRuntimeSettings.soundSpeed = value * 1000
+                        dev.soundSpeed = pulseRuntimeSettings.soundSpeed
                     }
                     isDriverChanged = false
                 }
@@ -415,12 +640,14 @@ ColumnLayout {
                 to: 2000
                 stepSize: 50
                 value: 0
-                devValue: dev !== null ? dev.ch1Period : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.ch1Period : 0
+                //devValue: dev !== null ? dev.ch1Period : 0
                 isValid: dev !== null ? dev.datasetState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        dev.ch1Period = value
+                        pulseRuntimeSettings.ch1Period = value
+                        dev.ch1Period = pulseRuntimeSettings.ch1Period
                     }
                     isDriverChanged = false
                 }
@@ -435,18 +662,19 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? dev.datasetChart === 1 : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetChart : 0
+                //devValue: dev !== null ? dev.datasetChart === 1 : 0
                 isValid: dev !== null ? dev.datasetState : false
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
                         if (value == 1) {
-                            dev.datasetChart = 1
+                            pulseRuntimeSettings.datasetChart = 1
+                        } else {
+                            pulseRuntimeSettings.datasetChart = 0
                         }
-                        else {
-                            dev.datasetChart = 0
-                        }
+                        dev.datasetChart = pulseRuntimeSettings.datasetChart
                     }
                     isDriverChanged = false
                 }
@@ -466,21 +694,26 @@ ColumnLayout {
                 to: 2
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? (dev.datasetDist === 1 ? 1 : dev.datasetSDDBT === 1 ? 2 : 0) : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? (pulseRuntimeSettings.datasetDist === 1 ? 1 : pulseRuntimeSettings.datasetSDDBT === 1 ? 2 : 0) : 0
+                //devValue: dev !== null ? (dev.datasetDist === 1 ? 1 : dev.datasetSDDBT === 1 ? 2 : 0) : 0
                 isValid: dev !== null ? dev.datasetState : false
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
                         if (value == 1) {
-                            dev.datasetDist = 1
+                            pulseRuntimeSettings.datasetDist = 1
+                            dev.datasetDist = pulseRuntimeSettings.datasetDist
                         }
                         else if (value == 2) {
-                            dev.datasetSDDBT = 1
+                            pulseRuntimeSettings.datasetSDDBT = 1
+                            dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
                         }
                         else {
-                            dev.datasetDist = 0
-                            dev.datasetSDDBT = 0
+                            pulseRuntimeSettings.datasetDist = 0
+                            dev.datasetDist = pulseRuntimeSettings.datasetDist
+                            pulseRuntimeSettings.datasetSDDBT = 0
+                            dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
                         }
                     }
                     isDriverChanged = false
@@ -502,16 +735,19 @@ ColumnLayout {
                 stepSize: 1
                 editable: false
                 value: 0
-                devValue: dev !== null ? ((dev.datasetEuler & 1) === 1) : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetEuler : 0
+                //devValue: dev !== null ? ((dev.datasetEuler & 1) === 1) : 0
                 isValid: dev !== null ? dev.datasetState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
                         if (value == 1) {
-                            dev.datasetEuler = 1
+                            pulseRuntimeSettings.datasetEuler = 1
+                            dev.datasetEuler = pulseRuntimeSettings.datasetEuler
                         }
                         else if (dev.datasetEuler & 1) {
-                            dev.datasetEuler = 0
+                            pulseRuntimeSettings.datasetEuler = 0
+                            dev.datasetEuler = pulseRuntimeSettings.datasetEuler
                         }
                     }
                     isDriverChanged = false
@@ -532,18 +768,19 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? ((dev.datasetTemp & 1) === 1) : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTemp : 0
+                //devValue: dev !== null ? ((dev.datasetTemp & 1) === 1) : 0
                 isValid: dev !== null ? dev.datasetState : false
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
                         if(value == 1) {
-                            dev.datasetTemp = 1
+                            pulseRuntimeSettings.datasetTemp = 1
+                        } else if (dev.datasetTemp & 1) {
+                            pulseRuntimeSettings.datasetTemp = 0
                         }
-                        else if (dev.datasetTemp & 1) {
-                            dev.datasetTemp = 0
-                        }
+                        dev.datasetTemp = pulseRuntimeSettings.datasetTemp
                     }
                     isDriverChanged = false
                 }
@@ -563,18 +800,19 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
-                devValue: dev !== null ? ((dev.datasetTimestamp & 1) === 1) : 0
+                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTimestamp : 0
+                //devValue: dev !== null ? ((dev.datasetTimestamp & 1) === 1) : 0
                 isValid: dev !== null ? dev.datasetState : false
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
                         if (value == 1) {
-                            dev.datasetTimestamp = 1
+                            pulseRuntimeSettings.datasetTimestamp = 1
+                        } else if (dev.datasetTimestamp & 1) {
+                            pulseRuntimeSettings.datasetTimestamp = 0
                         }
-                        else if (dev.datasetTimestamp & 1) {
-                            dev.datasetTimestamp = 0
-                        }
+                        dev.datasetTimestamp = pulseRuntimeSettings.datasetTimestamp
                     }
                     isDriverChanged = false
                 }

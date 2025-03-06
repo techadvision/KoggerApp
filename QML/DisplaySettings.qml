@@ -40,7 +40,6 @@ GridLayout {
 
                 CCombo  {
                     id: channel1Combo
-//                    Layout.fillWidth: true
                     currentIndex: 1
                     Layout.preferredWidth: rowDataset.width/3
                     visible: true
@@ -530,6 +529,24 @@ GridLayout {
             property bool autoApplyChange: false
 
             Component.onCompleted: {
+
+                /*
+                targetPlot.refreshDistParams(
+                    pulseRuntimeSettings.distProcessing[0],
+                    pulseRuntimeSettings.distProcessing[1],
+                    pulseRuntimeSettings.distProcessing[2],
+                    pulseRuntimeSettings.distProcessing[3],
+                    pulseRuntimeSettings.distProcessing[4],
+                    pulseRuntimeSettings.distProcessing[5],
+                    pulseRuntimeSettings.distProcessing[6],
+                    pulseRuntimeSettings.distProcessing[7],
+                    pulseRuntimeSettings.distProcessing[8],
+                    pulseRuntimeSettings.distProcessing[9]
+                )
+                */
+
+
+
                 targetPlot.refreshDistParams(bottomTrackList.currentIndex,
                                              bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
                                              bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value* 0.01 : 0,
@@ -540,9 +557,26 @@ GridLayout {
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueX.value *  0.001 : 0,
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value *  0.001 : 0,
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
+
             }
 
+
             function updateProcessing() {
+
+                /*
+                targetPlot.doDistProcessing(
+                    pulseRuntimeSettings.distProcessing[0],
+                    pulseRuntimeSettings.distProcessing[1],
+                    pulseRuntimeSettings.distProcessing[2],
+                    pulseRuntimeSettings.distProcessing[3],
+                    pulseRuntimeSettings.distProcessing[4],
+                    pulseRuntimeSettings.distProcessing[5],
+                    pulseRuntimeSettings.distProcessing[6],
+                    pulseRuntimeSettings.distProcessing[7],
+                    pulseRuntimeSettings.distProcessing[8],
+                    pulseRuntimeSettings.distProcessing[9]
+                                    );
+                */
                 targetPlot.doDistProcessing(bottomTrackList.currentIndex,
                                             bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
                                             bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value*0.01 : 0,
@@ -554,6 +588,8 @@ GridLayout {
                                             bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value*0.001 : 0,
                                             bottomTrackSensorOffset.checked ? -bottomTrackSensorOffsetValueZ.value*0.001 : 0
                                             );
+
+
             }
 
             RowLayout {
