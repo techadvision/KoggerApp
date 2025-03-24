@@ -11,8 +11,18 @@ LinkListModel::LinkListModel(QObject* parent) :
 
 QVariant LinkListModel::data(const QModelIndex &index, int role) const
 {
+    // First check that the role index is within range
+    //qDebug() << "LinkListModel check 1";
+    if (role < 0 || role >= vectors_.size()) {
+        return QVariant("No data");
+    }
+
+
+    //qDebug() << "LinkListModel check 2";
     const int indexRow = index.row();
+    //qDebug() << "LinkListModel check 3";
     QVector<QVariant> vectorRole = vectors_[role];
+    //qDebug() << "LinkListModel check 4";
 
     if (indexRow < 0 || vectorRole.size() <= indexRow)
         return {"No data"};

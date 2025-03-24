@@ -1,4 +1,5 @@
 #include "StreamListModel.h"
+#include <QDebug>
 
 
 StreamListModel::StreamListModel(QObject* parent)
@@ -8,8 +9,16 @@ StreamListModel::StreamListModel(QObject* parent)
 
 
 QVariant StreamListModel::data(const QModelIndex &index, int role) const{
+    // Check that role is valid.
+    //qDebug() << "StreamListModel check 1";
+    if (role < 0 || role >= _vectors.size()) {
+        return QVariant("No data");
+    }
+    //qDebug() << "StreamListModel check 2";
     const int indexRow = index.row();
+    //qDebug() << "StreamListModel check 3";
     QVector<QVariant> vectorRole = _vectors[role];
+    //qDebug() << "StreamListModel check 4";
     if (indexRow < 0 || vectorRole.size() <= indexRow) {
         return {"No data"};
     }

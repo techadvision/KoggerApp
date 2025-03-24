@@ -1,4 +1,5 @@
 #include "consolelistmodel.h"
+#include <QDebug>
 
 ConsoleListModel::ConsoleListModel(QObject* parent)
     : QAbstractListModel(parent)
@@ -11,8 +12,16 @@ void ConsoleListModel::init() {
 }
 
 QVariant ConsoleListModel::data(const QModelIndex &index, int role) const{
+    // Check that role is valid
+    //qDebug() << "ConsoleListModel check 1";
+    if (role < 0 || role >= _vectors.size()) {
+        return QVariant("No data");
+    }
+    //qDebug() << "ConsoleListModel check 2";
     const int indexRow = index.row();
+    //qDebug() << "ConsoleListModel check 3";
     QVector<QVariant> vectorRole = _vectors[role];
+    //qDebug() << "ConsoleListModel check 4";
     if (indexRow < 0 || vectorRole.size() <= indexRow) {
         return {"No data"};
     }
