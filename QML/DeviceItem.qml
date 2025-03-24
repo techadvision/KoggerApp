@@ -183,7 +183,10 @@ ColumnLayout {
         dev.datasetTemp     = pulseRuntimeSettings.datasetTemp
         dev.datasetTimestamp= pulseRuntimeSettings.datasetTimestamp
 
+        pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution
+        pulseRuntimeSettings.scrollingSpeed = pulseRuntimeSettings.ch1Period
         pulseRuntimeSettings.devIdentified = true
+        core.fixBlackStripes= true
 
         console.log("TAV: pulseSettings - done");
     }
@@ -248,6 +251,46 @@ ColumnLayout {
 
             }
         }
+        function onAutoDepthMaxLevelChanged () {
+            if (pulseRuntimeSettings.shouldDoAutoRange) {
+                //dev.distMax = (pulseRuntimeSettings.autoDepthMaxLevel) * 1000
+                console.log("TAV: Adjusted max distance to ", pulseRuntimeSettings.autoDepthMaxLevel);
+            }
+        }
+        function onManualSetLevelChanged () {
+            if (!pulseRuntimeSettings.shouldDoAutoRange) {
+                //dev.distMax = (pulseRuntimeSettings.manualSetLevel) * 1000
+                console.log("TAV: Adjusted max distance manual to ", pulseRuntimeSettings.manualSetLevel);
+            }
+        }
+        function onDynamicResolutionChanged () {
+            console.log("TAV: onDynamicResolutionChanged triggered, right now the pulseRuntimeSettings.modelPulseBlue is ", pulseRuntimeSettings.modelPulseBlue)
+            if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue) {
+                console.log("TAV: onDynamicResolutionChanged as not to be used devName  ", pulseRuntimeSettings.modelPulseBlue);
+                return
+            } else {
+                console.log("TAV: onDynamicResolutionChanged passed check, pulseRuntimeSettings.devName not equal to NanoSSS for ", pulseRuntimeSettings.devName);
+            }
+            if (pulseRuntimeSettings.devName === "...") {
+                console.log("TAV: onDynamicResolutionChanged as not to be used devName  ", pulseRuntimeSettings.devName);
+                return
+            } else {
+                console.log("TAV: onDynamicResolutionChanged passed check pulseRuntimeSettings.devName  not equal to ... for ", pulseRuntimeSettings.devName);
+            }
+            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue || pulseRuntimeSettings.userManualSetName === "..."){
+                console.log("TAV: should not set dynamicResolution for manuel set devName ", pulseRuntimeSettings.userManualSetName);
+                return
+            } else {
+                console.log("TAV: onDynamicResolutionChanged passed check pulseRuntimeSettings.userManualSetName not equal to ... or NanoSSS for ", pulseRuntimeSettings.userManualSetName);
+            }
+            pulseRuntimeSettings.chartResolution = pulseRuntimeSettings.dynamicResolution
+            dev.chartResolution = pulseRuntimeSettings.dynamicResolution
+            console.log("TAV: onDynamicResolutionChanged as ", pulseRuntimeSettings.dynamicResolution, ",devName ", pulseRuntimeSettings.devName, ", manSetName ", pulseRuntimeSettings.userManualSetName);
+        }
+        function onScrollingSpeedChanged () {
+            dev.ch1Period = pulseRuntimeSettings.scrollingSpeed
+            console.log("TAV: onScrollingSpeedChanged as ", pulseRuntimeSettings.scrollingSpeed, "for device ", pulseRuntimeSettings.devName);
+        }
     }
 
     // Connections to detect the live data feed is still alive
@@ -259,7 +302,9 @@ ColumnLayout {
         function onDataUpdate () {
             lostConnectionTimer.restart();
         }
+
     }
+
 
 
     // Timer to detect connection loss, this is shown in main
