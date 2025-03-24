@@ -226,6 +226,7 @@ void Plot2D::setRangefinderVisible(bool visible) {
 }
 
 void Plot2D::setRangefinderTheme(int theme_id) {
+    qDebug() << "DevDriver - Plot2D setRangeFinderTheme " << theme_id;
     _rangeFinder.setTheme(theme_id);
     plotUpdate();
 }
@@ -294,10 +295,18 @@ void Plot2D::setDistanceAutoRange(int auto_range_type) {
 }
 
 void Plot2D::setDistance(float from, float to) {
-    _cursor.distance.set(from, to);
+    qDebug() << "DevDriver - Plot2D setDistance from " << from << " to " << to;
+    if (from == 0) {
+        _cursor.distance.set(from, to);
+    } else {
+        _cursor.distance.set(from, to);
+    }
+
+    //_cursor.distance.set(from, to);
 }
 
 void Plot2D::zoomDistance(float ratio) {
+    qDebug() << "DevDriver - Plot2D zoomDistance ratio " << ratio;
     _cursor.distance.mode = AutoRangeNone;
 
     int  delta = ratio;
@@ -333,7 +342,8 @@ void Plot2D::zoomDistance(float ratio) {
     if(_cursor.isChannelDoubled()) {
         if (isHorizontal()) {
             //_cursor.distance.from = -ceil( new_range/2);
-            _cursor.distance.to = ceil(_cursor.distance.from + new_range);
+            //_cursor.distance.to = ceil(_cursor.distance.from + new_range);
+            _cursor.distance.to = -ceil(_cursor.distance.from + new_range);
         } else {
             _cursor.distance.from = -ceil( new_range/2);
             _cursor.distance.to = ceil( new_range/2);
@@ -698,7 +708,7 @@ void Plot2D::reindexingCursor() {
 void Plot2D::reRangeDistance() {
     bool is2D = false;
     bool doPulseAutoRange = false;
-    float pulseAutoRange = 2.0;
+    float pulseAutoRange = 0.5;
     if (g_pulseRuntimeSettings) {
         bool is2DTransducer = g_pulseRuntimeSettings->property("is2DTransducer").toBool();
         bool isSSTransducerIn2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
@@ -746,6 +756,8 @@ void Plot2D::reRangeDistance() {
             }
         }
     }
+
+    //qDebug() << "reRangeDistance - max_range " << max_range  << " pulseAutoRange " << pulseAutoRange;
 
     if (doPulseAutoRange) {
         if(isfinite(max_range)) {
