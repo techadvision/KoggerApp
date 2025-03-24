@@ -11,26 +11,39 @@ QtObject {
     property string modelPulseRed:          "ECHO20"
     property string modelPulseBlue:         "NanoSSS"
     property string userManualSetName:      "..."
+    property string udpGateway:             "192.168.10.1"
+
+    //CONNECTIONS UUID
+    property string uuidIpGateway:          "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"
+    property string uuidUsbSerial:          "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"
+    property string uuidSuccessfullyOpened: ""
 
     //GENERAL SETUP STATES
-    property bool   devDetected:            false
-    property bool   devIdentified:          false
-    property bool   devConfigured:          false
-    property bool   devManualSelected:      false
-    property bool   appConfigured:          false
-    property bool   expertMode:             false
-    property bool   isSideScan2DView:       false
+    property bool   devDetected:            false   // App automatically detected the transducer by name
+    property bool   devIdentified:          false   // The app recognizes the transducer as one of our supported models
+    property bool   devConfigured:          false   // Initial config for the recongnized device is completed
+    property bool   devManualSelected:      false   // The user selected one of our selected models
+    property bool   appConfigured:          false   // Setup steps for the app recongnized device is completed
+    property bool   expertMode:             false   // Hidden feeatures shown when true
+    property bool   isSideScan2DView:       false   // Side scan is detected, but user wants to show it as a 2D transducer (aka downscan)
     property bool   isOpeningKlfFile:       false
 
     //TRAFFIC STATES
-    property bool   isReceivingData:        false
-    property bool   didEverReceiveData:     false
-    property bool   hasDeviceLostConnection:false
+    property bool   isReceivingData:        false   // When data is received, true
+    property bool   didEverReceiveData:     false   // When data is received, true
+    property bool   hasDeviceLostConnection:false   // if didEverReceiveData = true, and isReceivingData = false
 
     //UI AUTO CONTROL
-    property int    autoDepthMaxLevel:      2
-    property bool   shouldDoAutoRange:      false
-
+    property double autoDepthMinLevel:      2       // The minimum chart level display allowed
+    property double autoDepthMaxLevel:      2       // The current max level displayed, used for automatic change of display based on depth measure
+    property double autoDepthLevelStep:     1       // The step in meters to evaluate when to automatically change the display
+    property double autoDepthDistanceBelow: 1       // The additional distance below the measured depth and the step to show some screen below the measure
+    property bool   shouldDoAutoRange:      false   // Should app automatically adjust the display according to depth measure or not?
+    property double manualSetLevel:         0.0     // The fixe value of the screen display desired by the user, when manual fixing is desired
+    property int    dynamicResolutionMin:   90      // The minimum allowed resolution in mm, here 30 mm resolution
+    property int    dynamicResolutionMax:   3       // The maximum allowed resolution in mm, here 3 mm resolution
+    property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
+    property int    scrollingSpeed:         50      // Initial value for scrolling speed
     //COLOR MAP
     property var    fullThemeArray: [
         "./icons/pulse_color_ss_blue.svg",
@@ -82,7 +95,7 @@ QtObject {
         "is2DTransducer":       true,
         "useTemperature":       false,
         "chartResolution":      30,
-        "chartSamples":         1500,
+        "chartSamples":         500,
         "chartOffset":          0,
         "distMax":              50000,
         "distDeadZone":         0,
@@ -111,8 +124,8 @@ QtObject {
         "is2DTransducer":       false,
         "useTemperature":       false,
         "chartResolution":      30,
-        "chartSamples":         1400,
-        "chartOffset":          0,
+        "chartSamples":         1358,
+        "chartOffset":          25,
         "distMax":              50000,
         "distDeadZone":         0,
         "distConfidence":       14,
@@ -121,7 +134,7 @@ QtObject {
         "transBoost":           1,
         "dspHorSmooth":         0,
         "soundSpeed":           1480*1000,
-        "ch1Period":            150,
+        "ch1Period":            50,
         "datasetChart":         1,
         "datasetDist":          0,
         "datasetSDDBT":         1,

@@ -30,5 +30,7 @@ Settings {
     // Device dependent Settings
     property string devName:                    "pulseRed"
     property string userManualSetName:          "..."
+    property string udpGateway:                 "192.168.10.2"
+    property bool   useWifiLongRange:           false
 
 }
