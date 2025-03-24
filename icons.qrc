@@ -111,5 +111,7 @@
         <file>icons/pulse_color_2d_sonic_black.svg</file>
         <file>icons/pulse_color_2d_sonic_white.svg</file>
         <file>icons/pulse_color_ss_green.svg</file>
+        <file>icons/pulse_settings.svg</file>
+        <file>icons/pulse_info.svg</file>
     </qresource>
 </RCC>
