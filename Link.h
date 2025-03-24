@@ -17,6 +17,8 @@
 #endif
 #include "ProtoBinnary.h"
 
+extern QObject* g_pulseRuntimeSettings;
+
 using namespace Parsers;
 
 

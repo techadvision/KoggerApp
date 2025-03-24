@@ -44,6 +44,9 @@ void Link::openAsSerial()
         setDev(serialPort);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
+        if (g_pulseRuntimeSettings) {
+            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", g_pulseRuntimeSettings->property("uuidUsbSerial").toString());
+        }
     }
     else {
         delete serialPort;
@@ -84,6 +87,9 @@ void Link::openAsUdp()
         setDev(socketUdp);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
+        if (g_pulseRuntimeSettings) {
+            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", g_pulseRuntimeSettings->property("uuidIpGateway").toString());
+        }
     }
     else {
         delete socketUdp;
