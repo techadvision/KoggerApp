@@ -62,10 +62,16 @@ import android.bluetooth.BluetoothDevice;
 import com.hoho.android.usbserial.driver.*;
 import org.qtproject.qt5.android.bindings.QtActivity;
 import org.qtproject.qt5.android.bindings.QtApplication;
+import android.widget.Toast;
+import android.os.Handler;
+import android.os.Looper;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class KoggerActivity extends QtActivity
 {
     public  static int                                  BAD_DEVICE_ID = 0;
+    //private static boolean                              shutdownInPogress = false;
+    private static final AtomicBoolean                  shutdownInPogress = new AtomicBoolean(false);
     private static KoggerActivity                          _instance = null;
     private static UsbManager                           _usbManager = null;
     private static List<UsbSerialDriver>                _drivers;
@@ -165,13 +171,40 @@ public class KoggerActivity extends QtActivity
                             nativeDeviceHasDisconnected(_userDataHashByDeviceId.get(device.getDeviceId()));
                         }
                     }
+                    qgcLogDebug("Do shutdown - USB cable removed");
+                    if (!shutdownInPogress.get()) {
+                        shutdownInPogress.set(true);
+
+                        qgcLogDebug("Do shutdown - shutdownInPogress is " + shutdownInPogress.get());
+                        Toast.makeText(context, "Lost USB, Pulse shut itself down", Toast.LENGTH_LONG).show();
+
+                        if (KoggerActivity._instance != null) {
+                            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    KoggerActivity._instance.finishAffinity();;
+                                    System.exit(0);
+                                }
+                            }, 500);
+                        }
+                    }
+
+
+
+                } else if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+                if (KoggerActivity._instance != null) {
+                         KoggerActivity._instance.probeAccessories();
+                    }
+                    Toast.makeText(context, "USB DEVICE ATTACHED", Toast.LENGTH_SHORT).show();
                 }
 
+                /*
                 try {
                     nativeUpdateAvailableJoysticks();
                 } catch(Exception e) {
                     Log.e(TAG, "Exception nativeUpdateAvailableJoysticks()");
                 }
+                */
             }
         };
 
@@ -242,6 +275,7 @@ public class KoggerActivity extends QtActivity
 
     @Override
     public void onResume() {
+        qgcLogDebug("Do shutdown - onResume, should not shutdown here and shutdownInPogress is " + shutdownInPogress.get());
         super.onResume();
 
         // Plug in of USB ACCESSORY triggers only onResume event.
@@ -250,8 +284,53 @@ public class KoggerActivity extends QtActivity
     }
 
     @Override
+    public void onPause() {
+        qgcLogDebug("Do shutdown - onPause, should not shutdown here and shutdownInPogress is " + shutdownInPogress.get());
+        super.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        /*
+        if (!shutdownInPogress.get()) {
+            qgcLogDebug("Do shutdown - onStop triggered, shutdownInPogress is " + shutdownInPogress.get());
+            shutdownInPogress.set(true);
+            if (KoggerActivity._instance != null) {
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        KoggerActivity._instance.finishAffinity();;
+                        System.exit(0);
+                    }
+                });
+            }
+        } else {
+            qgcLogDebug("Do shutdown - onStop should not do anything when shutdownInPogress is " + shutdownInPogress.get());
+        }
+    */
+    }
+
+    @Override
     protected void onDestroy()
     {
+        /*
+        if (!shutdownInPogress.get()) {
+            qgcLogDebug("Do shutdown - onDestroy triggered, shutdownInPogress is " + shutdownInPogress.get());
+            shutdownInPogress.set(true);
+            if (KoggerActivity._instance != null) {
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        KoggerActivity._instance.finishAffinity();;
+                        System.exit(0);
+                    }
+                });
+            }
+        } else {
+            qgcLogDebug("Do shutdown - onDestroy should not do anything when shutdownInPogress is " + shutdownInPogress.get());
+        }
+        */
         if (probeAccessoriesTimer != null) {
             probeAccessoriesTimer.cancel();
         }
@@ -267,6 +346,7 @@ public class KoggerActivity extends QtActivity
         } catch(Exception e) {
            Log.e(TAG, "Exception onDestroy()");
         }
+
         super.onDestroy();
     }
 
@@ -736,6 +816,7 @@ public class KoggerActivity extends QtActivity
                             }
                             if (_usbManager.hasPermission(usbAccessory)) {
                                 openAccessory(usbAccessory);
+
                             }
                         }
                     }
