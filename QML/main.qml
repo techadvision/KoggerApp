@@ -845,7 +845,7 @@ Window  {
 
         Row {
             id: rowContainer
-            anchors.centerIn: parent
+            anchors.centerIn: mainview
             spacing: 100
 
             EchoSounderSelector {
@@ -969,16 +969,16 @@ Window  {
         id: logo
         anchors.horizontalCenter: echoSounderSelector.horizontalCenter
         anchors.top: echoSounderSelector.bottom
-        anchors.topMargin: 10
-        width: 768
-        height: 432
+        anchors.topMargin: 100
+        width: 840
+        height: 101
         color: "transparent"
         visible: !pulseRuntimeSettings.devManualSelected || !pulseRuntimeSettings.appConfigured
 
         Image {
             id: logoImage
             anchors.fill: parent
-            source: "./image/techadvision_logo_color.png"
+            source: "./image/logo_techadvision_gray_large.png"
             fillMode: Image.PreserveAspectFit
             //opacity: 0.2
         }
