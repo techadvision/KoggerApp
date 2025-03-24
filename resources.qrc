@@ -11,5 +11,7 @@
         <file>image/PulseBlueImage400.png</file>
         <file>image/PulseRedImage400.png</file>
         <file>image/techadvision_logo_color.png</file>
+        <file>image/logo_techadvision_gray.png</file>
+        <file>image/logo_techadvision_gray_large.png</file>
     </qresource>
 </RCC>
