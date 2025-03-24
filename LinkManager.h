@@ -16,6 +16,9 @@
 #include "Link.h"
 #include "ProtoBinnary.h"
 
+extern QObject* g_pulseRuntimeSettings;
+extern QObject* g_pulseSettings;
+
 
 class LinkManager : public QObject
 {

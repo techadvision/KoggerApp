@@ -238,59 +238,155 @@ void LinkManager::printLinkDebugInfo(Link* link) const
     }
 }
 
+#ifdef Q_OS_ANDROID
+#include <QAndroidJniObject>
+#include <QtAndroid>
+
+QString getAndroidGatewayIP() {
+    QString defaultIp = "0.0.0.0";
+    QString ip = "192.168.2.1";
+    if (g_pulseSettings) {
+        ip = g_pulseSettings->property("udpGateway").toString();
+        defaultIp = ip;
+        qDebug() << "Preferred Gateway IP was" << ip;
+    }
+    // Get the current Android activity
+    QAndroidJniObject activity = QtAndroid::androidActivity();
+    if (!activity.isValid()) {
+        qWarning() << "Android activity not valid";
+        return ip;
+    }
+    // Get WifiManager via Context.getSystemService(Context.WIFI_SERVICE)
+    QAndroidJniObject wifiService = activity.callObjectMethod(
+        "getSystemService",
+        "(Ljava/lang/String;)Ljava/lang/Object;",
+        QAndroidJniObject::fromString("wifi").object<jstring>());
+    if (!wifiService.isValid()) {
+        qWarning() << "Wifi service not available";
+        return ip;
+    }
+    // Get the DhcpInfo object from WifiManager.getDhcpInfo()
+    QAndroidJniObject dhcpInfo = wifiService.callObjectMethod("getDhcpInfo", "()Landroid/net/DhcpInfo;");
+    if (!dhcpInfo.isValid()) {
+        qWarning() << "Could not get DhcpInfo";
+        return ip;
+    }
+    // Retrieve the 'gateway' field (an int)
+    jint gateway = dhcpInfo.getField<jint>("gateway");
+    // Convert the integer (stored in little-endian format) to an IP string:
+    ip = QString("%1.%2.%3.%4")
+             .arg(gateway        & 0xFF)
+             .arg((gateway >> 8) & 0xFF)
+             .arg((gateway >> 16)& 0xFF)
+             .arg((gateway >> 24)& 0xFF);
+
+    // Log the detected IP:
+    qDebug() << "Detected gateway IP:" << ip;
+
+    // Check if the IP matches allowed prefixes:
+    bool allowed = ip.startsWith("192.168.10") ||
+                   ip.startsWith("192.168.2")  ||
+                   ip.startsWith("10.0.0");
+    if (!allowed) {
+        qWarning() << "Gateway IP" << ip << "does not match allowed prefixes. Using default IP.";
+        ip = defaultIp;
+    } else {
+        if (g_pulseSettings) {
+            g_pulseSettings->setProperty("udpGateway", ip);
+            emit
+            qDebug() << "Gateway IP" << ip << "is allowed, pulseSettings updated.";
+            qDebug() << "Preferred Gateway IP updated to " << g_pulseSettings->property("udpGateway").toString();;
+        } else {
+            qDebug() << "Gateway IP" << ip << "is allowed, but could not update the pulseSettings";
+        }
+    }
+
+    return ip;
+}
+#endif
+
+
 void LinkManager::importPinnedLinksFromXML()
 {
     TimerController(timer_.get());
 
-    const QString xmlData = R"(
-        <pinned_links>
-            <link>
-                <uuid>{2ad43efc-61d1-4321-a925-a8e0cd188caf}</uuid>
-                <control_type>0</control_type>
-                <port_name></port_name>
-                <baudrate>0</baudrate>
-                <parity>false</parity>
-                <link_type>2</link_type>
-                <address>192.168.2.1</address>
-                <source_port>14550</source_port>
-                <destination_port>14550</destination_port>
-                <is_pinned>true</is_pinned>
-                <is_hided>false</is_hided>
-                <is_not_available>false</is_not_available>
-                <connection_status>true</connection_status>
-            </link>
-            <link>
-                <uuid>{2ad43efc-61d1-4321-a925-a8e0cd188ca1}</uuid>
-                <control_type>0</control_type>
-                <port_name></port_name>
-                <baudrate>0</baudrate>
-                <parity>false</parity>
-                <link_type>2</link_type>
-                <address>10.0.0.10</address>
-                <source_port>14445</source_port>
-                <destination_port>14445</destination_port>
-                <is_pinned>true</is_pinned>
-                <is_hided>false</is_hided>
-                <is_not_available>false</is_not_available>
-                <connection_status>true</connection_status>
-            </link>
-            <link>
-                <uuid>{2ad43efc-61d1-4321-a925-a8e0cd188ca2}</uuid>
-                <control_type>1</control_type>
-                <port_name>/dev/bus/usb/001/002</port_name>
-                <baudrate>921600</baudrate>
-                <parity>false</parity>
-                <link_type>1</link_type>
-                <address></address>
-                <source_port></source_port>
-                <destination_port></destination_port>
-                <is_pinned>true</is_pinned>
-                <is_hided>false</is_hided>
-                <is_not_available>false</is_not_available>
-                <connection_status>true</connection_status>
-            </link>
-        </pinned_links>
-    )";
+    QString gatewayIP = "0.0.0.0";
+    QString uuidIpGateway = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
+    QString uuidUsbSerial = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
+
+    #ifdef Q_OS_ANDROID
+        gatewayIP = getAndroidGatewayIP();
+    #endif
+
+    QString xmlData = "";
+
+
+    #ifdef Q_OS_ANDROID
+    xmlData = QString(R"(
+    <pinned_links>
+        <link>
+            <uuid>%1</uuid>
+            <control_type>0</control_type>
+            <port_name></port_name>
+            <baudrate>0</baudrate>
+            <parity>false</parity>
+            <link_type>2</link_type>
+            <address>%2</address>
+            <source_port>14550</source_port>
+            <destination_port>14550</destination_port>
+            <is_pinned>true</is_pinned>
+            <is_hided>false</is_hided>
+            <is_not_available>false</is_not_available>
+            <connection_status>true</connection_status>
+        </link>
+        <link>
+            <uuid>%3</uuid>
+            <control_type>1</control_type>
+            <port_name>/dev/bus/usb/001/002</port_name>
+            <baudrate>921600</baudrate>
+            <parity>false</parity>
+            <link_type>1</link_type>
+            <address></address>
+            <source_port></source_port>
+            <destination_port></destination_port>
+            <is_pinned>true</is_pinned>
+            <is_hided>false</is_hided>
+            <is_not_available>false</is_not_available>
+            <connection_status>true</connection_status>
+        </link>
+    </pinned_links>
+    )")
+      .arg(uuidIpGateway)  // UDP link UUID
+      .arg(gatewayIP)                                   // Insert dynamic gateway IP
+      .arg(uuidUsbSerial);
+
+    #endif
+
+    #ifdef Q_OS_WINDOWS
+
+    xmlData = QString(R"(
+    <pinned_links>
+        <link>
+            <uuid>%1</uuid>
+            <control_type>0</control_type>
+            <port_name></port_name>
+            <baudrate>0</baudrate>
+            <parity>false</parity>
+            <link_type>2</link_type>
+            <address>%2</address>
+            <source_port>14550</source_port>
+            <destination_port>14550</destination_port>
+            <is_pinned>true</is_pinned>
+            <is_hided>false</is_hided>
+            <is_not_available>false</is_not_available>
+            <connection_status>true</connection_status>
+        </link>
+    </pinned_links>
+    )")
+                  .arg(uuidIpGateway)  // UDP link UUID
+                  .arg(gatewayIP);      // Insert dynamic gateway IP
+
+    #endif
 
 
     //QString filePath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/pinned_links.xml";
