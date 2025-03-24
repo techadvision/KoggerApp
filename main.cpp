@@ -34,6 +34,7 @@ Themes theme;
 QTranslator translator;
 QVector<QString> availableLanguages{"en", "ru", "pl", "de"};
 QObject* g_pulseRuntimeSettings = nullptr;
+QObject* g_pulseSettings = nullptr;
 
 
 void loadLanguage(QGuiApplication &app)
@@ -160,6 +161,16 @@ int main(int argc, char *argv[])
         g_pulseRuntimeSettings = runtimeSettingsInstance;
     }
 
+    QQmlComponent component2(&engine, QUrl("qrc:/PulseSettings.qml"));
+    QObject *settingsInstance = component2.create();
+    if (!settingsInstance) {
+        qWarning() << "Failed to create PulseSettings instance!";
+    } else {
+        settingsInstance->setObjectName("pulseSettings");
+        engine.rootContext()->setContextProperty("pulseSettings", settingsInstance);
+        g_pulseSettings = settingsInstance;
+    }
+
 
 
 #ifdef FLASHER
@@ -192,9 +203,9 @@ int main(int argc, char *argv[])
 
     QObject::connect(&app,  &QGuiApplication::aboutToQuit,
                      &core, [&]() {
-                                core.stopLinkManagerTimer();
+        core.stopLinkManagerTimer();
 #ifdef SEPARATE_READING
-                                core.stopDeviceManagerThread();
+        core.stopDeviceManagerThread();
 #endif
                             });
 
