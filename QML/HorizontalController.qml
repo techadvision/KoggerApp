@@ -49,7 +49,7 @@ Item {
 
             let minValue, maxValue;
             if (root.controleName === 'selectorMaxDepth') {
-                minValue = 2;  // Min depth
+                minValue = 1;  // Min depth
                 maxValue = 100; // Max depth
             } else if (root.controleName === 'selectorIntensity') {
                 minValue = 0;  // Min value for illumination
@@ -83,6 +83,7 @@ Item {
     // Outer oval shape for styling
     Rectangle {
         id: outerShape
+        z: 100
         width: parent.width
         height: parent.height
         radius: parent.height / 2 // Oval shape
@@ -241,6 +242,7 @@ Item {
                         Component.onCompleted: {
                             if (controleName==="selectorMaxDepth") {
                                 root.isAutoRangeActive = PulseSettings.autoRange
+                                root.isAutoFilterActive = PulseSettings.autoFilter
                             }
                         }
                     }

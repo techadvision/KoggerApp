@@ -105,5 +105,9 @@
         <file>EchoSounderSelector.qml</file>
         <file>LostConnectionOverlay.qml</file>
         <file>HorizontalTapSelectController.qml</file>
+        <file>PulseManualUdpConnection.qml</file>
+        <file>PulseInfo.qml</file>
+        <file>HorizontalControllerDoubleSettings.qml</file>
+        <file>PulseInfoSettings.qml</file>
     </qresource>
 </RCC>

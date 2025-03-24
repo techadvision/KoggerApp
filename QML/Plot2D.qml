@@ -308,6 +308,10 @@ WaterFall {
         }
     }
 
+    Rectangle {
+        id: pulseInfoViewer
+    }
+
 
     GridLayout  {
 
@@ -660,6 +664,7 @@ WaterFall {
                 if (pulseRuntimeSettings.devManualSelected) {
                     console.log("TAV: devManualSelected true, is this a 2D transducer?", pulseRuntimeSettings.is2DTransducer);
                     let newFrequency = pulseRuntimeSettings.transFreq
+                    quickChangeObjects.isDeviceDetected = true
                     if (pulseRuntimeSettings.is2DTransducer) {
                         if (PulseSettings.ecoConeIndex === 0) {
                             newFrequency = pulseRuntimeSettings.transFreqWide
@@ -704,16 +709,6 @@ WaterFall {
         }
 
 
-        /*
-        Connections {
-            target: depthAndTemperature
-            function onPulseAutoLevel () {
-                console.log("TAV: onAutoLevelChanged detected:", onPulseAutoLevel.value);
-            }
-        }
-        */
-
-
         DepthAndTemperature {
             id: thisDepthAndTemperature
             GridLayout.row: 0
@@ -721,8 +716,8 @@ WaterFall {
             Layout.rowSpan: 2
             Layout.preferredWidth: 370
             //visible: true
-            opacity: quickChangeObjects.isDeviceDetected ? 1 : 0
-            enabled: quickChangeObjects.isDeviceDetected
+            opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 0
+            enabled: (quickChangeObjects.isDeviceDetected)
         }
 
 
@@ -733,7 +728,7 @@ WaterFall {
             GridLayout.column: 1
             Layout.preferredWidth: 310
             controleName: "selectorMaxDepth"
-            minValue: 2
+            minValue: 1
             maxValue: pulseRuntimeSettings.maximumDepth
             step: 1
             defaultValue: PulseSettings.maxDepthValue
@@ -742,6 +737,7 @@ WaterFall {
             onSelectorValueChanged: {
                 plot.quickChangeMaxRangeValue = value;
                 PulseSettings.maxDepthValue = value;
+                pulseRuntimeSettings.manualSetLevel = value * 1.0
                 if (plot.isViewHorizontal()) {
                     plot.plotDistanceRange2d(value * 1.0)
                 } else {
@@ -753,17 +749,18 @@ WaterFall {
 
             onDistanceAutoRangeRequested: {
                 console.log("TAV: Auto range requested");
-                pulseRuntimeSettings.shouldDoAutoRange = true
                 plot.plotDistanceAutoRange(0)
                 PulseSettings.autoRange = true
+                pulseRuntimeSettings.shouldDoAutoRange = true
                 plot.updatePlot()
             }
 
             onDistanceFixedRangeRequested: {
                 console.log("TAV: Fixed range requested");
-                pulseRuntimeSettings.shouldDoAutoRange = false
                 plot.plotDistanceAutoRange(-1)
                 PulseSettings.autoRange = false;
+                pulseRuntimeSettings.shouldDoAutoRange = false
+                pulseRuntimeSettings.manualSetLevel = plot.quickChangeMaxRangeValue * 1.0
                 if (plot.isViewHorizontal()) {
                     plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
                 } else {
@@ -780,6 +777,7 @@ WaterFall {
                     pulseRuntimeSettings.shouldDoAutoRange = false
                     plot.plotDistanceAutoRange(-1);
                     plot.plotDistanceRange(PulseSettings.maxDepthValue * 1.0)
+                    pulseRuntimeSettings.manualSetLevel = PulseSettings.maxDepthValue * 1.0
                 }
                 plot.updatePlot();
             }
@@ -811,6 +809,7 @@ WaterFall {
 
             Component.onCompleted: {
                 plot.setIntensityValue(PulseSettings.intensityRealValue * 1.0)
+                plot.updatePlot()
             }
         }
 
@@ -837,6 +836,9 @@ WaterFall {
 
             Component.onCompleted: {
                 plot.setFilteringValue(PulseSettings.filterRealValue)
+                if (PulseSettings.autoFilter) {
+                    quickChangeObjects.doAutoFilter()
+                }
             }
 
             onFilterAutoRangeRequested: {
@@ -995,6 +997,140 @@ WaterFall {
         }
 
     }
+
+    Rectangle {
+        id: toggleInfoContainer
+        width: 155
+        height: 80
+        radius: 40
+        color:  "#80000000"
+        anchors.left: quickChangeObjects.left
+        anchors.bottom: quickChangeObjects.top
+        anchors.bottomMargin: 15
+        visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
+
+        Image {
+            id: toggleInfoIcon
+            anchors.centerIn: toggleInfoContainer
+            width: 56
+            height: 56
+            source: "./icons/pulse_info.svg"  // Update this path to your SVG file
+            fillMode: Image.PreserveAspectFit
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                pulseInfoLoader.active = !pulseInfoLoader.active;
+            }
+        }
+    }
+
+    Rectangle {
+        id: toggleSettingsContainer
+        width: 155
+        height: 80
+        radius: 40
+        color:  "#80000000"
+        anchors.left: toggleInfoContainer.right
+        anchors.bottom: quickChangeObjects.top
+        anchors.bottomMargin: 15
+        anchors.leftMargin: 15
+        visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
+
+        Image {
+            id: toggleSettingsIcon
+            anchors.centerIn: toggleSettingsContainer
+            width: 64
+            height: 64
+            source: "./icons/pulse_settings.svg"  // Update this path to your SVG file
+            fillMode: Image.PreserveAspectFit
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                console.log("TAV: Tapped on settings icon");
+                pulseSettingsLoader.active = !pulseSettingsLoader.active;
+            }
+        }
+    }
+
+    Loader {
+        id: pulseInfoLoader
+        source: "PulseInfo.qml"  // Ensure PulseInfo.qml is available at this path
+        active: false           // Initially hidden
+        anchors.centerIn: parent  // Adjust as needed for your layout
+        onActiveChanged: {
+            if (active) {
+                closePulseInfoTimer.restart();
+            } else {
+                closePulseInfoTimer.stop();
+            }
+        }
+    }
+
+    Loader {
+        id: pulseSettingsLoader
+        source: "PulseInfoSettings.qml"  // Ensure PulseInfo.qml is available at this path
+        active: false           // Initially hidden
+        anchors.centerIn: parent  // Adjust as needed for your layout
+
+        onActiveChanged: {
+            console.log("TAV: pulseSettingsLoader triggered");
+            if (active) {
+                closePulseSettingsTimer.restart();
+            } else {
+                closePulseSettingsTimer.stop();
+            }
+        }
+    }
+
+    Connections {
+        target: pulseSettingsLoader.item   // This will automatically update when the Loader loads a new item.
+        function onPulsePreferenceClosed() {
+            // Handle the close event here. For example, you might set active to false:
+            pulseSettingsLoader.active = false;
+            closePulseSettingsTimer.stop();
+        }
+        function onPulsePreferenceValueChanged() {
+            closePulseSettingsTimer.restart();
+        }
+    }
+
+
+    Image {
+        id: companyWaterMark
+        source: "./image/logo_techadvision_gray.png"  // Update the path as needed
+        anchors.bottom: parent.bottom
+        anchors.left: quickChangeObjects.right
+        anchors.bottomMargin: 40
+        anchors.leftMargin: 40
+        width: 360
+        height: 43
+        opacity: 60
+        visible: pulseRuntimeSettings.devManualSelected
+    }
+
+    Timer {
+        id: closePulseSettingsTimer
+        interval: 15000   // 30 seconds in milliseconds
+        repeat: false
+        onTriggered: {
+            pulseSettingsLoader.active = false;
+        }
+    }
+
+
+    Timer {
+        id: closePulseInfoTimer
+        interval: 6000   // 6 seconds in milliseconds
+        repeat: false
+        onTriggered: {
+            pulseInfoLoader.active = false;
+        }
+    }
+
 
     MenuFrame {
         Layout.alignment: Qt.AlignHCenter

@@ -12,23 +12,83 @@ Item {
     height: 200
     clip: true
 
-    property bool dataAvailable: false
-    property bool isMetric: PulseSettings.useMetricValues
-    property int datasetUpdatedCounter: 0
-    property int autoLevel: 2   // default value (for depth 0)
+    property bool   dataAvailable: false
+    property bool   isMetric: PulseSettings.useMetricValues
+    property int    datasetUpdatedCounter: 0
+    property double autoLevel: 2   // default value (for depth 0)
 
     signal swapUnits()
     //signal pulseAutoLevelChanged(int newAutoLevel)
 
     // Function to calculate the autoLevel based on the current depth value.
     function calculateAutoLevel(depth) {
-        if (depth === 0) {
-            return 2;
-        } else if (depth <= 1) {
-            return 3;
-        } else {
-            // Compute autoLevel based on depth (floor value + 3), with a max of 100.
-            return Math.min(Math.floor(depth) + 3, pulseRuntimeSettings.maximumDepth + 3);
+        const { autoDepthMinLevel, autoDepthLevelStep, autoDepthDistanceBelow, autoDepthMaxLevel } = pulseRuntimeSettings;
+
+      // When depth is zero, simply return the extra distance.
+      if (depth === 0) {
+        return Math.min(autoDepthDistanceBelow, autoDepthMinLevel);
+      }
+
+      // For very shallow depths (greater than 0 but still below the first step),
+      // display the minimum level plus the extra distance.
+      if (depth < autoDepthLevelStep) {
+        //return Math.min(autoDepthDistanceBelow, autoDepthMinLevel);
+        return autoDepthMinLevel + autoDepthDistanceBelow;
+      }
+
+      // For deeper values, determine how many full step increments have been passed.
+      // We subtract autoDepthLevelStep so that the range from 0 (exclusive) to autoDepthLevelStep
+      // all use the fixed display (i.e. the minimum display).
+      const steps = Math.floor((depth - autoDepthLevelStep) / autoDepthLevelStep) + 1;
+
+      // Calculate the displayed level: start at autoDepthMinLevel,
+      // add one full step for each threshold passed,
+      // and then always add autoDepthDistanceBelow.
+      //let displayed = (steps * autoDepthLevelStep) + autoDepthDistanceBelow;
+      let displayed = autoDepthMinLevel + (steps * autoDepthLevelStep) + autoDepthDistanceBelow;
+
+      // (Optional) Cap the display if a maximum depth is defined.
+      if (typeof autoDepthMaxLevel !== "undefined") {
+        displayed = Math.min(displayed, autoDepthMaxLevel + autoDepthDistanceBelow);
+      }
+
+      return displayed;
+    }
+
+    function calculateDynamicResolution (depth) {
+        if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue) {
+            //console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.devName);
+            return
+        }
+        if (pulseRuntimeSettings.devName === "...") {
+            //console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.devName);
+            return
+        }
+        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue){
+            //console.log("TAV: should not set dynamicResolution for manuel set devName ", pulseRuntimeSettings.userManualSetName);
+            return
+        }
+        // 1. Choose a margin (in meters) to give extra headroom.
+        var margin = pulseRuntimeSettings.autoDepthDistanceBelow //Default is 2 meters
+
+        // 2. Compute desired resolution in mm.
+        var desiredRes = (depth + margin) *2;
+
+        // 3. Round up (ceiling) to be conservative:
+        desiredRes = Math.ceil(desiredRes);
+
+        // 4. Clamp to valid bounds.
+        desiredRes = Math.max(desiredRes, pulseRuntimeSettings.dynamicResolutionMax);
+        desiredRes = Math.min(desiredRes, pulseRuntimeSettings.dynamicResolutionMin);
+
+        // 5. Compare with the old resolution to avoid flicker:
+        var oldRes = pulseRuntimeSettings.dynamicResolution;
+
+        // Only update if new resolution differs by at least 1 mm
+        if (Math.abs(desiredRes - oldRes) >= 1) {
+            pulseRuntimeSettings.dynamicResolution = desiredRes;
+            console.log("TAV: setting dynamicResolution to ", desiredRes, " for depth ", depth);
+            //dev.chartResolution = desiredRes; //Done in deviceItem
         }
     }
 
@@ -39,12 +99,15 @@ Item {
         repeat: true
         onTriggered: {
             let currentDepth = (dataset !== null) ? dataset.dist : 0;
+            calculateDynamicResolution(currentDepth)
             let newLevel = calculateAutoLevel(currentDepth);
-            if (newLevel !== autoLevel) {
+            if (newLevel !== depthAndTemperature.autoLevel) {
                 depthAndTemperature.autoLevel = newLevel;
                 if (pulseRuntimeSettings !== null) {
                     pulseRuntimeSettings.autoDepthMaxLevel = newLevel
                     console.log("TAV: Auto level changed to: " + newLevel);
+                    console.log("TAV: Auto level step: " + pulseRuntimeSettings.autoDepthLevelStep);
+                    console.log("TAV: Auto level distance below: " + pulseRuntimeSettings.autoDepthDistanceBelow);
                 } else {
                     console.log("TAV: Auto level cannot be set when pulseRuntimeSettings is null");
                 }
