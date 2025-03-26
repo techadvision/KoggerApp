@@ -605,6 +605,12 @@ public:
         }
         return QVector<uint8_t>();
     }
+    int chartSize(int16_t channel = 0) {
+        if(chartAvail(channel)) {
+            return _charts[channel].amplitude.size();
+        }
+        return -1;
+    }
     bool chartAvail() { return _charts.size() > 0; }
     bool chartAvail(int16_t channel) {
         if(_charts.contains(channel)) {
@@ -855,6 +861,8 @@ public:
     float getInterpYaw() const;
     float getInterpFirstChannelDist() const;
     float getInterpSecondChannelDist() const;
+    bool getWasValidlyRenderedInEchogram() const;
+    void setWasValidlyRenderedInEchogram(bool state);
 
     Contact contact_;
 
@@ -940,6 +948,7 @@ private:
             return false;
         };
     } interpData_;
+    bool wasValidlyRenderedInEchogram_;
 };
 
 class Dataset : public QObject {
@@ -1041,6 +1050,12 @@ public slots:
     void addEvent(int timestamp, int id, int unixt = 0);
     void addEncoder(float angle1_deg, float angle2_deg = NAN, float angle3_deg = NAN);
     void addTimestamp(int timestamp);
+
+
+    //
+    void setChartSetup(int16_t channel, uint16_t resol, int count, uint16_t offset);
+    void setFixBlackStripes(bool state);
+
     void addChart(int16_t channel, QVector<uint8_t> data, float resolution, float offset);
     void rawDataRecieved(RawData raw_data);
     void addDist(int dist);
@@ -1111,8 +1126,8 @@ signals:
     void updatedLlaRef();
 
 private:
-    float _dist; // Stores the distance value
-    float _temp; // Stores the temperature value
+    float _dist = 0; // Stores the distance value
+    float _temp = 0; // Stores the temperature value
     //float _depth; // Stores the depth value
 
 protected:
@@ -1192,6 +1207,12 @@ private:
     int lastBottomTrackEpoch_;
     BottomTrackParam bottomTrackParam_;
     uint64_t boatTrackValidPosCounter_;
+
+    int lastMostFreqChartSize_;
+    uint16_t chartResolution_;
+    int chartCount_;
+    uint16_t chartOffset_;
+    bool fixBlackStripes_;
 };
 
 #endif // PLOT_CASH_H

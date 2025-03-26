@@ -4,7 +4,7 @@
 #include <core.h>
 extern Core core;
 
-Epoch::Epoch() {
+Epoch::Epoch() : wasValidlyRenderedInEchogram_(false) {
     _charts.clear();
     flags.distAvail = false;
 }
@@ -204,11 +204,26 @@ float Epoch::getInterpSecondChannelDist() const
     return interpData_.distSecondChannel;
 }
 
+bool Epoch::getWasValidlyRenderedInEchogram() const
+{
+    return wasValidlyRenderedInEchogram_;
+}
+
+void Epoch::setWasValidlyRenderedInEchogram(bool state)
+{
+    wasValidlyRenderedInEchogram_ = state;
+}
+
 Dataset::Dataset() :
     interpolator_(this),
     lastBoatTrackEpoch_(0),
     lastBottomTrackEpoch_(0),
     boatTrackValidPosCounter_(0),
+    lastMostFreqChartSize_(-1),
+    chartResolution_(0),
+    chartCount_(0),
+    chartOffset_(0),
+    fixBlackStripes_(false),
     _dist(0)
 {
     resetDataset();
@@ -338,19 +353,114 @@ void Dataset::addTimestamp(int timestamp) {
     Q_UNUSED(timestamp);
 }
 
+void Dataset::setChartSetup(int16_t channel, uint16_t resol, int count, uint16_t offset)
+{
+    chartResolution_ = resol;
+    chartCount_ = count;
+    chartOffset_ = offset;
+}
+
+void Dataset::setFixBlackStripes(bool state)
+{
+    fixBlackStripes_ = state;
+}
+
+
 void Dataset::addChart(int16_t channel, QVector<uint8_t> data, float resolution, float offset) {
-    if(data.size() <= 0 || resolution == 0) { return; }
-
-    int pool_index = endIndex();
-
-    if(pool_index < 0
-            //             || _pool[pool_index].eventAvail() == false
-            || _pool[pool_index].chartAvail(channel)) {
-        addNewEpoch();
-        pool_index = endIndex();
+    const auto dataSize = data.size();
+    if (dataSize <= 0 || qFuzzyIsNull(resolution)) {
+        return;
     }
 
-    _pool[endIndex()].setChart(channel, data, resolution, offset);
+    int poolIndex = endIndex();
+    if (poolIndex < 0 ||
+        //_pool[poolIndex].eventAvail() == false ||
+        _pool[poolIndex].chartAvail(channel)) {
+        addNewEpoch();
+    }
+
+    auto setChartByDefault = [&]() -> void {
+        _pool[endIndex()].setChart(channel, data, resolution, offset);
+        _pool[endIndex()].setWasValidlyRenderedInEchogram(false);
+        lastMostFreqChartSize_ = dataSize;
+    };
+
+    const int windowSize = 20; // window for calculating frequently occurring data size
+    const int numBackSteps = 5; // number of steps to check recent epochs
+
+    if (!fixBlackStripes_) {
+        setChartByDefault();
+    }
+    else {
+        const bool isChannelDoubled = _channelsSetup.size() == 2;
+        const int chartCount = chartCount_ / (isChannelDoubled ? 2 : 1);
+        const int endIndx = endIndex();
+        const int startIndx = (endIndx - windowSize < 0) ? 0 : endIndx - windowSize;
+        const int preEndIndx = endIndex() - 1 ;
+        const bool needToCopy = (endIndx > windowSize) &&
+                          ((state_ == DatasetState::kConnection && dataSize != chartCount) ||
+                           (state_ == DatasetState::kFile       && dataSize != lastMostFreqChartSize_));
+
+        if (needToCopy) {
+            QHash<int, int> freqCount;
+            for (int i = preEndIndx; i > startIndx; --i) {
+                freqCount[_pool[i].chartSize(channel)]++;
+            }
+
+            int mostFreqChartSize = _pool[preEndIndx].chartSize(channel);
+            int maxCount = 0;
+            for (auto it = freqCount.constBegin(); it != freqCount.constEnd(); ++it) {
+                if (it.value() > maxCount) {
+                    maxCount = it.value();
+                    mostFreqChartSize = it.key();
+                }
+            }
+
+            int leftFreqIndx = -1;
+            for (int i = preEndIndx; i > startIndx; --i) {
+                int currChartSize = _pool[i].chartSize(channel);
+                if (currChartSize == mostFreqChartSize) {
+                    leftFreqIndx = i;
+                    break;
+                }
+            }
+
+            if (leftFreqIndx != -1 && mostFreqChartSize >= 0) {
+                if (dataSize < mostFreqChartSize) {
+                    QVector<uint8_t> fixData(mostFreqChartSize, 0);
+                    memcpy(fixData.data(), data.data(), dataSize);
+                    auto copyFrom = _pool[leftFreqIndx].chartData(channel);
+                    memcpy(fixData.data() + dataSize , copyFrom.data() + dataSize, mostFreqChartSize - dataSize);
+                    _pool[endIndx].setChart(channel, fixData, resolution, offset);
+                }
+                else {
+                    _pool[endIndx].setChart(channel, _pool[leftFreqIndx].chartData(channel), resolution, offset);
+                }
+
+                _pool[endIndx].setWasValidlyRenderedInEchogram(false);
+                lastMostFreqChartSize_ = mostFreqChartSize;
+            }
+            else {
+                setChartByDefault();
+            }
+        }
+        else {
+            setChartByDefault();
+        }
+
+            // walk backward
+            const int wbStartIndx = (endIndx - numBackSteps < 0) ? 0 : endIndx - numBackSteps;
+            const int wbPreEndIndx = endIndx - 1;
+            const auto recorderData = _pool[endIndx].chartData(channel);
+            const auto recorderDataSize = recorderData.size();
+            for (int i = wbPreEndIndx; i > wbStartIndx; --i) {
+                if (_pool[i].chartSize(channel) != recorderDataSize) {
+                    _pool[i].setChart(channel, recorderData, resolution, offset);
+                    _pool[i].setWasValidlyRenderedInEchogram(false);
+            }
+        }
+    }
+
 
     validateChannelList(channel);
 
@@ -456,21 +566,11 @@ void Dataset::addDist(int dist) {
         pool_index = endIndex();
     }
 
-    if (dist == NAN) {
-        dist = 0;
-    }
+    //if (dist == NAN) {
+      //  dist = 0;
+    //}
     _dist = dist * 0.001;
     emit distChanged();
-
-
-    if (_dist != dist) {
-        _dist = dist;
-        emit distChanged();
-        qDebug("TAV: addDist emitted distChanged: %d", _dist);
-    } else {
-        qDebug("TAV: addDist not emitted as distance still: %d", _dist);
-    }
-
 
     _pool[endIndex()].setDist(dist);
 
@@ -731,6 +831,13 @@ void Dataset::resetDataset() {
     llaRefState_ = LlaRefState::kUndefined;
     state_ = DatasetState::kUndefined;
     clearBoatTrack();
+    lastMostFreqChartSize_ = -1;
+    chartResolution_ = 0;
+    chartCount_ = 0;
+    chartOffset_ = 0;
+
+    //fixBlackStripes_ = false;
+
     emit dataUpdate();
 }
 

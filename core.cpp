@@ -18,6 +18,7 @@ Core::Core() :
     scene3dViewPtr_(nullptr),
     openedfilePath_(),
     isLoggingKlf_(false),
+    fixBlackStripes_(false),
     isLoggingCsv_(false),
     filePath_(),
     isFileOpening_(false),
@@ -580,9 +581,25 @@ void Core::setKlfLogging(bool isLogging)
     isLoggingKlf_ = isLogging;
 }
 
+void Core::fixBlackStripes(bool state)
+{
+    if (!datasetPtr_ ||
+        state == this->getFixBlackStripes()) {
+        return;
+    }
+
+    datasetPtr_->setFixBlackStripes(state);
+    fixBlackStripes_ = state;
+}
+
 bool Core::getIsKlfLogging()
 {
     return isLoggingKlf_;
+}
+
+bool Core::getFixBlackStripes() const
+{
+    return fixBlackStripes_;
 }
 
 void Core::setCsvLogging(bool isLogging)
@@ -1140,6 +1157,10 @@ void Core::createControllers()
 void Core::createDeviceManagerConnections()
 {
     Qt::ConnectionType deviceManagerConnection = Qt::ConnectionType::AutoConnection;
+
+    //
+    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::channelChartSetupChanged, datasetPtr_, &Dataset::setChartSetup, deviceManagerConnection));
+
     deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::chartComplete,          datasetPtr_, &Dataset::addChart,        deviceManagerConnection));
     deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::rawDataRecieved,        datasetPtr_, &Dataset::rawDataRecieved, deviceManagerConnection));
     deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::distComplete,           datasetPtr_, &Dataset::addDist,         deviceManagerConnection));
@@ -1174,6 +1195,10 @@ void Core::removeDeviceManagerConnections()
 void Core::createDeviceManagerConnections()
 {
     Qt::ConnectionType deviceManagerConnection = Qt::ConnectionType::DirectConnection;
+
+    //
+    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::channelChartSetupChanged, datasetPtr_, &Dataset::setChartSetup, deviceManagerConnection);
+
     QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::chartComplete,          datasetPtr_, &Dataset::addChart,        deviceManagerConnection);
     QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::rawDataRecieved,        datasetPtr_, &Dataset::rawDataRecieved, deviceManagerConnection);
     QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::distComplete,           datasetPtr_, &Dataset::addDist,         deviceManagerConnection);
@@ -1282,6 +1307,28 @@ void Core::fixFilePathString(QString& filePath) const
 
 void Core::saveLLARefToSettings()
 {
+
+    // Check if Qt’s application object is still available.
+    if (!QCoreApplication::instance()) {
+        qWarning() << "saveLLARefToSettings: QCoreApplication instance is null, aborting saving.";
+        return;
+    }
+    // If available, check if we are in the middle of shutdown.
+    #if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
+    if (QCoreApplication::instance()->closingDown()) {
+        qWarning() << "saveLLARefToSettings: Application is closing down, aborting saving.";
+        return;
+    }
+    #endif
+
+    // Ensure datasetPtr_ is valid.
+    if (!datasetPtr_) {
+        qWarning() << "saveLLARefToSettings: datasetPtr_ is null, aborting saving.";
+        return;
+    }
+    qWarning() << "saveLLARefToSettings: datasetPtr_ normal saving.";
+
+
     auto ref = datasetPtr_->getLlaRef();
 
     QSettings settings("TechAdVision", "Pulse");

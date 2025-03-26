@@ -348,6 +348,7 @@ void DevDriver::importSettingsFromXML(const QString& filePath) {
 }
 
 void DevDriver::exportSettingsToXML(const QString& filePath) {
+    qDebug() << "exportSettingsToXML check 1";
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return;
@@ -401,6 +402,8 @@ void DevDriver::exportSettingsToXML(const QString& filePath) {
     xmlWriter.writeEndDocument();
     file.close();
 
+    qDebug() << "exportSettingsToXML check done";
+
     return;
 }
 
@@ -421,6 +424,7 @@ void DevDriver::setDistSetupState(bool state) {
 void DevDriver::setChartSetupState(bool state) {
     if (state != chartSetupState_) {
         chartSetupState_ = state;
+        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
         emit chartSetupChanged();
     }
 }
@@ -691,6 +695,7 @@ void DevDriver::setTransFreq(int freq) {
     if(!m_state.connect) return;
     bool is_changed = transFreq() != freq;
     idTransc->setFreq((U2)freq);
+    qDebug() << "DevDriver - setTransFreq with freq " << freq;
     if(is_changed) { emit transChanged(); }
 }
 
@@ -759,9 +764,11 @@ int DevDriver::distMax() {
     return idDistSetup->max();
 }
 void DevDriver::setDistMax(int dist) {
+    qDebug() << "DevDriver - trying setDistMax with dist " << dist;
     if(!m_state.connect) return;
     bool is_changed = dist != distMax();
     idDistSetup->setMax(dist);
+    qDebug() << "DevDriver - performed setDistMax with dist " << dist;
     if(is_changed) { emit distSetupChanged(); }
 }
 
@@ -795,7 +802,10 @@ void DevDriver::setChartSamples(int smpls) {
     if(!m_state.connect) return;
     bool is_changed = smpls != chartSamples();
     idChartSetup->setCount((U2)smpls);
-    if(is_changed) { emit chartSetupChanged(); }
+    if(is_changed) {
+        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), smpls, idChartSetup->offset());
+        emit chartSetupChanged();
+    }
 }
 
 int DevDriver::chartResolution() {
@@ -806,7 +816,10 @@ void DevDriver::setChartResolution(int resol) {
     if(!m_state.connect) return;
     bool is_changed = resol != chartResolution();
     idChartSetup->setResolution((U2)resol);
-    if(is_changed) { emit chartSetupChanged(); }
+    if(is_changed) {
+        emit channelChartSetupChanged(_lastAddres, resol, idChartSetup->count(), idChartSetup->offset());
+        emit chartSetupChanged();
+    }
 }
 
 int DevDriver::chartOffset() {
@@ -817,7 +830,10 @@ void DevDriver::setChartOffset(int offset) {
     if(!m_state.connect) return;
     bool is_changed = offset != chartOffset();
     idChartSetup->setOffset((U2)offset);
-    if(is_changed) { emit chartSetupChanged(); }
+    if(is_changed) {
+        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), offset);
+        emit chartSetupChanged();
+    }
 }
 
 int DevDriver::dspSmoothFactor() {
@@ -1011,12 +1027,16 @@ void DevDriver::receivedChart(Type type, Version ver, Resp resp) {
             QVector<uint8_t> data(idChart->chartSize());
             memcpy(data.data(), idChart->logData8(), idChart->chartSize());
 
-            emit chartComplete(_lastAddres, data, 0.001*idChart->resolution(), 0.001*idChart->offsetRange());
+            if (!data.empty()) {
+                emit chartComplete(_lastAddres, data, 0.001*idChart->resolution(), 0.001*idChart->offsetRange());
+            }
 
             if(ver == v1) {
                 QVector<uint8_t> data2(idChart->chartSize());
                 memcpy(data2.data(), idChart->logData28(), idChart->chartSize());
-                emit chartComplete(_lastAddres+1, data2, 0.001*idChart->resolution(), 0.001*idChart->offsetRange());
+                if (!data2.empty()) {
+                    emit chartComplete(_lastAddres+1, data2, 0.001*idChart->resolution(), 0.001*idChart->offsetRange());
+                }
             }
         }
         // else if(ver == v7) {
@@ -1059,7 +1079,10 @@ void DevDriver::receivedChartSetup(Type type, Version ver, Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
-    if(resp == respNone) {  emit chartSetupChanged();  }
+    if(resp == respNone) {
+        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
+        emit chartSetupChanged();
+    }
 }
 
 void DevDriver::receivedDSPSetup(Type type, Version ver, Resp resp) {
