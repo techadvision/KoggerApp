@@ -56,12 +56,13 @@ Item {
     }
 
     function calculateDynamicResolution (depth) {
-        if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue) {
-            //console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.devName);
+
+        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+            console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName);
             return
         }
-        if (pulseRuntimeSettings.devName === "...") {
-            //console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.devName);
+        if (pulseRuntimeSettings.userManualSetName === "...") {
+            console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName);
             return
         }
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue){

@@ -584,20 +584,44 @@ WaterFall {
                     console.log("TAV: setUserInterface horizontal - pulseBlue viewIndex 0 - done");
                 }
             }
+            /*
             if (showAs2DTransducer) {
             //if (!pulseRuntimeSettings.is2DTransducer) {
                 plot.plotEchogramTheme(PulseSettings.colorMapIndex2D + quickChangeTheme.themeOffset)
             } else {
                 plot.plotEchogramTheme(PulseSettings.colorMapIndexSideScan + quickChangeTheme.themeOffset)
             }
+            */
 
             reArrangeQuickChangeObject()
             plot.updatePlot()
         }
 
+        function getFilterForDepth (depth) {
+            var autoFilter = pulseRuntimeSettings.autoFilterPulseRed;
+            for (var i = 0; i < autoFilter.length; i++) {
+                if (depth >= autoFilter[i].min && depth < autoFilter[i].max) {
+                    return autoFilter[i].filter;
+                }
+            }
+            return 0;
+        }
+
         function doAutoFilter() {
+            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                console.log("TAV: auto filter not be set for pulseBlue")
+                return
+            }
+
             if (PulseSettings.autoFilter) {
                 let currentMaxDept = pulseRuntimeSettings.autoDepthMaxLevel
+
+                let filter = getFilterForDepth (currentMaxDept)
+                filter = Math.ceil(filter * 2.5)
+                plot.setFilteringValue(filter)
+                plot.updatePlot()
+                console.log("TAV: auto filter updated plot to real newFilterValue", filter);
+                /*
                 let newFilterValue = 0
                 if (currentMaxDept >= 8) {
                     newFilterValue = 13
@@ -611,6 +635,7 @@ WaterFall {
                 plot.setFilteringValue(newFilterValue)
                 plot.updatePlot()
                 console.log("TAV: auto filter updated plot to real newFilterValue", newFilterValue);
+                */
             } else {
                 console.log("TAV: auto filter not active");
             }
@@ -869,57 +894,68 @@ WaterFall {
             Layout.preferredWidth: 350
 
 
-            // Calculate the offset and number of items based on the transducer type.
-            property int themeOffset: pulseRuntimeSettings.is2DTransducer ? 5 : 0
-            property var themeModel: pulseRuntimeSettings.fullThemeArray.slice(quickChangeTheme.themeOffset, quickChangeTheme.themeOffset + (pulseRuntimeSettings.is2DTransducer ? 7 : 5));
-
-
-
             HorizontalTapSelectController {
                 id: themeSelectorColorSS
-                //visible: !pulseRuntimeSettings.is2DTransducer
                 visible: !quickChangeObjects.showAs2DTransducer
-                model: quickChangeTheme.themeModel
+                model: pulseRuntimeSettings.themeModelBlue.map(function(item) {return item.icon;})
                 iconSource: "./icons/pulse_paint.svg"
                 selectedIndex: PulseSettings.colorMapIndexSideScan
                 allowExpertModeByMultiTap: true
                 onIconSelected: {
-                    console.log("TAV: colormap is2DTransducer:", pulseRuntimeSettings.is2DTransducer);
-                    //PulseSettings.colorMapIndex = selectedIndex;
+                    console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
                     PulseSettings.colorMapIndexSideScan = selectedIndex;
-                    plot.plotEchogramTheme(selectedIndex + quickChangeTheme.themeOffset);
+                    var selectedTheme = pulseRuntimeSettings.themeModelBlue[selectedIndex]
+                    console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
+                    plot.plotEchogramTheme(selectedTheme.id);
                     plot.updatePlot();
                 }
 
-                Component.onCompleted: {
-                    console.log("TAV: colormap is2DTransducer:", pulseRuntimeSettings.is2DTransducer);
-                    if (!pulseRuntimeSettings.is2DTransducer) {
-                        plot.plotEchogramTheme(PulseSettings.colorMapIndexSideScan + quickChangeTheme.themeOffset)
-                        plot.updatePlot();
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onUserManualSetNameChanged () {
+                        console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                            var preferredIndex = PulseSettings.colorMapIndexSideScan
+                            var selectedTheme = pulseRuntimeSettings.themeModelBlue[preferredIndex]
+                            console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
+                            plot.plotEchogramTheme(selectedTheme.id)
+                            plot.updatePlot();
+                        } else {
+                            console.log("TAV: colormap is 2D transducer, do not set for side scan");
+                       }
                     }
                 }
             }
 
             HorizontalTapSelectController {
                 id: themeSelectorColor2D
-                //visible: pulseRuntimeSettings.is2DTransducer
                 visible: quickChangeObjects.showAs2DTransducer
-                model: quickChangeTheme.themeModel
+                model: pulseRuntimeSettings.themeModelRed.map(function(item) {return item.icon;})
                 iconSource: "./icons/pulse_paint.svg"
                 selectedIndex: PulseSettings.colorMapIndex2D
                 allowExpertModeByMultiTap: true
                 onIconSelected: {
-                    console.log("TAV: colormap is2DTransducer:", pulseRuntimeSettings.is2DTransducer);
+                    console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
                     PulseSettings.colorMapIndex2D = selectedIndex;
-                    plot.plotEchogramTheme(selectedIndex + quickChangeTheme.themeOffset);
+                    var selectedTheme = pulseRuntimeSettings.themeModelRed[selectedIndex]
+                    console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
+                    plot.plotEchogramTheme(selectedTheme.id);
                     plot.updatePlot();
                 }
 
-                Component.onCompleted: {
-                    console.log("TAV: colormap is2DTransducer:", pulseRuntimeSettings.is2DTransducer);
-                    if (pulseRuntimeSettings.is2DTransducer) {
-                        plot.plotEchogramTheme(PulseSettings.colorMapIndex2D + quickChangeTheme.themeOffset)
-                        plot.updatePlot();
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onUserManualSetNameChanged () {
+                        console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                            var preferredIndex = PulseSettings.colorMapIndex2D
+                            var selectedTheme = pulseRuntimeSettings.themeModelRed[preferredIndex]
+                            console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
+                            plot.plotEchogramTheme(selectedTheme.id)
+                            plot.updatePlot();
+                        } else {
+                             console.log("TAV: colormap is side scan, do not set for 2D");
+                        }
                     }
                 }
             }
@@ -948,32 +984,47 @@ WaterFall {
                     }
                     quickChangeObjects.reArrangeQuickChangeObject()
 
-                    //console.log("TAV: Selected echosounder index:", selectedIndex);
                 }
-                Component.onCompleted: {
-                    if (PulseSettings.ecoViewIndex === 0) {
-                        plot.setHorizontalNow()
-                        plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
-                        pulseRuntimeSettings.isSideScan2DView = true
-                    } else {
-                        plot.setVerticalNow()
-                        plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
-                        pulseRuntimeSettings.isSideScan2DView = false
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onUserManualSetNameChanged () {
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                            if (PulseSettings.ecoViewIndex === 0) {
+                                plot.setHorizontalNow()
+                                plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
+                                pulseRuntimeSettings.isSideScan2DView = true
+                            } else {
+                                plot.setVerticalNow()
+                                plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
+                                pulseRuntimeSettings.isSideScan2DView = false
+                            }
+                            console.log("TAV: viewSelector is side scan");
+                            plot.updatePlot();
+                        } else {
+                            console.log("TAV: viewSelector is 2D transducer, do not set for side scan");
+                       }
                     }
-                    plot.updatePlot();
                 }
+
             }
 
             HorizontalTapSelectController {
                 id: themeSelector3
                 visible: pulseRuntimeSettings.is2DTransducer
+                /*
                 model: [
                     "./icons/pulse_cone_wide.svg",
                     "./icons/pulse_cone_narrow_ultra.svg"
                 ]
+                */
+                model: [
+                    "./icons/pulse_cone_narrow_ultra.svg"
+                ]
                 iconSource: "./icons/pulse_glasses.svg"
-                selectedIndex: PulseSettings.ecoConeIndex
+                selectedIndex: 0
+                //selectedIndex: PulseSettings.ecoConeIndex
                 allowExpertModeByMultiTap: false
+                /* Only allow narrow cone
                 onIconSelected: {
                     if (selectedIndex === 1) {
                         //DeviceItem.transFreq = themeSelector3.coneNarrow
@@ -988,9 +1039,25 @@ WaterFall {
 
                     console.log("TAV: Selected echosounder cone index:", themeSelector3.selectedIndex);
                 }
-                Component.onCompleted: {
-
+                */
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onUserManualSetNameChanged () {
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                            pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
+                            console.log("TAV: viewSelector is 2D");
+                            plot.updatePlot()
+                        } else {
+                            console.log("TAV: viewSelector is side scan transducer, do not set for 2D");
+                       }
+                    }
                 }
+                /*
+                Component.onCompleted: {
+                    //Only use narrow cone
+                    pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
+                }
+                */
 
             }
 

@@ -264,6 +264,18 @@ ColumnLayout {
             }
         }
         function onDynamicResolutionChanged () {
+            console.log("TAV: onDynamicResolutionChanged do dynamicResolution? ", pulseRuntimeSettings.doDynamicResolution);
+            if (!pulseRuntimeSettings.doDynamicResolution) {
+                return
+            }
+
+            if (!pulseRuntimeSettings.userManualSetName === "...") {
+                console.log("TAV: onDynamicResolutionChanged do do not set before device is selected - name is ", pulseRuntimeSettings.userManualSetName);
+                return
+            }
+
+
+            /*
             console.log("TAV: onDynamicResolutionChanged triggered, right now the pulseRuntimeSettings.modelPulseBlue is ", pulseRuntimeSettings.modelPulseBlue)
             if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue) {
                 console.log("TAV: onDynamicResolutionChanged as not to be used devName  ", pulseRuntimeSettings.modelPulseBlue);
@@ -283,6 +295,7 @@ ColumnLayout {
             } else {
                 console.log("TAV: onDynamicResolutionChanged passed check pulseRuntimeSettings.userManualSetName not equal to ... or NanoSSS for ", pulseRuntimeSettings.userManualSetName);
             }
+            */
             pulseRuntimeSettings.chartResolution = pulseRuntimeSettings.dynamicResolution
             dev.chartResolution = pulseRuntimeSettings.dynamicResolution
             console.log("TAV: onDynamicResolutionChanged as ", pulseRuntimeSettings.dynamicResolution, ",devName ", pulseRuntimeSettings.devName, ", manSetName ", pulseRuntimeSettings.userManualSetName);
@@ -363,8 +376,10 @@ ColumnLayout {
                         deviceIdentified = true
                         settingsCompleted = true
                         pulseRuntimeSettings.devConfigured = true
-                        pulseRuntimeSettings.devName = pulseRuntimeSettings.devName
-                        dev.devName === pulseRuntimeSettings.devName
+                        pulseRuntimeSettings.devName = pulseRuntimeSettings.userManualSetName
+                        PulseSettings.devName = pulseRuntimeSettings.userManualSetName
+                        dev.devName === pulseRuntimeSettings.userManualSetName
+                        //dev.devName === pulseRuntimeSettings.devName
                         console.log("TAV: delayTimer, device automatically detected");
                         configurePulseDevice()
                         pulseRuntimeSettings.appConfigured = true
