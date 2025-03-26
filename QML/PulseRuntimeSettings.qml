@@ -34,14 +34,15 @@ QtObject {
     property bool   hasDeviceLostConnection:false   // if didEverReceiveData = true, and isReceivingData = false
 
     //UI AUTO CONTROL
-    property double autoDepthMinLevel:      2       // The minimum chart level display allowed
     property double autoDepthMaxLevel:      2       // The current max level displayed, used for automatic change of display based on depth measure
+    property double autoDepthMinLevel:      1       // The minimum chart level display allowed
     property double autoDepthLevelStep:     1       // The step in meters to evaluate when to automatically change the display
     property double autoDepthDistanceBelow: 1       // The additional distance below the measured depth and the step to show some screen below the measure
     property bool   shouldDoAutoRange:      false   // Should app automatically adjust the display according to depth measure or not?
     property double manualSetLevel:         0.0     // The fixe value of the screen display desired by the user, when manual fixing is desired
-    property int    dynamicResolutionMin:   90      // The minimum allowed resolution in mm, here 30 mm resolution
-    property int    dynamicResolutionMax:   3       // The maximum allowed resolution in mm, here 3 mm resolution
+    property int    dynamicResolutionMin:   90      // The minimum allowed resolution in mm
+    property int    dynamicResolutionMax:   2       // The maximum allowed resolution in mm
+    property int    dynamicResolutionMargin:2       // The margin resolution in m
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property int    scrollingSpeed:         50      // Initial value for scrolling speed
 
@@ -111,7 +112,6 @@ QtObject {
     property int    maximumDepth:       userManualSetName === modelPulseRed ? pulseRed.maximumDepth        : pulseBlue.maximumDepth
     property bool   processBottomTrack: userManualSetName === modelPulseRed ? pulseRed.processBottomTrack  : pulseBlue.processBottomTrack
     property var    distProcessing:     userManualSetName === modelPulseRed ? distProcPulseRed             : distProcPulseBlue
-    property var    themeArray:         userManualSetName === modelPulseRed ? themeArrayRed                : themeArrayBlue
     property var    doDynamicResolution:userManualSetName === modelPulseRed ? pulseRed.doDynamicResolution : pulseBlue.doDynamicResolution
 
     property var pulseRed: {

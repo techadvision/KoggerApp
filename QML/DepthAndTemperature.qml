@@ -12,10 +12,17 @@ Item {
     height: 200
     clip: true
 
-    property bool   dataAvailable: false
-    property bool   isMetric: PulseSettings.useMetricValues
-    property int    datasetUpdatedCounter: 0
-    property double autoLevel: 2   // default value (for depth 0)
+    property bool   dataAvailable:              false
+    property bool   isMetric:                   PulseSettings.useMetricValues
+    property int    datasetUpdatedCounter:      0
+    property double autoLevel:                  2   // default value (for depth 0)
+
+    property int    dynamicResStableCount :     0   // counter to ensure more than one record to be considered before shifting resolution
+    property int    lastDirection :             0   // direction of shift
+    property int    requiredStableReading:      3   // resolution shift count threshold
+    property double hysterisisThreshold :       1.1 // resolution hysterisis
+    property int    newAutoLevel :              1 // Shifter variable for the UI
+    property bool   pulseBlueResSetOnce:        false //Set the resoution for blue only once
 
     signal swapUnits()
     //signal pulseAutoLevelChanged(int newAutoLevel)
@@ -58,38 +65,74 @@ Item {
     function calculateDynamicResolution (depth) {
 
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
-            console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName);
+            if (!pulseBlueResSetOnce) {
+                pulseBlueResSetOnce = true
+                pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution;
+                console.log("TAV: set pulseRuntimeSettings.dynamicResolution just once to", pulseRuntimeSettings.dynamicResolution, "for", pulseRuntimeSettings.userManualSetName);
+                return
+            } else {
+                return
+            }
+        }
+
+        if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed) {
+            //console.log("TAV: should not calculate dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName);
             return
         }
-        if (pulseRuntimeSettings.userManualSetName === "...") {
-            console.log("TAV: should not set dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName);
-            return
-        }
-        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue){
-            //console.log("TAV: should not set dynamicResolution for manuel set devName ", pulseRuntimeSettings.userManualSetName);
-            return
-        }
+
         // 1. Choose a margin (in meters) to give extra headroom.
-        var margin = pulseRuntimeSettings.autoDepthDistanceBelow //Default is 2 meters
+        var margin = pulseRuntimeSettings.dynamicResolutionMargin //Default is 2 meters
 
-        // 2. Compute desired resolution in mm.
-        var desiredRes = (depth + margin) *2;
+        // 2. Compute desired resolution in mm, round up
+        //var desiredRes =  Math.round(depth *2) + margin
+        var desiredRes =  Math.round((depth + margin) * 2)
 
-        // 3. Round up (ceiling) to be conservative:
-        desiredRes = Math.ceil(desiredRes);
-
-        // 4. Clamp to valid bounds.
+        // 3. Clamp to valid bounds.
         desiredRes = Math.max(desiredRes, pulseRuntimeSettings.dynamicResolutionMax);
         desiredRes = Math.min(desiredRes, pulseRuntimeSettings.dynamicResolutionMin);
 
-        // 5. Compare with the old resolution to avoid flicker:
+        // 4. Compare with the old resolution to avoid flicker:
         var oldRes = pulseRuntimeSettings.dynamicResolution;
 
-        // Only update if new resolution differs by at least 1 mm
-        if (Math.abs(desiredRes - oldRes) >= 1) {
-            pulseRuntimeSettings.dynamicResolution = desiredRes;
-            console.log("TAV: setting dynamicResolution to ", desiredRes, " for depth ", depth);
-            //dev.chartResolution = desiredRes; //Done in deviceItem
+        // 5. Perform the dynamicResolution update
+        updateDynamicResolution(desiredRes, depth)
+    }
+
+    function updateDynamicResolution(candidateRes, depth) {
+        //console.log("TAV: got request to dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName, ", candidateRes", candidateRes, "and depth", depth);
+        const currentRes = pulseRuntimeSettings.dynamicResolution;
+        const diff = candidateRes - currentRes;
+        let currentDirection = 0;
+
+        // Determine if the candidate difference is significant enough.
+        if (diff > hysterisisThreshold) {
+            currentDirection = 1; // Candidate is significantly deeper.
+        } else if (diff < -hysterisisThreshold) {
+            currentDirection = -1; // Candidate is significantly shallower.
+        } else {
+            // Difference is too small: reset the count and direction.
+            dynamicResStableCount = 0;
+            lastDirection = 0;
+            return;
+        }
+
+        // If the current direction doesn't match the last direction, reset the counter.
+        if (lastDirection !== 0 && lastDirection !== currentDirection) {
+            dynamicResStableCount = 0;
+        }
+
+        // Update the lastDirection and count the consecutive reading.
+        lastDirection = currentDirection;
+        dynamicResStableCount++;
+
+        // Update the resolution only if we've met the consecutive threshold.
+        if (dynamicResStableCount >= requiredStableReading) {
+            pulseRuntimeSettings.dynamicResolution = candidateRes;
+            newAutoLevel = Math.ceil(depth)
+            console.log("TAV: setting dynamicResolution to", candidateRes, "for depth", depth, "with newAutoLevel", newAutoLevel);
+            // Reset counters after applying the update.
+            dynamicResStableCount = 0;
+            lastDirection = 0;
         }
     }
 
@@ -112,8 +155,6 @@ Item {
                 } else {
                     console.log("TAV: Auto level cannot be set when pulseRuntimeSettings is null");
                 }
-
-                //depthAndTemperature.autoLevelChanged(newLevel);
             }
         }
     }
