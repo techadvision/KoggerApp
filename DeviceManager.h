@@ -37,6 +37,7 @@ public:
 #ifdef MOTOR
     bool isMotorControlCreated() const;
 #endif
+    int calcAverageChartLosses();
 
 public slots:
     Q_INVOKABLE bool isCreatedId(int id);
@@ -61,6 +62,8 @@ public slots:
     bool isbeaconDirectQueueAsk() { return isUSBLBeaconDirectAsk; }
     void setUSBLBeaconDirectAsk(bool is_ask);
 
+    void onLoggingKlfStarted();
+
 #ifdef MOTOR
     float getFAngle();
     float getSAngle();
@@ -73,10 +76,12 @@ public slots:
 
 signals:
     //
-    void channelChartSetupChanged(int16_t channel, uint16_t resol, int count, uint16_t offset);
+    void sendChartSetup(int16_t channel, uint16_t resol, uint16_t count, uint16_t offset);
+    void sendTranscSetup(int16_t channel, uint16_t freq, uint8_t pulse, uint8_t boost);
+    void sendSoundSpeeed(int16_t channel, uint32_t soundSpeed);
 
     void dataSend(QByteArray data);
-    void chartComplete(int16_t channel, QVector<uint8_t> data, float resolution, float offset);
+    void chartComplete(ChartParameters chartParams, QVector<uint8_t> data, float resolution, float offset);
     void rawDataRecieved(RawData rawData);
     void distComplete(int dist);
     void usblSolutionComplete(IDBinUsblSolution::UsblSolution data);
@@ -102,6 +107,10 @@ signals:
     void attitudeComplete(float yaw, float pitch, float roll);
     void encoderComplete(float e1, float e2, float e3);
     void fileStopsOpening();
+    void chartLossesChanged();
+
+    // logger
+    void sendProtoFrame(const ProtoBinOut& protoOut);
 
 #ifdef SEPARATE_READING
     void fileStartOpening();

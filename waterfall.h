@@ -117,6 +117,9 @@ public slots:
         qDebug() << "TAV: waterfall plotEchogramSetLevels,  setEchogramHightLevel: " << hight;
     }
 
+    Q_INVOKABLE float getLowEchogramLevel() const;
+    Q_INVOKABLE float getHighEchogramLevel() const;
+    Q_INVOKABLE int getThemeId() const;
     void doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz);
     void refreshDistParams(int preset, int windowSize, float verticalGap, float rangeMin, float rangeMax, float gainSlope, float threshold, float offsetX, float offsetY, float offsetZ);
 

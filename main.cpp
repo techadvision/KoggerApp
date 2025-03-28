@@ -25,16 +25,11 @@
 #include <QSettings>
 #include <QVector>
 #include <QString>
-#include <DevDriver.h>
-
-#include "DevQProperty.h"
 
 Core core;
 Themes theme;
 QTranslator translator;
-QVector<QString> availableLanguages{"en", "ru", "pl", "de"};
-QObject* g_pulseRuntimeSettings = nullptr;
-QObject* g_pulseSettings = nullptr;
+QVector<QString> availableLanguages{"en", "ru", "pl"};
 
 
 void loadLanguage(QGuiApplication &app)
@@ -95,9 +90,6 @@ void registerQmlMetaTypes()
     qmlRegisterType<qPlot2D>( "WaterFall", 1, 0, "WaterFall");
     qmlRegisterType<BottomTrack>("BottomTrack", 1, 0, "BottomTrack");
     qRegisterMetaType<BottomTrack::ActionEvent>("BottomTrack::ActionEvent");
-    //Pulse
-    //qmlRegisterType<DevDriver>("DevDriver", 1, 0, "DevDriver");
-    //qmlRegisterType<DevQProperty>("DevQProperty", 1, 0, "DevQProperty");
 }
 
 
@@ -106,11 +98,14 @@ int main(int argc, char *argv[])
 #if defined(Q_OS_LINUX)
     QApplication::setAttribute(Qt::AA_ForceRasterWidgets, false);
     ::qputenv("QT_SUPPORT_GL_CHILD_WIDGETS", "1");
+#ifdef LINUX_ES
+    ::qputenv("QT_OPENGL", "es2");
+#endif
 #endif
 
-    QCoreApplication::setOrganizationName("TechAdVision");
-    QCoreApplication::setOrganizationDomain("techadvision.com");
-    QCoreApplication::setApplicationName("Pulse");
+    QCoreApplication::setOrganizationName("KOGGER");
+    QCoreApplication::setOrganizationDomain("kogger.tech");
+    QCoreApplication::setApplicationName("KoggerApp");
     QCoreApplication::setApplicationVersion("1-1-1");
 
 #if defined(Q_OS_WIN)
@@ -118,14 +113,16 @@ int main(int argc, char *argv[])
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Round);
 #endif
 
-    // Register the singleton type
-    qmlRegisterSingletonType(QUrl("qrc:/PulseSettings.qml"), "org.techadvision.settings", 1, 0, "PulseSettings");
-    qmlRegisterSingletonType(QUrl("qrc:/PulseRuntimeSettings.qml"), "org.techadvision.runtime", 1, 0, "PulseRuntimeSettings");
-
     QQuickWindow::setSceneGraphBackend(QSGRendererInterface::OpenGLRhi);
 
     QSurfaceFormat format;
+#if defined(Q_OS_ANDROID) || defined(LINUX_ES)
+    format.setRenderableType(QSurfaceFormat::OpenGLES);
+#else
+    format.setRenderableType(QSurfaceFormat::OpenGL);
+#endif
     format.setSwapInterval(0);
+
     QSurfaceFormat::setDefaultFormat(format);
 
     QGuiApplication app(argc, argv);
@@ -141,38 +138,11 @@ int main(int argc, char *argv[])
 
     registerQmlMetaTypes();
 
-
     engine.rootContext()->setContextProperty("dataset", core.getDatasetPtr());
     engine.rootContext()->setContextProperty("core", &core);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("linkManagerWrapper", core.getLinkManagerWrapperPtr());
     engine.rootContext()->setContextProperty("deviceManagerWrapper", core.getDeviceManagerWrapperPtr());
-    //Pulse
-    //DevDriver devDriver;
-    //engine.rootContext()->setContextProperty("pulseDevDriver", &devDriver);
-
-    QQmlComponent component(&engine, QUrl("qrc:/PulseRuntimeSettings.qml"));
-    QObject *runtimeSettingsInstance = component.create();
-    if (!runtimeSettingsInstance) {
-        qWarning() << "Failed to create PulseRuntimeSettings instance!";
-    } else {
-        runtimeSettingsInstance->setObjectName("pulseRuntimeSettings");
-        engine.rootContext()->setContextProperty("pulseRuntimeSettings", runtimeSettingsInstance);
-        g_pulseRuntimeSettings = runtimeSettingsInstance;
-    }
-
-    QQmlComponent component2(&engine, QUrl("qrc:/PulseSettings.qml"));
-    QObject *settingsInstance = component2.create();
-    if (!settingsInstance) {
-        qWarning() << "Failed to create PulseSettings instance!";
-    } else {
-        settingsInstance->setObjectName("pulseSettings");
-        engine.rootContext()->setContextProperty("pulseSettings", settingsInstance);
-        g_pulseSettings = settingsInstance;
-    }
-
-
-
 #ifdef FLASHER
     engine.rootContext()->setContextProperty("flasher", &core.getFlasherPtr);
 #endif
@@ -203,21 +173,16 @@ int main(int argc, char *argv[])
 
     QObject::connect(&app,  &QGuiApplication::aboutToQuit,
                      &core, [&]() {
-        core.stopLinkManagerTimer();
+                                core.saveLLARefToSettings();
+                                core.removeLinkManagerConnections();
+                                core.stopLinkManagerTimer();
 #ifdef SEPARATE_READING
-        core.stopDeviceManagerThread();
+                                void removeDeviceManagerConnections();
+                                core.stopDeviceManagerThread();
 #endif
                             });
 
     engine.load(url);
     qCritical() << "App is created";
-
-    if (g_pulseRuntimeSettings) {
-        qDebug() << "pulseRuntimeSettings instance found!";
-    } else {
-        qWarning() << "pulseRuntimeSettings instance not found!";
-    }
-
-
     return app.exec();
 }

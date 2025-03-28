@@ -395,39 +395,60 @@ typedef struct ComplexSignal {
     QVector<ComplexF> data;
 } ComplexSignal;
 
+struct RecordParameters {
+    uint16_t resol      = 0;
+    uint16_t count      = 0;
+    uint16_t offset     = 0;
+    uint16_t freq       = 0;
+    uint8_t  pulse      = 0;
+    uint8_t  boost      = 0;
+    uint32_t soundSpeed = 0;
+
+    bool isNull() const {
+        if (resol      == 0 &&
+            count      == 0 &&
+            offset     == 0 &&
+            freq       == 0 &&
+            pulse      == 0 &&
+            boost      == 0 &&
+            soundSpeed == 0) {
+            return true;
+        }
+        return false;
+    }
+};
+
 typedef QMap<int, ComplexSignal> ComplexSignals;
 
 class Epoch {
-
 public:
     struct Contact {
-    public:
         bool isValid() const {
-            return !info_.isEmpty() &&
-                   cursorX_ != -1 &&
-                   cursorY_ != -1;
+            return !info.isEmpty() &&
+                   cursorX != -1 &&
+                   cursorY != -1;
         }
         void clear() {
-            cursorX_ = -1;
-            cursorY_ = -1;
-            info_.clear();
-            lat_ = 0.0f;
-            lon_ = 0.0f;
-            nedX_ = 0.0f;
-            nedY_ = 0.0f;
-            rectEcho_ = QRectF();
-            distance_ = 0.0f;
+            info.clear();
+            lat      = 0.0f;
+            lon      = 0.0f;
+            distance = 0.0f;
+            nedX     = 0.0f;
+            nedY     = 0.0f;
+            cursorX  = -1;
+            cursorY  = -1;
+            rectEcho = QRectF();
         }        
 
-        QString info_;
-        float lat_ = 0.0f;
-        float lon_ = 0.0f;
-        float distance_ = 0.0f;
-        float nedX_ = 0.0f;
-        float nedY_ = 0.0f;
-        int cursorX_ = -1;
-        int cursorY_ = -1;
-        QRectF rectEcho_;
+        QString info;
+        float   lat = 0.0f;
+        float   lon = 0.0f;
+        float   distance = 0.0f;
+        float   nedX = 0.0f;
+        float   nedY = 0.0f;
+        int     cursorX = -1;
+        int     cursorY = -1;
+        QRectF  rectEcho;
     };
 
     typedef struct {
@@ -471,7 +492,7 @@ public:
         float getMin() { return min; }
     } DistProcessing;
 
-    typedef struct {
+    struct Echogram {
         QVector<uint8_t> amplitude;
         float resolution = 0; // m
         float offset = 0; // m
@@ -506,14 +527,12 @@ public:
 
         DistProcessing bottomProcessing;
         Position sensorPosition;
+        RecordParameters recordParameters_;
 
         float range() {
             return amplitude.size()*(resolution);
         }
-
-
-
-    } Echogram;
+    };
 
 
 
@@ -521,6 +540,7 @@ public:
     Epoch();
     void setEvent(int timestamp, int id, int unixt);
     void setChart(int16_t channel, QVector<uint8_t> chartData, float resolution, float offset);
+    void setRecParameters(int16_t address, RecordParameters recParams);
     void setDist(int dist);
     void setRangefinder(int channel, float distance);
     void setDopplerBeam(IDBinDVL::BeamSolution *beams, uint16_t cnt);
@@ -686,7 +706,7 @@ public:
         return range;
     }
 
-    Q_INVOKABLE bool distAvail() { return flags.distAvail; }
+    bool distAvail() { return flags.distAvail; }
 
     double  distProccesing(int16_t channel) {
         if(channel == CHANNEL_FIRST) {
@@ -706,7 +726,7 @@ public:
     }
 
 
-    float rangeFinder() const {
+    float rangeFinder() {
         if(_rangeFinders.size() > 0) {
             return _rangeFinders.first();
         }
@@ -861,14 +881,29 @@ public:
     float getInterpYaw() const;
     float getInterpFirstChannelDist() const;
     float getInterpSecondChannelDist() const;
+
     bool getWasValidlyRenderedInEchogram() const;
     void setWasValidlyRenderedInEchogram(bool state);
 
-    Contact contact_;
+    void setResolution(int16_t channelId, uint16_t resolution);
+    void setChartCount(int16_t channelId, uint16_t chartCount);
+    void setOffset(int16_t channelId, uint16_t offset);
+    void setFrequency(int16_t channelId, uint16_t frequency);
+    void setPulse(int16_t channelId, uint8_t pulse);
+    void setBoost(int16_t channelId, uint8_t boost);
+    void setSoundSpeed(int16_t channelId, uint32_t soundSpeed);
+    uint16_t getResolution(int16_t channelId) const;
+    uint16_t getChartCount(int16_t channelId) const;
+    uint16_t getOffset(int16_t channelId) const;
+    uint16_t getFrequency(int16_t channelId) const;
+    uint8_t getPulse(int16_t channelId) const;
+    uint8_t getBoost(int16_t channelId) const;
+    uint32_t getSoundSpeed(int16_t channelId) const;
+
+    Contact contact_; // TODO: private
 
 protected:
-
-    QMap<int16_t, Echogram> _charts;
+    QMap<int16_t, Echogram> _charts; // channels not addr
     QMap<int16_t, float> _rangeFinders;
 
     int _eventTimestamp_us = 0;
@@ -967,19 +1002,15 @@ public:
         kConnection
     };
 
-    //Q_PROPERTY(float depth READ currentDepth NOTIFY dataUpdate)
-
-    Q_PROPERTY(float dist READ dist NOTIFY distChanged)
-    Q_PROPERTY(float temp READ temp NOTIFY tempChanged)
-
     /*methods*/
     Dataset();
 
-    float dist() const { return _dist; }
-    float temp() const { return _temp; }
-    //float depth() const { return _depth; }
-
     void setState(DatasetState state);
+
+#if defined(FAKE_COORDS)
+    void setActiveZeroing(bool state);
+#endif
+
     DatasetState getState() const;
     LLARef getLlaRef() const;
     void setLlaRef(const LLARef& val, LlaRefState state);
@@ -1051,12 +1082,13 @@ public slots:
     void addEncoder(float angle1_deg, float angle2_deg = NAN, float angle3_deg = NAN);
     void addTimestamp(int timestamp);
 
-
     //
-    void setChartSetup(int16_t channel, uint16_t resol, int count, uint16_t offset);
-    void setFixBlackStripes(bool state);
-
-    void addChart(int16_t channel, QVector<uint8_t> data, float resolution, float offset);
+    void setChartSetup(int16_t channel, uint16_t resol, uint16_t count, uint16_t offset);
+    void setTranscSetup(int16_t channel, uint16_t freq, uint8_t pulse, uint8_t boost);
+    void setSoundSpeed(int16_t channel, uint32_t soundSpeed);
+    void setFixBlackStripesState(bool state);
+    void setFixBlackStripesRange(int val);
+    void addChart(ChartParameters, QVector<uint8_t> data, float resolution, float offset);
     void rawDataRecieved(RawData raw_data);
     void addDist(int dist);
     void addRangefinder(float distance);
@@ -1116,30 +1148,37 @@ public slots:
     void interpolateData(bool fromStart);
 
 signals:
-    void distChanged();
-    void tempChanged();
     void channelsListUpdates(QList<DatasetChannel> channels);
     void dataUpdate();
     void bottomTrackUpdated(int lEpoch, int rEpoch);
     void boatTrackUpdated();
     void updatedInterpolatedData(int indx);
     void updatedLlaRef();
-
-private:
-    float _dist = 0; // Stores the distance value
-    float _temp = 0; // Stores the temperature value
-    //float _depth; // Stores the depth value
+    void channelsUpdated();
 
 protected:
+    using EthalonVec = QVector<QPair<uint8_t, uint8_t>>;
+    QMap<int16_t, EthalonVec> ethData_; // first - channelId, sec - vec,
     int lastEventTimestamp = 0;
     int lastEventId = 0;
     float _lastEncoder = 0;
 
+#if defined(FAKE_COORDS)
+    bool activeZeroing_ = false;
+    uint64_t testTime_ = 1740466541;
+#endif
+
     QMap<int, DatasetChannel> _channelsSetup;
 
     void validateChannelList(int ch) {
+        bool isNewChannel = !_channelsSetup.contains(ch);
+
         _channelsSetup[ch].channel = ch;
         _channelsSetup[ch].counter();
+
+        if (isNewChannel) {
+            emit channelsUpdated();
+        }
     }
 
     QVector<QVector3D> _boatTrack;
@@ -1166,7 +1205,8 @@ protected:
 
     Epoch* addNewEpoch() {
         _pool.resize(_pool.size() + 1);
-        return last();
+        auto* lastEpoch = last();
+        return lastEpoch;
     }
 
     GraphicsScene3dView* scene3dViewPtr_ = nullptr;
@@ -1207,12 +1247,9 @@ private:
     int lastBottomTrackEpoch_;
     BottomTrackParam bottomTrackParam_;
     uint64_t boatTrackValidPosCounter_;
-
-    int lastMostFreqChartSize_;
-    uint16_t chartResolution_;
-    int chartCount_;
-    uint16_t chartOffset_;
-    bool fixBlackStripes_;
+    QMap<int16_t, RecordParameters> usingRecordParameters_;
+    bool fixBlackStripesState_;
+    int fixBlackStripesWrCnt_;
 };
 
 #endif // PLOT_CASH_H

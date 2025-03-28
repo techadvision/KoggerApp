@@ -34,7 +34,7 @@ bool Logger::startNewKlfLog()
     QDir dir;
 
 #ifdef Q_OS_ANDROID
-    QString logPath =  QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/KoggerApp";
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp";
 #else
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp/logs";
 #endif
@@ -58,6 +58,10 @@ bool Logger::startNewKlfLog()
     }
     else {
         core.consoleInfo("Logger can't make dir");
+    }
+
+    if (isOpen) {
+        emit loggingKlfStarted();
     }
 
     return isOpen;
@@ -118,7 +122,7 @@ bool Logger::startNewCsvLog()
     QDir dir;
 
 #ifdef Q_OS_ANDROID
-    QString logPath =  QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/KoggerApp";
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp";
 #else
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp/logs";
 #endif
@@ -390,4 +394,20 @@ bool Logger::endExportStream()
     return true;
 }
 
+void Logger::receiveProtoFrame(ProtoBinOut protoBinOut)
+{
+    QByteArray data = QByteArray((const char*)protoBinOut.frame(), protoBinOut.frameLen());
+
+    if (isOpenKlf()) {
+        klfLogFile_->write(data);
+
+        if (klfCurrentIteration_ > klfFlushInterval_) {
+            klfLogFile_->flush();
+            klfCurrentIteration_ = 0;
+        }
+        else {
+            ++klfCurrentIteration_;
+        }
+    }
+}
 

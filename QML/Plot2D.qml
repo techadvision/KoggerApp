@@ -15,6 +15,13 @@ WaterFall {
     property real quickChangeMaxRangeValue: 15
     signal echogramWasZoomed(real updatedMaxValue)
 
+    function setLevels(low, high) {
+        echogramLevelsSlider.startValue = low
+        echogramLevelsSlider.stopValue = high
+        echogramLevelsSlider.startPointY = echogramLevelsSlider.valueToPosition(low);
+        echogramLevelsSlider.stopPointY = echogramLevelsSlider.valueToPosition(high);
+        echogramLevelsSlider.update()
+    }
 
     PinchArea {
         id: pinch2D
@@ -1270,6 +1277,8 @@ WaterFall {
 
         onVisibleChanged: {
             if (!visible) {
+                parent.focus = true
+
                 if (accepted) {
                     plot.setContact(contactDialog.indx, contactDialog.inputFieldText)
                     accepted = false

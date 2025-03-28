@@ -2,11 +2,13 @@
 #define IDBINNARY_H
 
 #include <QObject>
+#include <QList>
 #include <QVector>
 #include <QTimer>
 #include <ProtoBinnary.h>
 
 using namespace Parsers;
+using Segment = QPair<uint16_t, uint16_t>; // first - begin, second - end
 
 typedef enum {
     BoardNone,
@@ -30,10 +32,24 @@ struct LastReadInfo {
     LastReadInfo() : version(), checkSum(0), address(0), isReaded(true) {};
     LastReadInfo(Version _version, uint16_t _checkSum, uint8_t _address, bool _isReaded) :
         version(_version), checkSum(_checkSum), address(_address), isReaded(_isReaded) {};
-    Version version;
+
+    Version  version;
     uint16_t checkSum;
-    uint8_t address;
-    bool isReaded;
+    uint8_t  address;
+    bool     isReaded;
+};
+
+struct ChartParameters {
+    ChartParameters() : address(0), channelId(0) {};
+    ChartParameters(int16_t _address, int16_t _channelId, BoardVersion _boardVersion, Version _version, QList<int16_t> _linkedChannels, QList<Segment> _errList) :
+        address(_address), channelId(_channelId), boardVersion(_boardVersion), version(_version), linkedChannels(_linkedChannels), errList(_errList) {};
+
+    int16_t        address;
+    int16_t        channelId;
+    BoardVersion   boardVersion;
+    Version        version;
+    QList<int16_t> linkedChannels;
+    QList<Segment> errList;
 };
 
 class IDBin : public QObject
@@ -175,8 +191,12 @@ class IDBinChart : public IDBin
 {
     Q_OBJECT
 public:
-
-    explicit IDBinChart() : IDBin() {
+    IDBinChart() :
+        IDBin(),
+        lossIndex_(0)
+    {
+        lossHistory_.resize(1000);
+        std::fill(lossHistory_.begin(), lossHistory_.end(), 0);
     }
 
     ID id() override { return ID_CHART; }
@@ -197,9 +217,27 @@ public:
 
     uint8_t* logData8() { return m_completeChart; }
     uint8_t* logData28() { return m_completeChart2; }
+
+    QList<Segment> getErrList() {
+        if (!compErrList_.empty()) {
+            auto retVal = std::move(compErrList_);
+            compErrList_.clear();
+            return retVal;
+        }
+        return {};
+    }
+
     // uint8_t* rawData() { return _rawDataSave; }
     // uint32_t rawDataSize() { return _rawDataSize; }
     // uint8_t rawType() { return type; }
+
+    uint8_t getAverageLosses() const {
+        int sum = 0;
+        for (uint8_t loss : lossHistory_) {
+            sum += loss;
+        }
+        return (sum * 1.0f) / (lossHistory_.size() * 1.0f) * 100.0f;
+    }
 
 protected:
     uint32_t m_seqOffset = 0, m_sampleResol = 0, m_absOffset = 0;
@@ -209,11 +247,18 @@ protected:
     uint8_t m_completeChart[20000];
     uint8_t m_completeChart2[20000];
 
+    QList<Segment> tempErrList_;
+    QList<Segment> compErrList_;
+
     bool m_isCompleteChart = false;
 
     RawData _rawData;
 signals:
     void rawDataRecieved(RawData raw_data);
+
+private:
+    QVector<uint8_t> lossHistory_;
+    int lossIndex_ = 0;
 };
 
 

@@ -2,7 +2,6 @@
 #include <time.h>
 #include <core.h>
 #include <QXmlStreamWriter>
-#include <QDebug>
 
 extern Core core;
 
@@ -14,9 +13,13 @@ DevDriver::DevDriver(QObject *parent) :
     dspSetupState_(false),
     transcState_(false),
     soundSpeedState_(false),
-    uartState_(false)
+    uartState_(false),
+    errorFreezeCnt_(0),
+    averageChartLosses_(0)
 {
     qRegisterMetaType<ProtoBinOut>("ProtoBinOut");
+    qRegisterMetaType<ChartParameters>("ChartParameters");
+
     regID(idTimestamp = new IDBinTimestamp(), &DevDriver::receivedTimestamp);
 
     regID(idDist = new IDBinDist(), &DevDriver::receivedDist);
@@ -258,11 +261,6 @@ void DevDriver::dvlChangeMode(bool ismode1, bool ismode2, bool ismode3, bool ism
 }
 
 void DevDriver::importSettingsFromXML(const QString& filePath) {
-    if (true) {
-        qDebug() << "TAV: trying to import from file: Blocked";
-        return;
-    }
-    qDebug() << "TAV: trying to import from file: Got around block";
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
@@ -348,7 +346,6 @@ void DevDriver::importSettingsFromXML(const QString& filePath) {
 }
 
 void DevDriver::exportSettingsToXML(const QString& filePath) {
-    qDebug() << "exportSettingsToXML check 1";
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return;
@@ -402,8 +399,6 @@ void DevDriver::exportSettingsToXML(const QString& filePath) {
     xmlWriter.writeEndDocument();
     file.close();
 
-    qDebug() << "exportSettingsToXML check done";
-
     return;
 }
 
@@ -424,7 +419,7 @@ void DevDriver::setDistSetupState(bool state) {
 void DevDriver::setChartSetupState(bool state) {
     if (state != chartSetupState_) {
         chartSetupState_ = state;
-        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
+        emit sendChartSetup(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
         emit chartSetupChanged();
     }
 }
@@ -439,6 +434,7 @@ void DevDriver::setDspSetupState(bool state) {
 void DevDriver::setTranscState(bool state) {
     if (state != transcState_) {
         transcState_ = state;
+        emit sendTranscSetup(_lastAddres, idTransc->freq(), idTransc->pulse(), idTransc->boost());
         emit transChanged();
     }
 }
@@ -446,6 +442,7 @@ void DevDriver::setTranscState(bool state) {
 void DevDriver::setSoundSpeedState(bool state) {
     if (state != soundSpeedState_) {
         soundSpeedState_ = state;
+        emit sendSoundSpeed(_lastAddres, idSoundSpeed->getSoundSpeed());
         emit soundChanged();
     }
 }
@@ -580,23 +577,6 @@ void DevDriver::startConnection(bool duplex) {
     restartState();
 
     emit deviceVersionChanged();
-    qDebug() << "TAV m_devName:" << m_devName << "m_devType" << static_cast<int>(idVersion->boardVersion());
-    pulseDevice_ = m_devName;
-    qDebug() << "TAV pulseDevice_:" << pulseDevice_;
-    Q_EMIT pulseDeviceChanged();
-    // **New code to update the QML singleton property**
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("devName", m_devName);
-        if (m_devName == "...") {
-            g_pulseRuntimeSettings->setProperty("devDetected", false);
-        } else {
-            g_pulseRuntimeSettings->setProperty("devDetected", true);
-        }
-
-        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
-    } else {
-        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
-    }
 }
 
 void DevDriver::stopConnection() {
@@ -604,30 +584,6 @@ void DevDriver::stopConnection() {
     m_processTimer.stop();
     m_devName = "...";
     emit deviceVersionChanged();
-    qDebug() << "TAV m_devName:" << m_devName << "m_devType" << static_cast<int>(idVersion->boardVersion());
-    pulseDevice_ = m_devName;
-    qDebug() << "TAV pulseDevice_:" << pulseDevice_;
-    Q_EMIT pulseDeviceChanged();
-    // **New code to update the QML singleton property**
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("devName", m_devName);
-        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
-    } else {
-        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
-    }
-    // **New code to update the QML singleton property**
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("devName", m_devName);
-        if (m_devName == "...") {
-            g_pulseRuntimeSettings->setProperty("devDetected", false);
-        } else {
-            g_pulseRuntimeSettings->setProperty("devDetected", true);
-        }
-        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
-    } else {
-        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
-    }
-
 }
 
 void DevDriver::restartState() {
@@ -695,8 +651,11 @@ void DevDriver::setTransFreq(int freq) {
     if(!m_state.connect) return;
     bool is_changed = transFreq() != freq;
     idTransc->setFreq((U2)freq);
-    qDebug() << "DevDriver - setTransFreq with freq " << freq;
-    if(is_changed) { emit transChanged(); }
+
+    if (is_changed) {
+        emit sendTranscSetup(_lastAddres, static_cast<uint16_t>(freq), idTransc->pulse(), idTransc->boost());
+        emit transChanged();
+    }
 }
 
 int DevDriver::transPulse() {
@@ -707,7 +666,11 @@ void DevDriver::setTransPulse(int pulse) {
     if(!m_state.connect) return;
     bool is_changed = transPulse() != pulse;
     idTransc->setPulse((U1)pulse);
-    if(is_changed) { emit transChanged(); }
+
+    if (is_changed) {
+        emit sendTranscSetup(_lastAddres, idTransc->freq(), static_cast<uint8_t>(pulse), idTransc->boost());
+        emit transChanged();
+    }
 }
 
 int DevDriver::transBoost() {
@@ -718,7 +681,11 @@ void DevDriver::setTransBoost(int boost) {
     if(!m_state.connect) return;
     bool is_changed = transBoost() != boost;
     idTransc->setBoost((U1)boost);
-    if(is_changed) { emit transChanged(); }
+
+    if (is_changed) {
+        emit sendTranscSetup(_lastAddres, idTransc->freq(), idTransc->pulse(), static_cast<uint8_t>(boost));
+        emit transChanged();
+    }
 }
 
 int DevDriver::soundSpeed() {
@@ -729,7 +696,11 @@ void DevDriver::setSoundSpeed(int speed) {
     if(!m_state.connect) return;
     bool is_changed = transBoost() != speed;
     idSoundSpeed->setSoundSpeed(speed);
-    if(is_changed) { emit soundChanged(); }
+
+    if (is_changed) {
+        emit sendSoundSpeed(_lastAddres, static_cast<uint32_t>(speed));
+        emit soundChanged();
+    }
 }
 
 float DevDriver::yaw() {
@@ -764,11 +735,9 @@ int DevDriver::distMax() {
     return idDistSetup->max();
 }
 void DevDriver::setDistMax(int dist) {
-    qDebug() << "DevDriver - trying setDistMax with dist " << dist;
     if(!m_state.connect) return;
     bool is_changed = dist != distMax();
     idDistSetup->setMax(dist);
-    qDebug() << "DevDriver - performed setDistMax with dist " << dist;
     if(is_changed) { emit distSetupChanged(); }
 }
 
@@ -802,8 +771,8 @@ void DevDriver::setChartSamples(int smpls) {
     if(!m_state.connect) return;
     bool is_changed = smpls != chartSamples();
     idChartSetup->setCount((U2)smpls);
-    if(is_changed) {
-        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), smpls, idChartSetup->offset());
+    if (is_changed) {
+        emit sendChartSetup(_lastAddres, idChartSetup->resolution(), static_cast<uint16_t>(smpls), idChartSetup->offset());
         emit chartSetupChanged();
     }
 }
@@ -816,8 +785,8 @@ void DevDriver::setChartResolution(int resol) {
     if(!m_state.connect) return;
     bool is_changed = resol != chartResolution();
     idChartSetup->setResolution((U2)resol);
-    if(is_changed) {
-        emit channelChartSetupChanged(_lastAddres, resol, idChartSetup->count(), idChartSetup->offset());
+    if (is_changed) {
+        emit sendChartSetup(_lastAddres, static_cast<uint16_t>(resol), idChartSetup->count(), idChartSetup->offset());
         emit chartSetupChanged();
     }
 }
@@ -830,8 +799,8 @@ void DevDriver::setChartOffset(int offset) {
     if(!m_state.connect) return;
     bool is_changed = offset != chartOffset();
     idChartSetup->setOffset((U2)offset);
-    if(is_changed) {
-        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), offset);
+    if (is_changed) {
+        emit sendChartSetup(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), static_cast<uint16_t>(offset));
         emit chartSetupChanged();
     }
 }
@@ -1027,15 +996,30 @@ void DevDriver::receivedChart(Type type, Version ver, Resp resp) {
             QVector<uint8_t> data(idChart->chartSize());
             memcpy(data.data(), idChart->logData8(), idChart->chartSize());
 
-            if (!data.empty()) {
-                emit chartComplete(_lastAddres, data, 0.001*idChart->resolution(), 0.001*idChart->offsetRange());
+            if (errorFreezeCnt_ > 100) {
+                averageChartLosses_ = idChart->getAverageLosses();
+                emit averageChartLossesChanged();
+                errorFreezeCnt_ = 0;
+            }
+            ++errorFreezeCnt_;
+
+            if(ver == v0) {
+                if (!data.empty()) {
+                    ChartParameters chartParams(_lastAddres, _lastAddres, idVersion->boardVersion(), ver, { _lastAddres }, idChart->getErrList());
+                    emit chartComplete(chartParams, data, 0.001 * idChart->resolution(), 0.001 * idChart->offsetRange());
+                }
             }
 
             if(ver == v1) {
+                ChartParameters chartParams(_lastAddres, _lastAddres, idVersion->boardVersion(), ver, { static_cast<int16_t>(_lastAddres + 2), static_cast<int16_t>(_lastAddres + 3) }, idChart->getErrList());
+                chartParams.channelId = chartParams.linkedChannels.at(0);
+                emit chartComplete(chartParams, data, 0.001 * idChart->resolution(), 0.001 * idChart->offsetRange());
+
                 QVector<uint8_t> data2(idChart->chartSize());
                 memcpy(data2.data(), idChart->logData28(), idChart->chartSize());
                 if (!data2.empty()) {
-                    emit chartComplete(_lastAddres+1, data2, 0.001*idChart->resolution(), 0.001*idChart->offsetRange());
+                    chartParams.channelId = chartParams.linkedChannels.at(1);
+                    emit chartComplete(chartParams, data2, 0.001 * idChart->resolution(), 0.001 * idChart->offsetRange());
                 }
             }
         }
@@ -1080,7 +1064,7 @@ void DevDriver::receivedChartSetup(Type type, Version ver, Resp resp) {
     Q_UNUSED(ver);
 
     if(resp == respNone) {
-        emit channelChartSetupChanged(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
+        emit sendChartSetup(_lastAddres, idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
         emit chartSetupChanged();
     }
 }
@@ -1096,14 +1080,20 @@ void DevDriver::receivedTransc(Type type, Version ver, Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
-    if(resp == respNone) {  emit transChanged();  }
+    if (resp == respNone) {
+        emit sendTranscSetup(_lastAddres, idTransc->freq(), idTransc->pulse(), idTransc->boost());
+        emit transChanged();
+    }
 }
 
 void DevDriver::receivedSoundSpeed(Type type, Version ver, Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
-    if(resp == respNone) {  emit soundChanged();  }
+    if (resp == respNone) {
+        emit sendSoundSpeed(_lastAddres, idSoundSpeed->getSoundSpeed());
+        emit soundChanged();
+    }
 }
 
 void DevDriver::receivedUART(Type type, Version ver, Resp resp) {
@@ -1120,57 +1110,57 @@ void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
 
         if(ver == v0) {
             switch (idVersion->boardVersion()) {
-                case BoardNone:
-                    if(idVersion->boardVersionMinor() == BoardAssist) {
-                        m_devName = "Assist";
-                    } else {
-                        m_devName = QString("Device ID: %1.%2").arg(idVersion->boardVersion()).arg(idVersion->boardVersionMinor());
-                    }
-                    break;
-                case BoardEnhanced:
-                    m_devName = "2D-Enhanced";
-                    break;
-                case BoardChirp:
-                    m_devName = "2D-Chirp";
-                    break;
-                case BoardBase:
-                    m_devName = "2D-Base";
-                    break;
-                case BoardNBase:
-                    m_devName = "2D-Base";
-                    break;
-
-                case BoardAssist:
-                case BoardRecorderMini:
-                    m_devName = "Recorder";
-                    break;
-
-                case BoardNEnhanced:
-                    m_devName = "2D-Enhanced";
-                    break;
-                case BoardSideEnhanced:
-                    m_devName = "Side-Enhanced";
-                    break;
-                case BoardDVL:
-                    m_devName = "DVL";
-                    break;
-                case BoardEcho20:
-                    m_devName = "ECHO20";
-                    break;
-
-                case BoardNanoSSS:
-                    m_devName = "NanoSSS";
-                    break;
-
-                case BoardUSBL:
-                    m_devName = "USBL";
-                    break;
-
-                case BoardUSBLBeacon:
-                    m_devName = "Beacon";
-                    break;
-                default:
+            case BoardNone:
+                if(idVersion->boardVersionMinor() == BoardAssist) {
+                    m_devName = "Assist";
+                } else {
                     m_devName = QString("Device ID: %1.%2").arg(idVersion->boardVersion()).arg(idVersion->boardVersionMinor());
+                }
+                break;
+            case BoardEnhanced:
+                m_devName = "2D-Enhanced";
+                break;
+            case BoardChirp:
+                m_devName = "2D-Chirp";
+                break;
+            case BoardBase:
+                m_devName = "2D-Base";
+                break;
+            case BoardNBase:
+                m_devName = "2D-Base";
+                break;
+
+            case BoardAssist:
+            case BoardRecorderMini:
+                m_devName = "Recorder";
+                break;
+
+            case BoardNEnhanced:
+                m_devName = "2D-Enhanced";
+                break;
+            case BoardSideEnhanced:
+                m_devName = "Side-Enhanced";
+                break;
+            case BoardDVL:
+                m_devName = "DVL";
+                break;
+            case BoardEcho20:
+                m_devName = "ECHO20";
+                break;
+
+            case BoardNanoSSS:
+                m_devName = "NanoSSS";
+                break;
+
+            case BoardUSBL:
+                m_devName = "USBL";
+                break;
+
+            case BoardUSBLBeacon:
+                m_devName = "Beacon";
+                break;
+            default:
+                m_devName = QString("Device ID: %1.%2").arg(idVersion->boardVersion()).arg(idVersion->boardVersionMinor());
             }
 
 //            qInfo("board info %u", idVersion->boardVersion());
@@ -1184,30 +1174,9 @@ void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
 
             emit deviceVersionChanged();
         }
-        emit deviceVersionChanged();
 
-        qDebug() << "TAV m_devName:" << m_devName << "m_devType" << static_cast<int>(idVersion->boardVersion());
-        pulseDevice_ = m_devName;
-        if (m_devName == "...") {
-            qDebug() << "TAV pulseDevice_ still ...";
-        } else {
-            qDebug() << "TAV pulseDevice_ now:" << pulseDevice_;
-            Q_EMIT pulseDeviceChanged();
-            emit pulseDeviceChanged();
-        }
 
-    }
-    // **New code to update the QML singleton property**
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("devName", m_devName);
-        if (m_devName == "...") {
-            g_pulseRuntimeSettings->setProperty("devDetected", false);
-        } else {
-            g_pulseRuntimeSettings->setProperty("devDetected", true);
-        }
-        qDebug() << "Updated pulseRuntimeSettings.devName to:" << m_devName;
-    } else {
-        qWarning() << "Cannot update devName: pulseRuntimeSettings instance is null!";
+
     }
 }
 
@@ -1369,6 +1338,3 @@ void DevDriver::process() {
         }
     }
 }
-
-
-

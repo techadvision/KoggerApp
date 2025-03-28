@@ -17,7 +17,7 @@
 
 #include <QMatrix4x4>
 #include "qsystemdetection.h"
-#if !defined(Q_OS_ANDROID)
+#if !defined(Q_OS_ANDROID) && !defined(LINUX_ES)
 #include <GL/gl.h>
 #include <QOpenGLFunctions>
 #include <QOpenGLExtraFunctions>
@@ -84,4 +84,5 @@ private:
     float m_verticalScale = 1.0f;
     bool m_isSceneBoundingBoxVisible = true;
     GLuint VAO, VBO;
+    float scaleFactor_;
 };

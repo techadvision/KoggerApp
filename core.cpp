@@ -3,6 +3,7 @@
 #include <QSettings>
 #include <ctime>
 #include "bottomtrack.h"
+#include "hotkeys_manager.h"
 #ifdef Q_OS_WINDOWS
 #include <Windows.h>
 #endif
@@ -18,7 +19,6 @@ Core::Core() :
     scene3dViewPtr_(nullptr),
     openedfilePath_(),
     isLoggingKlf_(false),
-    fixBlackStripes_(false),
     isLoggingCsv_(false),
     filePath_(),
     isFileOpening_(false),
@@ -29,34 +29,32 @@ Core::Core() :
     createDeviceManagerConnections();
     createLinkManagerConnections();
     createControllers();
+    QObject::connect(datasetPtr_, &Dataset::channelsUpdated, this, &Core::onChannelsUpdated, Qt::AutoConnection);
 }
 
 Core::~Core()
 {
-    saveLLARefToSettings();
-    removeLinkManagerConnections();
-#ifdef SEPARATE_READING
-    removeDeviceManagerConnections();
-#endif
+
 }
 
 void Core::setEngine(QQmlApplicationEngine *engine)
 {
     qmlAppEnginePtr_ = engine;
     QObject::connect(qmlAppEnginePtr_, &QQmlApplicationEngine::objectCreated, this, &Core::UILoad, Qt::QueuedConnection);
-    qmlAppEnginePtr_->rootContext()->setContextProperty("BoatTrackControlMenuController",    boatTrackControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("BottomTrackControlMenuController",  bottomTrackControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("SurfaceControlMenuController",      surfaceControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("SideScanViewControlMenuController", sideScanViewControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("ImageViewControlMenuController",    imageViewControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("MapViewControlMenuController",      mapViewControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("PointGroupControlMenuController",   pointGroupControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("PolygonGroupControlMenuController", polygonGroupControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("MpcFilterControlMenuController",    mpcFilterControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("NpdFilterControlMenuController",    npdFilterControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("Scene3DControlMenuController",      scene3dControlMenuController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("Scene3dToolBarController",          scene3dToolBarController_.get());
-    qmlAppEnginePtr_->rootContext()->setContextProperty("UsblViewControlMenuController",     usblViewControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("BoatTrackControlMenuController",       boatTrackControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("NavigationArrowControlMenuController", navigationArrowControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("BottomTrackControlMenuController",     bottomTrackControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("SurfaceControlMenuController",         surfaceControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("SideScanViewControlMenuController",    sideScanViewControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("ImageViewControlMenuController",       imageViewControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("MapViewControlMenuController",         mapViewControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("PointGroupControlMenuController",      pointGroupControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("PolygonGroupControlMenuController",    polygonGroupControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("MpcFilterControlMenuController",       mpcFilterControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("NpdFilterControlMenuController",       npdFilterControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("Scene3DControlMenuController",         scene3dControlMenuController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("Scene3dToolBarController",             scene3dToolBarController_.get());
+    qmlAppEnginePtr_->rootContext()->setContextProperty("UsblViewControlMenuController",        usblViewControlMenuController_.get());
 }
 
 Console* Core::getConsolePtr()
@@ -178,8 +176,6 @@ void Core::openLogFile(const QString &filePath, bool isAppend, bool onCustomEven
         if (!isAppend) {
             scene3dViewPtr_->clear();
         }
-
-        scene3dViewPtr_->setNavigationArrowState(false);
     }
 
     QStringList splitname = localfilePath.split(QLatin1Char('.'), Qt::SkipEmptyParts);
@@ -224,6 +220,7 @@ bool Core::closeLogFile(bool onOpen)
         }
         if (scene3dViewPtr_) {
             scene3dViewPtr_->clear();
+            scene3dViewPtr_->getNavigationArrowPtr()->resetPositionAndAngle();
             //scene3dViewPtr_->getSideScanViewPtr()->setWorkMode(SideScanView::Mode::kUndefined);
         }
         if (!onOpen) {
@@ -272,17 +269,7 @@ void Core::onFileReadEnough()
         //scene3dViewPtr_->addPoints(datasetPtr_->beaconTrack1(), QColor(0, 255, 0), 10);
     }
 
-    QList<DatasetChannel> chs = datasetPtr_->channelsList().values();
-    for (int i = 0; i < plot2dList_.size(); i++) {
-        if (i == 0 && plot2dList_.at(i) != NULL) {
-            if (chs.size() >= 2) {
-                plot2dList_.at(i)->setDataChannel(chs[0].channel, chs[1].channel);
-            }
-            if (chs.size() == 1) {
-                plot2dList_.at(i)->setDataChannel(chs[0].channel);
-            }
-        }
-    }
+    onChannelsUpdated();
 }
 
 void Core::onFileOpenBreaked(bool onOpen)
@@ -293,6 +280,7 @@ void Core::onFileOpenBreaked(bool onOpen)
     }
     if (scene3dViewPtr_) {
         scene3dViewPtr_->clear();
+        scene3dViewPtr_->getNavigationArrowPtr()->resetPositionAndAngle();
         //scene3dViewPtr_->getSideScanViewPtr()->setWorkMode(SideScanView::Mode::kUndefined);
     }
     if (onOpen && !tryOpenedfilePath_.isEmpty()) {
@@ -324,9 +312,9 @@ void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEven
             datasetPtr_->resetDataset();
 
         if (scene3dViewPtr_) {
-            if (!isAppend)
+            if (!isAppend) {
                 scene3dViewPtr_->clear();
-            scene3dViewPtr_->setNavigationArrowState(false);
+            }
             scene3dViewPtr_->getSideScanViewPtr()->setWorkMode(SideScanView::Mode::kPerformance);
         }
 
@@ -362,17 +350,7 @@ void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEven
             scene3dViewPtr_->addPoints(datasetPtr_->beaconTrack1(), QColor(0, 255, 0), 10);
         }
 
-        QList<DatasetChannel> chs = datasetPtr_->channelsList().values();
-        for (int i = 0; i < plot2dList_.size(); i++) {
-            if (i == 0 &&plot2dList_.at(i) != NULL) {
-                if (chs.size() >= 2) {
-                    plot2dList_.at(i)->setDataChannel(chs[0].channel, chs[1].channel);
-                }
-                if (chs.size() == 1) {
-                    plot2dList_.at(i)->setDataChannel(chs[0].channel);
-                }
-            }
-        }
+        onChannelsUpdated();
     });
 }
 
@@ -390,7 +368,7 @@ bool Core::closeLogFile()
 
     if (scene3dViewPtr_) {
         scene3dViewPtr_->clear();
-        scene3dViewPtr_->setNavigationArrowState(true);
+        scene3dViewPtr_->getNavigationArrowPtr()->resetPositionAndAngle();
         //scene3dViewPtr_->getSideScanViewPtr()->setWorkMode(SideScanView::Mode::kUndefined);
     }
 
@@ -581,25 +559,23 @@ void Core::setKlfLogging(bool isLogging)
     isLoggingKlf_ = isLogging;
 }
 
-void Core::fixBlackStripes(bool state)
+void Core::setFixBlackStripesState(bool state)
 {
-    if (!datasetPtr_ ||
-        state == this->getFixBlackStripes()) {
-        return;
+    if (datasetPtr_) {
+        datasetPtr_->setFixBlackStripesState(state);
     }
+}
 
-    datasetPtr_->setFixBlackStripes(state);
-    fixBlackStripes_ = state;
+void Core::setFixBlackStripesRange(int val)
+{
+    if (datasetPtr_) {
+        datasetPtr_->setFixBlackStripesRange(val);
+    }
 }
 
 bool Core::getIsKlfLogging()
 {
     return isLoggingKlf_;
-}
-
-bool Core::getFixBlackStripes() const
-{
-    return fixBlackStripes_;
 }
 
 void Core::setCsvLogging(bool isLogging)
@@ -663,8 +639,8 @@ bool Core::exportUSBLToCSV(QString filePath)
     QString export_file_name = isOpenedFile() ? openedfilePath_.section('/', -1).section('.', 0, 0) : QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss").replace(':', '.');
 
     logger_.creatExportStream(filePath + "/" + export_file_name + ".csv");
-    QMap<int, DatasetChannel> ch_list = datasetPtr_->channelsList();
-    Q_UNUSED(ch_list);
+    //QMap<int, DatasetChannel> ch_list = datasetPtr_->channelsList();
+    //Q_UNUSED(ch_list);
     // _dataset->setRefPosition(1518);
 
     logger_.dataExport("epoch,yaw,pitch,roll,north,east,ping_counter,carrier_counter,snr,azimuth_deg,elevation_deg,distance_m\n");
@@ -931,11 +907,11 @@ bool Core::exportPlotAsCVS(QString filePath, int channel, float decimation)
         auto& contact = epoch->contact_;
         if (contact.isValid()) {
             if (contactInfo) {
-                row_data.append(contact.info_);
+                row_data.append(contact.info);
                 row_data.append(",");
             }
             if (contactDistance) {
-                row_data.append(QString::number(contact.distance_, 'f', 4));
+                row_data.append(QString::number(contact.distance, 'f', 4));
             }
         }
 
@@ -952,8 +928,8 @@ bool Core::exportPlotAsXTF(QString filePath)
 {
     QString export_file_name = isOpenedFile() ? openedfilePath_.section('/', -1).section('.', 0, 0) : QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss").replace(':', '.');
     logger_.creatExportStream(filePath + "/_" + export_file_name + ".xtf");
-    QMap<int, DatasetChannel> chs = datasetPtr_->channelsList();
-    Q_UNUSED(chs);
+    //QMap<int, DatasetChannel> chs = datasetPtr_->channelsList();
+    //Q_UNUSED(chs);
     QByteArray data_export = converterXtf_.toXTF(getDatasetPtr(), plot2dList_[0]->plotDatasetChannel(), plot2dList_[0]->plotDatasetChannel2());
     logger_.dataByteExport(data_export);
     logger_.endExportStream();
@@ -999,6 +975,13 @@ void Core::UILoad(QObject* object, const QUrl& url)
 
     loadLLARefFromSettings();
 
+#if !defined(Q_OS_ANDROID)
+    HotkeysManager hotkeysManager;
+    auto hotkeysMap = hotkeysManager.loadHotkeysMapping();
+    auto hotkeysVariant = HotkeysManager::toVariantMap(hotkeysMap);
+    qmlAppEnginePtr_->rootContext()->setContextProperty("hotkeysMapScan", hotkeysVariant);
+#endif
+
     scene3dViewPtr_ = object->findChild<GraphicsScene3dView*> ();
     plot2dList_ = object->findChildren<qPlot2D*>();
     scene3dViewPtr_->setDataset(datasetPtr_);
@@ -1028,6 +1011,9 @@ void Core::UILoad(QObject* object, const QUrl& url)
 
     boatTrackControlMenuController_->setQmlEngine(object);
     boatTrackControlMenuController_->setGraphicsSceneView(scene3dViewPtr_);
+
+    navigationArrowControlMenuController_->setQmlEngine(object);
+    navigationArrowControlMenuController_->setGraphicsSceneView(scene3dViewPtr_);
 
     bottomTrackControlMenuController_->setQmlEngine(object);
     bottomTrackControlMenuController_->setGraphicsSceneView(scene3dViewPtr_);
@@ -1129,6 +1115,28 @@ bool Core::getIsSeparateReading() const
 #endif
 }
 
+void Core::onChannelsUpdated()
+{
+    QList<DatasetChannel> chs = datasetPtr_->channelsList().values();
+    for (int i = 0; i < plot2dList_.size(); i++) {
+        if (i == 0 &&plot2dList_.at(i) != NULL) {
+            if (chs.size() >= 2) {
+                plot2dList_.at(i)->setDataChannel(chs[0].channel, chs[1].channel);
+            }
+            if (chs.size() == 1) {
+                plot2dList_.at(i)->setDataChannel(chs[0].channel);
+            }
+        }
+    }
+}
+
+#if defined(FAKE_COORDS)
+void Core::setPosZeroing(bool state)
+{
+    datasetPtr_->setActiveZeroing(state);
+}
+#endif
+
 ConsoleListModel* Core::consoleList()
 {
     return consolePtr_->listModel();
@@ -1136,19 +1144,20 @@ ConsoleListModel* Core::consoleList()
 
 void Core::createControllers()
 {
-    boatTrackControlMenuController_    = std::make_shared<BoatTrackControlMenuController>();
-    bottomTrackControlMenuController_  = std::make_shared<BottomTrackControlMenuController>();
-    mpcFilterControlMenuController_    = std::make_shared<MpcFilterControlMenuController>();
-    npdFilterControlMenuController_    = std::make_shared<NpdFilterControlMenuController>();
-    surfaceControlMenuController_      = std::make_shared<SurfaceControlMenuController>();
-    sideScanViewControlMenuController_ = std::make_shared<SideScanViewControlMenuController>();
-    imageViewControlMenuController_    = std::make_shared<ImageViewControlMenuController>();
-    mapViewControlMenuController_      = std::make_shared<MapViewControlMenuController>();
-    pointGroupControlMenuController_   = std::make_shared<PointGroupControlMenuController>();
-    polygonGroupControlMenuController_ = std::make_shared<PolygonGroupControlMenuController>();
-    scene3dControlMenuController_      = std::make_shared<Scene3DControlMenuController>();
-    scene3dToolBarController_          = std::make_shared<Scene3dToolBarController>();
-    usblViewControlMenuController_     = std::make_shared<UsblViewControlMenuController>();
+    boatTrackControlMenuController_       = std::make_shared<BoatTrackControlMenuController>();
+    navigationArrowControlMenuController_ = std::make_shared<NavigationArrowControlMenuController>();
+    bottomTrackControlMenuController_     = std::make_shared<BottomTrackControlMenuController>();
+    mpcFilterControlMenuController_       = std::make_shared<MpcFilterControlMenuController>();
+    npdFilterControlMenuController_       = std::make_shared<NpdFilterControlMenuController>();
+    surfaceControlMenuController_         = std::make_shared<SurfaceControlMenuController>();
+    sideScanViewControlMenuController_    = std::make_shared<SideScanViewControlMenuController>();
+    imageViewControlMenuController_       = std::make_shared<ImageViewControlMenuController>();
+    mapViewControlMenuController_         = std::make_shared<MapViewControlMenuController>();
+    pointGroupControlMenuController_      = std::make_shared<PointGroupControlMenuController>();
+    polygonGroupControlMenuController_    = std::make_shared<PolygonGroupControlMenuController>();
+    scene3dControlMenuController_         = std::make_shared<Scene3DControlMenuController>();
+    scene3dToolBarController_             = std::make_shared<Scene3dToolBarController>();
+    usblViewControlMenuController_        = std::make_shared<UsblViewControlMenuController>();
 
     sideScanViewControlMenuController_->setCorePtr(this);
 }
@@ -1159,7 +1168,9 @@ void Core::createDeviceManagerConnections()
     Qt::ConnectionType deviceManagerConnection = Qt::ConnectionType::AutoConnection;
 
     //
-    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::channelChartSetupChanged, datasetPtr_, &Dataset::setChartSetup, deviceManagerConnection));
+    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendChartSetup,         datasetPtr_, &Dataset::setChartSetup,   deviceManagerConnection));
+    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendTranscSetup,        datasetPtr_, &Dataset::setTranscSetup,  deviceManagerConnection));
+    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendSoundSpeeed,        datasetPtr_, &Dataset::setSoundSpeed,   deviceManagerConnection));
 
     deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::chartComplete,          datasetPtr_, &Dataset::addChart,        deviceManagerConnection));
     deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::rawDataRecieved,        datasetPtr_, &Dataset::rawDataRecieved, deviceManagerConnection));
@@ -1183,6 +1194,8 @@ void Core::createDeviceManagerConnections()
                                                                                                                                                       isFileOpening_ = false;
                                                                                                                                                       emit sendIsFileOpening();
                                                                                                                                                   }, deviceManagerConnection));
+    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendProtoFrame,        &logger_, &Logger::receiveProtoFrame,    deviceManagerConnection));
+    deviceManagerWrapperConnections_.append(QObject::connect(&logger_, &Logger::loggingKlfStarted,  deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLoggingKlfStarted,     deviceManagerConnection));
 }
 
 void Core::removeDeviceManagerConnections()
@@ -1197,7 +1210,9 @@ void Core::createDeviceManagerConnections()
     Qt::ConnectionType deviceManagerConnection = Qt::ConnectionType::DirectConnection;
 
     //
-    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::channelChartSetupChanged, datasetPtr_, &Dataset::setChartSetup, deviceManagerConnection);
+    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendChartSetup,         datasetPtr_, &Dataset::setChartSetup,   deviceManagerConnection);
+    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendTranscSetup,        datasetPtr_, &Dataset::setTranscSetup,  deviceManagerConnection);
+    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendSoundSpeeed,        datasetPtr_, &Dataset::setSoundSpeed,   deviceManagerConnection);
 
     QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::chartComplete,          datasetPtr_, &Dataset::addChart,        deviceManagerConnection);
     QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::rawDataRecieved,        datasetPtr_, &Dataset::rawDataRecieved, deviceManagerConnection);
@@ -1217,6 +1232,8 @@ void Core::createDeviceManagerConnections()
                                                                                                               isFileOpening_ = false;
                                                                                                               emit sendIsFileOpening();
                                                                                                           }, deviceManagerConnection);
+    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendProtoFrame, &logger_, &Logger::receiveProtoFrame, deviceManagerConnection);    
+    QObject::connect(&logger_, &Logger::loggingKlfStarted, deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLoggingKlfStarted, deviceManagerConnection);
 
 }
 #endif
@@ -1242,13 +1259,12 @@ void Core::createLinkManagerConnections()
 #endif
                                                                                                                                      datasetPtr_->setState(Dataset::DatasetState::kConnection);
                                                                                                                                      if (scene3dViewPtr_) {
-                                                                                                                                         scene3dViewPtr_->setNavigationArrowState(true);
                                                                                                                                          scene3dViewPtr_->getSideScanViewPtr()->setWorkMode(SideScanView::Mode::kRealtime);
                                                                                                                                      }
                                                                                                                                  }, linkManagerConnection));
     linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkClosed,  this, [this]() {
                                                                                                                                      if (scene3dViewPtr_) {
-                                                                                                                                         scene3dViewPtr_->setNavigationArrowState(false);
+                                                                                                                                         scene3dViewPtr_->getNavigationArrowPtr()->resetPositionAndAngle();
                                                                                                                                          //scene3dViewPtr_->getSideScanViewPtr()->setWorkMode(SideScanView::Mode::kUndefined);
                                                                                                                                      }
                                                                                                                                  }, linkManagerConnection));
@@ -1307,65 +1323,67 @@ void Core::fixFilePathString(QString& filePath) const
 
 void Core::saveLLARefToSettings()
 {
-
-    // Check if Qt’s application object is still available.
-    if (!QCoreApplication::instance()) {
-        qWarning() << "saveLLARefToSettings: QCoreApplication instance is null, aborting saving.";
-        return;
-    }
-    // If available, check if we are in the middle of shutdown.
-    #if (QT_VERSION >= QT_VERSION_CHECK(5,14,0))
-    if (QCoreApplication::instance()->closingDown()) {
-        qWarning() << "saveLLARefToSettings: Application is closing down, aborting saving.";
-        return;
-    }
-    #endif
-
-    // Ensure datasetPtr_ is valid.
     if (!datasetPtr_) {
-        qWarning() << "saveLLARefToSettings: datasetPtr_ is null, aborting saving.";
         return;
     }
-    qWarning() << "saveLLARefToSettings: datasetPtr_ normal saving.";
 
+    try {
+        auto ref = datasetPtr_->getLlaRef();
 
-    auto ref = datasetPtr_->getLlaRef();
+        QSettings settings("KOGGER", "KoggerApp");
+        QString group{"LLARef"};
 
-    QSettings settings("TechAdVision", "Pulse");
-    QString group{"LLARef"};
+        settings.beginGroup(group);
+        settings.setValue("refLatSin", ref.refLatSin);
+        settings.setValue("refLatCos", ref.refLatCos);
+        settings.setValue("refLatRad", ref.refLatRad);
+        settings.setValue("refLonRad", ref.refLonRad);
+        settings.setValue("refLlaLatitude", ref.refLla.latitude);
+        settings.setValue("refLlaLongitude", ref.refLla.longitude);
+        settings.setValue("isInit", ref.isInit);
+        settings.endGroup();
 
-    settings.beginGroup(group);
-    settings.setValue("refLatSin", ref.refLatSin);
-    settings.setValue("refLatCos", ref.refLatCos);
-    settings.setValue("refLatRad", ref.refLatRad);
-    settings.setValue("refLonRad", ref.refLonRad);
-    settings.setValue("refLlaLatitude", ref.refLla.latitude);
-    settings.setValue("refLlaLongitude", ref.refLla.longitude);
-    settings.setValue("isInit", ref.isInit);
-    settings.endGroup();
+        settings.sync();
 
-    settings.sync();
-
-    //qDebug() << "saved: " << ref.refLla.latitude << ref.refLla.longitude;
+        //qDebug() << "saved: " << ref.refLla.latitude << ref.refLla.longitude;
+    }
+    catch (const std::exception& e) {
+        qCritical() << "Core::saveLLARefToSettings throw exception:" << e.what();
+    }
+    catch (...) {
+        qCritical() << "Core::saveLLARefToSettings throw unknown exception";
+    }
 }
 
 void Core::loadLLARefFromSettings()
 {
-    QSettings settings("TechAdVision", "Pulse");
-    QString group{"LLARef"};
+    if (!datasetPtr_) {
+        return;
+    }
 
-    settings.beginGroup(group);
-    LLARef ref;
-    ref.refLatSin = settings.value("refLatSin", NAN).toDouble();
-    ref.refLatCos = settings.value("refLatCos", NAN).toDouble();
-    ref.refLatRad = settings.value("refLatRad", NAN).toDouble();
-    ref.refLonRad = settings.value("refLonRad", NAN).toDouble();
-    ref.refLla.latitude = settings.value("refLlaLatitude", NAN).toDouble();
-    ref.refLla.longitude = settings.value("refLlaLongitude", NAN).toDouble();
-    ref.isInit = settings.value("isInit", false).toBool();
-    settings.endGroup();
+    try {
+        QSettings settings("KOGGER", "KoggerApp");
+        QString group{"LLARef"};
 
-    datasetPtr_->setLlaRef(ref, Dataset::LlaRefState::kSettings);
+        settings.beginGroup(group);
+        LLARef ref;
+        ref.refLatSin = settings.value("refLatSin", NAN).toDouble();
+        ref.refLatCos = settings.value("refLatCos", NAN).toDouble();
+        ref.refLatRad = settings.value("refLatRad", NAN).toDouble();
+        ref.refLonRad = settings.value("refLonRad", NAN).toDouble();
+        ref.refLla.latitude = settings.value("refLlaLatitude", NAN).toDouble();
+        ref.refLla.longitude = settings.value("refLlaLongitude", NAN).toDouble();
+        ref.isInit = settings.value("isInit", false).toBool();
+        settings.endGroup();
 
-    //qDebug() << "loaded: " << ref.refLla.latitude << ref.refLla.longitude;
+        datasetPtr_->setLlaRef(ref, Dataset::LlaRefState::kSettings);
+
+        //qDebug() << "loaded: " << ref.refLla.latitude << ref.refLla.longitude;
+    }
+    catch (const std::exception& e) {
+        qCritical() << "Core::loadLLARefFromSettings throw exception:" << e.what();
+    }
+    catch (...) {
+        qCritical() << "Core::loadLLARefFromSettings throw unknown exception";
+    }
 }

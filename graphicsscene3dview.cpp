@@ -29,10 +29,9 @@ GraphicsScene3dView::GraphicsScene3dView() :
     m_pointGroup(std::make_shared<PointGroup>()),
     m_coordAxes(std::make_shared<CoordinateAxes>()),
     m_planeGrid(std::make_shared<PlaneGrid>()),
-    m_navigationArrow(std::make_shared<NavigationArrow>()),
+    navigationArrow_(std::make_shared<NavigationArrow>()),
     usblView_(std::make_shared<UsblView>()),
     tileManager_(std::make_shared<map::TileManager>(this)),
-    navigationArrowState_(true),
     wasMoved_(false),
     wasMovedMouseButton_(Qt::MouseButton::NoButton),
     switchedToBottomTrackVertexComboSelectionMode_(false),
@@ -48,8 +47,6 @@ GraphicsScene3dView::GraphicsScene3dView() :
 
     m_boatTrack->setColor({80,0,180});
     m_boatTrack->setWidth(6.0f);
-
-    m_navigationArrow->setColor({ 255, 0, 0 });
 
     sideScanView_->setView(this);
     imageView_->setView(this);
@@ -71,7 +68,7 @@ GraphicsScene3dView::GraphicsScene3dView() :
     QObject::connect(m_pointGroup.get(), &PointGroup::changed, this, &QQuickFramebufferObject::update);
     QObject::connect(m_coordAxes.get(), &CoordinateAxes::changed, this, &QQuickFramebufferObject::update);
     QObject::connect(m_planeGrid.get(), &PlaneGrid::changed, this, &QQuickFramebufferObject::update);
-    QObject::connect(m_navigationArrow.get(), &NavigationArrow::changed, this, &QQuickFramebufferObject::update);
+    QObject::connect(navigationArrow_.get(), &NavigationArrow::changed, this, &QQuickFramebufferObject::update);
     QObject::connect(usblView_.get(), &UsblView::changed, this, &QQuickFramebufferObject::update);
 
     QObject::connect(m_surface.get(), &Surface::boundsChanged, this, &GraphicsScene3dView::updateBounds);
@@ -84,7 +81,7 @@ GraphicsScene3dView::GraphicsScene3dView() :
     QObject::connect(m_pointGroup.get(), &PointGroup::boundsChanged, this, &GraphicsScene3dView::updateBounds);
     QObject::connect(m_coordAxes.get(), &CoordinateAxes::boundsChanged, this, &GraphicsScene3dView::updateBounds);
     QObject::connect(m_boatTrack.get(), &PlaneGrid::boundsChanged, this, &GraphicsScene3dView::updateBounds);
-    QObject::connect(m_navigationArrow.get(), &NavigationArrow::boundsChanged, this, &GraphicsScene3dView::updateBounds);
+    QObject::connect(navigationArrow_.get(), &NavigationArrow::boundsChanged, this, &GraphicsScene3dView::updateBounds);
     QObject::connect(usblView_.get(), &UsblView::boundsChanged, this, &GraphicsScene3dView::updateBounds);
 
     // map
@@ -164,6 +161,11 @@ std::shared_ptr<UsblView> GraphicsScene3dView::getUsblViewPtr() const
     return usblView_;
 }
 
+std::shared_ptr<NavigationArrow> GraphicsScene3dView::getNavigationArrowPtr() const
+{
+    return navigationArrow_;
+}
+
 std::weak_ptr<GraphicsScene3dView::Camera> GraphicsScene3dView::camera() const
 {
     return m_camera;
@@ -184,12 +186,6 @@ Dataset *GraphicsScene3dView::dataset() const
     return m_dataset;
 }
 
-void GraphicsScene3dView::setNavigationArrowState(bool state)
-{
-    m_navigationArrow->setEnabled(state);
-    navigationArrowState_ = state;
-}
-
 void GraphicsScene3dView::clear(bool cleanMap)
 {
     m_surface->clearData();
@@ -204,8 +200,7 @@ void GraphicsScene3dView::clear(bool cleanMap)
     m_bottomTrack->clearData();
     m_polygonGroup->clearData();
     m_pointGroup->clearData();
-    m_navigationArrow->clearData();
-    navigationArrowState_ = false;
+    navigationArrow_->clearData();
     usblView_->clearData();
     m_bounds = Cube();
 
@@ -314,7 +309,7 @@ void GraphicsScene3dView::mouseMoveTrigger(Qt::MouseButtons mouseButton, qreal x
         m_bottomTrack->mouseMoveEvent(mouseButton, x, y);
     }
     else {
-#ifdef Q_OS_ANDROID
+#if defined(Q_OS_ANDROID)
         Q_UNUSED(keyboardKey);
         auto fromOrig = QVector3D(m_startMousePos.x(), height() - m_startMousePos.y(), -1.0f).unproject(m_camera->m_view * m_model, m_projection, boundingRect().toRect());
         auto fromEnd = QVector3D(m_startMousePos.x(), height() - m_startMousePos.y(), 1.0f).unproject(m_camera->m_view * m_model, m_projection, boundingRect().toRect());
@@ -646,11 +641,9 @@ void GraphicsScene3dView::setDataset(Dataset *dataset)
     QObject::connect(m_dataset, &Dataset::boatTrackUpdated,
                       this,     [this]() -> void {
                                     m_boatTrack->setData(m_dataset->boatTrack(), GL_LINE_STRIP);
-                                    if (navigationArrowState_) {
-                                        const Position pos = m_dataset->getLastPosition();
-                                        m_navigationArrow->setPositionAndAngle(
-                                            QVector3D(pos.ned.n, pos.ned.e, !isfinite(pos.ned.d) ? 0.f : pos.ned.d), m_dataset->getLastYaw() - 90.f);
-                                    }
+
+                                    const Position pos = m_dataset->getLastPosition();
+                                    navigationArrow_->setPositionAndAngle(QVector3D(pos.ned.n, pos.ned.e, !isfinite(pos.ned.d) ? 0.f : pos.ned.d), m_dataset->getLastYaw() - 90.f);
 
                                     //TODO - Disable only for testing
 
@@ -943,7 +936,7 @@ void GraphicsScene3dView::InFboRenderer::synchronize(QQuickFramebufferObject * f
     m_renderer->contactsRenderImpl_         = *(dynamic_cast<Contacts::ContactsRenderImplementation*>(view->contacts_->m_renderImpl));
     m_renderer->m_polygonGroupRenderImpl    = *(dynamic_cast<PolygonGroup::PolygonGroupRenderImplementation*>(view->m_polygonGroup->m_renderImpl));
     m_renderer->m_pointGroupRenderImpl      = *(dynamic_cast<PointGroup::PointGroupRenderImplementation*>(view->m_pointGroup->m_renderImpl));
-    m_renderer->navigationArrowRenderImpl_  = *(dynamic_cast<NavigationArrow::NavigationArrowRenderImplementation*>(view->m_navigationArrow->m_renderImpl));
+    m_renderer->navigationArrowRenderImpl_  = *(dynamic_cast<NavigationArrow::NavigationArrowRenderImplementation*>(view->navigationArrow_->m_renderImpl));
     m_renderer->usblViewRenderImpl_         = *(dynamic_cast<UsblView::UsblViewRenderImplementation*>(view->usblView_->m_renderImpl));
     m_renderer->m_viewSize                  = view->size();
     m_renderer->m_camera                    = *view->m_camera;
@@ -1020,7 +1013,7 @@ void GraphicsScene3dView::InFboRenderer::processColorTableTexture(GraphicsScene3
     if (!task.empty()) {
         GLuint colorTableTextureId = sideScanPtr->getColorTableTextureId();
 
-#if defined(Q_OS_ANDROID)
+#if defined(Q_OS_ANDROID) || defined(LINUX_ES)
         if (colorTableTextureId) {
             glBindTexture(GL_TEXTURE_2D, colorTableTextureId);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, task.size() / 4, 1, GL_RGBA, GL_UNSIGNED_BYTE, task.data());
@@ -1039,22 +1032,22 @@ void GraphicsScene3dView::InFboRenderer::processColorTableTexture(GraphicsScene3
             sideScanPtr->setColorTableTextureId(colorTableTextureId);
         }
 #else
-        if (colorTableTextureId) {
-            glBindTexture(GL_TEXTURE_1D, colorTableTextureId);
-            glTexSubImage1D(GL_TEXTURE_1D, 0, 0, task.size() / 4, GL_RGBA, GL_UNSIGNED_BYTE, task.data());
-        }
-        else {
-            glGenTextures(1, &colorTableTextureId);
-            glBindTexture(GL_TEXTURE_1D, colorTableTextureId);
+         if (colorTableTextureId) {
+             glBindTexture(GL_TEXTURE_1D, colorTableTextureId);
+             glTexSubImage1D(GL_TEXTURE_1D, 0, 0, task.size() / 4, GL_RGBA, GL_UNSIGNED_BYTE, task.data());
+         }
+         else {
+             glGenTextures(1, &colorTableTextureId);
+             glBindTexture(GL_TEXTURE_1D, colorTableTextureId);
 
-            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+             glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+             glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+             glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-            glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, task.size() / 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, task.data());
+             glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, task.size() / 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, task.data());
 
-            sideScanPtr->setColorTableTextureId(colorTableTextureId);
-        }
+             sideScanPtr->setColorTableTextureId(colorTableTextureId);
+         }
 #endif
     }
 }
@@ -1302,7 +1295,7 @@ void GraphicsScene3dView::Camera::moveZAxis(float z)
 
 void GraphicsScene3dView::Camera::zoom(qreal delta)
 {
-#ifdef Q_OS_ANDROID
+#if defined(Q_OS_ANDROID) || defined(LINUX_ES)
     const float increaseCoeff{ 0.95f };
     m_distToFocusPoint -= delta * m_distToFocusPoint * increaseCoeff;
     distForMapView_ = m_distToFocusPoint;

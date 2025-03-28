@@ -40,6 +40,7 @@ GridLayout {
 
                 CCombo  {
                     id: channel1Combo
+//                    Layout.fillWidth: true
                     currentIndex: 1
                     Layout.preferredWidth: rowDataset.width/3
                     visible: true
@@ -97,8 +98,7 @@ GridLayout {
                     checked: true
                     text: qsTr("Echogram")
                     onCheckedChanged: targetPlot.plotEchogramVisible(checked)
-                    //Component.onCompleted: targetPlot.plotEchogramVisible(checked)
-                    Component.onCompleted: targetPlot.plotEchogramVisible(true)
+                    Component.onCompleted: targetPlot.plotEchogramVisible(checked)
                 }
 
                 CCombo  {
@@ -507,29 +507,68 @@ GridLayout {
                 text: qsTr("Horizontal")
             }
 
-            CCheck {
-                id: fixBlackStripes
-                checked: false
-                text: qsTr("Fix black stripes")
+            RowLayout {
+                visible: instruments > 1
 
-                onCheckedChanged: core.fixBlackStripes = fixBlackStripes.checked
-                //Component.onCompleted: core.fixBlackStripes = fixBlackStripes.checked
-                Component.onCompleted: core.fixBlackStripes = true
+                CCheck {
+                    id: fixBlackStripesCheckButton
+                    Layout.fillWidth: true
+                    checked: false
+                    text: qsTr("Fix black stripes, window")
 
-                Settings {
-                    property alias fixBlackStripes: fixBlackStripes.checked
+                    onCheckedChanged: core.fixBlackStripesState = fixBlackStripesCheckButton.checked
+                    Component.onCompleted: core.fixBlackStripesState = fixBlackStripesCheckButton.checked
+
+                    Settings {
+                        property alias fixBlackStripesCheckButton: fixBlackStripesCheckButton.checked
+                    }
+                }
+
+                SpinBoxCustom {
+                    id: fixBlackStripesSpinBox
+                    from: 1
+                    to: 100
+                    stepSize: 1
+                    value: 5
+
+                    onValueChanged: core.fixBlackStripesRange = fixBlackStripesSpinBox.currValue
+                    Component.onCompleted: core.fixBlackStripesRange = fixBlackStripesSpinBox.currValue
+
+                    property int currValue: value
+
+                    validator: DoubleValidator {
+                        bottom: Math.min(fixBlackStripesSpinBox.from, fixBlackStripesSpinBox.to)
+                        top:  Math.max(fixBlackStripesSpinBox.from, fixBlackStripesSpinBox.to)
+                    }
+
+                    textFromValue: function(value, locale) {
+                        return Number(value).toLocaleString(locale, 'f', 0)
+                    }
+
+                    valueFromText: function(text, locale) {
+                        return Number.fromLocaleString(locale, text)
+                    }
+
+                    onCurrValueChanged: core.fixBlackStripesRange = currValue
+
+                    Settings {
+                        property alias fixBlackStripesSpinBox: fixBlackStripesSpinBox.value
+                    }
                 }
             }
-
 
             Settings {
                 property alias echogramVisible: echogramVisible.checked
                 property alias rangefinderVisible: rangefinderVisible.checked
                 property alias postProcVisible: bottomTrackVisible.checked
                 property alias ahrsVisible: ahrsVisible.checked
+
                 property alias gridVisible: gridVisible.checked
+
+
                 property alias dopplerBeamVisible: dopplerBeamVisible.checked
                 property alias dopplerInstrumentVisible: dopplerInstrumentVisible.checked
+
                 property alias horisontalVertical: horisontalVertical.checked
             }
 
@@ -544,24 +583,6 @@ GridLayout {
             property bool autoApplyChange: false
 
             Component.onCompleted: {
-
-                /*
-                targetPlot.refreshDistParams(
-                    pulseRuntimeSettings.distProcessing[0],
-                    pulseRuntimeSettings.distProcessing[1],
-                    pulseRuntimeSettings.distProcessing[2],
-                    pulseRuntimeSettings.distProcessing[3],
-                    pulseRuntimeSettings.distProcessing[4],
-                    pulseRuntimeSettings.distProcessing[5],
-                    pulseRuntimeSettings.distProcessing[6],
-                    pulseRuntimeSettings.distProcessing[7],
-                    pulseRuntimeSettings.distProcessing[8],
-                    pulseRuntimeSettings.distProcessing[9]
-                )
-                */
-
-
-
                 targetPlot.refreshDistParams(bottomTrackList.currentIndex,
                                              bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
                                              bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value* 0.01 : 0,
@@ -572,26 +593,9 @@ GridLayout {
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueX.value *  0.001 : 0,
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value *  0.001 : 0,
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
-
             }
 
-
             function updateProcessing() {
-
-                /*
-                targetPlot.doDistProcessing(
-                    pulseRuntimeSettings.distProcessing[0],
-                    pulseRuntimeSettings.distProcessing[1],
-                    pulseRuntimeSettings.distProcessing[2],
-                    pulseRuntimeSettings.distProcessing[3],
-                    pulseRuntimeSettings.distProcessing[4],
-                    pulseRuntimeSettings.distProcessing[5],
-                    pulseRuntimeSettings.distProcessing[6],
-                    pulseRuntimeSettings.distProcessing[7],
-                    pulseRuntimeSettings.distProcessing[8],
-                    pulseRuntimeSettings.distProcessing[9]
-                                    );
-                */
                 targetPlot.doDistProcessing(bottomTrackList.currentIndex,
                                             bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
                                             bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value*0.01 : 0,
@@ -603,8 +607,6 @@ GridLayout {
                                             bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value*0.001 : 0,
                                             bottomTrackSensorOffset.checked ? -bottomTrackSensorOffsetValueZ.value*0.001 : 0
                                             );
-
-
             }
 
             RowLayout {
@@ -1127,8 +1129,8 @@ GridLayout {
                 CCombo  {
                     id: appLanguage
                     Layout.fillWidth: true
-                    model: [qsTr("English"), qsTr("Russian"), qsTr("Polish"), qsTr("German")]
-                    currentIndex: 3
+                    model: [qsTr("English"), qsTr("Russian"), qsTr("Polish")]
+                    currentIndex: 0
 
                     function getLanguageByIndex(index) {
                             switch (index) {
@@ -1138,8 +1140,6 @@ GridLayout {
                                     return qsTr("Russian");
                                 case 2:
                                     return qsTr("Polish");
-                                case 3:
-                                    return qsTr("German");
                                 default:
                                     return qsTr("English");
                             }

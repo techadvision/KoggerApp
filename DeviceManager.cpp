@@ -59,6 +59,28 @@ int DeviceManager::pilotModeState()
     return vru_.flightMode;
 }
 
+int DeviceManager::calcAverageChartLosses()
+{
+    int retVal = 0;
+    int averageChartLosses = 0;
+    int numOfDevices = 0;
+
+    for (auto i = devTree_.cbegin(), end = devTree_.cend(); i != end; ++i) {
+        QHash<int, DevQProperty*> devs = i.value();
+
+        for (auto k = devs.cbegin(), end = devs.cend(); k != end; ++k) {
+            ++numOfDevices;
+            averageChartLosses += k.value()->getAverageChartLosses();
+        }
+    }
+
+    if (numOfDevices != 0) {
+        retVal = averageChartLosses / numOfDevices;
+    }
+
+    return retVal;
+}
+
 QList<DevQProperty *> DeviceManager::getDevList()
 {
     devList_.clear();
@@ -403,8 +425,7 @@ void DeviceManager::openFile(QString filePath)
                 file.close();
                 return;
             }
-            if (sleepCnt > 50) {
-            //if (sleepCnt > 500) {
+            if (sleepCnt > 500) {
                 QThread::msleep(50);
                 sleepCnt = 0;
             }
@@ -531,9 +552,10 @@ void DeviceManager::onLinkDeleted(QUuid uuid, Link *link)
 
 void DeviceManager::binFrameOut(ProtoBinOut protoOut)
 {
-    if (isConsoled_ && !(protoOut.id() == 33 || protoOut.id() == 33)) {
+    if (isConsoled_ && protoOut.id() != 33) {
         core.consoleProto(protoOut, false);
     }
+    emit sendProtoFrame(protoOut);
 }
 
 bool DeviceManager::isCreatedId(int id)
@@ -581,6 +603,16 @@ void DeviceManager::setUSBLBeaconDirectAsk(bool is_ask) {
         beacon_timer.start();
     } else {
         beacon_timer.stop();
+    }
+}
+
+void DeviceManager::onLoggingKlfStarted()
+{
+    for (auto i = devTree_.cbegin(), end = devTree_.cend(); i != end; ++i) {
+        QHash<int, DevQProperty*> devs = i.value();
+        for (auto k = devs.cbegin(), end = devs.cend(); k != end; ++k) {
+            k.value()->requestSetup();
+        }
     }
 }
 
@@ -743,7 +775,7 @@ void DeviceManager::deleteDevicesByLink(QUuid uuid)
 #ifdef SEPARATE_READING
             QMetaObject::invokeMethod(i.value(), "deleteLater", Qt::QueuedConnection);
 #else
-            delete i.value();
+            i.value()->deleteLater();
 #endif
         }
         devTree_[uuid].clear();
@@ -767,7 +799,10 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     }
 
     //
-    connect(dev, &DevQProperty::channelChartSetupChanged, this, &DeviceManager::channelChartSetupChanged, connType);
+    connect(dev, &DevQProperty::sendChartSetup, this, &DeviceManager::sendChartSetup, connType);
+    connect(dev, &DevQProperty::sendTranscSetup, this, &DeviceManager::sendTranscSetup, connType);
+    connect(dev, &DevQProperty::sendSoundSpeed, this, &DeviceManager::sendSoundSpeeed, connType);
+    connect(dev, &DevQProperty::averageChartLossesChanged, this, &DeviceManager::chartLossesChanged, connType);
 
     connect(dev, &DevQProperty::chartComplete, this, &DeviceManager::chartComplete, connType);
     connect(dev, &DevQProperty::rawDataRecieved, this, &DeviceManager::rawDataRecieved, connType);
@@ -795,7 +830,10 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     }
 
     //
-    connect(dev, &DevQProperty::channelChartSetupChanged, this, &DeviceManager::channelChartSetupChanged);
+    connect(dev, &DevQProperty::sendChartSetup,  this, &DeviceManager::sendChartSetup);
+    connect(dev, &DevQProperty::sendTranscSetup, this, &DeviceManager::sendTranscSetup);
+    connect(dev, &DevQProperty::sendSoundSpeed, this, &DeviceManager::sendSoundSpeeed);
+    connect(dev, &DevQProperty::averageChartLossesChanged, this, &DeviceManager::chartLossesChanged);
 
     connect(dev, &DevQProperty::chartComplete, this, &DeviceManager::chartComplete);
     connect(dev, &DevQProperty::rawDataRecieved, this, &DeviceManager::rawDataRecieved);

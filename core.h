@@ -15,6 +15,7 @@
 #include "ConverterXTF.h"
 #include "graphicsscene3dview.h"
 #include "boattrackcontrolmenucontroller.h"
+#include "navigation_arrow_control_menu_controller.h"
 #include "bottomtrackcontrolmenucontroller.h"
 #include "surfacecontrolmenucontroller.h"
 #include "side_scan_view_control_menu_controller.h"
@@ -46,7 +47,8 @@ public:
     Q_PROPERTY(ConsoleListModel* consoleList READ consoleList CONSTANT)
     Q_PROPERTY(bool loggingKlf WRITE setKlfLogging)
     Q_PROPERTY(bool loggingCsv WRITE setCsvLogging)
-    Q_PROPERTY(bool fixBlackStripes WRITE fixBlackStripes)
+    Q_PROPERTY(bool fixBlackStripesState WRITE setFixBlackStripesState)
+    Q_PROPERTY(int  fixBlackStripesRange WRITE setFixBlackStripesRange)
     Q_PROPERTY(QString filePath READ getFilePath NOTIFY filePathChanged)
     Q_PROPERTY(bool isFileOpening READ getIsFileOpening NOTIFY sendIsFileOpening)
     Q_PROPERTY(bool isMosaicUpdatingInThread READ getIsMosaicUpdatingInThread NOTIFY isMosaicUpdatingInThreadUpdated)
@@ -69,6 +71,11 @@ public:
 #ifdef FLASHER
     void getFlasherPtr() const;
 #endif
+    void saveLLARefToSettings();
+    void removeLinkManagerConnections();
+#ifdef SEPARATE_READING
+    void removeDeviceManagerConnections();
+#endif
 
 public slots:
 #ifdef SEPARATE_READING
@@ -89,11 +96,11 @@ public slots:
     bool upgradeFW(const QString& name, QObject* dev);
     void upgradeChanged(int progressStatus);
     void setKlfLogging(bool isLogging);
-    void fixBlackStripes(bool state);
+    void setFixBlackStripesState(bool state);
+    void setFixBlackStripesRange(int val);
     bool getIsKlfLogging();
     void setCsvLogging(bool isLogging);
     bool getIsCsvLogging();
-    bool getFixBlackStripes() const;
     bool exportComplexToCSV(QString filePath);
     bool exportUSBLToCSV(QString filePath);
     bool exportPlotAsCVS(QString filePath, int channel, float decimation = 0);
@@ -115,6 +122,11 @@ public slots:
     bool getIsMosaicUpdatingInThread() const;
     bool getIsSideScanPerformanceMode() const;
     bool getIsSeparateReading() const;
+    void onChannelsUpdated();
+
+#if defined(FAKE_COORDS)
+    Q_INVOKABLE void setPosZeroing(bool state);
+#endif
 
 signals:
     void connectionChanged(bool duplex = false);
@@ -138,24 +150,20 @@ private:
     ConsoleListModel* consoleList();
     void createControllers();
     void createDeviceManagerConnections();
-#ifdef SEPARATE_READING
-    void removeDeviceManagerConnections();
-#endif
     void createLinkManagerConnections();
-    void removeLinkManagerConnections();
     bool isOpenedFile() const;
     bool isFactoryMode() const;
     bool isMotorControlMode() const;
 
     QString getFilePath() const;
     void fixFilePathString(QString& filePath) const;
-    void saveLLARefToSettings();
     void loadLLARefFromSettings();
 
     /*data*/
     Console* consolePtr_;
     // 3d scene controllers
     std::shared_ptr<BoatTrackControlMenuController> boatTrackControlMenuController_;
+    std::shared_ptr<NavigationArrowControlMenuController> navigationArrowControlMenuController_;
     std::shared_ptr<BottomTrackControlMenuController> bottomTrackControlMenuController_;
     std::shared_ptr<MpcFilterControlMenuController> mpcFilterControlMenuController_;
     std::shared_ptr<NpdFilterControlMenuController> npdFilterControlMenuController_;
@@ -186,7 +194,6 @@ private:
     QList<QMetaObject::Connection> linkManagerWrapperConnections_;
     QString openedfilePath_;
     bool isLoggingKlf_;
-    bool fixBlackStripes_;
     bool isLoggingCsv_;
     QString filePath_;
 #ifdef FLASHER
