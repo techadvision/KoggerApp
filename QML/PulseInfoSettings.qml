@@ -15,13 +15,6 @@ Rectangle {
     signal pulsePreferenceClosed()
     signal pulsePreferenceValueChanged(double newValue)
 
-    // A basic background for the popup
-    /*
-    background: Rectangle {
-        color: "white"
-        radius: 8
-    }
-    */
 
     GridLayout {
         id: layout
@@ -32,55 +25,13 @@ Rectangle {
         columns: 2
         rows: 5
 
-        // Background for row 0:
-        Rectangle {
-            id: row0Background
-            // Option 1: Using a hex color with alpha (0x80 = ~50% opacity)
-            color: "#80FF0000"
-            // Option 2: Alternatively, you can use:
-            // color: "red"
-            // opacity: 0.5
-            z: -1  // Make sure it is behind other items
-            GridLayout.row: 0
-            GridLayout.column: 0
-            GridLayout.columnSpan: 2
-            Layout.preferredHeight: 80  // Make sure it fills the row’s height
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-        }
-
-        // --- Top row: Title (column 0) and Close Button (column 1)
-        Text {
-            text: "Pulse Settings"
-            font.pixelSize: 48
-            font.bold: true
-            height: 80
-            verticalAlignment: Text.AlignVCenter
-            horizontalAlignment: Text.AlignHCenter
-
-            GridLayout.row: 0
-            GridLayout.column: 0
-        }
-
-        Button {
-            text: "X"
-            font.bold: true
-            onClicked: pulsePreferenceClosed()
-
-            height: 80
-            GridLayout.row: 0
-            GridLayout.column: 1
-            width: 60
-            Layout.alignment: Qt.AlignRight
-        }
-
         // --- Row 1: Auto Level - Step
         Text {
             text: "Auto Depth - Shift step"
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 1
+            GridLayout.row: 0
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
         }
@@ -97,7 +48,7 @@ Rectangle {
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 1
+            GridLayout.row: 0
             GridLayout.column: 1
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
@@ -108,7 +59,7 @@ Rectangle {
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 2
+            GridLayout.row: 1
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
         }
@@ -125,7 +76,7 @@ Rectangle {
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 2
+            GridLayout.row: 1
             GridLayout.column: 1
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
@@ -136,7 +87,7 @@ Rectangle {
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 3
+            GridLayout.row: 2
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
         }
@@ -153,7 +104,7 @@ Rectangle {
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 3
+            GridLayout.row: 2
             GridLayout.column: 1
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
@@ -164,7 +115,7 @@ Rectangle {
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 4
+            GridLayout.row: 3
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
         }
@@ -180,7 +131,7 @@ Rectangle {
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 4
+            GridLayout.row: 3
             GridLayout.column: 1
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
