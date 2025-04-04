@@ -21,6 +21,7 @@ Settings {
     property bool   useMetricValues:            true
     property int    colorMapIndexSideScan:      0
     property int    colorMapIndex2D:            0
+    property bool   areUiControlsVisible:       true
 
     // Transducer telemetry settings
     property bool   useEchogram:                true

@@ -44,7 +44,13 @@ QtObject {
     property int    dynamicResolutionMax:   2       // The maximum allowed resolution in mm
     property int    dynamicResolutionMargin:2       // The margin resolution in m
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
+    property double hysterisisThreshold:    0.1     // resolution hysterisis for dynamic resolution
+    property int    requiredStableReading:  3       // resolution shift count threshold
     property int    scrollingSpeed:         50      // Initial value for scrolling speed
+
+    //RECORDING KLF
+    property bool   isRecordingKlf:         false   // If a KLF recording is started or not
+    property string klfFilePath:            ""      // File path used to view a KLF file
 
     //COLOR MAP
     /*
@@ -113,65 +119,71 @@ QtObject {
     property bool   processBottomTrack: userManualSetName === modelPulseRed ? pulseRed.processBottomTrack  : pulseBlue.processBottomTrack
     property var    distProcessing:     userManualSetName === modelPulseRed ? distProcPulseRed             : distProcPulseBlue
     property var    doDynamicResolution:userManualSetName === modelPulseRed ? pulseRed.doDynamicResolution : pulseBlue.doDynamicResolution
+    property var    blackStripesWindow: userManualSetName === modelPulseRed ? pulseRed.blackStripesWindow  : pulseBlue.blackStripesWindow
+    property var    fixBlackStripesBackSteps: userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesBackSteps  : pulseBlue.fixBlackStripesBackSteps
 
     property var pulseRed: {
-        "devName":              "ECHO20",
-        "settingVersion":       1,
-        "is2DTransducer":       true,
-        "useTemperature":       false,
-        "chartResolution":      30,
-        "chartSamples":         500,
-        "chartOffset":          0,
-        "distMax":              50000,
-        "distDeadZone":         0,
-        "distConfidence":       14,
-        "transPulse":           10,
-        "transFreq":            810,
-        "transBoost":           0,
-        "dspHorSmooth":         0,
-        "soundSpeed":           1480*1000,
-        "ch1Period":            50,
-        "datasetChart":         1,
-        "datasetDist":          0,
-        "datasetSDDBT":         1,
-        "datasetEuler":         0,
-        "datasetTemp":          0,
-        "datasetTimestamp":     0,
-        "transFreqWide":        510,
-        "transFreqNarrow":      810,
-        "maximumDepth":         45,
-        "processBottomTrack":   false,
-        "doDynamicResolution":  true
+        "devName":                  "ECHO20",
+        "settingVersion":           1,
+        "is2DTransducer":           true,
+        "useTemperature":           false,
+        "chartResolution":          30,
+        "chartSamples":             500,
+        "chartOffset":              0,
+        "distMax":                  50000,
+        "distDeadZone":             0,
+        "distConfidence":           14,
+        "transPulse":               10,
+        "transFreq":                810,
+        "transBoost":               0,
+        "dspHorSmooth":             0,
+        "soundSpeed":               1480*1000,
+        "ch1Period":                50,
+        "datasetChart":             1,
+        "datasetDist":              0,
+        "datasetSDDBT":             1,
+        "datasetEuler":             0,
+        "datasetTemp":              0,
+        "datasetTimestamp":         0,
+        "transFreqWide":            510,
+        "transFreqNarrow":          810,
+        "maximumDepth":             45,
+        "processBottomTrack":       false,
+        "doDynamicResolution":      true,
+        "blackStripesWindow":       20,
+        "fixBlackStripesBackSteps": 3
     }
 
     property var pulseBlue: {
-        "devName":              "NanoSSS",
-        "settingVersion":       1,
-        "is2DTransducer":       false,
-        "useTemperature":       false,
-        "chartResolution":      30,
-        "chartSamples":         1358,
-        "chartOffset":          25,
-        "distMax":              50000,
-        "distDeadZone":         0,
-        "distConfidence":       14,
-        "transPulse":           10,
-        "transFreq":            540,
-        "transBoost":           1,
-        "dspHorSmooth":         0,
-        "soundSpeed":           1480*1000,
-        "ch1Period":            50,
-        "datasetChart":         1,
-        "datasetDist":          0,
-        "datasetSDDBT":         1,
-        "datasetEuler":         0,
-        "datasetTemp":          0,
-        "datasetTimestamp":     0,
-        "transFreqWide":        540,
-        "transFreqNarrow":      540,
-        "maximumDepth":         21,
-        "processBottomTrack":   false,
-        "doDynamicResolution":  false
+        "devName":                  "NanoSSS",
+        "settingVersion":           1,
+        "is2DTransducer":           false,
+        "useTemperature":           false,
+        "chartResolution":          30,
+        "chartSamples":             1358,
+        "chartOffset":              25,
+        "distMax":                  50000,
+        "distDeadZone":             0,
+        "distConfidence":           14,
+        "transPulse":               10,
+        "transFreq":                540,
+        "transBoost":               1,
+        "dspHorSmooth":             0,
+        "soundSpeed":               1480*1000,
+        "ch1Period":                50,
+        "datasetChart":             1,
+        "datasetDist":              0,
+        "datasetSDDBT":             1,
+        "datasetEuler":             0,
+        "datasetTemp":              0,
+        "datasetTimestamp":         0,
+        "transFreqWide":            540,
+        "transFreqNarrow":          540,
+        "maximumDepth":             21,
+        "processBottomTrack":       false,
+        "doDynamicResolution":      false,
+        "blackStripesWindow":       20,
+        "fixBlackStripesBackSteps": 3
     }
 
     //PER DEVICE DISTANCE PROCESSING
