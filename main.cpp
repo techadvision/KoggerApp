@@ -25,11 +25,16 @@
 #include <QSettings>
 #include <QVector>
 #include <QString>
+#include <DevDriver.h>
+
+#include "DevQProperty.h"
 
 Core core;
 Themes theme;
 QTranslator translator;
 QVector<QString> availableLanguages{"en", "ru", "pl"};
+QObject* g_pulseRuntimeSettings = nullptr;
+QObject* g_pulseSettings = nullptr;
 
 
 void loadLanguage(QGuiApplication &app)
@@ -103,15 +108,19 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
-    QCoreApplication::setOrganizationName("KOGGER");
-    QCoreApplication::setOrganizationDomain("kogger.tech");
-    QCoreApplication::setApplicationName("KoggerApp");
+    QCoreApplication::setOrganizationName("TechAdVision");
+    QCoreApplication::setOrganizationDomain("techadvision.com");
+    QCoreApplication::setApplicationName("Pulse");
     QCoreApplication::setApplicationVersion("1-1-1");
 
 #if defined(Q_OS_WIN)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Round);
 #endif
+
+    // Register the singleton type
+    qmlRegisterSingletonType(QUrl("qrc:/PulseSettings.qml"), "org.techadvision.settings", 1, 0, "PulseSettings");
+    qmlRegisterSingletonType(QUrl("qrc:/PulseRuntimeSettings.qml"), "org.techadvision.runtime", 1, 0, "PulseRuntimeSettings");
 
     QQuickWindow::setSceneGraphBackend(QSGRendererInterface::OpenGLRhi);
 
@@ -143,6 +152,27 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("linkManagerWrapper", core.getLinkManagerWrapperPtr());
     engine.rootContext()->setContextProperty("deviceManagerWrapper", core.getDeviceManagerWrapperPtr());
+
+    QQmlComponent component(&engine, QUrl("qrc:/PulseRuntimeSettings.qml"));
+    QObject *runtimeSettingsInstance = component.create();
+    if (!runtimeSettingsInstance) {
+        qWarning() << "Failed to create PulseRuntimeSettings instance!";
+    } else {
+        runtimeSettingsInstance->setObjectName("pulseRuntimeSettings");
+        engine.rootContext()->setContextProperty("pulseRuntimeSettings", runtimeSettingsInstance);
+        g_pulseRuntimeSettings = runtimeSettingsInstance;
+    }
+
+    QQmlComponent component2(&engine, QUrl("qrc:/PulseSettings.qml"));
+    QObject *settingsInstance = component2.create();
+    if (!settingsInstance) {
+        qWarning() << "Failed to create PulseSettings instance!";
+    } else {
+        settingsInstance->setObjectName("pulseSettings");
+        engine.rootContext()->setContextProperty("pulseSettings", settingsInstance);
+        g_pulseSettings = settingsInstance;
+    }
+
 #ifdef FLASHER
     engine.rootContext()->setContextProperty("flasher", &core.getFlasherPtr);
 #endif
@@ -184,5 +214,12 @@ int main(int argc, char *argv[])
 
     engine.load(url);
     qCritical() << "App is created";
+
+    if (g_pulseRuntimeSettings) {
+        qDebug() << "pulseRuntimeSettings instance found!";
+    } else {
+        qWarning() << "pulseRuntimeSettings instance not found!";
+    }
+
     return app.exec();
 }

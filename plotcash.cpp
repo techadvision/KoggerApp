@@ -329,7 +329,8 @@ Dataset::Dataset() :
     lastBottomTrackEpoch_(0),
     boatTrackValidPosCounter_(0),
     fixBlackStripesState_(false),
-    fixBlackStripesWrCnt_(5)
+    fixBlackStripesWrCnt_(20),
+    fixBlackStripesBkStp_(3)
 {
     resetDataset();
 }
@@ -500,6 +501,11 @@ void Dataset::setFixBlackStripesRange(int val)
     fixBlackStripesWrCnt_ = val;
 }
 
+void Dataset::setFixBlackStripesBackSteps(int val)
+{
+    fixBlackStripesBkStp_ = val;
+}
+
 void Dataset::addChart(ChartParameters chartParams, QVector<uint8_t> data, float resolution, float offset)
 {
     if (data.empty() || qFuzzyIsNull(resolution)) {
@@ -585,6 +591,21 @@ void Dataset::addChart(ChartParameters chartParams, QVector<uint8_t> data, float
     }
 
     setChart();
+
+    // walk backward
+    if (fixBlackStripesBkStp_ > 0) {
+        const int wBStartIndx = std::max(0, endIndx - fixBlackStripesBkStp_ - 1);
+        const int wBPreEndIndx = std::max(0, endIndx - 1);
+        const auto recorderData = _pool[endIndx].chartData(channelId);
+        for (int i = wBPreEndIndx; i > wBStartIndx; --i) {
+            if (_pool[i].chartSize(chartParams.channelId) == -1) {
+                _pool[i].setChart(channelId, recorderData, resolution, offset);
+                _pool[i].setRecParameters(channelId, recParam);
+                _pool[i].setWasValidlyRenderedInEchogram(false);
+            }
+        }
+    }
+
     validateChannelList(channelId);
     emit dataUpdate();
 }
@@ -687,6 +708,9 @@ void Dataset::addDist(int dist) {
         pool_index = endIndex();
     }
 
+    _dist = dist * 0.001;
+    emit distChanged();
+
     _pool[endIndex()].setDist(dist);
     emit dataUpdate();
 }
@@ -696,6 +720,9 @@ void Dataset::addRangefinder(float distance) {
     if(epoch->distAvail()) {
         epoch = addNewEpoch();
     }
+
+    _dist = distance;
+    emit distChanged();
 
     epoch->setDist(distance*1000);
     emit dataUpdate();
@@ -893,6 +920,13 @@ void Dataset::addTemp(float temp_c) {
         addNewEpoch();
         pool_index = endIndex();
     }
+
+    if (_temp != temp_c) {
+        _temp = temp_c;
+        emit tempChanged();
+        qDebug("emitted tempChanged: %f", _temp);
+    }
+
     _pool[pool_index].setTemp(temp_c);
     emit dataUpdate();
 }

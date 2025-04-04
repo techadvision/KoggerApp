@@ -1002,8 +1002,14 @@ public:
         kConnection
     };
 
+    Q_PROPERTY(float dist READ dist NOTIFY distChanged)
+    Q_PROPERTY(float temp READ temp NOTIFY tempChanged)
+
     /*methods*/
     Dataset();
+
+    float dist() const { return _dist; }
+    float temp() const { return _temp; }
 
     void setState(DatasetState state);
 
@@ -1088,6 +1094,7 @@ public slots:
     void setSoundSpeed(int16_t channel, uint32_t soundSpeed);
     void setFixBlackStripesState(bool state);
     void setFixBlackStripesRange(int val);
+    void setFixBlackStripesBackSteps(int val);
     void addChart(ChartParameters, QVector<uint8_t> data, float resolution, float offset);
     void rawDataRecieved(RawData raw_data);
     void addDist(int dist);
@@ -1155,6 +1162,12 @@ signals:
     void updatedInterpolatedData(int indx);
     void updatedLlaRef();
     void channelsUpdated();
+    void distChanged();
+    void tempChanged();
+
+private:
+    float _dist = 0; // Stores the distance value
+    float _temp = 0; // Stores the temperature value
 
 protected:
     using EthalonVec = QVector<QPair<uint8_t, uint8_t>>;
@@ -1250,6 +1263,7 @@ private:
     QMap<int16_t, RecordParameters> usingRecordParameters_;
     bool fixBlackStripesState_;
     int fixBlackStripesWrCnt_;
+    int fixBlackStripesBkStp_;
 };
 
 #endif // PLOT_CASH_H

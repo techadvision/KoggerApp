@@ -313,6 +313,7 @@ void Plot2D::setDistance(float from, float to) {
     qDebug() << "DevDriver - Plot2D setDistance from " << from << " to " << to;
     if (from == 0) {
         _cursor.distance.set(from, to);
+
     } else {
         _cursor.distance.set(from, to);
     }
