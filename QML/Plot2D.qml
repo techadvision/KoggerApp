@@ -340,22 +340,22 @@ WaterFall {
 
 
         anchors.left: parent.left
-        anchors.top: parent.bottom
-        anchors.topMargin: 50
-        //anchors.leftMargin: 20
+        anchors.bottom: parent.bottom
         anchors.bottomMargin: 20
+        //anchors.leftMargin: 20
+        //anchors.bottomMargin: 20
 
         function isDevice2DTransducer () {
             console.log("TAV isDevice2DTransducer userManualSetName ===", pulseRuntimeSettings.userManualSetName)
             if (pulseRuntimeSettings.userManualSetName !== "...") {
                 //Manually selected model
-                console.log("TAV isDevice2DTransducer determined by manual selection");
+                //console.log("TAV isDevice2DTransducer determined by manual selection");
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                    console.log("TAV isDevice2DTransducer selected modelPulseRed");
+                    //console.log("TAV isDevice2DTransducer selected modelPulseRed");
                     showAs2DTransducer = true
                 }
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
-                    console.log("TAV isDevice2DTransducer selected modelPulseBlue");
+                    //console.log("TAV isDevice2DTransducer selected modelPulseBlue");
                     showAs2DTransducer = false
                 }
             } else {
@@ -374,28 +374,8 @@ WaterFall {
         }
 
         function reArrangeQuickChangeObject () {
-            /*
-            quickChangeObjects.anchors.left = parent.left
-            quickChangeObjects.anchors.leftMargin = 20
-            quickChangeObjects.anchors.bottom = parent.bottom
-            quickChangeObjects.anchors.bottomMargin = 20
-            */
-
 
             console.log("TAV reArrangeQuickChangeObject ran, and isViewHorizontal is :", plot.isViewHorizontal());
-            quickChangeObjects.anchors.left = undefined;
-            quickChangeObjects.anchors.right = undefined;
-            quickChangeObjects.anchors.top = undefined;
-            quickChangeObjects.anchors.bottom = undefined;
-            quickChangeObjects.anchors.topMargin = undefined;
-            quickChangeObjects.anchors.leftMargin = undefined;
-            quickChangeObjects.anchors.bottomMargin = undefined;
-
-            quickChangeObjects.anchors.left = parent.left
-            quickChangeObjects.anchors.leftMargin = 20
-            quickChangeObjects.anchors.bottom = parent.bottom
-            quickChangeObjects.anchors.bottomMargin = 20
-
             isDevice2DTransducer()
 
             if (showAs2DTransducer) {
@@ -409,30 +389,15 @@ WaterFall {
             }
 
             //Set interface
+
+            //quickChangeObjects.anchors.left = parent.left
+            //quickChangeObjects.anchors.leftMargin = 20
+
             /*
-            if (showAs2DTransducer) {
-                // Horizontal
-                quickChangeObjects.anchors.left = parent.left
-                quickChangeObjects.anchors.top = parent.top
-                quickChangeObjects.anchors.topMargin = 50 + plot.topMarginExpertMode
-                quickChangeObjects.anchors.leftMargin = 20
+            if (showAs2DTransducer || (!showAs2DTransducer && PulseSettings.ecoViewIndex === 0)) {
                 plot.setGridHorizontalNow(true)
             } else {
-                if (PulseSettings.ecoViewIndex === 0) {
-                    // Horizontal
-                    quickChangeObjects.anchors.left = parent.left
-                    quickChangeObjects.anchors.top = parent.top
-                    quickChangeObjects.anchors.topMargin = 50 + plot.topMarginExpertMode
-                    quickChangeObjects.anchors.leftMargin = 20
-                    plot.setGridHorizontalNow(true)
-                } else {
-                    // Vertical
-                    quickChangeObjects.anchors.left = parent.left
-                    quickChangeObjects.anchors.leftMargin = 20
-                    quickChangeObjects.anchors.bottom = parent.bottom
-                    quickChangeObjects.anchors.bottomMargin = 20
-                    plot.setGridHorizontalNow(false)
-                }
+                plot.setGridHorizontalNow(false)
             }
             */
         }
@@ -755,8 +720,9 @@ WaterFall {
 
         HorizontalController {
             id: selectorMaxDepth
+            visible: PulseSettings.areUiControlsVisible
 
-            GridLayout.row: 0
+            GridLayout.row: 1
             GridLayout.column: 1
             Layout.preferredWidth: 310
             controleName: "selectorMaxDepth"
@@ -819,7 +785,8 @@ WaterFall {
 
         HorizontalController {
             id: selectorIntensity
-            GridLayout.row: 1
+            visible: PulseSettings.areUiControlsVisible
+            GridLayout.row: 2
             GridLayout.column: 1
             Layout.preferredWidth: 310
             controleName: "selectorIntensity"
@@ -847,8 +814,9 @@ WaterFall {
 
         HorizontalController {
             id: selectorFiltering
+            visible: PulseSettings.areUiControlsVisible
             controleName: "selectorFiltering"
-            GridLayout.row: 2
+            GridLayout.row: 3
             GridLayout.column: 1
             Layout.preferredWidth: 310
             minValue: 0
@@ -895,6 +863,7 @@ WaterFall {
             id: quickChangeTheme
             spacing: 2
             Layout.topMargin: 10
+            visible: PulseSettings.areUiControlsVisible
 
             GridLayout.row: 2
             GridLayout.column: 0
@@ -1018,20 +987,21 @@ WaterFall {
             HorizontalTapSelectController {
                 id: themeSelector3
                 visible: pulseRuntimeSettings.is2DTransducer
-                /*
+
                 model: [
                     "./icons/pulse_cone_wide.svg",
                     "./icons/pulse_cone_narrow_ultra.svg"
                 ]
-                */
+                /*
                 model: [
                     "./icons/pulse_cone_narrow_ultra.svg"
                 ]
+                */
                 iconSource: "./icons/pulse_glasses.svg"
                 selectedIndex: 0
                 //selectedIndex: PulseSettings.ecoConeIndex
                 allowExpertModeByMultiTap: false
-                /* Only allow narrow cone
+
                 onIconSelected: {
                     if (selectedIndex === 1) {
                         //DeviceItem.transFreq = themeSelector3.coneNarrow
@@ -1046,7 +1016,7 @@ WaterFall {
 
                     console.log("TAV: Selected echosounder cone index:", themeSelector3.selectedIndex);
                 }
-                */
+
                 Connections {
                     target: pulseRuntimeSettings
                     function onUserManualSetNameChanged () {
@@ -1070,6 +1040,53 @@ WaterFall {
 
         }
 
+        RowLayout {
+            id: quickChangeUserOptions
+            spacing: 2
+            Layout.topMargin: 10
+
+            GridLayout.row: 3
+            GridLayout.column: 0
+            Layout.preferredWidth: 350
+
+
+            HorizontalCheckController {
+                id: showMyControls
+                iconSource: "./icons/pulse_controls.svg"
+                checked: PulseSettings.areUiControlsVisible  // Bind this to your persistent setting
+
+                onStateChanged: {
+                    console.log("Checkbox state changed:", checked)
+                    PulseSettings.areUiControlsVisible = checked
+                    // Update persistent settings or trigger other UI actions here
+                }
+
+            }
+
+            HorizontalCheckController {
+                id: showInfo
+                iconSource: "./icons/pulse_info.svg"
+                checked: false
+                visible: PulseSettings.areUiControlsVisible
+
+                onStateChanged: {
+                    console.log("Checkbox state changed:", checked)
+                    pulseInfoLoader.active = checked
+
+                }
+
+                onVisibleChanged: {
+                    if (!visible) {
+                        pulseInfoLoader.active = false;
+                        checked = false;
+                    }
+                }
+
+            }
+
+
+        }
+
     }
 
     Rectangle {
@@ -1078,10 +1095,12 @@ WaterFall {
         height: 80
         radius: 40
         color:  "#80000000"
+
         anchors.left: quickChangeObjects.left
         anchors.bottom: quickChangeObjects.top
         anchors.bottomMargin: 15
-        visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
+        visible: false
+        //visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
 
         Image {
             id: toggleInfoIcon
@@ -1106,11 +1125,23 @@ WaterFall {
         height: 80
         radius: 40
         color:  "#80000000"
+
         anchors.left: toggleInfoContainer.right
-        anchors.bottom: quickChangeObjects.top
-        anchors.bottomMargin: 15
         anchors.leftMargin: 15
-        visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
+        anchors.bottom: toggleInfoContainer.bottom
+        anchors.top: toggleInfoContainer.top
+        /*
+        anchors.bottom: quickChangeObjects.showAs2DTransducer ? quickChangeObjects.top : undefined
+        anchors.bottomMargin: quickChangeObjects.showAs2DTransducer ? 15 : 0
+        anchors.top: !quickChangeObjects.showAs2DTransducer ? quickChangeObjects.bottom : undefined
+        anchors.topMargin: !quickChangeObjects.showAs2DTransducer ? 15 : 0
+        */
+        //anchors.left: toggleInfoContainer.right
+        //anchors.bottom: quickChangeObjects.top
+        //anchors.bottomMargin: 15
+        //anchors.leftMargin: 15
+        visible: false
+        //visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
 
         Image {
             id: toggleSettingsIcon
@@ -1132,9 +1163,20 @@ WaterFall {
 
     Loader {
         id: pulseInfoLoader
-        source: "PulseInfo.qml"  // Ensure PulseInfo.qml is available at this path
-        active: false           // Initially hidden
-        anchors.centerIn: parent  // Adjust as needed for your layout
+        source: "qrc:/PulseTabbedSettings.qml"
+        //source: "PulseInfo.qml"
+        active: false
+        anchors.centerIn: parent
+        onItemChanged: {
+            if (item) {
+                // Connect the signal to set active to false when the close is requested
+                item.closeRequested.connect(function() {
+                    pulseInfoLoader.active = false;
+                    showInfo.checked = false
+                });
+            }
+        }
+        /*
         onActiveChanged: {
             if (active) {
                 closePulseInfoTimer.restart();
@@ -1142,6 +1184,7 @@ WaterFall {
                 closePulseInfoTimer.stop();
             }
         }
+        */
     }
 
     Loader {
@@ -1158,6 +1201,7 @@ WaterFall {
                 closePulseSettingsTimer.stop();
             }
         }
+
     }
 
     Connections {
@@ -1175,15 +1219,61 @@ WaterFall {
 
     Image {
         id: companyWaterMark
-        source: "./image/logo_techadvision_gray.png"  // Update the path as needed
+        source: "./image/logo_techadvision_gray.png"
         anchors.bottom: parent.bottom
-        anchors.left: quickChangeObjects.right
         anchors.bottomMargin: 40
+        anchors.left: quickChangeObjects.right
         anchors.leftMargin: 40
         width: 360
         height: 43
         opacity: 60
         visible: pulseRuntimeSettings.devManualSelected
+    }
+
+    Button {
+        id: recordingOnScreen
+        checkable: true
+        visible: pulseRuntimeSettings.isRecordingKlf
+
+        // Force the size.
+        width: 60
+        height: 60
+        implicitWidth: 60
+        implicitHeight: 60
+
+        anchors.bottom: companyWaterMark.top
+        anchors.left: companyWaterMark.left
+        anchors.right: companyWaterMark.right
+        // If your style uses padding, setting it to 0 helps.
+        padding: 0
+
+        // Override the background to avoid the default styling interfering.
+        background: Rectangle {
+             anchors.fill: parent
+             color: "transparent"
+        }
+
+        // Use contentItem to show your icon.
+        contentItem: Image {
+             // Prevent this Image from intercepting mouse events.
+             enabled: false
+             source: recordingOnScreen.checked ? "./icons/pulse_recording_active.svg" : "./icons/pulse_recording_inactive.svg"
+             anchors.fill: parent
+             fillMode: Image.PreserveAspectCrop
+        }
+
+        onCheckedChanged: {
+             console.log("TAV: Recording? ", recordingOnScreen.checked)
+             pulseRuntimeSettings.isRecordingKlf = recordingOnScreen.checked
+             core.loggingKlf = recordingOnScreen.checked
+        }
+
+        Connections {
+            target: pulseRuntimeSettings
+            function onIsRecordingKlfChanged () {
+                recordingOnScreen.checked = pulseRuntimeSettings.isRecordingKlf
+            }
+        }
     }
 
     Timer {
@@ -1202,6 +1292,7 @@ WaterFall {
         repeat: false
         onTriggered: {
             pulseInfoLoader.active = false;
+            showInfo.checked = false
         }
     }
 
