@@ -1025,7 +1025,7 @@ ApplicationWindow  {
 
         Row {
             id: rowContainer
-            anchors.centerIn: mainview
+            anchors.centerIn: echoSounderSelector
             spacing: 100
 
             EchoSounderSelector {
