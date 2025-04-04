@@ -113,5 +113,9 @@
         <file>icons/pulse_color_ss_green.svg</file>
         <file>icons/pulse_settings.svg</file>
         <file>icons/pulse_info.svg</file>
+        <file>icons/pulse_controls.svg</file>
+        <file>icons/pulse_open.svg</file>
+        <file>icons/pulse_recording_active.svg</file>
+        <file>icons/pulse_recording_inactive.svg</file>
     </qresource>
 </RCC>
