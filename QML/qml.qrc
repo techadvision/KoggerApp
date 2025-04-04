@@ -108,5 +108,8 @@
         <file>PulseInfo.qml</file>
         <file>HorizontalControllerDoubleSettings.qml</file>
         <file>PulseInfoSettings.qml</file>
+        <file>HorizontalCheckController.qml</file>
+        <file>PulseTabbedSettings.qml</file>
+        <file>PulseInfoRecording.qml</file>
     </qresource>
 </RCC>
