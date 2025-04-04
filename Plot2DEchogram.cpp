@@ -54,7 +54,7 @@ int Plot2DEchogram::getThemeId() const
 
 void Plot2DEchogram::setThemeId(int theme_id) {
 
-    if (theme_id >= ClassicTheme && theme_id <= BWTheme) {
+    if (theme_id >= ClassicTheme && theme_id <= KaijoWhiteTheme) {
         themeId_ = static_cast<ThemeId>(theme_id);
     }
     else {
@@ -67,18 +67,18 @@ void Plot2DEchogram::setThemeId(int theme_id) {
     // ID 0
     if(theme_id == ClassicTheme) {
         coloros = {
-                   QColor("#000000"),
-                   QColor("#0e1318"),
-                   QColor("#152029"),
-                   QColor("#1a2c3a"),
-                   QColor("#1f394d"),
-                   QColor("#234760"),
-                   QColor("#275575"),
-                   QColor("#2a6389"),
-                   QColor("#2d729f"),
-                   QColor("#2f82b5"),
-                   QColor("#3191cb"),
-                   QColor("#32a1e2")};
+           QColor("#000000"),
+           QColor("#0e1318"),
+           QColor("#152029"),
+           QColor("#1a2c3a"),
+           QColor("#1f394d"),
+           QColor("#234760"),
+           QColor("#275575"),
+           QColor("#2a6389"),
+           QColor("#2d729f"),
+           QColor("#2f82b5"),
+           QColor("#3191cb"),
+           QColor("#32a1e2")};
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
@@ -101,53 +101,25 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
-        /* Similar to Garmin
-        coloros = {
-           QColor::fromRgb(  0,   0,   0),
-           QColor::fromRgb( 35,  17,  11),
-           QColor::fromRgb(191, 117,  97),
-           QColor::fromRgb(232, 148,  32)};
 
-        /// Origonal sepia
-
-        coloros = {
-            QColor::fromRgb(  0,   0,   0),
-            QColor::fromRgb( 50,  50,  10),
-            QColor::fromRgb(230, 200, 100),
-            QColor::fromRgb(255, 255, 220)};
-
-        levels = {0, 30, 130, 255};
-        */
 
     } else if(theme_id == WBTheme) {
         coloros = {
-                   QColor("#000000"),
-                   QColor("#171717"),
-                   QColor("#262727"),
-                   QColor("#373838"),
-                   QColor("#484a4a"),
-                   QColor("#5a5d5d"),
-                   QColor("#6d7171"),
-                   QColor("#808585"),
-                   QColor("#949999"),
-                   QColor("#a8aeae"),
-                   QColor("#bdc4c4"),
-                   QColor("#d2dada")};
+           QColor("#000000"),
+           QColor("#171717"),
+           QColor("#262727"),
+           QColor("#373838"),
+           QColor("#484a4a"),
+           QColor("#5a5d5d"),
+           QColor("#6d7171"),
+           QColor("#808585"),
+           QColor("#949999"),
+           QColor("#a8aeae"),
+           QColor("#bdc4c4"),
+           QColor("#d2dada")};
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
-
-
-        /*
-
-        coloros = {
-
-            QColor::fromRgb(0, 0, 0),
-            QColor::fromRgb(190, 200, 200),
-            QColor::fromRgb(230, 255, 255)};
-
-        levels = {0, 150, 255};
-*/
 
     } else if(theme_id == RedTheme) {
         coloros = {
@@ -167,44 +139,25 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
-        /*
-        coloros = {
-           QColor::fromRgb(  0,   0,   0),
-           QColor::fromRgb( 50,  10,  10),
-           QColor::fromRgb(160,  55,  22),
-           QColor::fromRgb(225,  65,  12)};
-
-        levels = {0, 30, 130, 255};
-*/
 
     } else if(theme_id == GreenTheme) {
         coloros = {
-                   QColor("#000000"),
-                   QColor("#11180e"),
-                   QColor("#1a2916"),
-                   QColor("#233a1d"),
-                   QColor("#2c4d24"),
-                   QColor("#35602b"),
-                   QColor("#3e7432"),
-                   QColor("#478939"),
-                   QColor("#519e40"),
-                   QColor("#5ab447"),
-                   QColor("#63ca4f"),
-                   QColor("#6de156")};
+           QColor("#000000"),
+           QColor("#11180e"),
+           QColor("#1a2916"),
+           QColor("#233a1d"),
+           QColor("#2c4d24"),
+           QColor("#35602b"),
+           QColor("#3e7432"),
+           QColor("#478939"),
+           QColor("#519e40"),
+           QColor("#5ab447"),
+           QColor("#63ca4f"),
+           QColor("#6de156")};
 
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
-        /*
-        coloros = {
-           QColor::fromRgb(  0,   0,   0),
-           QColor::fromRgb( 50,  10,  10),
-           QColor::fromRgb(160,  55,  22),
-           QColor::fromRgb(225,  65,  12)};
-
-        levels = {0, 30, 130, 255};
-
-*/
 
     } else if(theme_id == Ek500BlackTheme) {
         //This is the EK80, black edition
@@ -283,26 +236,6 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             191,195,199,203,207,211,215,219,223,227,231,235,239,243,247,251,
             255
         };
-
-        /*
-
-        coloros = {
-           QColor::fromRgb(  0,   0,   0),
-           QColor::fromRgb(159, 159, 159),
-           QColor::fromRgb( 95,  95,  95),
-           QColor::fromRgb(  0,   0, 255),
-           QColor::fromRgb(  0,   0, 127),
-           QColor::fromRgb(  0, 191,   0),
-           QColor::fromRgb(  0, 127,   0),
-           QColor::fromRgb(255, 255,   0),
-           QColor::fromRgb(255, 127,   0),
-           QColor::fromRgb(255,   0, 191),
-           QColor::fromRgb(255,   0,   0),
-           QColor::fromRgb(166,  83,  60),
-           QColor::fromRgb(120,  60,  40)};
-
-        levels = { 0, 21, 42, 64, 85, 106, 128, 149, 170, 191, 212, 234, 255 };
-        */
 
 
     } else if(theme_id == Ek500WhiteTheme) {
@@ -384,24 +317,6 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             255
         };
 
-        /*
-        coloros = {
-           QColor::fromRgb(255, 255, 255),
-           QColor::fromRgb(159, 159, 159),
-           QColor::fromRgb( 95,  95,  95),
-           QColor::fromRgb(  0,   0, 255),
-           QColor::fromRgb(  0,   0, 127),
-           QColor::fromRgb(  0, 191,   0),
-           QColor::fromRgb(  0, 127,   0),
-           QColor::fromRgb(255, 255,   0),
-           QColor::fromRgb(255, 127,   0),
-           QColor::fromRgb(255,   0, 191),
-           QColor::fromRgb(255,   0,   0),
-           QColor::fromRgb(166,  83,  60),
-           QColor::fromRgb(120,  60,  40)};
-
-        levels = { 0, 21, 42, 64, 85, 106, 128, 149, 170, 191, 212, 234, 255 };
-        */
 
     } else if(theme_id == FurunoBlackTheme) {
 
@@ -419,7 +334,13 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor::fromRgb(255,   0,   0),
            QColor::fromRgb(147,   0,   0)};
 
-        levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
+        //Linear palette
+        //levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
+        //Gamma (0.5) palette
+        levels = { 0, 77, 109, 133, 154, 172, 188, 203, 217, 231, 243, 255 };
+        //Logarithmic (k=0.9) palette
+        //levels = { 0, 66, 107, 138, 161, 181, 197, 211, 224, 236, 246, 255 };
+
 
     } else if(theme_id == FurunoWhiteTheme) {
 
@@ -437,7 +358,12 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             QColor::fromRgb(255,   0,   0),
             QColor::fromRgb(147,   0,   0)};
 
+        //Linear palette
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
+        //Gamma (0.5) palette
+        //levels = { 0, 77, 109, 133, 154, 172, 188, 203, 217, 231, 243, 255 };
+        //Logarithmic (k=0.9) palette
+        //levels = { 0, 66, 107, 138, 161, 181, 197, 211, 224, 236, 246, 255 };
 
     } else if(theme_id == KaijoBlackTheme) {
 
@@ -553,27 +479,6 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             255
         };
 
-        /*
-        coloros = {
-           QColor::fromRgb(  0,   0,   0),
-           QColor::fromRgb(160, 224, 192),
-           QColor::fromRgb(129, 193, 224),
-           QColor::fromRgb(  0, 129, 223),
-           QColor::fromRgb( 64, 128, 128),
-           QColor::fromRgb(  0, 223, 129),
-           QColor::fromRgb(  0, 223,   0),
-           QColor::fromRgb(  0, 159,   0),
-           QColor::fromRgb(  0,  96,   0),
-           QColor::fromRgb(128, 128,  64),
-           QColor::fromRgb(140, 140, 115),
-           QColor::fromRgb(255, 128,   0),
-           QColor::fromRgb(255, 128, 128),
-           QColor::fromRgb(255,   0,   0),
-           QColor::fromRgb(128,   0,   0),
-           QColor::fromRgb( 64,   0,   0)};
-
-        levels = { 0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255 };
-        */
 
     } else if(theme_id == KaijoWhiteTheme) {
 
@@ -689,64 +594,23 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             255
         };
 
-        /*
-
-        coloros = {
-            QColor::fromRgb(255, 255, 255),
-            QColor::fromRgb(160, 224, 192),
-            QColor::fromRgb(129, 193, 224),
-            QColor::fromRgb(  0, 129, 223),
-            QColor::fromRgb( 64, 128, 128),
-            QColor::fromRgb(  0, 223, 129),
-            QColor::fromRgb(  0, 223,   0),
-            QColor::fromRgb(  0, 159,   0),
-            QColor::fromRgb(  0,  96,   0),
-            QColor::fromRgb(128, 128,  64),
-            QColor::fromRgb(140, 140, 115),
-            QColor::fromRgb(255, 128,   0),
-            QColor::fromRgb(255, 128, 128),
-            QColor::fromRgb(255,   0,   0),
-            QColor::fromRgb(128,   0,   0),
-            QColor::fromRgb( 64,   0,   0)};
-
-        levels = { 0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255 };
-        */
-
     } else if (theme_id == SepiaTemeExtra) {
 
-            coloros = {
-                       QColor("#000000"),
-                       QColor("#19120d"),
-                       QColor("#2a1d16"),
-                       QColor("#3c281c"),
-                       QColor("#4f3423"),
-                       QColor("#62402a"),
-                       QColor("#764c32"),
-                       QColor("#8b5939"),
-                       QColor("#a16641"),
-                       QColor("#b77348"),
-                       QColor("#cd8050"),
-                       QColor("#e48e58")};
-
-            levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
-
-            /* Similar to Garmin
         coloros = {
-           QColor::fromRgb(  0,   0,   0),
-           QColor::fromRgb( 35,  17,  11),
-           QColor::fromRgb(191, 117,  97),
-           QColor::fromRgb(232, 148,  32)};
+           QColor("#000000"),
+           QColor("#19120d"),
+           QColor("#2a1d16"),
+           QColor("#3c281c"),
+           QColor("#4f3423"),
+           QColor("#62402a"),
+           QColor("#764c32"),
+           QColor("#8b5939"),
+           QColor("#a16641"),
+           QColor("#b77348"),
+           QColor("#cd8050"),
+           QColor("#e48e58")};
 
-        /// Origonal sepia
-
-        coloros = {
-            QColor::fromRgb(  0,   0,   0),
-            QColor::fromRgb( 50,  50,  10),
-            QColor::fromRgb(230, 200, 100),
-            QColor::fromRgb(255, 255, 220)};
-
-        levels = {0, 30, 130, 255};
-        */
+        levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
         };
 
