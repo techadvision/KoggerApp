@@ -95,8 +95,10 @@ ColumnLayout {
 
         // General plot
         targetPlot.plotEchogramCompensation(1)
-        targetPlot.plotDatasetChannel(32767, 1)
-        core.setSideScanChannels(32767, 1)
+        targetPlot.plotDatasetChannel(2, 3)
+        core.setSideScanChannels(2, 3)
+        //targetPlot.plotDatasetChannel(32767, 3)
+        //core.setSideScanChannels(32767, 3)
 
         // Bottom tracking
         if (pulseRuntimeSettings.processBottomTrack) {
@@ -147,7 +149,8 @@ ColumnLayout {
 
         console.log("TAV: pulseRuntimeSettings, plot specific, for", pulseRuntimeSettings.devName);
 
-        if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed) {
+        //if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed) {
+        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
             setPlotPulseRed()
         } else {
             setPlotPulseBlue()
@@ -186,7 +189,12 @@ ColumnLayout {
         pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution
         pulseRuntimeSettings.scrollingSpeed = pulseRuntimeSettings.ch1Period
         pulseRuntimeSettings.devIdentified = true
-        core.fixBlackStripes= true
+
+        core.fixBlackStripesRange = pulseRuntimeSettings.blackStripesWindow
+        core.fixBlackStripesBackSteps = pulseRuntimeSettings.fixBlackStripesBackSteps
+
+        core.fixBlackStripesState = true
+        //core.fixBlackStripes= true
 
         console.log("TAV: pulseSettings - done");
     }
