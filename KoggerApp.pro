@@ -61,6 +61,7 @@ SOURCES += \
     Link.cpp \
     LinkManager.cpp \
     LinkManagerWrapper.cpp \
+    NMEASender.cpp \
     Plot2D.cpp \
     Plot2DEchogram.cpp \
     Plot2DGrid.cpp \
@@ -187,6 +188,7 @@ HEADERS += \
     LinkManager.h \
     LinkManagerWrapper.h \
     MAVLinkConf.h \
+    NMEASender.h \
     Plot2D.h \
     ProtoBinnary.h \
     LinkListModel.h \
