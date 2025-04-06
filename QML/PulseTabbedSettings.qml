@@ -4,7 +4,7 @@ import QtQuick.Controls 2.15
 Item {
     id: root
     width: 1000
-    height: 800
+    height: 500
 
     signal closeRequested()
 
@@ -17,8 +17,8 @@ Item {
     // Main settings panel
     Rectangle {
         id: mainPanel
-        width: parent.width * 0.9
-        height: parent.height * 0.8
+        width: parent.width * 0.99
+        height: parent.height * 0.98
         anchors.centerIn: parent
         color: "white"
         radius: 8
@@ -63,14 +63,14 @@ Item {
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
-                    text: "Pulse Device"
+                    text: "Device"
                     font.pointSize: 16
                     icon.source: "qrc:/icons/pulse_info.svg"
                 }
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
-                    text: "Pulse Settings"
+                    text: "Settings"
                     font.pointSize: 16
                     icon.source: "qrc:/icons/pulse_settings.svg"
                 }
@@ -80,6 +80,13 @@ Item {
                     text: "Recording"
                     font.pointSize: 16
                     icon.source: "qrc:/icons/pulse_recording_inactive.svg"
+                }
+                TabButton {
+                    height: tabBar.height
+                    display: AbstractButton.TextBesideIcon
+                    text: "Colors"
+                    font.pointSize: 16
+                    icon.source: "qrc:/icons/pulse_color_2d_e500_white.svg"
                 }
             }
         }
@@ -109,6 +116,12 @@ Item {
                     id: tabbedPulseRecording
                 }
             }
+            Page {
+                PulseInfoColorScheme {
+                    id: tabbedPulseColors
+                }
+            }
+
         }
     }
 }

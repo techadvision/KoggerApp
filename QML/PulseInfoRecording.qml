@@ -5,10 +5,9 @@ import QtQuick.Dialogs 1.2
 
 Rectangle {
     id: settingsPopup
-    //modal: true
     focus: true
     width: 900
-    height: 600
+    height: 400
     anchors.centerIn: parent
     color: "white"
     radius: 8
@@ -16,92 +15,122 @@ Rectangle {
     signal pulsePreferenceClosed()
     signal pulsePreferenceValueChanged(double newValue)
 
+    FileDialog {
+        id: newFileDialog
+        title: qsTr("Please choose a file")
+        folder: shortcuts.home
+
+        nameFilters: ["Logs (*.klf *.KLF *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.klf *.KLF)", "U-blox (*.ubx *.UBX)"]
+
+        onAccepted: {
+            pathText.text = newFileDialog.fileUrl.toString().replace("file:///", Qt.platform.os === "windows" ? "" : "/")
+
+            var name_parts = newFileDialog.fileUrl.toString().split('.')
+
+            core.openLogFile(pathText.text, false, false);
+            pulseRuntimeSettings.klfFilePath = pathText.text
+        }
+        onRejected: {
+        }
+    }
+
 
     GridLayout {
         id: layout
-        anchors.fill: parent
-        anchors.margins: 10
         rowSpacing: 20
-        columnSpacing: 10
+        columnSpacing: 20
         columns: 3
-        rows: 5
 
-        // --- Row 1: Auto Level - Step
+        // --- Row 1
         Text {
-            text: "Record a KLF file"
+            text: pulseRuntimeSettings.isRecordingKlf === true ? "Recording..." : "Record a file"
             font.pixelSize: 30
 
             height: 80
             GridLayout.row: 0
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+            Layout.topMargin: 20
         }
 
-        Button {
+        // record
+        Rectangle {
             id: recording
-            checkable: true
-
-            // Force the size.
-            width: 60
-            height: 60
-            implicitWidth: 60
-            implicitHeight: 60
-
+            Layout.preferredWidth: 80
+            Layout.preferredHeight: 80
+            radius: 5
             GridLayout.row: 0
             GridLayout.column: 1
-            // If your style uses padding, setting it to 0 helps.
-            padding: 0
+            color: "transparent"
+            Layout.topMargin: 20
+            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
 
-            // Override the background to avoid the default styling interfering.
-            background: Rectangle {
-                 anchors.fill: parent
-                 color: "transparent"
+            Image {
+                id: iconRecording
+                source: pulseRuntimeSettings.isRecordingKlf === true ? "./icons/pulse_recording_active.svg" : "./icons/pulse_recording_inactive.svg"
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectFit
+                smooth: true
             }
 
-            // Use contentItem to show your icon.
-            contentItem: Image {
-                 // Prevent this Image from intercepting mouse events.
-                 enabled: false
-                 source: recording.checked ? "./icons/pulse_recording_active.svg" : "./icons/pulse_recording_inactive.svg"
-                 anchors.fill: parent
-                 fillMode: Image.PreserveAspectCrop
-            }
-
-            onCheckedChanged: {
-                 console.log("TAV: Recording? ", recording.checked)
-                 pulseRuntimeSettings.isRecordingKlf = recording.checked
-                 core.loggingKlf = recording.checked
-            }
-
-            Component.onCompleted: {
-                 recording.checked = pulseRuntimeSettings.isRecordingKlf
-                 core.loggingKlf = recording.checked
-            }
-            Connections {
-                target: pulseRuntimeSettings
-                function onIsRecordingKlfChanged () {
-                    recording.checked = pulseRuntimeSettings.isRecordingKlf
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    pulseRuntimeSettings.isRecordingKlf = !pulseRuntimeSettings.isRecordingKlf
+                    core.loggingKlf = pulseRuntimeSettings.isRecordingKlf
                 }
             }
         }
 
-        // --- Row 2: Auto Level - Depth below last known
+        // --- Row 2
         Text {
-            text: "View a KLF file"
+            text: "View a file"
             font.pixelSize: 30
 
             height: 80
             GridLayout.row: 1
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+        }
+
+        // Opem
+        Rectangle {
+            width: 80
+            height: 80
+            Layout.preferredWidth: 80
+            Layout.preferredHeight: 80
+            radius: 5
+            GridLayout.row: 1
+            GridLayout.column: 1
+            color: "transparent"
+            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+
+            Image {
+                id: iconOpen
+                source: "./icons/pulse_open.svg"
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    newFileDialog.open()
+                }
+            }
+
         }
 
         CTextField {
             id: pathText
             hoverEnabled: true
-            Layout.fillWidth: true
             GridLayout.row: 1
-            GridLayout.column: 1
+            GridLayout.column: 2
+            Layout.minimumWidth: 400
+            Layout.preferredWidth: 400
 
             text: core.filePath
             placeholderText: qsTr("Enter path")
@@ -109,6 +138,7 @@ Rectangle {
             Keys.onPressed: {
                 if (event.key === 16777220 || event.key === Qt.Key_Enter) {
                     pulseRuntimeSettings.klfFilePath = pathText.text
+                    core.filePath = pathText.text
                     core.openLogFile(pathText.text, false, false);
                 }
             }
@@ -116,41 +146,9 @@ Rectangle {
 
         }
 
-        CheckButton {
-            icon.source: "./icons/file.svg"
-            checkable: false
-            GridLayout.row: 1
-            GridLayout.column: 2
-            backColor: theme.controlSolidBackColor
-            borderWidth: 0
-            implicitWidth: theme.controlHeight
-
-            onClicked: {
-                newFileDialog.open()
-            }
-
-            FileDialog {
-                id: newFileDialog
-                title: qsTr("Please choose a file")
-                folder: shortcuts.home
-
-                nameFilters: ["Logs (*.klf *.KLF *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.klf *.KLF)", "U-blox (*.ubx *.UBX)"]
-
-                onAccepted: {
-                    pathText.text = newFileDialog.fileUrl.toString().replace("file:///", Qt.platform.os === "windows" ? "" : "/")
-
-                    var name_parts = newFileDialog.fileUrl.toString().split('.')
-
-                    core.openLogFile(pathText.text, false, false);
-                    pulseRuntimeSettings.klfFilePath = pathText.text
-                }
-                onRejected: {
-                }
-            }
-        }
-
-
-
+        // --- Row 3
 
     }
+
 }
+

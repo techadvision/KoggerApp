@@ -1,14 +1,16 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 
 Rectangle {
 
     id: root
-    width: 380
+    focus: true
+    width: 900
     height: 400
-    color: "white"
-    radius: 10           // Slightly rounded corners; no border specified
     anchors.centerIn: parent
+    color: "white"
+    radius: 8
 
     property string gatewayIp: PulseSettings.udpGateway
 
@@ -34,6 +36,95 @@ Rectangle {
         // You can now use versionString in your UI, e.g., assign it to a Text element
     }
 
+
+
+    GridLayout {
+        id: layout
+        rowSpacing: 20
+        columnSpacing: 20
+        columns: 2
+
+        Image {
+            id: appIcon
+            source: pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed ? "./image/PulseRedImage400.png" : "./image/PulseBlueImage400"
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+            Layout.topMargin: 20
+            width: 325
+            height: 192
+            fillMode: Image.PreserveAspectFit
+
+            GridLayout.row: 0
+            GridLayout.column: 0
+            GridLayout.rowSpan: 3
+
+        }
+
+        Text {
+            id: appNameText
+            text: "Pulse app version" + "\n" + loadVersion()  // Replace with your actual app name
+            font.bold: true
+            font.pixelSize: 24
+            GridLayout.row: 0
+            GridLayout.column: 1
+            Layout.topMargin: 20
+        }
+
+
+        Text {
+            id: appIpText
+            text: pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial ?
+                      "Pulse Long Range" :
+                      "Pulse IP:" + "\n" + root.gatewayIp
+            font.pixelSize: 24
+            GridLayout.row: 1
+            GridLayout.column: 1
+        }
+
+        Image {
+            id: companyLogo
+            source: "./image/logo_techadvision_gray.png"  // Update the path as needed
+            anchors.topMargin: 40
+            width: 360
+            height: 43
+            GridLayout.row: 2
+            GridLayout.column: 1
+        }
+
+        /*
+        Rectangle {
+            id: appInfoRow
+            GridLayout.row: 1
+            GridLayout.column: 1
+
+            Text {
+                id: appNameText
+                text: "Pulse app version" + "\n" + loadVersion()  // Replace with your actual app name
+                anchors.centerIn: parent
+                font.bold: true
+                font.pixelSize: 24
+            }
+        }
+
+        Rectangle {
+            id: ipAddressRow
+            GridLayout.row: 2
+            GridLayout.column: 1
+
+            Text {
+                text: pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial ?
+                          "Pulse Long Range" :
+                          "Pulse IP:" + "\n" + root.gatewayIp
+                anchors.centerIn: parent
+                font.pixelSize: 24
+            }
+
+        }
+
+
+    }
+
+    /*
     Image {
         id: appIcon
         source: pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed ? "./image/PulseRedImage400.png" : "./image/PulseBlueImage400"
@@ -45,7 +136,9 @@ Rectangle {
         height: 192
         fillMode: Image.PreserveAspectFit
     }
+    */
 
+    /*
     Image {
         id: companyLogo
         source: "./image/logo_techadvision_gray.png"  // Update the path as needed
@@ -56,7 +149,9 @@ Rectangle {
         width: 360
         height: 43
     }
+    */
 
+    /*
     Rectangle {
         id: appInfoRow
         anchors.horizontalCenter: root.horizontalCenter
@@ -87,6 +182,8 @@ Rectangle {
         }
 
     }
+    */
 
+}
 }
 
