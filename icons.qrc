@@ -117,5 +117,9 @@
         <file>icons/pulse_open.svg</file>
         <file>icons/pulse_recording_active.svg</file>
         <file>icons/pulse_recording_inactive.svg</file>
+        <file>icons/pulse_return_signal_hard.svg</file>
+        <file>icons/pulse_return_signal_weak.svg</file>
+        <file>icons/pulse_return_signal_strong_ss.svg</file>
+        <file>icons/pulse_return_signal_weak_ss.svg</file>
     </qresource>
 </RCC>
