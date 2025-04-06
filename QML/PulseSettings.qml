@@ -15,12 +15,12 @@ Settings {
     property int    intensityRealValue:         90
     property int    filterDisplayValue:         2
     property int    filterRealValue:            5
-    property int    colorMapIndex:              0
     property int    ecoViewIndex:               0
     property int    ecoConeIndex:               0
     property bool   useMetricValues:            true
     property int    colorMapIndexSideScan:      0
     property int    colorMapIndex2D:            0
+    property int    colorMapIndexReal:          0
     property bool   areUiControlsVisible:       true
 
     // Transducer telemetry settings
@@ -33,5 +33,10 @@ Settings {
     property string userManualSetName:          "..."
     property string udpGateway:                 "192.168.10.2"
     property bool   useWifiLongRange:           false
+
+    // NMEA settings
+    property int    nmeaPort:                   3500
+    property int    nmeaSendPerMilliSec:        250
+    property bool   enableNmeaDbt:              true
 
 }

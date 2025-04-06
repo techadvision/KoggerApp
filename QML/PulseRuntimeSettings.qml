@@ -52,6 +52,9 @@ QtObject {
     property bool   isRecordingKlf:         false   // If a KLF recording is started or not
     property string klfFilePath:            ""      // File path used to view a KLF file
 
+    //Temporary UDP preference (shall use persistent settings for this purpose
+    property bool   enableNmeaDbt:          true
+
     //COLOR MAP
     /*
     enum ThemeId {
@@ -92,98 +95,103 @@ QtObject {
 
 
     //PER DEVICE PROPERTIES
-    property bool   settingVersion:     userManualSetName === modelPulseRed ? pulseRed.settingVersion      : pulseBlue.settingVersion
-    property bool   useTemperature:     userManualSetName === modelPulseRed ? pulseRed.useTemperature      : pulseBlue.useTemperature
-    property bool   is2DTransducer:     userManualSetName === modelPulseRed ? pulseRed.is2DTransducer      : pulseBlue.is2DTransducer
-    property int    chartResolution:    userManualSetName === modelPulseRed ? pulseRed.chartResolution     : pulseBlue.chartResolution
-    property int    chartSamples:       userManualSetName === modelPulseRed ? pulseRed.chartSamples        : pulseBlue.chartSamples
-    property int    chartOffset:        userManualSetName === modelPulseRed ? pulseRed.chartOffset         : pulseBlue.chartOffset
-    property int    distMax:            userManualSetName === modelPulseRed ? pulseRed.distMax             : pulseBlue.distMax
-    property int    distDeadZone:       userManualSetName === modelPulseRed ? pulseRed.distDeadZone        : pulseBlue.distDeadZone
-    property int    distConfidence:     userManualSetName === modelPulseRed ? pulseRed.distConfidence      : pulseBlue.distConfidence
-    property int    transPulse:         userManualSetName === modelPulseRed ? pulseRed.transPulse          : pulseBlue.transPulse
-    property int    transFreq:          userManualSetName === modelPulseRed ? pulseRed.transFreq           : pulseBlue.transFreq
-    property int    transBoost:         userManualSetName === modelPulseRed ? pulseRed.transBoost          : pulseBlue.transBoost
-    property int    dspHorSmooth:       userManualSetName === modelPulseRed ? pulseRed.dspHorSmooth        : pulseBlue.dspHorSmooth
-    property int    soundSpeed:         userManualSetName === modelPulseRed ? pulseRed.soundSpeed          : pulseBlue.soundSpeed
-    property int    ch1Period:          userManualSetName === modelPulseRed ? pulseRed.ch1Period           : pulseBlue.ch1Period
-    property int    datasetChart:       userManualSetName === modelPulseRed ? pulseRed.datasetChart        : pulseBlue.datasetChart
-    property int    datasetDist:        userManualSetName === modelPulseRed ? pulseRed.datasetDist         : pulseBlue.datasetDist
-    property int    datasetSDDBT:       userManualSetName === modelPulseRed ? pulseRed.datasetSDDBT        : pulseBlue.datasetSDDBT
-    property int    datasetEuler:       userManualSetName === modelPulseRed ? pulseRed.datasetEuler        : pulseBlue.datasetEuler
-    property int    datasetTemp:        userManualSetName === modelPulseRed ? pulseRed.datasetTemp         : pulseBlue.datasetTemp
-    property int    datasetTimestamp:   userManualSetName === modelPulseRed ? pulseRed.datasetTimestamp    : pulseBlue.datasetTimestamp
-    property int    transFreqWide:      userManualSetName === modelPulseRed ? pulseRed.transFreqWide       : pulseBlue.transFreqWide
-    property int    transFreqNarrow:    userManualSetName === modelPulseRed ? pulseRed.transFreqNarrow     : pulseBlue.transFreqNarrow
-    property int    maximumDepth:       userManualSetName === modelPulseRed ? pulseRed.maximumDepth        : pulseBlue.maximumDepth
-    property bool   processBottomTrack: userManualSetName === modelPulseRed ? pulseRed.processBottomTrack  : pulseBlue.processBottomTrack
-    property var    distProcessing:     userManualSetName === modelPulseRed ? distProcPulseRed             : distProcPulseBlue
-    property var    doDynamicResolution:userManualSetName === modelPulseRed ? pulseRed.doDynamicResolution : pulseBlue.doDynamicResolution
-    property var    blackStripesWindow: userManualSetName === modelPulseRed ? pulseRed.blackStripesWindow  : pulseBlue.blackStripesWindow
-    property var    fixBlackStripesBackSteps: userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesBackSteps  : pulseBlue.fixBlackStripesBackSteps
+    property bool   settingVersion:                 userManualSetName === modelPulseRed ? pulseRed.settingVersion               : pulseBlue.settingVersion
+    property bool   useTemperature:                 userManualSetName === modelPulseRed ? pulseRed.useTemperature               : pulseBlue.useTemperature
+    property bool   is2DTransducer:                 userManualSetName === modelPulseRed ? pulseRed.is2DTransducer               : pulseBlue.is2DTransducer
+    property int    chartResolution:                userManualSetName === modelPulseRed ? pulseRed.chartResolution              : pulseBlue.chartResolution
+    property int    chartSamples:                   userManualSetName === modelPulseRed ? pulseRed.chartSamples                 : pulseBlue.chartSamples
+    property int    chartOffset:                    userManualSetName === modelPulseRed ? pulseRed.chartOffset                  : pulseBlue.chartOffset
+    property int    distMax:                        userManualSetName === modelPulseRed ? pulseRed.distMax                      : pulseBlue.distMax
+    property int    distDeadZone:                   userManualSetName === modelPulseRed ? pulseRed.distDeadZone                 : pulseBlue.distDeadZone
+    property int    distConfidence:                 userManualSetName === modelPulseRed ? pulseRed.distConfidence               : pulseBlue.distConfidence
+    property int    transPulse:                     userManualSetName === modelPulseRed ? pulseRed.transPulse                   : pulseBlue.transPulse
+    property int    transFreq:                      userManualSetName === modelPulseRed ? pulseRed.transFreq                    : pulseBlue.transFreq
+    property int    transBoost:                     userManualSetName === modelPulseRed ? pulseRed.transBoost                   : pulseBlue.transBoost
+    property int    dspHorSmooth:                   userManualSetName === modelPulseRed ? pulseRed.dspHorSmooth                 : pulseBlue.dspHorSmooth
+    property int    soundSpeed:                     userManualSetName === modelPulseRed ? pulseRed.soundSpeed                   : pulseBlue.soundSpeed
+    property int    ch1Period:                      userManualSetName === modelPulseRed ? pulseRed.ch1Period                    : pulseBlue.ch1Period
+    property int    datasetChart:                   userManualSetName === modelPulseRed ? pulseRed.datasetChart                 : pulseBlue.datasetChart
+    property int    datasetDist:                    userManualSetName === modelPulseRed ? pulseRed.datasetDist                  : pulseBlue.datasetDist
+    property int    datasetSDDBT:                   userManualSetName === modelPulseRed ? pulseRed.datasetSDDBT                 : pulseBlue.datasetSDDBT
+    property int    datasetEuler:                   userManualSetName === modelPulseRed ? pulseRed.datasetEuler                 : pulseBlue.datasetEuler
+    property int    datasetTemp:                    userManualSetName === modelPulseRed ? pulseRed.datasetTemp                  : pulseBlue.datasetTemp
+    property int    datasetTimestamp:               userManualSetName === modelPulseRed ? pulseRed.datasetTimestamp             : pulseBlue.datasetTimestamp
+    property int    transFreqWide:                  userManualSetName === modelPulseRed ? pulseRed.transFreqWide                : pulseBlue.transFreqWide
+    property int    transFreqNarrow:                userManualSetName === modelPulseRed ? pulseRed.transFreqNarrow              : pulseBlue.transFreqNarrow
+    property int    maximumDepth:                   userManualSetName === modelPulseRed ? pulseRed.maximumDepth                 : pulseBlue.maximumDepth
+    property bool   processBottomTrack:             userManualSetName === modelPulseRed ? pulseRed.processBottomTrack           : pulseBlue.processBottomTrack
+    property var    distProcessing:                 userManualSetName === modelPulseRed ? distProcPulseRed                      : distProcPulseBlue
+    property var    doDynamicResolution:            userManualSetName === modelPulseRed ? pulseRed.doDynamicResolution          : pulseBlue.doDynamicResolution
+    //property var    blackStripesWindow: userManualSetName === modelPulseRed ? pulseRed.blackStripesWindow  : pulseBlue.blackStripesWindow
+    property var    fixBlackStripesForwardSteps:    userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesForwardSteps  : pulseBlue.fixBlackStripesForwardSteps
+    property var    fixBlackStripesBackwardSteps:   userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesBackwardSteps : pulseBlue.fixBlackStripesBackwardSteps
+    property var    fixBlackStripesState:           userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesState         : pulseBlue.fixBlackStripesState
+
 
     property var pulseRed: {
-        "devName":                  "ECHO20",
-        "settingVersion":           1,
-        "is2DTransducer":           true,
-        "useTemperature":           false,
-        "chartResolution":          30,
-        "chartSamples":             500,
-        "chartOffset":              0,
-        "distMax":                  50000,
-        "distDeadZone":             0,
-        "distConfidence":           14,
-        "transPulse":               10,
-        "transFreq":                810,
-        "transBoost":               0,
-        "dspHorSmooth":             0,
-        "soundSpeed":               1480*1000,
-        "ch1Period":                50,
-        "datasetChart":             1,
-        "datasetDist":              0,
-        "datasetSDDBT":             1,
-        "datasetEuler":             0,
-        "datasetTemp":              0,
-        "datasetTimestamp":         0,
-        "transFreqWide":            510,
-        "transFreqNarrow":          810,
-        "maximumDepth":             45,
-        "processBottomTrack":       false,
-        "doDynamicResolution":      true,
-        "blackStripesWindow":       20,
-        "fixBlackStripesBackSteps": 3
+        "devName":                      "ECHO20",
+        "settingVersion":               1,
+        "is2DTransducer":               true,
+        "useTemperature":               false,
+        "chartResolution":              30,
+        "chartSamples":                 500,
+        "chartOffset":                  0,
+        "distMax":                      50000,
+        "distDeadZone":                 0,
+        "distConfidence":               14,
+        "transPulse":                   10,
+        "transFreq":                    810,
+        "transBoost":                   0,
+        "dspHorSmooth":                 0,
+        "soundSpeed":                   1480*1000,
+        "ch1Period":                    50,
+        "datasetChart":                 1,
+        "datasetDist":                  0,
+        "datasetSDDBT":                 1,
+        "datasetEuler":                 0,
+        "datasetTemp":                  0,
+        "datasetTimestamp":             0,
+        "transFreqWide":                510,
+        "transFreqNarrow":              810,
+        "maximumDepth":                 45,
+        "processBottomTrack":           false,
+        "doDynamicResolution":          true,
+        "fixBlackStripesBackwardSteps": 10,
+        "fixBlackStripesForwardSteps":  10,
+        "fixBlackStripesState":         true
     }
 
     property var pulseBlue: {
-        "devName":                  "NanoSSS",
-        "settingVersion":           1,
-        "is2DTransducer":           false,
-        "useTemperature":           false,
-        "chartResolution":          30,
-        "chartSamples":             1358,
-        "chartOffset":              25,
-        "distMax":                  50000,
-        "distDeadZone":             0,
-        "distConfidence":           14,
-        "transPulse":               10,
-        "transFreq":                540,
-        "transBoost":               1,
-        "dspHorSmooth":             0,
-        "soundSpeed":               1480*1000,
-        "ch1Period":                50,
-        "datasetChart":             1,
-        "datasetDist":              0,
-        "datasetSDDBT":             1,
-        "datasetEuler":             0,
-        "datasetTemp":              0,
-        "datasetTimestamp":         0,
-        "transFreqWide":            540,
-        "transFreqNarrow":          540,
-        "maximumDepth":             21,
-        "processBottomTrack":       false,
-        "doDynamicResolution":      false,
-        "blackStripesWindow":       20,
-        "fixBlackStripesBackSteps": 3
+        "devName":                      "NanoSSS",
+        "settingVersion":               1,
+        "is2DTransducer":               false,
+        "useTemperature":               false,
+        "chartResolution":              30,
+        "chartSamples":                 1358,
+        "chartOffset":                  25,
+        "distMax":                      50000,
+        "distDeadZone":                 0,
+        "distConfidence":               14,
+        "transPulse":                   10,
+        "transFreq":                    540,
+        "transBoost":                   1,
+        "dspHorSmooth":                 0,
+        "soundSpeed":                   1480*1000,
+        "ch1Period":                    50,
+        "datasetChart":                 1,
+        "datasetDist":                  0,
+        "datasetSDDBT":                 1,
+        "datasetEuler":                 0,
+        "datasetTemp":                  0,
+        "datasetTimestamp":             0,
+        "transFreqWide":                540,
+        "transFreqNarrow":              540,
+        "maximumDepth":                 21,
+        "processBottomTrack":           false,
+        "doDynamicResolution":          false,
+        "fixBlackStripesBackwardSteps": 10,
+        "fixBlackStripesForwardSteps":  10,
+        "fixBlackStripesState":         true
     }
 
     //PER DEVICE DISTANCE PROCESSING
