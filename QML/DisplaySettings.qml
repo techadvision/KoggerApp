@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.1
+import org.techadvision.runtime 1.0
 
 GridLayout {
     id: control
@@ -513,11 +514,17 @@ GridLayout {
                 CCheck {
                     id: fixBlackStripesCheckButton
                     Layout.fillWidth: true
-                    checked: false
+                    //checked: false
                     text: qsTr("FBS, f/b")
 
-                    onCheckedChanged: core.fixBlackStripesState = fixBlackStripesCheckButton.checked
-                    Component.onCompleted: core.fixBlackStripesState = fixBlackStripesCheckButton.checked
+                    onCheckedChanged: {
+                        pulseRuntimeSettings.fixBlackStripesState = fixBlackStripesCheckButton.checked
+                        core.fixBlackStripesState = pulseRuntimeSettings.fixBlackStripesState
+                    }
+                    Component.onCompleted: {
+                        checked = pulseRuntimeSettings.fixBlackStripesState
+                        core.fixBlackStripesState = pulseRuntimeSettings.fixBlackStripesState
+                    }
 
                     Settings {
                         property alias fixBlackStripesCheckButton: fixBlackStripesCheckButton.checked
@@ -529,10 +536,16 @@ GridLayout {
                     from: 0
                     to: 100
                     stepSize: 1
-                    value: 15
+                    value: pulseRuntimeSettings.fixBlackStripesForwardSteps
 
-                    onValueChanged: core.fixBlackStripesForwardSteps = fixBlackStripesForwardStepsSpinBox.currValue
-                    Component.onCompleted: core.fixBlackStripesForwardSteps = fixBlackStripesForwardStepsSpinBox.currValue
+
+                    onValueChanged: {
+                        core.fixBlackStripesForwardSteps = pulseRuntimeSettings.fixBlackStripesForwardSteps
+                    }
+
+                    Component.onCompleted: {
+                        core.fixBlackStripesForwardSteps = pulseRuntimeSettings.fixBlackStripesForwardSteps
+                    }
 
                     property int currValue: value
 
@@ -549,11 +562,15 @@ GridLayout {
                         return Number.fromLocaleString(locale, text)
                     }
 
-                    onCurrValueChanged: core.fixBlackStripesForwardSteps = currValue
+                    onCurrValueChanged: {
+                        core.fixBlackStripesForwardSteps = currValue
+                    }
 
+                    /*
                     Settings {
                         property alias fixBlackStripesForwardStepsSpinBox: fixBlackStripesForwardStepsSpinBox.value
                     }
+                    */
                 }
 
                 SpinBoxCustom {
@@ -561,10 +578,11 @@ GridLayout {
                     from: 0
                     to: 100
                     stepSize: 1
-                    value: 15
+                    value: pulseRuntimeSettings.fixBlackStripesBackwardSteps
 
-                    onValueChanged: core.fixBlackStripesBackwardSteps = fixBlackStripesBackwardStepsSpinBox.currValue
-                    Component.onCompleted: core.fixBlackStripesBackwardSteps = fixBlackStripesBackwardStepsSpinBox.currValue
+                    onValueChanged: {
+                        core.fixBlackStripesBackwardSteps = fixBlackStripesBackwardStepsSpinBox.currValue
+                    }
 
                     property int currValue: value
 
@@ -581,44 +599,16 @@ GridLayout {
                         return Number.fromLocaleString(locale, text)
                     }
 
-                    onCurrValueChanged: core.fixBlackStripesBackwardSteps = currValue
+                    onCurrValueChanged: {
+                        core.fixBlackStripesBackwardSteps = currValue
+                    }
 
+                    /*
                     Settings {
                         property alias fixBlackStripesBackwardStepsSpinBox: fixBlackStripesBackwardStepsSpinBox.value
                     }
+                    */
                 }
-                SpinBoxCustom {
-                     id: fixBlackStripesBackStepsSpinBox
-                     from: 0
-                     to: 50
-                     stepSize: 1
-                     value: 3
-                     visible: true // turn on for debug mode
-
-                     onValueChanged: core.fixBlackStripesBackSteps = fixBlackStripesBackStepsSpinBox.currValue
-                     Component.onCompleted: core.fixBlackStripesBackSteps = fixBlackStripesBackStepsSpinBox.currValue
-
-                     property int currValue: value
-
-                     validator: DoubleValidator {
-                         bottom: Math.min(fixBlackStripesBackStepsSpinBox.from, fixBlackStripesBackStepsSpinBox.to)
-                         top:  Math.max(fixBlackStripesBackStepsSpinBox.from, fixBlackStripesBackStepsSpinBox.to)
-                     }
-
-                     textFromValue: function(value, locale) {
-                         return Number(value).toLocaleString(locale, 'f', 0)
-                     }
-
-                     valueFromText: function(text, locale) {
-                         return Number.fromLocaleString(locale, text)
-                     }
-
-                     onCurrValueChanged: core.fixBlackStripesBackSteps = currValue
-
-                     Settings {
-                         property alias fixBlackStripesBackStepsSpinBox: fixBlackStripesBackStepsSpinBox.value
-                     }
-                 }
         }
 
             Settings {
