@@ -523,10 +523,12 @@ void Dataset::setFixBlackStripesBackwardSteps(int val)
     bSProc_->setBackwardSteps(val);
 }
 
+/*
 void Dataset::setFixBlackStripesBackSteps(int val)
 {
-    fixBlackStripesBkStp_ = val;
+    bSProc_->setBackwardSteps(val);
 }
+*/
 
 void Dataset::addChart(ChartParameters chartParams, QVector<uint8_t> data, float resolution, float offset)
 {

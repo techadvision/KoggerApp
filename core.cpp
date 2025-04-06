@@ -580,12 +580,14 @@ void Core::setFixBlackStripesBackwardSteps(int val)
     }
 }
 
+/*
 void Core::setFixBlackStripesBackSteps(int val)
 {
     if (datasetPtr_) {
         datasetPtr_->setFixBlackStripesBackSteps(val);
     }
 }
+*/
 
 bool Core::getIsKlfLogging()
 {
