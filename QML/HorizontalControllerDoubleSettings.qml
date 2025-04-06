@@ -55,11 +55,12 @@ Item {
         Button {
             id: minusButton
             text: "-"
-            font.pixelSize: 30
+            font.pixelSize: 60
             width: 80
             height: 60
             onClicked: {
                 currentIndex = Math.max(currentIndex - 1, 0)
+                console.log("PulseSettingsValue minus button clicked")
                 valueDisplay.text = values[currentIndex]
                 pulsePreferenceValueChanged(values[currentIndex])
             }
@@ -78,11 +79,12 @@ Item {
         Button {
             id: plusButton
             text: "+"
-            font.pixelSize: 30
+            font.pixelSize: 60
             width: 80
             height: 60
             onClicked: {
                 currentIndex = Math.min(currentIndex + 1, values.length - 1)
+                console.log("PulseSettingsValue plus button clicked")
                 valueDisplay.text = values[currentIndex]
                 pulsePreferenceValueChanged(values[currentIndex])
             }
