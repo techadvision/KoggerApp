@@ -28,6 +28,7 @@
 #include <DevDriver.h>
 
 #include "DevQProperty.h"
+#include "NMEASender.h"
 
 Core core;
 Themes theme;
@@ -122,6 +123,8 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonType(QUrl("qrc:/PulseSettings.qml"), "org.techadvision.settings", 1, 0, "PulseSettings");
     qmlRegisterSingletonType(QUrl("qrc:/PulseRuntimeSettings.qml"), "org.techadvision.runtime", 1, 0, "PulseRuntimeSettings");
 
+    qmlRegisterType<Plot2DEchogram>("Pulse.Plot", 1, 0, "Plot2DEchogram");
+
     QQuickWindow::setSceneGraphBackend(QSGRendererInterface::OpenGLRhi);
 
     QSurfaceFormat format;
@@ -153,6 +156,12 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("linkManagerWrapper", core.getLinkManagerWrapperPtr());
     engine.rootContext()->setContextProperty("deviceManagerWrapper", core.getDeviceManagerWrapperPtr());
 
+    /*
+    Plot2DEchogram *plotInstance = new Plot2DEchogram();
+    qWarning() << "Exposing Plot2DEchogram instance:" << plotInstance;
+    engine.rootContext()->setContextProperty("plot2DEchogram", plotInstance);
+*/
+
     QQmlComponent component(&engine, QUrl("qrc:/PulseRuntimeSettings.qml"));
     QObject *runtimeSettingsInstance = component.create();
     if (!runtimeSettingsInstance) {
@@ -172,6 +181,11 @@ int main(int argc, char *argv[])
         engine.rootContext()->setContextProperty("pulseSettings", settingsInstance);
         g_pulseSettings = settingsInstance;
     }
+
+    NMEASender* nmeaSender = new NMEASender(&core);  // Use an appropriate parent
+    QObject::connect(core.getDatasetPtr(), &Dataset::distChanged, [=]() {
+        nmeaSender->sendDepthData(core.getDatasetPtr()->dist());
+    });
 
 #ifdef FLASHER
     engine.rootContext()->setContextProperty("flasher", &core.getFlasherPtr);
