@@ -186,15 +186,13 @@ ColumnLayout {
         dev.datasetTemp     = pulseRuntimeSettings.datasetTemp
         dev.datasetTimestamp= pulseRuntimeSettings.datasetTimestamp
 
-        pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution
-        pulseRuntimeSettings.scrollingSpeed = pulseRuntimeSettings.ch1Period
-        pulseRuntimeSettings.devIdentified = true
+        pulseRuntimeSettings.dynamicResolution  = pulseRuntimeSettings.chartResolution
+        pulseRuntimeSettings.scrollingSpeed     = pulseRuntimeSettings.ch1Period
+        pulseRuntimeSettings.devIdentified      = true
 
-        core.fixBlackStripesRange = pulseRuntimeSettings.blackStripesWindow
-        core.fixBlackStripesBackSteps = pulseRuntimeSettings.fixBlackStripesBackSteps
-
-        core.fixBlackStripesState = true
-        //core.fixBlackStripes= true
+        core.fixBlackStripesBackwardSteps       = pulseRuntimeSettings.fixBlackStripesBackwardSteps
+        core.fixBlackStripesForwardSteps        = pulseRuntimeSettings.fixBlackStripesForwardSteps
+        core.fixBlackStripesState               = pulseRuntimeSettings.fixBlackStripesState
 
         console.log("TAV: pulseSettings - done");
     }
