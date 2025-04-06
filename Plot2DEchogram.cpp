@@ -1,9 +1,27 @@
 #include "Plot2D.h"
+#include <QDebug>
 
 
 Plot2DEchogram::Plot2DEchogram() {
-    setThemeId(ClassicTheme);
-    setLevels(10, 100);
+    int levelLow = 10;
+    int levelHigh = 100;
+    int themeValue = 0;
+    if (g_pulseRuntimeSettings && g_pulseSettings) {
+        //Users last saved real filtering values
+        levelLow = g_pulseSettings->property("filterRealValue").toInt();
+        levelHigh = g_pulseSettings->property("intensityRealValue").toInt();
+        QString currentDevice = g_pulseRuntimeSettings->property("userManualSetName").toString();
+        if (!currentDevice.startsWith(".")) {
+            themeValue = g_pulseSettings->property("colorMapIndexReal").toInt();
+        }
+
+    } else {
+        qDebug() << "g_pulseRuntimeSettings and g_pulseSettings invalid for Plot2DEchogram";
+    }
+    setThemeId(themeValue);
+    setLevels(levelLow, levelHigh);
+    //setThemeId(ClassicTheme);
+    //setLevels(10, 100);
 }
 
 void Plot2DEchogram::setLowLevel(float low) {
@@ -47,10 +65,54 @@ void Plot2DEchogram::setColorScheme(QVector<QColor> coloros, QVector<int> levels
     updateColors();
 }
 
+QVariantList Plot2DEchogram::getThemeGradient(int steps) const
+{
+    qDebug() << "getThemeGradient called with steps:" << steps;
+    QVariantList currentThemeGradient;
+    int totalColors = _colorLevels.size();
+    qDebug() << "Total colors available:" << totalColors;
+    if (totalColors == 0) {
+        qDebug() << "Warning: _colorLevels is empty!";
+        return currentThemeGradient; // no colors available
+    }
+    // If steps is <= 0 or exceeds available colors, return the full gradient.
+    if (steps <= 0 || steps > totalColors) {
+        steps = totalColors;
+        qDebug() << "Adjusted steps to full gradient:" << steps;
+    }
+    // Calculate the sampling factor: we want to cover indices 0 to totalColors-1 evenly.
+    double factor = static_cast<double>(totalColors - 1) / (steps - 1);
+    qDebug() << "Sampling factor:" << factor;
+    for (int i = 0; i < steps; i++) {
+        int index = qRound(i * factor);
+        QRgb color = _colorLevels[index];
+        // Format as hex string: "#RRGGBB"
+        QString hexColor = QString("#%1%2%3")
+                               .arg(qRed(color),   2, 16, QLatin1Char('0'))
+                               .arg(qGreen(color), 2, 16, QLatin1Char('0'))
+                               .arg(qBlue(color),  2, 16, QLatin1Char('0'));
+        qDebug() << "Color at step" << i << "index:" << index << "hex:" << hexColor;
+        currentThemeGradient.append(hexColor);
+    }
+
+    return currentThemeGradient;
+}
+
+QVariantList Plot2DEchogram::getThemeColors() const
+{
+    QVariantList list;
+    qDebug() << "YO MAN !!! getThemeColors() called; current _rawThemeColors:" << _rawThemeColors;
+    for (const QColor &col : _rawThemeColors) {
+        list.append(col.name());  // col.name() returns a string like "#RRGGBB"
+    }
+    return list;
+}
+
 int Plot2DEchogram::getThemeId() const
 {
     return static_cast<int>(themeId_);
 }
+
 
 void Plot2DEchogram::setThemeId(int theme_id) {
 
@@ -614,7 +676,15 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
         };
 
+    _rawThemeColors = coloros;
+    qDebug() << "Theme ID was set by user, new ID is " << theme_id;
+    qDebug() << "setThemeId called on instance:" << this;
+    qDebug() << "Theme ID include colors " << _rawThemeColors;
+
     setColorScheme(coloros, levels);
+    emit themeColorsChanged();
+    emit themeIdChanged();
+    qDebug() << "Emitted new colors";
 }
 
 void Plot2DEchogram::setCompensation(int compensation_id) {

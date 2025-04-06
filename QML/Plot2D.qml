@@ -882,6 +882,7 @@ WaterFall {
                     PulseSettings.colorMapIndexSideScan = selectedIndex;
                     var selectedTheme = pulseRuntimeSettings.themeModelBlue[selectedIndex]
                     console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
+                    PulseSettings.colorMapIndexReal = selectedTheme.id
                     plot.plotEchogramTheme(selectedTheme.id);
                     plot.updatePlot();
                 }
@@ -895,6 +896,7 @@ WaterFall {
                             var selectedTheme = pulseRuntimeSettings.themeModelBlue[preferredIndex]
                             console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
                             plot.plotEchogramTheme(selectedTheme.id)
+                            PulseSettings.colorMapIndexReal = selectedTheme.id
                             plot.updatePlot();
                         } else {
                             console.log("TAV: colormap is 2D transducer, do not set for side scan");
@@ -916,6 +918,7 @@ WaterFall {
                     var selectedTheme = pulseRuntimeSettings.themeModelRed[selectedIndex]
                     console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
                     plot.plotEchogramTheme(selectedTheme.id);
+                    PulseSettings.colorMapIndexReal = selectedTheme.id
                     plot.updatePlot();
                 }
 
@@ -928,6 +931,7 @@ WaterFall {
                             var selectedTheme = pulseRuntimeSettings.themeModelRed[preferredIndex]
                             console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
                             plot.plotEchogramTheme(selectedTheme.id)
+                            PulseSettings.colorMapIndexReal = selectedTheme.id
                             plot.updatePlot();
                         } else {
                              console.log("TAV: colormap is side scan, do not set for 2D");
@@ -982,6 +986,14 @@ WaterFall {
                     }
                 }
 
+                Connections {
+                    target: PulseSettings
+                    function onColorMapIndexSideScanChanged () {
+                        themeSelectorColor2D.selectedIndex = PulseSettings.colorMapIndexSideScan
+                        console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndexSideScan);
+                    }
+                }
+
             }
 
             HorizontalTapSelectController {
@@ -1029,12 +1041,14 @@ WaterFall {
                        }
                     }
                 }
-                /*
-                Component.onCompleted: {
-                    //Only use narrow cone
-                    pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
+
+                Connections {
+                    target: PulseSettings
+                    function onColorMapIndex2DChanged () {
+                        themeSelectorColor2D.selectedIndex = PulseSettings.colorMapIndex2D
+                        console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndex2D);
+                    }
                 }
-                */
 
             }
 
@@ -1230,6 +1244,46 @@ WaterFall {
         visible: pulseRuntimeSettings.devManualSelected
     }
 
+    Rectangle {
+        id: recordingOnScreen
+        width: 80
+        height: 80
+        radius: 5
+        anchors.bottom: companyWaterMark.top
+        anchors.left: companyWaterMark.left
+        anchors.right: companyWaterMark.right
+        visible: pulseRuntimeSettings.isRecordingKlf
+        color: "transparent"
+
+        Image {
+            id: iconImage
+            source: "./icons/pulse_recording_active.svg"
+            width: 80
+            height: 80
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    console.log("TAV: Recording stopped")
+                    core.loggingKlf = false
+                    pulseRuntimeSettings.isRecordingKlf = false
+                }
+            }
+        }
+
+
+        Connections {
+            target: pulseRuntimeSettings
+            function onIsRecordingKlfChanged () {
+                recordingOnScreen.visible = pulseRuntimeSettings.isRecordingKlf
+            }
+        }
+
+    }
+
+    /*
     Button {
         id: recordingOnScreen
         checkable: true
@@ -1275,6 +1329,7 @@ WaterFall {
             }
         }
     }
+    */
 
     Timer {
         id: closePulseSettingsTimer

@@ -13,6 +13,9 @@
 
 #include <vector>
 
+extern QObject* g_pulseSettings;
+extern QObject* g_pulseRuntimeSettings;
+
 typedef enum {
     AutoRangeNone = -1,
     AutoRangeLastData,
@@ -216,7 +219,8 @@ protected:
     QPainter* _painter = NULL;
 };
 
-class PlotLayer {
+class PlotLayer  : public QObject {
+    Q_OBJECT
 public:
     PlotLayer() {}
     bool isVisible() { return _isVisible; }
@@ -240,6 +244,9 @@ private:
 };
 
 class Plot2DEchogram : public PlotLayer {
+    Q_OBJECT
+    Q_PROPERTY(QVariantList themeColors READ getThemeColors NOTIFY themeColorsChanged)
+    Q_PROPERTY(int themeId READ getThemeId WRITE setThemeId NOTIFY themeIdChanged)
 public:
     enum ThemeId {
         ClassicTheme,
@@ -255,6 +262,7 @@ public:
         KaijoWhiteTheme,
         SepiaTemeExtra
     };
+
 
     Plot2DEchogram();
     bool draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor);
@@ -274,6 +282,13 @@ public:
 
     int updateCash(Dataset* dataset, DatasetCursor cursor, int width, int height);
     void resetCash();
+
+    Q_INVOKABLE QVariantList getThemeGradient(int steps = 0) const;
+    Q_INVOKABLE QVariantList getThemeColors() const;
+
+signals:
+    void themeColorsChanged();
+    void themeIdChanged();
 
 protected:
     typedef struct {
@@ -326,8 +341,10 @@ protected:
         _cashFlags.resetCash = false;
         return reset_cash;
     }
+
 private:
     ThemeId themeId_;
+    QVector<QColor> _rawThemeColors;
 };
 
 class Plot2DLine : public PlotLayer {
