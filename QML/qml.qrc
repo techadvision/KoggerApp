@@ -111,5 +111,6 @@
         <file>HorizontalCheckController.qml</file>
         <file>PulseTabbedSettings.qml</file>
         <file>PulseInfoRecording.qml</file>
+        <file>PulseInfoColorScheme.qml</file>
     </qresource>
 </RCC>
