@@ -31,30 +31,18 @@ Item {
     function calculateAutoLevel(depth) {
         const { autoDepthMinLevel, autoDepthLevelStep, autoDepthDistanceBelow, autoDepthMaxLevel } = pulseRuntimeSettings;
 
-      // When depth is zero, simply return the extra distance.
       if (depth === 0) {
         return Math.min(autoDepthDistanceBelow, autoDepthMinLevel);
       }
 
-      // For very shallow depths (greater than 0 but still below the first step),
-      // display the minimum level plus the extra distance.
       if (depth < autoDepthLevelStep) {
-        //return Math.min(autoDepthDistanceBelow, autoDepthMinLevel);
         return autoDepthMinLevel + autoDepthDistanceBelow;
       }
 
-      // For deeper values, determine how many full step increments have been passed.
-      // We subtract autoDepthLevelStep so that the range from 0 (exclusive) to autoDepthLevelStep
-      // all use the fixed display (i.e. the minimum display).
       const steps = Math.floor((depth - autoDepthLevelStep) / autoDepthLevelStep) + 1;
 
-      // Calculate the displayed level: start at autoDepthMinLevel,
-      // add one full step for each threshold passed,
-      // and then always add autoDepthDistanceBelow.
-      //let displayed = (steps * autoDepthLevelStep) + autoDepthDistanceBelow;
       let displayed = autoDepthMinLevel + (steps * autoDepthLevelStep) + autoDepthDistanceBelow;
 
-      // (Optional) Cap the display if a maximum depth is defined.
       if (typeof autoDepthMaxLevel !== "undefined") {
         displayed = Math.min(displayed, autoDepthMaxLevel + autoDepthDistanceBelow);
       }
@@ -64,61 +52,32 @@ Item {
 
     // This is the resolution updater that takes into account both depth integer steps and hysteresis.
     function updateDynamicResolutionWithStep(depth, candidateRes) {
-        // autoDepthLevelStep defines the resolution step (default 1 meter).
         const step = pulseRuntimeSettings.autoDepthLevelStep || 1;
 
-        // Determine the integer level (bucket) for the current depth.
-        // For example, if step=1, depths 1.0–1.999 are in level 1.
         let newLevel = Math.floor(depth / step);
         let lastLevel = Math.floor(lastStableDepth / step);
 
-        // Only consider an update if we've passed an integer boundary.
         if (newLevel === lastLevel) {
-            // Depth remains within the same integer "bucket": reset any counters.
             stableCount = 0;
-            lastDirection = 0;
             return;
         }
 
-        // Determine the direction of the depth change relative to the last stable depth.
-        let newDirection = 0;
-        if (depth > lastStableDepth + pulseRuntimeSettings.hysteresisThreshold) {
-            newDirection = 1;  // Depth is significantly deeper.
-        } else if (depth < lastStableDepth - pulseRuntimeSettings.hysteresisThreshold) {
-            newDirection = -1; // Depth is significantly shallower.
-        } else {
-            // Within the hysteresis margin: ignore minor fluctuations.
-            stableCount = 0;
-            lastDirection = 0;
-            return;
+        stableCount ++;
+
+        if (stableCount < pulseRuntimeSettings.requiredStableReading) {
+            return
         }
 
-        // If the new reading goes in a different direction than previous consecutive readings,
-        // reset the counter.
-        if (lastDirection !== 0 && lastDirection !== newDirection) {
-            stableCount = 0;
-        }
+        pulseRuntimeSettings.dynamicResolution = candidateRes;
+        console.log("TAV: setting dynamicResolution to", candidateRes,
+                    "for depth", depth, "with new integer level", newLevel);
+        stableCount = 0;
+        lastStableDepth = depth;
 
-        // Update the direction and increment the count.
-        lastDirection = newDirection;
-        stableCount++;
-
-        // Only update if we've seen the same directional change for the required number of readings.
-        if (stableCount >= pulseRuntimeSettings.requiredStableReading) {
-            pulseRuntimeSettings.dynamicResolution = candidateRes;
-            console.log("TAV: setting dynamicResolution to", candidateRes,
-                        "for depth", depth, "with new integer level", newLevel);
-            // Reset counters and record this depth as the new stable reference.
-            stableCount = 0;
-            lastDirection = 0;
-            lastStableDepth = depth;
-        }
     }
 
     function calculateDynamicResolution(depth) {
-        // If the device name indicates we should not update resolution, return.
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
-            // (For pulse blue, perhaps only update once.)
             if (!pulseBlueResSetOnce) {
                 pulseBlueResSetOnce = true;
                 pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution;
@@ -132,98 +91,15 @@ Item {
             return;
         }
 
-        // 1. Determine a margin (in meters) for extra headroom.
         const margin = pulseRuntimeSettings.dynamicResolutionMargin; // e.g., default 2 m.
 
-        // 2. Calculate candidate resolution (in mm), rounding as needed.
         let candidateRes = Math.round((depth + margin) * 2);
 
-        // 3. Clamp candidate resolution to the allowed bounds.
         candidateRes = Math.max(candidateRes, pulseRuntimeSettings.dynamicResolutionMax);
         candidateRes = Math.min(candidateRes, pulseRuntimeSettings.dynamicResolutionMin);
 
-        // 4. Update dynamic resolution only if the depth has passed an integer threshold,
-        // and only after the hysteresis and consecutive reading conditions are met.
         updateDynamicResolutionWithStep(depth, candidateRes);
     }
-
-    /*
-    function calculateDynamicResolution (depth) {
-
-        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
-            if (!pulseBlueResSetOnce) {
-                pulseBlueResSetOnce = true
-                pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution;
-                console.log("TAV: set pulseRuntimeSettings.dynamicResolution just once to", pulseRuntimeSettings.dynamicResolution, "for", pulseRuntimeSettings.userManualSetName);
-                return
-            } else {
-                return
-            }
-        }
-
-        if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed) {
-            //console.log("TAV: should not calculate dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName);
-            return
-        }
-
-        // 1. Choose a margin (in meters) to give extra headroom.
-        var margin = pulseRuntimeSettings.dynamicResolutionMargin //Default is 2 meters
-
-        // 2. Compute desired resolution in mm, round up
-        //var desiredRes =  Math.round(depth *2) + margin
-        var desiredRes =  Math.round((depth + margin) * 2)
-
-        // 3. Clamp to valid bounds.
-        desiredRes = Math.max(desiredRes, pulseRuntimeSettings.dynamicResolutionMax);
-        desiredRes = Math.min(desiredRes, pulseRuntimeSettings.dynamicResolutionMin);
-
-        // 4. Compare with the old resolution to avoid flicker:
-        var oldRes = pulseRuntimeSettings.dynamicResolution;
-
-        // 5. Perform the dynamicResolution update
-        updateDynamicResolution(desiredRes, depth)
-    }
-    */
-
-    /*
-    function updateDynamicResolution(candidateRes, depth) {
-        //console.log("TAV: got request to dynamicResolution for devName ", pulseRuntimeSettings.userManualSetName, ", candidateRes", candidateRes, "and depth", depth);
-        const currentRes = pulseRuntimeSettings.dynamicResolution;
-        const diff = candidateRes - currentRes;
-        let currentDirection = 0;
-
-        // Determine if the candidate difference is significant enough.
-        if (diff > pulseRuntimeSettings.hysterisisThreshold) {
-            currentDirection = 1; // Candidate is significantly deeper.
-        } else if (diff < -pulseRuntimeSettings.hysterisisThreshold) {
-            currentDirection = -1; // Candidate is significantly shallower.
-        } else {
-            // Difference is too small: reset the count and direction.
-            dynamicResStableCount = 0;
-            lastDirection = 0;
-            return;
-        }
-
-        // If the current direction doesn't match the last direction, reset the counter.
-        if (lastDirection !== 0 && lastDirection !== currentDirection) {
-            dynamicResStableCount = 0;
-        }
-
-        // Update the lastDirection and count the consecutive reading.
-        lastDirection = currentDirection;
-        dynamicResStableCount++;
-
-        // Update the resolution only if we've met the consecutive threshold.
-        if (dynamicResStableCount >= pulseRuntimeSettings.requiredStableReading) {
-            pulseRuntimeSettings.dynamicResolution = candidateRes;
-            newAutoLevel = Math.ceil(depth)
-            console.log("TAV: setting dynamicResolution to", candidateRes, "for depth", depth, "with newAutoLevel", newAutoLevel);
-            // Reset counters after applying the update.
-            dynamicResStableCount = 0;
-            lastDirection = 0;
-        }
-    }
-    */
 
     Timer {
         id: autoLevelTimer
@@ -233,7 +109,7 @@ Item {
         onTriggered: {
             let currentDepth = (dataset !== null) ? dataset.dist : 0;
             calculateDynamicResolution(currentDepth)
-            let newLevel = calculateAutoLevel(currentDepth);
+            let newLevel = calculateAutoLevel(depthAndTemperature.lastStableDepth);
             if (newLevel !== depthAndTemperature.autoLevel) {
                 depthAndTemperature.autoLevel = newLevel;
                 if (pulseRuntimeSettings !== null) {
