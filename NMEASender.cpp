@@ -11,6 +11,15 @@ NMEASender::NMEASender(QObject *parent)
 {
     udpSocket = new QUdpSocket(this);
 
+    // Bind the socket to any available IPv4 address.
+    // This is particularly important on Windows.
+    if (!udpSocket->bind(QHostAddress::AnyIPv4, static_cast<quint16>(0), QUdpSocket::DefaultForPlatform)) {
+        qWarning() << "Failed to bind UDP socket:" << udpSocket->errorString();
+    } else {
+        qDebug() << "UDP socket successfully bound.";
+    }
+
+
     // If g_pulseSettings is available, override default values.
     if (g_pulseSettings) {
         // Retrieve the preferred port.
@@ -43,8 +52,8 @@ NMEASender::NMEASender(QObject *parent)
 // This method still sends a sentence immediately, if needed.
 void NMEASender::sendDepthData(float depthMeters) {
     // Check if sending is enabled.
-    if (g_pulseRuntimeSettings) {
-        bool enabled = g_pulseRuntimeSettings->property("enableNmeaDbt").toBool();
+    if (g_pulseSettings) {
+        bool enabled = g_pulseSettings->property("enableNmeaDbt").toBool();
         if (!enabled) {
             qDebug() << "NMEA sending is disabled by preference: enableNmeaDbt=" << enabled;
             return;
@@ -53,7 +62,18 @@ void NMEASender::sendDepthData(float depthMeters) {
 
     QByteArray sentence = createDBTSentence(depthMeters);
     qDebug() << "Sending NMEA sentence:" << sentence;
-    udpSocket->writeDatagram(sentence, QHostAddress(broadcastAddress), port);
+
+#ifdef Q_OS_WINDOWS
+    // Explicitly construct the broadcast address on Windows.
+    QHostAddress target("255.255.255.255");
+#else
+    QHostAddress target = QHostAddress::Broadcast;
+#endif
+
+    qint64 bytesWritten = udpSocket->writeDatagram(sentence, target, port);
+    if (bytesWritten == -1) {
+        qWarning() << "Failed to write datagram:" << udpSocket->errorString();
+    }
 }
 
 // This helper creates the DBT sentence with rounded values.
@@ -86,18 +106,23 @@ QByteArray NMEASender::createDBTSentence(float depthMeters) {
 
 // onTimeout() is called every 250ms and sends the latest depth.
 void NMEASender::onTimeout() {
-    // Check the settings and send only if enabled.
-    if (g_pulseRuntimeSettings) {
-        bool enabled = g_pulseRuntimeSettings->property("enableNmeaDbt").toBool();
+    if (g_pulseSettings) {
+        bool enabled = g_pulseSettings->property("enableNmeaDbt").toBool();
         if (!enabled) {
-            // Optionally, you could stop the timer or simply skip sending.
             qDebug() << "NMEA sending is disabled by preference.";
             return;
         }
+    } else {
+        // If the runtime settings are not yet available, don't send.
+        qDebug() << "g_pulseRuntimeSettings is not set yet; skipping sending.";
+        return;
     }
 
-    // Send the current latest depth.
     sendDepthData(latestDepth);
+}
+
+void NMEASender::setLatestDepth(float depth) {
+    latestDepth = depth;
 }
 
 // Slot to update the cached depth value.

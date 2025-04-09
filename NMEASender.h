@@ -17,6 +17,7 @@ public:
     // This method is no longer called directly on every signal.
     // Instead, we use a timer to send the latest depth.
     void sendDepthData(float depthMeters);
+    void setLatestDepth(float depth);
 
 public slots:
     // Slot to update the latest depth when the dataset changes.
