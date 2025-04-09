@@ -712,6 +712,7 @@ WaterFall {
             GridLayout.column: 0
             Layout.rowSpan: 2
             Layout.preferredWidth: 370
+            Layout.preferredHeight: 200
             //visible: true
             opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 0
             enabled: (quickChangeObjects.isDeviceDetected)
@@ -1103,77 +1104,6 @@ WaterFall {
 
     }
 
-    Rectangle {
-        id: toggleInfoContainer
-        width: 155
-        height: 80
-        radius: 40
-        color:  "#80000000"
-
-        anchors.left: quickChangeObjects.left
-        anchors.bottom: quickChangeObjects.top
-        anchors.bottomMargin: 15
-        visible: false
-        //visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
-
-        Image {
-            id: toggleInfoIcon
-            anchors.centerIn: toggleInfoContainer
-            width: 56
-            height: 56
-            source: "./icons/pulse_info.svg"  // Update this path to your SVG file
-            fillMode: Image.PreserveAspectFit
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                pulseInfoLoader.active = !pulseInfoLoader.active;
-            }
-        }
-    }
-
-    Rectangle {
-        id: toggleSettingsContainer
-        width: 155
-        height: 80
-        radius: 40
-        color:  "#80000000"
-
-        anchors.left: toggleInfoContainer.right
-        anchors.leftMargin: 15
-        anchors.bottom: toggleInfoContainer.bottom
-        anchors.top: toggleInfoContainer.top
-        /*
-        anchors.bottom: quickChangeObjects.showAs2DTransducer ? quickChangeObjects.top : undefined
-        anchors.bottomMargin: quickChangeObjects.showAs2DTransducer ? 15 : 0
-        anchors.top: !quickChangeObjects.showAs2DTransducer ? quickChangeObjects.bottom : undefined
-        anchors.topMargin: !quickChangeObjects.showAs2DTransducer ? 15 : 0
-        */
-        //anchors.left: toggleInfoContainer.right
-        //anchors.bottom: quickChangeObjects.top
-        //anchors.bottomMargin: 15
-        //anchors.leftMargin: 15
-        visible: false
-        //visible: pulseRuntimeSettings.devDetected || pulseRuntimeSettings.devManualSelected
-
-        Image {
-            id: toggleSettingsIcon
-            anchors.centerIn: toggleSettingsContainer
-            width: 64
-            height: 64
-            source: "./icons/pulse_settings.svg"  // Update this path to your SVG file
-            fillMode: Image.PreserveAspectFit
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                console.log("TAV: Tapped on settings icon");
-                pulseSettingsLoader.active = !pulseSettingsLoader.active;
-            }
-        }
-    }
 
     Loader {
         id: pulseInfoLoader
@@ -1189,44 +1119,6 @@ WaterFall {
                     showInfo.checked = false
                 });
             }
-        }
-        /*
-        onActiveChanged: {
-            if (active) {
-                closePulseInfoTimer.restart();
-            } else {
-                closePulseInfoTimer.stop();
-            }
-        }
-        */
-    }
-
-    Loader {
-        id: pulseSettingsLoader
-        source: "PulseInfoSettings.qml"  // Ensure PulseInfo.qml is available at this path
-        active: false           // Initially hidden
-        anchors.centerIn: parent  // Adjust as needed for your layout
-
-        onActiveChanged: {
-            console.log("TAV: pulseSettingsLoader triggered");
-            if (active) {
-                closePulseSettingsTimer.restart();
-            } else {
-                closePulseSettingsTimer.stop();
-            }
-        }
-
-    }
-
-    Connections {
-        target: pulseSettingsLoader.item   // This will automatically update when the Loader loads a new item.
-        function onPulsePreferenceClosed() {
-            // Handle the close event here. For example, you might set active to false:
-            pulseSettingsLoader.active = false;
-            closePulseSettingsTimer.stop();
-        }
-        function onPulsePreferenceValueChanged() {
-            closePulseSettingsTimer.restart();
         }
     }
 
@@ -1250,8 +1142,8 @@ WaterFall {
         height: 80
         radius: 5
         anchors.bottom: companyWaterMark.top
-        anchors.left: companyWaterMark.left
-        anchors.right: companyWaterMark.right
+        anchors.horizontalCenter: companyWaterMark.horizontalCenter
+        //anchors.right: companyWaterMark.right
         visible: pulseRuntimeSettings.isRecordingKlf
         color: "transparent"
 
@@ -1341,6 +1233,7 @@ WaterFall {
     }
 
 
+    /*
     Timer {
         id: closePulseInfoTimer
         interval: 6000   // 6 seconds in milliseconds
@@ -1350,6 +1243,7 @@ WaterFall {
             showInfo.checked = false
         }
     }
+    */
 
 
     MenuFrame {
