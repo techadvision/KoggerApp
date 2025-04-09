@@ -968,8 +968,6 @@ ApplicationWindow  {
         width: 1000
         height: 350
         anchors.centerIn: parent
-        // The selector is visible only if no echo sounder is detected
-        //visible: !pulseRuntimeSettings.devManualSelected
         color: "transparent"
 
         // These properties control which item was selected.
@@ -1136,15 +1134,18 @@ ApplicationWindow  {
             // Wait for the glow animation to complete.
             PauseAnimation { duration: 2000 }
             NumberAnimation { from: 1; to: 0; duration: 1000 }
+            PauseAnimation { duration: 500 }
             ScriptAction {
                 script: {
                     //echoSounderSelector.visible = false;
                     pulseRuntimeSettings.devManualSelected = true;
+                    echoSounderSelector.visible = false;
                 }
             }
         }
     }
 
+    /*
     Rectangle {
         id: logo
         anchors.horizontalCenter: echoSounderSelector.horizontalCenter
@@ -1163,5 +1164,6 @@ ApplicationWindow  {
             //opacity: 0.2
         }
     }
+    */
 
 }
