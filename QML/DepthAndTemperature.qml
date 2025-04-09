@@ -142,6 +142,20 @@ Item {
                 : Math.round(temperatureInFarenheit * 10) / 10 + ' \u00B0F';
     }
 
+    // A property that holds the throttled, formatted depth string.
+    property string displayDepth: depthAndTemperature.formatDepth()
+
+    // Timer that updates displayDepth 4 times per second.
+    Timer {
+        id: displayDepthTimer
+        interval: 250 // 250 ms = 4 updates per second
+        repeat: true
+        running: true
+        onTriggered: {
+            displayDepth = depthAndTemperature.formatDepth()
+        }
+    }
+
 
     Rectangle {
         id: depthTempRect
@@ -200,7 +214,8 @@ Item {
 
             Text {
                 id: wholeNumber
-                text: depthAndTemperature.formatDepth().split('.')[0] + "."
+                text: displayDepth.split('.')[0] + "."
+                //text: depthAndTemperature.formatDepth().split('.')[0] + "."
                 color: "white"
                 font.bold: true
                 font.pixelSize: 96
@@ -223,7 +238,11 @@ Item {
 
             Text {
                 id: decimalPart
-                text: depthAndTemperature.formatDepth().split('.')[1] ? depthAndTemperature.formatDepth().split('.')[1].split(' ')[0] : ""
+                text: {
+                    var parts = displayDepth.split('.');
+                    return parts[1] ? parts[1].split(' ')[0] : "";
+                }
+                //text: depthAndTemperature.formatDepth().split('.')[1] ? depthAndTemperature.formatDepth().split('.')[1].split(' ')[0] : ""
                 color: "white"
                 font.pixelSize: 72
                 horizontalAlignment: Text.AlignRight
@@ -246,7 +265,8 @@ Item {
 
             Text {
                 id: depthUnit
-                text: depthAndTemperature.formatDepth().split(' ')[1] // Extract the unit (m or ft)
+                text: displayDepth.split(' ')[1] // Extract the unit (m or ft)
+                //text: depthAndTemperature.formatDepth().split(' ')[1] // Extract the unit (m or ft)
                 color: "white"
                 font.pixelSize: 36
                 horizontalAlignment: Text.AlignRight
@@ -303,6 +323,7 @@ Item {
 
     Component.onCompleted: {
         setMeasuresMetricNow(PulseSettings.useMetricValues)
+        //depthTempRect.displayDepthTimer.start()
     }
 
 }
