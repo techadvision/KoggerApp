@@ -192,6 +192,7 @@ HEADERS += \
     Plot2D.h \
     ProtoBinnary.h \
     LinkListModel.h \
+    SlidingWindowMedian.h \
     StreamListModel.h \
     Themes.h \
     abstractentitydatafilter.h \

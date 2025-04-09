@@ -22,6 +22,8 @@
 
 #include "usbl_view.h"
 
+#include "SlidingWindowMedian.h"
+
 #if defined(Q_OS_ANDROID) || (defined Q_OS_LINUX)
 #define MAKETIME(t) mktime(t)
 #define GMTIME(t) gmtime(t)
@@ -1174,6 +1176,7 @@ signals:
 private:
     float _dist = 0; // Stores the distance value
     float _temp = 0; // Stores the temperature value
+    SlidingWindowMedian _depthFilter{5};
 
 protected:
 

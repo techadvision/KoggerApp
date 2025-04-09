@@ -3,6 +3,7 @@
 #include <QPainterPath>
 #include "black_stripes_processor.h"
 #include <core.h>
+
 extern Core core;
 
 Epoch::Epoch() : wasValidlyRenderedInEchogram_(false) {
@@ -345,7 +346,8 @@ Dataset::Dataset() :
     lastBottomTrackEpoch_(0),
     boatTrackValidPosCounter_(0),
     bSProc_(new BlackStripesProcessor()),
-    lastAddChartEpochIndx_(-1)
+    lastAddChartEpochIndx_(-1),
+    _depthFilter(5)
 {
     resetDataset();
 }
@@ -728,10 +730,26 @@ void Dataset::addDist(int dist) {
         pool_index = endIndex();
     }
 
-    _dist = dist * 0.001;
+    // Convert raw value to meters
+    double newDepth = dist * 0.001;
+    // Process the new depth through the median filter
+    double filteredDepth = _depthFilter.processSample(newDepth);
+
+    // Define a margin (in meters) that you consider significant
+    const double margin = 0.05;  // adjust this value as needed
+
+    // Check if the filtered depth deviates from the raw depth by more than the margin
+    if (std::abs(newDepth - filteredDepth) > margin) {
+        qDebug() << "WOWOWOW!!! Depth filter adjusted value. Raw:" << newDepth << "Filtered:" << filteredDepth;
+    }
+
+    _dist = filteredDepth;
+    //_dist = dist * 0.001;
     emit distChanged();
 
-    _pool[endIndex()].setDist(dist);
+    // Update the pool; convert back to original units if necessary
+    _pool[endIndex()].setDist(static_cast<int>(filteredDepth * 1000));
+    //_pool[endIndex()].setDist(dist);
     emit dataUpdate();
 }
 
@@ -741,10 +759,23 @@ void Dataset::addRangefinder(float distance) {
         epoch = addNewEpoch();
     }
 
-    _dist = distance;
+    double newDepth = static_cast<double>(distance);
+    double filteredDepth = _depthFilter.processSample(newDepth);
+
+    // Define a margin (in meters) that you consider significant
+    const double margin = 0.05;  // adjust this value as needed
+
+    // Check if the filtered depth deviates from the raw depth by more than the margin
+    if (std::abs(newDepth - filteredDepth) > margin) {
+        qDebug() << "WOWOWOW!!! Depth filter adjusted value. Raw:" << newDepth << "Filtered:" << filteredDepth;
+    }
+
+    _dist = filteredDepth;
+    //_dist = distance;
     emit distChanged();
 
-    epoch->setDist(distance*1000);
+    epoch->setDist(static_cast<int>(filteredDepth * 1000));
+    //epoch->setDist(distance*1000);
     emit dataUpdate();
 }
 
