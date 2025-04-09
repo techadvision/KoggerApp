@@ -27,7 +27,14 @@ Plot2D::Plot2D()
 
 bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizontal) {
     if(is_horizontal) {
-        _canvas.setSize(width, height, painter);
+        const int idealWidth = (16 * height) / 10;
+        const int virtualWidth = static_cast<int>(idealWidth * 2.5);
+        _canvas.setSize(virtualWidth, height, painter);
+        painter->translate(width - virtualWidth, 0);
+        //_canvas.setSize(2*width, 2*height, painter);
+        // Anchor the image to the top right: shift drawing by -width on the X-axis
+        //painter->translate(-width, 0);
+        //_canvas.setSize(width, height, painter);
     } else {
         _canvas.setSize(height, width, painter);
         painter->rotate(-90);
