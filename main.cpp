@@ -184,8 +184,9 @@ int main(int argc, char *argv[])
 
     NMEASender* nmeaSender = new NMEASender(&core);  // Use an appropriate parent
     QObject::connect(core.getDatasetPtr(), &Dataset::distChanged, [=]() {
-        nmeaSender->sendDepthData(core.getDatasetPtr()->dist());
+        nmeaSender->setLatestDepth(core.getDatasetPtr()->dist());
     });
+
 
 #ifdef FLASHER
     engine.rootContext()->setContextProperty("flasher", &core.getFlasherPtr);
