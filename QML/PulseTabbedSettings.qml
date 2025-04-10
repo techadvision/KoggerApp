@@ -76,7 +76,7 @@ Item {
                     font.pointSize: 14 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_settings.svg"
                 }
-                /*
+
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
@@ -84,7 +84,7 @@ Item {
                     font.pointSize: 14 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_recording_inactive.svg"
                 }
-                */
+
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
@@ -115,13 +115,13 @@ Item {
                     id: tabbedPulseSettings
                 }
             }
-            /*
+
             Page {
                 PulseInfoRecording {
                     id: tabbedPulseRecording
                 }
             }
-            */
+
             Page {
                 PulseInfoColorScheme {
                     id: tabbedPulseColors
