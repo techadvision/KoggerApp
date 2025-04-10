@@ -66,7 +66,7 @@ void BlackStripesProcessor::update(int16_t channelId, Epoch* epoch, Direction di
             }
         }
         else {
-            ethalonVector[i] = qMakePair(isForward ? forwardSteps_ : backwardSteps_, amplitude[i]);
+            ethalonVector[i] = qMakePair(isForward ? forwardSteps_ : backwardSteps_, amplitude.at(i));
         }
     }
 
