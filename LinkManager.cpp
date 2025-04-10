@@ -54,6 +54,38 @@ void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
             doEmitAppendModifyModel(link);
         }
     }
+
+
+#ifdef Q_OS_ANDROID
+    for (Link* link : list_) {
+         qDebug() << "Looping through link";
+        // If this is a serial link and it is meant to be the USB device
+        // (e.g. match vendor/product IDs or if there's only one device),
+        // force its pinned attributes:
+        if (link->getLinkType() == LinkSerial) {
+             qDebug() << "Found serial";
+            // Suppose you decide that if the link’s port name is not empty,
+            // it is the actual device you want to auto-connect.
+            // Then update its values:
+            //link->setUuid(QUuid("{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"));  // your fixed uuidUsbSerial
+            if (link->getUuid().isNull()) {
+                 // Generate a new UUID if the imported one is null or invalid:
+                 link->setUuid(QUuid::createUuid());
+            }
+            link->setControlType(kAuto);  // assuming kAuto equals control type 1
+            // The baudrate and parity are already set from createSerialPort,
+            // but you can enforce them:
+            link->setBaudrate(921600);
+            link->setParity(false);
+            // Mark as pinned:
+            link->setIsPinned(true);
+            // And mark connection status as true (or force open if not already open)
+            if (!link->getConnectionStatus()) {
+                link->openAsSerial();  // this will try to open it using the dynamic port name
+            }
+        }
+    }
+#endif
 }
 
 void LinkManager::deleteMissingLinks(const QList<QSerialPortInfo> &currSerialList)
@@ -322,6 +354,8 @@ void LinkManager::importPinnedLinksFromXML()
 
 
     #ifdef Q_OS_ANDROID
+
+    /*
     xmlData = QString(R"(
     <pinned_links>
         <link>
@@ -356,9 +390,32 @@ void LinkManager::importPinnedLinksFromXML()
         </link>
     </pinned_links>
     )")
-      .arg(uuidIpGateway)  // UDP link UUID
-      .arg(gatewayIP)                                   // Insert dynamic gateway IP
+      .arg(uuidIpGateway)   // UDP link UUID
+      .arg(gatewayIP)       // Insert dynamic gateway IP
       .arg(uuidUsbSerial);
+    */
+
+    xmlData = QString(R"(
+    <pinned_links>
+        <link>
+            <uuid>%1</uuid>
+            <control_type>0</control_type>
+            <port_name></port_name>
+            <baudrate>0</baudrate>
+            <parity>false</parity>
+            <link_type>2</link_type>
+            <address>%2</address>
+            <source_port>14550</source_port>
+            <destination_port>14550</destination_port>
+            <is_pinned>true</is_pinned>
+            <is_hided>false</is_hided>
+            <is_not_available>false</is_not_available>
+            <connection_status>true</connection_status>
+        </link>
+    </pinned_links>
+    )")
+                  .arg(uuidIpGateway)   // UDP link UUID
+                  .arg(gatewayIP);       // Insert dynamic gateway IP
 
     #endif
 
