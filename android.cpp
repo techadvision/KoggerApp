@@ -152,6 +152,30 @@ void tryOpenFileAndroid(QQmlApplicationEngine& engine)
         QAndroidJniObject action = intent.callObjectMethod("getAction", "()Ljava/lang/String;");
         QString actionString = action.toString();
         if (actionString == "android.intent.action.VIEW") {
+            // Use getDataString() to obtain the URI directly.
+            QAndroidJniObject dataString = intent.callObjectMethod("getDataString", "()Ljava/lang/String;");
+            QString fileUri = dataString.toString();
+            // At this point, fileUri should be in the proper content:// scheme.
+
+            QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
+                             &core, [fileUri]() {
+                                 // Ensure core.openLogFile() is adapted to handle a content URI,
+                                 // ideally by using a ContentResolver to open the file.
+                                 core.openLogFile(fileUri, false, true);
+                             }, Qt::AutoConnection);
+        }
+    }
+}
+/*
+void tryOpenFileAndroid(QQmlApplicationEngine& engine)
+{
+    QAndroidJniObject activity = QtAndroid::androidActivity();
+    QAndroidJniObject intent = activity.callObjectMethod("getIntent", "()Landroid/content/Intent;");
+
+    if (intent.isValid()) {
+        QAndroidJniObject action = intent.callObjectMethod("getAction", "()Ljava/lang/String;");
+        QString actionString = action.toString();
+        if (actionString == "android.intent.action.VIEW") {
             QAndroidJniObject uri = intent.callObjectMethod("getData", "()Landroid/net/Uri;");
             if (uri.isValid()) {
                 QAndroidJniObject path = uri.callObjectMethod("getPath", "()Ljava/lang/String;");
@@ -175,6 +199,7 @@ void tryOpenFileAndroid(QQmlApplicationEngine& engine)
         }
     }
 }
+*/
 
 #endif
 #endif

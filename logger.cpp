@@ -34,9 +34,12 @@ bool Logger::startNewKlfLog()
     QDir dir;
 
 #ifdef Q_OS_ANDROID
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp";
+    // Use an app-specific directory that does not require external storage permissions.
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
+     qDebug() << "Logger::startNewKlfLog at path " << logPath;
+    //QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
 #else
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp/logs";
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
 #endif
 
     if (dir.mkpath(logPath)) {
@@ -122,9 +125,12 @@ bool Logger::startNewCsvLog()
     QDir dir;
 
 #ifdef Q_OS_ANDROID
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp";
+    // Use an app-specific directory that does not require external storage permissions.
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
+    qDebug() << "Logger::startNewCsvLog at path " << logPath;
+    //QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
 #else
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp/logs";
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
 #endif
 
     if (dir.mkpath(logPath)) {
