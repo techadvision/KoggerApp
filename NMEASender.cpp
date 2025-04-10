@@ -19,34 +19,40 @@ NMEASender::NMEASender(QObject *parent)
         qDebug() << "UDP socket successfully bound.";
     }
 
+    sendTimer = new QTimer(this);
+    connect(sendTimer, &QTimer::timeout, this, &NMEASender::onTimeout);
 
-    // If g_pulseSettings is available, override default values.
     if (g_pulseSettings) {
-        // Retrieve the preferred port.
+        qDebug() << "Found g_pulseSettings";
+        updateSettings();
+        connect(g_pulseSettings, SIGNAL(settingsChanged()), this, SLOT(updateSettings()));
+    } else {
+        sendTimer->setInterval(250);
+        qDebug() << "Did not find g_pulseSettings";
+    }
+    sendTimer->start();
+
+}
+
+void NMEASender::updateSettings() {
+    if (g_pulseSettings) {
         int prefPort = g_pulseSettings->property("nmeaPort").toInt();
         if (prefPort > 0) {
             port = static_cast<quint16>(prefPort);
         }
 
-        // Retrieve the preferred send interval.
         int interval = g_pulseSettings->property("nmeaSendPerMilliSec").toInt();
         if (interval <= 0) {
-            interval = 250; // Use default if an invalid interval is provided.
+            interval = 250; // Default interval if invalid.
         }
-        qDebug() << "NMEASender settings: port =" << port << ", send interval =" << interval << "ms";
-
-        // Create the timer using the preferred interval.
-        sendTimer = new QTimer(this);
         sendTimer->setInterval(interval);
-    } else {
-        qDebug() << "g_pulseSettings not available";
-        // Otherwise, use the default interval.
-        sendTimer = new QTimer(this);
-        sendTimer->setInterval(250);
-    }
 
-    connect(sendTimer, &QTimer::timeout, this, &NMEASender::onTimeout);
-    sendTimer->start();
+        qDebug() << "Updated NMEASender settings:"
+                 << " port =" << port
+                 << ", send interval =" << interval << "ms";
+    } else {
+        qDebug() << "Did not find g_pulseSettings";
+    }
 }
 
 // This method still sends a sentence immediately, if needed.
@@ -114,7 +120,7 @@ void NMEASender::onTimeout() {
         }
     } else {
         // If the runtime settings are not yet available, don't send.
-        qDebug() << "g_pulseRuntimeSettings is not set yet; skipping sending.";
+        qDebug() << "g_pulseSettings is not set yet; skipping sending.";
         return;
     }
 

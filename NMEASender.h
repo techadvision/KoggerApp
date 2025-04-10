@@ -5,9 +5,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 
-// Forward declaration of external settings object.
 extern QObject* g_pulseSettings;
-extern QObject* g_pulseRuntimeSettings;
 
 class NMEASender : public QObject {
     Q_OBJECT
@@ -22,6 +20,8 @@ public:
 public slots:
     // Slot to update the latest depth when the dataset changes.
     void updateDepth();
+    // New slot to update settings dynamically
+    void updateSettings();
 
 private:
     // Helper to create the DBT NMEA sentence with depth in feet, meters, and fathoms.

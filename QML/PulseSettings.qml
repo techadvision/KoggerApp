@@ -5,6 +5,7 @@ import Qt.labs.settings 1.1
 
 Settings {
     id: pulseSettings
+
     property int    settingsVersion:            1       //This MUST be updated (+1) if we decide to change the default runtime values
 
     // User interface control settings
@@ -39,4 +40,9 @@ Settings {
     property int    nmeaSendPerMilliSec:        250
     property bool   enableNmeaDbt:              true
 
+    // Signals
+    signal                                      settingsChanged()
+    onNmeaPortChanged:                          settingsChanged()
+    onNmeaSendPerMilliSecChanged:               settingsChanged()
+    onEnableNmeaDbtChanged:                     settingsChanged()
 }
