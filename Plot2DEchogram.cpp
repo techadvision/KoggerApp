@@ -396,12 +396,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor::fromRgb(255,   0,   0),
            QColor::fromRgb(147,   0,   0)};
 
-        //Linear palette
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
-        //Gamma (0.5) palette
-        //levels = { 0, 77, 109, 133, 154, 172, 188, 203, 217, 231, 243, 255 };
-        //Logarithmic (k=0.9) palette
-        //levels = { 0, 66, 107, 138, 161, 181, 197, 211, 224, 236, 246, 255 };
 
 
     } else if(theme_id == FurunoWhiteTheme) {
@@ -420,12 +415,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             QColor::fromRgb(255,   0,   0),
             QColor::fromRgb(147,   0,   0)};
 
-        //Linear palette
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
-        //Gamma (0.5) palette
-        //levels = { 0, 77, 109, 133, 154, 172, 188, 203, 217, 231, 243, 255 };
-        //Logarithmic (k=0.9) palette
-        //levels = { 0, 66, 107, 138, 161, 181, 197, 211, 224, 236, 246, 255 };
 
     } else if(theme_id == KaijoBlackTheme) {
 
