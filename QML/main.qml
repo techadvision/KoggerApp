@@ -250,6 +250,7 @@ ApplicationWindow  {
         orientation:       Qt.Vertical
 
         Keys.onReleased: {
+            /*
             let sc = event.nativeScanCode.toString()
             let hotkeyData = hotkeysMapScan[sc];
             if (hotkeyData === undefined) {
@@ -378,6 +379,7 @@ ApplicationWindow  {
                 }
                 }
             }
+            */
         }
 
         handle: Rectangle {
