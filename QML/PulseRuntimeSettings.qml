@@ -46,7 +46,8 @@ QtObject {
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property double hysterisisThreshold:    0.1     // resolution hysterisis for dynamic resolution
     property int    requiredStableReading:  3       // resolution shift count threshold
-    property int    scrollingSpeed:         50      // Initial value for scrolling speed
+    property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
+    property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
 
     //RECORDING KLF
     property bool   isRecordingKlf:         false   // If a KLF recording is started or not
@@ -56,22 +57,6 @@ QtObject {
     property bool   enableNmeaDbt:          true
 
     //COLOR MAP
-    /*
-    enum ThemeId {
-        ClassicTheme,       0
-        SepiaTheme,         1
-        WBTheme,            2
-        RedTheme,           3
-        GreenTheme,         4
-        Ek500BlackTheme,    5
-        Ek500WhiteTheme,    6
-        FurunoBlackTheme,   7
-        FurunoWhiteTheme,   8
-        KaijoBlackTheme,    9
-        KaijoWhiteTheme,    10
-        SepiaTemeExtra
-    }
-    */
 
     property var    themeModelBlue: [
         { id: 0,        icon: "./icons/pulse_color_ss_blue.svg" },
@@ -91,7 +76,6 @@ QtObject {
         { id: 1,        icon: "./icons/pulse_color_ss_sepia.svg" },
         { id: 4,        icon: "./icons/pulse_color_ss_green.svg" }
     ]
-
 
 
     //PER DEVICE PROPERTIES

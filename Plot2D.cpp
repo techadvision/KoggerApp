@@ -27,14 +27,18 @@ Plot2D::Plot2D()
 
 bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizontal) {
     if(is_horizontal) {
-        const int idealWidth = (16 * height) / 10;
-        const int virtualWidth = static_cast<int>(idealWidth * 2.5);
-        _canvas.setSize(virtualWidth, height, painter);
-        painter->translate(width - virtualWidth, 0);
-        //_canvas.setSize(2*width, 2*height, painter);
-        // Anchor the image to the top right: shift drawing by -width on the X-axis
-        //painter->translate(-width, 0);
-        //_canvas.setSize(width, height, painter);
+        if (g_pulseRuntimeSettings) {
+            double echogramSpeed = g_pulseRuntimeSettings->property("echogramSpeed").toDouble();
+            //qDebug() << "g_pulseRuntimeSettings valid, echogramSpeed " << echogramSpeed;
+            if (echogramSpeed > 1) {
+                //qDebug() << "echogramSpeed > 1, making adjustments ";
+                painter->save();
+                painter->translate(width, 0);
+                painter->scale(echogramSpeed, 1.0);
+                painter->translate(-width, 0);
+            }
+        }
+        _canvas.setSize(width, height, painter);
     } else {
         _canvas.setSize(height, width, painter);
         painter->rotate(-90);
@@ -57,7 +61,9 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
     _GNSS.draw(_canvas, _dataset, _cursor);
     _quadrature.draw(_canvas, _dataset, _cursor);
 
-    painter->setCompositionMode(QPainter::CompositionMode_Exclusion);
+    //painter->setCompositionMode(QPainter::CompositionMode_Exclusion);
+   //painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
+
     _grid.draw(_canvas, _dataset, _cursor);
     _aim.draw(_canvas, _dataset, _cursor);
 

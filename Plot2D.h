@@ -32,6 +32,11 @@ typedef enum {
     MouseToolDistanceErase,
 } MouseTool;
 
+enum class TextAnchor {
+    TopLeft,
+    BaselineLeft
+};
+
 typedef struct DatasetCursor {
     int selectEpochIndx = -1;
     int currentEpochIndx = -1;
@@ -859,6 +864,17 @@ protected:
     QColor _lineColor = QColor(255, 255, 255, 255);
     bool isMetric_ = true;
     bool isHorizontal_ = true;
+
+private:
+    void drawTextWithBackdrop(QPainter* p,
+                              const QString &text,
+                              const QPoint &devicePos, // reference coordinate in device space
+                              TextAnchor anchor,
+                              int margin = 5,
+                              int forceRightEdge = -1,
+                              int verticalOffset = 0,
+                              const QColor &textColor = QColor(255,255,255),
+                              const QColor &backdropColor = QColor(0,0,0,0x80));
 
 };
 

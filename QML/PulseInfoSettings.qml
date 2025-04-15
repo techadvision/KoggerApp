@@ -202,5 +202,34 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
+        // --- Row 2: NMEA DBT - Select pause between settings
+        Text {
+            text: "Echogram screen speed"
+            font.pixelSize: 30
+
+            height: 80
+            GridLayout.row: 4
+            GridLayout.column: 0
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+        }
+
+        HorizontalControllerDoubleSettings {
+            id: speedSelector
+            values: [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0]
+            currentValue: pulseRuntimeSettings.echogramSpeed
+            onPulsePreferenceValueChanged: {
+                console.log("PulseSettingsValue pause between DBT messages changed to", newValue)
+                pulseRuntimeSettings.echogramSpeed = newValue
+                //settingsPopup.pulsePreferenceValueChanged(newValue)
+            }
+
+            height: 80
+            Layout.preferredWidth: 280
+            GridLayout.row: 4
+            GridLayout.column: 2
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+        }
+
     }
 }

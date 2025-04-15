@@ -30,6 +30,8 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         conversionFactor = 3.28084; // Convert to feet if not metric
     }
 
+    qreal scaleX = p->transform().m11();
+
     for (int i = 1; i < linesCount; ++i) {
 
         const int posY = i * imageHeight / linesCount;
@@ -49,9 +51,7 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         }
         if (cursor.distance.isValid()) { // depth
             const float distFrom{ cursor.distance.from }, distTo{ cursor.distance.to },
-                distRange{ distTo - distFrom }, rangeVal{ distRange * i / linesCount + distFrom };
-            //Support for imperial and metric
-            // Convert to imperial if needed (multiply by conversion factor)
+            distRange{ distTo - distFrom }, rangeVal{ distRange * i / linesCount + distFrom };
             float finalRangeVal = rangeVal * conversionFactor;
             if (isMetric_) {
                 //Changed to 1 decimal
@@ -63,19 +63,11 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
         }
 
-        if (isFillWidth())
-            p->drawLine(0, posY, imageWidth, posY);
-        else if (isHorizontal_) {
-            p->drawLine(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY, imageWidth, posY); // line
-        } else {
-            // For vertical mode, use a fixed line length instead of one based on text width.
-            const int fixedLineLength = 50; // Adjust this value as needed.
-            p->drawLine(imageWidth - textXOffset - fixedLineLength, posY, imageWidth - textXOffset, posY);
-        }
-
         if (!lineText.isEmpty()) {
             if (isHorizontal_) {
-                p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY - textYOffset, lineText);
+                int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
+                QPoint textPos(desiredX_device, posY - textYOffset);
+                drawTextWithBackdrop(p, lineText, textPos, TextAnchor::BaselineLeft, 5, imageWidth, 5);
             } else {
                 p->save();
                 int textWidth = fm.horizontalAdvance(lineText);
@@ -88,21 +80,52 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
             }
         }
+
+        if (isFillWidth())
+            p->drawLine(0, posY, imageWidth, posY);
+        else if (isHorizontal_) {
+            if (scaleX != 1.0) {
+                int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
+                if (scaleX != 1.0) {
+                    int logicalX = static_cast<int>((desiredX_device - (1 - scaleX) * imageWidth) / scaleX);
+                    p->drawLine(logicalX, posY, imageWidth, posY);
+                } else {
+                    p->drawLine(desiredX_device, posY, imageWidth, posY);
+                }
+            } else {
+                p->drawLine(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY, imageWidth, posY); // line
+            }
+
+        } else {
+            // For vertical mode, use a fixed line length instead of one based on text width.
+            const int fixedLineLength = 50; // Adjust this value as needed.
+            p->drawLine(imageWidth - textXOffset - fixedLineLength, posY, imageWidth - textXOffset, posY);
+        }
     }
 
     if (cursor.distance.isValid()) {
-        p->setFont(QFont("Asap", 26, QFont::Bold));
+        p->setFont(QFont("Asap", 20, QFont::Bold));
         //Support for metric and imperial
         float val{ cursor.distance.to * conversionFactor };
         //Changed to 1 decimal
         QString range_text = "";
+
         if (isMetric_) {
             range_text = QString::number(val, 'f', (val == static_cast<int>(val)) ? 0 : 1) + QObject::tr(" m");
         } else {
             range_text = QString::number(val, 'f', (val == static_cast<int>(val)) ? 0 : 1) + QObject::tr(" ft");
         }
+
         if (isHorizontal_) {
-            p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
+            int desiredX_device = imageWidth - textXOffset / 2 - range_text.count() * 25;
+            int baselineY = imageHeight - 10;  // device coordinate for text baseline
+            drawTextWithBackdrop(p, range_text, QPoint(desiredX_device, baselineY),
+                                 TextAnchor::BaselineLeft,
+                                 5,            // margin
+                                 imageWidth,   // forceRightEdge: backdrop extends to screen edge.
+                                 5            // verticalOffset: lower the backdrop by 5 pixels.
+                                 /* textColor and backdropColor default to white and semi-transparent black */ );
+
         } else {
             p->save();
             int textWidth = fm.horizontalAdvance(range_text);
@@ -155,6 +178,55 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
     return true;
 }
+
+void Plot2DGrid::drawTextWithBackdrop(QPainter* p,
+                                      const QString &text,
+                                      const QPoint &devicePos,
+                                      TextAnchor anchor,
+                                      int margin,
+                                      int forceRightEdge,
+                                      int verticalOffset,
+                                      const QColor &textColor,
+                                      const QColor &backdropColor)
+{
+    p->save();
+    QTransform savedTransform = p->transform();
+    p->resetTransform();
+
+    // Get the text bounding rectangle using the current font metrics.
+    QRect textRect = p->fontMetrics().boundingRect(text);
+
+    // Position the rectangle based on the desired anchor.
+    if (anchor == TextAnchor::BaselineLeft)
+        textRect.moveTopLeft(QPoint(devicePos.x(), devicePos.y() - p->fontMetrics().ascent()));
+    else
+        textRect.moveTopLeft(devicePos);
+
+    // Apply the vertical offset.
+    textRect.translate(0, verticalOffset);
+
+    // If forceRightEdge is set (>= 0), override the computed right edge.
+    if (forceRightEdge >= 0)
+        textRect.setRight(forceRightEdge);
+
+    // Add padding.
+    textRect.adjust(-margin, -margin, margin, margin);
+
+    // Draw the backdrop.
+    p->setPen(Qt::NoPen);
+    p->setBrush(backdropColor);
+    p->drawRect(textRect);
+
+    // Draw the text using the specified text color.
+    p->setPen(textColor);
+    p->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, text);
+
+    p->setTransform(savedTransform);
+    p->restore();
+}
+
+
+
 
 void Plot2DGrid::setAngleVisibility(bool state)
 {
