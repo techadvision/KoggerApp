@@ -34,9 +34,8 @@ bool Logger::startNewKlfLog()
     QDir dir;
 
 #ifdef Q_OS_ANDROID
-    // Use an app-specific directory that does not require external storage permissions.
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
-     qDebug() << "Logger::startNewKlfLog at path " << logPath;
+    qDebug() << "Logger::startNewKlfLog at path " << logPath;
     //QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
 #else
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
