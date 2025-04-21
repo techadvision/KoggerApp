@@ -66,7 +66,7 @@ void NMEASender::sendDepthData(float depthMeters)
     }
 
     QByteArray sentence = createDBTSentence(depthMeters);
-    qDebug() << "Sending NMEA sentence:" << sentence;
+    //qDebug() << "Sending NMEA sentence:" << sentence;
 
 #ifdef Q_OS_WINDOWS
     QHostAddress target("255.255.255.255");
@@ -108,7 +108,7 @@ void NMEASender::onTimeout()
     if (g_pulseSettings) {
         bool enabled = g_pulseSettings->property("enableNmeaDbt").toBool();
         if (!enabled) {
-            qDebug() << "NMEA sending is disabled by preference.";
+            //qDebug() << "NMEA sending is disabled by preference.";
             return;
         }
     } else {
