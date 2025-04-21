@@ -11,6 +11,16 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
     if (!isVisible())
         return false;
 
+    bool isSideScanOnLeftHandSide = false;
+    bool isSideScan2DView = false;
+
+    if (g_pulseRuntimeSettings && g_pulseSettings) {
+        isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
+        isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+    }
+
+    bool flipImage = isSideScanOnLeftHandSide && isSideScan2DView;
+
     QPen pen(_lineColor);
     pen.setWidth(_lineWidth);
     //Changed, set the color
@@ -34,9 +44,13 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
     for (int i = 1; i < linesCount; ++i) {
 
-        const int posY = i * imageHeight / linesCount;
+        int displayIndex = flipImage
+                               ? (linesCount - i)
+                               : i;
 
-        QString lineText;
+        const int posY = displayIndex * imageHeight / linesCount;
+
+        QString lineText = " ";
 
         if (_velocityVisible && cursor.velocity.isValid()) { // velocity
             const float velFrom{ cursor.velocity.from }, velTo{ cursor.velocity.to },
@@ -53,6 +67,10 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
             const float distFrom{ cursor.distance.from }, distTo{ cursor.distance.to },
             distRange{ distTo - distFrom }, rangeVal{ distRange * i / linesCount + distFrom };
             float finalRangeVal = rangeVal * conversionFactor;
+            if (flipImage) {
+                finalRangeVal = qAbs(finalRangeVal);
+            }
+            //qDebug() << "Grid - Step " << i << " with range value " << finalRangeVal;
             if (isMetric_) {
                 //Changed to 1 decimal
                 lineText.append( { QString::number(finalRangeVal, 'f', 1) + QObject::tr(" m") } );
@@ -65,9 +83,18 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
         if (!lineText.isEmpty()) {
             if (isHorizontal_) {
+#ifdef Q_OS_ANDROID
                 int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
+                int baselineY = posY - textYOffset;
+                if (flipImage) {
+                    baselineY = imageHeight - baselineY;
+                }
                 QPoint textPos(desiredX_device, posY - textYOffset);
                 drawTextWithBackdrop(p, lineText, textPos, TextAnchor::BaselineLeft, 5, imageWidth, 5);
+#endif
+#ifdef Q_OS_WINDOWS
+                p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY - textYOffset, lineText);
+#endif
             } else {
                 p->save();
                 int textWidth = fm.horizontalAdvance(lineText);
@@ -103,7 +130,7 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         }
     }
 
-    if (cursor.distance.isValid()) {
+    if (cursor.distance.isValid() && !flipImage) {
         p->setFont(QFont("Asap", 20, QFont::Bold));
         //Support for metric and imperial
         float val{ cursor.distance.to * conversionFactor };
@@ -117,15 +144,22 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         }
 
         if (isHorizontal_) {
+#ifdef Q_OS_ANDROID
             int desiredX_device = imageWidth - textXOffset / 2 - range_text.count() * 25;
             int baselineY = imageHeight - 10;  // device coordinate for text baseline
+            if (flipImage) {
+                baselineY = imageHeight - baselineY;
+            }
             drawTextWithBackdrop(p, range_text, QPoint(desiredX_device, baselineY),
                                  TextAnchor::BaselineLeft,
                                  5,            // margin
                                  imageWidth,   // forceRightEdge: backdrop extends to screen edge.
                                  5            // verticalOffset: lower the backdrop by 5 pixels.
                                  /* textColor and backdropColor default to white and semi-transparent black */ );
-
+#endif
+#ifdef Q_OS_WINDOWS
+            p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
+#endif
         } else {
             p->save();
             int textWidth = fm.horizontalAdvance(range_text);
@@ -161,6 +195,7 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         qDebug("TAV: Plot2DGrid calculated distance not valid");
     }
 
+    /*
     if (_rangeFinderLastVisible) {
         if (isfinite(distance)) {
             pen.setColor(QColor(250, 100, 0));
@@ -174,6 +209,7 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
             //qDebug("TAV: Plot2DGrid wrote distance to screen: %f", distance);
         }
     }
+    */
 
 
     return true;

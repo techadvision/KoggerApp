@@ -27,15 +27,23 @@ Plot2D::Plot2D()
 
 bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizontal) {
     if(is_horizontal) {
-        if (g_pulseRuntimeSettings) {
+        if (g_pulseRuntimeSettings && g_pulseRuntimeSettings) {
+            bool isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
+            bool isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+            bool flipImage = isSideScanOnLeftHandSide && isSideScan2DView;
+
             double echogramSpeed = g_pulseRuntimeSettings->property("echogramSpeed").toDouble();
             //qDebug() << "g_pulseRuntimeSettings valid, echogramSpeed " << echogramSpeed;
-            if (echogramSpeed > 1) {
+            if (echogramSpeed > 1 && !flipImage) {
                 //qDebug() << "echogramSpeed > 1, making adjustments ";
                 painter->save();
                 painter->translate(width, 0);
                 painter->scale(echogramSpeed, 1.0);
                 painter->translate(-width, 0);
+            }
+            if (flipImage) {
+                painter->translate(0, height);
+                painter->scale(1.0, -1.0);
             }
         }
         _canvas.setSize(width, height, painter);
@@ -61,8 +69,9 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
     _GNSS.draw(_canvas, _dataset, _cursor);
     _quadrature.draw(_canvas, _dataset, _cursor);
 
-    //painter->setCompositionMode(QPainter::CompositionMode_Exclusion);
-   //painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
+#ifdef Q_OS_WINDOWS
+    painter->setCompositionMode(QPainter::CompositionMode_Exclusion);
+#endif
 
     _grid.draw(_canvas, _dataset, _cursor);
     _aim.draw(_canvas, _dataset, _cursor);
@@ -323,13 +332,31 @@ void Plot2D::setDistanceAutoRange(int auto_range_type) {
 }
 
 void Plot2D::setDistance(float from, float to) {
-    qDebug() << "DevDriver - Plot2D setDistance from " << from << " to " << to;
+    //qDebug() << "DevDriver - Plot2D setDistance from " << from << " to " << to;
+
+    bool isSideScanOnLeftHandSide = false;
+    bool isSideScan2DView = false;
+    if (g_pulseSettings && g_pulseRuntimeSettings) {
+        isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
+        isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+    }
+    if (isSideScanOnLeftHandSide && isSideScan2DView) {
+        qDebug() << "DevDriver - Plot2D setDistance from " << -1*to << " to " << from;
+        _cursor.distance.set(-1*to, from);
+    } else {
+        qDebug() << "DevDriver - Plot2D setDistance from " << from << " to " << to;
+        _cursor.distance.set(from, to);
+    }
+    qDebug() << "DevDriver - ssLeftHand " << isSideScanOnLeftHandSide << " 2D view " << isSideScan2DView << " is horizontal " << _isHorizontal;
+
+    /*
     if (from == 0) {
         _cursor.distance.set(from, to);
 
     } else {
         _cursor.distance.set(from, to);
     }
+    */
 
     //_cursor.distance.set(from, to);
 }
