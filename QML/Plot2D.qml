@@ -955,13 +955,13 @@ WaterFall {
                     plot.plotEchogramCompensation(selectedIndex);
                     PulseSettings.ecoViewIndex = selectedIndex
                     if (selectedIndex === 0) {
+                        pulseRuntimeSettings.isSideScan2DView = true
                         plot.setHorizontalNow()
                         plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
-                        pulseRuntimeSettings.isSideScan2DView = true
                     } else {
+                        pulseRuntimeSettings.isSideScan2DView = false
                         plot.setVerticalNow()
                         plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
-                        pulseRuntimeSettings.isSideScan2DView = false
                     }
                     quickChangeObjects.reArrangeQuickChangeObject()
 
@@ -1073,6 +1073,12 @@ WaterFall {
                 onStateChanged: {
                     console.log("Checkbox state changed:", checked)
                     PulseSettings.areUiControlsVisible = checked
+                    if (PulseSettings.areUiControlsVisible) {
+                        plot.plotGridVerticalNumber(5)
+                    } else {
+                        plot.plotGridVerticalNumber(0)
+                    }
+
                     // Update persistent settings or trigger other UI actions here
                 }
 
