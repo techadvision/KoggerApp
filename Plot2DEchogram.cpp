@@ -128,6 +128,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     // ID 0
     if(theme_id == ClassicTheme) {
+        /*
         coloros = {
            QColor("#000000"),
            QColor("#0e1318"),
@@ -141,12 +142,26 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor("#2f82b5"),
            QColor("#3191cb"),
            QColor("#32a1e2")};
+        */
+        coloros = {
+           QColor("#000000"),
+           QColor("#140551"),
+           QColor("#182169"),
+           QColor("#1d3a7f"),
+           QColor("#275493"),
+           QColor("#366da6"),
+           QColor("#4a87b7"),
+           QColor("#62a1c8"),
+           QColor("#7ebcd8"),
+           QColor("#9cd6e8"),
+           QColor("#bdf0fa"),
+           QColor("#ffffff")};
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
     } else if(theme_id == SepiaTheme) {
-
+        /*
         coloros = {
            QColor("#000000"),
            QColor("#19120d"),
@@ -160,12 +175,28 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor("#b77348"),
            QColor("#cd8050"),
            QColor("#e48e58")};
+        */
+
+        coloros = {
+           QColor("#000000"),
+           QColor("#33320a"),
+           QColor("#454312"),
+           QColor("#595419"),
+           QColor("#6e6721"),
+           QColor("#847929"),
+           QColor("#9a8c32"),
+           QColor("#b29f3b"),
+           QColor("#cbb344"),
+           QColor("#e5c74d"),
+           QColor("#ffdb57"),
+           QColor("#ffffff")};
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
 
     } else if(theme_id == WBTheme) {
+        /*
         coloros = {
            QColor("#000000"),
            QColor("#171717"),
@@ -179,11 +210,27 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor("#a8aeae"),
            QColor("#bdc4c4"),
            QColor("#d2dada")};
+        */
+
+        coloros = {
+           QColor("#000000"),
+           QColor("#1a1a1a"),
+           QColor("#2c2c2c"),
+           QColor("#403f40"),
+           QColor("#545355"),
+           QColor("#69696b"),
+           QColor("#7e7f82"),
+           QColor("#939699"),
+           QColor("#a9aeb0"),
+           QColor("#c0c6c8"),
+           QColor("#d7dfdf"),
+           QColor("#ffffff")};
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
     } else if(theme_id == RedTheme) {
+        /*
         coloros = {
            QColor("#000000"),
            QColor("#1b0f08"),
@@ -197,12 +244,30 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor("#be512d"),
            QColor("#d55a31"),
            QColor("#ed6335")};
+        */
+
+        ///*
+        coloros = {
+           QColor("#000000"),
+           QColor("#24110a"),
+           QColor("#371710"),
+           QColor("#4c1c14"),
+           QColor("#612117"),
+           QColor("#78261a"),
+           QColor("#8e2a1c"),
+           QColor("#a62f1f"),
+           QColor("#be3321"),
+           QColor("#d63823"),
+           QColor("#ef3c25"),
+           QColor("#ffffff")};
+        //*/
 
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
     } else if(theme_id == GreenTheme) {
+        /*
         coloros = {
            QColor("#000000"),
            QColor("#11180e"),
@@ -216,6 +281,21 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor("#5ab447"),
            QColor("#63ca4f"),
            QColor("#6de156")};
+        */
+
+        coloros = {
+           QColor("#000000"),
+           QColor("#10160d"),
+           QColor("#1a2915"),
+           QColor("#233d1b"),
+           QColor("#2b5321"),
+           QColor("#336927"),
+           QColor("#3b802c"),
+           QColor("#439831"),
+           QColor("#4bb136"),
+           QColor("#53ca3b"),
+           QColor("#5be43f"),
+           QColor("#ffffff")};
 
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
