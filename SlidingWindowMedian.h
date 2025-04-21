@@ -26,6 +26,13 @@ public:
         return sortedWindow[n / 2];
     }
 
+    // Reset the entire window to a constant value:
+    void reset(double sample) {
+        window.clear();
+        for(size_t i=0; i<windowSize; ++i)
+            window.push_back(sample);
+    }
+
 private:
     std::deque<double> window;
     size_t windowSize;

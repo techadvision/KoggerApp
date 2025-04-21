@@ -23,6 +23,7 @@
 #include "usbl_view.h"
 
 #include "SlidingWindowMedian.h"
+extern QObject* g_pulseRuntimeSettings;
 
 #if defined(Q_OS_ANDROID) || (defined Q_OS_LINUX)
 #define MAKETIME(t) mktime(t)
@@ -1176,7 +1177,18 @@ signals:
 private:
     float _dist = 0; // Stores the distance value
     float _temp = 0; // Stores the temperature value
-    SlidingWindowMedian _depthFilter{5};
+    SlidingWindowMedian _depthFilter{10};
+    float _lastFilteredDepth = 0.0;
+    float _lastRawDepth = 0.0;
+    int _consistCount = 0;
+    /*
+    static constexpr double kSmallAgreeMargin   = 0.05;  // 5 cm: "consistency" check
+    static constexpr double kLargeJumpThreshold = 1.00;  // 1 m: beyond normal boat bob
+    static constexpr int    kConsistNeeded      = 3;     // consecutive to accept
+    */
+    double kSmallAgreeMargin   = 0.05;
+    double kLargeJumpThreshold = 1.00;
+    int    kConsistNeeded      = 3;
 
 protected:
 
