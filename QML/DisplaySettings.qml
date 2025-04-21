@@ -140,7 +140,10 @@ GridLayout {
                     Layout.fillWidth: true
                     text: qsTr("Bottom-Track")
                     onCheckedChanged: targetPlot.plotBottomTrackVisible(checked)
-                    Component.onCompleted: targetPlot.plotBottomTrackVisible(checked)
+                    Component.onCompleted: {
+                        checked = false
+                        targetPlot.plotBottomTrackVisible(checked)
+                    }
                 }
 
                 CCombo  {
@@ -666,12 +669,16 @@ GridLayout {
                         //                        Layout.fillWidth: true
                         Layout.preferredWidth: 250
                         model: [qsTr("Normal 2D"), qsTr("Narrow 2D"), qsTr("Echogram Side-Scan")]
-                        currentIndex: 0
+                        currentIndex: pulseRuntimeSettings.distProcessing[0]
 
 //                        onCurrentIndexChanged: bottomTrackProcessingGroup.updateProcessing()
 
                         onCurrentIndexChanged: {
                             targetPlot.setPreset(bottomTrackList.currentIndex)
+                        }
+
+                        Component.onCompleted: {
+                            currentIndex = pulseRuntimeSettings.distProcessing[0]
                         }
 
                         Settings {
@@ -691,6 +698,11 @@ GridLayout {
                         if (checked) {
                             targetPlot.setGainSlope(bottomTrackGainSlopeValue.realValue)
                         }
+                    }
+
+                    Component.onCompleted: {
+                        //checked = true
+                        checked = false
                     }
 
                     Settings {
@@ -727,9 +739,17 @@ GridLayout {
                         }
                     }
 
+
+                    Component.onCompleted: {
+                        value = pulseRuntimeSettings.distProcessing[5] * 100
+                    }
+
+
+                    /*
                     Settings {
                         property alias bottomTrackGainSlopeValue: bottomTrackGainSlopeValue.value
                     }
+                    */
                 }
             }
 
@@ -743,6 +763,11 @@ GridLayout {
                         if (checked) {
                             targetPlot.setThreshold(bottomTrackThresholdValue.realValue)
                         }
+                    }
+
+                    Component.onCompleted: {
+                        //checked = true
+                        checked = false
                     }
 
                     Settings {
@@ -779,6 +804,10 @@ GridLayout {
                         }
                     }
 
+                    Component.onCompleted: {
+                        value = pulseRuntimeSettings.distProcessing[6] * 100
+                    }
+
                     Settings {
                         property alias bottomTrackThresholdValue: bottomTrackThresholdValue.value
                     }
@@ -797,6 +826,11 @@ GridLayout {
                         }
                     }
 
+                    Component.onCompleted: {
+                        //checked = true
+                        checked = false
+                    }
+
                     Settings {
                         property alias bottomTrackWindow: bottomTrackWindow.checked
                     }
@@ -813,6 +847,10 @@ GridLayout {
                         if (bottomTrackWindow.checked) {
                             targetPlot.setWindowSize(bottomTrackWindowValue.value)
                         }
+                    }
+
+                    Component.onCompleted: {
+                        value = pulseRuntimeSettings.distProcessing[1]
                     }
 
                     Settings {
@@ -835,6 +873,11 @@ GridLayout {
                         }
                     }
 
+                    Component.onCompleted: {
+                        //checked = true
+                        checked = false
+                    }
+
                     Settings {
                         property alias bottomTrackVerticalGap: bottomTrackVerticalGap.checked
                     }
@@ -854,6 +897,10 @@ GridLayout {
                         }
                     }
 
+                    Component.onCompleted: {
+                        value = pulseRuntimeSettings.distProcessing[2]
+                    }
+
                     Settings {
                         property alias bottomTrackVerticalGapValue: bottomTrackVerticalGapValue.value
                     }
@@ -871,6 +918,11 @@ GridLayout {
                         if (checked) {
                             targetPlot.setRangeMin(bottomTrackMinRangeValue.realValue)
                         }
+                    }
+
+                    Component.onCompleted: {
+                        //checked = true
+                        checked = false
                     }
 
                     Settings {
@@ -910,6 +962,10 @@ GridLayout {
                         }
                     }
 
+                    Component.onCompleted: {
+                        value = pulseRuntimeSettings.distProcessing[3] * 1000
+                    }
+
                     Settings {
                         property alias bottomTrackMinRangeValue: bottomTrackMinRangeValue.value
                     }
@@ -921,6 +977,7 @@ GridLayout {
                     id: bottomTrackMaxRange
                     Layout.fillWidth: true
                     text: qsTr("Max range, m:")
+                    checked: true
 //                    onCheckedChanged: bottomTrackProcessingGroup.updateProcessing()
 
                     onCheckedChanged: {
@@ -929,8 +986,14 @@ GridLayout {
                         }
                     }
 
+                    Component.onCompleted: {
+                        //checked = true
+                        checked = false
+                    }
+
                     Settings {
                         property alias bottomTrackMaxRange: bottomTrackMaxRange.checked
+                        //property alias bottomTrackMaxRange: true
                     }
                 }
 
@@ -963,6 +1026,10 @@ GridLayout {
                         if (bottomTrackMaxRange.checked) {
                             targetPlot.setRangeMax(bottomTrackMaxRangeValue.realValue)
                         }
+                    }
+
+                    Component.onCompleted: {
+                        value = pulseRuntimeSettings.distProcessing[4] * 1000
                     }
 
                     Settings {

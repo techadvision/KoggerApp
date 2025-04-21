@@ -57,7 +57,7 @@ ColumnLayout {
         // Default values for all Pulse devices
         console.log("TAV: setPlotGeneral - start");
         targetPlot.plotEchogramVisible(true)
-        targetPlot.plotRangefinderVisible(false)
+        targetPlot.plotRangefinderVisible(true)
         targetPlot.plotGNSSVisible(false, 1)
         targetPlot.plotGridVerticalNumber(5)
         targetPlot.plotGridFillWidth(false)
@@ -81,7 +81,8 @@ ColumnLayout {
         core.setSideScanChannels(32767, 32768)
 
         // Bottom tracking
-        if (pulseRuntimeSettings.processBottomTrack) {
+        //if (pulseRuntimeSettings.processBottomTrack) {
+        if (false) {
             doBottomTracking()
         }
 
@@ -101,7 +102,8 @@ ColumnLayout {
         //core.setSideScanChannels(32767, 3)
 
         // Bottom tracking
-        if (pulseRuntimeSettings.processBottomTrack) {
+        //if (pulseRuntimeSettings.processBottomTrack) {
+        if (false) {
             doBottomTracking()
         }
 
@@ -115,6 +117,30 @@ ColumnLayout {
         targetPlot.plotRangefinderTheme(0)
         console.log("TAV: doBottomTracking - distanceParams", pulseRuntimeSettings.distProcessing);
         //targetPlot.refreshDistParams(pulseRuntimeSettings.distProcessing)
+        /*
+        /*
+          doDistanceProcessing
+          0 = preset = static_cast<BottomTrackPreset>(preset);
+          1 = windosSize = window_size
+          2 = verticalGap = vertical_gap
+          3 = minDistance = range_min
+          4 = maxDistance = range_max
+          5 = gainSlope = gain_slope
+          6 = threshold = threshold
+          7 = offset.x = offsetx;
+          8 = offset.y = offsety;
+          9 = offset.z = offsetz;
+        */
+        //*TODO: Do we need to set everyone, did Kogger do that?
+        targetPlot.setPreset(pulseRuntimeSettings.distProcessing[0])
+        targetPlot.setWindowSize(pulseRuntimeSettings.distProcessing[1])
+        targetPlot.setVerticalGap(pulseRuntimeSettings.distProcessing[2])
+        targetPlot.setRangeMin(pulseRuntimeSettings.distProcessing[3])
+        targetPlot.setRangeMax(pulseRuntimeSettings.distProcessing[4])
+        targetPlot.setGainSlope(pulseRuntimeSettings.distProcessing[5])
+        targetPlot.setThreshold(pulseRuntimeSettings.distProcessing[6])
+        //*/
+
         targetPlot.refreshDistParams(
             pulseRuntimeSettings.distProcessing[0],
             pulseRuntimeSettings.distProcessing[1],
@@ -127,6 +153,21 @@ ColumnLayout {
             pulseRuntimeSettings.distProcessing[8],
             pulseRuntimeSettings.distProcessing[9]
         )
+        /*
+          doDistanceProcessing
+          0 = preset = static_cast<BottomTrackPreset>(preset);
+          1 = windowSize = window_size
+          2 = verticalGap = vertical_gap
+          3 = minDistance = range_min
+          4 = maxDistance = range_max
+          5 = gainSlope = gain_slope
+          6 = threshold = threshold
+          7 = offset.x = offsetx;
+          8 = offset.y = offsety;
+          9 = offset.z = offsetz;
+        */
+        //repeatBottomTrackProcessing.start()
+
         targetPlot.doDistProcessing(
             pulseRuntimeSettings.distProcessing[0],
             pulseRuntimeSettings.distProcessing[1],
@@ -139,10 +180,33 @@ ColumnLayout {
             pulseRuntimeSettings.distProcessing[8],
             pulseRuntimeSettings.distProcessing[9]
         )
+
         console.log("TAV: doBottomTracking - done");
     }
 
+    Timer {
+        id: repeatBottomTrackProcessing
+        interval: 100
+        repeat: true
+        onTriggered: {
+            continuedDistanceProcessing()
+        }
+    }
 
+    function continuedDistanceProcessing () {
+        targetPlot.doDistProcessing(
+            pulseRuntimeSettings.distProcessing[0],
+            pulseRuntimeSettings.distProcessing[1],
+            pulseRuntimeSettings.distProcessing[2],
+            pulseRuntimeSettings.distProcessing[3],
+            pulseRuntimeSettings.distProcessing[4],
+            pulseRuntimeSettings.distProcessing[5],
+            pulseRuntimeSettings.distProcessing[6],
+            pulseRuntimeSettings.distProcessing[7],
+            pulseRuntimeSettings.distProcessing[8],
+            pulseRuntimeSettings.distProcessing[9]
+        )
+    }
 
     function configurePulseDevice () {
         // Function sets device values to match user's device, determined by the pulseRuntimeSettings.devName
