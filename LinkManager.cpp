@@ -58,12 +58,12 @@ void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
 
 #ifdef Q_OS_ANDROID
     for (Link* link : list_) {
-         qDebug() << "Looping through link";
+         //qDebug() << "Looping through link";
         // If this is a serial link and it is meant to be the USB device
         // (e.g. match vendor/product IDs or if there's only one device),
         // force its pinned attributes:
         if (link->getLinkType() == LinkSerial) {
-             qDebug() << "Found serial";
+            // qDebug() << "Found serial";
             // Suppose you decide that if the link’s port name is not empty,
             // it is the actual device you want to auto-connect.
             // Then update its values:
