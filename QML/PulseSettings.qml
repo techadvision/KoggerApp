@@ -23,6 +23,7 @@ Settings {
     property int    colorMapIndex2D:            0
     property int    colorMapIndexReal:          0
     property bool   areUiControlsVisible:       true
+    property bool   isSideScanOnLeftHandSide:   true
 
     // Transducer telemetry settings
     property bool   useEchogram:                true

@@ -112,5 +112,6 @@
         <file>PulseTabbedSettings.qml</file>
         <file>PulseInfoRecording.qml</file>
         <file>PulseInfoColorScheme.qml</file>
+        <file>PulseInfoNmeaSettings.qml</file>
     </qresource>
 </RCC>

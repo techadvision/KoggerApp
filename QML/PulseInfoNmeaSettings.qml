@@ -7,14 +7,14 @@ Rectangle {
     //modal: true
     focus: true
     width: 900
-    height: 450
+    height: 400
     anchors.centerIn: parent
     color: "white"
     radius: 8
 
     signal pulsePreferenceClosed()
     signal pulsePreferenceValueChanged(double newValue)
-    property alias checked: checkBoxLeftHandBlue.checked
+    property alias checked: checkBoxNmea.checked
     signal stateChanged(bool checked)
 
 
@@ -28,9 +28,9 @@ Rectangle {
 
         //rows: 5
 
-        // --- Row 1: Pulse Blue - installed left hand side? - enable
+        // --- Row 1: NMEA DBT - enable
         Text {
-            text: "Pulse Blue installed left side"
+            text: "UDP NMEA server"
             font.pixelSize: 30
             height: 80
             GridLayout.row: 0
@@ -41,14 +41,15 @@ Rectangle {
         }
 
         CheckBox {
-            id: checkBoxLeftHandBlue
+            id: checkBoxNmea
             implicitWidth: 48
             implicitHeight: 48
             GridLayout.row: 0
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter
-            anchors.horizontalCenter: speedSelector.horizontalCenter
-            checked: PulseSettings.isSideScanOnLeftHandSide
+            anchors.horizontalCenter: depthSelector.horizontalCenter
+            // Bind the initial state to PulseSettings.enableNmeaDbt
+            checked: PulseSettings.enableNmeaDbt
 
             // Custom white background with a subtle border
             background: Rectangle {
@@ -72,7 +73,7 @@ Rectangle {
                     onPaint: {
                         var ctx = getContext("2d");
                         ctx.clearRect(0, 0, width, height);
-                        if (checkBoxLeftHandBlue.checked) {
+                        if (checkBoxNmea.checked) {
                             // Set stroke style relative to the size
                             ctx.strokeStyle = "black"; // or change to "#333333" for dark grey
                             ctx.lineWidth = Math.max(width, height) * 0.1;
@@ -86,23 +87,43 @@ Rectangle {
                             ctx.stroke();
                         }
                     }
+
+                    /*
+                    Connections {
+                        target: checkBoxNmea
+                        function onCheckedChanged () {
+                            indicatorCanvas.requestPaint()
+                            PulseSettings.enableNmeaDbt = checkBoxNmea(checked)
+                            console.log("PulseSettingsValue NMEA UDP server enabled changed to", PulseSettings.enableNmeaDbt)
+                        }
+
+                        //onCheckedChanged: indicatorCanvas.requestPaint()
+                    }
+                    */
                 }
             }
 
             Component.onCompleted: {
+                //let useUdpNmeaServer = PulseSettings.enableNmeaDbt
+                //console.log("PulseSettingsValue preference NMEA UDP server enabled loaded as", useUdpNmeaServer)
                 indicatorCanvas.requestPaint()
+                console.log("PulseSettingsValue preference NMEA UDP server loaded as", pulseSettings.enableNmeaDbt)
             }
 
+
+            // Update PulseSettings.enableNmeaDbt when the checkbox state changes
             onCheckedChanged: {
-                pulseSettings.isSideScanOnLeftHandSide = checked;
+                pulseSettings.enableNmeaDbt = checked;
                 indicatorCanvas.requestPaint();
+                console.log("PulseSettingsValue NMEA UDP server enabled changed to", pulseSettings.enableNmeaDbt)
             }
 
         }
 
-        // --- Row 2: Echogram scroll speed (widens the picture horizontally)
+
+        // --- Row 2: NMEA DBT - Select pause between settings
         Text {
-            text: "Echogram screen speed"
+            text: "Pause ms between DBT"
             font.pixelSize: 30
 
             height: 80
@@ -113,12 +134,12 @@ Rectangle {
         }
 
         HorizontalControllerDoubleSettings {
-            id: speedSelector
-            values: [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0]
-            currentValue: pulseRuntimeSettings.echogramSpeed
+            id: depthSelector
+            values: [250, 500, 1000]
+            currentValue: pulseSettings.nmeaSendPerMilliSec
             onPulsePreferenceValueChanged: {
                 console.log("PulseSettingsValue pause between DBT messages changed to", newValue)
-                pulseRuntimeSettings.echogramSpeed = newValue
+                pulseSettings.nmeaSendPerMilliSec = newValue
                 //settingsPopup.pulsePreferenceValueChanged(newValue)
             }
 
@@ -129,12 +150,10 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
-        // --- Row 3: Depth filter adjustment: kSmallAgreeMargin
+        // --- Row 3: NMEA DBT - select UDP port
         Text {
-            text: "Depth filter: smallAgreeMargin"
+            text: "NMEA UDP port"
             font.pixelSize: 30
-
-            height: 80
             GridLayout.row: 2
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
@@ -142,12 +161,13 @@ Rectangle {
         }
 
         HorizontalControllerDoubleSettings {
-            id: kSmallAgreeMargin
-            values: [0.05, 0.10, 0.20, 0.50, 1.0]
-            currentValue: pulseRuntimeSettings.kSmallAgreeMargin
+            id: minMeasureSelector
+            values: [3000, 3100, 3200, 3300, 3400, 3500]
+            currentValue: PulseSettings.nmeaPort
             onPulsePreferenceValueChanged: {
-                console.log("WOW changed kSmallAgreeMargin to ", newValue)
-                pulseRuntimeSettings.kSmallAgreeMargin = newValue
+                console.log("PulseSettingsValue NMEA port changed to", newValue)
+                pulseSettings.nmeaPort = newValue
+                //settingsPopup.pulsePreferenceValueChanged(newValue)
             }
 
             height: 80
@@ -157,9 +177,10 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
-        // --- Row 4: Depth filter adjustment: kLargeJumpThreshold
+        // --- Row 4: NMEA DBT - IP (not selectable)
+
         Text {
-            text: "Depth filter: largeJumpThreshold"
+            text: "NMEA IP address"
             font.pixelSize: 30
 
             height: 80
@@ -169,49 +190,18 @@ Rectangle {
             Layout.leftMargin: 20
         }
 
-        HorizontalControllerDoubleSettings {
-            id: kLargeJumpThreshold
-            values: [1.0, 2.0, 3.0, 4.0, 5.0]
-            currentValue: pulseRuntimeSettings.kLargeJumpThreshold
-            onPulsePreferenceValueChanged: {
-                console.log("WOW changed kLargeJumpThreshold to ", newValue)
-                pulseRuntimeSettings.kLargeJumpThreshold = newValue
-            }
-
-            height: 80
-            Layout.preferredWidth: 280
-            GridLayout.row: 3
-            GridLayout.column: 2
-            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-        }
-
-        // --- Row 5: Depth filter adjustment: kConsistNeeded
         Text {
-            text: "Depth filter: consistNeeded"
+            text: "255.255.255.255"
             font.pixelSize: 30
+            color: "gray"
+            anchors.horizontalCenter: depthSelector.horizontalCenter
 
             height: 80
-            GridLayout.row: 4
-            GridLayout.column: 0
-            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-            Layout.leftMargin: 20
-        }
-
-        HorizontalControllerDoubleSettings {
-            id: kConsistNeeded
-            values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-            currentValue: pulseRuntimeSettings.kConsistNeeded
-            onPulsePreferenceValueChanged: {
-                console.log("WOW changed kConsistNeeded to ", newValue)
-                pulseRuntimeSettings.kConsistNeeded = newValue
-            }
-
-            height: 80
-            Layout.preferredWidth: 280
-            GridLayout.row: 4
+            GridLayout.row: 3
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
     }
 }
+

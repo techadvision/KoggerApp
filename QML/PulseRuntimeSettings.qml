@@ -56,6 +56,11 @@ QtObject {
     //Temporary UDP preference (shall use persistent settings for this purpose
     property bool   enableNmeaDbt:          true
 
+    //FALSE DEPTH READING ALGORITHM TUNING
+    property double kSmallAgreeMargin:      0.05    // Flucutations allowed in filtering
+    property double kLargeJumpThreshold:    1.0     // A jump from one value to the next before considered a likely false reading
+    property int    kConsistNeeded:         5       // The threshold of values required before we believe it
+
     //COLOR MAP
 
     property var    themeModelBlue: [
@@ -153,7 +158,7 @@ QtObject {
         "chartResolution":              30,
         "chartSamples":                 1358,
         "chartOffset":                  25,
-        "distMax":                      50000,
+        "distMax":                      21000,
         "distDeadZone":                 0,
         "distConfidence":               14,
         "transPulse":                   10,
@@ -171,7 +176,7 @@ QtObject {
         "transFreqWide":                540,
         "transFreqNarrow":              540,
         "maximumDepth":                 21,
-        "processBottomTrack":           false,
+        "processBottomTrack":           true,
         "doDynamicResolution":          false,
         "fixBlackStripesBackwardSteps": 10,
         "fixBlackStripesForwardSteps":  10,
@@ -179,6 +184,32 @@ QtObject {
     }
 
     //PER DEVICE DISTANCE PROCESSING
+
+    property var    distProcPulseRed: [
+        1,
+        10,
+        0,
+        0,
+        50.0,
+        2,
+        0.0,
+        0,
+        0,
+        0
+    ]
+
+    property var    distProcPulseBlue: [
+        2,
+        20,
+        0,
+        0.00,
+        30.0,
+        2,
+        0.0,
+        0,
+        0,
+        0
+    ]
     /*
     void doDistProcessing(
     int preset,
@@ -192,31 +223,6 @@ QtObject {
     float offsety,
     float offsetz);
     */
-    property var    distProcPulseRed: [
-        0,
-        1,
-        0,
-        0,
-        0.1,
-        0.02,
-        0.0,
-        0,
-        0,
-        0
-    ]
-
-    property var    distProcPulseBlue: [
-        2,
-        1,
-        0,
-        0,
-        0.1,
-        0.02,
-        0.0,
-        0,
-        0,
-        0
-    ]
 
     property var autoFilterPulseRed: [
         { "min": 0,  "max": 3,  "filter": 15 },

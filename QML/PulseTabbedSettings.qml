@@ -4,7 +4,7 @@ import QtQuick.Controls 2.15
 Item {
     id: root
     width: 1000
-    height: 500
+    height: 550
 
     property real scaleFactor: Qt.application.primaryScreen.width / 480
 
@@ -69,10 +69,19 @@ Item {
                     font.pointSize: 14 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_info.svg"
                 }
+
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Settings"
+                    font.pointSize: 14 * root.scaleFactor
+                    icon.source: "qrc:/icons/pulse_settings.svg"
+                }
+
+                TabButton {
+                    height: tabBar.height
+                    display: AbstractButton.TextBesideIcon
+                    text: "NMEA"
                     font.pointSize: 14 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_settings.svg"
                 }
@@ -113,6 +122,12 @@ Item {
             Page {
                 PulseInfoSettings {
                     id: tabbedPulseSettings
+                }
+            }
+
+            Page {
+                PulseInfoNmeaSettings {
+                    id: tabbedPulseNmeaSettings
                 }
             }
 
