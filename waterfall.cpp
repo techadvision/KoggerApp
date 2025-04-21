@@ -177,6 +177,14 @@ int qPlot2D::getThemeId() const
 }
 
 void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz) {
+    qDebug() << "DevDriver: doDistProcessing: "
+                " preset " << preset
+             << " verticalGap " << vertical_gap
+             << " gainSlope " << gain_slope
+             << " threshold " << threshold
+             << " windowSize " << window_size
+             << " minDistance " << range_min
+             << " maxDistance " << range_max;
     if (_dataset != nullptr) {
         if (auto btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->preset = static_cast<BottomTrackPreset>(preset);
@@ -193,7 +201,11 @@ void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, 
             btpPtr->offset.z = offsetz;
 
             _dataset->bottomTrackProcessing(_cursor.channel1, _cursor.channel2);
+        } else {
+             qDebug() << "DevDriver: doDistProcessing: dataset nullptr";
         }
+    } else {
+        qDebug() << "DevDriver: doDistProcessing: auto btpPtr";
     }
     plotUpdate();
 }
@@ -201,6 +213,14 @@ void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, 
 void qPlot2D::refreshDistParams(int preset, int windowSize, float verticalGap, float rangeMin, float rangeMax, float gainSlope, float threshold, float offsetX, float offsetY, float offsetZ)
 {
     auto btPRefreshFunc = [this, preset, windowSize, verticalGap, rangeMin, rangeMax, gainSlope, threshold, offsetX, offsetY, offsetZ]() {
+        qDebug() << "DevDriver: refreshDistParams: "
+                    " preset " << preset
+                 << " verticalGap " << verticalGap
+                 << " gainSlope " << gainSlope
+                 << " threshold " << threshold
+                 << " windowSize " << windowSize
+                 << " minDistance " << rangeMin
+                 << " maxDistance " << rangeMax;
         if (_dataset) {
             if (auto btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
                 btpPtr->preset = static_cast<BottomTrackPreset>(preset);
@@ -215,7 +235,11 @@ void qPlot2D::refreshDistParams(int preset, int windowSize, float verticalGap, f
                 btpPtr->offset.x = offsetX;
                 btpPtr->offset.y = offsetY;
                 btpPtr->offset.z = offsetZ;
+            } else {
+                qDebug() << "DevDriver: refreshDistParams: no auto btpPtr";
             }
+        } else {
+            qDebug() << "DevDriver: refreshDistParams: no dataset";
         }
     };
 
@@ -227,7 +251,7 @@ void qPlot2D::refreshDistParams(int preset, int windowSize, float verticalGap, f
 }
 
 void qPlot2D::setPreset(int value)
-{
+{   qDebug() << "DevDriver: setPreset " << value;
     if (_dataset) {
         if (auto* btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->preset = static_cast<BottomTrackPreset>(value);
@@ -236,7 +260,7 @@ void qPlot2D::setPreset(int value)
 }
 
 void qPlot2D::setWindowSize(int value)
-{
+{   qDebug() << "DevDriver: setWindowSize " << value;
     if (_dataset) {
         if (auto* btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->windowSize = value;
@@ -245,7 +269,7 @@ void qPlot2D::setWindowSize(int value)
 }
 
 void qPlot2D::setVerticalGap(float value)
-{
+{   qDebug() << "DevDriver: setVerticalGap " << value;
     if (_dataset) {
         if (auto* btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->verticalGap = value;
@@ -254,7 +278,7 @@ void qPlot2D::setVerticalGap(float value)
 }
 
 void qPlot2D::setRangeMin(float value)
-{
+{   qDebug() << "DevDriver: setRangeMin " << value;
     if (_dataset) {
         if (auto* btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->minDistance = value;
@@ -263,7 +287,7 @@ void qPlot2D::setRangeMin(float value)
 }
 
 void qPlot2D::setRangeMax(float value)
-{
+{   qDebug() << "DevDriver: setRangeMax " << value;
     if (_dataset) {
         if (auto* btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->maxDistance = value;
@@ -272,7 +296,7 @@ void qPlot2D::setRangeMax(float value)
 }
 
 void qPlot2D::setGainSlope(float value)
-{
+{   qDebug() << "DevDriver: setGainSlope " << value;
     if (_dataset) {
         if (auto* btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->gainSlope = value;
@@ -281,7 +305,7 @@ void qPlot2D::setGainSlope(float value)
 }
 
 void qPlot2D::setThreshold(float value)
-{
+{      qDebug() << "DevDriver: setThreshold " << value;
     if (_dataset) {
         if (auto* btpPtr =_dataset->getBottomTrackParamPtr(); btpPtr) {
             btpPtr->threshold = value;
