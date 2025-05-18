@@ -22,7 +22,7 @@ Item {
     // Custom properties for auto depth behavior
     property bool isAutoRangeActive: false
     // Custom properties for auto filter behavior
-    property bool isAutoFilterActive: false
+    property bool isAutoFilterActive: PulseSettings.autoFilter
 
     signal distanceAutoRangeRequested()
     signal distanceFixedRangeRequested()
@@ -108,8 +108,8 @@ Item {
             // Minus Button
             Rectangle {
                 id: selectorMinusButton
-                width: 64
-                height: 64
+                width: 80
+                height: 80
                 radius: 20
                 color: "transparent"
                 Layout.leftMargin: 4
@@ -117,7 +117,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "-"
-                    font.pixelSize: 64
+                    font.pixelSize: 100
                     color: "white"
                     font.bold: true
                 }
@@ -127,18 +127,18 @@ Item {
                     onClicked: {
                         longPressControlTimer.stop();
                         if (root.isAutoRangeActive && controleName === "selectorMaxDepth") {
-                            console.log("TAV: Auto range was active, should disable");
+                            //console.log("TAV: Auto range was active, should disable");
                             root.distanceFixedRangeRequested();
                             root.isAutoRangeActive = false;
                         } else {
-                            console.log("TAV: Auto range was not active, just do minus");
+                            //console.log("TAV: Auto range was not active, just do minus");
                         }
                         if (root.isAutoFilterActive && controleName === "selectorFiltering") {
-                            console.log("TAV: Auto filter was active, should disable");
+                            //console.log("TAV: Auto filter was active, should disable");
                             root.filterFixedRangeRequested();
                             root.isAutoFilterActive = false;
                         } else {
-                            console.log("TAV: Auto filterwas not active, just do minus");
+                            //console.log("TAV: Auto filterwas not active, just do minus");
                         }
 
                         let newValue = Math.max(minValue, parseInt(valueField.text) - step);
@@ -216,22 +216,22 @@ Item {
                             onClicked: {
                                 if (controleName==="selectorMaxDepth") {
                                     if (root.isAutoRangeActive) {
-                                        console.log("TAV: Auto range was active, should disable");
+                                        //console.log("TAV: Auto range was active, should disable");
                                         root.distanceFixedRangeRequested();
                                         root.isAutoRangeActive = false;
                                     } else {
-                                        console.log("TAV: Auto range was not active, should enable");
+                                        //console.log("TAV: Auto range was not active, should enable");
                                         root.distanceAutoRangeRequested();
                                         root.isAutoRangeActive = true;
                                     }
                                 }
                                 if (controleName==="selectorFiltering") {
                                     if (root.isAutoFilterActive) {
-                                        console.log("TAV: Auto filter was active, should disable");
+                                        //console.log("TAV: Auto filter was active, should disable");
                                         root.filterFixedRangeRequested();
                                         root.isAutoFilterActive = false;
                                     } else {
-                                        console.log("TAV: Auto filter was not active, should enable");
+                                        //console.log("TAV: Auto filter was not active, should enable");
                                         root.filterAutoRangeRequested();
                                         root.isAutoFilterActive = true;
                                     }
@@ -252,8 +252,8 @@ Item {
             // Plus Button
             Rectangle {
                 id: selectorPlusButton
-                width: 64
-                height: 64
+                width: 80
+                height: 80
                 radius: 20
                 color: "transparent"
                 Layout.rightMargin: 4
@@ -262,7 +262,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "+"
-                    font.pixelSize: 64
+                    font.pixelSize: 80
                     color: "white"
                     font.bold: true
                 }
@@ -272,18 +272,18 @@ Item {
                     onClicked: {
                         longPressControlTimer.stop();
                         if (root.isAutoRangeActive && controleName === "selectorMaxDepth") {
-                            console.log("TAV: Auto range was active, should disable");
+                            //console.log("TAV: Auto range was active, should disable");
                             root.distanceFixedRangeRequested();
                             root.isAutoRangeActive = false;
                         } else {
-                            console.log("TAV: Auto range was not active, just do minus");
+                            //console.log("TAV: Auto range was not active, just do minus");
                         }
                         if (root.isAutoFilterActive && controleName === "selectorFiltering") {
-                            console.log("TAV: Auto filter was active, should disable");
+                            //console.log("TAV: Auto filter was active, should disable");
                             root.filterFixedRangeRequested();
                             root.isAutoFilterActive = false;
                         } else {
-                            console.log("TAV: Auto filterwas not active, just do minus");
+                            //console.log("TAV: Auto filterwas not active, just do minus");
                         }
 
                         let newValue = Math.min(maxValue, parseInt(valueField.text) + step);
