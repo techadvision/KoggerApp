@@ -1,5 +1,7 @@
 #include "Plot2D.h"
 #include <QObject>
+#include <vector>
+#include <cmath>
 
 
 Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontal_(true)
@@ -13,22 +15,22 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
     bool isSideScanOnLeftHandSide = false;
     bool isSideScan2DView = false;
+    bool is2DTransducer = false;
+    const int textPadding = 5;
 
     if (g_pulseRuntimeSettings && g_pulseSettings) {
         isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
         isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+        is2DTransducer = g_pulseRuntimeSettings->property("is2DTransducer").toBool();
     }
 
     bool flipImage = isSideScanOnLeftHandSide && isSideScan2DView;
 
     QPen pen(_lineColor);
     pen.setWidth(_lineWidth);
-    //Changed, set the color
-    //pen.setColor(QColor(255, 255, 255));
 
     QPainter* p = canvas.painter();
     p->setPen(pen);
-    //Changed increased the font size 14 to 26
     p->setFont(QFont("Asap", 20, QFont::Bold));
     QFontMetrics fm(p->font());
 
@@ -40,45 +42,65 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         conversionFactor = 3.28084; // Convert to feet if not metric
     }
 
+    float fromDepth = cursor.distance.from;
+    float toDepth = cursor.distance.to;
+    float logicalMaxDepth = std::max(std::abs(fromDepth), std::abs(toDepth));
+
+    float totalRange = toDepth - fromDepth;
+    if (totalRange == 0.0f)
+        totalRange = 0.0001f;
+
+    std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer);
+
+    int linesCountNew = static_cast<int>(tickValues.size()) + 1; // +1 for final bottom value
+
     qreal scaleX = p->transform().m11();
 
-    for (int i = 1; i < linesCount; ++i) {
+    for (int i = 1; i < linesCountNew; ++i) {
 
         int displayIndex = flipImage
-                               ? (linesCount - i)
+                               ? (linesCountNew - i)
                                : i;
 
-        const int posY = displayIndex * imageHeight / linesCount;
+        float tickValue = static_cast<float>(tickValues[i - 1]); // i starts from 1
+        float tickMeters = isMetric_ ? tickValue : tickValue / 3.28084f;
+
+        // Make sure denominator is never zero
+        float totalRange = toDepth - fromDepth;
+        if (totalRange == 0.0f)
+            totalRange = 0.0001f; // prevent divide-by-zero crash
+
+        float relative = (tickMeters - fromDepth) / totalRange;
+        int posY = static_cast<int>(relative * imageHeight);
 
         QString lineText = " ";
 
         if (_velocityVisible && cursor.velocity.isValid()) { // velocity
             const float velFrom{ cursor.velocity.from }, velTo{ cursor.velocity.to },
-                velRange{ velTo - velFrom }, attVal{ velRange * i / linesCount + velFrom };
+                velRange{ velTo - velFrom }, attVal{ velRange * i / linesCountNew + velFrom };
             lineText.append({ QString::number(attVal , 'f', 2) + QObject::tr(" m/s    ")});
         }
         if (angleVisibility_ && cursor.attitude.isValid()) { // angle
             const float attFrom{ cursor.attitude.from }, attTo{ cursor.attitude.to },
-                attRange{ attTo - attFrom }, attVal{ attRange * i / linesCount + attFrom };
+                attRange{ attTo - attFrom }, attVal{ attRange * i / linesCountNew + attFrom };
             QString text{ QString::number(attVal, 'f', 0) + QStringLiteral("°    ") };
             lineText.append(text);
         }
-        if (cursor.distance.isValid()) { // depth
-            const float distFrom{ cursor.distance.from }, distTo{ cursor.distance.to },
-            distRange{ distTo - distFrom }, rangeVal{ distRange * i / linesCount + distFrom };
-            float finalRangeVal = rangeVal * conversionFactor;
-            if (flipImage) {
-                finalRangeVal = qAbs(finalRangeVal);
-            }
-            //qDebug() << "Grid - Step " << i << " with range value " << finalRangeVal;
-            if (isMetric_) {
-                //Changed to 1 decimal
-                lineText.append( { QString::number(finalRangeVal, 'f', 1) + QObject::tr(" m") } );
-            } else {
-                //Changed to 1 decimal
-                lineText.append( { QString::number(finalRangeVal, 'f', 1) + QObject::tr(" ft") } );
-            }
 
+        bool isNegativeTick = tickValue < 0.0f;
+
+        if (cursor.distance.isValid()) { // depth
+            /*
+            if (flipImage) {
+                tickValue = qAbs(tickValue);
+            }
+            */
+            float displayValue = std::abs(tickValue);  // always positive in text
+            if (isMetric_) {
+                lineText.append( { QString::number(displayValue, 'f', 0) + QObject::tr(" m") } );
+            } else {
+                lineText.append( { QString::number(displayValue, 'f', 0) + QObject::tr(" ft") } );
+            }
         }
 
         if (!lineText.isEmpty()) {
@@ -100,9 +122,22 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
                 int textWidth = fm.horizontalAdvance(lineText);
                 int pivotX = imageWidth - textXOffset;
                 int pivotY = posY - textYOffset;
+
                 p->translate(pivotX, pivotY);
                 p->rotate(90);
-                p->drawText(-textWidth, fm.ascent(), lineText);
+
+                //bool isNegative = lineText.trimmed().startsWith('-');
+                bool isNegative = isNegativeTick;
+
+                // Draw text to the left (default) or right (for negatives)
+                if (isNegative) {
+                    p->drawText(textPadding, fm.ascent(), lineText);  // draw to the right of the line
+                } else {
+                    p->drawText(-textWidth, fm.ascent(), lineText);  // draw to the left (default)
+                }
+
+                //p->drawText(-textWidth, textY, lineText);
+
                 p->restore();
 
             }
@@ -130,18 +165,12 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         }
     }
 
-    if (cursor.distance.isValid() && !flipImage) {
+    if (cursor.distance.isValid() && !flipImage && is2DTransducer) {
         p->setFont(QFont("Asap", 20, QFont::Bold));
-        //Support for metric and imperial
-        float val{ cursor.distance.to * conversionFactor };
-        //Changed to 1 decimal
-        QString range_text = "";
 
-        if (isMetric_) {
-            range_text = QString::number(val, 'f', (val == static_cast<int>(val)) ? 0 : 1) + QObject::tr(" m");
-        } else {
-            range_text = QString::number(val, 'f', (val == static_cast<int>(val)) ? 0 : 1) + QObject::tr(" ft");
-        }
+        float val{ cursor.distance.to * conversionFactor };
+
+        QString range_text = QString::number(val, 'f', (isMetric_ ? 0 : 1)) + (isMetric_ ? QObject::tr(" m") : QObject::tr(" ft"));
 
         if (isHorizontal_) {
 #ifdef Q_OS_ANDROID
@@ -162,20 +191,18 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 #endif
         } else {
             p->save();
+
             int textWidth = fm.horizontalAdvance(range_text);
             int textHeight = fm.height();
-            // In horizontal mode the text's center X is:
+
             int centerX = imageWidth - textXOffset / 2 - textWidth / 2;
-            // The Y remains the same as the horizontal drawing (bottom edge position)
             int centerY = imageHeight - 30 - textHeight;
-            // Translate to that center pivot point.
+
             p->translate(centerX, centerY);
-            // Rotate the text by +90 degrees (clockwise).
             p->rotate(90);
-            // Draw the text so that its center aligns with the pivot.
-            // (drawText positions text at the baseline of the left edge,
-            // so we offset by half the text width and half the text height)
+
             p->drawText(-textWidth / 2, textHeight / 2, range_text);
+
             p->restore();
         }
     }
@@ -186,30 +213,12 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
     if (cursor.distance.isValid()) {
         if (lastEpoch != NULL && isfinite(lastEpoch->rangeFinder())) {
             distance = lastEpoch->rangeFinder();
-            //qDebug("TAV: Plot2DGrid calculated distance lastEpoch: %f", distance);
         } else if (preLastEpoch != NULL && isfinite(preLastEpoch->rangeFinder())) {
             distance = preLastEpoch->rangeFinder();
-            //qDebug("TAV: Plot2DGrid calculated distance preLastEpoch: %f", distance);
         }
     } else {
         qDebug("TAV: Plot2DGrid calculated distance not valid");
     }
-
-    /*
-    if (_rangeFinderLastVisible) {
-        if (isfinite(distance)) {
-            pen.setColor(QColor(250, 100, 0));
-            p->setPen(pen);
-            //Changed to bold and font 40 to 46
-            p->setFont(QFont("Asap", 46, QFont::Bold));
-            float val{ round(distance * 100.f) / 100.f };
-            //Changed to 1 decimal
-            QString rangeText = QString::number(val, 'f', (val == static_cast<int>(val)) ? 0 : 1) + QObject::tr(" m");
-            p->drawText(imageWidth / 2 - rangeText.count() * 32, imageHeight - 15, rangeText);
-            //qDebug("TAV: Plot2DGrid wrote distance to screen: %f", distance);
-        }
-    }
-    */
 
 
     return true;
@@ -278,6 +287,39 @@ void Plot2DGrid::setMeasuresMetric(bool metric)
 void Plot2DGrid::setGridHorizontal(bool horizontal)
 {
     isHorizontal_ = horizontal;
+}
+
+std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer)
+{
+    const float conversionFactor = isMetric ? 1.0f : 3.28084f;
+    const int maxDepthDisplay = static_cast<int>(std::ceil(maxDepth * conversionFactor));
+
+    std::vector<int> bestTicks;
+    int maxLines = 5;
+    for (int step = 1; step <= maxDepthDisplay; ++step) {
+        std::vector<int> ticks;
+        for (int val = step; val < maxDepthDisplay; val += step) {
+            ticks.push_back(val);
+        }
+
+        int tickCount = static_cast<int>(ticks.size());
+        if (tickCount >= 1 && tickCount <= (maxLines - 1)) {
+            if (tickCount > static_cast<int>(bestTicks.size())) {
+                bestTicks = ticks;
+            }
+        }
+    }
+
+    if (!is2DTransducer) {
+        std::vector<int> mirroredTicks;
+        for (auto it = bestTicks.rbegin(); it != bestTicks.rend(); ++it) {
+            mirroredTicks.push_back(-(*it));
+        }
+        mirroredTicks.insert(mirroredTicks.end(), bestTicks.begin(), bestTicks.end());
+        return mirroredTicks;
+    }
+
+    return bestTicks;
 }
 
 

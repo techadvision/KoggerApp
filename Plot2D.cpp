@@ -26,17 +26,16 @@ Plot2D::Plot2D()
 }
 
 bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizontal) {
+    painter->save();
     if(is_horizontal) {
         if (g_pulseRuntimeSettings && g_pulseRuntimeSettings) {
             bool isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
             bool isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
             bool flipImage = isSideScanOnLeftHandSide && isSideScan2DView;
-
             double echogramSpeed = g_pulseRuntimeSettings->property("echogramSpeed").toDouble();
-            //qDebug() << "g_pulseRuntimeSettings valid, echogramSpeed " << echogramSpeed;
+
             if (echogramSpeed > 1 && !flipImage) {
-                //qDebug() << "echogramSpeed > 1, making adjustments ";
-                painter->save();
+                //painter->save();
                 painter->translate(width, 0);
                 painter->scale(echogramSpeed, 1.0);
                 painter->translate(-width, 0);
@@ -77,6 +76,8 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
     _aim.draw(_canvas, _dataset, _cursor);
 
     contacts_.draw(_canvas, _dataset, _cursor);
+
+    painter->restore();
 
     return true;
 }
@@ -392,6 +393,13 @@ void Plot2D::zoomDistance(float ratio) {
         new_range = 1;
     } else if(new_range > 500) {
         new_range = 500;
+    }
+
+    if (g_pulseRuntimeSettings) {
+        int maximumTransducerRange = g_pulseRuntimeSettings->property("maximumDepth").toInt();
+        if ((_cursor.distance.from + new_range) > maximumTransducerRange) {
+            new_range = maximumTransducerRange;
+        }
     }
 
 
