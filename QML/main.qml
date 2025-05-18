@@ -88,7 +88,7 @@ ApplicationWindow  {
     Connections {
         target: core
         function onSendIsFileOpening() {
-            console.log("TAV main onSendIsFileOpening");
+            //console.log("TAV main onSendIsFileOpening");
             pulseRuntimeSettings.isOpeningKlfFile = true
         }
     }
@@ -123,7 +123,7 @@ ApplicationWindow  {
     function showLostConnection () {
 
         if (pulseRuntimeSettings.isOpeningKlfFile) {
-            console.log("TAV: showLostConnection, please do not when viewing a file");
+            //console.log("TAV: showLostConnection, please do not when viewing a file");
             return
         }
 
@@ -131,11 +131,11 @@ ApplicationWindow  {
             var component = Qt.createComponent("LostConnectionOverlay.qml")
             lostConnectionAlert = component.createObject( mainview, {"x": 0, "y": 0 } )
             if (lostConnectionAlert !== null) {
-                lostConnectionAlert.anchors.centerIn = echoSounderSelector
+                lostConnectionAlert.anchors.centerIn = echoSounderSelectorRect
                 //pulseRuntimeSettings.devName = "..."
-                console.log("TAV: showLostConnection, showing the alert");
+                //console.log("TAV: showLostConnection, showing the alert");
             } else {
-                console.log("TAV: showLostConnection is null, cannot show the alert");
+                //console.log("TAV: showLostConnection is null, cannot show the alert");
             }
         }
 
@@ -146,9 +146,9 @@ ApplicationWindow  {
         if (lostConnectionAlert !== null) {
             lostConnectionAlert.destroy()
             lostConnectionAlert = null
-            console.log("TAV: showLostConnection, removed the alert");
+            //console.log("TAV: showLostConnection, removed the alert");
         } else {
-            console.log("TAV: showLostConnection is null, cannot remove the alert or it was not there at all");
+            //console.log("TAV: showLostConnection is null, cannot remove the alert or it was not there at all");
         }
     }
 
@@ -962,11 +962,64 @@ ApplicationWindow  {
 
     }
 
+    // Echogram speed change indication
+
+    Rectangle {
+        id: zoomIndicator
+        // start hidden
+        visible: false
+
+        // position in the top-center with a bit of margin
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: 20
+
+        // styling: semi-transparent black, rounded corners
+        color: "#80000000"
+        //opacity: 0.6
+        radius: 8
+
+        // padding around the text
+        property int contentMargin: 12
+
+        // size to fit the text + padding
+        implicitWidth: zoomText.width + contentMargin*2
+        implicitHeight: zoomText.height + contentMargin*2
+
+        // the actual label
+        Text {
+            id: zoomText
+            text: "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
+            font.pixelSize: 40
+            color: "white"
+            anchors.centerIn: parent
+        }
+
+        // timer to hide 1 s after last speed change
+        Timer {
+            id: hideTimer
+            interval: 1500
+            repeat: false
+            onTriggered: zoomIndicator.visible = false
+        }
+
+        // whenever the speed changes, update text, show, and restart timer
+        Connections {
+            target: pulseRuntimeSettings
+            function onEchogramSpeedChanged () {
+                zoomText.text = "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
+                zoomIndicator.visible = true
+                hideTimer.restart()
+            }
+        }
+    }
+
+
 
 
     // echosounder selector Screen
     Rectangle {
-        id: echoSounderSelector
+        id: echoSounderSelectorRect
         width: 1000
         height: 350
         anchors.centerIn: parent
@@ -980,32 +1033,42 @@ ApplicationWindow  {
             target: pulseRuntimeSettings
             function onDevManualSelectedChanged() {
                 if (pulseRuntimeSettings.devManualSelected) {
-                    //echoSounderSelector.selectedDevice = pulseRuntimeSettings.devName
-                    //echoSounderSelector.selectionMade = true
-                    //console.log("TAV: echoSounderSelector onTransduceDetected true, model", echoSounderSelector.selectedDevice);
-
                     mainview.windowShadow = false
                 } else {
-                    console.log("TAV: echoSounderSelector onDevManualSelectedChanged false, skip");
+                    //console.log("TAV: echoSounderSelector onDevManualSelectedChanged false, skip");
                 }
             }
             function onDevConfiguredChanged() {
-                echoSounderSelector.selectedDevice = pulseRuntimeSettings.devName
-                echoSounderSelector.selectionMade = true
+                echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.devName
+                echoSounderSelectorRect.selectionMade = true
                 mainview.windowShadow = false
             }
             function onHasDeviceLostConnectionChanged() {
                 if (pulseRuntimeSettings.didEverReceiveData) {
-                    console.log("TAV: hasDeviceLostConnection");
+                    //console.log("TAV: hasDeviceLostConnection");
                     if (pulseRuntimeSettings.hasDeviceLostConnection) {
-                        console.log("TAV: hasDeviceLostConnection, show alert");
+                        //console.log("TAV: hasDeviceLostConnection, show alert");
                         showLostConnection()
                     } else {
-                        console.log("TAV: hasDeviceLostConnection, remove alert");
+                        //console.log("TAV: hasDeviceLostConnection, remove alert");
                         removeLostConnection()
                         pulseRuntimeSettings.hasDeviceLostConnection = false
                     }
                 }
+            }
+            function onNumberOfDatasetChannelsChanged () {
+                let detectedModel = "";
+                if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {
+                    detectedModel = pulseRuntimeSettings.modelPulseRed
+                } else {
+                    detectedModel = pulseRuntimeSettings.modelPulseBlue
+                }
+                pulseRuntimeSettings.userManualSetName = detectedModel
+                //pulseRuntimeSettings.devName = detectedModel
+                //PulseSettings.devName = detectedModel
+                echoSounderSelectorRect.selectedDevice = detectedModel
+                echoSounderSelectorRect.selectionMade = true
+                pulseRuntimeSettings.devManualSelected = true
             }
         }
 
@@ -1016,22 +1079,37 @@ ApplicationWindow  {
                 if (lostConnectionAlert !== null && pulseRuntimeSettings.hasDeviceLostConnection) {
                     pulseRuntimeSettings.hasDeviceLostConnection = false
                     pulseRuntimeSettings.isReceivingData = true
-                    console.log("TAV: got data update when hasDeviceLostConnection, remove alert");
+                    //console.log("TAV: got data update when hasDeviceLostConnection, remove alert");
                     removeLostConnection()
                 }
             }
         }
 
 
-        Row {
-            id: rowContainer
-            anchors.centerIn: echoSounderSelector
-            spacing: 100
+        Item {
+            id: freeContainer
+            width: 1000; height: 350
+            anchors.centerIn: parent
+            property int spacing: 100
+            property int center: 550
+            //anchors.centerIn: echoSounderSelectorRect
+            //anchors.centerIn: parent
+            //spacing: 100
 
             EchoSounderSelector {
                 id: pulseRedSelector
-                Layout.preferredWidth: 440
-                Layout.preferredHeight: parent.height
+                //Layout.preferredWidth: 440
+                //Layout.preferredHeight: parent.height
+                width: 440
+                height: parent.height
+                // center in the container…
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                // initial left-of-center …
+                //x:  -1 * center
+                //x: (freeContainer.width / 2) - width - (spacing / 2)
+                //z: 1
+                //y: 0
                 backgroundColor: "#ffe0e0"   // light red background
                 title: "pulseRed"
                 titleColor: "red"
@@ -1042,11 +1120,11 @@ ApplicationWindow  {
                 // When the user selects this item, record the selection.
                 onSelected: {
                     pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseRed
-                    pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseRed
-                    PulseSettings.devName = pulseRuntimeSettings.modelPulseRed
+                    //pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseRed
+                    //PulseSettings.devName = pulseRuntimeSettings.modelPulseRed
                     //PulseSettings.userManualSetName = PulseSettings.devName
-                    echoSounderSelector.selectedDevice = pulseRuntimeSettings.modelPulseRed
-                    echoSounderSelector.selectionMade = true
+                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseRed
+                    echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
 
                     //mainview.windowShadow = false
@@ -1055,8 +1133,16 @@ ApplicationWindow  {
 
             EchoSounderSelector {
                 id: pulseBlueSelector
-                Layout.preferredWidth: 440
-                Layout.preferredHeight: parent.height
+                //Layout.preferredWidth: 440
+                //Layout.preferredHeight: parent.height
+                width: 440
+                height: parent.height
+                // initial right-of-center …
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.right: parent.right
+                //x: center
+                //x: 500 + (freeContainer.width / 2) + (spacing / 2)
+                //y: 0
                 backgroundColor: "#e0e0ff"   // light blue background
                 title: "pulseBlue"
                 titleColor: "blue"
@@ -1066,11 +1152,11 @@ ApplicationWindow  {
                 version: "v1.0"
                 onSelected: {
                     pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseBlue
-                    pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseBlue
-                    PulseSettings.devName = pulseRuntimeSettings.modelPulseBlue
+                    //pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseBlue
+                    //PulseSettings.devName = pulseRuntimeSettings.modelPulseBlue
                     //PulseSettings.userManualSetName = PulseSettings.devName
-                    echoSounderSelector.selectedDevice = pulseRuntimeSettings.modelPulseBlue
-                    echoSounderSelector.selectionMade = true
+                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseBlue
+                    echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
 
                     //mainview.windowShadow = false
@@ -1083,24 +1169,26 @@ ApplicationWindow  {
         states: [
             State {
                 name: "selectedRed"
-                when: echoSounderSelector.selectionMade && echoSounderSelector.selectedDevice === pulseRuntimeSettings.modelPulseRed
+                when: echoSounderSelectorRect.selectionMade && echoSounderSelectorRect.selectedDevice === pulseRuntimeSettings.modelPulseRed
                 // Hide the blue selector.
                 PropertyChanges { target: pulseBlueSelector; visible: false }
                 // Re-anchor pulseRedSelector to the center.
                 PropertyChanges {
                     target: pulseRedSelector
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
+                    // center it exactly
+                    x: (freeContainer.width - pulseRedSelector.width)/2
+                    y: (freeContainer.height - pulseRedSelector.height)/2
                 }
             },
             State {
                 name: "selectedBlue"
-                when: echoSounderSelector.selectionMade && echoSounderSelector.selectedDevice === pulseRuntimeSettings.modelPulseBlue
+                when: echoSounderSelectorRect.selectionMade && echoSounderSelectorRect.selectedDevice === pulseRuntimeSettings.modelPulseBlue
                 PropertyChanges { target: pulseRedSelector; visible: false }
                 PropertyChanges {
                     target: pulseBlueSelector
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
+                    // center it exactly
+                    x: (freeContainer.width - pulseRedSelector.width)/2
+                    y: (freeContainer.height - pulseRedSelector.height)/2
                 }
             }
         ]
@@ -1132,7 +1220,7 @@ ApplicationWindow  {
         // After the glow effect, fade out the entire container.
         SequentialAnimation on opacity {
             // Start when a selection has been made.
-            running: echoSounderSelector.selectionMade
+            running: echoSounderSelectorRect.selectionMade
             // Wait for the glow animation to complete.
             PauseAnimation { duration: 2000 }
             NumberAnimation { from: 1; to: 0; duration: 1000 }
@@ -1140,32 +1228,13 @@ ApplicationWindow  {
             ScriptAction {
                 script: {
                     //echoSounderSelector.visible = false;
-                    pulseRuntimeSettings.devManualSelected = true;
-                    echoSounderSelector.visible = false;
+                    //pulseRuntimeSettings.devManualSelected = true;
+                    pulseRedSelector.visible = false;
+                    pulseBlueSelector.visible = false;
+                    echoSounderSelectorRect.visible = false;
                 }
             }
         }
     }
-
-    /*
-    Rectangle {
-        id: logo
-        anchors.horizontalCenter: echoSounderSelector.horizontalCenter
-        anchors.top: echoSounderSelector.bottom
-        anchors.topMargin: 100
-        width: 840
-        height: 101
-        color: "transparent"
-        visible: !pulseRuntimeSettings.devManualSelected || !pulseRuntimeSettings.appConfigured
-
-        Image {
-            id: logoImage
-            anchors.fill: parent
-            source: "./image/logo_techadvision_gray_large.png"
-            fillMode: Image.PreserveAspectFit
-            //opacity: 0.2
-        }
-    }
-    */
 
 }

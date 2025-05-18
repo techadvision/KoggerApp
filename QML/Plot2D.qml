@@ -14,6 +14,7 @@ WaterFall {
     property int topMarginExpertMode: 0
     property real quickChangeMaxRangeValue: 15
     signal echogramWasZoomed(real updatedMaxValue)
+    property bool isLiveView: true
 
     function setLevels(low, high) {
         echogramLevelsSlider.startValue = low
@@ -21,6 +22,103 @@ WaterFall {
         echogramLevelsSlider.startPointY = echogramLevelsSlider.valueToPosition(low);
         echogramLevelsSlider.stopPointY = echogramLevelsSlider.valueToPosition(high);
         echogramLevelsSlider.update()
+    }
+
+    Connections {
+        target: plot
+        onTimelinePositionChanged: {
+
+            // compute the new boolean
+            var nowLive = plot.timelinePosition >= 0.999
+
+            // only update (and log) when it actually flips
+            if (nowLive !== plot.isLiveView) {
+                plot.isLiveView = nowLive
+                console.log("TAV: horizontal live-view is now", plot.isLiveView,
+                            "timeline position", plot.timelinePosition)
+                if (!pulseRuntimeSettings.isOpeningKlfFile) {
+                    oldDataIndicator.visible = true
+                    oldDataWarningRemovalTimer.restart()
+                }
+            }
+            if (nowLive && oldDataIndicator.visible === true) {
+                oldDataWarningRemovalTimer.stop()
+                oldDataIndicator.visible = false
+            }
+
+        }
+    }
+
+    Timer {
+        id: oldDataWarningRemovalTimer
+        interval: 5000
+        repeat: false
+        onTriggered: {
+            oldDataIndicator.visible = false
+            plot.timelinePosition = 1
+        }
+    }
+
+    Rectangle {
+        id: oldDataIndicator
+        // start hidden
+        visible: false
+        anchors.top: parent.top
+        anchors.topMargin: 20
+        anchors.right: parent.right
+        anchors.rightMargin: 20
+
+        // styling: semi-transparent black, rounded corners
+        color: "#80000000"
+        //opacity: 0.6
+        radius: 8
+
+        // padding around the text
+        property int contentMargin: 12
+
+        // size to fit the text + padding
+        implicitWidth: oldDataText.width + contentMargin*2
+        implicitHeight: oldDataText.height + contentMargin*2
+
+        // the actual label
+        Text {
+            id: oldDataText
+            text: "Old data"
+            font.pixelSize: 40
+            color: "white"
+            anchors.centerIn: parent
+        }
+    }
+
+    Rectangle {
+        id: configurationInProgressIndicator
+        // start hidden
+        visible: !pulseRuntimeSettings.devConfigured
+        anchors.top: parent.top
+        anchors.topMargin: 20
+        anchors.left: parent.left
+        anchors.leftMargin: 20
+
+        // styling: semi-transparent black, rounded corners
+        color: "#80000000"
+        //opacity: 0.6
+        radius: 8
+
+        // padding around the text
+        property int contentMargin: 12
+
+        // size to fit the text + padding
+        implicitWidth: configurationInProgressText.width + contentMargin*2
+        implicitHeight: configurationInProgressText.height + contentMargin*2
+
+        // the actual label
+        Text {
+            id: configurationInProgressText
+            text: "Verifying transducer..."
+            font.pixelSize: 40
+            color: "white"
+            anchors.centerIn: parent
+        }
     }
 
     PinchArea {
@@ -35,30 +133,23 @@ WaterFall {
         property bool movementX: false
         property bool movementY: false
         property bool zoomY: false
+        property bool zoomX: false
         property point pinchStartPos: Qt.point(-1, -1)
+        property double oldSpeed: pulseRuntimeSettings.echogramSpeed
 
-
+        // true until the user scrolls/pinches *away* from the live edge:
+        property bool isLiveView: true
 
         function clearPinchMovementState() {
             movementX = false
             movementY = false
             zoomY = false
+            zoomX = false
+            oldSpeed = pulseRuntimeSettings.echogramSpeed
         }
-
-        /*
-        Timer {
-            id: zoomToDistanceUpdater
-            interval: 200
-            repeat: false
-            onTriggered: {
-                console.log("TAV: zoomToDistanceUpdater, new max is: ", plot.getMaxDepth());
-            }
-        }
-        */
-
 
         onPinchStarted: {
-            console.log("TAV: onPinchStarted");
+            //console.log("TAV: onPinchStarted");
             menuBlock.visible = false
 
             mousearea.enabled = false
@@ -66,54 +157,107 @@ WaterFall {
 
             clearPinchMovementState()
             pinchStartPos = Qt.point(pinch.center.x, pinch.center.y)
+
+            // get the two fingers’ starting positions
+            var p1 = pinch.startPoint1
+            var p2 = pinch.startPoint2
+            var dx = p2.x - p1.x
+            var dy = p2.y - p1.y
+
+            // dead-zone multiplier: require ~30% more dispersion in one axis
+            if (Math.abs(dx) > Math.abs(dy) * 1.3) {
+                zoomX = true       // fingers are laid out more horizontally
+            } else if (Math.abs(dy) > Math.abs(dx) * 1.3) {
+                zoomY = true       // fingers are stacked more vertically
+            } else {
+                // ambiguous (near diagonal) → fall back to vertical zoom
+                zoomY = true
+            }
         }
 
         onPinchUpdated: {
 
             if (movementX) {
                 plot.horScrollEvent(-(pinch.previousCenter.x - pinch.center.x))
+                console.log("Someone scrolled me X ways")
             }
+
             else if (movementY) {
                 plot.verScrollEvent(pinch.previousCenter.y - pinch.center.y)
+                console.log("Someone scrolled me Y ways")
             }
-            else if (zoomY) {
-                console.log("TAV: onPinchUpdated, view is horizontal: ", plot.isViewHorizontal());
-                if (plot.isViewHorizontal()) {
-                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
-                } else {
-                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*500.0)
-                }
 
-                //plot.verZoomEvent((pinch.previousScale - pinch.scale)*500.0)
-                let newMaxDepthValue = plot.getMaxDepth()
-                if (newMaxDepthValue !== plot.quickChangeMaxRangeValue) {
-                    plot.quickChangeMaxRangeValue = newMaxDepthValue
-                    selectorMaxDepth.value = newMaxDepthValue
-                    console.log("TAV: onPinchUpdated, new max is: ", plot.quickChangeMaxRangeValue);
-                    plot.echogramWasZoomed(plot.quickChangeMaxRangeValue)
-                }
-            }
-            else {
+            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                    ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto)
+                return
+
+            if (!movementX && !movementY && !zoomX && !zoomY) {
                 if (Math.abs(pinchStartPos.x - pinch.center.x) > thresholdXAxis) {
                     movementX = true
                 }
                 else if (Math.abs(pinchStartPos.y - pinch.center.y) > thresholdYAxis) {
                     movementY = true
                 }
-                else if (pinch.scale > (1.0 + zoomThreshold) || pinch.scale < (1.0 - zoomThreshold)) {
-                    zoomY = true
+                // pinch.scale is uniform but we can infer axis by center movement
+                else if (pinch.scale > 1.0 + zoomThreshold || pinch.scale < 1.0 - zoomThreshold) {
+                    var dx = Math.abs(pinch.center.x - pinchStartPos.x)
+                    var dy = Math.abs(pinch.center.y - pinchStartPos.y)
+                    /*
+                    if (dx > dy) {
+                        zoomX = true
+                    } else {
+                        zoomY = true
+                    }
+                    */
+                }
+            }
+
+            else if (zoomY) {
+                //console.log("TAV: onPinchUpdated, view is horizontal: ", plot.isViewHorizontal());
+                if (plot.isViewHorizontal()) {
+                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
+                } else {
+                    //plot.verZoomEvent((pinch.previousScale - pinch.scale)*500.0)
+                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
+                }
+
+                let newMaxDepthValue = plot.getMaxDepth()
+
+                plot.quickChangeMaxRangeValue = newMaxDepthValue
+                selectorMaxDepth.value = newMaxDepthValue
+                //console.log("TAV: onPinchUpdated, new max is: ", plot.quickChangeMaxRangeValue);
+                plot.echogramWasZoomed(plot.quickChangeMaxRangeValue)
+            }
+
+            else if  (zoomX) {
+                if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseBlue
+                        && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseBlueProto) {
+                    // 1) compute horizontal “ratio”
+                    var hRatio = (pinch.scale - pinch.previousScale) * 50;
+                    // 2) fraction of the 4-unit speed range
+                    var deltaS = (hRatio * 0.01) * (5.0 - 1.0);
+                    // 3) apply, clamp, round
+                    var raw     = pulseRuntimeSettings.echogramSpeed + deltaS;
+                    var clamped = Math.min(5.0, Math.max(1.0, raw));
+                    var rounded = Math.round(clamped * 10) / 10;
+
+                    // 4) only write (and thus emit) if it really changed
+                    if (rounded !== pulseRuntimeSettings.echogramSpeed) {
+                        pulseRuntimeSettings.echogramSpeed = rounded;
+                        //console.log("TAV: zoomX → echogramSpeed changed to", rounded);
+                    }
                 }
             }
         }       
 
         onPinchFinished: {
-            console.log("TAV: onPinchFinished");
+            //console.log("TAV: onPinchFinished");
             mousearea.enabled = true
             plot.plotMousePosition(-1, -1)
 
             clearPinchMovementState()
             pinchStartPos = Qt.point(-1, -1)
-            //zoomToDistanceUpdater.stop
+
         }
 
 
@@ -172,7 +316,7 @@ WaterFall {
             */
 
             onPressed: {
-                console.log("TAV: mouse - onPressed");
+                //console.log("TAV: mouse - onPressed");
                 lastMouseX = mouse.x
                 lastMouseY = mouse.y
 
@@ -199,7 +343,7 @@ WaterFall {
             }
 
             onReleased: {
-                console.log("TAV: mouse - onReleased");
+                //console.log("TAV: mouse - onReleased");
                 lastMouseX = -1
                 lastMouseY = -1
 
@@ -226,7 +370,7 @@ WaterFall {
             }
 
             onCanceled: {
-                console.log("TAV: mouse - onCanceled");
+                //console.log("TAV: mouse - onCanceled");
                 lastMouseX = -1
                 lastMouseY = -1
 
@@ -267,10 +411,14 @@ WaterFall {
                     if (true) {
                         if (plot.isViewHorizontal()) {
                             plot.horScrollEvent(delta)
-                            //console.log("TAV: mouse - horScrollEvent", delta);
+                            if (oldDataIndicator.visible) {
+                                oldDataWarningRemovalTimer.restart()
+                            }
                         } else {
                             plot.horScrollEvent(deltaY)
-                            //console.log("TAV: mouse - verScrollEvent", deltaY);
+                            if (oldDataIndicator.visible) {
+                                oldDataWarningRemovalTimer.restart()
+                            }
                         }
                         //plot.horScrollEvent(delta)
                     }
@@ -346,36 +494,40 @@ WaterFall {
         //anchors.bottomMargin: 20
 
         function isDevice2DTransducer () {
-            console.log("TAV isDevice2DTransducer userManualSetName ===", pulseRuntimeSettings.userManualSetName)
+            //console.log("TAV isDevice2DTransducer userManualSetName ===", pulseRuntimeSettings.userManualSetName)
             if (pulseRuntimeSettings.userManualSetName !== "...") {
                 //Manually selected model
                 //console.log("TAV isDevice2DTransducer determined by manual selection");
-                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                        || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
                     //console.log("TAV isDevice2DTransducer selected modelPulseRed");
                     showAs2DTransducer = true
                 }
-                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                        ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
                     //console.log("TAV isDevice2DTransducer selected modelPulseBlue");
                     showAs2DTransducer = false
                 }
             } else {
                 //Detected model
-                console.log("TAV isDevice2DTransducer determined by automatic detection");
-                if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed) {
-                    console.log("TAV isDevice2DTransducer found modelPulseRed");
+                //console.log("TAV isDevice2DTransducer determined by automatic detection");
+                if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed
+                        || pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto) {
+                    //console.log("TAV isDevice2DTransducer found modelPulseRed");
                     showAs2DTransducer = true
                 }
-                if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue) {
-                    console.log("TAV isDevice2DTransducer found modelPulseBlue");
+                if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue
+                        ||pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlueProto) {
+                    //console.log("TAV isDevice2DTransducer found modelPulseBlue");
                     showAs2DTransducer = false
                 }
             }
-            console.log("TAV isDevice2DTransducer determined to be", showAs2DTransducer);
+            //console.log("TAV isDevice2DTransducer determined to be", showAs2DTransducer);
         }
 
         function reArrangeQuickChangeObject () {
 
-            console.log("TAV reArrangeQuickChangeObject ran, and isViewHorizontal is :", plot.isViewHorizontal());
+            //console.log("TAV reArrangeQuickChangeObject ran, and isViewHorizontal is :", plot.isViewHorizontal());
             isDevice2DTransducer()
 
             if (showAs2DTransducer) {
@@ -388,18 +540,6 @@ WaterFall {
                 }
             }
 
-            //Set interface
-
-            //quickChangeObjects.anchors.left = parent.left
-            //quickChangeObjects.anchors.leftMargin = 20
-
-            /*
-            if (showAs2DTransducer || (!showAs2DTransducer && PulseSettings.ecoViewIndex === 0)) {
-                plot.setGridHorizontalNow(true)
-            } else {
-                plot.setGridHorizontalNow(false)
-            }
-            */
         }
 
         function pulsePlotPresets () {
@@ -419,8 +559,8 @@ WaterFall {
             //plot.plotBottomTrackTheme(1)       // model: [qsTr("Line1"), qsTr("Line2"), qsTr("Dot1"), qsTr("Dot2"), qsTr("DotLine")] values 0-3
 
             // RANGE FINDER - Will paint a bottom tracking line, text or dot
-            plot.plotRangefinderVisible(false)
-            //plot.plotRangefinderTheme(1)        model: [qsTr("Text"), qsTr("Line"), qsTr("Dot")], values 0-2
+            plot.plotRangefinderVisible(true)
+            plot.plotRangefinderTheme(0)         // model: [qsTr("Text"), qsTr("Line"), qsTr("Dot")], values 0-2
 
             // ATTITUDE - Think this we do not want to use
             plot.plotAttitudeVisible(false)
@@ -459,101 +599,38 @@ WaterFall {
             Unclear how this is implemented!!!
             */
 
-            console.log("TAV pulsePlotPresets ran");
+            //console.log("TAV pulsePlotPresets ran");
 
         }
 
         function pulseBottomTrackingProcessingPresets () {
 
-            /* -- PULSE: DEFAULT BOTTOM TRACKING SETTINGS AT STARTUP -- */
-
-            // PRESET
-            // plot.setPreset(0)             //Preset: 0:Normal 2D, 1:Narrow 2D, 2: Side-Scan
-
-
-            /* -- NOTE: Remaining settings not to be altered separately but as shown in DisplaySettings.qml "updateProcessing() -- */
-
-            //gainSlope: false, value (1.00, 0-300, steps 10)
-            /*
-            if (false) {
-                plot.setGainSlope(0.00 / 100)
-            }
-            */
-
-            //Threshold: false, value (0.00)
-            /*
-            if (false) {
-                plot.setThreshold(0.00 / 100)
-            }
-            */
-
-            //Horizontal Window: false, value (1-100)
-            /*
-            if (false) {
-                plot.setWindowSize(1)
-            }
-            */
-
-            //Vertical Gap, %: value (10)
-            //plot.setVerticalGap(10 * 0.01)
-
-            //Min range, m: true, 0.00
-            //plot.setRangeMin (0 / 1000)
-            //Max range, m: true, 100.00
-            //plot.setRangeMax (100.0 / 1000)
-
-            //Sonar offset XYZ, mm: value, value, value
-            //plot.setOffsetX(50 * 0.001)
-            //plot.setOffsetY(50 * 0.001)
-            //plot.setOffsetZ(50 * 0.001)
-
-            console.log("TAV pulseBottomTrackingProcessingPresets ran");
         }
 
         function setUserInterface () {
-            console.log("TAV function setUserInterface, pulseRuntimeSettings.devName =", pulseRuntimeSettings.devName);
+            //console.log("TAV function setUserInterface, pulseRuntimeSettings.devName =", pulseRuntimeSettings.devName);
 
             isDevice2DTransducer()
-            /*
-            if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed) {
-                showAs2DTransducer = true
-            }
-            if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue) {
-                showAs2DTransducer = false
-            }
-            if (pulseRuntimeSettings.devName === "...") {
-                if (PulseSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                    showAs2DTransducer = true
-                } else {
-                    showAs2DTransducer = false
-                }
-                console.log("TAV deviceName is ..., but userManualSetName", PulseSettings.userManualSetName);
-            }
-            */
 
-
-            console.log("TAV setUserInterface showAs2DTransducer =", showAs2DTransducer);
-            //console.log("TAV function setUserInterface,compare to", pulseRuntimeSettings.modelPulseRed);
-            //if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed) {
             if (showAs2DTransducer) {
-                console.log("TAV: setUserInterface horizontal - pulseRed");
+                //console.log("TAV: setUserInterface horizontal - pulseRed");
                 plot.setHorizontalNow()
                 plot.setGridHorizontalNow(true)
                 plot.plotDistanceRange2d(PulseSettings.maxDepthValue * 1.0)
-                console.log("TAV: setUserInterface horizontal - pulseRed - done");
+                //console.log("TAV: setUserInterface horizontal - pulseRed - done");
             } else {
                 if (PulseSettings.ecoViewIndex === 1) {
-                    console.log("TAV: setUserInterface vertical - pulseBlue viewIndex 1");
+                    //console.log("TAV: setUserInterface vertical - pulseBlue viewIndex 1");
                     plot.setVerticalNow()
                     plot.setGridHorizontalNow(false)
                     plot.plotDistanceRange(PulseSettings.maxDepthValue * 1.0)
-                    console.log("TAV: setUserInterface vertical - pulseBlue viewIndex 1 - done");
+                    //console.log("TAV: setUserInterface vertical - pulseBlue viewIndex 1 - done");
                 } else {
-                    console.log("TAV: setUserInterface horizontal - pulseBlue viewIndex 0");
+                    //console.log("TAV: setUserInterface horizontal - pulseBlue viewIndex 0");
                     plot.setHorizontalNow()
                     plot.setGridHorizontalNow(true)
                     plot.plotDistanceRange2d(PulseSettings.maxDepthValue * 1.0)
-                    console.log("TAV: setUserInterface horizontal - pulseBlue viewIndex 0 - done");
+                    //console.log("TAV: setUserInterface horizontal - pulseBlue viewIndex 0 - done");
                 }
             }
             /*
@@ -570,18 +647,38 @@ WaterFall {
         }
 
         function getFilterForDepth (depth) {
-            var autoFilter = pulseRuntimeSettings.autoFilterPulseRed;
+            //var autoFilter = pulseRuntimeSettings.autoFilterPulseRed;
+
+            if (PulseSettings.ecoConeIndex === 0) {
+                var autoFilterWide = pulseRuntimeSettings.autoFilterPulseRedWide;
+                for (var i = 0; i < autoFilterWide.length; i++) {
+                    if (depth >= autoFilterWide[i].min && depth < autoFilterWide[i].max) {
+                        return autoFilterWide[i].filter;
+                    }
+                }
+            } else {
+                var autoFilterNarrow = pulseRuntimeSettings.autoFilterPulseRedNarrow;
+                for (var y = 0; y < autoFilterNarrow.length; y++) {
+                    if (depth >= autoFilterNarrow[y].min && depth < autoFilterNarrow[y].max) {
+                        return autoFilterNarrow[y].filter;
+                    }
+                }
+            }
+
+            /*
             for (var i = 0; i < autoFilter.length; i++) {
                 if (depth >= autoFilter[i].min && depth < autoFilter[i].max) {
                     return autoFilter[i].filter;
                 }
             }
+            */
             return 0;
         }
 
         function doAutoFilter() {
-            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
-                console.log("TAV: auto filter not be set for pulseBlue")
+            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                    || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
+                //console.log("TAV: auto filter not be set for pulseBlue")
                 return
             }
 
@@ -592,29 +689,24 @@ WaterFall {
                 filter = Math.ceil(filter * 2.5)
                 plot.setFilteringValue(filter)
                 plot.updatePlot()
-                console.log("TAV: auto filter updated plot to real newFilterValue", filter);
-                /*
-                let newFilterValue = 0
-                if (currentMaxDept >= 8) {
-                    newFilterValue = 13
-                }
-                if (currentMaxDept >= 5 && currentMaxDept < 8) {
-                    newFilterValue = 25
-                }
-                if (currentMaxDept < 5) {
-                    newFilterValue = 33
-                }
-                plot.setFilteringValue(newFilterValue)
-                plot.updatePlot()
-                console.log("TAV: auto filter updated plot to real newFilterValue", newFilterValue);
-                */
+                //console.log("TAV: auto filter updated plot to real newFilterValue", filter);
+
             } else {
-                console.log("TAV: auto filter not active");
+                //console.log("TAV: auto filter not active");
+            }
+        }
+
+        Connections {
+            target: PulseSettings
+            function onEcoConeIndexChanged () {
+                if (PulseSettings.autoFilter) {
+                    doAutoFilter()
+                }
             }
         }
 
         Component.onCompleted: {
-            console.log("TAV Plot2D onCompleted, do nothing");
+            //console.log("TAV Plot2D onCompleted, do nothing");
             quickChangeObjects.reArrangeQuickChangeObject
             myConnectionTimer.start()
         }
@@ -630,7 +722,7 @@ WaterFall {
         Connections {
             target: pulseRuntimeSettings
             function onDevDetectedChanged() {
-                console.log("TAV: onDevDetectedChanged:", pulseRuntimeSettings.devDetected);
+                //console.log("TAV: onDevDetectedChanged:", pulseRuntimeSettings.devDetected);
                 quickChangeObjects.isDeviceDetected = pulseRuntimeSettings.devDetected
             }
 
@@ -657,51 +749,42 @@ WaterFall {
             }
 
             function onDevManualSelectedChanged() {
-                console.log("TAV: onDevManualSelectedChanged detected");
+                //console.log("TAV: onDevManualSelectedChanged detected");
                 if (pulseRuntimeSettings.devManualSelected) {
-                    console.log("TAV: devManualSelected true, is this a 2D transducer?", pulseRuntimeSettings.is2DTransducer);
-                    let newFrequency = pulseRuntimeSettings.transFreq
                     quickChangeObjects.isDeviceDetected = true
-                    if (pulseRuntimeSettings.is2DTransducer) {
-                        if (PulseSettings.ecoConeIndex === 0) {
-                            newFrequency = pulseRuntimeSettings.transFreqWide
-                        } else {
-                            newFrequency = pulseRuntimeSettings.transFreqNarrow
-                        }
-                        console.log("TAV: Preferred echosounder 2D cone:", pulseRuntimeSettings.transFreq);
-                    }
-                    pulseRuntimeSettings.transFreq = newFrequency
+                    //console.log("TAV: devManualSelected true, is this a 2D transducer?", pulseRuntimeSettings.is2DTransducer);
+
                     quickChangeObjects.setUserInterface();
                 } else {
-                    console.log("TAV: devManualSelected false, skip");
+                    //console.log("TAV: devManualSelected false, skip");
                 }
             }
 
             function onExpertModeChanged() {
-                console.log("TAV: onExpertModeChanged detected");
+                //console.log("TAV: onExpertModeChanged detected");
                 if (pulseRuntimeSettings.expertMode) {
-                    console.log("TAV: onExpertModeChanged true, change the UI");
+                    //console.log("TAV: onExpertModeChanged true, change the UI");
                     plot.topMarginExpertMode = 100;
                     quickChangeObjects.setUserInterface();
                 } else {
                     plot.topMarginExpertMode = 0;
                     quickChangeObjects.setUserInterface();
-                    console.log("TAV: onExpertModeChanged false, skip");
+                    //console.log("TAV: onExpertModeChanged false, skip");
                 }
             }
 
             function onAppConfiguredChanged () {
-                console.log("TAV: onAppConfiguredChanged detected");
+                //console.log("TAV: onAppConfiguredChanged detected");
                 quickChangeObjects.setUserInterface();
             }
 
             function onAutoDepthMaxLevelChanged () {
-                console.log("TAV: onAutoDepthMaxLevelChanged is now", pulseRuntimeSettings.autoDepthMaxLevel);
+                //console.log("TAV: onAutoDepthMaxLevelChanged is now", pulseRuntimeSettings.autoDepthMaxLevel);
                 quickChangeObjects.doAutoFilter()
             }
 
             function onShouldDoAutoRangeChanged () {
-                console.log("TAV: onShouldDoAutoRangeChanged is now", pulseRuntimeSettings.shouldDoAutoRange);
+                //console.log("TAV: onShouldDoAutoRangeChanged is now", pulseRuntimeSettings.shouldDoAutoRange);
             }
         }
 
@@ -714,7 +797,8 @@ WaterFall {
             Layout.preferredWidth: 370
             Layout.preferredHeight: 200
             //visible: true
-            opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 0
+            //opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 0
+            opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 1
             enabled: (quickChangeObjects.isDeviceDetected)
         }
 
@@ -747,15 +831,14 @@ WaterFall {
             }
 
             onDistanceAutoRangeRequested: {
-                console.log("TAV: Auto range requested");
                 plot.plotDistanceAutoRange(0)
                 PulseSettings.autoRange = true
                 pulseRuntimeSettings.shouldDoAutoRange = true
                 plot.updatePlot()
+                //console.log("TAV: Auto range requested");
             }
 
             onDistanceFixedRangeRequested: {
-                console.log("TAV: Fixed range requested");
                 plot.plotDistanceAutoRange(-1)
                 PulseSettings.autoRange = false;
                 pulseRuntimeSettings.shouldDoAutoRange = false
@@ -766,6 +849,7 @@ WaterFall {
                     plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
                 }
                 plot.updatePlot()
+                //console.log("TAV: Fixed range requested");
             }
 
             Component.onCompleted: {
@@ -799,7 +883,7 @@ WaterFall {
             iconSource: "./icons/pulse_sun.svg"
 
             onSelectorValueChanged: {
-                let actualValue = Math.round(120 - (value * 3));
+                let actualValue = Math.round(120 - (value * 4));
                 PulseSettings.intensityRealValue = actualValue;
                 PulseSettings.intensityDisplayValue = value;
                 quickChangeObjects.quickChangeStopValue = actualValue;
@@ -843,13 +927,13 @@ WaterFall {
             }
 
             onFilterAutoRangeRequested: {
-                console.log("TAV: Auto filter requested");
+                //console.log("TAV: Auto filter requested");
                 PulseSettings.autoFilter = true
                 quickChangeObjects.doAutoFilter()
             }
 
             onFilterFixedRangeRequested: {
-                console.log("TAV: Fixed filter requested");
+                //console.log("TAV: Fixed filter requested");
                 PulseSettings.autoFilter = false;
                 let preferredValue = PulseSettings.filterRealValue
                 plot.setFilteringValue(preferredValue)
@@ -879,10 +963,10 @@ WaterFall {
                 selectedIndex: PulseSettings.colorMapIndexSideScan
                 allowExpertModeByMultiTap: true
                 onIconSelected: {
-                    console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                    //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
                     PulseSettings.colorMapIndexSideScan = selectedIndex;
                     var selectedTheme = pulseRuntimeSettings.themeModelBlue[selectedIndex]
-                    console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
+                    //console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
                     PulseSettings.colorMapIndexReal = selectedTheme.id
                     plot.plotEchogramTheme(selectedTheme.id);
                     plot.updatePlot();
@@ -891,16 +975,17 @@ WaterFall {
                 Connections {
                     target: pulseRuntimeSettings
                     function onUserManualSetNameChanged () {
-                        console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
-                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                        //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
                             var preferredIndex = PulseSettings.colorMapIndexSideScan
                             var selectedTheme = pulseRuntimeSettings.themeModelBlue[preferredIndex]
-                            console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
+                            //console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
                             plot.plotEchogramTheme(selectedTheme.id)
                             PulseSettings.colorMapIndexReal = selectedTheme.id
                             plot.updatePlot();
                         } else {
-                            console.log("TAV: colormap is 2D transducer, do not set for side scan");
+                            //console.log("TAV: colormap is 2D transducer, do not set for side scan");
                        }
                     }
                 }
@@ -914,10 +999,10 @@ WaterFall {
                 selectedIndex: PulseSettings.colorMapIndex2D
                 allowExpertModeByMultiTap: true
                 onIconSelected: {
-                    console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                    //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
                     PulseSettings.colorMapIndex2D = selectedIndex;
                     var selectedTheme = pulseRuntimeSettings.themeModelRed[selectedIndex]
-                    console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
+                    //console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
                     plot.plotEchogramTheme(selectedTheme.id);
                     PulseSettings.colorMapIndexReal = selectedTheme.id
                     plot.updatePlot();
@@ -926,16 +1011,17 @@ WaterFall {
                 Connections {
                     target: pulseRuntimeSettings
                     function onUserManualSetNameChanged () {
-                        console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
-                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
                             var preferredIndex = PulseSettings.colorMapIndex2D
                             var selectedTheme = pulseRuntimeSettings.themeModelRed[preferredIndex]
-                            console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
+                            //console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
                             plot.plotEchogramTheme(selectedTheme.id)
                             PulseSettings.colorMapIndexReal = selectedTheme.id
                             plot.updatePlot();
                         } else {
-                             console.log("TAV: colormap is side scan, do not set for 2D");
+                             //console.log("TAV: colormap is side scan, do not set for 2D");
                         }
                     }
                 }
@@ -969,7 +1055,8 @@ WaterFall {
                 Connections {
                     target: pulseRuntimeSettings
                     function onUserManualSetNameChanged () {
-                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
                             if (PulseSettings.ecoViewIndex === 0) {
                                 plot.setHorizontalNow()
                                 plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
@@ -979,10 +1066,10 @@ WaterFall {
                                 plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
                                 pulseRuntimeSettings.isSideScan2DView = false
                             }
-                            console.log("TAV: viewSelector is side scan");
+                            //console.log("TAV: viewSelector is side scan");
                             plot.updatePlot();
                         } else {
-                            console.log("TAV: viewSelector is 2D transducer, do not set for side scan");
+                            //console.log("TAV: viewSelector is 2D transducer, do not set for side scan");
                        }
                     }
                 }
@@ -991,7 +1078,7 @@ WaterFall {
                     target: PulseSettings
                     function onColorMapIndexSideScanChanged () {
                         themeSelectorColor2D.selectedIndex = PulseSettings.colorMapIndexSideScan
-                        console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndexSideScan);
+                        //console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndexSideScan);
                     }
                 }
 
@@ -1011,34 +1098,35 @@ WaterFall {
                 ]
                 */
                 iconSource: "./icons/pulse_glasses.svg"
-                selectedIndex: 0
-                //selectedIndex: PulseSettings.ecoConeIndex
+                //selectedIndex: 0
+                selectedIndex: PulseSettings.ecoConeIndex
                 allowExpertModeByMultiTap: false
 
                 onIconSelected: {
                     if (selectedIndex === 1) {
                         //DeviceItem.transFreq = themeSelector3.coneNarrow
                         pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
-                        console.log("TAV: Selected echosounder cone (frequency):", pulseRuntimeSettings.transFreq);
+                        //console.log("TAV: Selected echosounder cone (frequency):", pulseRuntimeSettings.transFreq);
                     } else {
                         pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
                         //DeviceItem.transFreq = themeSelector3.coneWide
-                        console.log("TAV: Selected echosounder cone (frequency):", pulseRuntimeSettings.transFreq);
+                        //console.log("TAV: Selected echosounder cone (frequency):", pulseRuntimeSettings.transFreq);
                     }
                     PulseSettings.ecoConeIndex = selectedIndex
 
-                    console.log("TAV: Selected echosounder cone index:", themeSelector3.selectedIndex);
+                    //console.log("TAV: Selected echosounder cone index:", themeSelector3.selectedIndex);
                 }
 
                 Connections {
                     target: pulseRuntimeSettings
                     function onUserManualSetNameChanged () {
-                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
                             pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
-                            console.log("TAV: viewSelector is 2D");
+                            //console.log("TAV: viewSelector is 2D");
                             plot.updatePlot()
                         } else {
-                            console.log("TAV: viewSelector is side scan transducer, do not set for 2D");
+                            //console.log("TAV: viewSelector is side scan transducer, do not set for 2D");
                        }
                     }
                 }
@@ -1047,7 +1135,7 @@ WaterFall {
                     target: PulseSettings
                     function onColorMapIndex2DChanged () {
                         themeSelectorColor2D.selectedIndex = PulseSettings.colorMapIndex2D
-                        console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndex2D);
+                        //console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndex2D);
                     }
                 }
 
@@ -1071,7 +1159,7 @@ WaterFall {
                 checked: PulseSettings.areUiControlsVisible  // Bind this to your persistent setting
 
                 onStateChanged: {
-                    console.log("Checkbox state changed:", checked)
+                    //console.log("Checkbox state changed:", checked)
                     PulseSettings.areUiControlsVisible = checked
                     if (PulseSettings.areUiControlsVisible) {
                         plot.plotGridVerticalNumber(5)
@@ -1091,7 +1179,7 @@ WaterFall {
                 visible: PulseSettings.areUiControlsVisible
 
                 onStateChanged: {
-                    console.log("Checkbox state changed:", checked)
+                    //console.log("Checkbox state changed:", checked)
                     pulseInfoLoader.active = checked
 
                 }
@@ -1164,7 +1252,7 @@ WaterFall {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    console.log("TAV: Recording stopped")
+                    //console.log("TAV: Recording stopped")
                     core.loggingKlf = false
                     pulseRuntimeSettings.isRecordingKlf = false
                 }
