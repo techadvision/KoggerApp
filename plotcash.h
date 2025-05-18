@@ -1012,13 +1012,26 @@ public:
 
     Q_PROPERTY(float dist READ dist NOTIFY distChanged)
     Q_PROPERTY(float temp READ temp NOTIFY tempChanged)
+    Q_PROPERTY(QVariantList channels READ channels NOTIFY channelsUpdated)
 
     /*methods*/
     Dataset();
     ~Dataset();
 
+    //Techadvision methods
     float dist() const { return _dist; }
     float temp() const { return _temp; }
+    QVariantList channels() const {
+        QVariantList list;
+        // iterate your QMap<int,DatasetChannel>
+        for (auto it = _channelsSetup.constBegin(); it != _channelsSetup.constEnd(); ++it) {
+            QVariantMap m;
+            m[QStringLiteral("channel")] = it.value().channel;
+            m[QStringLiteral("count"  )] = it.value().count;
+            list.append(m);
+        }
+        return list;
+    }
 
     void setState(DatasetState state);
 
@@ -1178,7 +1191,7 @@ private:
     float _dist = 0; // Stores the distance value
     float _temp = 0; // Stores the temperature value
     SlidingWindowMedian _depthFilter{10};
-    float _lastFilteredDepth = 0.0;
+    //float _lastFilteredDepth = 0.0;
     float _lastRawDepth = 0.0;
     int _consistCount = 0;
     /*
@@ -1283,6 +1296,7 @@ private:
     QMap<int16_t, RecordParameters> usingRecordParameters_;
     BlackStripesProcessor* bSProc_;
     int lastAddChartEpochIndx_;
+    float _lastFilteredDepth = 0.0;
 };
 
 #endif // PLOT_CASH_H

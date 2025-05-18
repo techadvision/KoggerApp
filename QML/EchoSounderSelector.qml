@@ -3,8 +3,8 @@ import QtQuick.Controls 2.15
 
 Rectangle {
     id: container
-    width: 400
-    height: 300
+    width: 440
+    height: 350
     radius: 10
     color: backgroundColor   // background color configurable from outside
 
