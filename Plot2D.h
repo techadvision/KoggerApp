@@ -263,8 +263,16 @@ public:
         Ek500WhiteTheme,
         FurunoBlackTheme,
         FurunoWhiteTheme,
-        KaijoBlackTheme,
-        KaijoWhiteTheme,
+        SonicBlackTheme,
+        SonicWhiteTheme,
+        LsssBlackTheme,
+        LsssWhiteTheme,
+        HtiBlackTheme,
+        HtiWhiteTheme,
+        Dt4BlackTheme,
+        Dt4WhiteTheme,
+        Ek80BlackTheme,
+        Ek80WhiteTheme,
         SepiaTemeExtra
     };
 
@@ -854,6 +862,7 @@ public:
     //Pulse
     void setMeasuresMetric(bool metric);
     void setGridHorizontal (bool horizontal);
+    std::vector<int> calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer);
 
 protected:
     bool angleVisibility_;
