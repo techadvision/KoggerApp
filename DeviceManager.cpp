@@ -189,6 +189,7 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, FrameParser frame)
                 prot_nmea.skip();
                 double depth_m = prot_nmea.readDouble();
                 if (isfinite(depth_m)) {
+                    //qDebug() << "WOW!!! isCompleteAsNMEA, retrieved depth " << depth_m;
                     emit rangefinderComplete(depth_m);
                 }
 

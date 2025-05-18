@@ -79,13 +79,13 @@ Item {
                             tapResetTimer.start();
 
                         iconRect.tapCount++;
-                        console.log("TAV: Tapped the icon for time", iconRect.tapCount);
+                        //console.log("TAV: Tapped the icon for time", iconRect.tapCount);
 
                         // If more than 10 taps within 5 seconds, activate hidden feature
                         if (iconRect.tapCount > 10) {
                             // Set your hidden feature flag (or call a function to enable tuning mode)
                             pulseRuntimeSettings.expertMode = !pulseRuntimeSettings.expertMode;
-                            console.log("TAV: Activated the hidden features");
+                            //console.log("TAV: Activated the hidden features");
 
                             // Optionally, reset tap count and timer if you want one activation per sequence
                             tapResetTimer.stop();

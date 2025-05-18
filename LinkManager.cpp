@@ -23,6 +23,7 @@ QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
 
 Link* LinkManager::createSerialPort(const QSerialPortInfo &serialInfo) const
 {
+    //qDebug() << "LinkManager::createSerialPort";
     Link* newLinkPtr = nullptr;
 
     if (serialInfo.isNull())
@@ -35,6 +36,7 @@ Link* LinkManager::createSerialPort(const QSerialPortInfo &serialInfo) const
 
 void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
 {
+    //qDebug() << "LinkManager::addNewLinks";
     for (const auto& itmI : currSerialList) {
         bool isBeen{ false };
 
@@ -90,6 +92,7 @@ void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
 
 void LinkManager::deleteMissingLinks(const QList<QSerialPortInfo> &currSerialList)
 {
+    //qDebug() << "LinkManager::openAutoConnections";
     for (int i = 0; i < list_.size(); ++i) {
         Link* link = list_.at(i);
 
@@ -124,6 +127,7 @@ void LinkManager::deleteMissingLinks(const QList<QSerialPortInfo> &currSerialLis
 
 void LinkManager::openAutoConnections()
 {
+    //qDebug() << "LinkManager::openAutoConnections";
     for (int i = 0; i < list_.size(); ++i) { // do not open auto conns when file is open
         if (list_.at(i)->getIsForceStopped()) {
             return;
@@ -150,6 +154,7 @@ void LinkManager::openAutoConnections()
 
 void LinkManager::update()
 {
+    //qDebug() << "LinkManager::update";
     auto currSerialList{ getCurrentSerialList() };
 
     addNewLinks(currSerialList);
@@ -164,6 +169,7 @@ void LinkManager::update()
 Link* LinkManager::getLinkPtr(QUuid uuid)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::getLinkPtr";
 
     Link* retVal{ nullptr };
 
@@ -180,6 +186,7 @@ Link* LinkManager::getLinkPtr(QUuid uuid)
 void LinkManager::doEmitAppendModifyModel(Link* linkPtr)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::doEmitAppendModifyModel";
 
     emit appendModifyModel(linkPtr->getUuid(),
                            linkPtr->getConnectionStatus(),
@@ -248,6 +255,7 @@ void LinkManager::exportPinnedLinksToXML()
 Link *LinkManager::createNewLink() const
 {
     Link* retVal = new Link();
+    //qDebug() << "LinkManager::createNewLink";
 
     QObject::connect(retVal, &Link::connectionStatusChanged, this, &LinkManager::onLinkConnectionStatusChanged);
     QObject::connect(retVal, &Link::frameReady, this, &LinkManager::frameReady);
@@ -280,7 +288,7 @@ QString getAndroidGatewayIP() {
     if (g_pulseSettings) {
         ip = g_pulseSettings->property("udpGateway").toString();
         defaultIp = ip;
-        qDebug() << "Preferred Gateway IP was" << ip;
+        //qDebug() << "Preferred Gateway IP was" << ip;
     }
     // Get the current Android activity
     QAndroidJniObject activity = QtAndroid::androidActivity();
@@ -313,7 +321,7 @@ QString getAndroidGatewayIP() {
              .arg((gateway >> 24)& 0xFF);
 
     // Log the detected IP:
-    qDebug() << "Detected gateway IP:" << ip;
+    //qDebug() << "Detected gateway IP:" << ip;
 
     // Check if the IP matches allowed prefixes:
     bool allowed = ip.startsWith("192.168.10") ||
@@ -326,10 +334,10 @@ QString getAndroidGatewayIP() {
         if (g_pulseSettings) {
             g_pulseSettings->setProperty("udpGateway", ip);
             emit
-            qDebug() << "Gateway IP" << ip << "is allowed, pulseSettings updated.";
-            qDebug() << "Preferred Gateway IP updated to " << g_pulseSettings->property("udpGateway").toString();;
+            //qDebug() << "Gateway IP" << ip << "is allowed, pulseSettings updated.";
+            //qDebug() << "Preferred Gateway IP updated to " << g_pulseSettings->property("udpGateway").toString();;
         } else {
-            qDebug() << "Gateway IP" << ip << "is allowed, but could not update the pulseSettings";
+            //qDebug() << "Gateway IP" << ip << "is allowed, but could not update the pulseSettings";
         }
     }
 
@@ -341,10 +349,18 @@ QString getAndroidGatewayIP() {
 void LinkManager::importPinnedLinksFromXML()
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::importPinnedLinksFromXML";
 
     QString gatewayIP = "0.0.0.0";
     QString uuidIpGateway = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
     QString uuidUsbSerial = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
+    int udpPort = 14560;
+
+    if (g_pulseSettings) {
+        udpPort = g_pulseSettings->property("udpPort").toInt();
+        //qDebug() << "Gateway port" << udpPort << "to be used";
+
+    }
 
     #ifdef Q_OS_ANDROID
         gatewayIP = getAndroidGatewayIP();
@@ -355,7 +371,6 @@ void LinkManager::importPinnedLinksFromXML()
 
     #ifdef Q_OS_ANDROID
 
-    /*
     xmlData = QString(R"(
     <pinned_links>
         <link>
@@ -366,23 +381,8 @@ void LinkManager::importPinnedLinksFromXML()
             <parity>false</parity>
             <link_type>2</link_type>
             <address>%2</address>
-            <source_port>14550</source_port>
-            <destination_port>14550</destination_port>
-            <is_pinned>true</is_pinned>
-            <is_hided>false</is_hided>
-            <is_not_available>false</is_not_available>
-            <connection_status>true</connection_status>
-        </link>
-        <link>
-            <uuid>%3</uuid>
-            <control_type>1</control_type>
-            <port_name>/dev/bus/usb/001/002</port_name>
-            <baudrate>921600</baudrate>
-            <parity>false</parity>
-            <link_type>1</link_type>
-            <address></address>
-            <source_port></source_port>
-            <destination_port></destination_port>
+            <source_port>%3</source_port>
+            <destination_port>%3</destination_port>
             <is_pinned>true</is_pinned>
             <is_hided>false</is_hided>
             <is_not_available>false</is_not_available>
@@ -390,32 +390,11 @@ void LinkManager::importPinnedLinksFromXML()
         </link>
     </pinned_links>
     )")
-      .arg(uuidIpGateway)   // UDP link UUID
-      .arg(gatewayIP)       // Insert dynamic gateway IP
-      .arg(uuidUsbSerial);
-    */
+                  .arg(uuidIpGateway)    // UDP link UUID #1
+                  .arg(gatewayIP)        // Insert dynamic gateway IP
+                  .arg(udpPort);         // UDP link port #1
 
-    xmlData = QString(R"(
-    <pinned_links>
-        <link>
-            <uuid>%1</uuid>
-            <control_type>0</control_type>
-            <port_name></port_name>
-            <baudrate>0</baudrate>
-            <parity>false</parity>
-            <link_type>2</link_type>
-            <address>%2</address>
-            <source_port>14550</source_port>
-            <destination_port>14550</destination_port>
-            <is_pinned>true</is_pinned>
-            <is_hided>false</is_hided>
-            <is_not_available>false</is_not_available>
-            <connection_status>true</connection_status>
-        </link>
-    </pinned_links>
-    )")
-                  .arg(uuidIpGateway)   // UDP link UUID
-                  .arg(gatewayIP);       // Insert dynamic gateway IP
+    //qDebug() << "Gateway UDP settings" << xmlData << "to be used";
 
     #endif
 
@@ -520,6 +499,7 @@ void LinkManager::importPinnedLinksFromXML()
 void LinkManager::onLinkConnectionStatusChanged(QUuid uuid)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::onLinkConnectionStatusChanged";
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
@@ -531,6 +511,7 @@ void LinkManager::onLinkConnectionStatusChanged(QUuid uuid)
 
 void LinkManager::createAndStartTimer()
 {
+    //qDebug() << "LinkManager::createAndStartTimer";
     if (!timer_) {
         timer_ = std::make_unique<QTimer>(this);
         timer_->setInterval(timerInterval_);
@@ -542,6 +523,7 @@ void LinkManager::createAndStartTimer()
 
 void LinkManager::stopTimer()
 {
+    //qDebug() << "LinkManager::stopTimer";
     if (timer_) {
         timer_->stop();
     }
@@ -549,6 +531,7 @@ void LinkManager::stopTimer()
 
 void LinkManager::onExpiredTimer()
 {
+    //qDebug() << "LinkManager::onExpiredTimer";
     if (coldStarted_) {
         importPinnedLinksFromXML();
         coldStarted_ = false;
@@ -563,6 +546,7 @@ void LinkManager::onExpiredTimer()
 void LinkManager::openAsSerial(QUuid uuid, int attribute)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::openAsSerial";
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setAttribute(attribute);
@@ -597,6 +581,7 @@ void LinkManager::openAsSerial(QUuid uuid, int attribute)
 void LinkManager::openAsUdp(QUuid uuid, QString address, int sourcePort, int destinationPort, int attribute)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::openAsUdp";
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setAttribute(attribute);
@@ -611,6 +596,7 @@ void LinkManager::openAsUdp(QUuid uuid, QString address, int sourcePort, int des
 void LinkManager::openAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, int attribute)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::openAsTcp";
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setAttribute(attribute);
@@ -625,6 +611,7 @@ void LinkManager::openAsTcp(QUuid uuid, QString address, int sourcePort, int des
 void LinkManager::closeLink(QUuid uuid)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::closeLink";
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         if (linkPtr->getControlType() == ControlType::kAuto)
@@ -638,6 +625,7 @@ void LinkManager::closeLink(QUuid uuid)
 void LinkManager::closeFLink(QUuid uuid)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::closeFLink";
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setIsForceStopped(true);
@@ -649,6 +637,7 @@ void LinkManager::closeFLink(QUuid uuid)
 void LinkManager::deleteLink(QUuid uuid)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::deleteLink";
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         emit linkDeleted(linkPtr->getUuid(), linkPtr);
@@ -758,6 +747,7 @@ void LinkManager::frameInput(Link *link, FrameParser frame)
 void LinkManager::createAsUdp(QString address, int sourcePort, int destinationPort)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::createAsUdp";
 
     Link* newLinkPtr = createNewLink();
     newLinkPtr->createAsUdp(address, sourcePort, destinationPort);
@@ -769,6 +759,7 @@ void LinkManager::createAsUdp(QString address, int sourcePort, int destinationPo
 void LinkManager::createAsTcp(QString address, int sourcePort, int destinationPort)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::createAsTcp";
 
     Link* newLinkPtr = createNewLink();
     newLinkPtr->createAsTcp(address, sourcePort, destinationPort);
@@ -780,6 +771,7 @@ void LinkManager::createAsTcp(QString address, int sourcePort, int destinationPo
 void LinkManager::openFLinks()
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::openFLinks";
 
     for (auto& itm : list_) {
         if (itm->getIsForceStopped()) {
@@ -808,6 +800,7 @@ void LinkManager::openFLinks()
 void LinkManager::createAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort)
 {
     TimerController(timer_.get());
+    //qDebug() << "LinkManager::createAndOpenAsUdpProxy";
 
     Link* newLinkPtr = createNewLink();
     newLinkPtr->createAsUdp(address, sourcePort, destinationPort);
@@ -824,6 +817,7 @@ void LinkManager::closeUdpProxy()
     if (proxyLinkUuid_ == QUuid())
         return;
 
+    //qDebug() << "LinkManager::closeUdpProxy";
     deleteLink(proxyLinkUuid_);
     proxyLinkUuid_ = QUuid();
 }

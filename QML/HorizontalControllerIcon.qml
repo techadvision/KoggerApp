@@ -128,7 +128,7 @@ Item {
                                 if (iconRect.tapCount > 10) {
                                     // Set your hidden feature flag (or call a function to enable tuning mode)
                                     pulseRuntimeSettings.expertMode = !pulseRuntimeSettings.expertMode;
-                                    console.log("TAV: Activated the hidden features");
+                                    //console.log("TAV: Activated the hidden features");
 
                                     // Optionally, reset tap count and timer if you want one activation per sequence
                                     tapResetTimer.stop();
