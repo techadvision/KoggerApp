@@ -21,8 +21,12 @@ Item {
     property double lastStableDepth:            0   // Depth at which we last updated the resolution.
     property int    stableCount:                0   // Counter for consecutive stable readings.
     property int    lastDirection :             0   // direction of shift
-    property int    newAutoLevel :              1   // Shifter variable for the UI
+    property int    newAutoLevel :              0   // Shifter variable for the UI
     property bool   pulseBlueResSetOnce:        false //Set the resoution for blue only once
+    //property int    initialResolutionSetter:    0
+    property bool   initialResolutionSet:       true
+    property string tempText:                   "-.-"
+    property string depthText:                  "-.-"
 
     signal swapUnits()
     //signal pulseAutoLevelChanged(int newAutoLevel)
@@ -69,25 +73,24 @@ Item {
         }
 
         pulseRuntimeSettings.dynamicResolution = candidateRes;
-        console.log("TAV: setting dynamicResolution to", candidateRes,
-                    "for depth", depth, "with new integer level", newLevel);
+        console.log("TAV: setting dynamicResolution to", candidateRes,"for depth", depth, "with new integer level", newLevel);
         stableCount = 0;
         lastStableDepth = depth;
 
     }
 
     function calculateDynamicResolution(depth) {
-        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
             if (!pulseBlueResSetOnce) {
                 pulseBlueResSetOnce = true;
                 pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution;
-                console.log("TAV: set pulseRuntimeSettings.dynamicResolution just once to",
-                            pulseRuntimeSettings.dynamicResolution,
-                            "for", pulseRuntimeSettings.userManualSetName);
+                console.log("TAV: set pulseRuntimeSettings.dynamicResolution just once to", pulseRuntimeSettings.dynamicResolution, "for", pulseRuntimeSettings.userManualSetName);
             }
             return;
         }
-        if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed) {
+        if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
+                && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto) {
             return;
         }
 
@@ -98,6 +101,8 @@ Item {
         candidateRes = Math.max(candidateRes, pulseRuntimeSettings.dynamicResolutionMax);
         candidateRes = Math.min(candidateRes, pulseRuntimeSettings.dynamicResolutionMin);
 
+        //console.log("TAV: set pulseRuntimeSettings.dynamicResolution just once to", pulseRuntimeSettings.dynamicResolution, "for", pulseRuntimeSettings.userManualSetName);
+
         updateDynamicResolutionWithStep(depth, candidateRes);
     }
 
@@ -107,19 +112,46 @@ Item {
         running: true
         repeat: true
         onTriggered: {
-            let currentDepth = (dataset !== null) ? dataset.dist : 0;
-            calculateDynamicResolution(currentDepth)
-            let newLevel = calculateAutoLevel(depthAndTemperature.lastStableDepth);
-            if (newLevel !== depthAndTemperature.autoLevel) {
-                depthAndTemperature.autoLevel = newLevel;
-                if (pulseRuntimeSettings !== null) {
-                    pulseRuntimeSettings.autoDepthMaxLevel = newLevel
-                    console.log("TAV: Auto level changed to: " + newLevel);
-                    console.log("TAV: Auto level step: " + pulseRuntimeSettings.autoDepthLevelStep);
-                    console.log("TAV: Auto level distance below: " + pulseRuntimeSettings.autoDepthDistanceBelow);
-                } else {
-                    console.log("TAV: Auto level cannot be set when pulseRuntimeSettings is null");
-                }
+            if (!pulseRuntimeSettings.isReceivingData) {
+                //console.log("TAV: autoLevelTimer, not yet receiving data");
+                //return  // We should maybe not do this as deoth data is OK to process anyway
+            }
+            if (!pulseRuntimeSettings.devConfigured) {
+                //console.log("TAV: autoLevelTimer, device not yet configured");
+                //return  // We should maybe not do this as deoth data is OK to process anyway
+            }
+            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
+                    && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto){
+                //console.log("TAV: autoLevelTimer, Only do auto level when we have a pulseRed");
+                return
+            }
+
+            autoLevelCalculate()
+        }
+    }
+
+    function autoLevelCalculate () {
+        let currentDepth = (dataset !== null) ? dataset.dist : 0;
+        calculateDynamicResolution(currentDepth)
+        let newLevel = calculateAutoLevel(depthAndTemperature.lastStableDepth);
+        if (newLevel !== depthAndTemperature.autoLevel) {
+            depthAndTemperature.autoLevel = newLevel;
+            if (pulseRuntimeSettings !== null) {
+                pulseRuntimeSettings.autoDepthMaxLevel = newLevel
+                console.log("TAV: Auto level changed to: " + newLevel);
+                console.log("TAV: Auto level step: " + pulseRuntimeSettings.autoDepthLevelStep);
+                console.log("TAV: Auto level distance below: " + pulseRuntimeSettings.autoDepthDistanceBelow);
+            } else {
+                console.log("TAV: Auto level cannot be set when pulseRuntimeSettings is null");
+            }
+        }
+    }
+
+    Connections {
+        target: pulseRuntimeSettings
+        function onDevConfiguredChanged () {
+            if (pulseRuntimeSettings.devConfigured === true) {
+                depthAndTemperature.initialResolutionSet = false
             }
         }
     }
@@ -134,25 +166,46 @@ Item {
     }
 
     function formatTemperature() {
-        let temperatureInDegrees = (dataset !== null) ? dataset.temp : 0
-        let temperatureInFarenheit = temperatureInDegrees * (9 / 2) + 32
-        let decimalPlacesTemp = 1;
-        return isMetric
-                ? Math.round(temperatureInDegrees * 10) / 10 + ' \u00B0C'
-                : Math.round(temperatureInFarenheit * 10) / 10 + ' \u00B0F';
+        if (!dataset) {
+            return isMetric
+              ? "0.0 °C"
+              : "32.0 °F";
+        }
+
+        let tempC = dataset.temp;
+        if (tempC !== 0) {
+            tempC = tempC + pulseRuntimeSettings.temperatureCorrection
+        }
+
+        const tempF = tempC * (9/5) + 32;
+        const value = isMetric ? tempC : tempF;
+
+        return `${value.toFixed(1)} °${isMetric ? "C" : "F"}`;
     }
 
-    // A property that holds the throttled, formatted depth string.
     property string displayDepth: depthAndTemperature.formatDepth()
 
-    // Timer that updates displayDepth 4 times per second.
     Timer {
         id: displayDepthTimer
-        interval: 250 // 250 ms = 4 updates per second
+        interval: 250
         repeat: true
         running: true
         onTriggered: {
             displayDepth = depthAndTemperature.formatDepth()
+        }
+    }
+
+    property string displayTemp: depthAndTemperature.formatTemperature()
+
+    Timer {
+        id: displayTempTimer
+        interval: 1000
+        repeat: true
+        running: true
+        onTriggered: {
+            tempText = depthAndTemperature
+                           .formatTemperature()
+                           .split(" ")[0] || "-.-";
         }
     }
 
@@ -288,7 +341,9 @@ Item {
 
             Text {
                 id: temperatureValue
-                text: depthAndTemperature.formatTemperature().split(' ')[0] || "-.-"
+                text: tempText
+                //text: depthAndTemperature.displayTemp.split(' ')[0] || "-.-"
+                //text: depthAndTemperature.formatTemperature().split(' ')[0] || "-.-"
                 color: "white"
                 font.pixelSize: 72
                 horizontalAlignment: Text.AlignRight
@@ -323,9 +378,9 @@ Item {
 
     Component.onCompleted: {
         setMeasuresMetricNow(PulseSettings.useMetricValues)
-        //depthTempRect.displayDepthTimer.start()
+        //depthAndTemperature.displayDepthTimer.start()
+        //depthAndTemperature.displayTempTimer.start()
     }
-
 }
 
 
