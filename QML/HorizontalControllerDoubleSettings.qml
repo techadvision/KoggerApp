@@ -4,22 +4,16 @@ import QtQuick.Layouts 1.15
 
 Item {
     id: root
-    // The array of double values we can cycle through:
     property var values: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-
-    // Keep track of which index in 'values' is currently selected:
     property int currentIndex: 0
-
-    // Expose the currentValue as a convenient alias (string or double).
-    // You can also store it as a real if you prefer:
-    property double currentValue: values[currentIndex]
+    //property double currentValue: values[currentIndex]
 
     signal pulsePreferenceValueChanged(double newValue)
 
     implicitWidth: 280
     implicitHeight: 80
 
-    // On component completion, update the currentIndex to match currentValue if set externally.
+    /*
     Component.onCompleted: {
         for (var i = 0; i < values.length; i++) {
             if (values[i] === currentValue) {
@@ -27,13 +21,12 @@ Item {
                 break;
             }
         }
-        // Ensure the displayed value is in sync:
         currentValue = values[currentIndex];
     }
+    */
 
-    // Whenever currentValue is changed externally, update currentIndex accordingly.
+    /*
     onCurrentValueChanged: {
-        // If the currentValue doesn't match the value at the current index, find its index.
         if (values[currentIndex] !== currentValue) {
             for (var i = 0; i < values.length; i++) {
                 if (values[i] === currentValue) {
@@ -43,11 +36,13 @@ Item {
             }
         }
     }
+    */
 
-    // A simple horizontal row with minus button, displayed value, plus button
+    onCurrentIndexChanged: {
+        pulsePreferenceValueChanged(values[currentIndex])
+    }
+
     Row {
-        spacing: 20
-        //anchors.centerIn: parent
         anchors.fill: parent
         width: 300
         height: 80
@@ -55,25 +50,83 @@ Item {
         Button {
             id: minusButton
             text: "-"
-            font.pixelSize: 60
+            font.pixelSize: 80
             width: 80
             height: 60
-            onClicked: {
-                currentIndex = Math.max(currentIndex - 1, 0)
-                console.log("PulseSettingsValue minus button clicked")
-                valueDisplay.text = values[currentIndex]
-                pulsePreferenceValueChanged(values[currentIndex])
+            anchors.top: valueRect.top
+            anchors.bottom: valueRect.bottom
+
+            background: Item {
+                width: minusButton.width
+                height: minusButton.height
+                clip: true
+
+                Rectangle {
+                    id: leftCap
+                    width: height
+                    height: parent.height
+                    color: minusButton.down ? "#666666" : "#dddddd"
+                    radius: height/2
+                }
+
+                Rectangle {
+                    x: leftCap.width/2
+                    width: parent.width - leftCap.width/2
+                    height: parent.height
+                    color: minusButton.down ? "#666666" : "#dddddd"
+
+                }
             }
+
+            Timer {
+                id: minusRepeatTimer
+                interval: 200
+                repeat: true
+                running: false
+                onTriggered: {
+                    if (currentIndex > 0) {
+                        currentIndex--
+                        /*
+                        valueDisplay.text = values[currentIndex]
+                        pulsePreferenceValueChanged(values[currentIndex])
+                        */
+                    } else {
+                        minusRepeatTimer.stop()
+                    }
+                }
+            }
+
+            onPressed: {
+                // step immediately
+                if (currentIndex > 0) {
+                    currentIndex--
+                    /*
+                    valueDisplay.text = values[currentIndex]
+                    pulsePreferenceValueChanged(values[currentIndex])
+                    */
+                }
+                // then start repeating
+                minusRepeatTimer.start()
+            }
+            onReleased:  minusRepeatTimer.stop()
+            onCanceled:  minusRepeatTimer.stop()
+
         }
 
-        Text {
-            id: valueDisplay
-            text: values[currentIndex]
-            font.pixelSize: 30
-            width: 80
-            height: 80
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+        Rectangle {
+            id: valueRect
+            width: 120; height: 60
+            anchors.verticalCenter: parent.verticalCenter
+            color: "transparent"
+            border.width: 1
+            border.color: "#dddddd"
+
+            Text {
+                id: valueDisplay
+                text: root.values[root.currentIndex]
+                font.pixelSize: 30
+                anchors.centerIn: parent
+            }
         }
 
         Button {
@@ -82,12 +135,61 @@ Item {
             font.pixelSize: 60
             width: 80
             height: 60
-            onClicked: {
-                currentIndex = Math.min(currentIndex + 1, values.length - 1)
-                console.log("PulseSettingsValue plus button clicked")
-                valueDisplay.text = values[currentIndex]
-                pulsePreferenceValueChanged(values[currentIndex])
+            anchors.top: valueRect.top
+            anchors.bottom: valueRect.bottom
+
+            background: Item {
+                width: plusButton.width
+                height: plusButton.height
+                clip: true
+
+                Rectangle {
+                    x: parent.width - parent.height
+                    width: parent.height
+                    height: parent.height
+                    color: plusButton.down ? "#666666" : "#dddddd"
+                    radius: parent.height / 2
+                }
+
+                Rectangle {
+                    width: parent.width - parent.height / 2
+                    height: parent.height
+                    color: plusButton.down ? "#666666" : "#dddddd"
+                    radius: 0
+                }
             }
+
+            Timer {
+                id: plusRepeatTimer
+                interval: 300
+                repeat: true
+                running: false
+                onTriggered: {
+                    if (currentIndex < values.length - 1) {
+                        currentIndex++
+                        /*
+                        valueDisplay.text = values[currentIndex]
+                        pulsePreferenceValueChanged(values[currentIndex])
+                        */
+                    } else {
+                        plusRepeatTimer.stop()
+                    }
+                }
+            }
+
+            onPressed: {
+                if (currentIndex < values.length - 1) {
+                    currentIndex++
+                    /*
+                    valueDisplay.text = values[currentIndex]
+                    pulsePreferenceValueChanged(values[currentIndex])
+                    */
+                }
+                plusRepeatTimer.start()
+            }
+            onReleased:  plusRepeatTimer.stop()
+            onCanceled:  plusRepeatTimer.stop()
+
         }
     }
 }
