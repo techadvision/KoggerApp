@@ -35,6 +35,7 @@ Settings {
     property string userManualSetName:          "..."
     property string udpGateway:                 "192.168.10.2"
     property bool   useWifiLongRange:           false
+    property int    udpPort:                    14560
 
     // NMEA settings
     property int    nmeaPort:                   3500

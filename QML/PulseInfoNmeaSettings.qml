@@ -88,34 +88,17 @@ Rectangle {
                         }
                     }
 
-                    /*
-                    Connections {
-                        target: checkBoxNmea
-                        function onCheckedChanged () {
-                            indicatorCanvas.requestPaint()
-                            PulseSettings.enableNmeaDbt = checkBoxNmea(checked)
-                            console.log("PulseSettingsValue NMEA UDP server enabled changed to", PulseSettings.enableNmeaDbt)
-                        }
-
-                        //onCheckedChanged: indicatorCanvas.requestPaint()
-                    }
-                    */
                 }
             }
 
             Component.onCompleted: {
-                //let useUdpNmeaServer = PulseSettings.enableNmeaDbt
-                //console.log("PulseSettingsValue preference NMEA UDP server enabled loaded as", useUdpNmeaServer)
                 indicatorCanvas.requestPaint()
-                console.log("PulseSettingsValue preference NMEA UDP server loaded as", pulseSettings.enableNmeaDbt)
             }
 
 
-            // Update PulseSettings.enableNmeaDbt when the checkbox state changes
             onCheckedChanged: {
                 pulseSettings.enableNmeaDbt = checked;
                 indicatorCanvas.requestPaint();
-                console.log("PulseSettingsValue NMEA UDP server enabled changed to", pulseSettings.enableNmeaDbt)
             }
 
         }
@@ -136,10 +119,16 @@ Rectangle {
         HorizontalControllerDoubleSettings {
             id: depthSelector
             values: [250, 500, 1000]
-            currentValue: pulseSettings.nmeaSendPerMilliSec
+            //currentValue: PulseSettings.nmeaSendPerMilliSec
+
+            Component.onCompleted: {
+                var idx = values.indexOf(PulseSettings.nmeaSendPerMilliSec)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+
             onPulsePreferenceValueChanged: {
-                console.log("PulseSettingsValue pause between DBT messages changed to", newValue)
-                pulseSettings.nmeaSendPerMilliSec = newValue
+                //console.log("PulseSettingsValue pause between DBT messages changed to", newValue)
+                PulseSettings.nmeaSendPerMilliSec = newValue
                 //settingsPopup.pulsePreferenceValueChanged(newValue)
             }
 
@@ -163,10 +152,16 @@ Rectangle {
         HorizontalControllerDoubleSettings {
             id: minMeasureSelector
             values: [3000, 3100, 3200, 3300, 3400, 3500]
-            currentValue: PulseSettings.nmeaPort
+            //currentValue: PulseSettings.nmeaPort
+
+            Component.onCompleted: {
+                var idx = values.indexOf(PulseSettings.nmeaPort)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+
             onPulsePreferenceValueChanged: {
-                console.log("PulseSettingsValue NMEA port changed to", newValue)
-                pulseSettings.nmeaPort = newValue
+                //console.log("PulseSettingsValue NMEA port changed to", newValue)
+                PulseSettings.nmeaPort = newValue
                 //settingsPopup.pulsePreferenceValueChanged(newValue)
             }
 

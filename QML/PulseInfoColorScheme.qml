@@ -17,7 +17,8 @@ Rectangle {
         let selectedThemeIndexBlue = PulseSettings.colorMapIndexSideScan
         let selectedThemeIndexRed = PulseSettings.colorMapIndex2D
         var selectedTheme
-        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
             selectedTheme = pulseRuntimeSettings.themeModelBlue[selectedThemeIndexBlue]
         } else {
             selectedTheme = pulseRuntimeSettings.themeModelRed[selectedThemeIndexRed]
@@ -63,7 +64,7 @@ Rectangle {
 
         HorizontalTapSelectController {
             id: themeSelectorColorSS
-            visible: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+            visible: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto
             model: pulseRuntimeSettings.themeModelBlue.map(function(item) {return item.icon;})
             iconSource: "./icons/pulse_paint.svg"
             selectedIndex: PulseSettings.colorMapIndexSideScan
@@ -71,10 +72,10 @@ Rectangle {
             anchors.left: colorLegend.left
             anchors.top: colorLegend.bottom
             onIconSelected: {
-                console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
                 PulseSettings.colorMapIndexSideScan = selectedIndex;
                 var selectedTheme = pulseRuntimeSettings.themeModelBlue[selectedIndex]
-                console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
+                //console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
                 plot.plotEchogramTheme(selectedTheme.id);
                 plot.updatePlot();
             }
@@ -82,16 +83,17 @@ Rectangle {
             Connections {
                 target: pulseRuntimeSettings
                 function onUserManualSetNameChanged () {
-                    console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                    //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                            ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
                         var preferredIndex = PulseSettings.colorMapIndexSideScan
                         var selectedTheme = pulseRuntimeSettings.themeModelBlue[preferredIndex]
-                        console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
+                        //console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
                         plot.plotEchogramTheme(selectedTheme.id)
                         PulseSettings.colorMapIndexReal = selectedTheme.id
                         plot.updatePlot();
                     } else {
-                        console.log("TAV: colormap is 2D transducer, do not set for side scan");
+                        //console.log("TAV: colormap is 2D transducer, do not set for side scan");
                    }
                 }
             }
@@ -100,24 +102,24 @@ Rectangle {
                 target: PulseSettings
                 function onColorMapIndexSideScanChanged () {
                     themeSelectorColor2D.selectedIndex = PulseSettings.colorMapIndexSideScan
-                    console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndexSideScan);
+                    //console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndexSideScan);
                 }
             }
         }
 
         HorizontalTapSelectController {
             id: themeSelectorColor2D
-            visible: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+            visible: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto
             model: pulseRuntimeSettings.themeModelRed.map(function(item) {return item.icon;})
             iconSource: "./icons/pulse_paint.svg"
             selectedIndex: PulseSettings.colorMapIndex2D
             allowExpertModeByMultiTap: false
             anchors.top: colorLegend.bottom
             onIconSelected: {
-                console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
                 PulseSettings.colorMapIndex2D = selectedIndex;
                 var selectedTheme = pulseRuntimeSettings.themeModelRed[selectedIndex]
-                console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
+                //console.log("TAV: colormap selectedIndex", selectedIndex, "matches selectedTheme.id", selectedTheme.id);
                 plot.plotEchogramTheme(selectedTheme.id);
                 plot.updatePlot();
             }
@@ -125,16 +127,17 @@ Rectangle {
             Connections {
                 target: pulseRuntimeSettings
                 function onUserManualSetNameChanged () {
-                    console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                            || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
                         var preferredIndex = PulseSettings.colorMapIndex2D
                         var selectedTheme = pulseRuntimeSettings.themeModelRed[preferredIndex]
-                        console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
+                        //console.log("TAV: colormap preferredIndex", preferredIndex, "matches preferredTheme.id", selectedTheme.id);
                         plot.plotEchogramTheme(selectedTheme.id)
                         PulseSettings.colorMapIndexReal = selectedTheme.id
                         plot.updatePlot();
                     } else {
-                         console.log("TAV: colormap is side scan, do not set for 2D");
+                         //console.log("TAV: colormap is side scan, do not set for 2D");
                     }
                 }
             }
@@ -143,7 +146,7 @@ Rectangle {
                 target: PulseSettings
                 function onColorMapIndex2DChanged () {
                     themeSelectorColor2D.selectedIndex = PulseSettings.colorMapIndex2D
-                    console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndex2D);
+                    //console.log("TAV: colormap updated to index:", PulseSettings.colorMapIndex2D);
                 }
             }
         }
@@ -176,19 +179,21 @@ Rectangle {
                     width: colorBar.useWidth
                     height: colorBar.height
                     color: modelData
+                    border.color: "gray"
+                    border.width: 1
                 }
             }
         }
 
         Component.onCompleted: {
             var colors = plot2DEchogram.themeColors
-            console.log("Colors from plot2DEchogram.themeColors:", colors)
+            //console.log("Colors from plot2DEchogram.themeColors:", colors)
         }
 
         Connections {
             target: plot2DEchogram
             function onThemeColorsChanged() {
-                console.log("Theme colors changed to:", plot2DEchogram.themeColors)
+                //console.log("Theme colors changed to:", plot2DEchogram.themeColors)
                 colorRepeater.model = []   // clear old model
                 colorRepeater.model = plot2DEchogram.themeColors
                 themeColorCount = plot2DEchogram.themeColors.length
@@ -211,7 +216,8 @@ Rectangle {
             anchors.centerIn: infoLeftContainer
             width: 42
             height: 42
-            source: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue ?
+            source: (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                     ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) ?
                         "./icons/pulse_return_signal_weak_ss.svg" :
                         "./icons/pulse_return_signal_weak.svg"
             fillMode: Image.PreserveAspectFit
@@ -233,7 +239,8 @@ Rectangle {
             anchors.centerIn: infoRightContainer
             width: 42
             height: 42
-            source: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue ?
+            source: (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                     ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) ?
                         "./icons/pulse_return_signal_strong_ss.svg" :
                         "./icons/pulse_return_signal_hard.svg"
             fillMode: Image.PreserveAspectFit

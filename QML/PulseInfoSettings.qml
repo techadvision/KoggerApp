@@ -4,13 +4,14 @@ import QtQuick.Layouts 1.15
 
 Rectangle {
     id: settingsPopup
-    //modal: true
     focus: true
     width: 900
-    height: 450
-    anchors.centerIn: parent
+    //height: 950
+    //anchors.centerIn: parent
     color: "white"
     radius: 8
+    implicitWidth:  layout.implicitWidth
+    implicitHeight: layout.implicitHeight
 
     signal pulsePreferenceClosed()
     signal pulsePreferenceValueChanged(double newValue)
@@ -20,7 +21,7 @@ Rectangle {
 
     GridLayout {
         id: layout
-        anchors.fill: parent
+        //anchors.fill: parent
         //anchors.margins: 10
         rowSpacing: 20
         columnSpacing: 20
@@ -28,7 +29,7 @@ Rectangle {
 
         //rows: 5
 
-        // --- Row 1: Pulse Blue - installed left hand side? - enable
+        // --- Row 0: Pulse Blue - installed left hand side? - enable
         Text {
             text: "Pulse Blue installed left side"
             font.pixelSize: 30
@@ -37,7 +38,7 @@ Rectangle {
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
-            Layout.topMargin: 20
+            Layout.topMargin: 30
         }
 
         CheckBox {
@@ -100,7 +101,7 @@ Rectangle {
 
         }
 
-        // --- Row 2: Echogram scroll speed (widens the picture horizontally)
+        // --- Row 1: Echogram scroll speed (widens the picture horizontally)
         Text {
             text: "Echogram screen speed"
             font.pixelSize: 30
@@ -114,28 +115,113 @@ Rectangle {
 
         HorizontalControllerDoubleSettings {
             id: speedSelector
-            values: [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0]
-            currentValue: pulseRuntimeSettings.echogramSpeed
-            onPulsePreferenceValueChanged: {
-                console.log("PulseSettingsValue pause between DBT messages changed to", newValue)
-                pulseRuntimeSettings.echogramSpeed = newValue
-                //settingsPopup.pulsePreferenceValueChanged(newValue)
-            }
-
             height: 80
             Layout.preferredWidth: 280
             GridLayout.row: 1
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+            values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
+                2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9,
+                3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9,
+                4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0]
+
+            //currentValue: pulseRuntimeSettings.echogramSpeed
+
+            Component.onCompleted: {
+                var idx = values.indexOf(pulseRuntimeSettings.echogramSpeed)
+                //console.log("PulseSettingsValue speedSelector Component.onCompleted idx calculated to ", idx)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+
+            onPulsePreferenceValueChanged: {
+                //console.log("PulseSettingsValue speedSelector changed to", newValue)
+                pulseRuntimeSettings.echogramSpeed = newValue
+            }
+
+            Connections {
+                target: pulseRuntimeSettings
+                function onEchogramSpeedChanged () {
+                    var idx = speedSelector.values.indexOf(pulseRuntimeSettings.echogramSpeed)
+                    if (idx >= 0) speedSelector.currentIndex = idx
+                }
+            }
         }
 
-        // --- Row 3: Depth filter adjustment: kSmallAgreeMargin
+        // --- Row 2: UDP port solution
         Text {
-            text: "Depth filter: smallAgreeMargin"
+            text: "UDP port selection"
             font.pixelSize: 30
 
             height: 80
             GridLayout.row: 2
+            GridLayout.column: 0
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+        }
+
+        HorizontalControllerDoubleSettings {
+            id: udpPortSelection
+            values: [14550, 14560]
+            //currentValue: PulseSettings.udpPort
+            onPulsePreferenceValueChanged: PulseSettings.udpPort = newValue
+            height: 80
+            Layout.preferredWidth: 280
+            GridLayout.row: 2
+            GridLayout.column: 2
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+            Component.onCompleted: {
+                var idx = values.indexOf(PulseSettings.udpPort)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+        }
+
+        // --- Row 3: Black stripes removal solution
+        Text {
+            text: "Black stripes removal size"
+            font.pixelSize: 30
+
+            height: 80
+            GridLayout.row: 3
+            GridLayout.column: 0
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+        }
+
+        HorizontalControllerDoubleSettings {
+            id: blackStripesSize
+            values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 25, 26, 27, 28, 29, 30]
+            //currentValue: pulseRuntimeSettings.fixBlackStripesForwardSteps
+
+            Component.onCompleted: {
+                var idx = values.indexOf(pulseRuntimeSettings.fixBlackStripesForwardSteps)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+
+            onPulsePreferenceValueChanged: {
+                pulseRuntimeSettings.fixBlackStripesForwardSteps  = newValue
+                pulseRuntimeSettings.fixBlackStripesBackwardSteps = newValue
+                core.fixBlackStripesForwardSteps  = newValue
+                core.fixBlackStripesBackwardSteps = newValue
+            }
+
+            height: 80
+            Layout.preferredWidth: 280
+            GridLayout.row: 3
+            GridLayout.column: 2
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+        }
+
+
+
+        // --- Row 4: Depth filter adjustment: kSmallAgreeMargin
+
+        Text {
+            text: "Depth filter: fluctuation margin (m)"
+            font.pixelSize: 30
+
+            height: 80
+            GridLayout.row: 4
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
@@ -143,27 +229,33 @@ Rectangle {
 
         HorizontalControllerDoubleSettings {
             id: kSmallAgreeMargin
-            values: [0.05, 0.10, 0.20, 0.50, 1.0]
-            currentValue: pulseRuntimeSettings.kSmallAgreeMargin
+            values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+            //currentValue: pulseRuntimeSettings.kSmallAgreeMargin
+
+            Component.onCompleted: {
+                var idx = values.indexOf(pulseRuntimeSettings.kSmallAgreeMargin)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+
             onPulsePreferenceValueChanged: {
-                console.log("WOW changed kSmallAgreeMargin to ", newValue)
+                //console.log("WOW changed kSmallAgreeMargin to ", newValue)
                 pulseRuntimeSettings.kSmallAgreeMargin = newValue
             }
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 2
+            GridLayout.row: 4
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
-        // --- Row 4: Depth filter adjustment: kLargeJumpThreshold
+        // --- Row 5: Depth filter adjustment: kLargeJumpThreshold
         Text {
-            text: "Depth filter: largeJumpThreshold"
+            text: "Depth filter: suspicious jump (m)"
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 3
+            GridLayout.row: 5
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
@@ -171,27 +263,33 @@ Rectangle {
 
         HorizontalControllerDoubleSettings {
             id: kLargeJumpThreshold
-            values: [1.0, 2.0, 3.0, 4.0, 5.0]
-            currentValue: pulseRuntimeSettings.kLargeJumpThreshold
+            values: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+            //currentValue: pulseRuntimeSettings.kLargeJumpThreshold
+
+            Component.onCompleted: {
+                var idx = values.indexOf(pulseRuntimeSettings.kLargeJumpThreshold)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+
             onPulsePreferenceValueChanged: {
-                console.log("WOW changed kLargeJumpThreshold to ", newValue)
+                //console.log("WOW changed kLargeJumpThreshold to ", newValue)
                 pulseRuntimeSettings.kLargeJumpThreshold = newValue
             }
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 3
+            GridLayout.row: 5
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
-        // --- Row 5: Depth filter adjustment: kConsistNeeded
+        // --- Row 6: Depth filter adjustment: kConsistNeeded
         Text {
-            text: "Depth filter: consistNeeded"
+            text: "Depth filter: accept jump min. records"
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 4
+            GridLayout.row: 6
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
@@ -200,18 +298,73 @@ Rectangle {
         HorizontalControllerDoubleSettings {
             id: kConsistNeeded
             values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-            currentValue: pulseRuntimeSettings.kConsistNeeded
+            //currentValue: pulseRuntimeSettings.kConsistNeeded
+
+            Component.onCompleted: {
+                var idx = values.indexOf(pulseRuntimeSettings.kConsistNeeded)
+                currentIndex = idx >= 0 ? idx : 0
+            }
+
             onPulsePreferenceValueChanged: {
-                console.log("WOW changed kConsistNeeded to ", newValue)
+                //console.log("WOW changed kConsistNeeded to ", newValue)
                 pulseRuntimeSettings.kConsistNeeded = newValue
             }
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 4
+            GridLayout.row: 6
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
+        // --- Row 5: Depth reporting solution
+        /*
+        Text {
+            text: "Depth reporting solution"
+            font.pixelSize: 30
+
+            height: 80
+            GridLayout.row: 5
+            GridLayout.column: 0
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+        }
+
+        HorizontalControllerDoubleSettings {
+            id: depthReportingSolution
+            values: [-1, 0, 1, 2]
+            currentValue: {
+                if (pulseRuntimeSettings.datasetDist === 0
+                    && pulseRuntimeSettings.datasetSDDBT === 0) {
+                    return 0
+                }
+                else if (pulseRuntimeSettings.datasetDist === 1) {
+                    return 1
+                }
+                else {
+                    return 2
+                }
+            }
+            onPulsePreferenceValueChanged: {
+                //console.log("WOW changed depthReportingSolution to ", newValue)
+                if (newValue === 0) {
+                    pulseRuntimeSettings.datasetDist = 0
+                    pulseRuntimeSettings.datasetSDDBT = 0
+                } else if (newValue === 1) {
+                    pulseRuntimeSettings.datasetDist = 1
+                } else {
+                    pulseRuntimeSettings.datasetSDDBT = 1
+                }
+
+                pulseRuntimeSettings.currentDepthSolution = newValue
+            }
+
+            height: 80
+            Layout.preferredWidth: 280
+            GridLayout.row: 5
+            GridLayout.column: 2
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+        }
+        */
     }
 }

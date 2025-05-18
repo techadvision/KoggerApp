@@ -95,7 +95,7 @@ Rectangle {
             Layout.leftMargin: 20
         }
 
-        // Opem
+        // Open
         Rectangle {
             width: 80
             height: 80
@@ -132,18 +132,38 @@ Rectangle {
             Layout.minimumWidth: 400
             Layout.preferredWidth: 400
 
-            text: core.filePath
+            text: pulseRuntimeSettings.klfFilePath
             placeholderText: qsTr("Enter path")
+            inputMethodHints: Qt.ImhActionDone
+
+            Keys.onReturnPressed: {
+                //console.log("log viewer: Keys.onReturnPressed")
+                //const p = pathText.text.trim()
+                if (pathText.text.length > 0) {
+                    pulseRuntimeSettings.klfFilePath = pathText.text
+                    //core.filePath = pathText.text
+                    core.openLogFile(pathText.text, false, false)
+                    //console.log("log viewer: open file again")
+                } else {
+                    //console.log("log viewer: text length 0")
+                }
+
+                if (pathText.activeFocus) {
+                    pathText.focus = false
+                    //console.log("log viewer: clear the focus to be able to reenter keyboard later")
+                } else {
+                    //console.log("log viewer: does not have active focus")
+                }
+            }
 
             Keys.onPressed: {
                 if (event.key === 16777220 || event.key === Qt.Key_Enter) {
                     pulseRuntimeSettings.klfFilePath = pathText.text
-                    core.filePath = pathText.text
+                    //core.filePath = pathText.text
                     core.openLogFile(pathText.text, false, false);
+                    //console.log("log viewer: Keys.onPressed triggered by ", event.key)
                 }
             }
-            Component.onCompleted: pulseRuntimeSettings.klfFilePath = core.filePath
-
         }
 
         // --- Row 3

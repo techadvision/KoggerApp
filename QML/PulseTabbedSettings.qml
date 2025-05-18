@@ -22,7 +22,7 @@ Item {
         width: parent.width * 0.99
         height: parent.height * 0.98
         anchors.centerIn: parent
-        color: "white"
+        color: "lightgray"
         radius: 8
 
         // Header area for the close button and TabBar
@@ -44,8 +44,9 @@ Item {
                 flat: true
                 font.bold: true
                 anchors.right: parent.right
+                topPadding: 15
                 //anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: 16
+                anchors.rightMargin: 0
                 onClicked: {
                     root.closeRequested()
                 }
@@ -115,14 +116,49 @@ Item {
             clip: true   // Ensures that only the active page is visible
 
             Page {
-                PulseInfo {
-                    id: tabbedPulseInfo
+                Flickable {
+                    anchors.fill: parent
+                    clip: true
+
+                    // Only vertical drags flick this view; horizontal drags bubble up to SwipeView
+                    flickableDirection: Flickable.VerticalFlick
+                    contentWidth: width
+                    //contentHeight: settingsLayout.implicitHeight  // layout’s whole height
+                    contentHeight: tabbedPulseSettings.implicitHeight
+
+                    // attach an always-visible vertical scrollbar
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AlwaysOn
+                        width: 16
+                    }
+
+                    PulseInfo {
+                        id: tabbedPulseInfo
+                    }
                 }
             }
             Page {
-                PulseInfoSettings {
-                    id: tabbedPulseSettings
+                Flickable {
+                    anchors.fill: parent
+                    clip: true
+
+                    // Only vertical drags flick this view; horizontal drags bubble up to SwipeView
+                    flickableDirection: Flickable.VerticalFlick
+                    contentWidth: width
+                    //contentHeight: settingsLayout.implicitHeight  // layout’s whole height
+                    contentHeight: tabbedPulseSettings.implicitHeight
+
+                    // attach an always-visible vertical scrollbar
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AlwaysOn
+                        width: 16
+                    }
+
+                    PulseInfoSettings {
+                        id: tabbedPulseSettings
+                    }
                 }
+
             }
 
             Page {
