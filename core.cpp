@@ -563,6 +563,7 @@ void Core::setFixBlackStripesState(bool state)
 {
     if (datasetPtr_) {
         datasetPtr_->setFixBlackStripesState(state);
+        isFixingBlackStripes_ = state;
     }
 }
 
@@ -570,6 +571,7 @@ void Core::setFixBlackStripesForwardSteps(int val)
 {
     if (datasetPtr_) {
         datasetPtr_->setFixBlackStripesForwardSteps(val);
+        fixBlackStripesForwardSteps_ = val;
     }
 }
 
@@ -577,7 +579,23 @@ void Core::setFixBlackStripesBackwardSteps(int val)
 {
     if (datasetPtr_) {
         datasetPtr_->setFixBlackStripesBackwardSteps(val);
+        fixBlackStripesBackwardSteps_ = val;
     }
+}
+
+bool Core::getFixBlackStripesState()
+{
+    return isFixingBlackStripes_;
+}
+
+int Core::getFixBlackStripesForwardSteps()
+{
+    return fixBlackStripesForwardSteps_;
+}
+
+int Core::getFixBlackStripesBackwardSteps()
+{
+    return fixBlackStripesBackwardSteps_;
 }
 
 /*

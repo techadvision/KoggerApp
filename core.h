@@ -47,9 +47,9 @@ public:
     Q_PROPERTY(ConsoleListModel* consoleList READ consoleList CONSTANT)
     Q_PROPERTY(bool loggingKlf WRITE setKlfLogging)
     Q_PROPERTY(bool loggingCsv WRITE setCsvLogging)
-    Q_PROPERTY(bool fixBlackStripesState WRITE setFixBlackStripesState)
-    Q_PROPERTY(int  fixBlackStripesForwardSteps WRITE setFixBlackStripesForwardSteps)
-    Q_PROPERTY(int  fixBlackStripesBackwardSteps WRITE setFixBlackStripesBackwardSteps)
+    Q_PROPERTY(bool fixBlackStripesState READ getFixBlackStripesState WRITE setFixBlackStripesState)
+    Q_PROPERTY(int  fixBlackStripesForwardSteps READ getFixBlackStripesForwardSteps WRITE setFixBlackStripesForwardSteps)
+    Q_PROPERTY(int  fixBlackStripesBackwardSteps READ getFixBlackStripesBackwardSteps WRITE setFixBlackStripesBackwardSteps)
     Q_PROPERTY(QString filePath READ getFilePath NOTIFY filePathChanged)
     Q_PROPERTY(bool isFileOpening READ getIsFileOpening NOTIFY sendIsFileOpening)
     Q_PROPERTY(bool isMosaicUpdatingInThread READ getIsMosaicUpdatingInThread NOTIFY isMosaicUpdatingInThreadUpdated)
@@ -100,6 +100,9 @@ public slots:
     void setFixBlackStripesState(bool state);
     void setFixBlackStripesForwardSteps(int val);
     void setFixBlackStripesBackwardSteps(int val);
+    bool getFixBlackStripesState();
+    int  getFixBlackStripesForwardSteps();
+    int  getFixBlackStripesBackwardSteps();
     bool getIsKlfLogging();
     void setCsvLogging(bool isLogging);
     bool getIsCsvLogging();
@@ -197,6 +200,9 @@ private:
     QString openedfilePath_;
     bool isLoggingKlf_;
     bool isLoggingCsv_;
+    bool isFixingBlackStripes_;
+    int  fixBlackStripesForwardSteps_;
+    int  fixBlackStripesBackwardSteps_;
     QString filePath_;
 #ifdef FLASHER
     Flasher flasher;
