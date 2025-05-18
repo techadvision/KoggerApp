@@ -121,5 +121,11 @@
         <file>icons/pulse_return_signal_weak.svg</file>
         <file>icons/pulse_return_signal_strong_ss.svg</file>
         <file>icons/pulse_return_signal_weak_ss.svg</file>
+        <file>icons/pulse_color_2d_dt4_black.svg</file>
+        <file>icons/pulse_color_2d_dt4_white.svg</file>
+        <file>icons/pulse_color_2d_hti_black.svg</file>
+        <file>icons/pulse_color_2d_hti_white.svg</file>
+        <file>icons/pulse_color_2d_lsss_black.svg</file>
+        <file>icons/pulse_color_2d_lsss_white.svg</file>
     </qresource>
 </RCC>
