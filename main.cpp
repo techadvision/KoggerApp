@@ -156,12 +156,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("linkManagerWrapper", core.getLinkManagerWrapperPtr());
     engine.rootContext()->setContextProperty("deviceManagerWrapper", core.getDeviceManagerWrapperPtr());
 
-    /*
-    Plot2DEchogram *plotInstance = new Plot2DEchogram();
-    qWarning() << "Exposing Plot2DEchogram instance:" << plotInstance;
-    engine.rootContext()->setContextProperty("plot2DEchogram", plotInstance);
-*/
-
     QQmlComponent component(&engine, QUrl("qrc:/PulseRuntimeSettings.qml"));
     QObject *runtimeSettingsInstance = component.create();
     if (!runtimeSettingsInstance) {
