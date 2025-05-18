@@ -78,7 +78,8 @@ GridLayout {
                     }
 
                     Component.onCompleted: {
-                        model = dataset.channelsNameList()
+                        channel1Combo.currentIndex = 0
+
                     }
 
                     onCurrentTextChanged: {
@@ -96,10 +97,13 @@ GridLayout {
                     id: echogramVisible
                     Layout.fillWidth: true
                     //                        Layout.preferredWidth: 150
-                    checked: true
+                    checked: pulseRuntimeSettings.echogramVisible
                     text: qsTr("Echogram")
-                    onCheckedChanged: targetPlot.plotEchogramVisible(checked)
-                    Component.onCompleted: targetPlot.plotEchogramVisible(checked)
+                    onCheckedChanged: {
+                        pulseRuntimeSettings.echogramVisible = checked
+                        targetPlot.plotEchogramVisible(checked)
+                    }
+                    Component.onCompleted: targetPlot.plotEchogramVisible(pulseRuntimeSettings.echogramVisible)
                 }
 
                 CCombo  {
@@ -139,10 +143,14 @@ GridLayout {
                     id: bottomTrackVisible
                     Layout.fillWidth: true
                     text: qsTr("Bottom-Track")
-                    onCheckedChanged: targetPlot.plotBottomTrackVisible(checked)
-                    Component.onCompleted: {
-                        checked = false
+                    checked: pulseRuntimeSettings.bottomTrackVisible
+                    onCheckedChanged: {
+                        pulseRuntimeSettings.bottomTrackVisible = checked
                         targetPlot.plotBottomTrackVisible(checked)
+                    }
+                    Component.onCompleted: {
+                        //checked = false
+                        targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
                     }
                 }
 
@@ -151,13 +159,16 @@ GridLayout {
                     //                        Layout.fillWidth: true
                     //                        Layout.preferredWidth: 150
                     model: [qsTr("Line1"), qsTr("Line2"), qsTr("Dot1"), qsTr("Dot2"), qsTr("DotLine")]
-                    currentIndex: 1
+                    currentIndex: pulseRuntimeSettings.bottomTrackVisibleModel
 
-                    onCurrentIndexChanged: targetPlot.plotBottomTrackTheme(currentIndex)
-                    Component.onCompleted: targetPlot.plotBottomTrackTheme(currentIndex)
+                    onCurrentIndexChanged: {
+                        pulseRuntimeSettings.bottomTrackVisibleModel = currentIndex
+                        targetPlot.plotBottomTrackTheme(currentIndex)
+                    }
+                    Component.onCompleted: targetPlot.plotBottomTrackTheme(pulseRuntimeSettings.bottomTrackVisibleModel)
 
                     Settings {
-                        property alias bottomTrackThemeList: bottomTrackThemeList.currentIndex
+                        //property alias bottomTrackThemeList: bottomTrackThemeList.currentIndex
                     }
                 }
             }
@@ -167,20 +178,27 @@ GridLayout {
                     id: rangefinderVisible
                     Layout.fillWidth: true
                     text: qsTr("Rangefinder")
-                    onCheckedChanged: targetPlot.plotRangefinderVisible(checked)
-                    Component.onCompleted: targetPlot.plotRangefinderVisible(checked)
+                    checked: pulseRuntimeSettings.rangefinderVisible
+                    onCheckedChanged: {
+                        pulseRuntimeSettings.rangefinderVisible = checked
+                        targetPlot.plotRangefinderVisible(checked)
+                    }
+                    Component.onCompleted: targetPlot.plotRangefinderVisible(pulseRuntimeSettings.rangefinderVisible)
                 }
 
                 CCombo  {
                     id: rangefinderThemeList
                     model: [qsTr("Text"), qsTr("Line"), qsTr("Dot")]
-                    currentIndex: 1
+                    currentIndex: pulseRuntimeSettings.rangefinderVisibleModel
 
-                    onCurrentIndexChanged: targetPlot.plotRangefinderTheme(currentIndex)
-                    Component.onCompleted: targetPlot.plotRangefinderTheme(currentIndex)
+                    onCurrentIndexChanged: {
+                        pulseRuntimeSettings.rangefinderVisibleModel = currentIndex
+                        targetPlot.plotRangefinderTheme(currentIndex)
+                    }
+                    Component.onCompleted: targetPlot.plotRangefinderTheme(pulseRuntimeSettings.rangefinderVisibleModel)
 
                     Settings {
-                        property alias rangefinderThemeList: rangefinderThemeList.currentIndex
+                        //property alias rangefinderThemeList: rangefinderThemeList.currentIndex
                     }
                 }
             }
@@ -190,8 +208,12 @@ GridLayout {
                 visible: instruments > 1
                 id: ahrsVisible
                 text: qsTr("Attitude")
-                onCheckedChanged: targetPlot.plotAttitudeVisible(checked)
-                Component.onCompleted: targetPlot.plotAttitudeVisible(checked)
+                checked: pulseRuntimeSettings.ahrsVisible
+                onCheckedChanged: {
+                    pulseRuntimeSettings.ahrsVisible = checked
+                    targetPlot.plotAttitudeVisible(checked)
+                }
+                Component.onCompleted: targetPlot.plotAttitudeVisible(pulseRuntimeSettings.ahrsVisible)
             }
 
             RowLayout {
@@ -319,15 +341,18 @@ GridLayout {
                 visible: instruments > 1
                 CCheck {
                     id: gnssVisible
-                    checked: false
+                    checked: pulseRuntimeSettings.ahrsVisible
                     Layout.fillWidth: true
                     text: qsTr("GNSS data")
 
-                    onCheckedChanged: targetPlot.plotGNSSVisible(checked, 1)
-                    Component.onCompleted: targetPlot.plotGNSSVisible(checked, 1)
+                    onCheckedChanged: {
+                        pulseRuntimeSettings.ahrsVisible = checked
+                        targetPlot.plotGNSSVisible(checked, 1)
+                    }
+                    Component.onCompleted: targetPlot.plotGNSSVisible(pulseRuntimeSettings.ahrsVisible, 1)
 
                     Settings {
-                        property alias gnssVisible: gnssVisible.checked
+                        //property alias gnssVisible: gnssVisible.checked
                     }
                 }
             }
@@ -338,21 +363,29 @@ GridLayout {
                     CCheck {
                         id: gridVisible
                         Layout.fillWidth: true
+                        checked: pulseRuntimeSettings.gridVisible
                         text: qsTr("Grid")
-                        onCheckedChanged: targetPlot.plotGridVerticalNumber(gridNumber.value*gridVisible.checked)
+                        onCheckedChanged: {
+                            pulseRuntimeSettings.gridVisible = checked
+                            targetPlot.plotGridVerticalNumber(gridNumber.value*gridVisible.checked)
+                        }
                     }
                     CCheck {
                         id: fillWidthGrid
                         Layout.fillWidth: true
                         text: qsTr("fill")
-                        onCheckedChanged: targetPlot.plotGridFillWidth(checked)
+                        checked: pulseRuntimeSettings.fillWidthGrid
+                        onCheckedChanged: {
+                            pulseRuntimeSettings.fillWidthGrid = checked
+                            targetPlot.plotGridFillWidth(checked)
+                        }
                         visible: gridVisible.checked
 
                         Component.onCompleted: {
-                            targetPlot.plotGridFillWidth(checked)
+                            targetPlot.plotGridFillWidth(pulseRuntimeSettings.fillWidthGrid)
                         }
                         Settings {
-                            property alias fillWidthGrid: fillWidthGrid.checked
+                            //property alias fillWidthGrid: fillWidthGrid.checked
                         }
                     }
                 }
@@ -362,13 +395,16 @@ GridLayout {
                     from: 1
                     to: 24
                     stepSize: 1
-                    value: 5
+                    value: pulseRuntimeSettings.gridNumber
 
-                    onValueChanged: targetPlot.plotGridVerticalNumber(gridNumber.value*gridVisible.checked)
-                    Component.onCompleted: targetPlot.plotGridVerticalNumber(gridNumber.value*gridVisible.checked)
+                    onValueChanged: {
+                        pulseRuntimeSettings.gridNumber = gridNumber.value
+                        targetPlot.plotGridVerticalNumber(gridNumber.value*gridVisible.checked)
+                    }
+                    Component.onCompleted: targetPlot.plotGridVerticalNumber(pulseRuntimeSettings.gridNumber*gridVisible.checked)
 
                     Settings {
-                        property alias gridNumber: gridNumber.value
+                        //property alias gridNumber: gridNumber.value
                     }
                 }
             }
@@ -380,11 +416,15 @@ GridLayout {
                     id: angleVisible
                     Layout.fillWidth: true
                     text: qsTr("Angle range, °")
-                    onCheckedChanged: targetPlot.plotAngleVisibility(checked)
-                    Component.onCompleted: targetPlot.plotAngleVisibility(checked)
+                    checked: pulseRuntimeSettings.angleVisible
+                    onCheckedChanged: {
+                        pulseRuntimeSettings.angleVisible = checked
+                        targetPlot.plotAngleVisibility(checked)
+                    }
+                    Component.onCompleted: targetPlot.plotAngleVisibility(pulseRuntimeSettings.angleVisible)
 
                     Settings {
-                        property alias angleVisible: angleVisible.checked
+                        //property alias angleVisible: angleVisible.checked
                     }
                 }
 
@@ -428,11 +468,15 @@ GridLayout {
                     id: velocityVisible
                     Layout.fillWidth: true
                     text: qsTr("Velocity range, m/s")
-                    onCheckedChanged: targetPlot.plotVelocityVisible(checked)
-                    Component.onCompleted: targetPlot.plotVelocityVisible(checked)
+                    checked: pulseRuntimeSettings.velocityVisible
+                    onCheckedChanged: {
+                        pulseRuntimeSettings.velocityVisible = checked
+                        targetPlot.plotVelocityVisible(checked)
+                    }
+                    Component.onCompleted: targetPlot.plotVelocityVisible(pulseRuntimeSettings.velocityVisible)
 
                     Settings {
-                        property alias velocityVisible: velocityVisible.checked
+                        //property alias velocityVisible: velocityVisible.checked
                     }
                 }
 
@@ -478,7 +522,7 @@ GridLayout {
 
                 CCheck {
                     id: distanceAutoRange
-                    checked: true
+                    checked: pulseRuntimeSettings.distanceAutoRange
                     Layout.fillWidth: true
                     text: qsTr("Distance auto range")
 
@@ -495,7 +539,7 @@ GridLayout {
                 CCombo  {
                     id: distanceAutoRangeList
                     model: [qsTr("Last data       "), qsTr("Last on screen"), qsTr("Max on screen")]
-                    currentIndex: 0
+                    currentIndex: pulseRuntimeSettings.distanceAutoRangeCurrentIndex
                     onCurrentIndexChanged: distanceAutoRangeRow.distanceAutorangeMode()
                     Component.onCompleted: distanceAutoRangeRow.distanceAutorangeMode()
 
@@ -515,8 +559,25 @@ GridLayout {
                 visible: instruments > 1
 
                 CCheck {
+                    /*
                     id: fixBlackStripesCheckButton
                     Layout.fillWidth: true
+                    checked: true
+                    text: qsTr("FBS, f/b")
+
+                    onCheckedChanged: core.fixBlackStripesState = fixBlackStripesCheckButton.checked
+                    Component.onCompleted: core.fixBlackStripesState = fixBlackStripesCheckButton.checked
+
+                    Settings {
+                        property alias fixBlackStripesCheckButton: fixBlackStripesCheckButton.checked
+                    }
+                    */
+
+
+                    id: fixBlackStripesCheckButton
+                    Layout.fillWidth: true
+                    //checked: pulseRuntimeSettings.fixBlackStripesState
+                    checked: true
                     //checked: false
                     text: qsTr("FBS, f/b")
 
@@ -525,25 +586,62 @@ GridLayout {
                         core.fixBlackStripesState = pulseRuntimeSettings.fixBlackStripesState
                     }
                     Component.onCompleted: {
-                        checked = pulseRuntimeSettings.fixBlackStripesState
+                        //checked = pulseRuntimeSettings.fixBlackStripesState
                         core.fixBlackStripesState = pulseRuntimeSettings.fixBlackStripesState
                     }
 
+                    /*
                     Settings {
                         property alias fixBlackStripesCheckButton: fixBlackStripesCheckButton.checked
                     }
+                    */
                 }
 
                 SpinBoxCustom {
+                    /*
                     id: fixBlackStripesForwardStepsSpinBox
                     from: 0
                     to: 100
                     stepSize: 1
-                    value: pulseRuntimeSettings.fixBlackStripesForwardSteps
+                    value: 20
+
+                    onValueChanged: core.fixBlackStripesForwardSteps = fixBlackStripesForwardStepsSpinBox.currValue
+                    Component.onCompleted: core.fixBlackStripesForwardSteps = fixBlackStripesForwardStepsSpinBox.currValue
+
+                    property int currValue: value
+
+                    validator: DoubleValidator {
+                        bottom: Math.min(fixBlackStripesForwardStepsSpinBox.from, fixBlackStripesForwardStepsSpinBox.to)
+                        top:  Math.max(fixBlackStripesForwardStepsSpinBox.from, fixBlackStripesForwardStepsSpinBox.to)
+                    }
+
+                    textFromValue: function(value, locale) {
+                        return Number(value).toLocaleString(locale, 'f', 0)
+                    }
+
+                    valueFromText: function(text, locale) {
+                        return Number.fromLocaleString(locale, text)
+                    }
+
+                    onCurrValueChanged: core.fixBlackStripesForwardSteps = currValue
+
+                    Settings {
+                        property alias fixBlackStripesForwardStepsSpinBox: fixBlackStripesForwardStepsSpinBox.value
+                    }
+                    */
+
+
+                    id: fixBlackStripesForwardStepsSpinBox
+                    from: 0
+                    to: 100
+                    stepSize: 1
+                    //value: pulseRuntimeSettings.fixBlackStripesForwardSteps
+                    value: 20
 
 
                     onValueChanged: {
-                        core.fixBlackStripesForwardSteps = pulseRuntimeSettings.fixBlackStripesForwardSteps
+                        pulseRuntimeSettings.fixBlackStripesForwardSteps = fixBlackStripesForwardStepsSpinBox.currValue
+                        core.fixBlackStripesForwardSteps = fixBlackStripesForwardStepsSpinBox.currValue
                     }
 
                     Component.onCompleted: {
@@ -566,24 +664,62 @@ GridLayout {
                     }
 
                     onCurrValueChanged: {
+                        pulseRuntimeSettings.fixBlackStripesForwardSteps = currValue
                         core.fixBlackStripesForwardSteps = currValue
                     }
 
+
                     /*
                     Settings {
-                        property alias fixBlackStripesForwardStepsSpinBox: fixBlackStripesForwardStepsSpinBox.value
+                        //property alias fixBlackStripesForwardStepsSpinBox: fixBlackStripesForwardStepsSpinBox.value
                     }
                     */
+
                 }
 
                 SpinBoxCustom {
+                    /*
                     id: fixBlackStripesBackwardStepsSpinBox
                     from: 0
                     to: 100
                     stepSize: 1
-                    value: pulseRuntimeSettings.fixBlackStripesBackwardSteps
+                    value: 20
+
+                    onValueChanged: core.fixBlackStripesBackwardSteps = fixBlackStripesBackwardStepsSpinBox.currValue
+                    Component.onCompleted: core.fixBlackStripesBackwardSteps = fixBlackStripesBackwardStepsSpinBox.currValue
+
+                    property int currValue: value
+
+                    validator: DoubleValidator {
+                        bottom: Math.min(fixBlackStripesBackwardStepsSpinBox.from, fixBlackStripesBackwardStepsSpinBox.to)
+                        top:  Math.max(fixBlackStripesBackwardStepsSpinBox.from, fixBlackStripesBackwardStepsSpinBox.to)
+                    }
+
+                    textFromValue: function(value, locale) {
+                        return Number(value).toLocaleString(locale, 'f', 0)
+                    }
+
+                    valueFromText: function(text, locale) {
+                        return Number.fromLocaleString(locale, text)
+                    }
+
+                    onCurrValueChanged: core.fixBlackStripesBackwardSteps = currValue
+
+                    Settings {
+                        property alias fixBlackStripesBackwardStepsSpinBox: fixBlackStripesBackwardStepsSpinBox.value
+                    }
+                    */
+
+
+                    id: fixBlackStripesBackwardStepsSpinBox
+                    from: 0
+                    to: 100
+                    stepSize: 1
+                    //value: pulseRuntimeSettings.fixBlackStripesBackwardSteps
+                    value: 20
 
                     onValueChanged: {
+                        pulseRuntimeSettings.fixBlackStripesBackwardSteps = fixBlackStripesBackwardStepsSpinBox.currValue
                         core.fixBlackStripesBackwardSteps = fixBlackStripesBackwardStepsSpinBox.currValue
                     }
 
@@ -603,26 +739,30 @@ GridLayout {
                     }
 
                     onCurrValueChanged: {
+                        pulseRuntimeSettings.fixBlackStripesBackwardSteps = currValue
                         core.fixBlackStripesBackwardSteps = currValue
                     }
 
+
                     /*
                     Settings {
-                        property alias fixBlackStripesBackwardStepsSpinBox: fixBlackStripesBackwardStepsSpinBox.value
+                        //property alias fixBlackStripesBackwardStepsSpinBox: fixBlackStripesBackwardStepsSpinBox.value
                     }
                     */
+
+
                 }
         }
 
             Settings {
-                property alias echogramVisible: echogramVisible.checked
-                property alias rangefinderVisible: rangefinderVisible.checked
-                property alias postProcVisible: bottomTrackVisible.checked
-                property alias ahrsVisible: ahrsVisible.checked
-                property alias gridVisible: gridVisible.checked
-                property alias dopplerBeamVisible: dopplerBeamVisible.checked
-                property alias dopplerInstrumentVisible: dopplerInstrumentVisible.checked
-                property alias horisontalVertical: horisontalVertical.checked
+                //property alias echogramVisible: echogramVisible.checked
+                //property alias rangefinderVisible: rangefinderVisible.checked
+                //property alias postProcVisible: bottomTrackVisible.checked
+                //property alias ahrsVisible: ahrsVisible.checked
+                //property alias gridVisible: gridVisible.checked
+                //property alias dopplerBeamVisible: dopplerBeamVisible.checked
+                //property alias dopplerInstrumentVisible: dopplerInstrumentVisible.checked
+                //property alias horisontalVertical: horisontalVertical.checked
             }
         }
 
