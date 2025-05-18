@@ -723,6 +723,7 @@ void Dataset::rawDataRecieved(RawData raw_data) {
     emit dataUpdate();
 }
 
+/*
 void Dataset::addDist(int dist) {
     int pool_index = endIndex();
     if(pool_index < 0 || _pool[pool_index].distAvail() == true) {
@@ -731,9 +732,12 @@ void Dataset::addDist(int dist) {
     }
 
     if (g_pulseRuntimeSettings) {
-        kSmallAgreeMargin = g_pulseRuntimeSettings->property("kSmallAgreeMargin").toDouble();
+        //kSmallAgreeMargin = g_pulseRuntimeSettings->property("kSmallAgreeMargin").toDouble();
         kLargeJumpThreshold = g_pulseRuntimeSettings->property("kLargeJumpThreshold").toDouble();
         kConsistNeeded = g_pulseRuntimeSettings->property("kConsistNeeded").toInt();
+        if (!g_pulseRuntimeSettings->property("didReceiveDepthData").toBool()) {
+            g_pulseRuntimeSettings->setProperty("didReceiveDepthData", true);
+        }
     };
 
     double rawDepth = static_cast<double>(dist / 1000);
@@ -750,11 +754,7 @@ void Dataset::addDist(int dist) {
         //qDebug() << "WOW!!! Large depth " << rawDepth << " triggered delta " << delta << " compared to last filtered depth " << _lastFilteredDepth;
 
         if (_consistCount < kConsistNeeded) {
-            qDebug() <<
-                "WOW!!! Large depth " << rawDepth <<
-                " triggered delta " << delta <<
-                " dropped, consistent required " << kConsistNeeded <<
-                " not met - it is number " << _consistCount;
+            //qDebug() << "WOW!!! Large depth " << rawDepth <<" triggered delta " << delta <<" dropped, consistent required " << kConsistNeeded <<" not met - it is number " << _consistCount;
             // still in a short burst → drop it
             return;
         }
@@ -765,9 +765,7 @@ void Dataset::addDist(int dist) {
     } else {
         // 2) small variation → feed into the median filter normally
         _lastFilteredDepth = _depthFilter.processSample(rawDepth);
-        qDebug() <<
-            "WOW!!! Acccepted depth raw " << rawDepth <<
-            " normalized as " << _lastFilteredDepth;
+        //qDebug() << "WOW!!! Acccepted depth raw " << rawDepth << " normalized as " << _lastFilteredDepth;
         // reset the “large jump” counter
         _consistCount = 0;
         _lastRawDepth = rawDepth;
@@ -778,7 +776,109 @@ void Dataset::addDist(int dist) {
 
     emit dataUpdate();
 }
+*/
 
+void Dataset::addDist(int dist) {
+    int pool_index = endIndex();
+    if (pool_index < 0 || _pool[pool_index].distAvail()) {
+        addNewEpoch();
+        pool_index = endIndex();
+    }
+
+    if (g_pulseRuntimeSettings) {
+        kSmallAgreeMargin = g_pulseRuntimeSettings->property("kSmallAgreeMargin").toDouble();
+        kLargeJumpThreshold = g_pulseRuntimeSettings->property("kLargeJumpThreshold").toDouble();  // e.g., 1.0 meter
+        kConsistNeeded = g_pulseRuntimeSettings->property("kConsistNeeded").toInt();               // e.g., 10
+        if (!g_pulseRuntimeSettings->property("didReceiveDepthData").toBool()) {
+            g_pulseRuntimeSettings->setProperty("didReceiveDepthData", true);
+        }
+    }
+
+    double rawDepth = static_cast<double>(dist) / 1000.0;
+    double delta = std::fabs(rawDepth - _lastFilteredDepth);
+
+    if (delta > kLargeJumpThreshold) {
+        // Potential bogus jump — accept only if we see consistent repeated values
+        if (std::fabs(rawDepth - _lastRawDepth) < kSmallAgreeMargin) {  // within 20 cm of last raw → consider consistent
+            _consistCount++;
+        } else {
+            _consistCount = 1;
+        }
+        _lastRawDepth = rawDepth;
+
+        if (_consistCount < kConsistNeeded) {
+            qDebug() << "Depth jump to" << rawDepth << "rejected (delta" << delta << "). Consistency count:" << _consistCount;
+            return;  // Not consistent yet → reject
+        }
+
+        // Enough repeated consistent values → accept new level
+        _lastFilteredDepth = rawDepth;
+        _consistCount = 0;
+    } else {
+        // Normal change → accept directly
+        _lastFilteredDepth = rawDepth;
+        _lastRawDepth = rawDepth;
+        _consistCount = 0;
+    }
+
+    _pool[pool_index].setDist(static_cast<int>(_lastFilteredDepth * 1000));
+    emit distChanged();
+    emit dataUpdate();
+}
+
+void Dataset::addRangefinder(float distance) {
+    Epoch* epoch = last();
+    if (epoch->distAvail()) {
+        epoch = addNewEpoch();
+    }
+
+    if (g_pulseRuntimeSettings) {
+        kSmallAgreeMargin = g_pulseRuntimeSettings->property("kSmallAgreeMargin").toDouble();
+        kLargeJumpThreshold = g_pulseRuntimeSettings->property("kLargeJumpThreshold").toDouble();  // e.g., 1.0
+        kConsistNeeded = g_pulseRuntimeSettings->property("kConsistNeeded").toInt();               // e.g., 10
+        if (!g_pulseRuntimeSettings->property("didReceiveDepthData").toBool()) {
+            g_pulseRuntimeSettings->setProperty("didReceiveDepthData", true);
+        }
+    }
+
+    double rawDepth = static_cast<double>(distance);
+    double delta = std::fabs(rawDepth - _lastFilteredDepth);
+
+    if (delta > kLargeJumpThreshold) {
+        // Check for consistent repeated jump
+        if (std::fabs(rawDepth - _lastRawDepth) < kSmallAgreeMargin) {  // 20 cm consistency margin
+            _consistCount++;
+        } else {
+            _consistCount = 1;
+        }
+        _lastRawDepth = rawDepth;
+
+        if (_consistCount < kConsistNeeded) {
+            qDebug() << "Depth jump to" << rawDepth << "rejected (delta" << delta << "). Consistency count:" << _consistCount;
+            return;  // Not yet trusted
+        }
+
+        // Jump confirmed by consistency
+        _lastFilteredDepth = rawDepth;
+        _consistCount = 0;
+    } else {
+        // Normal update
+        _lastFilteredDepth = rawDepth;
+        _lastRawDepth = rawDepth;
+        _consistCount = 0;
+    }
+
+    // Push update
+    float filteredMeters = static_cast<float>(_lastFilteredDepth);
+    _dist = filteredMeters;
+
+    emit distChanged();
+    epoch->setDist(static_cast<int>(filteredMeters * 1000));
+    emit dataUpdate();
+}
+
+
+/*
 void Dataset::addRangefinder(float distance) {
 
     Epoch* epoch = last();
@@ -786,26 +886,16 @@ void Dataset::addRangefinder(float distance) {
         epoch = addNewEpoch();
     }
 
-    //TEMPORARY TEST TO ENSURE WE HAVE FALSE READINGS TO ELIMINATE
-
-    /* TODO: remove/add comment to enable/disable
-    _dist = distance;
-
-    emit distChanged();
-
-    epoch->setDist(static_cast<int>(distance * 1000));
-    emit dataUpdate();
-    */
-
-    //THE INTENDED METHOD TO TEST ONCE WE HAVE VERIFIED THAT FALSE READINGS EXISTS
-
-    ///* TODO: remove/add comment to enable/disable
+    //distance = distance + 3.0;
 
     // Retrieve any updated variables from settings (tuning of the script)
     if (g_pulseRuntimeSettings) {
         kSmallAgreeMargin = g_pulseRuntimeSettings->property("kSmallAgreeMargin").toDouble();
         kLargeJumpThreshold = g_pulseRuntimeSettings->property("kLargeJumpThreshold").toDouble();
         kConsistNeeded = g_pulseRuntimeSettings->property("kConsistNeeded").toInt();
+        if (!g_pulseRuntimeSettings->property("didReceiveDepthData").toBool()) {
+            g_pulseRuntimeSettings->setProperty("didReceiveDepthData", true);
+        }
     };
 
     double rawDepth = static_cast<double>(distance);
@@ -819,19 +909,13 @@ void Dataset::addRangefinder(float distance) {
             _consistCount = 1;
         }
         _lastRawDepth = rawDepth;
-        //qDebug() << "WOW!!! Large depth " << rawDepth << " triggered delta " << delta << " compared to last filtered depth " << _lastFilteredDepth;
 
         if (_consistCount < kConsistNeeded) {
-            qDebug() <<
-                "WOW!!! Large depth " << rawDepth <<
-                " triggered delta " << delta <<
-                " dropped, consistent required " << kConsistNeeded <<
-                " not met - it is number " << _consistCount;
+            qDebug() << "WOW!!! Large depth " << rawDepth << " triggered delta " << delta << " dropped, consistent required " << kConsistNeeded << " not met - it is number " << _consistCount;
             // still in a short burst → drop it
             return;
         }
-        // otherwise: we have kConsistNeeded consecutive readings
-        // all jumping *to roughly the same new value* → accept it
+
         _depthFilter.reset(rawDepth);
         _lastFilteredDepth = rawDepth;
     } else {
@@ -851,34 +935,8 @@ void Dataset::addRangefinder(float distance) {
 
     epoch->setDist(static_cast<int>(filteredMeters * 1000));
     emit dataUpdate();
-
-    //*/
-
-    /* THE BELOW IS OUTDATED, DID NOT WORK AS INTENDED
-    double newDepth = static_cast<double>(distance);
-    double filteredDepth = _depthFilter.processSample(newDepth);
-
-    // Define a margin (in meters) that you consider significant
-    const double margin = 1.00;  // adjust this value as needed
-
-    // Check if the filtered depth deviates from the raw depth by more than the margin
-    if (std::abs(newDepth - filteredDepth) > margin) {
-        qDebug() << "WOWOWOW!!! Depth filter adjusted value. Raw:" << newDepth << "Filtered:" << filteredDepth;
-    }
-
-    //_dist = filteredDepth;
-    //_dist = distance;
-    emit distChanged();
-
-    if (useFilteringMethod) {
-        epoch->setDist(static_cast<int>(filteredDepth * 1000));
-    } else {
-        epoch->setDist(static_cast<int>(distance * 1000));
-    }
-    epoch->setDist(static_cast<int>(filteredDepth * 1000));
-    emit dataUpdate();
-    */
 }
+*/
 
 void Dataset::addUsblSolution(IDBinUsblSolution::UsblSolution data) {
     int pool_index = endIndex();
@@ -1076,7 +1134,7 @@ void Dataset::addTemp(float temp_c) {
     if (_temp != temp_c) {
         _temp = temp_c;
         emit tempChanged();
-        qDebug("emitted tempChanged: %f", _temp);
+        qDebug("emitted tempChanged: %.9f", _temp);
     }
 
     _pool[pool_index].setTemp(temp_c);
@@ -1384,6 +1442,9 @@ void Dataset::bottomTrackProcessing(int channel1, int channel2)
         epoch_stop_index = size();
     }
 
+    float testOfDistance1 = 0.0;
+    float testOfDistance2 = 0.0;
+
     for(int iepoch = epoch_start_index; iepoch < epoch_stop_index; iepoch++) {
         Epoch* epoch = fromIndex(iepoch);
 
@@ -1393,6 +1454,7 @@ void Dataset::bottomTrackProcessing(int channel1, int channel2)
             Epoch::Echogram* chart = epoch->chart(channel1);
             if(chart->bottomProcessing.source < Epoch::DistProcessing::DistanceSourceDirectHand) {
                 float dist = bottom_track[iepoch - epoch_min_index];
+                testOfDistance1 = dist;
                 chart->bottomProcessing.setDistance(dist, Epoch::DistProcessing::DistanceSourceProcessing);
             }
         }
@@ -1401,10 +1463,13 @@ void Dataset::bottomTrackProcessing(int channel1, int channel2)
             Epoch::Echogram* chart = epoch->chart(channel2);
             if(chart->bottomProcessing.source < Epoch::DistProcessing::DistanceSourceDirectHand) {
                 float dist = bottom_track[iepoch - epoch_min_index];
+                testOfDistance2 = dist;
                 chart->bottomProcessing.setDistance(dist, Epoch::DistProcessing::DistanceSourceProcessing);
             }
         }
     }
+
+    qDebug() << "WOW!!! Bottom Track Processing dist1 " << testOfDistance1 << " and dist2 " << testOfDistance2;
 
     setChannelOffset(channel1, bottomTrackParam_.offset.x, bottomTrackParam_.offset.y, bottomTrackParam_.offset.z);
     spatialProcessing();
