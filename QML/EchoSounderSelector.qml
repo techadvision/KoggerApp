@@ -10,17 +10,24 @@ Rectangle {
 
     // Customizable properties
     property color backgroundColor: "white"
-    property string title: "Default Title"    // title text
+    property string title: ""    // title text
     property color titleColor: "black"          // title color
-    property string description: "Short description goes here."
+    property string description: ""
     property url illustrationSource: ""       // background illustration image
     property url sounderImageSource: ""         // additional image (e.g. sounder illustration)
-    // Versions infrastructure: an array of possible versions and a current version
     property var versions: []
     property string version: ""
+    property bool isSelected: false
 
     // Signal emitted when the object is clicked
     signal selected(string title, string version)
+
+    Connections {
+        target: pulseRuntimeSettings
+        function onUserManualSetNameChanged () {
+            isSelected = true
+        }
+    }
 
     // A low-opacity illustration image that fills the background.
     Image {
@@ -35,13 +42,40 @@ Rectangle {
     // Title text in the top-left area.
     Text {
         id: titleText
-        text: container.title
-        color: container.titleColor
+        visible: !isSelected
+        text: "My device is a ..."
+        color: "white"
+        font.pointSize: 20
+
+        // Make the Text as wide as its parent (or inset by margins), so AlignHCenter takes effect
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: 10
+        anchors.rightMargin: 10
+
+        // Stick to the top with a margin
+        anchors.top: parent.top
+        anchors.topMargin: 20
+
+        // Center each line horizontally within this width
+        horizontalAlignment: Text.AlignHCenter
+
+        // Ensure multi‐line support (no automatic eliding)
+        wrapMode: Text.NoWrap
+    }
+    /*
+    Text {
+        id: titleText
+        visible: !isSelected
+        text: "My device is:\n" + container.title
+        color: "white"
         font.pointSize: 20
         anchors.top: parent.top
-        anchors.left: parent.left
+        anchors.topMargin: 20
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.margins: 10
     }
+    */
 
     // Version selection:
     // If more than one version is provided, use a ComboBox; otherwise, just display the version.
