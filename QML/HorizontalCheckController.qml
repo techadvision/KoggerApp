@@ -18,39 +18,40 @@ Item {
     // Outer rounded rectangle for consistent UI look
     Rectangle {
         id: outerShape
-        anchors.fill: parent
+        width: parent.width
+        height: parent.height
         radius: height / 2
         color: "#80000000"
-        border.color: "transparent"
-        border.width: 2
+        border.color: "#40ffffff"
+        border.width: 1
 
         RowLayout {
             anchors.centerIn: parent
-            spacing: 10
+            spacing: 5
 
             // Icon to indicate the type of controller
             Image {
                 id: controlIcon
-                // Default icon; override when using the component
-                source: "./pulse_controls.svg"
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 42
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
+                source: root.iconSource
                 fillMode: Image.PreserveAspectFit
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-                Layout.leftMargin: 6
+                Layout.leftMargin: 0
+                Layout.rightMargin: 16
             }
 
             // The checkbox component with a larger custom indicator
             CheckBox {
                 id: checkBox
-                implicitWidth: 48
-                implicitHeight: 48
+                implicitWidth: 56
+                implicitHeight: 56
 
                 // Custom white background with a subtle border
                 background: Rectangle {
                     anchors.fill: parent
                     color: "white"
-                    radius: 4
+                    radius: 8
                     border.width: 1
                     border.color: "gray"
                 }
@@ -63,19 +64,16 @@ Item {
                     Canvas {
                         id: indicatorCanvas
                         anchors.fill: parent
-                        // Removed renderPolicy as it's not supported in your version
 
                         onPaint: {
                             var ctx = getContext("2d");
                             ctx.clearRect(0, 0, width, height);
                             if (checkBox.checked) {
-                                // Set stroke style relative to the size
-                                ctx.strokeStyle = "black"; // or change to "#333333" for dark grey
+                                ctx.strokeStyle = "black";
                                 ctx.lineWidth = Math.max(width, height) * 0.1;
                                 ctx.lineCap = "round";
                                 ctx.lineJoin = "round";
                                 ctx.beginPath();
-                                // Draw a check mark that fills a good portion of the area
                                 ctx.moveTo(width * 0.2, height * 0.5);
                                 ctx.lineTo(width * 0.45, height * 0.75);
                                 ctx.lineTo(width * 0.8, height * 0.3);
@@ -100,5 +98,21 @@ Item {
                 }
             }
         }
+
+        // ───────────────────────────────
+        // MouseArea that covers the entire outerShape:
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: false
+
+            onClicked: {
+                // If the click is NOT inside the CheckBox, toggle it.
+                // Otherwise do nothing here, so the CheckBox itself picks up the event.
+                if (!checkBox.containsMouse) {
+                    checkBox.checked = !checkBox.checked
+                }
+            }
+        }
+        // ───────────────────────────────
     }
 }

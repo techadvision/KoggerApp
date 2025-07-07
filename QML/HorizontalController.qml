@@ -22,7 +22,7 @@ Item {
     // Custom properties for auto depth behavior
     property bool isAutoRangeActive: false
     // Custom properties for auto filter behavior
-    property bool isAutoFilterActive: PulseSettings.autoFilter
+    property bool isAutoFilterActive: PulseSettings.autoFilter && (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed || pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto)
 
     signal distanceAutoRangeRequested()
     signal distanceFixedRangeRequested()
@@ -50,7 +50,7 @@ Item {
             let minValue, maxValue;
             if (root.controleName === 'selectorMaxDepth') {
                 minValue = 1;  // Min depth
-                maxValue = 100; // Max depth
+                maxValue = pulseRuntimeSettings.maximumDepth
             } else if (root.controleName === 'selectorIntensity') {
                 minValue = 0;  // Min value for illumination
                 maxValue = 20; // Max value for illumination
@@ -80,6 +80,37 @@ Item {
         }
     }
 
+    Connections {
+        target: pulseRuntimeSettings
+        function onUserManualSetNameChanged () {
+            console.log("Auto function: onUserManualSetNameCganged triggered for", pulseRuntimeSettings.userManualSetName);
+            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.pulseBlueBeta) {
+                if (root.controleName === 'selectorMaxDepth') {
+                    // use max range as default
+                    let maxRange = pulseRuntimeSettings.maximumDepth * 1.0
+                    PulseSettings.maxDepthValuePulseBlue = maxRange
+                    //root.defaultValue = maxRange
+                    valueField.text = maxRange
+                    console.log("Auto function: horizontal controller setting defaultValue", maxRange);
+                    // auto range part
+                    PulseSettings.autoRange = false
+                    root.isAutoRangeActive = false;
+                    root.distanceFixedRangeRequested();
+                    console.log("Auto function: horizontal controller setting auto range to", PulseSettings.autoRange);
+                }
+                if (root.controleName === 'selectorFiltering') {
+                    // auto filter part
+                    PulseSettings.autoFilter = false
+                    root.isAutoFilterActive = false
+                    root.filterFixedRangeRequested();
+                    console.log("Auto function: horizontal controller setting auto filter to", PulseSettings.autoFilter);
+                }
+            } else {
+                console.log("Auto function: horizontal controller, no change for", pulseRuntimeSettings.userManualSetName, "needed");
+            }
+        }
+    }
+
     // Outer oval shape for styling
     Rectangle {
         id: outerShape
@@ -88,8 +119,8 @@ Item {
         height: parent.height
         radius: parent.height / 2 // Oval shape
         color: "#80000000" // Grey background for outer oval
-        border.color: "transparent"
-        border.width: 0
+        border.color: "#40ffffff"
+        border.width: 1
 
         RowLayout {
             anchors.centerIn: parent
@@ -97,8 +128,8 @@ Item {
 
             Image {
                 id: controlIcon
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 42
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
                 fillMode: Image.PreserveAspectFit
                 source: root.iconSource  // Bind icon source to the external property
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
@@ -110,20 +141,21 @@ Item {
                 id: selectorMinusButton
                 width: 80
                 height: 80
-                radius: 20
-                color: "transparent"
+                radius: 30
+                color: minusMouseArea.pressed ? "#666666" : "transparent"
                 Layout.leftMargin: 4
 
                 Text {
                     anchors.centerIn: parent
                     text: "-"
                     font.pixelSize: 100
-                    color: "white"
+                    color: minusMouseArea.pressed ? "#80000000" : "white"
                     font.bold: true
                 }
 
                 MouseArea {
                     anchors.fill: parent
+                    id: minusMouseArea
                     onClicked: {
                         longPressControlTimer.stop();
                         if (root.isAutoRangeActive && controleName === "selectorMaxDepth") {
@@ -214,6 +246,20 @@ Item {
                         MouseArea {
                             anchors.fill: parent
                             onClicked: {
+                                if (pulseRuntimeSettings.devName === "...") {
+                                    return
+                                }
+                                if (pulseRuntimeSettings.pulseBetaName !== "...") {
+                                    if (pulseRuntimeSettings.pulseBetaName === pulseRuntimeSettings.pulseBlueBeta){
+                                        console.log("TAV: Auto function not allowed for real", pulseRuntimeSettings.devName, "beta name", pulseRuntimeSettings.pulseBlueBeta);
+                                        return
+                                    }
+                                }
+                                if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue) {
+                                    console.log("TAV: Auto function not allowed for", pulseRuntimeSettings.devName);
+                                    return
+                                }
+                                console.log("TAV: Auto function is allowed for", pulseRuntimeSettings.devName);
                                 if (controleName==="selectorMaxDepth") {
                                     if (root.isAutoRangeActive) {
                                         //console.log("TAV: Auto range was active, should disable");
@@ -254,8 +300,8 @@ Item {
                 id: selectorPlusButton
                 width: 80
                 height: 80
-                radius: 20
-                color: "transparent"
+                radius: 30
+                color: plusMouseArea.pressed ? "#666666" : "transparent"
                 Layout.rightMargin: 4
                 //color: "#555555"
 
@@ -263,12 +309,13 @@ Item {
                     anchors.centerIn: parent
                     text: "+"
                     font.pixelSize: 80
-                    color: "white"
+                    color: plusMouseArea.pressed ? "#80000000" : "white"
                     font.bold: true
                 }
 
                 MouseArea {
                     anchors.fill: parent
+                    id: plusMouseArea
                     onClicked: {
                         longPressControlTimer.stop();
                         if (root.isAutoRangeActive && controleName === "selectorMaxDepth") {
@@ -286,7 +333,8 @@ Item {
                             //console.log("TAV: Auto filterwas not active, just do minus");
                         }
 
-                        let newValue = Math.min(maxValue, parseInt(valueField.text) + step);
+                        let newValue = Math.min(root.maxValue, parseInt(valueField.text) + step);
+                        console.log("TAV: new plus value is", newValue, "for maxvalue", maxValue, "and root.maxValue", root.maxValue, "for userManualSetName", pulseRuntimeSettings.userManualSetName);
                         valueField.text = newValue;
                         root.quickChangeMaxRangeValue = newValue;
                         root.selectorValueChanged(newValue);
@@ -310,6 +358,7 @@ Item {
     }
 
     // Progress Bar
+    /*
     Rectangle {
         id: progressBar
         width: parent.width - 20
@@ -327,12 +376,15 @@ Item {
             color: "#4CAF50"
         }
     }
+    */
 
     // Timer to hide the progress bar after 2 seconds
+    /*
     Timer {
         id: progressBarTimer
         interval: 2000
         repeat: false
         onTriggered: progressBar.visible = false
     }
+    */
 }

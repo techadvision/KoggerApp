@@ -6,37 +6,11 @@ Item {
     id: root
     property var values: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
     property int currentIndex: 0
-    //property double currentValue: values[currentIndex]
 
     signal pulsePreferenceValueChanged(double newValue)
 
     implicitWidth: 280
     implicitHeight: 80
-
-    /*
-    Component.onCompleted: {
-        for (var i = 0; i < values.length; i++) {
-            if (values[i] === currentValue) {
-                currentIndex = i;
-                break;
-            }
-        }
-        currentValue = values[currentIndex];
-    }
-    */
-
-    /*
-    onCurrentValueChanged: {
-        if (values[currentIndex] !== currentValue) {
-            for (var i = 0; i < values.length; i++) {
-                if (values[i] === currentValue) {
-                    currentIndex = i;
-                    break;
-                }
-            }
-        }
-    }
-    */
 
     onCurrentIndexChanged: {
         pulsePreferenceValueChanged(values[currentIndex])
@@ -161,7 +135,7 @@ Item {
 
             Timer {
                 id: plusRepeatTimer
-                interval: 300
+                interval: 200
                 repeat: true
                 running: false
                 onTriggered: {
