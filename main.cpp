@@ -95,6 +95,7 @@ void registerQmlMetaTypes()
 {
     qmlRegisterType<qPlot2D>( "WaterFall", 1, 0, "WaterFall");
     qmlRegisterType<BottomTrack>("BottomTrack", 1, 0, "BottomTrack");
+    qmlRegisterType<NMEASender>("NMEASender", 1, 0, "NMEASender");
     qRegisterMetaType<BottomTrack::ActionEvent>("BottomTrack::ActionEvent");
 }
 
@@ -111,7 +112,7 @@ int main(int argc, char *argv[])
 
     QCoreApplication::setOrganizationName("TechAdVision");
     QCoreApplication::setOrganizationDomain("techadvision.com");
-    QCoreApplication::setApplicationName("Pulse");
+    QCoreApplication::setApplicationName("Pulse Echo Sounder");
     QCoreApplication::setApplicationVersion("1-1-1");
 
 #if defined(Q_OS_WIN)
@@ -179,6 +180,9 @@ int main(int argc, char *argv[])
     NMEASender* nmeaSender = new NMEASender(&core);  // Use an appropriate parent
     QObject::connect(core.getDatasetPtr(), &Dataset::distChanged, [=]() {
         nmeaSender->setLatestDepth(core.getDatasetPtr()->dist());
+    });
+    QObject::connect(core.getDatasetPtr(), &Dataset::tempChanged, [=]() {
+        nmeaSender->setLatestTemp(core.getDatasetPtr()->temp());
     });
 
 
