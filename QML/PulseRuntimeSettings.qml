@@ -8,12 +8,15 @@ QtObject {
 
     //DEVICES
     property string devName:                "..."           //Stores the connected device name
-    property string modelPulseRed:          "PULSEred"        //Our device name for PulseRed. Will change!
-    property string modelPulseBlue:         "PULSEblue"       //Our device name dor PulseBlue. Will change!
+    property string modelPulseRed:          "PULSEred"      //Our device name for PulseRed. Will change!
+    property string modelPulseBlue:         "PULSEblue"     //Our device name dor PulseBlue. Will change!
     property string modelPulseRedProto:     "ECHO20"        //Our device name for PulseRed. Will change!
     property string modelPulseBlueProto:    "NanoSSS"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
     property string udpGateway:             "192.168.10.1"
+    property string pulseRedBeta:           "PULSEred BETA"
+    property string pulseBlueBeta:          "PULSEblue BETA"
+    property string pulseBetaName:          "..."
 
     //CONNECTIONS UUID
     property string uuidIpGateway:          "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"
@@ -28,10 +31,18 @@ QtObject {
     property bool   devManualSelected:      false   // The user selected one of our selected models
     property bool   appConfigured:          false   // Setup steps for the app recongnized device is completed
     property bool   expertMode:             false   // Hidden feeatures shown when true
+    property bool   betaMode:               false
     property bool   isSideScan2DView:       false   // Side scan is detected, but user wants to show it as a 2D transducer (aka downscan)
+    property bool   isSideScanLeftHand:     false   // Side scan mounted on the left side
     property bool   isOpeningKlfFile:       false
     property int    numberOfDatasetChannels:0       // The number of channels in the dataset received
-    property int    currentDepthSolution:   -1       // Depth reporting inactive = 0, depth distance = 1, depth NMEA = 2
+    property int    currentDepthSolution:   -1      // Depth reporting inactive = 0, depth distance = 1, depth NMEA = 2
+    property bool   disableAllSetup:        false
+    property bool   forceUpdateResolution:  false
+    property bool   pulseBlueResSetOnce:    false   // Will be set to true provided we set resolution once for the blue
+
+    //CHANGE DEVICE STATE
+    property bool   swapDeviceNow:          false   // Should reset and restart the setup
 
     //CONFIGURATION STATES
     property bool   onDeviceVersionChanged: false
@@ -72,6 +83,16 @@ QtObject {
     property bool   didEverReceiveData:     false   // When data is received, true
     property bool   hasDeviceLostConnection:false   // if didEverReceiveData = true, and isReceivingData = false
     property bool   didReceiveDepthData:    false   // Used to track if depth data is received
+    property bool   forceBreakConnection:   false   // Used to break connection if we do not like the device
+
+    //TRAFFIC STATE CHANGE CONTROL
+    property bool   dataUpdateActive:       false   // If dataUpdate is being signalled, this should be true
+    property int    rebootWindowMs:         20000   // reboot if stale within this many ms of first data
+    property int    resetWindowMs:          60000  // clear “first data” after this many ms of stale
+    property int    firstDataTs:            0       // Date.now() when we first saw data this session
+    property bool   guardActive:            false   // true until rebootWindowMs elapses
+    property bool   echoSounderReboot:      false
+    property int    dataIsStaleElapseTime:  3500
 
     //UI AUTO CONTROL
     property double autoDepthMaxLevel:      49      // The current max level displayed, used for automatic change of display based on depth measure
@@ -80,18 +101,62 @@ QtObject {
     property double autoDepthDistanceBelow: 1       // The additional distance below the measured depth and the step to show some screen below the measure
     property bool   shouldDoAutoRange:      false   // Should app automatically adjust the display according to depth measure or not?
     property double manualSetLevel:         0.0     // The fixe value of the screen display desired by the user, when manual fixing is desired
-    property int    dynamicResolutionMin:   90      // The minimum allowed resolution in mm
-    property int    dynamicResolutionMax:   2       // The maximum allowed resolution in mm
-    property int    dynamicResolutionMargin:2       // The margin resolution in m
-    property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property double hysterisisThreshold:    0.1     // resolution hysterisis for dynamic resolution
     property int    requiredStableReading:  3       // resolution shift count threshold
     property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
 
+    //APP DYNAMIC CONTROLS
+    property int    dynamicResolutionMin:   50      // The minimum allowed resolution in mm, reduced from 90 to 50
+    property int    dynamicResolutionMax:   2       // The maximum allowed resolution in mm
+    property int    dynamicResolutionMargin:2       // The margin resolution in m
+    property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
+    property bool   dynamicResolutionInit:  false   // The initial dynamic resolution was performed
+    property int    dynamicSamplesMax:      500     // When reolution is maxed out, we alter the number of samples and the period
+    property int    dynamicSamplesMin:      1020
+    property int    dynamicSamplesStep:     20
+    property int    dynamicPeriodMax:       50      // When reolution is maxed out, we alter the period and the number of samples
+    property int    dynamicPeriodMin:       154
+    property int    dynamicPeriodStep:      2
+    property int    dynamicSamples:         500     //
+    property int    dynamicPeriod:          50      //
+
+
     //RECORDING KLF
     property bool   isRecordingKlf:         false   // If a KLF recording is started or not
     property string klfFilePath:            ""      // File path used to view a KLF file
+
+    //SETTING CATEGORY FILTERS
+    property bool   showCatScreen:         false
+    property bool   showCatNmea:            false
+    property bool   showCatInstallation:    false
+    property bool   showCatTroubleShoot:    false
+    property bool   showCatRecording:       false
+    property bool   showCatExperimental:    false
+    property bool   showCatDebug:           false
+    property bool   showCatBlackStripes:    false
+    property bool   showCatDepthFiltering:  false
+    property bool   showCatDeviceRawInfo:   false
+    property bool   showCatParameterInfo:   false
+    property bool   showCatAppConfigInfo:   false
+    property bool   showCatBetaTesters:     false
+    property bool   showCatSwapDevice:      false
+
+    //RAW DATA FROM DEVICE
+    property string rawDev_devName:             "not set"
+    property int    rawDev_devType:             -1
+    property int    rawDev_devBaudRate:         -1
+    property int    rawDev_devSerialNumber:     -1
+    property string rawDev_devPN:               "not set"
+    property string rawDev_firmwareVersion:     "not set"
+    property bool   rawDev_isSonar:             false
+    property bool   rawDev_isChartSupport:      false
+    property bool   rawDev_isTransducerSupport: false
+    property bool   rawDev_isDistSupport:       false
+    property bool   rawDev_isDatasetSupport:    false
+    property bool   rawDev_isSoundSpeedSupport: false
+    property bool   rawDev_isUpgradeSupport:    false
+
 
     //Temporary UDP preference (shall use persistent settings for this purpose
     property bool   enableNmeaDbt:          true
@@ -100,33 +165,44 @@ QtObject {
     property double kSmallAgreeMargin:      0.2    // Flucutations allowed in filtering
     property double kLargeJumpThreshold:    3.0     // A jump from one value to the next before considered a likely false reading
     property int    kConsistNeeded:         10       // The threshold of values required before we believe it
+
+    //TESTING PROPERTIES
+    property double fakeDepthAddition:      0.0
+    property bool   pushFakeDepth:          false
     
     //COLOR MAP
 
     property var    themeModelBlue: [
-        { id: 0,        icon: "./icons/pulse_color_ss_blue.svg" },
-        { id: 1,        icon: "./icons/pulse_color_ss_sepia.svg" },
-        { id: 2,        icon: "./icons/pulse_color_ss_gray.svg" },
-        { id: 3,        icon: "./icons/pulse_color_ss_red.svg" },
-        { id: 4,        icon: "./icons/pulse_color_ss_green.svg" }
+        { id: 0,        icon: "./icons/pulse_color_ss_blue.svg",        title: "Blue"   },
+        { id: 1,        icon: "./icons/pulse_color_ss_sepia.svg",       title: "Yellow"   },
+        { id: 2,        icon: "./icons/pulse_color_ss_gray.svg",        title: "Gray"   },
+        { id: 3,        icon: "./icons/pulse_color_ss_red.svg",         title: "Red"   },
+        { id: 4,        icon: "./icons/pulse_color_ss_green.svg",       title: "Green" }
     ]
 
     property var    themeModelRed: [
-        { id: 5,        icon: "./icons/pulse_color_2d_e500_black.svg" },
-        { id: 6,        icon: "./icons/pulse_color_2d_e500_white.svg" },
-        { id: 7,        icon: "./icons/pulse_color_2d_furuno_black.svg" },
-        { id: 8,        icon: "./icons/pulse_color_2d_furuno_white.svg" },
-        { id: 9,        icon: "./icons/pulse_color_2d_sonic_black.svg" },
-        { id: 10,       icon: "./icons/pulse_color_2d_sonic_white.svg" },
-        { id: 11,       icon: "./icons/pulse_color_2d_lsss_black.svg" },
-        { id: 12,       icon: "./icons/pulse_color_2d_lsss_white.svg" },
-        { id: 13,       icon: "./icons/pulse_color_2d_hti_black.svg" },
-        { id: 14,       icon: "./icons/pulse_color_2d_hti_white.svg" },
-        { id: 15,       icon: "./icons/pulse_color_2d_dt4_black.svg" },
-        { id: 16,       icon: "./icons/pulse_color_2d_dt4_white.svg" },
-        { id: 1,        icon: "./icons/pulse_color_ss_sepia.svg" },
-        { id: 4,        icon: "./icons/pulse_color_ss_green.svg" }
+        { id: 5,        icon: "./icons/pulse_color_2d_e500_black.svg",  title: "E Dark" },
+        { id: 6,        icon: "./icons/pulse_color_2d_e500_white.svg",  title: "E Bright"  },
+        { id: 7,        icon: "./icons/pulse_color_2d_furuno_black.svg",title: "F Dark"  },
+        { id: 8,        icon: "./icons/pulse_color_2d_furuno_white.svg",title: "F Bright"  },
+        { id: 9,        icon: "./icons/pulse_color_2d_sonic_black.svg", title: "S Dark"  },
+        { id: 10,       icon: "./icons/pulse_color_2d_sonic_white.svg", title: "S Bright"  },
+        { id: 11,       icon: "./icons/pulse_color_2d_lsss_black.svg",  title: "L Dark"  },
+        { id: 12,       icon: "./icons/pulse_color_2d_lsss_white.svg",  title: "L Bright"  },
+        { id: 13,       icon: "./icons/pulse_color_2d_hti_black.svg",   title: "H Dark"  },
+        { id: 14,       icon: "./icons/pulse_color_2d_hti_white.svg",   title: "H Bright"  },
+        { id: 15,       icon: "./icons/pulse_color_2d_dt4_black.svg",   title: "D Dark"  },
+        { id: 16,       icon: "./icons/pulse_color_2d_dt4_white.svg",   title: "D Bright"  },
+        { id: 19,       icon: "./icons/pulse_color_blue_red.svg",       title: "Pulse Blue-Red"  },
+        { id: 20,       icon: "./icons/pulse_color_2d_rainbow.svg",     title: "Pulse Pink-Red"  },
+        { id: 0,        icon: "./icons/pulse_color_ss_blue.svg",        title: "Blue"   },
+        { id: 1,        icon: "./icons/pulse_color_ss_sepia.svg",       title: "Yellow"   },
+        { id: 2,        icon: "./icons/pulse_color_ss_gray.svg",        title: "Gray"   },
+        { id: 3,        icon: "./icons/pulse_color_ss_red.svg",         title: "Red"   },
+        { id: 4,        icon: "./icons/pulse_color_ss_green.svg",       title: "Green" }
     ]
+
+    property var    currentThemeColors: []
 
     //DISPLAY SETTINGS
 
@@ -169,6 +245,7 @@ QtObject {
     property int    datasetTemp:                    userManualSetName === modelPulseRed ? pulseRed.datasetTemp                  : pulseBlue.datasetTemp
     property int    datasetTimestamp:               userManualSetName === modelPulseRed ? pulseRed.datasetTimestamp             : pulseBlue.datasetTimestamp
     property int    transFreqWide:                  userManualSetName === modelPulseRed ? pulseRed.transFreqWide                : pulseBlue.transFreqWide
+    property int    transFreqMedium:                userManualSetName === modelPulseRed ? pulseRed.transFreqMedium              : pulseBlue.transFreqMedium
     property int    transFreqNarrow:                userManualSetName === modelPulseRed ? pulseRed.transFreqNarrow              : pulseBlue.transFreqNarrow
     property int    maximumDepth:                   userManualSetName === modelPulseRed ? pulseRed.maximumDepth                 : pulseBlue.maximumDepth
     property bool   processBottomTrack:             userManualSetName === modelPulseRed ? pulseRed.processBottomTrack           : pulseBlue.processBottomTrack
@@ -187,38 +264,39 @@ QtObject {
         "is2DTransducer":               true,
         "useTemperature":               true,
         "chartResolution":              6,
-        "chartSamples":                 510,
+        "chartSamples":                 530,
         "chartOffset":                  1,
         "distMax":                      49000,
-        "distDeadZone":                 1,
+        "distDeadZone":                 20,
         "distConfidence":               15,
         "transPulse":                   11,
         "transFreq":                    610,
         "transBoost":                   0,
         "dspHorSmooth":                 0,
         "soundSpeed":                   1380*1000,
-        "ch1Period":                    50,
+        "ch1Period":                    25,
         "datasetChart":                 1,
         "datasetDist":                  1,
         "datasetSDDBT":                 0,
-        "datasetEuler":                 0,
-        "datasetTemp":                  1,
-        "datasetTimestamp":             0,
+        "datasetEuler":                 1,
+        "datasetTemp":                  0,
+        "datasetTimestamp":             1,
         "transFreqWide":                500,
-        "transFreqNarrow":              610,
-        "maximumDepth":                 45,
+        "transFreqMedium":              610,
+        "transFreqNarrow":              730,
+        "maximumDepth":                 40,
         "processBottomTrack":           true,
         "doDynamicResolution":          true,
-        "fixBlackStripesBackwardSteps": 20,
-        "fixBlackStripesForwardSteps":  20,
-        "fixBlackStripesState":         true,
+        "fixBlackStripesBackwardSteps": 10,
+        "fixBlackStripesForwardSteps":  10,
+        "fixBlackStripesState":         false,
         "temperatureCorrection":        -1.5
     }
     */
 
 
     property var pulseRed: {
-        "devName":                      "ECHO20",
+        "devName":                      "PULSEred",
         "settingVersion":               1,
         "is2DTransducer":               true,
         "useTemperature":               true,
@@ -241,8 +319,9 @@ QtObject {
         "datasetTemp":                  1,
         "datasetTimestamp":             0,
         "transFreqWide":                510,
-        "transFreqNarrow":              710,
-        "maximumDepth":                 45,
+        "transFreqMedium":              710,
+        "transFreqNarrow":              810,
+        "maximumDepth":                 52,
         "processBottomTrack":           true,
         "doDynamicResolution":          true,
         "fixBlackStripesBackwardSteps": 20,
@@ -253,19 +332,19 @@ QtObject {
 
 
     property var pulseBlue: {
-        "devName":                      "NanoSSS",
+        "devName":                      "PULSEblue",
         "settingVersion":               1,
         "is2DTransducer":               false,
         "useTemperature":               false,
         "chartResolution":              37,
         "chartSamples":                 1358,
-        "chartOffset":                  25,
+        "chartOffset":                  0,
         "distMax":                      25000,
         "distDeadZone":                 0,
         "distConfidence":               14,
         "transPulse":                   10,
         "transFreq":                    540,
-        "transBoost":                   1,
+        "transBoost":                   0,
         "dspHorSmooth":                 0,
         "soundSpeed":                   1480*1000,
         "ch1Period":                    50,
@@ -276,6 +355,7 @@ QtObject {
         "datasetTemp":                  0,
         "datasetTimestamp":             0,
         "transFreqWide":                540,
+        "transFreqMedium":              540,
         "transFreqNarrow":              540,
         "maximumDepth":                 25,
         "processBottomTrack":           true,
@@ -327,39 +407,69 @@ QtObject {
     float offsetz);
     */
 
+
     property var autoFilterPulseRedNarrow: [
-        { "min": 0,  "max": 1,  "filter": 16},
-        { "min": 1,  "max": 2,  "filter": 15},
-        { "min": 2,  "max": 3,  "filter": 14},
-        { "min": 3,  "max": 4,  "filter": 13},
-        { "min": 4,  "max": 5,  "filter": 12},
-        { "min": 5,  "max": 6,  "filter": 11},
-        { "min": 6,  "max": 7,  "filter": 10},
-        { "min": 7,  "max": 8,  "filter": 9 },
-        { "min": 8,  "max": 9,  "filter": 8 },
-        { "min": 9,  "max": 10, "filter": 7 },
-        { "min": 10, "max": 12, "filter": 6 },
-        { "min": 12, "max": 14, "filter": 5 },
-        { "min": 14, "max": 18, "filter": 4 },
-        { "min": 18, "max": 24, "filter": 3 },
-        { "min": 24, "max": 30, "filter": 2 },
-        { "min": 30, "max": 40, "filter": 1 },
+        { "min": 0,  "max": 1,  "filter": 23},
+        { "min": 1,  "max": 2,  "filter": 22},
+        { "min": 2,  "max": 3,  "filter": 21},
+        { "min": 3,  "max": 4,  "filter": 20},
+        { "min": 4,  "max": 5,  "filter": 19},
+        { "min": 5,  "max": 6,  "filter": 18},
+        { "min": 6,  "max": 7,  "filter": 17},
+        { "min": 7,  "max": 8,  "filter": 16},
+        { "min": 8,  "max": 9,  "filter": 15},
+        { "min": 9,  "max": 10, "filter": 14},
+        { "min": 10, "max": 11, "filter": 13},
+        { "min": 11, "max": 12, "filter": 12},
+        { "min": 12, "max": 13, "filter": 11},
+        { "min": 13, "max": 14, "filter": 10},
+        { "min": 14, "max": 15, "filter": 9 },
+        { "min": 15, "max": 16, "filter": 8 },
+        { "min": 16, "max": 17, "filter": 7 },
+        { "min": 17, "max": 18, "filter": 6 },
+        { "min": 18, "max": 19, "filter": 5 },
+        { "min": 19, "max": 20, "filter": 4 },
+        { "min": 20, "max": 22, "filter": 3 },
+        { "min": 22, "max": 24, "filter": 2 },
+        { "min": 24, "max": 30, "filter": 1 },
+        { "min": 30, "max": 40, "filter": 0 },
         { "min": 40, "max": 100,"filter": 0 }
     ]
 
+
     property var autoFilterPulseRedWide: [
-        { "min": 0,  "max": 1,  "filter": 11},
-        { "min": 1,  "max": 2,  "filter": 10},
-        { "min": 2,  "max": 3,  "filter": 9 },
-        { "min": 3,  "max": 4,  "filter": 8 },
-        { "min": 4,  "max": 5,  "filter": 7 },
-        { "min": 5,  "max": 6,  "filter": 6 },
-        { "min": 6,  "max": 7,  "filter": 5 },
-        { "min": 7,  "max": 9,  "filter": 4 },
-        { "min": 9,  "max": 12, "filter": 3 },
-        { "min": 12, "max": 16, "filter": 2 },
+        { "min": 0,  "max": 1,  "filter": 14},
+        { "min": 1,  "max": 2,  "filter": 13},
+        { "min": 2,  "max": 3,  "filter": 12},
+        { "min": 3,  "max": 4,  "filter": 11},
+        { "min": 4,  "max": 5,  "filter": 10},
+        { "min": 5,  "max": 6,  "filter": 9 },
+        { "min": 6,  "max": 7,  "filter": 8 },
+        { "min": 7,  "max": 8,  "filter": 7 },
+        { "min": 8,  "max": 9,  "filter": 6 },
+        { "min": 9,  "max": 10, "filter": 5 },
+        { "min": 10, "max": 11, "filter": 4 },
+        { "min": 11, "max": 13, "filter": 3 },
+        { "min": 13, "max": 16, "filter": 2 },
         { "min": 16, "max": 21, "filter": 1 },
-        { "min": 20, "max": 100,"filter": 0 }
+        { "min": 21, "max": 100,"filter": 0 }
+    ]
+
+    property var betaKeyCodes: [
+        "k7d-4m9-zx3",
+        "t3g-5r1-vq8",
+        "p8b-2s7-lm0",
+        "j2n-6z4-yr5",
+        "w9q-1x6-ub2",
+        "h5v-3k8-od9",
+        "c4r-7t0-nj6",
+        "bet-aus-ers"
+    ]
+
+    property var expertKeyCodes: [
+        "n5f-8v2-mq1",
+        "x3k-7t4-zr6",
+        "y2b-5w9-jd3"
     ]
 
 
