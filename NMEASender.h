@@ -14,6 +14,8 @@ public:
 
     void sendDepthData(float depthMeters);
     void setLatestDepth(float depth);
+    void sendTempData(float tempCelsius);
+    void setLatestTemp(float temp);
 
 public slots:
     void updateDepth();
@@ -21,13 +23,16 @@ public slots:
 
 private:
     QByteArray createDBTSentence(float depthMeters);
+    QByteArray createMTWSentence(float tempCelsius);
     void onTimeout();
     QUdpSocket* udpSocket;
     QTimer* sendTimer;
+    QTimer* tempTimer;
     quint16 port;
     QString broadcastAddress;
 
     float latestDepth;
+    float latestTemp;
 };
 
 #endif // NMEA_SENDER_H
