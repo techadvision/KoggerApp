@@ -19,12 +19,54 @@ ColumnLayout {
     }
 
     Connections {
-        target: core
+        target: core ? core : undefined
 
         function onConnectionChanged() {
             connectionButton.connection = core.isOpenConnection()
             dev = null
         }
+    }
+
+    Connections {
+        target: pulseRuntimeSettings
+        function onForceBreakConnectionChanged () {
+            if (pulseRuntimeSettings.forceBreakConnection) {
+                console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection)
+                let isConnected = pulseRuntimeSettings.uuidSuccessfullyOpened !== ""
+                if (isConnected) {
+                    console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection, "and isConnected", isConnected)
+                    linkManagerWrapper.closeLink(pulseRuntimeSettings.uuidSuccessfullyOpened)
+                } else {
+                    console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection, "but cannot as isConnected", isConnected)
+                }
+            } else {
+                console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection)
+            }
+        }
+        function onDevNameChanged () {
+            if (pulseRuntimeSettings.devName !== "...") {
+                console.log("forceBreakConnection ability triggered by onDevNameChanged to something real, let's investigate if we allow this")
+                let allowedRed = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed
+                let allowedBlue = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue
+                let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isBetaTester
+                let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isExpert
+                if (allowedRed || allowedBlue || allowedBeta || allowedExpert) {
+                    if (allowedRed || allowedBlue) {
+                        console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is always allowed")
+                    } else if (allowedBeta) {
+                        console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is allowed for beta tester with status", PulseSettings.isBetaTester)
+                    } else {
+                        console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is allowed for expert with status", PulseSettings.isExpert)
+                    }
+
+                    return
+                } else {
+                    console.log("forceBreakConnection for device",pulseRuntimeSettings.devName, "beta status", PulseSettings.isBetaTester, "expert status", PulseSettings.isExpert)
+                    pulseRuntimeSettings.forceBreakConnection = true
+                }
+            }
+        }
+
     }
 
     MenuRow {
