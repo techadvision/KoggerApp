@@ -27,8 +27,8 @@ Item {
         height: parent.height
         radius: height / 2
         color: "#80000000"
-        border.color: "transparent"
-        border.width: 2
+        border.color: "#40ffffff"
+        border.width: 1
 
         RowLayout {
             anchors.centerIn: parent
@@ -84,7 +84,7 @@ Item {
                         // If more than 10 taps within 5 seconds, activate hidden feature
                         if (iconRect.tapCount > 10) {
                             // Set your hidden feature flag (or call a function to enable tuning mode)
-                            pulseRuntimeSettings.expertMode = !pulseRuntimeSettings.expertMode;
+                            //pulseRuntimeSettings.expertMode = !pulseRuntimeSettings.expertMode;
                             //console.log("TAV: Activated the hidden features");
 
                             // Optionally, reset tap count and timer if you want one activation per sequence
