@@ -2,29 +2,187 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
-Rectangle {
-
+Flickable {
     id: root
     focus: true
     width: 900
-    //height: 400
-    //anchors.centerIn: parent
-    color: "white"
-    radius: 8
-    implicitWidth:  layout.implicitWidth
-    implicitHeight: layout.implicitHeight
 
+    // Make the Flickable scrollable vertically
+    flickableDirection: Flickable.VerticalFlick
+    contentWidth: width
+    // Let contentHeight track the total children height
+    contentHeight: contentItem.childrenRect.height
     property string gatewayIp: PulseSettings.udpGateway
 
-    // Function to load the version string from a text file
+    // Always‐visible vertical scrollbar
+    ScrollBar.vertical: ScrollBar {
+        policy: ScrollBar.AlwaysOn
+        width: 16
+    }
+
+    // ——————————————————————————————————————————————————————————
+    // Left side: the app icon (40% of root.width, preserve aspect ratio)
+    // ——————————————————————————————————————————————————————————
+    Image {
+        id: appIcon
+        source: (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ||
+                 pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto)
+                   ? "./image/PulseRedForApp.jpg"
+                   : "./image/PulseBlueForApp.jpg"
+        fillMode: Image.PreserveAspectFit
+
+        // Make width = 40% of the Flickable's width
+        width: root.width * 0.4
+        // Compute height from the image's implicit dimensions to preserve aspect ratio:
+        //   height = width × (originalHeight / originalWidth)
+        //   implicitHeight and implicitWidth reflect the image's native size.
+        height: width * implicitHeight / implicitWidth
+
+        // 10 px margin from top and left of the Flickable
+        anchors.top: parent.top
+        //anchors.topMargin: 10
+        anchors.left: parent.left
+        //anchors.leftMargin: 10
+    }
+
+    // ——————————————————————————————————————————————————————————
+    // Right side: stack everything that used to be in GridLayout.column:1
+    // inside a Column. Each child is wrapped in a Rectangle just as an example.
+    // ——————————————————————————————————————————————————————————
+    Column {
+        id: rightColumn
+        spacing: 20
+
+        // Anchor the top of this column to the top of appIcon,
+        // and place it immediately to the right of appIcon.
+        anchors.top: appIcon.top
+        anchors.left: appIcon.right
+        anchors.leftMargin: 20
+
+        // Make the column take the rest of the Flickable’s width,
+        // accounting for the 10px left margin of appIcon + 20px gap + 10px right margin.
+        // (You can tweak these margins as needed.)
+        width: root.width - appIcon.width - 40
+
+        // ——————————————————————————————
+        // 0) App icon
+        // ——————————————————————————————
+        Rectangle {
+            id: appIconRect
+            width: parent.width
+            height: 135
+            color: "transparent"
+            radius: 4
+            anchors.topMargin: 20
+
+            // Center the text vertically/horizontally within its Rectangle
+            Image {
+                id: appIconImage
+                source: "./image/logo_icon.png"
+                height: 125
+                width: 125
+                fillMode: Image.PreserveAspectFit
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.leftMargin: 5
+            }
+        }
+
+
+        // ——————————————————————————————
+        // 1) App name and version text
+        // ——————————————————————————————
+        Rectangle {
+            id: appNameRect
+            width: parent.width
+            height: appNameText.implicitHeight + 10
+            color: "transparent"
+            radius: 4
+
+            // Center the text vertically/horizontally within its Rectangle
+            Text {
+                id: appNameText
+                text: loadVersion()           // still calls your loadVersion() function
+                font.bold: true
+                font.pixelSize: 32
+                anchors.top: appIconRect.bottom
+                anchors.left: parent.left
+                anchors.leftMargin: 5
+            }
+        }
+
+        // ——————————————————————————————
+        // 2) Device name text (with Connections to pulseRuntimeSettings.devName changes)
+        // ——————————————————————————————
+        Rectangle {
+            id: deviceNameRect
+            width: parent.width
+            height: deviceNameText.implicitHeight + 10
+            anchors.topMargin: 20
+            color: "transparent"
+            radius: 4
+
+            Text {
+                id: deviceNameText
+                text: {
+                    if (pulseRuntimeSettings.devName !== "...") {
+                        if (pulseRuntimeSettings.pulseBetaName !== "...") {
+                            return "Device:\n" + pulseRuntimeSettings.pulseBetaName
+                        } else {
+                            return "Device:\n" + pulseRuntimeSettings.devName
+                        }
+                    } else {
+                        return "Device:\nNo device connected"
+                    }
+                }
+                font.pixelSize: 32
+                anchors.top: appNameRect.bottom
+                anchors.left: parent.left
+                anchors.leftMargin: 5
+            }
+        }
+
+        // ——————————————————————————————
+        // 3) App IP / Mode text
+        // ——————————————————————————————
+        Rectangle {
+            id: appIpRect
+            width: parent.width
+            height: appIpText.implicitHeight + 10
+            color: "transparent"
+            radius: 4
+
+            Text {
+                id: appIpText
+                text: {
+                    if (pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial) {
+                        return "Pulse Long Range"
+                    } else {
+                        if (root.gatewayIp) {
+                            return "Wi-Fi gateway:\n" + root.gatewayIp
+                        } else {
+                            return "Wi-Fi:\nNo gateway detected"
+                        }
+                    }
+                }
+                font.pixelSize: 32
+                anchors.top: deviceNameRect.bottom
+                anchors.left: parent.left
+                anchors.leftMargin: 5
+            }
+        }
+    }
+
+    // ——————————————————————————————————————————————————————————
+    // Your existing function to load version.txt can stay here
+    // ——————————————————————————————————————————————————————————
     function loadVersion() {
         var xhr = new XMLHttpRequest();
-        // Adjust the path if necessary (e.g., "qrc:/version.txt" if in resources)
-        xhr.open("GET", "./version.txt", false); // Synchronous request for simplicity
+        xhr.open("GET", "./version.txt", false);
         xhr.send();
         if (xhr.status === 200) {
             var lines = xhr.responseText.split("\n");
-            return lines[0]; // Return the first line as version
+            return lines[0];
         } else {
             console.error("Failed to load version.txt, status:", xhr.status);
             return "unknown";
@@ -33,148 +191,6 @@ Rectangle {
 
     Component.onCompleted: {
         var versionString = loadVersion();
-        root.gatewayIp = pulseSettings.udpGateway
-        //console.log("TAV - App version:", versionString);
-        // You can now use versionString in your UI, e.g., assign it to a Text element
+        root.gatewayIp = PulseSettings.udpGateway;
     }
-
-
-
-    GridLayout {
-        id: layout
-        rowSpacing: 20
-        columnSpacing: 20
-        columns: 2
-
-        Image {
-            id: appIcon
-            source: (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) ? "./image/PulseRedImage400.png" : "./image/PulseBlueImage400"
-            //Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-            //Layout.leftMargin: 20
-            //Layout.topMargin: 20
-            width: 325
-            height: 192
-            fillMode: Image.PreserveAspectFit
-
-            GridLayout.row: 0
-            GridLayout.column: 0
-            GridLayout.rowSpan: 4
-
-        }
-
-
-        Text {
-            id: appNameText
-            text: "" + loadVersion()  // Replace with your actual app name
-            font.bold: true
-            font.pixelSize: 24
-            GridLayout.row: 0
-            GridLayout.column: 1
-            Layout.topMargin: 20
-        }
-
-
-        Text {
-            id: deviceNameText
-            text: "Device: " + pulseRuntimeSettings.devName
-            font.pixelSize: 24
-            GridLayout.row: 1
-            GridLayout.column: 1
-
-            Connections {
-                target: pulseRuntimeSettings
-                function onDevNameChanged () {
-                    text = "Device: " + pulseRuntimeSettings.devName
-                }
-            }
-        }
-
-        Text {
-            id: appIpText
-            text: pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial ?
-                      "Pulse Long Range" :
-                      "Pulse Wifi, IP=" + root.gatewayIp
-            font.pixelSize: 24
-            GridLayout.row: 2
-            GridLayout.column: 1
-        }
-
-        Image {
-            id: companyLogo
-            source: "./image/logo_techadvision_gray.png"  // Update the path as needed
-            anchors.topMargin: 40
-            width: 360
-            height: 43
-            GridLayout.row: 3
-            GridLayout.column: 1
-        }
-
-        Text {
-            id: debugTitleText
-            text: "Additional debug information"
-            font.pixelSize: 24
-            GridLayout.row: 4
-            GridLayout.column: 1
-        }
-
-        Text {
-            id: onDistSetupChangedText
-            text: pulseRuntimeSettings.onDistSetupChanged === true ?
-                      "Transducer distance config? OK" :
-                      "Transducer distance config? Not verified"
-            font.pixelSize: 24
-            GridLayout.row: 5
-            GridLayout.column: 1
-        }
-
-        Text {
-            id: onChartSetupChangedTest
-            text: pulseRuntimeSettings.onChartSetupChanged === true ?
-                      "Transducer echogram config? OK" :
-                      "Transducer echogram config? Not verified"
-            font.pixelSize: 24
-            GridLayout.row: 6
-            GridLayout.column: 1
-        }
-        Text {
-            id: onDatasetChangedText
-            text: pulseRuntimeSettings.onDatasetChanged === true ?
-                      "Transducer data config? OK" :
-                      "Transducer data config? Not verified"
-            font.pixelSize: 24
-            GridLayout.row: 7
-            GridLayout.column: 1
-        }
-        Text {
-            id: onTransChangedText
-            text: pulseRuntimeSettings.onTransChanged === true ?
-                      "Transducer base config? OK" :
-                      "Transducer base config? Not verified"
-            font.pixelSize: 24
-            GridLayout.row: 8
-            GridLayout.column: 1
-        }
-        Text {
-            id: onSoundChangedText
-            text: pulseRuntimeSettings.onSoundChanged === true ?
-                      "Transducer speed of sound config? OK" :
-                      "Transducer speed of sound config? Not verified"
-            font.pixelSize: 24
-            GridLayout.row: 9
-            GridLayout.column: 1
-        }
-        Text {
-            id: chartEnabledText
-            text: pulseRuntimeSettings.datasetChart_ok === true ?
-                      "Echogram enabled? Yes" :
-                      "Echogram enabled? No"
-            font.pixelSize: 24
-            GridLayout.row: 10
-            GridLayout.column: 1
-        }
-
-    }
-
 }
-
-

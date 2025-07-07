@@ -7,16 +7,33 @@ Item {
     height: 550
 
     property real scaleFactor: Qt.application.primaryScreen.width / 480
-
     signal closeRequested()
 
-    // Overlay background (semi-transparent)
+    // ─── Semi-transparent background overlay ───────────────────────
     Rectangle {
         anchors.fill: parent
         color: "#80000000"
     }
 
-    // Main settings panel
+    /*
+    Rectangle {
+       id: panelShadow
+       width: parent.width * 0.99
+       height: parent.height * 0.98
+
+       // Anchor to center, then shift right/down by 5px (tweak as desired)
+       anchors.horizontalCenter: parent.horizontalCenter
+       anchors.verticalCenter: parent.verticalCenter
+       anchors.horizontalCenterOffset: 10
+       anchors.verticalCenterOffset: 10
+
+       color: "#40000000"   // semi‐transparent black (25% opacity)
+       radius: 8
+       z: 0
+   }
+   */
+
+    // ─── Main “popup” panel ────────────────────────────────────────
     Rectangle {
         id: mainPanel
         width: parent.width * 0.99
@@ -25,52 +42,58 @@ Item {
         color: "lightgray"
         radius: 8
 
-        // Header area for the close button and TabBar
+        // ───────────────────────────────────────────────────────────────
+        // HEADER (optional “X” + TabBar)
         Rectangle {
             id: header
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 60
+            anchors.top: mainPanel.top
+            anchors.left: mainPanel.left
+            anchors.right: mainPanel.right
+            height: 55
             color: "lightgray"
 
-            // Close button on the right
-            Button {
-                id: closeButton
-                width: 66
-                height: 60
-                text: "X"
-                font.pixelSize: 48
-                flat: true
-                font.bold: true
-                anchors.right: parent.right
-                topPadding: 15
-                //anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: 0
-                onClicked: {
-                    root.closeRequested()
-                }
-            }
+            // ─────────────────────────────────────────────────────────
+            // (Optional) “X” close button. Remove/comment if you don’t want it:
+            //
+            // Button {
+            //     id: closeButton
+            //     width: 66; height: 60
+            //     text: "X"
+            //     font.pixelSize: 48
+            //     flat: true
+            //     font.bold: true
+            //     anchors.right: parent.right
+            //     anchors.top: parent.top
+            //     onClicked: root.closeRequested()
+            // }
+            // ─────────────────────────────────────────────────────────
 
-            // TabBar limited so it does not overlap the close button
+            // ─────────────────── TAB BAR (fills entire header height) ──────────────
             TabBar {
                 id: tabBar
-                anchors.left: parent.left
-                anchors.bottom: closeButton.bottom
-                topPadding: 15
-                anchors.top: closeButton.top
-                anchors.right: closeButton.left  // This limits the width of the TabBar
+                anchors.top: header.top
+                anchors.bottom: header.bottom
+                anchors.left: header.left
+                anchors.right: header.right
+
+                // Make its background exactly the same gray
+                background: Rectangle {
+                    anchors.fill: tabBar
+                    color: "lightgray"
+                }
+
+                // Sync tab index with SwipeView index
                 currentIndex: swipeView.currentIndex
                 onCurrentIndexChanged: swipeView.currentIndex = currentIndex
 
+                // ────── Four “base” tabs (always present) ──────
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Device"
-                    font.pointSize: 14 * root.scaleFactor
+                    font.pointSize: 24 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_info.svg"
                 }
-
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
@@ -78,15 +101,6 @@ Item {
                     font.pointSize: 14 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_settings.svg"
                 }
-
-                TabButton {
-                    height: tabBar.height
-                    display: AbstractButton.TextBesideIcon
-                    text: "NMEA"
-                    font.pointSize: 14 * root.scaleFactor
-                    icon.source: "qrc:/icons/pulse_settings.svg"
-                }
-
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
@@ -94,7 +108,6 @@ Item {
                     font.pointSize: 14 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_recording_inactive.svg"
                 }
-
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
@@ -102,83 +115,111 @@ Item {
                     font.pointSize: 14 * root.scaleFactor
                     icon.source: "qrc:/icons/pulse_color_2d_e500_white.svg"
                 }
+                // ─────────────────────────────────────────────────
+                // (No placeholder TabButton here—Expert will be inserted dynamically.)
             }
         }
 
-
-        // SwipeView placed below the header
+        // ───────────────────────────────────────────────────────────────
+        // SWIPEVIEW: Pages 0–3 are always present. Page 4 (Expert) is inserted dynamically.
         SwipeView {
             id: swipeView
             anchors.top: header.bottom
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            clip: true   // Ensures that only the active page is visible
+            clip: true
 
+            // Page #0: Device
             Page {
-                Flickable {
+                PulseInfo { id: tabbedPulseInfo }
+            }
+            // Page #1: Settings
+            Page {
+                PulseInfoSettings { id: tabbedPulseSettings }
+            }
+            // Page #2: Recording
+            Page {
+                PulseInfoRecording { id: tabbedPulseRecording }
+            }
+            // Page #3: Colors
+            Page {
+                PulseInfoColorScheme { id: tabbedPulseColors }
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // (We do NOT declare an “Expert” Page here. It will be inserted below.)
+        }
+
+        // ─────── COMPONENTS FOR DYNAMIC “EXPERT” TAB + PAGE ──────────────
+        Component {
+            id: expertTabComponent
+            TabButton {
+                height: tabBar.height
+                display: AbstractButton.TextBesideIcon
+                text: "Expert"
+                font.pointSize: 14 * root.scaleFactor
+                icon.source: "qrc:/icons/pulse_settings.svg"
+            }
+        }
+        Component {
+            id: expertPageComponent
+            Item {
+                // Note: no explicit width/height here!
+                // SwipeView will automatically set this Item’s size to match itself.
+                id: expertContainer
+
+                PulseInfoExpert {
+                    id: tabbedPulseExpertSettings
                     anchors.fill: parent
-                    clip: true
-
-                    // Only vertical drags flick this view; horizontal drags bubble up to SwipeView
-                    flickableDirection: Flickable.VerticalFlick
-                    contentWidth: width
-                    //contentHeight: settingsLayout.implicitHeight  // layout’s whole height
-                    contentHeight: tabbedPulseSettings.implicitHeight
-
-                    // attach an always-visible vertical scrollbar
-                    ScrollBar.vertical: ScrollBar {
-                        policy: ScrollBar.AlwaysOn
-                        width: 16
-                    }
-
-                    PulseInfo {
-                        id: tabbedPulseInfo
-                    }
                 }
             }
+            /*
             Page {
-                Flickable {
-                    anchors.fill: parent
-                    clip: true
+                PulseInfoExpert { id: tabbedPulseExpertSettings }
+            }
+            */
+        }
 
-                    // Only vertical drags flick this view; horizontal drags bubble up to SwipeView
-                    flickableDirection: Flickable.VerticalFlick
-                    contentWidth: width
-                    //contentHeight: settingsLayout.implicitHeight  // layout’s whole height
-                    contentHeight: tabbedPulseSettings.implicitHeight
+        // ───────────────────────────────────────────────────────────────
+        // 1) ON CE: if expertMode was already true at load time, insert both tab & page
+        Component.onCompleted: {
+            if (pulseRuntimeSettings.expertMode) {
+                var newTab0 = expertTabComponent.createObject(tabBar)
+                tabBar.insertItem(tabBar.count, newTab0)
+                var newPage0 = expertPageComponent.createObject(null)
+                swipeView.insertItem(swipeView.count, newPage0)
+            }
+        }
 
-                    // attach an always-visible vertical scrollbar
-                    ScrollBar.vertical: ScrollBar {
-                        policy: ScrollBar.AlwaysOn
-                        width: 16
+        // ───────────────────────────────────────────────────────────────
+        // 2) ON TOGGLING expertMode: insert or remove that fifth tab/page on the fly
+        Connections {
+            target: pulseRuntimeSettings
+            function onExpertModeChanged() {
+                console.log("Expert Mode: onExpertModeChanged to", pulseRuntimeSettings.expertMode)
+                if (pulseRuntimeSettings.expertMode) {
+                    var newTab = expertTabComponent.createObject(tabBar)
+                    tabBar.insertItem(tabBar.count, newTab)
+                    var newPage = expertPageComponent.createObject(null)
+                    swipeView.insertItem(swipeView.count, newPage)
+                }
+                else {
+                    // ─── Turned OFF: remove last TabButton + Page if present ───
+                    if (tabBar.count > 4) {
+                        tabBar.removeItem(tabBar.count - 1)
                     }
-
-                    PulseInfoSettings {
-                        id: tabbedPulseSettings
+                    if (swipeView.count > 4) {
+                        var lastPg = swipeView.itemAt(swipeView.count - 1)
+                        swipeView.removeItem(lastPg)
                     }
-                }
-
-            }
-
-            Page {
-                PulseInfoNmeaSettings {
-                    id: tabbedPulseNmeaSettings
+                    // If user was on index=4, snap back into 0–3 range
+                    if (swipeView.currentIndex >= swipeView.count)
+                        swipeView.currentIndex = 0
+                    if (tabBar.currentIndex >= tabBar.count)
+                        tabBar.currentIndex = 0
                 }
             }
-
-            Page {
-                PulseInfoRecording {
-                    id: tabbedPulseRecording
-                }
-            }
-
-            Page {
-                PulseInfoColorScheme {
-                    id: tabbedPulseColors
-                }
-            }
-
         }
     }
 }
