@@ -67,6 +67,8 @@ import android.os.Handler;
 import android.os.Looper;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import android.content.pm.ActivityInfo;
+
 public class KoggerActivity extends QtActivity
 {
     public  static int                                  BAD_DEVICE_ID = 0;
@@ -88,6 +90,9 @@ public class KoggerActivity extends QtActivity
     public static Context m_context;
 
     private final static ExecutorService m_Executor = Executors.newSingleThreadExecutor();
+
+    private static final int ORIENTATION_UNSPECIFIED = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+    private static final int ORIENTATION_LANDSCAPE = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
 
     private final static UsbIoManager.Listener m_Listener =
             new UsbIoManager.Listener()
@@ -234,6 +239,17 @@ public class KoggerActivity extends QtActivity
     {
         super.onCreate(savedInstanceState);
         nativeInit();
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            if (!isInMultiWindowMode()) {
+                setRequestedOrientation(ORIENTATION_LANDSCAPE);
+            } else {
+                setRequestedOrientation(ORIENTATION_UNSPECIFIED);
+            }
+        } else {
+            setRequestedOrientation(ORIENTATION_LANDSCAPE);
+        }
+
         PowerManager pm = (PowerManager)_instance.getSystemService(Context.POWER_SERVICE);
         _wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "QGroundControl");
         if(_wakeLock != null) {
@@ -274,9 +290,26 @@ public class KoggerActivity extends QtActivity
     }
 
     @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+
+        if (isInMultiWindowMode) {
+            setRequestedOrientation(ORIENTATION_UNSPECIFIED);
+        } else {
+            setRequestedOrientation(ORIENTATION_LANDSCAPE);
+        }
+    }
+
+    @Override
     public void onResume() {
         qgcLogDebug("Do shutdown - onResume, should not shutdown here and shutdownInPogress is " + shutdownInPogress.get());
         super.onResume();
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            setRequestedOrientation(isInMultiWindowMode()
+                ? ORIENTATION_UNSPECIFIED
+                : ORIENTATION_LANDSCAPE);
+        }
 
         // Plug in of USB ACCESSORY triggers only onResume event.
         // Then we scan if there is actually anything new
