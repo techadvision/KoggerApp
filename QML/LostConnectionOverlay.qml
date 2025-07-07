@@ -48,7 +48,7 @@ Rectangle {
 
             // Animate rotation: spins from 0° to 306° continuously
             NumberAnimation {
-                target: spinnerContainer
+                target: spinnerContainer ? spinnerContainer : undefined
                 property: "rotation"
                 from: 0
                 to: 359
@@ -60,7 +60,7 @@ Rectangle {
 
         // "Lost connection" text
         Text {
-            text: "Lost connection"
+            text: pulseRuntimeSettings.forceBreakConnection ? "Unknown device" : "Lost connection"
             color: "white"
             font.pixelSize: 80
             font.bold: true
