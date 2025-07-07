@@ -50,6 +50,7 @@ protected:
     QTimer* m_updateTimer;
     bool m_needUpdate = true;
     bool _isHorizontal = true;
+    bool _isSideScanLeftSide = true;
 
 signals:
     void timelinePositionChanged();
@@ -108,6 +109,7 @@ public slots:
     Q_INVOKABLE void setIntensityValue (float intensity) { setEchogramHightLevel(intensity); }
     Q_INVOKABLE void setFilteringValue (float filter) { setEchogramLowLevel(filter); }
     Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
+    Q_INVOKABLE void setSideScanOnLeftHandSideNow(bool isLeftSideInstalled) { setSideScanOnLeftHandSide(isLeftSideInstalled); }
 
 
     void plotEchogramSetLevels(float low, float hight) {
