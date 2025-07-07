@@ -85,7 +85,8 @@ Item {
             MenuButton {
                 id: menuSettings
                 //TAV PULSE: We do not need this
-                visible: pulseRuntimeSettings.expertMode
+                //visible: pulseRuntimeSettings.expertMode
+                visible: false
                 icon.source: "./icons/plug.svg"
                 Layout.fillWidth: true
 
@@ -102,7 +103,8 @@ Item {
             MenuButton {
                 id: menuDisplay
                 //TAV PULSE: We do not need this
-                visible: pulseRuntimeSettings.expertMode
+                //visible: pulseRuntimeSettings.expertMode
+                visible: false
                 Layout.fillWidth: true
                 icon.source: "./settings-outline.svg"
 
