@@ -1,1 +1,1 @@
-Pulse v. 0.64
+Pulse Echo Sounder v. 0.82
