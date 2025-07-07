@@ -4,7 +4,7 @@
 #include <cmath>
 
 
-Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontal_(true)
+Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontal_(true), isSideScanOnLeftHandSide_(true)
 {}
 
 
@@ -13,18 +13,18 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
     if (!isVisible())
         return false;
 
-    bool isSideScanOnLeftHandSide = false;
+    //bool isSideScanOnLeftHandSide = false;
     bool isSideScan2DView = false;
     bool is2DTransducer = false;
     const int textPadding = 5;
 
-    if (g_pulseRuntimeSettings && g_pulseSettings) {
-        isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
+    if (g_pulseRuntimeSettings) {
+        isSideScanOnLeftHandSide_ = g_pulseRuntimeSettings->property("isSideScanLeftHand").toBool();
         isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
         is2DTransducer = g_pulseRuntimeSettings->property("is2DTransducer").toBool();
     }
 
-    bool flipImage = isSideScanOnLeftHandSide && isSideScan2DView;
+    bool flipImage = isSideScanOnLeftHandSide_ && isSideScan2DView;
 
     QPen pen(_lineColor);
     pen.setWidth(_lineWidth);
@@ -46,11 +46,12 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
     float toDepth = cursor.distance.to;
     float logicalMaxDepth = std::max(std::abs(fromDepth), std::abs(toDepth));
 
+
     float totalRange = toDepth - fromDepth;
     if (totalRange == 0.0f)
         totalRange = 0.0001f;
 
-    std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer);
+    std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer, isSideScan2DView, isSideScanOnLeftHandSide_);
 
     int linesCountNew = static_cast<int>(tickValues.size()) + 1; // +1 for final bottom value
 
@@ -58,11 +59,11 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
     for (int i = 1; i < linesCountNew; ++i) {
 
-        int displayIndex = flipImage
-                               ? (linesCountNew - i)
-                               : i;
+        //int displayIndex = flipImage ? (linesCountNew - i) : i;
+        int displayIndex = i;
 
-        float tickValue = static_cast<float>(tickValues[i - 1]); // i starts from 1
+        float tickValue = static_cast<float>(tickValues[displayIndex - 1]); // i starts from 1
+        //qDebug() << "SIDE SCAN: Tick Value:" << tickValue;
         float tickMeters = isMetric_ ? tickValue : tickValue / 3.28084f;
 
         // Make sure denominator is never zero
@@ -72,17 +73,23 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
 
         float relative = (tickMeters - fromDepth) / totalRange;
         int posY = static_cast<int>(relative * imageHeight);
+        int posYflipped = posY;
+
+        //NEW
+        if (flipImage) {
+            posYflipped = imageHeight - posY;
+        }
 
         QString lineText = " ";
 
         if (_velocityVisible && cursor.velocity.isValid()) { // velocity
             const float velFrom{ cursor.velocity.from }, velTo{ cursor.velocity.to },
-                velRange{ velTo - velFrom }, attVal{ velRange * i / linesCountNew + velFrom };
+                velRange{ velTo - velFrom }, attVal{ velRange * displayIndex / linesCountNew + velFrom };
             lineText.append({ QString::number(attVal , 'f', 2) + QObject::tr(" m/s    ")});
         }
         if (angleVisibility_ && cursor.attitude.isValid()) { // angle
             const float attFrom{ cursor.attitude.from }, attTo{ cursor.attitude.to },
-                attRange{ attTo - attFrom }, attVal{ attRange * i / linesCountNew + attFrom };
+                attRange{ attTo - attFrom }, attVal{ attRange * displayIndex / linesCountNew + attFrom };
             QString text{ QString::number(attVal, 'f', 0) + QStringLiteral("°    ") };
             lineText.append(text);
         }
@@ -90,11 +97,7 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         bool isNegativeTick = tickValue < 0.0f;
 
         if (cursor.distance.isValid()) { // depth
-            /*
-            if (flipImage) {
-                tickValue = qAbs(tickValue);
-            }
-            */
+
             float displayValue = std::abs(tickValue);  // always positive in text
             if (isMetric_) {
                 lineText.append( { QString::number(displayValue, 'f', 0) + QObject::tr(" m") } );
@@ -107,21 +110,24 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
             if (isHorizontal_) {
 #ifdef Q_OS_ANDROID
                 int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
-                int baselineY = posY - textYOffset;
+                int baselineY = posYflipped - textYOffset;
+                //OLD
+                /*
                 if (flipImage) {
                     baselineY = imageHeight - baselineY;
                 }
-                QPoint textPos(desiredX_device, posY - textYOffset);
+                */
+                QPoint textPos(desiredX_device, posYflipped - textYOffset);
                 drawTextWithBackdrop(p, lineText, textPos, TextAnchor::BaselineLeft, 5, imageWidth, 5);
 #endif
 #ifdef Q_OS_WINDOWS
-                p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY - textYOffset, lineText);
+                p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posYflipped - textYOffset, lineText);
 #endif
             } else {
                 p->save();
                 int textWidth = fm.horizontalAdvance(lineText);
                 int pivotX = imageWidth - textXOffset;
-                int pivotY = posY - textYOffset;
+                int pivotY = posYflipped - textYOffset;
 
                 p->translate(pivotX, pivotY);
                 p->rotate(90);
@@ -289,7 +295,12 @@ void Plot2DGrid::setGridHorizontal(bool horizontal)
     isHorizontal_ = horizontal;
 }
 
-std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer)
+void Plot2DGrid::setSideScanOnLeftHandSide(bool isLeftSideInstalled)
+{
+    isSideScanOnLeftHandSide_ = isLeftSideInstalled;
+}
+
+std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand)
 {
     const float conversionFactor = isMetric ? 1.0f : 3.28084f;
     const int maxDepthDisplay = static_cast<int>(std::ceil(maxDepth * conversionFactor));
@@ -309,6 +320,7 @@ std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bo
             }
         }
     }
+    //qDebug() << "SIDE SCAN: Tick Value result general:" << bestTicks;
 
     if (!is2DTransducer) {
         std::vector<int> mirroredTicks;
@@ -316,6 +328,7 @@ std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bo
             mirroredTicks.push_back(-(*it));
         }
         mirroredTicks.insert(mirroredTicks.end(), bestTicks.begin(), bestTicks.end());
+        //qDebug() << "SIDE SCAN: Tick Value result !is2DTransducer:" << mirroredTicks;
         return mirroredTicks;
     }
 

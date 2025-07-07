@@ -28,8 +28,8 @@ Plot2D::Plot2D()
 bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizontal) {
     painter->save();
     if(is_horizontal) {
-        if (g_pulseRuntimeSettings && g_pulseRuntimeSettings) {
-            bool isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
+        if (g_pulseRuntimeSettings) {
+            bool isSideScanOnLeftHandSide = g_pulseRuntimeSettings->property("isSideScanLeftHand").toBool();
             bool isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
             bool flipImage = isSideScanOnLeftHandSide && isSideScan2DView;
             double echogramSpeed = g_pulseRuntimeSettings->property("echogramSpeed").toDouble();
@@ -335,31 +335,20 @@ void Plot2D::setDistanceAutoRange(int auto_range_type) {
 void Plot2D::setDistance(float from, float to) {
     //qDebug() << "DevDriver - Plot2D setDistance from " << from << " to " << to;
 
-    bool isSideScanOnLeftHandSide = false;
+    //bool isSideScanOnLeftHandSide = false;
     bool isSideScan2DView = false;
-    if (g_pulseSettings && g_pulseRuntimeSettings) {
-        isSideScanOnLeftHandSide = g_pulseSettings->property("isSideScanOnLeftHandSide").toBool();
+    if (g_pulseRuntimeSettings) {
+        isSideScanOnLeftHandSide_ = g_pulseRuntimeSettings->property("isSideScanLeftHand").toBool();
         isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
     }
-    if (isSideScanOnLeftHandSide && isSideScan2DView) {
+    if (isSideScanOnLeftHandSide_ && isSideScan2DView) {
         qDebug() << "DevDriver - Plot2D setDistance from " << -1*to << " to " << from;
         _cursor.distance.set(-1*to, from);
     } else {
         qDebug() << "DevDriver - Plot2D setDistance from " << from << " to " << to;
         _cursor.distance.set(from, to);
     }
-    qDebug() << "DevDriver - ssLeftHand " << isSideScanOnLeftHandSide << " 2D view " << isSideScan2DView << " is horizontal " << _isHorizontal;
-
-    /*
-    if (from == 0) {
-        _cursor.distance.set(from, to);
-
-    } else {
-        _cursor.distance.set(from, to);
-    }
-    */
-
-    //_cursor.distance.set(from, to);
+    qDebug() << "DevDriver - ssLeftHand " << isSideScanOnLeftHandSide_ << " 2D view " << isSideScan2DView << " is horizontal " << _isHorizontal;
 }
 
 void Plot2D::zoomDistance(float ratio) {
@@ -849,19 +838,6 @@ void Plot2D::reRangeDistance() {
         }
     }
 
-    /*
-    if(isfinite(max_range)) {
-        if(_cursor.isChannelDoubled()) {
-            _cursor.distance.from = -ceil(max_range);;
-        } else {
-            _cursor.distance.from = 0;
-        }
-        if (is2D) {
-            _cursor.distance.from = 0;
-        }
-        _cursor.distance.to = ceil(max_range);
-    }
-    */
 }
 
 bool Plot2DAim::draw(Canvas &canvas, Dataset *dataset, DatasetCursor cursor) 
@@ -995,15 +971,22 @@ bool Plot2DAim::draw(Canvas &canvas, Dataset *dataset, DatasetCursor cursor)
 
 //Pulse
 void Plot2D::setMeasuresMetric(bool metric) {
+    qDebug() << "Plot2d setMeasuresMetric:" << metric;
     _grid.setMeasuresMetric(metric);
     plotUpdate();
 }
 
 void Plot2D::setGridHorizontal(bool horizontal) {
+    qDebug() << "Plot2d setGridHorizontal:" << horizontal;
     _grid.setGridHorizontal(horizontal);
     plotUpdate();
 }
 
+void Plot2D::setSideScanOnLeftHandSide (bool leftSideInstall) {
+    qDebug() << "Plot2d setSideScanOnLeftHandSide:" << leftSideInstall;
+    _grid.setSideScanOnLeftHandSide(leftSideInstall);
+    plotUpdate();
+}
 
 Plot2DContact::Plot2DContact()
 {

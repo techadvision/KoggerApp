@@ -11,9 +11,12 @@ Plot2DEchogram::Plot2DEchogram() {
         levelLow = g_pulseSettings->property("filterRealValue").toInt();
         levelHigh = g_pulseSettings->property("intensityRealValue").toInt();
         QString currentDevice = g_pulseRuntimeSettings->property("userManualSetName").toString();
+        themeValue = g_pulseSettings->property("colorMapIndexReal").toInt();
+        /*
         if (!currentDevice.startsWith(".")) {
             themeValue = g_pulseSettings->property("colorMapIndexReal").toInt();
         }
+        */
 
     }
     setThemeId(themeValue);
@@ -37,6 +40,38 @@ void Plot2DEchogram::setLevels(float low, float high) {
 }
 
 void Plot2DEchogram::setColorScheme(QVector<QColor> coloros, QVector<int> levels) {
+
+    const int M = coloros.size();
+    if (M < 2 || M != levels.size())
+        return;  // malformed inputs
+
+    _colorTable.resize(256);
+
+    // Build a full 256-entry blended table
+    for (int v = 0; v < 256; ++v) {
+        // 1) find which segment v lies in
+        int i = 0;
+        while (i < M-2 && v > levels[i+1]) ++i;
+
+        // 2) fraction inside that bin
+        float lo = levels[i];
+        float hi = levels[i+1];
+        float t  = (v - lo) / (hi - lo);
+
+        // 3) blend the two endpoint colors
+        const QColor &c0 = coloros[i];
+        const QColor &c1 = coloros[i+1];
+        int r = qRound(c0.red()   * (1 - t) + c1.red()   * t);
+        int g = qRound(c0.green() * (1 - t) + c1.green() * t);
+        int b = qRound(c0.blue()  * (1 - t) + c1.blue()  * t);
+
+        // 4) store it
+        _colorTable[v] = qRgb(r, g, b);
+    }
+    updateColors();
+
+
+    /*
     if(coloros.length() != levels.length()) { return; }
 
     _colorTable.resize(256);
@@ -61,8 +96,10 @@ void Plot2DEchogram::setColorScheme(QVector<QColor> coloros, QVector<int> levels
     }
 
     updateColors();
+    */
 }
 
+/*
 QVariantList Plot2DEchogram::getThemeGradient(int steps) const
 {
     //qDebug() << "getThemeGradient called with steps:" << steps;
@@ -95,6 +132,7 @@ QVariantList Plot2DEchogram::getThemeGradient(int steps) const
 
     return currentThemeGradient;
 }
+*/
 
 QVariantList Plot2DEchogram::getThemeColors() const
 {
@@ -102,6 +140,9 @@ QVariantList Plot2DEchogram::getThemeColors() const
     //qDebug() << "YO MAN !!! getThemeColors() called; current _rawThemeColors:" << _rawThemeColors;
     for (const QColor &col : _rawThemeColors) {
         list.append(col.name());  // col.name() returns a string like "#RRGGBB"
+    }
+    if (g_pulseRuntimeSettings) {
+        g_pulseRuntimeSettings->setProperty("currentThemeColors", list);
     }
     return list;
 }
@@ -114,7 +155,7 @@ int Plot2DEchogram::getThemeId() const
 
 void Plot2DEchogram::setThemeId(int theme_id) {
 
-    if (theme_id >= ClassicTheme && theme_id <= Dt4WhiteTheme) {
+    if (theme_id >= ClassicTheme && theme_id <= PulseTheme_rainbow) {
         themeId_ = static_cast<ThemeId>(theme_id);
     }
     else {
@@ -130,22 +171,48 @@ void Plot2DEchogram::setThemeId(int theme_id) {
         coloros = {
            QColor("#000000"),
            QColor("#140551"),
-           QColor("#182169"),
-           QColor("#1d3a7f"),
+           QColor("#171b63"),
+           QColor("#1a2e74"),
+           QColor("#1f4184"),
            QColor("#275493"),
-           QColor("#366da6"),
-           QColor("#4a87b7"),
+           QColor("#3267a2"),
+           QColor("#3f7aaf"),
+           QColor("#508ebb"),
            QColor("#62a1c8"),
-           QColor("#7ebcd8"),
-           QColor("#9cd6e8"),
-           QColor("#bdf0fa"),
+           QColor("#77b5d4"),
+            QColor("#8dc9e0"),
+            QColor("#a4dced"),
+            QColor("#bdf0fa"),
            QColor("#ffffff")};
 
-        levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
+        levels = {
+            0, 18, 36, 55, 73, 91, 109, 128, 146, 164,
+            182, 200, 219, 237, 255
+        };
+
+        //levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
     } else if(theme_id == SepiaTheme) {
+        coloros = {
+           QColor("#000000"),
+           QColor("#33320a"),
+           QColor("#413f10"),
+           QColor("#4f4c16"),
+           QColor("#5e591b"),
+           QColor("#6e6721"),
+           QColor("#7e7427"),
+           QColor("#8f832e"),
+           QColor("#a09134"),
+           QColor("#b29f3b"),
+           QColor("#c5ae42"),
+           QColor("#d8bd49"),
+           QColor("#ebcc50"),
+           QColor("#ffdb57"),
+           QColor("#ffffff")};
 
+
+        /*
         coloros = {
            QColor("#000000"),
            QColor("#33320a"),
@@ -159,8 +226,14 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor("#e5c74d"),
            QColor("#ffdb57"),
            QColor("#ffffff")};
+        */
 
-        levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
+        levels = {
+            0, 18, 36, 55, 73, 91, 109, 128, 146, 164,
+            182, 200, 219, 237, 255
+        };
+
+        //levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
 
@@ -203,6 +276,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
+
     } else if(theme_id == GreenTheme) {
 
         coloros = {
@@ -225,7 +299,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
     } else if (theme_id == Ek500BlackTheme) {
         coloros = {
             // extra “zero‐reflection” black
-            QColor::fromRgb(  0,   0,   0),
+            QColor::fromRgb(  0,   0,   96),
             // EK500 palette
             QColor::fromRgb(159, 159, 159),
             QColor::fromRgb( 95,  95,  95),
@@ -242,16 +316,18 @@ void Plot2DEchogram::setThemeId(int theme_id) {
         };
 
         // 13 levels evenly spaced from 0 → 255 (step ≈ 21.25, rounded)
+
         levels = {
             0,  21,  43,  64,  85, 106,
             128, 149, 170, 191, 213, 234, 255
         };
+
     }
 
     if (theme_id == Ek500WhiteTheme) {
         coloros = {
-            // extra “zero‐reflection” white
-            QColor::fromRgb(255, 255, 255),
+            // extra “zero‐reflection” white or very light gray
+            QColor::fromRgb(210, 210, 210),
             // EK500 palette
             QColor::fromRgb(159, 159, 159),
             QColor::fromRgb( 95,  95,  95),
@@ -474,7 +550,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
     } else if (theme_id == Dt4BlackTheme) {
         coloros = {
             // extra “zero‐reflection” black
-            QColor::fromRgb(  0,   0,   0),
+            //QColor::fromRgb(  0,   0,   0),
             // original DT4 colours
             QColor::fromRgb(  0,   0,   0),
             QColor::fromRgb( 61,  24,  49),
@@ -494,11 +570,19 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             QColor::fromRgb(255,   0,   0)
         };
 
+        //16 levels DT4 original
+        levels = {
+            0, 17, 34, 51, 68, 85, 102, 119, 136, 153,
+            170, 187, 204, 221, 238, 255
+        };
+
         // 17 levels from 0 up to 255, rounded to nearest integer at each step of 255/16
+        /*
         levels = {  0,  16,  32,  48,  64,
                   80,  96, 112, 128, 143,
                   159, 175, 191, 207, 223,
                   239, 255 };
+        */
 
     } else if (theme_id == Dt4WhiteTheme) {
         coloros = {
@@ -530,8 +614,8 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     } else if (theme_id == HtiBlackTheme) {
         coloros = {
-            // extra “zero‐reflection” black
-            QColor::fromRgb(  0,   0,   0),
+            // extra “zero‐reflection” black (dark blue)
+            QColor::fromRgb(  0,   0,   96),
             // HTI palette
             QColor::fromRgb(  0,   0, 255),
             QColor::fromRgb(  0,  32, 255),
@@ -566,14 +650,54 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             QColor::fromRgb(255, 128, 255)
         };
 
-        // 32 levels evenly spaced from 0 to 255
+
         levels = {
             0,   8,  16,  25,  33,  41,  49,  58,
             66,  74,  82,  90,  99, 107, 115, 123,
             132, 140, 148, 156, 165, 173, 181, 189,
             197, 206, 214, 222, 230, 239, 247, 255
         };
-    }
+
+    } else if (theme_id == PulseTheme_bluered) {
+        coloros = {
+
+            // Our own palette - from blue to red
+            QColor::fromRgb(  0,   0, 255),
+            QColor::fromRgb(  0,  32, 255),
+            QColor::fromRgb(  0,  64, 255),
+            QColor::fromRgb(  0,  96, 255),
+            QColor::fromRgb(  0, 128, 255),
+            QColor::fromRgb(  0, 159, 255),
+            QColor::fromRgb(  0, 191, 255),
+            QColor::fromRgb(  0, 223, 255),
+            QColor::fromRgb(  0, 255, 255),
+            QColor::fromRgb( 42, 255, 211),
+            QColor::fromRgb( 84, 255, 167),
+            QColor::fromRgb(125, 255, 123),
+            QColor::fromRgb(167, 255,  79),
+            QColor::fromRgb(182, 255,  66),
+            QColor::fromRgb(196, 255,  53),
+            QColor::fromRgb(211, 255,  39),
+            QColor::fromRgb(226, 255,  26),
+            QColor::fromRgb(240, 255,  13),
+            QColor::fromRgb(255, 255,   0),
+            QColor::fromRgb(255, 219,   0),
+            QColor::fromRgb(255, 182,   0),
+            QColor::fromRgb(255, 146,   0),
+            QColor::fromRgb(255, 109,   0),
+            QColor::fromRgb(255,  73,   0),
+            QColor::fromRgb(255,  36,   0),
+            QColor::fromRgb(255,   0,   0)
+        };
+
+        // 26 levels evenly spaced from 0 to 255 (step ≃ 255/25 ≃ 10.2, rounded)
+        levels = {
+            0,  10,  20,  31,  41,  51,  61,  71,
+            82,  92, 102, 112, 122, 133, 143, 153,
+            163, 173, 184, 194, 204, 214, 224, 235,
+            245, 255
+        };
+    } else
 
     if (theme_id == HtiWhiteTheme) {
         coloros = {
@@ -621,77 +745,137 @@ void Plot2DEchogram::setThemeId(int theme_id) {
         };
 
     } else if (theme_id == LsssBlackTheme) {
+        /* experiment: TURBO */
         coloros = {
-            // extra “zero‐reflection” black
-            QColor::fromRgb(  0,   0,   0),
-            // LSSS palette
-            QColor::fromRgb(255, 230, 255),
-            QColor::fromRgb(250, 223, 253),
-            QColor::fromRgb(244, 216, 250),
-            QColor::fromRgb(237, 210, 248),
-            QColor::fromRgb(229, 204, 245),
-            QColor::fromRgb(221, 197, 243),
-            QColor::fromRgb(212, 191, 240),
-            QColor::fromRgb(202, 185, 238),
-            QColor::fromRgb(192, 179, 235),
-            QColor::fromRgb(181, 173, 233),
-            QColor::fromRgb(170, 168, 230),
-            QColor::fromRgb(162, 166, 228),
-            QColor::fromRgb(156, 167, 226),
-            QColor::fromRgb(151, 169, 223),
-            QColor::fromRgb(145, 171, 221),
-            QColor::fromRgb(140, 174, 218),
-            QColor::fromRgb(134, 178, 216),
-            QColor::fromRgb(129, 183, 213),
-            QColor::fromRgb(124, 188, 211),
-            QColor::fromRgb(119, 193, 208),
-            QColor::fromRgb(114, 199, 206),
-            QColor::fromRgb(109, 204, 202),
-            QColor::fromRgb(104, 201, 190),
-            QColor::fromRgb(100, 199, 178),
-            QColor::fromRgb( 95, 196, 165),
-            QColor::fromRgb( 91, 194, 152),
-            QColor::fromRgb( 86, 191, 139),
-            QColor::fromRgb( 82, 189, 125),
-            QColor::fromRgb( 77, 186, 111),
-            QColor::fromRgb( 73, 184,  97),
-            QColor::fromRgb( 69, 181,  82),
-            QColor::fromRgb( 65, 179,  67),
-            QColor::fromRgb( 70, 177,  61),
-            QColor::fromRgb( 77, 174,  57),
-            QColor::fromRgb( 85, 172,  53),
-            QColor::fromRgb( 93, 169,  50),
-            QColor::fromRgb(102, 167,  46),
-            QColor::fromRgb(110, 164,  43),
-            QColor::fromRgb(119, 162,  39),
-            QColor::fromRgb(128, 159,  36),
-            QColor::fromRgb(138, 157,  33),
-            QColor::fromRgb(147, 154,  29),
-            QColor::fromRgb(152, 147,  26),
-            QColor::fromRgb(150, 133,  23),
-            QColor::fromRgb(147, 118,  20),
-            QColor::fromRgb(145, 103,  18),
-            QColor::fromRgb(142,  88,  15),
-            QColor::fromRgb(140,  73,  12),
-            QColor::fromRgb(137,  59,  10),
-            QColor::fromRgb(135,  44,   7),
-            QColor::fromRgb(132,  29,   5),
-            QColor::fromRgb(130,  15,   2)
+            QColor::fromRgb(48, 18, 59),
+            QColor::fromRgb(54, 33, 95),
+            QColor::fromRgb(59, 47, 128),
+            QColor::fromRgb(63, 62, 156),
+            QColor::fromRgb(66, 75, 181),
+            QColor::fromRgb(69, 89, 203),
+            QColor::fromRgb(70, 102, 221),
+            QColor::fromRgb(71, 115, 235),
+            QColor::fromRgb(70, 128, 246),
+            QColor::fromRgb(68, 143, 254),
+            QColor::fromRgb(62, 155, 254),
+            QColor::fromRgb(55, 168, 250),
+            QColor::fromRgb(46, 180, 242),
+            QColor::fromRgb(37, 192, 231),
+            QColor::fromRgb(30, 203, 218),
+            QColor::fromRgb(25, 213, 205),
+            QColor::fromRgb(24, 222, 192),
+            QColor::fromRgb(29, 231, 178),
+            QColor::fromRgb(39, 238, 164),
+            QColor::fromRgb(53, 243, 148),
+            QColor::fromRgb(70, 248, 132),
+            QColor::fromRgb(89, 251, 115),
+            QColor::fromRgb(109, 254, 98),
+            QColor::fromRgb(128, 255, 83),
+            QColor::fromRgb(146, 255, 71),
+            QColor::fromRgb(164, 252, 60),
+            QColor::fromRgb(177, 249, 54),
+            QColor::fromRgb(190, 244, 52),
+            QColor::fromRgb(203, 237, 52),
+            QColor::fromRgb(215, 229, 53),
+            QColor::fromRgb(225, 221, 55),
+            QColor::fromRgb(235, 211, 57),
+            QColor::fromRgb(242, 201, 58),
+            QColor::fromRgb(248, 190, 57),
+            QColor::fromRgb(252, 177, 54),
+            QColor::fromRgb(254, 164, 49),
+            QColor::fromRgb(254, 150, 43),
+            QColor::fromRgb(252, 135, 37),
+            QColor::fromRgb(249, 120, 30),
+            QColor::fromRgb(245, 105, 24),
+            QColor::fromRgb(240, 91, 18),
+            QColor::fromRgb(234, 78, 13),
+            QColor::fromRgb(225, 65, 9),
+            QColor::fromRgb(216, 55, 6),
+            QColor::fromRgb(206, 45, 4),
+            QColor::fromRgb(195, 37, 3),
+            QColor::fromRgb(183, 29, 2),
+            QColor::fromRgb(169, 22, 1),
+            QColor::fromRgb(155, 15, 1),
+            QColor::fromRgb(139, 9, 2),
+            QColor::fromRgb(122, 4, 3)
+        };
+        levels = {
+            0, 5, 10, 15, 20, 26, 31, 36, 41, 46,
+            51, 56, 61, 66, 71, 76, 82, 87, 92, 97,
+            102, 107, 112, 117, 122, 127, 133, 138, 143, 148,
+            153, 158, 163, 168, 173, 178, 184, 189, 194, 199,
+            204, 209, 214, 219, 224, 229, 235, 240, 245, 250,
+            255
         };
 
-        // 53 levels evenly spaced from 0 → 255 (step ≈ 4.90)
-        levels = {
-            0,   5,  10,  15,  20,  25,  29,  34,
-            39,  44,  49,  54,  59,  64,  69,  74,
-            79,  84,  89,  94,  98, 103, 108, 113,
-            118, 123, 128, 133, 138, 143, 147, 152,
-            157, 162, 167, 172, 177, 182, 187, 192,
-            197, 202, 206, 211, 216, 221, 226, 231,
-            236, 241, 246, 251, 255
-        };
     }
 
     if (theme_id == LsssWhiteTheme) {
+        /* experiment: TURBO */
+        coloros = {
+            QColor::fromRgb(255, 255, 255),
+            QColor::fromRgb(239, 255, 240),
+            QColor::fromRgb(59, 47, 128),
+            QColor::fromRgb(63, 62, 156),
+            QColor::fromRgb(66, 75, 181),
+            QColor::fromRgb(69, 89, 203),
+            QColor::fromRgb(70, 102, 221),
+            QColor::fromRgb(71, 115, 235),
+            QColor::fromRgb(70, 128, 246),
+            QColor::fromRgb(68, 143, 254),
+            QColor::fromRgb(62, 155, 254),
+            QColor::fromRgb(55, 168, 250),
+            QColor::fromRgb(46, 180, 242),
+            QColor::fromRgb(37, 192, 231),
+            QColor::fromRgb(30, 203, 218),
+            QColor::fromRgb(25, 213, 205),
+            QColor::fromRgb(24, 222, 192),
+            QColor::fromRgb(29, 231, 178),
+            QColor::fromRgb(39, 238, 164),
+            QColor::fromRgb(53, 243, 148),
+            QColor::fromRgb(70, 248, 132),
+            QColor::fromRgb(89, 251, 115),
+            QColor::fromRgb(109, 254, 98),
+            QColor::fromRgb(128, 255, 83),
+            QColor::fromRgb(146, 255, 71),
+            QColor::fromRgb(164, 252, 60),
+            QColor::fromRgb(177, 249, 54),
+            QColor::fromRgb(190, 244, 52),
+            QColor::fromRgb(203, 237, 52),
+            QColor::fromRgb(215, 229, 53),
+            QColor::fromRgb(225, 221, 55),
+            QColor::fromRgb(235, 211, 57),
+            QColor::fromRgb(242, 201, 58),
+            QColor::fromRgb(248, 190, 57),
+            QColor::fromRgb(252, 177, 54),
+            QColor::fromRgb(254, 164, 49),
+            QColor::fromRgb(254, 150, 43),
+            QColor::fromRgb(252, 135, 37),
+            QColor::fromRgb(249, 120, 30),
+            QColor::fromRgb(245, 105, 24),
+            QColor::fromRgb(240, 91, 18),
+            QColor::fromRgb(234, 78, 13),
+            QColor::fromRgb(225, 65, 9),
+            QColor::fromRgb(216, 55, 6),
+            QColor::fromRgb(206, 45, 4),
+            QColor::fromRgb(195, 37, 3),
+            QColor::fromRgb(183, 29, 2),
+            QColor::fromRgb(169, 22, 1),
+            QColor::fromRgb(155, 15, 1),
+            QColor::fromRgb(139, 9, 2),
+            QColor::fromRgb(122, 4, 3)
+        };
+
+        levels = {
+            0, 5, 10, 15, 20, 26, 31, 36, 41, 46,
+            51, 56, 61, 66, 71, 76, 82, 87, 92, 97,
+            102, 107, 112, 117, 122, 127, 133, 138, 143, 148,
+            153, 158, 163, 168, 173, 178, 184, 189, 194, 199,
+            204, 209, 214, 219, 224, 229, 235, 240, 245, 250,
+            255
+        };
+
+        /*
         coloros = {
             // extra “zero‐reflection” white
             QColor::fromRgb(255, 255, 255),
@@ -759,11 +943,12 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             197, 202, 206, 211, 216, 221, 226, 231,
             236, 241, 246, 251, 255
         };
+        */
     } else if (theme_id == SonicBlackTheme) {
 
         //This is SONIC black
         coloros = {
-            QColor::fromRgb(  0,   0,   0),
+            //QColor::fromRgb(  0,   0,   0),
             QColor::fromRgb(  0,   0,  96),
             QColor::fromRgb(  0,   0, 106),
             QColor::fromRgb(  0,   0, 116),
@@ -862,7 +1047,18 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             QColor::fromRgb(128,   0,   0)
         };
 
+        levels = {
+            0, 5, 8, 11, 13, 16, 19, 21, 24, 27, 29, 32, 35, 37, 40,
+            43, 45, 48, 50, 53, 56, 58, 61, 64, 66, 69, 72, 74, 77, 80, 82,
+            85, 88, 90, 93, 96, 98, 101, 104, 106, 109, 112, 114, 117, 120, 122, 125,
+            128, 130, 133, 135, 138, 141, 143, 146, 149, 151, 154, 157, 159, 162, 165, 167,
+            170, 173, 175, 178, 181, 183, 186, 189, 191, 194, 197, 199, 202, 205, 207, 210,
+            213, 215, 218, 220, 223, 226, 228, 231, 234, 236, 239, 242, 244, 247, 250, 252,
+            255
+        };
 
+
+        /*
         levels = {
             0, 3, 5, 8, 11, 13, 16, 19, 21, 24, 27, 29, 32, 35, 37, 40,
             43, 45, 48, 50, 53, 56, 58, 61, 64, 66, 69, 72, 74, 77, 80, 82,
@@ -872,6 +1068,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             213, 215, 218, 220, 223, 226, 228, 231, 234, 236, 239, 242, 244, 247, 250, 252,
             255
         };
+        */
 
 
     } else if(theme_id == SonicWhiteTheme) {
@@ -1006,14 +1203,71 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
+    }
+
+    else if (theme_id == PulseTheme_rainbow) {
+
+        coloros = {
+           QColor::fromRgb(128, 0, 255),
+           QColor::fromRgb(116, 19, 255),
+           QColor::fromRgb(102, 41, 254),
+           QColor::fromRgb(90, 59, 253),
+           QColor::fromRgb(76, 80, 252),
+           QColor::fromRgb(64, 98, 250),
+           QColor::fromRgb(49, 118, 248),
+           QColor::fromRgb(38, 134, 245),
+           QColor::fromRgb(24, 152, 242),
+           QColor::fromRgb(9, 169, 238),
+           QColor::fromRgb(2, 183, 235),
+           QColor::fromRgb(16, 198, 230),
+           QColor::fromRgb(29, 209, 226),
+           QColor::fromRgb(42, 221, 221),
+           QColor::fromRgb(55, 230, 216),
+           QColor::fromRgb(68, 238, 210),
+           QColor::fromRgb(82, 245, 203),
+           QColor::fromRgb(94, 250, 198),
+           QColor::fromRgb(109, 253, 191),
+           QColor::fromRgb(120, 255, 184),
+           QColor::fromRgb(134, 255, 176),
+           QColor::fromRgb(146, 253, 169),
+           QColor::fromRgb(160, 250, 161),
+           QColor::fromRgb(172, 245, 154),
+           QColor::fromRgb(187, 238, 145),
+           QColor::fromRgb(200, 230, 136),
+           QColor::fromRgb(212, 221, 128),
+           QColor::fromRgb(226, 209, 118),
+           QColor::fromRgb(238, 198, 109),
+           QColor::fromRgb(252, 183, 99),
+           QColor::fromRgb(255, 169, 91),
+           QColor::fromRgb(255, 152, 80),
+           QColor::fromRgb(255, 134, 70),
+           QColor::fromRgb(255, 118, 61),
+           QColor::fromRgb(255, 98, 50),
+           QColor::fromRgb(255, 80, 41),
+           QColor::fromRgb(255, 59, 30),
+           QColor::fromRgb(255, 41, 20),
+           QColor::fromRgb(255, 19, 9),
+           QColor::fromRgb(255, 0, 0)};
+
+        levels = {
+              0, 7, 13, 20, 26, 33, 39, 46, 52, 59,
+              65, 72, 78, 85, 92, 98, 105, 111, 118, 124,
+              131, 137, 144, 150, 157, 163, 170, 177, 183, 190,
+              196, 203, 209, 216, 222, 229, 235, 242, 248, 255
         };
 
+    }
+
+    //;
+
     _rawThemeColors = coloros;
-    //qDebug() << "Theme ID was set by user, new ID is " << theme_id;
-    //qDebug() << "setThemeId called on instance:" << this;
-    //qDebug() << "Theme ID include colors " << _rawThemeColors;
+    qDebug() << "Theme ID was set by user, new ID is " << theme_id;
+    qDebug() << "setThemeId called on instance:" << this;
+    qDebug() << "Theme ID include colors " << _rawThemeColors;
 
     setColorScheme(coloros, levels);
+    getThemeColors();
+
     emit themeColorsChanged();
     emit themeIdChanged();
     //qDebug() << "Emitted new colors";
@@ -1023,7 +1277,76 @@ void Plot2DEchogram::setCompensation(int compensation_id) {
     _compensation_id = compensation_id;
 }
 
+
 void Plot2DEchogram::updateColors() {
+    // 1) compute your user-range → [0..255]
+    float low    = _levels.low;
+    float high   = _levels.high;
+    float span   = (high - low)*2.55f;
+    float offset = low   *2.55f;
+    float scale  = (span>0.0f ? 255.0f/span : 0.0f);
+
+    _colorLevels.resize(256);
+
+    // 2) how many discrete steps you really have
+    const int M = _rawThemeColors.size();       // e.g. 13 or 17
+    const int maxI = M - 1;
+
+    for(int i = 0; i < 256; ++i) {
+        // map into 0..255 user-window
+        int raw = int(qBound(0.0f, (i - offset)*scale, 255.0f));
+
+        // pure integer round-to-nearest across M slots
+        int idx = (raw * maxI + 127) / 255;     // [0..maxI]
+
+        // pick your exact theme color—no t, no blend
+        QColor c = _rawThemeColors[idx];
+        _colorLevels[i] = qRgb(c.red(), c.green(), c.blue());
+    }
+
+    _flagColorChanged = true;
+    _image.setColorTable(_colorLevels);
+}
+
+
+
+/*
+
+void Plot2DEchogram::updateColors() {
+    // Map your user range [low..high] → [0..255]
+    float low    = _levels.low;
+    float high   = _levels.high;
+    float span   = (high - low) * 2.55f;    // same scaling you used before
+    float offset = low     * 2.55f;
+    float scale  = (span > 0.0f ? 255.0f / span : 0.0f);
+
+    _colorLevels.resize(256);
+
+    // Build a smooth 256-entry palette by blending _colorTable entries
+    for (int i = 0; i < 256; ++i) {
+        // compute fractional index into _colorTable
+        float idxf = (i - offset) * scale;
+        idxf = qBound(0.0f, idxf, 255.0f);
+
+        int idx  = int(floor(idxf));
+        int idxp = qMin(idx + 1, 255);
+        float t  = idxf - idx;
+
+        QRgb c0 = _colorTable[idx];
+        QRgb c1 = _colorTable[idxp];
+
+        int r = qRound(qRed(c0)   * (1 - t) + qRed(c1)   * t);
+        int g = qRound(qGreen(c0) * (1 - t) + qGreen(c1) * t);
+        int b = qRound(qBlue(c0)  * (1 - t) + qBlue(c1)  * t);
+
+        _colorLevels[i] = qRgb(r, g, b);
+    }
+
+    _flagColorChanged = true;
+    _image.setColorTable(_colorLevels);
+
+
+
     float low = _levels.low;
     float high = _levels.high;
 
@@ -1045,7 +1368,9 @@ void Plot2DEchogram::updateColors() {
 
     _flagColorChanged = true;
     _image.setColorTable(_colorLevels);
+
 }
+*/
 
 void Plot2DEchogram::resetCash() {
     _cashFlags.resetCash = true;
@@ -1233,6 +1558,7 @@ int Plot2DEchogram::updateCash(Dataset* dataset, DatasetCursor cursor, int width
     return wrap_start_pos;
 }
 
+
 bool Plot2DEchogram::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor) {
     if(isVisible() && dataset != nullptr && cursor.distance.isValid()) {
         const int image_width = canvas.width();
@@ -1276,6 +1602,7 @@ bool Plot2DEchogram::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor
 
     return true;
 }
+
 
 float Plot2DEchogram::getLowLevel() const
 {

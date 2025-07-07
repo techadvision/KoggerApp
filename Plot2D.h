@@ -273,6 +273,8 @@ public:
         Dt4WhiteTheme,
         Ek80BlackTheme,
         Ek80WhiteTheme,
+        PulseTheme_bluered,
+        PulseTheme_rainbow,
         SepiaTemeExtra
     };
 
@@ -296,7 +298,7 @@ public:
     int updateCash(Dataset* dataset, DatasetCursor cursor, int width, int height);
     void resetCash();
 
-    Q_INVOKABLE QVariantList getThemeGradient(int steps = 0) const;
+    //Q_INVOKABLE QVariantList getThemeGradient(int steps = 0) const;
     Q_INVOKABLE QVariantList getThemeColors() const;
 
 signals:
@@ -862,7 +864,8 @@ public:
     //Pulse
     void setMeasuresMetric(bool metric);
     void setGridHorizontal (bool horizontal);
-    std::vector<int> calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer);
+    void setSideScanOnLeftHandSide (bool leftSideInstall);
+    std::vector<int> calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand);
 
 protected:
     bool angleVisibility_;
@@ -873,6 +876,7 @@ protected:
     QColor _lineColor = QColor(255, 255, 255, 255);
     bool isMetric_ = true;
     bool isHorizontal_ = true;
+    bool isSideScanOnLeftHandSide_ = true;
 
 private:
     void drawTextWithBackdrop(QPainter* p,
@@ -1064,6 +1068,7 @@ public:
     }
     void setMeasuresMetric (bool metric);
     void setGridHorizontal (bool horiontal);
+    void setSideScanOnLeftHandSide (bool leftSideInstall);
 
 
 protected:
@@ -1080,6 +1085,7 @@ protected:
 //    } _mouse;
 
     bool _isHorizontal = true;
+    bool isSideScanOnLeftHandSide_ = true;
 
 
     Plot2DEchogram _echogram;
