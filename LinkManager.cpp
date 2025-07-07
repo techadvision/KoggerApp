@@ -283,18 +283,18 @@ void LinkManager::printLinkDebugInfo(Link* link) const
 #include <QtAndroid>
 
 QString getAndroidGatewayIP() {
-    QString defaultIp = "0.0.0.0";
-    QString ip = "192.168.2.1";
+    QString defaultIp = "192.168.10.1";
+    QString ip = "192.168.10.1";
+    QString lastUsedIp = "192.168.10.1";
     if (g_pulseSettings) {
-        ip = g_pulseSettings->property("udpGateway").toString();
-        defaultIp = ip;
+        lastUsedIp = g_pulseSettings->property("udpGateway").toString();
         //qDebug() << "Preferred Gateway IP was" << ip;
     }
     // Get the current Android activity
     QAndroidJniObject activity = QtAndroid::androidActivity();
     if (!activity.isValid()) {
         qWarning() << "Android activity not valid";
-        return ip;
+        return lastUsedIp;
     }
     // Get WifiManager via Context.getSystemService(Context.WIFI_SERVICE)
     QAndroidJniObject wifiService = activity.callObjectMethod(
@@ -303,13 +303,13 @@ QString getAndroidGatewayIP() {
         QAndroidJniObject::fromString("wifi").object<jstring>());
     if (!wifiService.isValid()) {
         qWarning() << "Wifi service not available";
-        return ip;
+        return lastUsedIp;
     }
     // Get the DhcpInfo object from WifiManager.getDhcpInfo()
     QAndroidJniObject dhcpInfo = wifiService.callObjectMethod("getDhcpInfo", "()Landroid/net/DhcpInfo;");
     if (!dhcpInfo.isValid()) {
         qWarning() << "Could not get DhcpInfo";
-        return ip;
+        return lastUsedIp;
     }
     // Retrieve the 'gateway' field (an int)
     jint gateway = dhcpInfo.getField<jint>("gateway");
@@ -324,20 +324,35 @@ QString getAndroidGatewayIP() {
     //qDebug() << "Detected gateway IP:" << ip;
 
     // Check if the IP matches allowed prefixes:
-    bool allowed = ip.startsWith("192.168.10") ||
-                   ip.startsWith("192.168.2")  ||
-                   ip.startsWith("10.0.0");
+    bool allowed = ip.startsWith("192.168.10");
+    if (g_pulseSettings) {
+        bool betaTester = g_pulseSettings->property("isBetaTester").toBool();
+        if (betaTester) {
+            allowed = ip.startsWith("192.168.10.") ||
+                      ip.startsWith("192.168.2.");
+        }
+        bool expert = g_pulseSettings->property("isExpert").toBool();
+        if (expert) {
+            allowed = ip.startsWith("192.168.10.") ||
+                      ip.startsWith("192.168.2.")  ||
+                      ip.startsWith("192.168.144.")  ||
+                      ip.startsWith("10.0.0.");
+        }
+        if (expert && ip.startsWith("192.168.144.")) {
+            ip = "192.168.144.31";
+        }
+    }
     if (!allowed) {
-        qWarning() << "Gateway IP" << ip << "does not match allowed prefixes. Using default IP.";
+        qWarning() << "Gateway IP" << ip << "does not match allowed prefixes. Using default IP:" << defaultIp;
         ip = defaultIp;
     } else {
         if (g_pulseSettings) {
             g_pulseSettings->setProperty("udpGateway", ip);
             emit
-            //qDebug() << "Gateway IP" << ip << "is allowed, pulseSettings updated.";
-            //qDebug() << "Preferred Gateway IP updated to " << g_pulseSettings->property("udpGateway").toString();;
+            qDebug() << "Gateway IP" << ip << "is allowed, pulseSettings updated.";
+            qDebug() << "Preferred Gateway IP updated to " << g_pulseSettings->property("udpGateway").toString();;
         } else {
-            //qDebug() << "Gateway IP" << ip << "is allowed, but could not update the pulseSettings";
+            qDebug() << "Gateway IP" << ip << "is allowed, but could not update the pulseSettings";
         }
     }
 
@@ -357,8 +372,16 @@ void LinkManager::importPinnedLinksFromXML()
     int udpPort = 14560;
 
     if (g_pulseSettings) {
-        udpPort = g_pulseSettings->property("udpPort").toInt();
-        //qDebug() << "Gateway port" << udpPort << "to be used";
+        bool betaTester = g_pulseSettings->property("isBetaTester").toBool();
+        bool expert = g_pulseSettings->property("isExpert").toBool();
+        int expertUdpPort = g_pulseSettings->property("udpPort").toInt();
+        if (betaTester) {
+            udpPort = 14550;
+        }
+        if (expert) {
+            udpPort = expertUdpPort;
+        }
+        //udpPort = g_pulseSettings->property("udpPort").toInt();
 
     }
 
@@ -394,7 +417,7 @@ void LinkManager::importPinnedLinksFromXML()
                   .arg(gatewayIP)        // Insert dynamic gateway IP
                   .arg(udpPort);         // UDP link port #1
 
-    //qDebug() << "Gateway UDP settings" << xmlData << "to be used";
+    qDebug() << "Gateway UDP settings" << xmlData << "to be used";
 
     #endif
 
