@@ -57,13 +57,13 @@ SpinBox {
         height: parent.height
         width: control.spinner ? parent.height + 6 : 0
         contextType: "2d"
-        renderTarget: Canvas.FramebufferObject
+        renderTarget: Canvas.FramebufferObject ? Canvas.FramebufferObject : undefined
         opacity: 1
 
         property bool pressed: control.up.pressed
 
         Connections {
-            target: theme
+            target: theme ? theme : undefined
 
             function onThemeIDChanged() {
                 upCanvas.requestPaint()
@@ -140,11 +140,11 @@ SpinBox {
         height: parent.height
         width: control.spinner ? parent.height + 6 : 0
         contextType: "2d"
-        renderTarget: Canvas.FramebufferObject
+        renderTarget: Canvas.FramebufferObject ? Canvas.FramebufferObject : undefined
         property bool pressed: control.down.pressed
 
         Connections {
-            target: theme
+            target: theme ? theme : undefined
 
             function onThemeIDChanged() {
                 downCanvas.requestPaint()

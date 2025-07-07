@@ -24,7 +24,7 @@ BackStyle {
         opacity: borderOpacity
 
         Connections {
-            target: control
+            target: control ? control : undefined
             onActiveChanged: borderCanvas.requestPaint()
         }
 

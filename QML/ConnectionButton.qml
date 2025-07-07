@@ -42,7 +42,7 @@ CButton {
         contextType: "2d"
 
         Connections {
-            target: connectionButton
+            target: connectionButton ? connectionButton : undefined
 
             function onPressedChanged() {
                 canvas.requestPaint()

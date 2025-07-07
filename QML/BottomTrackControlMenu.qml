@@ -55,7 +55,7 @@ Item {
     }
 
     Connections {
-        target: root.controller
+        target: root.controller ? root.controller : undefined
         function onChannelListUpdated() {
             visibleChannelCombo.currentIndex = controller.visibleChannelIndex
             visibleChannelCombo.model = controller.channelList

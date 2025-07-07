@@ -92,7 +92,7 @@ Item {
     }
 
     Connections {
-        target: theme
+        target: theme ? theme : undefined
 
         function onThemeIDChanged() {
             canvas.requestPaint()

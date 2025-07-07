@@ -26,7 +26,7 @@ ComboBox {
         contextType: "2d"
 
         Connections {
-            target: control
+            target: control ? control : undefined
             onPressedChanged: canvas.requestPaint()
         }
 

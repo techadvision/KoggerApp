@@ -37,7 +37,7 @@ ComboBox {
         contextType: "2d"
 
         Connections {
-            target: theme
+            target: theme ? theme : undefined
             function onThemeIDChanged()  {
                 canvas.requestPaint()
             }

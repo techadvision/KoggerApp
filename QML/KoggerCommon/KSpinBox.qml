@@ -54,7 +54,7 @@ SpinBox {
         property bool pressed: control.up.pressed
 
         Connections {
-            target: theme
+            target: theme ? theme : undefined
             function onThemeIDChanged() {
                 upCanvas.requestPaint()
             }
@@ -132,7 +132,7 @@ SpinBox {
         property bool pressed: control.down.pressed
 
         Connections {
-            target: theme
+            target: theme ? theme : undefined
             function onThemeIDChanged() {
                 downCanvas.requestPaint()
             }
