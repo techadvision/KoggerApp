@@ -114,7 +114,7 @@ GridLayout {
                     currentIndex: 0
 
                     onCurrentIndexChanged: targetPlot.plotEchogramTheme(currentIndex)
-                    Component.onCompleted: targetPlot.plotEchogramTheme(currentIndex)
+                    //Component.onCompleted: targetPlot.plotEchogramTheme(currentIndex)
 
                     Settings {
                         property alias waterfallThemeId: echoTheme.currentIndex
@@ -129,7 +129,7 @@ GridLayout {
                     currentIndex: 0
 
                     onCurrentIndexChanged: targetPlot.plotEchogramCompensation(currentIndex) // TODO
-                    Component.onCompleted: targetPlot.plotEchogramCompensation(currentIndex) // TODO
+                    //Component.onCompleted: targetPlot.plotEchogramCompensation(currentIndex) // TODO
 
                     Settings {
                         property alias echogramTypesList: echogramTypesList.currentIndex
