@@ -12,13 +12,13 @@ ColumnLayout {
     Layout.margins: 0
     property var dev: null
 
-    property var myDev: null
+    //property var myDev: null
     property var devList: deviceManagerWrapper.devs
     property bool dynResolutionUpdated: false
     property int deviceParameterSetterRepeat: 2000
 
     Connections {
-        target: dev
+        target: dev ? dev : undefined
 
         function onDeviceVersionChanged () {
             if (dev === null) {
@@ -48,7 +48,7 @@ ColumnLayout {
 
             pulseRuntimeSettings.onDeviceVersionChanged = true
             //console.log("DEV_PARAM onDeviceVersionChanged, devName is ", dev.devName, ". Finally.")
-            myDev = dev
+            //myDev = dev
         }
 
         function onDistSetupChanged () {
@@ -94,6 +94,7 @@ ColumnLayout {
         }
     }
 
+    /*
     onDevListChanged: {
         if (devList.length > 0) {
             myDev = devList[0]
@@ -110,6 +111,7 @@ ColumnLayout {
             //console.log("DEV_PARAM: onDevListChanged when list length is 0")
         }
     }
+    */
 
     property bool settingsNotNull: false
     property bool settingsCompleted: false
@@ -152,13 +154,13 @@ ColumnLayout {
                         return 0
                     }
                 }
-                //(dev !== null && pulseRuntimeSettings !== null) ? (pulseRuntimeSettings.doDynamicResolution ? pulseRuntimeSettings.dynamicResolution : pulseRuntimeSettings.chartResolution) = 0
-                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartResolution : 0
-                //devValue: dev !== null ? dev.chartResolution : 0
+
                 isValid: dev !== null ? dev.chartSetupState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.chartResolution = value
                         //dev.chartResolution = pulseRuntimeSettings.chartResolution
                         console.log("DEV_CONFIG: chartResolution onValueChanged, set pulseRuntimeSettings.chartResolution to ", value);
@@ -168,59 +170,54 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onChartResolutionChanged () {
                         console.log("DEV_CONFIG: onChartResolutionChanged")
                         if (dev !== null) {
-                            if (dev.chartResolution !== pulseRuntimeSettings.chartResolution) {
-                                dev.chartResolution = pulseRuntimeSettings.chartResolution
-                                console.log("DEV_CONFIG: dev.chartResolution set to pulseRuntimeSettings.chartResolution")
+                            if (pulseRuntimeSettings.doDynamicResolution) {
+                                if (dev.chartResolution !== pulseRuntimeSettings.dynamicResolution) {
+                                    dev.chartResolution = pulseRuntimeSettings.dynamicResolution
+                                    console.log("DEV_CONFIG: dev.chartResolution set to pulseRuntimeSettings.dynamicResolution")
+                                } else {
+                                    console.log("DEV_CONFIG: dev.chartResolution OK, already equal to pulseRuntimeSettings.dynamicResolution")
+                                }
                             } else {
-                                console.log("DEV_CONFIG: dev.chartResolution ", dev.chartResolution, " already equal to ", pulseRuntimeSettings.chartResolution)
+                                if (dev.chartResolution !== pulseRuntimeSettings.chartResolution) {
+                                    dev.chartResolution = pulseRuntimeSettings.chartResolution
+                                    console.log("DEV_CONFIG: dev.chartResolution set to pulseRuntimeSettings.chartResolution")
+                                } else {
+                                    console.log("DEV_CONFIG: dev.chartResolution OK, already equal to pulseRuntimeSettings.chartResolution")
+                                }
                             }
                         } else {
-                            console.log("DEV_CONFIG: onChartResolutionChanged dev is null")
+                            console.log("DEV_CONFIG: onChartResolutionChanged, but dev is null")
                         }
                     }
 
                     function onDynamicResolutionChanged () {
                         console.log("DEV_CONFIG: onChartResolutionChanged")
-                        if (pulseRuntimeSettings.doDynamicResolution) {
-                            if (pulseRuntimeSettings.chartResolution !== pulseRuntimeSettings.dynamicResolution) {
-                                pulseRuntimeSettings.chartResolution = pulseRuntimeSettings.dynamicResolution
-                            } else {
-                                console.log("DEV_CONFIG: pulseRuntimeSettings.chartResolution already equal to pulseRuntimeSettings.dynamicResolution")
-                            }
-                        } else {
-                            console.log("pulseRuntimeSettings.doDynamicResolution false")
+                        if (pulseRuntimeSettings.hasDeviceLostConnection) {
+                            console.log("DEV_CONFIG: no need to set resolution dynamically when connection is lost")
+                            return
                         }
-                    }
-                }
-
-                Timer {
-                    id: setChartResolutionTimer
-                    repeat: !columnItem.dynResolutionUpdated
-                    interval: 200
-                    onTriggered: {
-                        console.log("DEV_CONFIG: resolution setChartResolutionTimer")
+                        if (!pulseRuntimeSettings.doDynamicResolution) {
+                            console.log("DEV_CONFIG: for this device we so not do dynamic resolutiuon")
+                            return
+                        }
+                        //TODO: Do not touch the default pulseRuntimeSettings.chartResolution, will this work?
                         if (dev !== null) {
                             if (dev.devName !== "...") {
-                                if (!columnItem.dynResolutionUpdated) {
-                                    pulseRuntimeSettings.chartResolution = pulseRuntimeSettings.dynamicResolution
+                                if (dev.chartResolution !== pulseRuntimeSettings.dynamicResolution) {
+                                    console.log("DEV_CONFIG: dev.chartResolution !== pulseRuntimeSettings.dynamicResolution. Enforce!")
                                     dev.chartResolution = pulseRuntimeSettings.dynamicResolution
-                                    columnItem.dynResolutionUpdated = true
-                                    console.log("DEV_CONFIG: resolution timer: dev.chartResolution = ",dev.chartResolution, " pulseRuntimeSettings.chartResolution ", pulseRuntimeSettings.chartResolution, " pulseRuntimeSettings.dynamicResolution = ", pulseRuntimeSettings.dynamicResolution);
-                                } else {
-                                    console.log("DEV_CONFIG: resolution timer, columnItem.dynResolutionUpdated is already true")
                                 }
                             } else {
-                                console.log("DEV_CONFIG: resolution timer, dev.devName === ...")
+                                console.log("DEV_CONFIG: Skip resolution for devName ...")
                             }
                         } else {
-                            console.log("DEV_CONFIG: resolution timer, dev === null")
+                            console.log("DEV_CONFIG: Unable to check if dev-chartResolution is OK as dev === null")
                         }
                     }
-
                 }
             }
         }
@@ -239,6 +236,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.chartSamples = value
                         //dev.chartSamples = pulseRuntimeSettings.chartSamples
                     }
@@ -246,10 +245,18 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onChartSamplesChanged () {
-                        dev.chartSamples = pulseRuntimeSettings.chartSamples
-                        //console.log("DEV_CONFIG: Set the dev.chartSamples to ", dev.chartSamples, " using source pulseRuntimeSettings.chartSamples of ", pulseRuntimeSettings.chartSamples)
+                        if (dev !== null) {
+                            if (dev.chartSamples !== pulseRuntimeSettings.chartSamples) {
+                                dev.chartSamples = pulseRuntimeSettings.chartSamples
+                                console.log("DYNAMIC: Set the dev.chartSamples to ", dev.chartSamples, " using source pulseRuntimeSettings.chartSamples of ", pulseRuntimeSettings.chartSamples)
+                            }
+                        }
+                    }
+                    function onDynamicSamplesChanged () {
+                        pulseRuntimeSettings.chartSamples = pulseRuntimeSettings.dynamicSamples
+                        console.log("DYNAMIC: received onDynamicSamplesChanged value ", pulseRuntimeSettings.dynamicSamples)
                     }
                 }
             }
@@ -269,6 +276,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.chartOffset = value
                         //dev.chartOffset = pulseRuntimeSettings.chartOffset
                     }
@@ -276,10 +285,15 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onChartOffsetChanged () {
-                        dev.chartOffset = pulseRuntimeSettings.chartOffset
-                        //console.log("DEV_CONFIG: Set the dev.chartOffset to ", dev.chartOffset, " using source pulseRuntimeSettings.chartOffset of ", pulseRuntimeSettings.chartOffset)
+                        if (dev !== null) {
+                            if (dev.chartOffset !== pulseRuntimeSettings.chartOffset) {
+                                dev.chartOffset = pulseRuntimeSettings.chartOffset
+                                //console.log("DEV_CONFIG: Set the dev.chartOffset to ", dev.chartOffset, " using source pulseRuntimeSettings.chartOffset of ", pulseRuntimeSettings.chartOffset)
+                            }
+                        }
+
                     }
                 }
             }
@@ -303,6 +317,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.distMax = value
                         //dev.distMax = pulseRuntimeSettings.distMax
                     }
@@ -310,10 +326,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDistMaxChanged () {
-                        dev.distMax = pulseRuntimeSettings.distMax
-                        //console.log("DEV_CONFIG: Set the dev.distMax to ", dev.distMax, " using source pulseRuntimeSettings.distMax of ", pulseRuntimeSettings.distMax)
+                        if (dev !== null) {
+                            if (dev.distMax !== pulseRuntimeSettings.distMax) {
+                                dev.distMax = pulseRuntimeSettings.distMax
+                                //console.log("DEV_CONFIG: Set the dev.distMax to ", dev.distMax, " using source pulseRuntimeSettings.distMax of ", pulseRuntimeSettings.distMax)
+                            }
+                        }
                     }
                 }
             }
@@ -333,6 +353,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.distDeadZone = value
                         //dev.distDeadZone = pulseRuntimeSettings.distDeadZone
                     }
@@ -340,10 +362,15 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDistDeadZoneChanged () {
-                        dev.distDeadZone = pulseRuntimeSettings.distDeadZone
-                        //console.log("DEV_CONFIG: Set the dev.distDeadZone to ", dev.distDeadZone, " using source pulseRuntimeSettings.distDeadZone of ", pulseRuntimeSettings.distDeadZone)
+                        if (dev !== null) {
+                            if (dev.distDeadZone !== pulseRuntimeSettings.distDeadZone) {
+                                dev.distDeadZone = pulseRuntimeSettings.distDeadZone
+                                //console.log("DEV_CONFIG: Set the dev.distDeadZone to ", dev.distDeadZone, " using source pulseRuntimeSettings.distDeadZone of ", pulseRuntimeSettings.distDeadZone)
+                            }
+                        }
+
                     }
                 }
             }
@@ -363,6 +390,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.distConfidence = value
                         //dev.distConfidence = pulseRuntimeSettings.distConfidence
                     }
@@ -370,10 +399,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDistConfidenceChanged () {
-                        dev.distConfidence = pulseRuntimeSettings.distConfidence
-                        //console.log("DEV_CONFIG: Set the dev.distConfidence to ", dev.distConfidence, " using source pulseRuntimeSettings.distConfidence of ", pulseRuntimeSettings.distConfidence)
+                        if (dev !== null) {
+                            if (dev.distConfidence !== pulseRuntimeSettings.distConfidence) {
+                                dev.distConfidence = pulseRuntimeSettings.distConfidence
+                                //console.log("DEV_CONFIG: Set the dev.distConfidence to ", dev.distConfidence, " using source pulseRuntimeSettings.distConfidence of ", pulseRuntimeSettings.distConfidence)
+                            }
+                        }
                     }
                 }
             }
@@ -397,6 +430,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.transPulse = value
                         //dev.transPulse = pulseRuntimeSettings.transPulse
                     }
@@ -404,10 +439,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onTransPulseChanged () {
-                        dev.transPulse = pulseRuntimeSettings.transPulse
-                        //console.log("DEV_CONFIG: Set the dev.transPulse to ", dev.transPulse, " using source pulseRuntimeSettings.transPulse of ", pulseRuntimeSettings.transPulse)
+                        if (dev !== null) {
+                            if (dev.transPulse !== pulseRuntimeSettings.transPulse) {
+                                dev.transPulse = pulseRuntimeSettings.transPulse
+                                //console.log("DEV_CONFIG: Set the dev.transPulse to ", dev.transPulse, " using source pulseRuntimeSettings.transPulse of ", pulseRuntimeSettings.transPulse)
+                            }
+                        }
                     }
                 }
             }
@@ -417,16 +456,19 @@ ColumnLayout {
             paramName: qsTr("Frequency, kHz")
 
             SpinBoxCustom {
-                from: 40
-                to: 6000
+                from: pulseRuntimeSettings.transFreqWide
+                to: pulseRuntimeSettings.transFreqNarrow
                 stepSize: 5
-                value: 0
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transFreq : 0
+                value: pulseRuntimeSettings.transFreq
+                devValue: pulseRuntimeSettings.transFreq
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transFreq : 0
                 //devValue: dev !== null ? dev.transFreq : 0
                 isValid: dev !== null ? dev.transcState : false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.transFreq = value
                         //dev.transFreq = pulseRuntimeSettings.transFreq
                     }
@@ -434,10 +476,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onTransFreqChanged () {
-                        dev.transFreq = pulseRuntimeSettings.transFreq
-                        //console.log("DEV_CONFIG: Set the dev.transFreq to ", dev.transFreq, " using source pulseRuntimeSettings.transFreq of ", pulseRuntimeSettings.transFreq)
+                        if (dev !== null) {
+                            if (dev.transFreq !== pulseRuntimeSettings.transFreq) {
+                                dev.transFreq = pulseRuntimeSettings.transFreq
+                                console.log("DEV_CONFIG: Set the dev.transFreq to ", dev.transFreq, " using source pulseRuntimeSettings.transFreq of ", pulseRuntimeSettings.transFreq)
+                            }
+                        }
                     }
                 }
             }
@@ -459,6 +505,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.transBoost = value
                         //dev.transBoost = pulseRuntimeSettings.transBoost
                     }
@@ -486,10 +534,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onTransBoostChanged () {
-                        dev.transBoost = pulseRuntimeSettings.transBoost
-                        //console.log("DEV_CONFIG: Set the dev.transBoost to ", dev.transBoost, " using source pulseRuntimeSettings.transBoost of ", pulseRuntimeSettings.transBoost)
+                        if (dev !== null) {
+                            if (dev.transBoost !== pulseRuntimeSettings.transBoost) {
+                                dev.transBoost = pulseRuntimeSettings.transBoost
+                                //console.log("DEV_CONFIG: Set the dev.transBoost to ", dev.transBoost, " using source pulseRuntimeSettings.transBoost of ", pulseRuntimeSettings.transBoost)
+                            }
+                        }
                     }
                 }
             }
@@ -513,6 +565,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.dspHorSmooth = value
                         //dev.dspHorSmooth = pulseRuntimeSettings.dspHorSmooth
                     }
@@ -520,10 +574,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDspHorSmoothChanged () {
-                        dev.dspHorSmooth = pulseRuntimeSettings.dspHorSmooth
-                        //console.log("DEV_CONFIG: Set the dev.dspHorSmooth to ", dev.dspHorSmooth, " using source pulseRuntimeSettings.dspHorSmooth of ", pulseRuntimeSettings.dspHorSmooth)
+                        if (dev !== null) {
+                            if (dev.dspHorSmooth !== pulseRuntimeSettings.dspHorSmooth) {
+                                dev.dspHorSmooth = pulseRuntimeSettings.dspHorSmooth
+                                //console.log("DEV_CONFIG: Set the dev.dspHorSmooth to ", dev.dspHorSmooth, " using source pulseRuntimeSettings.dspHorSmooth of ", pulseRuntimeSettings.dspHorSmooth)
+                            }
+                        }
                     }
                 }
             }
@@ -543,6 +601,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.soundSpeed = value * 1000
                         //dev.soundSpeed = pulseRuntimeSettings.soundSpeed
                     }
@@ -550,10 +610,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onSoundSpeedChanged () {
-                        dev.soundSpeed = pulseRuntimeSettings.soundSpeed
-                        //console.log("DEV_CONFIG: Set the dev.soundSpeed to ", dev.soundSpeed, " using source pulseRuntimeSettings.soundSpeed of ", pulseRuntimeSettings.soundSpeed)
+                        if (dev !== null) {
+                            if (dev.soundSpeed !== pulseRuntimeSettings.soundSpeed) {
+                                dev.soundSpeed = pulseRuntimeSettings.soundSpeed
+                                //console.log("DEV_CONFIG: Set the dev.soundSpeed to ", dev.soundSpeed, " using source pulseRuntimeSettings.soundSpeed of ", pulseRuntimeSettings.soundSpeed)
+                            }
+                        }
                     }
                 }
             }
@@ -577,17 +641,27 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         pulseRuntimeSettings.ch1Period = value
+                        console.log("DYNAMIC: Set the dev.ch1Period to ", dev.ch1Period, " onValueChanged ", value)
                         //dev.ch1Period = pulseRuntimeSettings.ch1Period
                     }
                     isDriverChanged = false
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onCh1PeriodChanged () {
-                        dev.ch1Period = pulseRuntimeSettings.ch1Period
-                        //console.log("DEV_CONFIG: Set the dev.ch1Period to ", dev.ch1Period, " using source pulseRuntimeSettings.ch1Period of ", pulseRuntimeSettings.ch1Period)
+                        if (dev !== null) {
+                            if (dev.ch1Period !== pulseRuntimeSettings.ch1Period) {
+                                dev.ch1Period = pulseRuntimeSettings.ch1Period
+                                console.log("DYNAMIC: Set the dev.ch1Period to ", dev.ch1Period, " using source pulseRuntimeSettings.ch1Period of ", pulseRuntimeSettings.ch1Period)
+                            }
+                        }
+                    }
+                    function onDynamicPeriodChanged () {
+                        pulseRuntimeSettings.ch1Period = pulseRuntimeSettings.dynamicPeriod
                     }
                 }
             }
@@ -608,6 +682,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         if (value == 1) {
                             pulseRuntimeSettings.datasetChart = 1
                         } else {
@@ -624,10 +700,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDatasetChartChanged () {
-                        dev.datasetChart = pulseRuntimeSettings.datasetChart
-                        //console.log("DEV_CONFIG: Set the dev.datasetChart to ", dev.datasetChart, " using source pulseRuntimeSettings.datasetChart of ", pulseRuntimeSettings.datasetChart)
+                        if (dev !== null) {
+                            if (dev.datasetChart !== pulseRuntimeSettings.datasetChart) {
+                                dev.datasetChart = pulseRuntimeSettings.datasetChart
+                                //console.log("DEV_CONFIG: Set the dev.datasetChart to ", dev.datasetChart, " using source pulseRuntimeSettings.datasetChart of ", pulseRuntimeSettings.datasetChart)
+                            }
+                        }
                     }
                 }
             }
@@ -648,24 +728,16 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         if (value === 1) {
                             pulseRuntimeSettings.currentDepthSolution = 1
-                            //pulseRuntimeSettings.datasetDist = 1
-                            //pulseRuntimeSettings.datasetSDDBT = 0
-                            //dev.datasetDist = pulseRuntimeSettings.datasetDist
                         }
                         else if (value === 2) {
                             pulseRuntimeSettings.currentDepthSolution = 2
-                            //pulseRuntimeSettings.datasetDist = 0
-                            //pulseRuntimeSettings.datasetSDDBT = 1
-                            //dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
                         }
                         else {
                             pulseRuntimeSettings.currentDepthSolution = 0
-                            //pulseRuntimeSettings.datasetDist = 0
-                            //dev.datasetDist = pulseRuntimeSettings.datasetDist
-                            //pulseRuntimeSettings.datasetSDDBT = 0
-                            //dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
                         }
                     }
                     isDriverChanged = false
@@ -677,24 +749,30 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onCurrentDepthSolutionChanged() {
+                        // decide on proper values
                         let newValue = pulseRuntimeSettings.currentDepthSolution
                         if (newValue === 1) {
                             pulseRuntimeSettings.datasetDist = 1
                             pulseRuntimeSettings.datasetSDDBT = 0
-                            dev.datasetDist = pulseRuntimeSettings.datasetDist
                         }
-                        else if (newValue === 2) {
+                        else if (newValue === 2 ) {
                             pulseRuntimeSettings.datasetDist = 0
                             pulseRuntimeSettings.datasetSDDBT = 1
-                            dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
                         }
                         else {
                             pulseRuntimeSettings.datasetDist = 0
-                            dev.datasetDist = pulseRuntimeSettings.datasetDist
                             pulseRuntimeSettings.datasetSDDBT = 0
-                            dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
+                        }
+                        // write if needed
+                        if (dev !== null) {
+                            if (dev.datasetDist !== pulseRuntimeSettings.datasetDist) {
+                                dev.datasetDist = pulseRuntimeSettings.datasetDist
+                            }
+                            if (dev.datasetSDDBT !== pulseRuntimeSettings.datasetSDDBT) {
+                                dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
+                            }
                         }
                     }
                 }
@@ -716,9 +794,11 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         if (value == 1) {
                             pulseRuntimeSettings.datasetEuler = 1
-                            dev.datasetEuler = pulseRuntimeSettings.datasetEuler
+                            //dev.datasetEuler = pulseRuntimeSettings.datasetEuler
                         }
                         else if (dev.datasetEuler & 1) {
                             pulseRuntimeSettings.datasetEuler = 0
@@ -734,10 +814,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDatasetEulerChanged () {
-                        dev.datasetEuler = pulseRuntimeSettings.datasetEuler
-                        //console.log("DEV_CONFIG: Set the dev.datasetEuler to ", dev.datasetEuler, " using source pulseRuntimeSettings.datasetEuler of ", pulseRuntimeSettings.datasetEuler)
+                        if (dev !== null) {
+                            if (dev.datasetEuler !== pulseRuntimeSettings.datasetEuler) {
+                                dev.datasetEuler = pulseRuntimeSettings.datasetEuler
+                                //console.log("DEV_CONFIG: Set the dev.datasetEuler to ", dev.datasetEuler, " using source pulseRuntimeSettings.datasetEuler of ", pulseRuntimeSettings.datasetEuler)
+                            }
+                        }
                     }
                 }
             }
@@ -758,6 +842,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         //console.log("Dev_value: datasetTemp isDriverChanged, new value ", value)
                         if(value == 1) {
                             pulseRuntimeSettings.datasetTemp = 1
@@ -776,10 +862,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDatasetTempChanged () {
-                        dev.datasetTemp = pulseRuntimeSettings.datasetTemp
-                        //console.log("DEV_CONFIG: Set the dev.datasetTemp to ", dev.datasetTemp, " using source pulseRuntimeSettings.datasetTemp of ", pulseRuntimeSettings.datasetTemp)
+                        if (dev !== null) {
+                            if (dev.datasetTemp !== pulseRuntimeSettings.datasetTemp) {
+                                dev.datasetTemp = pulseRuntimeSettings.datasetTemp
+                                //console.log("DEV_CONFIG: Set the dev.datasetTemp to ", dev.datasetTemp, " using source pulseRuntimeSettings.datasetTemp of ", pulseRuntimeSettings.datasetTemp)
+                            }
+                        }
                     }
                 }
             }
@@ -800,6 +890,8 @@ ColumnLayout {
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+                        if (dev === null)
+                            return
                         if (value == 1) {
                             pulseRuntimeSettings.datasetTimestamp = 1
                         } else if (dev.datasetTimestamp & 1) {
@@ -816,10 +908,14 @@ ColumnLayout {
                 }
 
                 Connections {
-                    target: pulseRuntimeSettings
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onDatasetTimestampChanged () {
-                        dev.datasetTimestamp = pulseRuntimeSettings.datasetTimestamp
-                        //console.log("DEV_CONFIG: Set the dev.datasetTimestamp to ", dev.datasetTimestamp, " using source pulseRuntimeSettings.datasetTimestamp of ", pulseRuntimeSettings.datasetTimestamp)
+                        if (dev !== null) {
+                            if (dev.datasetTimestamp !== pulseRuntimeSettings.datasetTimestamp) {
+                                dev.datasetTimestamp = pulseRuntimeSettings.datasetTimestamp
+                                //console.log("DEV_CONFIG: Set the dev.datasetTimestamp to ", dev.datasetTimestamp, " using source pulseRuntimeSettings.datasetTimestamp of ", pulseRuntimeSettings.datasetTimestamp)
+                            }
+                        }
                     }
                 }
             }
@@ -840,6 +936,7 @@ ColumnLayout {
         columnItem.transducerDetected(name)
     }
 
+    /*
     function setTransducerFrequency (frequency) {
         if (dev !== null) {
             dev.transFreq = frequency
@@ -847,26 +944,27 @@ ColumnLayout {
             //console.log("TAV: FAILED to do dev.transFreq = frequency, dev == null");
         }
     }
+    */
 
     function setPlotGeneral() {
         // Default values for all Pulse devices
         //console.log("TAV: setPlotGeneral - start");
-        targetPlot.plotEchogramVisible(pulseRuntimeSettings.echogramVisible)
-        targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
-        targetPlot.plotBottomTrackTheme(pulseRuntimeSettings.bottomTrackVisibleModel)
-        targetPlot.plotRangefinderVisible(pulseRuntimeSettings.rangefinderVisible)
-        targetPlot.plotGNSSVisible(pulseRuntimeSettings.gnssVisible, 1)
-        targetPlot.plotGridVerticalNumber(pulseRuntimeSettings.gridNumber)
-        targetPlot.plotGridFillWidth(pulseRuntimeSettings.fillWidthGrid)
-        targetPlot.plotAngleVisibility(pulseRuntimeSettings.angleVisible)
-        targetPlot.plotVelocityVisible(pulseRuntimeSettings.velocityVisible)
+        //targetPlot.plotEchogramVisible(pulseRuntimeSettings.echogramVisible)
+        //targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
+        //targetPlot.plotBottomTrackTheme(pulseRuntimeSettings.bottomTrackVisibleModel)
+        //targetPlot.plotRangefinderVisible(pulseRuntimeSettings.rangefinderVisible)
+        //targetPlot.plotGNSSVisible(pulseRuntimeSettings.gnssVisible, 1)
+        //targetPlot.plotGridVerticalNumber(pulseRuntimeSettings.gridNumber)
+        //targetPlot.plotGridFillWidth(pulseRuntimeSettings.fillWidthGrid)
+        //targetPlot.plotAngleVisibility(pulseRuntimeSettings.angleVisible)
+        //targetPlot.plotVelocityVisible(pulseRuntimeSettings.velocityVisible)
 
         //console.log("TAV: setPlotGeneral - done");
     }
 
     function setPlotPulseRed () {
         // Device depentent values for PulseRed
-        //console.log("TAV: setPlotPulseRed - start");
+        console.log("TAV: setPlotPulseRed - start");
 
         // General plot
         targetPlot.plotEchogramCompensation(0)
@@ -881,25 +979,28 @@ ColumnLayout {
         }
         */
 
-        //console.log("TAV: setPlotPulseRed - done");
+        console.log("TAV: setPlotPulseRed - done");
     }
 
     function setPlotPulseBlue () {
+        console.log("TAV: setPlotPulseBlue - start");
 
-        // General plot
-        targetPlot.plotEchogramCompensation(1)
-        targetPlot.plotDatasetChannel(2, 3)
-        core.setSideScanChannels(2, 3)
-
-        // Bottom tracking
-        disableBottomTracking()
-        /*
-        if (pulseRuntimeSettings.processBottomTrack) {
-            doBottomTracking()
+        let channel1 = 2
+        let channel2 = 3
+        console.log("Side scan: normal direction, channel1", channel1, "channel2", channel2)
+        if (!PulseSettings.isSideScanCableFacingFront) {
+            channel1 = 3
+            channel2 = 2
+            console.log("Side scan: mounted wrong direction, channel1", channel1, "channel2", channel2)
         }
-        */
 
-        //console.log("TAV: setPlotPulseBlue - done");
+        targetPlot.plotEchogramCompensation(1)
+        targetPlot.plotDatasetChannel(channel1, channel2)
+        core.setSideScanChannels(channel1, channel2)
+
+        disableBottomTracking()
+
+        console.log("TAV: setPlotPulseBlue - done");
     }
 
     function disableBottomTracking () {
@@ -985,9 +1086,11 @@ ColumnLayout {
             if (PulseSettings.ecoConeIndex === 0) {
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
                 //console.log("TAV: pulse red wide")
+            } else if (PulseSettings.ecoConeIndex === 1) {
+                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
+                //console.log("TAV: pulse red narrow")
             } else {
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
-                //console.log("TAV: pulse red narrow")
             }
         }
 
@@ -1042,16 +1145,21 @@ ColumnLayout {
             }
 
             if (dev === null){
-                console.log("DEV_PARAM completeDeviceConfigurationTimer dev === null")
+                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, dev === null")
                 return
             }
 
             if (pulseRuntimeSettings.userManualSetName === "...") {
-                console.log("DEV_PARAM completeDeviceConfigurationTimer pulseRuntimeSettings.userManualSetName === null")
+                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.userManualSetName === ...")
                 return
             }
 
-            console.log("DEV_PARAM Repeating setup for ", pulseRuntimeSettings.userManualSetName)
+            if (pulseRuntimeSettings.devName === "...") {
+                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.devName === ...")
+                return
+            }
+
+            console.log("DEV_PARAM Repeating setup for", pulseRuntimeSettings.userManualSetName)
 
             if (pulseRuntimeSettings.devConfigured) {
                 console.log("DEV_PARAM no need to repeat as devConfigured complete")
@@ -1073,6 +1181,7 @@ ColumnLayout {
                 console.log("DEV_PARAM devConfigured still incomplete")
             }
 
+            /* TODO: Do we really need to turn the chart off?
             if (dev.datasetChart !== 0){
                 deviceParameterSetterRepeat = 1000
                 pulseRuntimeSettings.datasetChart = 0
@@ -1080,6 +1189,7 @@ ColumnLayout {
                 //dev.datasetChart = 0
                 return
             }
+            */
 
             if (!pulseRuntimeSettings.onDistSetupChanged) {
                 console.log("DEV_PARAM checking distSetup")
@@ -1141,15 +1251,14 @@ ColumnLayout {
         pulseRuntimeSettings.onSoundChanged = false
         //Overall
         pulseRuntimeSettings.devConfigured = false
+        pulseRuntimeSettings.dynamicResolutionInit = false
+        pulseRuntimeSettings.dynamicResolution = 0
         //Restart the timer
         //completeDeviceConfigurationTimer.start()
     }
 
     function distSetup () {
         if (dev === null)
-            return
-
-        if (myDev === null)
             return
 
         if (pulseRuntimeSettings.onDistSetupChanged)
@@ -1200,9 +1309,6 @@ ColumnLayout {
 
     function chartSetup () {
         if (dev === null)
-            return
-
-        if (myDev === null)
             return
 
         if (pulseRuntimeSettings.onChartSetupChanged)
@@ -1257,9 +1363,6 @@ ColumnLayout {
         if (dev === null)
             return
 
-        if (myDev === null)
-            return
-
         if (pulseRuntimeSettings.onDatasetChanged)
             return
 
@@ -1275,7 +1378,7 @@ ColumnLayout {
             }
         }
 
-        /*
+        /* // Handled separately, turned off during setup
         // datasetChart
         if (!pulseRuntimeSettings.datasetChart_ok) {
             if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
@@ -1284,6 +1387,7 @@ ColumnLayout {
             } else {
                 //console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
                 dev.datasetChart = pulseRuntimeSettings.datasetChart
+                return
             }
         }
         */
@@ -1374,6 +1478,15 @@ ColumnLayout {
             return
         // datasetChart
         if (!pulseRuntimeSettings.datasetChart_ok) {
+            if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
+                pulseRuntimeSettings.datasetChart_ok = true
+                //console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
+            } else {
+                dev.datasetChart = pulseRuntimeSettings.datasetChart
+                //console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
+                return
+            }
+            /*
             if (dev.datasetChart === 1) {
                 pulseRuntimeSettings.datasetChart_ok = true
                 logAllDevSetupAsCompleted()
@@ -1384,14 +1497,12 @@ ColumnLayout {
                 pulseRuntimeSettings.datasetChart = 1
                 dev.datasetChart = 1
             }
+            */
         }
     }
 
     function transSetup () {
         if (dev === null)
-            return
-
-        if (myDev === null)
             return
 
         if (pulseRuntimeSettings.onTransChanged)
@@ -1454,9 +1565,6 @@ ColumnLayout {
         if (dev === null)
             return
 
-        if (myDev === null)
-            return
-
         if (pulseRuntimeSettings.onDspSetupChanged)
             return
 
@@ -1481,9 +1589,6 @@ ColumnLayout {
 
     function soundSetup () {
         if (dev === null)
-            return
-
-        if (myDev === null)
             return
 
         if (pulseRuntimeSettings.onSoundChanged)
@@ -1530,9 +1635,48 @@ ColumnLayout {
         console.log("DEV_PARAM_COMPLETE: soundSpeed is ", dev.soundSpeed)
 
         if (dev != null) {
+            pulseRuntimeSettings.dynamicResolutionInit = true
+            /*
             if (dev.chartResolution !== pulseRuntimeSettings.chartResolution) {
-                dev.chartResolution = pulseRuntimeSettings.chartResolution
-                console.log("DEV_PARAM_COMPLETE: dev.chartResolution incorrect, set to ", pulseRuntimeSettings.chartResolution)
+                pulseRuntimeSettings.forceUpdateResolution = true
+                //dev.chartResolution = pulseRuntimeSettings.chartResolution
+                //console.log("DEV_PARAM_COMPLETE: dev.chartResolution incorrect, set to ", pulseRuntimeSettings.chartResolution)
+            }
+            pulseRuntimeSettings.dynamicResolutionInit = true
+            */
+        }
+
+        if (dev !== null) {
+            pulseRuntimeSettings.rawDev_devName = dev.devName
+            pulseRuntimeSettings.rawDev_devType = dev.devType
+            pulseRuntimeSettings.rawDev_isSonar = dev.isSonar
+            pulseRuntimeSettings.rawDev_isChartSupport = dev.isChartSupport
+            pulseRuntimeSettings.rawDev_isDistSupport = dev.isDistSupport
+            pulseRuntimeSettings.rawDev_isTransducerSupport = dev.isTransducerSupport
+            pulseRuntimeSettings.rawDev_isDatasetSupport = dev.isDatasetSupport
+            pulseRuntimeSettings.rawDev_isSoundSpeedSupport = dev.isSoundSpeedSupport
+            pulseRuntimeSettings.rawDev_isUpgradeSupport = dev.isUpgradeSupport
+        }
+
+        if (pulseRuntimeSettings.userManualSetName !== "...") {
+            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                    || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
+                let desiredFrequency = 0
+                if (PulseSettings.ecoConeIndex === 0) {
+                    desiredFrequency = pulseRuntimeSettings.transFreqWide
+                    console.log("DEV_PARAM: use frequency for pulse red wide")
+                } else if (PulseSettings.ecoConeIndex === 1) {
+                    desiredFrequency = pulseRuntimeSettings.transFreqMedium
+                    console.log("DEV_PARAM: use frequency for pulse red metium")
+                } else {
+                    desiredFrequency = pulseRuntimeSettings.transFreqNarrow
+                    console.log("DEV_PARAM: use frequency for pulse red narrow")
+                }
+
+                pulseRuntimeSettings.transFreq = desiredFrequency
+
+            } else {
+                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
             }
         }
     }
@@ -1549,15 +1693,66 @@ ColumnLayout {
     }
 
     Connections {
-        target: dataset
+        target: dataset ? dataset : undefined
         function onChannelsUpdated () {
             datasetChannelCounter.restart()
         }
     }
 
+    Connections {
+        target: PulseSettings
+        function onIsSideScanCableFacingFrontChanged () {
+            console.log("Side scan: onIsSideScanCableFacingFrontChanged observed")
+            setPlotPulseBlue()
+        }
+    }
+
 
     Connections {
-        target: pulseRuntimeSettings
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+
+        function onEchoSounderRebootChanged () {
+            if (pulseRuntimeSettings.echoSounderReboot) {
+                if (dev === null)
+                    return
+                if (dev.devName === "...")
+                    return
+                dev.reboot()
+                resetAllSetupStates()
+            }
+        }
+
+        function onUserManualSetNameChanged () {
+            if (pulseRuntimeSettings.userManualSetName !== "...") {
+                configurePulseDevice()
+            }
+        }
+
+        function onSwapDeviceNowChanged () {
+            if (pulseRuntimeSettings.swapDeviceNow) {
+                pulseRuntimeSettings.didEverReceiveData = false
+                pulseRuntimeSettings.hasDeviceLostConnection = false
+                resetAllSetupStates()
+                pulseRuntimeSettings.pulseBetaName = "..."
+                pulseRuntimeSettings.userManualSetName = "..."
+                //pulseRuntimeSettings.devName = "..."
+                pulseRuntimeSettings.devDetected = false
+                pulseRuntimeSettings.devIdentified = false
+                pulseRuntimeSettings.devConfigured = false
+                pulseRuntimeSettings.devSettingsEnforced = false
+                pulseRuntimeSettings.appConfigured = false
+                pulseRuntimeSettings.numberOfDatasetChannels = 0
+                pulseRuntimeSettings.forceUpdateResolution = true
+                pulseRuntimeSettings.pulseBlueResSetOnce = false
+                pulseRuntimeSettings.doDynamicResolution = false
+                //settingsCompleted = false
+                //deviceIdentified = false
+                //delayTimer.start()
+                console.log("DEV_RESELECT now we want to re-select the device in deviceItem")
+            } else {
+                console.log("DEV_RESELECT swapDeviceNow is", pulseRuntimeSettings.swapDeviceNow)
+            }
+        }
 
         function onHasDeviceLostConnectionChanged () {
             if (pulseRuntimeSettings.hasDeviceLostConnection) {
@@ -1574,10 +1769,13 @@ ColumnLayout {
             //console.log("DEV_UUID: onUuidSuccessfullyOpenedChanged for UUID ", pulseRuntimeSettings.uuidSuccessfullyOpened);
         }
 
+        /*TODO - This is likely not needed!
         function onTransFreqChanged() {
-            dev.transFreq = pulseRuntimeSettings.transFreq
+            if (dev !== null)
+                dev.transFreq = pulseRuntimeSettings.transFreq
             //console.log("DEV_CONFIG: separateMethod onTransFreqChanged new frequency is", dev.transFreq);
         }
+        */
         //DevDriver sets the pulseRuntimeSettings.devName, triggering this alert. Name will be "..." for no device or real device name
         function onDevNameChanged() {
             //console.log("TAV: onDevNameChanged to:", pulseRuntimeSettings.devName);
@@ -1626,53 +1824,12 @@ ColumnLayout {
                 //console.log("TAV: Adjusted max distance manual to ", pulseRuntimeSettings.manualSetLevel);
             }
         }
-        /*
-        function onDynamicResolutionChanged () {
-            //console.log("TAV: onDynamicResolutionChanged do dynamicResolution? ", pulseRuntimeSettings.doDynamicResolution);
-            if (!pulseRuntimeSettings.doDynamicResolution) {
-                return
-            }
-
-            if (!pulseRuntimeSettings.userManualSetName === "...") {
-                //console.log("TAV: onDynamicResolutionChanged do do not set before device is selected - name is ", pulseRuntimeSettings.userManualSetName);
-                return
-            }
-
-            pulseRuntimeSettings.chartResolution = pulseRuntimeSettings.dynamicResolution
-            dev.chartResolution = pulseRuntimeSettings.dynamicResolution
-            //console.log("TAV: onDynamicResolutionChanged as ", pulseRuntimeSettings.dynamicResolution, ",devName ", pulseRuntimeSettings.devName, ", manSetName ", pulseRuntimeSettings.userManualSetName);
-        }
-        */
-
-
-        /*
-        function onCurrentDepthSolutionChanged () {
-            //console.log("DEV_DEPTH: onCurrentDepthSolutionChanged to ", pulseRuntimeSettings.currentDepthSolution)
-            if (pulseRuntimeSettings.currentDepthSolution === 0) {
-                pulseRuntimeSettings.datasetDist = 0
-                pulseRuntimeSettings.datasetSDDBT = 0
-                dev.datasetDist = 0
-                dev.datasetSDDBT = 0
-            } else if (pulseRuntimeSettings.currentDepthSolution === 1) {
-                pulseRuntimeSettings.datasetDist = 1
-                pulseRuntimeSettings.datasetSDDBT = 0
-                dev.datasetDist = 1
-            } else {
-                pulseRuntimeSettings.datasetDist = 0
-                pulseRuntimeSettings.datasetSDDBT = 1
-                dev.datasetSDDBT = 1
-            }
-
-        }
-        */
-
-
     }
 
     // Connections to detect the live data feed is still alive
 
     Connections {
-        target: dataset
+        target: dataset ? dataset : undefined
         //Dataupdate is triggered by receiving data from transducer, but will also be triggered by loading a KLF file
         //Data update restarts the lostConnectionTimer to avoid it being triggered
         function onDataUpdate () {
@@ -1680,6 +1837,14 @@ ColumnLayout {
             if (!pulseRuntimeSettings.devSettingsEnforced) {
                 pulseRuntimeSettings.devSettingsEnforced = true
                 //configurePulseDevice()
+            }
+            if (pulseRuntimeSettings.pulseBetaName === "..." && pulseRuntimeSettings.devName === "ECHO20") {
+                if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {
+                    pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
+                }
+                if (pulseRuntimeSettings.numberOfDatasetChannels === 2) {
+                    pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
+                }
             }
         }
 
@@ -1743,13 +1908,6 @@ ColumnLayout {
                         deviceIdentified = true
                         settingsCompleted = true
                         pulseRuntimeSettings.devConfigured = true
-                        //pulseRuntimeSettings.devName = pulseRuntimeSettings.userManualSetName
-                        //PulseSettings.devName = pulseRuntimeSettings.userManualSetName
-                        //dev.devName === pulseRuntimeSettings.userManualSetName
-                        //dev.devName === pulseRuntimeSettings.devName
-                        //console.log("TAV: delayTimer, device automatically detected");
-                        //pulseRuntimeSettings.appConfigured = true
-                        //return
                     }
                 }
 
@@ -1775,8 +1933,8 @@ ColumnLayout {
 
     Component.onCompleted: {
         //console.log("TAV deviceItem onCompleted");
-        setPlotGeneral()
+        //setPlotGeneral()
         //pickDev()
-        delayTimer.start()
+        //delayTimer.start()
     }
 }
