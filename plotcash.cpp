@@ -826,22 +826,37 @@ void Dataset::addDist(int dist) {
     emit dataUpdate();
 }
 
+void Dataset::updateTransducerOffset(double offset) {
+    if (g_pulseSettings) {
+        m_transducerOffsetMount = offset;
+        qDebug() << "Received a updateTransducerOffset, new value m_transducerOffsetMount" << offset;
+    }
+}
+
 void Dataset::addRangefinder(float distance) {
     Epoch* epoch = last();
     if (epoch->distAvail()) {
         epoch = addNewEpoch();
     }
 
+    double fakeDepthAddition = 0;
+
     if (g_pulseRuntimeSettings) {
         kSmallAgreeMargin = g_pulseRuntimeSettings->property("kSmallAgreeMargin").toDouble();
         kLargeJumpThreshold = g_pulseRuntimeSettings->property("kLargeJumpThreshold").toDouble();  // e.g., 1.0
         kConsistNeeded = g_pulseRuntimeSettings->property("kConsistNeeded").toInt();               // e.g., 10
+        fakeDepthAddition = g_pulseRuntimeSettings->property("fakeDepthAddition").toDouble();
         if (!g_pulseRuntimeSettings->property("didReceiveDepthData").toBool()) {
             g_pulseRuntimeSettings->setProperty("didReceiveDepthData", true);
         }
     }
 
     double rawDepth = static_cast<double>(distance);
+    rawDepth = rawDepth - m_transducerOffsetMount;
+    //For testing with manipulated additional depth
+    rawDepth = rawDepth + fakeDepthAddition;
+    //qDebug() << "Depth adjust, raw" << rawDepth << "adapter by" << m_transducerOffsetMount << "and fakeDepthAddition" << fakeDepthAddition;
+
     double delta = std::fabs(rawDepth - _lastFilteredDepth);
 
     if (delta > kLargeJumpThreshold) {
@@ -1122,6 +1137,12 @@ void Dataset::addGnssVelocity(double h_speed, double course) {
 }
 
 void Dataset::addTemp(float temp_c) {
+    double temperatureCorrection = 0.0;
+    if (g_pulseRuntimeSettings) {
+        g_pulseRuntimeSettings->property("temperatureCorrection").toDouble();
+    }
+
+    temp_c = temp_c + temperatureCorrection;
 
     lastTemperature = temp_c;
 
@@ -1134,7 +1155,6 @@ void Dataset::addTemp(float temp_c) {
     if (_temp != temp_c) {
         _temp = temp_c;
         emit tempChanged();
-        qDebug("emitted tempChanged: %.9f", _temp);
     }
 
     _pool[pool_index].setTemp(temp_c);

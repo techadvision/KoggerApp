@@ -24,6 +24,7 @@
 
 #include "SlidingWindowMedian.h"
 extern QObject* g_pulseRuntimeSettings;
+extern QObject* g_pulseSettings;
 
 #if defined(Q_OS_ANDROID) || (defined Q_OS_LINUX)
 #define MAKETIME(t) mktime(t)
@@ -1019,6 +1020,7 @@ public:
     ~Dataset();
 
     //Techadvision methods
+
     float dist() const { return _dist; }
     float temp() const { return _temp; }
     QVariantList channels() const {
@@ -1176,6 +1178,8 @@ public slots:
     QStringList channelsNameList();
     void interpolateData(bool fromStart);
 
+    void updateTransducerOffset(double offset);
+
 signals:
     void channelsListUpdates(QList<DatasetChannel> channels);
     void dataUpdate();
@@ -1188,6 +1192,7 @@ signals:
     void tempChanged();
 
 private:
+    double m_transducerOffsetMount = 0.0;
     float _dist = 0; // Stores the distance value
     float _temp = 0; // Stores the temperature value
     SlidingWindowMedian _depthFilter{10};
