@@ -127,5 +127,20 @@
         <file>icons/pulse_color_2d_hti_white.svg</file>
         <file>icons/pulse_color_2d_lsss_black.svg</file>
         <file>icons/pulse_color_2d_lsss_white.svg</file>
+        <file>icons/pulse_cone_510.svg</file>
+        <file>icons/pulse_cone_710.svg</file>
+        <file>icons/pulse_cone_810.svg</file>
+        <file>icons/pulse_setting_collapse.svg</file>
+        <file>icons/pulse_setting_show.svg</file>
+        <file>icons/pulse_view_down_scan.svg</file>
+        <file>icons/pulse_view_side_scan.svg</file>
+        <file>icons/pulse_color_blue_red.svg</file>
+        <file>icons/pulse_edit.svg</file>
+        <file>icons/pulse_save.svg</file>
+        <file>icons/pulse_check_is_beta.svg</file>
+        <file>icons/pulse_beta_user.svg</file>
+        <file>icons/pulse_guru_user.svg</file>
+        <file>icons/pulse_color_2d_viridis.svg</file>
+        <file>icons/pulse_color_2d_rainbow.svg</file>
     </qresource>
 </RCC>
