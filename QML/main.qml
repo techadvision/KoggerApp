@@ -57,7 +57,7 @@ ApplicationWindow  {
                         }
                     }
                     PropertyChanges {
-                        target: mainview
+                        target: mainview ? mainview : undefined
                         visibility: "FullScreen"
 
                         flags: Qt.FramelessWindowHint
@@ -77,7 +77,7 @@ ApplicationWindow  {
                         }
                     }
                     PropertyChanges {
-                        target: mainview
+                        target: mainview ? mainview : undefined
                         visibility: "Windowed"
                     }
                 }
@@ -86,7 +86,7 @@ ApplicationWindow  {
     }
 
     Connections {
-        target: core
+        target: core ? core : undefined
         function onSendIsFileOpening() {
             //console.log("TAV main onSendIsFileOpening");
             pulseRuntimeSettings.isOpeningKlfFile = true
@@ -94,6 +94,15 @@ ApplicationWindow  {
     }
 
     Component.onCompleted: {
+        pulseRuntimeSettings.isSideScanLeftHand = PulseSettings.isSideScanOnLeftHandSide
+        var code     = PulseSettings.keyCode
+        var isBeta   = pulseRuntimeSettings.betaKeyCodes.indexOf(code)   !== -1
+        var isExpert = pulseRuntimeSettings.expertKeyCodes.indexOf(code) !== -1
+        pulseRuntimeSettings.expertMode = isExpert
+        pulseRuntimeSettings.betaMode   = isExpert || isBeta
+        PulseSettings.isBetaTester = isBeta
+        PulseSettings.isExpert = isExpert
+
         //theme.updateResCoeff(); // for UI scaling
 
         menuBar.languageChanged.connect(handleChildSignal)
@@ -906,7 +915,7 @@ ApplicationWindow  {
     }
 
     Connections {
-        target: SurfaceControlMenuController
+        target: SurfaceControlMenuController ? SurfaceControlMenuController : undefined
 
         function onSurfaceProcessorTaskStarted() {
             surfaceProcessingProgressBar.visible = true
@@ -936,7 +945,7 @@ ApplicationWindow  {
 
             Text {
                 id: textItem
-                text: qsTr("Please wait, the file is opening")
+                text: qsTr("Please wait until file is opened")
                 color: "white"
                 font.pixelSize: 20
                 horizontalAlignment: Text.AlignHCenter
@@ -1005,7 +1014,7 @@ ApplicationWindow  {
 
         // whenever the speed changes, update text, show, and restart timer
         Connections {
-            target: pulseRuntimeSettings
+            target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
             function onEchogramSpeedChanged () {
                 zoomText.text = "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
                 zoomIndicator.visible = true
@@ -1030,7 +1039,37 @@ ApplicationWindow  {
         property string selectedDevice: ""
 
         Connections {
-            target: pulseRuntimeSettings
+            target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+            function onSwapDeviceNowChanged () {
+                if (pulseRuntimeSettings.swapDeviceNow) {
+                    console.log("DEV_RESELECT initialize in main")
+
+                    // 1) Bring the container back
+                    echoSounderSelectorRect.visible = true
+                    echoSounderSelectorRect.opacity = 1
+
+                    // 2) Reset your “selected” state so you go back to the default layout
+                    echoSounderSelectorRect.selectionMade   = false
+                    echoSounderSelectorRect.selectedDevice  = ""
+
+                    // 3) Make sure both choices are shown again
+                    pulseRedSelector.visible  = true
+                    pulseBlueSelector.visible = true
+
+                    // 4) (Optional) Clear any lingering state assignment
+                    echoSounderSelectorRect.state = ""
+
+                    // 5) If you only fire on the transition to ‘true’, turn it back off
+                    //pulseRuntimeSettings.swapDeviceNow = false
+
+                    // and put back your shadow, etc.
+                    pulseRuntimeSettings.devManualSelected = false
+                    mainview.windowShadow = true
+
+                    console.log("DEV_RESELECT now we want to re-select the device in main")
+                }
+            }
+
             function onDevManualSelectedChanged() {
                 if (pulseRuntimeSettings.devManualSelected) {
                     mainview.windowShadow = false
@@ -1039,9 +1078,11 @@ ApplicationWindow  {
                 }
             }
             function onDevConfiguredChanged() {
-                echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.devName
-                echoSounderSelectorRect.selectionMade = true
-                mainview.windowShadow = false
+                if (pulseRuntimeSettings.devConfigured) {
+                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.devName
+                    echoSounderSelectorRect.selectionMade = true
+                    mainview.windowShadow = false
+                }
             }
             function onHasDeviceLostConnectionChanged() {
                 if (pulseRuntimeSettings.didEverReceiveData) {
@@ -1057,23 +1098,33 @@ ApplicationWindow  {
                 }
             }
             function onNumberOfDatasetChannelsChanged () {
+                if (pulseRuntimeSettings.swapDeviceNow) {
+                    return
+                }
+
                 let detectedModel = "";
                 if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {
                     detectedModel = pulseRuntimeSettings.modelPulseRed
-                } else {
+                    if (pulseRuntimeSettings.devName === "ECHO20") {
+                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
+                    }
+                } else if (pulseRuntimeSettings.numberOfDatasetChannels === 2) {
                     detectedModel = pulseRuntimeSettings.modelPulseBlue
+                    if (pulseRuntimeSettings.devName === "ECHO20") {
+                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
+                    }
                 }
-                pulseRuntimeSettings.userManualSetName = detectedModel
-                //pulseRuntimeSettings.devName = detectedModel
-                //PulseSettings.devName = detectedModel
-                echoSounderSelectorRect.selectedDevice = detectedModel
-                echoSounderSelectorRect.selectionMade = true
-                pulseRuntimeSettings.devManualSelected = true
+                if (pulseRuntimeSettings.numberOfDatasetChannels > 0) {
+                    pulseRuntimeSettings.userManualSetName = detectedModel
+                    echoSounderSelectorRect.selectedDevice = detectedModel
+                    echoSounderSelectorRect.selectionMade = true
+                    pulseRuntimeSettings.devManualSelected = true
+                }
             }
         }
 
         Connections {
-            target: dataset
+            target: dataset ? dataset : undefined
 
             function onDataUpdate () {
                 if (lostConnectionAlert !== null && pulseRuntimeSettings.hasDeviceLostConnection) {
@@ -1082,84 +1133,111 @@ ApplicationWindow  {
                     //console.log("TAV: got data update when hasDeviceLostConnection, remove alert");
                     removeLostConnection()
                 }
+                //Mark that data is flowing
+                pulseRuntimeSettings.dataUpdateActive = true
+
+                // If this is the very first update of this “session”, record it:
+                if (pulseRuntimeSettings.firstDataTs === 0) {
+                    pulseRuntimeSettings.firstDataTs = Date.now()
+                    pulseRuntimeSettings.guardActive = true
+                    guardTimer.restart()
+                    console.log("DATAFLOW: First data observed @ " + pulseRuntimeSettings.firstDataTs + ", guard window started")
+                }
+
+                //Every time data arrives, cancel any pending stale-trigger
+                dataStaleTimer.restart()
+                //Cancel the “reset” (we’re not in stale yet)
+                resetTimer.stop()
+            }
+        }
+
+        Timer {
+            id: dataStaleTimer
+            interval: pulseRuntimeSettings.dataIsStaleElapseTime
+            repeat: false
+            onTriggered: {
+                console.log("DATAFLOW: Stale data detected ")
+                pulseRuntimeSettings.dataUpdateActive = false
+                // If we’re still inside our initial window, reboot:
+                if (pulseRuntimeSettings.guardActive) {
+                    console.log("DATAFLOW: Auto-reboot (data became stale within guard window)")
+                    pulseRuntimeSettings.echoSounderReboot = true
+                    pulseRuntimeSettings.guardActive = false
+                    pulseRuntimeSettings.firstDataTs = 0
+                }
+                // Start/reset the resetTimer so we clear firstDataTs after resetWindowMs
+                resetTimer.restart()
+            }
+        }
+
+        Timer {
+            id: guardTimer
+            interval: pulseRuntimeSettings.rebootWindowMs
+            repeat: false
+            onTriggered: {
+                // Window elapsed, stop guarding (no more auto-reboots this session)
+                console.log("DATAFLOW: Guard window elapsed, safe to turn the dataflow guard off")
+                pulseRuntimeSettings.guardActive = false
+            }
+        }
+
+        Timer {
+            id: resetTimer
+            interval: pulseRuntimeSettings.resetWindowMs
+            repeat: false
+            onTriggered: {
+                // Enough time has passed without data → clear our “firstDataTs” so
+                pulseRuntimeSettings.firstDataTs = 0
+                console.log("DATAFLOW: Resetting firstDataTs; ready for new session")
             }
         }
 
 
         Item {
             id: freeContainer
-            width: 1000; height: 350
+            width: 1000; height: 800
             anchors.centerIn: parent
             property int spacing: 100
             property int center: 550
-            //anchors.centerIn: echoSounderSelectorRect
-            //anchors.centerIn: parent
-            //spacing: 100
 
             EchoSounderSelector {
                 id: pulseRedSelector
-                //Layout.preferredWidth: 440
-                //Layout.preferredHeight: parent.height
-                width: 440
+                width: 450
                 height: parent.height
-                // center in the container…
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
-                // initial left-of-center …
-                //x:  -1 * center
-                //x: (freeContainer.width / 2) - width - (spacing / 2)
-                //z: 1
-                //y: 0
                 backgroundColor: "#ffe0e0"   // light red background
-                title: "pulseRed"
+                title: "PULSEred"
                 titleColor: "red"
                 description: "High-performance 2D echo sounder"
-                illustrationSource: "./image/PulseRedImage400.png"
-                versions: ["v1.0"]
-                version: "v1.0"
-                // When the user selects this item, record the selection.
+                illustrationSource: "./image/PulseRedForApp.jpg"
                 onSelected: {
                     pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseRed
-                    //pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseRed
-                    //PulseSettings.devName = pulseRuntimeSettings.modelPulseRed
-                    //PulseSettings.userManualSetName = PulseSettings.devName
                     echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseRed
                     echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
-
-                    //mainview.windowShadow = false
                 }
             }
 
             EchoSounderSelector {
                 id: pulseBlueSelector
-                //Layout.preferredWidth: 440
-                //Layout.preferredHeight: parent.height
-                width: 440
+                width: 450
                 height: parent.height
-                // initial right-of-center …
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
-                //x: center
-                //x: 500 + (freeContainer.width / 2) + (spacing / 2)
-                //y: 0
                 backgroundColor: "#e0e0ff"   // light blue background
-                title: "pulseBlue"
+                title: "PULSEblue"
                 titleColor: "blue"
                 description: "High-performance side-scan echo sounder"
-                illustrationSource: "./image/PulseBlueImage400.png"
-                versions: ["v1.0"]
-                version: "v1.0"
+                //illustrationSource: "./image/PulseBlueImage400.png"
+                illustrationSource: "./image/PulseBlueForApp.jpg"
+                //versions: ["v1.0"]
+                //version: "v1.0"
                 onSelected: {
                     pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseBlue
-                    //pulseRuntimeSettings.devName = pulseRuntimeSettings.modelPulseBlue
-                    //PulseSettings.devName = pulseRuntimeSettings.modelPulseBlue
-                    //PulseSettings.userManualSetName = PulseSettings.devName
                     echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseBlue
                     echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
-
-                    //mainview.windowShadow = false
                 }
             }
         }
@@ -1171,10 +1249,13 @@ ApplicationWindow  {
                 name: "selectedRed"
                 when: echoSounderSelectorRect.selectionMade && echoSounderSelectorRect.selectedDevice === pulseRuntimeSettings.modelPulseRed
                 // Hide the blue selector.
-                PropertyChanges { target: pulseBlueSelector; visible: false }
+                PropertyChanges {
+                    target: pulseBlueSelector ? pulseBlueSelector : undefined
+                    visible: false
+                }
                 // Re-anchor pulseRedSelector to the center.
                 PropertyChanges {
-                    target: pulseRedSelector
+                    target: pulseRedSelector ? pulseRedSelector : undefined
                     // center it exactly
                     x: (freeContainer.width - pulseRedSelector.width)/2
                     y: (freeContainer.height - pulseRedSelector.height)/2
@@ -1183,9 +1264,11 @@ ApplicationWindow  {
             State {
                 name: "selectedBlue"
                 when: echoSounderSelectorRect.selectionMade && echoSounderSelectorRect.selectedDevice === pulseRuntimeSettings.modelPulseBlue
-                PropertyChanges { target: pulseRedSelector; visible: false }
                 PropertyChanges {
-                    target: pulseBlueSelector
+                    target: pulseRedSelector ? pulseRedSelector : undefined
+                    visible: false }
+                PropertyChanges {
+                    target: pulseBlueSelector ? pulseBlueSelector : undefined
                     // center it exactly
                     x: (freeContainer.width - pulseRedSelector.width)/2
                     y: (freeContainer.height - pulseRedSelector.height)/2
@@ -1198,7 +1281,7 @@ ApplicationWindow  {
             Transition {
                 from: ""; to: "selectedRed"
                 NumberAnimation {
-                    target: pulseRedSelector;
+                    target: pulseRedSelector ? pulseRedSelector : undefined
                     properties: "x,y";
                     duration: 1500;
                     easing.type: Easing.InOutQuad
@@ -1207,7 +1290,7 @@ ApplicationWindow  {
             Transition {
                 from: ""; to: "selectedBlue"
                 NumberAnimation {
-                    target: pulseBlueSelector;
+                    target: pulseBlueSelector ? pulseBlueSelector : undefined
                     properties: "x,y";
                     duration: 1500;
                     easing.type: Easing.InOutQuad
