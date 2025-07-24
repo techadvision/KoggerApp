@@ -29,6 +29,7 @@
 
 #include "DevQProperty.h"
 #include "NMEASender.h"
+#include "graphicsscene3dview.h"
 
 Core core;
 Themes theme;
@@ -97,6 +98,7 @@ void registerQmlMetaTypes()
     qmlRegisterType<BottomTrack>("BottomTrack", 1, 0, "BottomTrack");
     qmlRegisterType<NMEASender>("NMEASender", 1, 0, "NMEASender");
     qRegisterMetaType<BottomTrack::ActionEvent>("BottomTrack::ActionEvent");
+    qmlRegisterType<GraphicsScene3dView>("SceneGraphRendering", 1, 0,"GraphicsScene3dView");
 }
 
 
