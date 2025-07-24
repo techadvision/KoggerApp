@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">
+  <!-- A small dot centered in a 10x10 viewport -->
+  <circle cx="5" cy="5" r="1.5" fill="black"/>
+</svg>
