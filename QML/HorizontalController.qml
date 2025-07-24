@@ -18,6 +18,7 @@ Item {
     property string autoDepth: "auto"
     property string autoFilter: "auto"
     property int autoRangeState: -1
+    property bool allowLongPressControl: true
 
     // Custom properties for auto depth behavior
     property bool isAutoRangeActive: false
@@ -89,6 +90,7 @@ Item {
                     // use max range as default
                     let maxRange = pulseRuntimeSettings.maximumDepth * 1.0
                     PulseSettings.maxDepthValuePulseBlue = maxRange
+                    PulseSettings.maxDepthValuePulseBlueFixed = maxRange
                     //root.defaultValue = maxRange
                     valueField.text = maxRange
                     console.log("Auto function: horizontal controller setting defaultValue", maxRange);
@@ -107,6 +109,18 @@ Item {
                 }
             } else {
                 console.log("Auto function: horizontal controller, no change for", pulseRuntimeSettings.userManualSetName, "needed");
+            }
+        }
+        function onIsSideScan2DViewChanged () {
+            if (root.controleName !== 'selectorMaxDepth')
+                return
+            if (pulseRuntimeSettings.is2DTransducer) {
+                return
+            }
+            if (pulseRuntimeSettings.isSideScan2DView) {
+                valueField.text = PulseSettings.maxDepthValuePulseBlue
+            } else {
+                valueField.text = PulseSettings.maxDepthValuePulseBlueFixed
             }
         }
     }
@@ -182,7 +196,9 @@ Item {
                     onPressed: {
                         longPressControlTimer.buttonPressed = 'minus';
                         longPressControlTimer.pressDuration = 0;  // Reset the press duration
-                        longPressControlTimer.start();  // Start the shared timer
+                        if (allowLongPressControl) {
+                            longPressControlTimer.start();  // Start the shared timer
+                        }
                     }
 
                     onReleased: {
@@ -343,7 +359,9 @@ Item {
                     onPressed: {
                         longPressControlTimer.buttonPressed = 'plus';
                         longPressControlTimer.pressDuration = 0;  // Reset the press duration
-                        longPressControlTimer.start();  // Start the shared timer;
+                        if (allowLongPressControl) {
+                            longPressControlTimer.start();  // Start the shared timer
+                        }
                     }
 
                     onReleased: {

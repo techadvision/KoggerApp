@@ -64,7 +64,7 @@ WaterFall {
         // start hidden
         visible: false
         anchors.top: parent.top
-        anchors.topMargin: 20
+        anchors.topMargin: 40
         anchors.right: parent.right
         anchors.rightMargin: 20
 
@@ -95,7 +95,7 @@ WaterFall {
         // start hidden
         visible: !pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.dataUpdateActive
         anchors.top: parent.top
-        anchors.topMargin: 20
+        anchors.topMargin: 40
         anchors.left: parent.left
         anchors.leftMargin: 20
 
@@ -114,7 +114,7 @@ WaterFall {
         // the actual label
         Text {
             id: configurationInProgressText
-            text: "Verifying transducer..."
+            text: "Configuring transducer..."
             font.pixelSize: 40
             color: "white"
             anchors.centerIn: parent
@@ -840,7 +840,6 @@ WaterFall {
             enabled: (quickChangeObjects.isDeviceDetected)
         }
 
-
         HorizontalController {
             id: selectorMaxDepth
             visible: PulseSettings.areUiControlsVisible
@@ -850,9 +849,47 @@ WaterFall {
             Layout.preferredWidth: 310
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorMaxDepth"
-            minValue: 1
+            minValue: {
+                if (pulseRuntimeSettings.is2DTransducer) {
+                    return 1
+                } else {
+                    if (pulseRuntimeSettings.isSideScan2DView) {
+                        return 1
+                    } else {
+                        if (pulseRuntimeSettings.expertMode) {
+                            return 10
+                        } else {
+                            return 25
+                        }
+                    }
+                }
+            }
+            //minValue: pulseRuntimeSettings.is2DTransducer ? 1 : 25
             maxValue: pulseRuntimeSettings.maximumDepth
-            step: 1
+            step: {
+                if (pulseRuntimeSettings.is2DTransducer) {
+                    return 1
+                } else {
+                    if (pulseRuntimeSettings.isSideScan2DView) {
+                        return 1
+                    } else {
+                        return 5
+                    }
+                }
+            }
+            //step: pulseRuntimeSettings.is2DTransducer ? 1 : 5
+            allowLongPressControl: {
+                if (pulseRuntimeSettings.is2DTransducer) {
+                    return true
+                } else {
+                    if (pulseRuntimeSettings.isSideScan2DView) {
+                        return true
+                    } else {
+                        return false
+                    }
+                }
+            }
+            //allowLongPressControl: pulseRuntimeSettings.is2DTransducer
             defaultValue: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ? PulseSettings.maxDepthValue : PulseSettings.maxDepthValuePulseBlue
             iconSource: "./icons/pulse_ruler.svg"
 
@@ -861,13 +898,20 @@ WaterFall {
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                     PulseSettings.maxDepthValue = value;
                 } else {
-                    PulseSettings.maxDepthValuePulseBlue = value;
+                    if (pulseRuntimeSettings.isSideScan2DView) {
+                        PulseSettings.maxDepthValuePulseBlue = value;
+                    } else {
+                        PulseSettings.maxDepthValuePulseBlueFixed = value
+                    }
                 }
                 pulseRuntimeSettings.manualSetLevel = value * 1.0
                 if (plot.isViewHorizontal()) {
                     plot.plotDistanceRange2d(value * 1.0)
                 } else {
                     plot.plotDistanceRange(value * 1.0)
+                    if (!pulseRuntimeSettings.isSideScan2DView) {
+                        //plot.chartResolution = value //TODO: Not working, need a variable
+                    }
                 }
                 plot.updatePlot()
                 //console.log("TAV: selectorMaxDepth changed max depth:", value)
@@ -908,8 +952,14 @@ WaterFall {
                         plot.plotDistanceRange(PulseSettings.maxDepthValue * 1.0)
                         pulseRuntimeSettings.manualSetLevel = PulseSettings.maxDepthValue * 1.0
                     } else {
-                        plot.plotDistanceRange(PulseSettings.maxDepthValuePulseBlue * 1.0)
-                        pulseRuntimeSettings.manualSetLevel = PulseSettings.maxDepthValuePulseBlue * 1.0
+                        if (pulseRuntimeSettings.isSideScan2DView) {
+                            plot.plotDistanceRange(PulseSettings.maxDepthValuePulseBlue * 1.0)
+                            pulseRuntimeSettings.manualSetLevel = PulseSettings.maxDepthValuePulseBlue * 1.0
+                        } else {
+                            plot.plotDistanceRange(PulseSettings.maxDepthValuePulseBlueFixed * 1.0)
+                            pulseRuntimeSettings.manualSetLevel = PulseSettings.maxDepthValuePulseBlueFixed * 1.0
+                        }
+
                     }
                 }
                 plot.updatePlot();
@@ -1157,6 +1207,7 @@ WaterFall {
                     } else {
                         pulseRuntimeSettings.isSideScan2DView = false
                         plot.setVerticalNow()
+                        plot.quickChangeMaxRangeValue = PulseSettings.maxDepthValuePulseBlueFixed
                         plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
                     }
                     quickChangeObjects.reArrangeQuickChangeObject()
