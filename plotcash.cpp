@@ -1489,8 +1489,6 @@ void Dataset::bottomTrackProcessing(int channel1, int channel2)
         }
     }
 
-    qDebug() << "WOW!!! Bottom Track Processing dist1 " << testOfDistance1 << " and dist2 " << testOfDistance2;
-
     setChannelOffset(channel1, bottomTrackParam_.offset.x, bottomTrackParam_.offset.y, bottomTrackParam_.offset.z);
     spatialProcessing();
     emit dataUpdate();
