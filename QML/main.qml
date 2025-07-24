@@ -155,6 +155,7 @@ ApplicationWindow  {
         if (lostConnectionAlert !== null) {
             lostConnectionAlert.destroy()
             lostConnectionAlert = null
+            pulseRuntimeSettings.hasDeviceLostConnection = false
             //console.log("TAV: showLostConnection, removed the alert");
         } else {
             //console.log("TAV: showLostConnection is null, cannot remove the alert or it was not there at all");
@@ -1079,7 +1080,7 @@ ApplicationWindow  {
             }
             function onDevConfiguredChanged() {
                 if (pulseRuntimeSettings.devConfigured) {
-                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.devName
+                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.userManualSetName
                     echoSounderSelectorRect.selectionMade = true
                     mainview.windowShadow = false
                 }
@@ -1119,6 +1120,9 @@ ApplicationWindow  {
                     echoSounderSelectorRect.selectedDevice = detectedModel
                     echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
+                    console.log("DEV_PARAM: Automatically detected device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
+                } else {
+                    console.log("DEV_PARAM: onNumberOfDatasetChannelsChanged, but channels are 0 so nothing happened")
                 }
             }
         }
@@ -1211,11 +1215,18 @@ ApplicationWindow  {
                 titleColor: "red"
                 description: "High-performance 2D echo sounder"
                 illustrationSource: "./image/PulseRedForApp.jpg"
+                onVisibleChanged: {
+                    console.log("DEV_SELECTION: pulseRedSelector visible?", visible)
+                    console.log("DEV_SELECTION: pulseRedSelector visible? echoSounderSelectorRect.selectedDevice", echoSounderSelectorRect.selectedDevice)
+                    console.log("DEV_SELECTION: pulseRedSelector visible? echoSounderSelectorRect.selectionMade", echoSounderSelectorRect.selectionMade)
+
+                }
                 onSelected: {
                     pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseRed
                     echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseRed
                     echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
+                    console.log("DEV_SELECTION: selected", echoSounderSelectorRect.selectedDevice)
                 }
             }
 
@@ -1233,11 +1244,18 @@ ApplicationWindow  {
                 illustrationSource: "./image/PulseBlueForApp.jpg"
                 //versions: ["v1.0"]
                 //version: "v1.0"
+                onVisibleChanged: {
+                    console.log("DEV_SELECTION: pulseBlueSelector visible?", visible)
+                    console.log("DEV_SELECTION: pulseBlueSelector visible? echoSounderSelectorRect.selectedDevice", echoSounderSelectorRect.selectedDevice)
+                    console.log("DEV_SELECTION: pulseBlueSelector visible? echoSounderSelectorRect.selectionMade", echoSounderSelectorRect.selectionMade)
+                }
+
                 onSelected: {
                     pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseBlue
                     echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseBlue
                     echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
+                    console.log("DEV_SELECTION: selected", echoSounderSelectorRect.selectedDevice)
                 }
             }
         }
