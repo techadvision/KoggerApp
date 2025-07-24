@@ -3,6 +3,8 @@
 #include <vector>
 #include <cmath>
 
+constexpr float epsilon = 0.001f;
+
 
 Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontal_(true), isSideScanOnLeftHandSide_(true)
 {}
@@ -213,18 +215,32 @@ bool Plot2DGrid::draw(Canvas& canvas, Dataset* dataset, DatasetCursor cursor)
         }
     }
 
-    Epoch* lastEpoch = dataset->last();
-    Epoch* preLastEpoch = dataset->lastlast();
-    float distance = NAN;
-    if (cursor.distance.isValid()) {
-        if (lastEpoch != NULL && isfinite(lastEpoch->rangeFinder())) {
-            distance = lastEpoch->rangeFinder();
-        } else if (preLastEpoch != NULL && isfinite(preLastEpoch->rangeFinder())) {
-            distance = preLastEpoch->rangeFinder();
+    /*
+    if (_rangeFinderLastVisible && cursor.distance.isValid()) {
+        Epoch* lastEpoch = dataset->last();
+        Epoch* preLastEpoch = dataset->lastlast();
+        float distance = NAN;
+        if (cursor.distance.isValid()) {
+            if (lastEpoch != NULL && isfinite(lastEpoch->rangeFinder())) {
+                distance = lastEpoch->rangeFinder();
+            } else if (preLastEpoch != NULL && isfinite(preLastEpoch->rangeFinder())) {
+                distance = preLastEpoch->rangeFinder();
+            }
+        } else {
+            qDebug("TAV: Plot2DGrid calculated distance not valid");
         }
-    } else {
-        qDebug("TAV: Plot2DGrid calculated distance not valid");
+
+        if (isfinite(distance)) {
+            pen.setColor(QColor(250, 100, 0));
+            p->setPen(pen);
+            p->setFont(QFont("Asap", 40, QFont::Normal));
+            float val{ round(distance * 100.f) / 100.f };
+            bool isInteger = std::abs(val - std::round(val)) < epsilon;
+            QString rangeText = QString::number(val, 'f', isInteger ? 0 : 2) + QObject::tr(" m");
+            p->drawText(imageWidth / 2 - rangeText.count() * 32, imageHeight - 15, rangeText);
+        }
     }
+    */
 
 
     return true;
