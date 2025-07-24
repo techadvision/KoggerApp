@@ -281,7 +281,7 @@ Item {
         if (dataset) {
             if (dataset.temp) {
                 if (dataset.temp !== 0) {
-                    if (showTemperatureInUi) {
+                    if (userShowTemperature) {
                         enableTemperature = true
                     }
                 }
