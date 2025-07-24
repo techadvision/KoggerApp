@@ -201,11 +201,12 @@ void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, 
             btpPtr->offset.z = offsetz;
 
             _dataset->bottomTrackProcessing(_cursor.channel1, _cursor.channel2);
+            qDebug() << "DevDriver: doDistProcessing: triggered";
         } else {
-             qDebug() << "DevDriver: doDistProcessing: dataset nullptr";
+             qDebug() << "DevDriver: did not set doDistProcessing: not auto btpPtr";
         }
     } else {
-        qDebug() << "DevDriver: doDistProcessing: auto btpPtr";
+        qDebug() << "DevDriver: cannot doDistProcessing: dataset nullptr";
     }
     plotUpdate();
 }
@@ -235,6 +236,7 @@ void qPlot2D::refreshDistParams(int preset, int windowSize, float verticalGap, f
                 btpPtr->offset.x = offsetX;
                 btpPtr->offset.y = offsetY;
                 btpPtr->offset.z = offsetZ;
+                qDebug() << "DevDriver: refreshDistParams: refreshed";
             } else {
                 qDebug() << "DevDriver: refreshDistParams: no auto btpPtr";
             }
