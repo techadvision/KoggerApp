@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c170b446-016d-4277-884a-463066ed0f08" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../QML/HorizontalControllerMinMaxSettings.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/HorizontalPopUpController.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/HorizontalPopupDragSelectController.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/HorizontalPopupSelectController.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/KeyCodeInput.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/PulseInfoExpert.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/PulseTabbedSettingsExpert.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/PulseTabbedSettingsNormal.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/SettingCategoryToggle.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/SettingRow.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../QML/SettingsCheckBox.qml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_beta_user.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_check_is_beta.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_color_blue_red.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_cone_510.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_cone_710.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_cone_810.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_edit.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_guru_user.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_save.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_setting_collapse.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_setting_show.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_view_down_scan.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icons/pulse_view_side_scan.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../image/PulseBlueForApp.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../image/PulseRedForApp.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DevDriver.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../DevDriver.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../LinkManager.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../LinkManager.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../NMEASender.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../NMEASender.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../NMEASender.h" beforeDir="false" afterPath="$PROJECT_DIR$/../NMEASender.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Plot2D.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../Plot2D.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Plot2D.h" beforeDir="false" afterPath="$PROJECT_DIR$/../Plot2D.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Plot2DEchogram.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../Plot2DEchogram.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Plot2DGrid.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../Plot2DGrid.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/AdjBoxBack.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/AdjBoxBack.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/BottomTrackControlMenu.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/BottomTrackControlMenu.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/CCombo.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/CCombo.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/CComboBox.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/CComboBox.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/ChartLevel.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/ChartLevel.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/ConnectionButton.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/ConnectionButton.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/ConnectionViewer.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/ConnectionViewer.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/CustomGroupBox.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/CustomGroupBox.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/DepthAndTemperature.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/DepthAndTemperature.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/DeviceItem.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/DeviceItem.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/HorizontalCheckController.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/HorizontalCheckController.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/HorizontalController.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/HorizontalController.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/HorizontalControllerDoubleSettings.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/HorizontalControllerDoubleSettings.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/HorizontalControllerIcon.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/HorizontalControllerIcon.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/HorizontalTapSelectController.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/HorizontalTapSelectController.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/KoggerCommon/KCombo.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/KoggerCommon/KCombo.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/KoggerCommon/KComboBox.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/KoggerCommon/KComboBox.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/KoggerCommon/KSpinBox.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/KoggerCommon/KSpinBox.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/LostConnectionOverlay.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/LostConnectionOverlay.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/MenuBar.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/MenuBar.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/Plot2D.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/Plot2D.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/PulseInfo.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/PulseInfo.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/PulseInfoColorScheme.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/PulseInfoColorScheme.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/PulseInfoSettings.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/PulseInfoSettings.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/PulseRuntimeSettings.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/PulseRuntimeSettings.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/PulseSettings.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/PulseSettings.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/PulseTabbedSettings.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/PulseTabbedSettings.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/SpinBoxCustom.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/SpinBoxCustom.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/TabBackStyle.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/TabBackStyle.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/main.qml" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/main.qml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../QML/qml.qrc" beforeDir="false" afterPath="$PROJECT_DIR$/../QML/qml.qrc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../black_stripes_processor.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../black_stripes_processor.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../graphicsscene3dview.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../graphicsscene3dview.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icons.qrc" beforeDir="false" afterPath="$PROJECT_DIR$/../icons.qrc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../main.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plotcash.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../plotcash.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plotcash.h" beforeDir="false" afterPath="$PROJECT_DIR$/../plotcash.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../resources.qrc" beforeDir="false" afterPath="$PROJECT_DIR$/../resources.qrc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../version.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../version.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../waterfall.h" beforeDir="false" afterPath="$PROJECT_DIR$/../waterfall.h" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="2xHgs5diEYKknwar3u8dkH7cYAL" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;android.gradle.sync.needed&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c170b446-016d-4277-884a-463066ed0f08" name="Changes" comment="" />
+      <created>1747600619914</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1747600619914</updated>
+    </task>
+    <servers />
+  </component>
+</project>
