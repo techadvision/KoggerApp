@@ -15,83 +15,227 @@ ColumnLayout {
     //property var myDev: null
     property var devList: deviceManagerWrapper.devs
     property bool dynResolutionUpdated: false
-    property int deviceParameterSetterRepeat: 2000
+    property int deviceParameterSetterRepeat: 500
 
     Connections {
-        target: dev ? dev : undefined
+        //target: dev ? dev : undefined
+        target: dev
 
         function onDeviceVersionChanged () {
+            if (pulseRuntimeSettings === null){
+                console.log("DEV_PARAM onDeviceVersionChanged, but pulseRuntimeSettings was null. Aborting.")
+                return
+            }
             if (dev === null) {
-                //console.log("DEV_PARAM onDeviceVersionChanged, but dev was null. Aborting.")
+                console.log("DEV_PARAM onDeviceVersionChanged, but dev was null. Aborting.")
                 return
             }
             if (dev.devName === null) {
-                //console.log("DEV_PARAM onDeviceVersionChanged, but devName was null. Aborting.")
+                console.log("DEV_PARAM onDeviceVersionChanged, but devName was null. Aborting.")
                 return
             }
 
             if (dev.devName === "..." && !pulseRuntimeSettings.devConfigured) {
-                //console.log("DEV_PARAM onDeviceVersionChanged, but devName was ", dev.devName, ". Aborting.")
+                console.log("DEV_PARAM onDeviceVersionChanged, but devName was ", dev.devName, ". Aborting.")
                 return
             }
 
             if (dev.devName === "..." && pulseRuntimeSettings.devConfigured) {
-                //console.log("DEV_PARAM onDeviceVersionChanged, devName ... but device was already configured. Must have lost connection. Reset state")
+                console.log("DEV_PARAM onDeviceVersionChanged, devName ... but device was already configured. Must have lost connection. Reset state")
                 resetAllSetupStates()
                 pulseRuntimeSettings.onDeviceVersionChanged = false;
                 return
             }
+
+            /*
             if (pulseRuntimeSettings.onDeviceVersionChanged) {
-                //console.log("DEV_PARAM onDeviceVersionChanged, but device already configured for devName ", dev.devName, ". Aborting.")
+                console.log("DEV_PARAM onDeviceVersionChanged, but device already configured for devName ", dev.devName, ". Aborting.")
                 return
             }
+            */
 
             pulseRuntimeSettings.onDeviceVersionChanged = true
             //console.log("DEV_PARAM onDeviceVersionChanged, devName is ", dev.devName, ". Finally.")
             //myDev = dev
         }
 
+
         function onDistSetupChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
-            //console.log("DEV_PARAM onDistSetupChanged event received, configuring setup for ", pulseRuntimeSettings.userManualSetName)
-            distSetup ()
+
+            //For expert review screen
+            pulseRuntimeSettings.distMax_Copy = dev.distMax
+            pulseRuntimeSettings.distDeadZone_Copy = dev.distDeadZone
+            pulseRuntimeSettings.distConfidence_Copy = dev.distConfidence
+            //Check if settings are OK
+            if (dev.distMax !== pulseRuntimeSettings.distMax) {
+                pulseRuntimeSettings.distMax_ok = false
+                pulseRuntimeSettings.onDistSetupChanged = false
+                console.log("DEV_PARAM onDistSetupChanged, found deviation for dev.distMax", dev.distMax)
+            }
+            if (dev.distDeadZone !== pulseRuntimeSettings.distDeadZone) {
+                pulseRuntimeSettings.distDeadZone_ok = false
+                pulseRuntimeSettings.onDistSetupChanged = false
+                console.log("DEV_PARAM onDistSetupChanged, found deviation for dev.distDeadZone", dev.distDeadZone)
+            }
+            if (dev.distConfidence !== pulseRuntimeSettings.distConfidence) {
+                pulseRuntimeSettings.distConfidence_ok = false
+                pulseRuntimeSettings.onDistSetupChanged = false
+                console.log("DEV_PARAM onDistSetupChanged, found deviation for dev.distConfidence", dev.distConfidence)
+            }
+            //Redo settings if needed
+            if (!pulseRuntimeSettings.onDistSetupChanged) {
+                console.log("DEV_PARAM onDistSetupChanged, found deviation - run chartSetup")
+                distSetup()
+            }
         }
 
         function onChartSetupChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
-            //console.log("DEV_PARAM onChartSetupChanged event received, configuring setup for ", pulseRuntimeSettings.userManualSetName)
-            chartSetup()
+
+            //For expert review screen
+            pulseRuntimeSettings.chartResolution_Copy = dev.chartResolution
+            pulseRuntimeSettings.chartSamples_Copy = dev.chartSamples
+            pulseRuntimeSettings.chartOffset_Copy = dev.chartOffset
+            //Check if settings are OK
+            if (dev.chartResolution !== pulseRuntimeSettings.chartResolution) {
+                pulseRuntimeSettings.chartResolution_ok = false
+                pulseRuntimeSettings.onChartSetupChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartResolution", dev.chartResolution)
+            }
+            if (dev.chartSamples !== pulseRuntimeSettings.chartSamples) {
+                pulseRuntimeSettings.chartSamples_ok = false
+                pulseRuntimeSettings.onChartSetupChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartSamples", dev.chartSamples)
+            }
+            if (dev.chartOffset !== pulseRuntimeSettings.chartOffset) {
+                pulseRuntimeSettings.chartOffset_ok = false
+                pulseRuntimeSettings.onChartSetupChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartOffset", dev.chartOffset)
+            }
+            //Redo settings if needed
+            if (!pulseRuntimeSettings.onChartSetupChanged) {
+                console.log("DEV_PARAM onChartSetupChanged, found deviation - run chartSetup")
+                chartSetup()
+            }
         }
 
         function onDatasetChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
-            //console.log("DEV_PARAM onDatasetChanged event received, configuring setup for ", pulseRuntimeSettings.userManualSetName)
-            datasetSetup()
+
+            //For expert review screen
+            pulseRuntimeSettings.ch1Period_Copy = dev.ch1Period
+            pulseRuntimeSettings.datasetChart_Copy = dev.datasetChart
+            pulseRuntimeSettings.datasetDist_Copy = dev.datasetDist
+            pulseRuntimeSettings.datasetSDDBT_Copy = dev.datasetSDDBT
+            pulseRuntimeSettings.datasetEuler_Copy = dev.datasetEuler
+            pulseRuntimeSettings.datasetTemp_Copy = dev.datasetTemp
+            pulseRuntimeSettings.datasetTimestamp_Copy = dev.datasetTimestamp
+            //Check if settings are OK
+            if (dev.ch1Period !== pulseRuntimeSettings.ch1Period) {
+                pulseRuntimeSettings.ch1Period_ok = false
+                pulseRuntimeSettings.onDatasetChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.ch1Period", dev.ch1Period)
+            }
+            if (dev.datasetChart !== pulseRuntimeSettings.datasetChart) {
+                pulseRuntimeSettings.datasetChart_ok = false
+                pulseRuntimeSettings.onDatasetChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetChart", dev.datasetChart)
+            }
+            if (dev.datasetDist !== pulseRuntimeSettings.datasetDist) {
+                pulseRuntimeSettings.datasetDist_ok = false
+                pulseRuntimeSettings.onDatasetChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetDist", dev.datasetDist)
+            }
+            if (dev.datasetSDDBT !== pulseRuntimeSettings.datasetSDDBT) {
+                pulseRuntimeSettings.datasetSDDBT_ok = false
+                pulseRuntimeSettings.onDatasetChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetSDDBT", dev.datasetSDDBT)
+            }
+            if (dev.datasetEuler !== pulseRuntimeSettings.datasetEuler) {
+                pulseRuntimeSettings.datasetEuler_ok = false
+                pulseRuntimeSettings.onDatasetChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetEuler", dev.datasetEuler)
+            }
+            if (dev.datasetTemp !== pulseRuntimeSettings.datasetTemp) {
+                pulseRuntimeSettings.datasetTemp_ok = false
+                pulseRuntimeSettings.onDatasetChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetTemp", dev.datasetTemp)
+            }
+            if (dev.datasetTimestamp !== pulseRuntimeSettings.datasetTimestamp) {
+                pulseRuntimeSettings.datasetTimestamp_ok = false
+                pulseRuntimeSettings.onDatasetChanged = false
+                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetTimestamp", dev.datasetTimestamp)
+            }
+            //Redo settings if needed
+            if (!pulseRuntimeSettings.onDatasetChanged) {
+                console.log("DEV_PARAM onChartSetupChanged, found deviation - run datasetSetup")
+                datasetSetup()
+            }
+
         }
 
         function onTransChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
-            //console.log("DEV_PARAM onTransChanged event received, configuring setup for ", pulseRuntimeSettings.userManualSetName)
-            transSetup()
+
+            //For expert review screen
+            pulseRuntimeSettings.transPulse_Copy = dev.transPulse
+            pulseRuntimeSettings.transFreq_Copy = dev.transFreq
+            pulseRuntimeSettings.transBoost_Copy = dev.transBoost
+            //Check if settings are OK
+            if (dev.transPulse !== pulseRuntimeSettings.transPulse) {
+                pulseRuntimeSettings.transPulse_ok = false
+                pulseRuntimeSettings.onTransChanged = false
+                console.log("DEV_PARAM onTransChanged, found deviation for dev.transPulse", dev.transPulse)
+            }
+            if (dev.transFreq !== pulseRuntimeSettings.transFreq) {
+                pulseRuntimeSettings.transFreq_ok = false
+                pulseRuntimeSettings.onTransChanged = false
+                console.log("DEV_PARAM onTransChanged, found deviation for dev.transFreq", dev.transFreq)
+            }
+            if (dev.transBoost !== pulseRuntimeSettings.transBoost) {
+                pulseRuntimeSettings.transBoost_ok = false
+                pulseRuntimeSettings.onTransChanged = false
+                console.log("DEV_PARAM onTransChanged, found deviation for dev.transBoost", dev.transBoost)
+            }
+            //Redo settings if needed
+            if (!pulseRuntimeSettings.onTransChanged) {
+                console.log("DEV_PARAM onTransChanged, found deviation - run transSetup")
+                transSetup()
+            }
         }
 
         function onDspSetupChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
-            //console.log("DEV_PARAM onDspSetupChanged event received, configuring setup for ", pulseRuntimeSettings.userManualSetName)
-            dspSetup()
+
+            //For expert review screen
+            pulseRuntimeSettings.dspHorSmooth_Copy = dev.dspHorSmooth
         }
 
         function onSoundChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
-            //console.log("DEV_PARAM onSoundChanged event received, configuring setup for ", pulseRuntimeSettings.userManualSetName)
-            soundSetup()
+
+            //For expert review screen
+            pulseRuntimeSettings.soundSpeed_Copy = dev.soundSpeed
+            //Check if settings are OK
+            if (dev.soundSpeed !== pulseRuntimeSettings.soundSpeed) {
+                pulseRuntimeSettings.soundSpeed_ok = false
+                pulseRuntimeSettings.onSoundChanged = false
+                console.log("DEV_PARAM onSoundChanged, found deviation for dev.soundSpeed", dev.soundSpeed)
+            }
+            //Redo settings if needed
+            if (!pulseRuntimeSettings.onSoundChanged) {
+                console.log("DEV_PARAM onSoundChanged, found deviation - run soundSetup")
+                soundSetup()
+            }
         }
+
     }
 
     /*
@@ -144,13 +288,14 @@ ColumnLayout {
                 devValue: {
                     if (dev !== null && pulseRuntimeSettings !== null) {
                         if (pulseRuntimeSettings.doDynamicResolution) {
-                            console.log("DEV_CONFIG: chartResolution devValue set to ", pulseRuntimeSettings.dynamicResolution), " by doDynamicResolution";
+                            console.log("DEV_PARAM: chartResolution as devValue set to ", pulseRuntimeSettings.dynamicResolution), " by doDynamicResolution";
                             return pulseRuntimeSettings.dynamicResolution
                         } else {
-                            console.log("DEV_CONFIG: chartResolution devValue set to ", pulseRuntimeSettings.chartResolution);
+                            console.log("DEV_PARAM: chartResolution as devValue set to ", pulseRuntimeSettings.chartResolution, "dynamicResolution is false");
                             return pulseRuntimeSettings.chartResolution
                         }
                     } else {
+                        console.log("DEV_PARAM: dev is null, resolution is 0 for now");
                         return 0
                     }
                 }
@@ -161,61 +306,83 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.chartResolution = value
-                        //dev.chartResolution = pulseRuntimeSettings.chartResolution
-                        console.log("DEV_CONFIG: chartResolution onValueChanged, set pulseRuntimeSettings.chartResolution to ", value);
-                        //dev.chartResolution = pulseRuntimeSettings.chartResolution
+                        if (pulseRuntimeSettings.doDynamicResolution) {
+                            if (value !== pulseRuntimeSettings.dynamicResolution) {
+                                value = pulseRuntimeSettings.dynamicResolution
+                                console.log("DEV_PARAM: onValueChanged, dev.chartResolution set to pulseRuntimeSettings.dynamicResolution", pulseRuntimeSettings.dynamicResolution)
+                            }
+                        } else {
+                            if (value !== pulseRuntimeSettings.chartResolution) {
+                                value = pulseRuntimeSettings.chartResolution
+                                console.log("DEV_PARAM: onValueChanged, dev.chartResolution set to pulseRuntimeSettings.chartResolution", pulseRuntimeSettings.chartResolution)
+                            }
+                        }
+                        //TODO: Is it correct to disable this?
+                        //pulseRuntimeSettings.chartResolution = value
+                        console.log("DEV_PARAM: chartResolution onValueChanged, but now we did not set pulseRuntimeSettings.chartResolution to ", value);
                     }
                     isDriverChanged = false
                 }
 
                 Connections {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onUserManualSetNameChanged() {
+                        if (pulseRuntimeSettings.userManualSetName === "...") {
+                            return
+                        }
+                        //TODO
+                    }
+
                     function onChartResolutionChanged () {
-                        console.log("DEV_CONFIG: onChartResolutionChanged")
+                        console.log("DEV_PARAM: onChartResolutionChanged")
                         if (dev !== null) {
                             if (pulseRuntimeSettings.doDynamicResolution) {
                                 if (dev.chartResolution !== pulseRuntimeSettings.dynamicResolution) {
                                     dev.chartResolution = pulseRuntimeSettings.dynamicResolution
-                                    console.log("DEV_CONFIG: dev.chartResolution set to pulseRuntimeSettings.dynamicResolution")
+                                    console.log("DEV_PARAM: dev.chartResolution set to pulseRuntimeSettings.dynamicResolution")
                                 } else {
-                                    console.log("DEV_CONFIG: dev.chartResolution OK, already equal to pulseRuntimeSettings.dynamicResolution")
+                                    console.log("DEV_PARAM: dev.chartResolution OK, already equal to pulseRuntimeSettings.dynamicResolution")
                                 }
                             } else {
                                 if (dev.chartResolution !== pulseRuntimeSettings.chartResolution) {
                                     dev.chartResolution = pulseRuntimeSettings.chartResolution
-                                    console.log("DEV_CONFIG: dev.chartResolution set to pulseRuntimeSettings.chartResolution")
+                                    console.log("DEV_PARAM: dev.chartResolution set to pulseRuntimeSettings.chartResolution", pulseRuntimeSettings.chartResolution)
                                 } else {
-                                    console.log("DEV_CONFIG: dev.chartResolution OK, already equal to pulseRuntimeSettings.chartResolution")
+                                    console.log("DEV_PARAM: dev.chartResolution OK, already equal to pulseRuntimeSettings.chartResolution")
                                 }
                             }
                         } else {
-                            console.log("DEV_CONFIG: onChartResolutionChanged, but dev is null")
+                            console.log("DEV_PARAM: onChartResolutionChanged, but dev is null")
                         }
                     }
 
                     function onDynamicResolutionChanged () {
-                        console.log("DEV_CONFIG: onChartResolutionChanged")
+                        console.log("DEV_PARAM: onChartResolutionChanged")
                         if (pulseRuntimeSettings.hasDeviceLostConnection) {
-                            console.log("DEV_CONFIG: no need to set resolution dynamically when connection is lost")
+                            console.log("DEV_PARAM: no need to set resolution dynamically when connection is lost")
                             return
                         }
                         if (!pulseRuntimeSettings.doDynamicResolution) {
-                            console.log("DEV_CONFIG: for this device we so not do dynamic resolutiuon")
+                            console.log("DEV_PARAM: for this device we so not do dynamic resolutiuon")
                             return
                         }
                         //TODO: Do not touch the default pulseRuntimeSettings.chartResolution, will this work?
                         if (dev !== null) {
                             if (dev.devName !== "...") {
                                 if (dev.chartResolution !== pulseRuntimeSettings.dynamicResolution) {
-                                    console.log("DEV_CONFIG: dev.chartResolution !== pulseRuntimeSettings.dynamicResolution. Enforce!")
-                                    dev.chartResolution = pulseRuntimeSettings.dynamicResolution
+                                    if (pulseRuntimeSettings.is2DTransducer) {
+                                        console.log("chartResolution: dev.chartResolution !== pulseRuntimeSettings.dynamicResolution. Enforce!")
+                                        dev.chartResolution = pulseRuntimeSettings.dynamicResolution
+                                    } else {
+                                        console.log("DEV_PARAM: only set dev.chartResolution to dynamicResolution when is2DTransducer")
+                                    }
+
                                 }
                             } else {
-                                console.log("DEV_CONFIG: Skip resolution for devName ...")
+                                console.log("DEV_PARAM: Skip chartResolution for devName ...")
                             }
                         } else {
-                            console.log("DEV_CONFIG: Unable to check if dev-chartResolution is OK as dev === null")
+                            console.log("DEV_PARAM: Unable to check if dev.chartResolution is OK as dev === null")
                         }
                     }
                 }
@@ -238,7 +405,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.chartSamples = value
+                        //pulseRuntimeSettings.chartSamples = value
                         //dev.chartSamples = pulseRuntimeSettings.chartSamples
                     }
                     isDriverChanged = false
@@ -255,6 +422,9 @@ ColumnLayout {
                         }
                     }
                     function onDynamicSamplesChanged () {
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                            return
+                        }
                         pulseRuntimeSettings.chartSamples = pulseRuntimeSettings.dynamicSamples
                         console.log("DYNAMIC: received onDynamicSamplesChanged value ", pulseRuntimeSettings.dynamicSamples)
                     }
@@ -270,7 +440,16 @@ ColumnLayout {
                 to: 10000
                 stepSize: 100
                 value:0
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartOffset : 0
+                devValue: {
+                    if (dev !== null && pulseRuntimeSettings !== null) {
+                        console.log("DEV_PARAM: chartOffset as devValue set to ", pulseRuntimeSettings.chartOffset);
+                        return pulseRuntimeSettings.chartResolution
+                    } else {
+                        console.log("DEV_PARAM: dev is null, offset is 0 for now");
+                        return 0
+                    }
+                }
+
                 //devValue: dev !== null ? dev.chartOffset : 0
                 isValid: dev !== null ? dev.chartSetupState : false
 
@@ -278,8 +457,13 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.chartOffset = value
-                        //dev.chartOffset = pulseRuntimeSettings.chartOffset
+                        if (value !== pulseRuntimeSettings.chartOffset) {
+                            console.log("DEV_PARAM: Param spinbox tried to set chartOffset to ", value, " let's use",pulseRuntimeSettings.chartOffset)
+                            value = pulseRuntimeSettings.chartOffset
+                        }
+                        //TODO: Is it correct to disable this?
+                        //pulseRuntimeSettings.chartOffset = value
+                        console.log("DEV_PARAM: chartOffset onValueChanged, but now we did not set  pulseRuntimeSettings.chartOffset to", value)
                     }
                     isDriverChanged = false
                 }
@@ -290,8 +474,10 @@ ColumnLayout {
                         if (dev !== null) {
                             if (dev.chartOffset !== pulseRuntimeSettings.chartOffset) {
                                 dev.chartOffset = pulseRuntimeSettings.chartOffset
-                                //console.log("DEV_CONFIG: Set the dev.chartOffset to ", dev.chartOffset, " using source pulseRuntimeSettings.chartOffset of ", pulseRuntimeSettings.chartOffset)
+                                console.log("DEV_PARAM: Set the dev.chartOffset to ", dev.chartOffset, " using source pulseRuntimeSettings.chartOffset of ", pulseRuntimeSettings.chartOffset)
                             }
+                        } else {
+                            console.log("DEV_PARAM: dev is null, cannot touch offset just now");
                         }
 
                     }
@@ -319,7 +505,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.distMax = value
+                        //pulseRuntimeSettings.distMax = value
                         //dev.distMax = pulseRuntimeSettings.distMax
                     }
                     isDriverChanged = false
@@ -355,7 +541,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.distDeadZone = value
+                        //pulseRuntimeSettings.distDeadZone = value
                         //dev.distDeadZone = pulseRuntimeSettings.distDeadZone
                     }
                     isDriverChanged = false
@@ -392,7 +578,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.distConfidence = value
+                        //pulseRuntimeSettings.distConfidence = value
                         //dev.distConfidence = pulseRuntimeSettings.distConfidence
                     }
                     isDriverChanged = false
@@ -432,7 +618,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.transPulse = value
+                        //pulseRuntimeSettings.transPulse = value
                         //dev.transPulse = pulseRuntimeSettings.transPulse
                     }
                     isDriverChanged = false
@@ -469,7 +655,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.transFreq = value
+                        //pulseRuntimeSettings.transFreq = value
                         //dev.transFreq = pulseRuntimeSettings.transFreq
                     }
                     isDriverChanged = false
@@ -507,7 +693,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.transBoost = value
+                        //pulseRuntimeSettings.transBoost = value
                         //dev.transBoost = pulseRuntimeSettings.transBoost
                     }
                     isDriverChanged = false
@@ -567,7 +753,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.dspHorSmooth = value
+                        //pulseRuntimeSettings.dspHorSmooth = value
                         //dev.dspHorSmooth = pulseRuntimeSettings.dspHorSmooth
                     }
                     isDriverChanged = false
@@ -603,7 +789,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.soundSpeed = value * 1000
+                        //pulseRuntimeSettings.soundSpeed = value * 1000
                         //dev.soundSpeed = pulseRuntimeSettings.soundSpeed
                     }
                     isDriverChanged = false
@@ -643,7 +829,7 @@ ColumnLayout {
                     if (!isDriverChanged) {
                         if (dev === null)
                             return
-                        pulseRuntimeSettings.ch1Period = value
+                        //pulseRuntimeSettings.ch1Period = value
                         console.log("DYNAMIC: Set the dev.ch1Period to ", dev.ch1Period, " onValueChanged ", value)
                         //dev.ch1Period = pulseRuntimeSettings.ch1Period
                     }
@@ -685,9 +871,9 @@ ColumnLayout {
                         if (dev === null)
                             return
                         if (value == 1) {
-                            pulseRuntimeSettings.datasetChart = 1
+                            //pulseRuntimeSettings.datasetChart = 1
                         } else {
-                            pulseRuntimeSettings.datasetChart = 0
+                            //pulseRuntimeSettings.datasetChart = 0
                         }
                         //dev.datasetChart = pulseRuntimeSettings.datasetChart
                     }
@@ -705,7 +891,7 @@ ColumnLayout {
                         if (dev !== null) {
                             if (dev.datasetChart !== pulseRuntimeSettings.datasetChart) {
                                 dev.datasetChart = pulseRuntimeSettings.datasetChart
-                                //console.log("DEV_CONFIG: Set the dev.datasetChart to ", dev.datasetChart, " using source pulseRuntimeSettings.datasetChart of ", pulseRuntimeSettings.datasetChart)
+                                console.log("DEV_PARAM: Set the dev.datasetChart to ", dev.datasetChart, " caused by onDatasetChartChanged using source pulseRuntimeSettings.datasetChart of ", pulseRuntimeSettings.datasetChart)
                             }
                         }
                     }
@@ -731,13 +917,13 @@ ColumnLayout {
                         if (dev === null)
                             return
                         if (value === 1) {
-                            pulseRuntimeSettings.currentDepthSolution = 1
+                            //pulseRuntimeSettings.currentDepthSolution = 1
                         }
                         else if (value === 2) {
-                            pulseRuntimeSettings.currentDepthSolution = 2
+                            //pulseRuntimeSettings.currentDepthSolution = 2
                         }
                         else {
-                            pulseRuntimeSettings.currentDepthSolution = 0
+                            //pulseRuntimeSettings.currentDepthSolution = 0
                         }
                     }
                     isDriverChanged = false
@@ -754,16 +940,16 @@ ColumnLayout {
                         // decide on proper values
                         let newValue = pulseRuntimeSettings.currentDepthSolution
                         if (newValue === 1) {
-                            pulseRuntimeSettings.datasetDist = 1
-                            pulseRuntimeSettings.datasetSDDBT = 0
+                            //pulseRuntimeSettings.datasetDist = 1
+                            //pulseRuntimeSettings.datasetSDDBT = 0
                         }
                         else if (newValue === 2 ) {
-                            pulseRuntimeSettings.datasetDist = 0
-                            pulseRuntimeSettings.datasetSDDBT = 1
+                            //pulseRuntimeSettings.datasetDist = 0
+                            //pulseRuntimeSettings.datasetSDDBT = 1
                         }
                         else {
-                            pulseRuntimeSettings.datasetDist = 0
-                            pulseRuntimeSettings.datasetSDDBT = 0
+                            //pulseRuntimeSettings.datasetDist = 0
+                            //pulseRuntimeSettings.datasetSDDBT = 0
                         }
                         // write if needed
                         if (dev !== null) {
@@ -797,11 +983,11 @@ ColumnLayout {
                         if (dev === null)
                             return
                         if (value == 1) {
-                            pulseRuntimeSettings.datasetEuler = 1
+                            //pulseRuntimeSettings.datasetEuler = 1
                             //dev.datasetEuler = pulseRuntimeSettings.datasetEuler
                         }
                         else if (dev.datasetEuler & 1) {
-                            pulseRuntimeSettings.datasetEuler = 0
+                            //pulseRuntimeSettings.datasetEuler = 0
                             //dev.datasetEuler = pulseRuntimeSettings.datasetEuler
                         }
                     }
@@ -846,9 +1032,9 @@ ColumnLayout {
                             return
                         //console.log("Dev_value: datasetTemp isDriverChanged, new value ", value)
                         if(value == 1) {
-                            pulseRuntimeSettings.datasetTemp = 1
+                            //pulseRuntimeSettings.datasetTemp = 1
                         } else if (dev.datasetTemp & 1) {
-                            pulseRuntimeSettings.datasetTemp = 0
+                            //pulseRuntimeSettings.datasetTemp = 0
                         }
                         //dev.datasetTemp = pulseRuntimeSettings.datasetTemp
                     }
@@ -893,9 +1079,9 @@ ColumnLayout {
                         if (dev === null)
                             return
                         if (value == 1) {
-                            pulseRuntimeSettings.datasetTimestamp = 1
+                            //pulseRuntimeSettings.datasetTimestamp = 1
                         } else if (dev.datasetTimestamp & 1) {
-                            pulseRuntimeSettings.datasetTimestamp = 0
+                            //pulseRuntimeSettings.datasetTimestamp = 0
                         }
                         //dev.datasetTimestamp = pulseRuntimeSettings.datasetTimestamp
                     }
@@ -967,12 +1153,13 @@ ColumnLayout {
         console.log("TAV: setPlotPulseRed - start");
 
         // General plot
+        /*
         targetPlot.plotEchogramCompensation(0)
         targetPlot.plotDatasetChannel(32767, 32768)
         core.setSideScanChannels(32767, 32768)
 
         // Bottom tracking
-        disableBottomTracking()
+        //disableBottomTracking()
         /*
         if (pulseRuntimeSettings.processBottomTrack) {
             doBottomTracking()
@@ -985,6 +1172,7 @@ ColumnLayout {
     function setPlotPulseBlue () {
         console.log("TAV: setPlotPulseBlue - start");
 
+        /*
         let channel1 = 2
         let channel2 = 3
         console.log("Side scan: normal direction, channel1", channel1, "channel2", channel2)
@@ -998,12 +1186,15 @@ ColumnLayout {
         targetPlot.plotDatasetChannel(channel1, channel2)
         core.setSideScanChannels(channel1, channel2)
 
-        disableBottomTracking()
+        //disableBottomTracking()
+        //doBottomTracking()
+        */
 
         console.log("TAV: setPlotPulseBlue - done");
     }
 
     function disableBottomTracking () {
+        //targetPlot.plotBottomTrackVisible = false
         targetPlot.refreshDistParams(
             pulseRuntimeSettings.distProcessing[0],
             1,
@@ -1019,10 +1210,19 @@ ColumnLayout {
     }
 
     function doBottomTracking () {
-        //console.log("TAV: doBottomTracking - start");
-        targetPlot.plotBottomTrackVisible(false)
-        targetPlot.plotRangefinderTheme(0)
-        //console.log("TAV: doBottomTracking - distanceParams", pulseRuntimeSettings.distProcessing);
+        //console.log("Bottom Track - start");
+        targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
+        if (!PulseSettings.isSideScanOnLeftHandSide) {
+            pulseRuntimeSettings.bottomTrackVisibleModel = 1
+            console.log("DistProcessing - use right hand line side (theme 1)")
+        } else {
+            console.log("DistProcessing - use default left hand line side (theme 0)")
+        }
+
+        targetPlot.plotBottomTrackTheme(pulseRuntimeSettings.bottomTrackVisibleModel)
+
+        console.log("DistProcessing - distanceParams", pulseRuntimeSettings.distProcessing);
+        console.log("DistProcessing - visible?", pulseRuntimeSettings.distProcessing, " - theme?", pulseRuntimeSettings.bottomTrackVisibleModel);
 
         /* This is the right order to set the parameters, order is equal for
           doDistanceProcessing
@@ -1040,6 +1240,7 @@ ColumnLayout {
 
         // While this will use the actual profile data for distance processing
 
+        /*
         targetPlot.refreshDistParams(
             pulseRuntimeSettings.distProcessing[0],
             pulseRuntimeSettings.distProcessing[1],
@@ -1052,6 +1253,7 @@ ColumnLayout {
             pulseRuntimeSettings.distProcessing[8],
             pulseRuntimeSettings.distProcessing[9]
         )
+        */
 
         targetPlot.doDistProcessing(
             pulseRuntimeSettings.distProcessing[0],
@@ -1072,7 +1274,7 @@ ColumnLayout {
 
     function configurePulseDevice () {
 
-        //console.log("DEV_CONFIG: pulseRuntimeSettings, plot specific, for", pulseRuntimeSettings.userManualSetName)
+        console.log("DEV_PARAM: pulseRuntimeSettings, plot specific, for", pulseRuntimeSettings.userManualSetName)
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
             setPlotPulseRed()
@@ -1080,21 +1282,23 @@ ColumnLayout {
             setPlotPulseBlue()
         }
 
-        //console.log("DEV_CONFIG: pulseRuntimeSettings - cone for", pulseRuntimeSettings.userManualSetName)
+
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
+            console.log("DEV_PARAM: pulseRuntimeSettings - cone for", pulseRuntimeSettings.userManualSetName)
             if (PulseSettings.ecoConeIndex === 0) {
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
-                //console.log("TAV: pulse red wide")
+                console.log("DEV_PARAM: pulse red wide")
             } else if (PulseSettings.ecoConeIndex === 1) {
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
-                //console.log("TAV: pulse red narrow")
+                console.log("DEV_PARAM: pulse red medium")
             } else {
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
+                console.log("DEV_PARAM: pulse red narrow")
             }
         }
 
-        //console.log("DEV_CONFIG: pulseRuntimeSettings - black stripes for", pulseRuntimeSettings.userManualSetName)
+        console.log("DEV_PARAM: pulseRuntimeSettings - black stripes for", pulseRuntimeSettings.userManualSetName)
         if (core.fixBlackStripesForwardSteps       !== pulseRuntimeSettings.fixBlackStripesForwardSteps) {
             core.fixBlackStripesForwardSteps       = pulseRuntimeSettings.fixBlackStripesForwardSteps
             //console.log("DEV_CONFIG: core.fixBlackStripesForwardSteps changed to ", core.fixBlackStripesForwardSteps)
@@ -1120,16 +1324,35 @@ ColumnLayout {
         completeDeviceConfigurationTimer.start()
     }
 
+    /*
     Timer {
         id: neverGiveUpConfigurationTimer
         repeat: !pulseRuntimeSettings.appConfigured
-        interval: 3000
+        interval: 1000
         onTriggered: {
             if (pulseRuntimeSettings.appConfigured) {
-                //console.log("DEV_CONFIG: pulseRuntimeSettings.appConfigured ", pulseRuntimeSettings.appConfigured, ". No need to repeat")
+                console.log("DEV_CONFIG: pulseRuntimeSettings.appConfigured ", pulseRuntimeSettings.appConfigured, ". No need to repeat")
                 return
             }
             configurePulseDevice()
+        }
+    }
+    */
+
+    function ifSetupCompleted () {
+        if (pulseRuntimeSettings.onDistSetupChanged
+                && pulseRuntimeSettings.onChartSetupChanged
+                && pulseRuntimeSettings.onDatasetChanged
+                && pulseRuntimeSettings.onTransChanged
+                /*&& pulseRuntimeSettings.onDspSetupChanged*/
+                && pulseRuntimeSettings.onSoundChanged) {
+            pulseRuntimeSettings.devConfigured = true
+            console.log("DEV_PARAM devConfigured complete")
+            logAllDevSetupAsCompleted()
+            return true
+        } else {
+            console.log("DEV_PARAM devConfigured still incomplete")
+            return false
         }
     }
 
@@ -1138,7 +1361,7 @@ ColumnLayout {
         interval: deviceParameterSetterRepeat
         repeat: !pulseRuntimeSettings.devConfigured
         onTriggered: {
-
+            console.log("DEV_PARAM deviceParameterSetterRepeat")
             if (pulseRuntimeSettings.devConfigured) {
                 console.log("DEV_PARAM completeDeviceConfigurationTimer no need to repeat as devConfigured complete")
                 return
@@ -1165,61 +1388,79 @@ ColumnLayout {
                 console.log("DEV_PARAM no need to repeat as devConfigured complete")
                 return
             }
+            if (ifSetupCompleted()) {
+                return
+            }
+
+            /*
             if (pulseRuntimeSettings.onDistSetupChanged
                 && pulseRuntimeSettings.onChartSetupChanged
                 && pulseRuntimeSettings.onDatasetChanged
                 && pulseRuntimeSettings.onTransChanged
-                /*&& pulseRuntimeSettings.onDspSetupChanged*/
+                && pulseRuntimeSettings.onDspSetupChanged
                 && pulseRuntimeSettings.onSoundChanged)
                 {
                     pulseRuntimeSettings.devConfigured = true
                     console.log("DEV_PARAM devConfigured complete")
                     logAllDevSetupAsCompleted()
-                    datasetChartSetupTimer.start()
                     return
             } else {
                 console.log("DEV_PARAM devConfigured still incomplete")
-            }
-
-            /* TODO: Do we really need to turn the chart off?
-            if (dev.datasetChart !== 0){
-                deviceParameterSetterRepeat = 1000
-                pulseRuntimeSettings.datasetChart = 0
-                console.log("DEV_PARAM turning off chart during param update")
-                //dev.datasetChart = 0
-                return
             }
             */
 
             if (!pulseRuntimeSettings.onDistSetupChanged) {
                 console.log("DEV_PARAM checking distSetup")
                 distSetup()
-                return
+                if (!pulseRuntimeSettings.onDistSetupChanged) {
+                   return
+                } else {
+                     console.log("DEV_PARAM onDistSetupChanged is OK, let's move on")
+                }
+
             }
             if (!pulseRuntimeSettings.onChartSetupChanged) {
                 console.log("DEV_PARAM checking chartSetup")
                 chartSetup()
-                return
+                if (!pulseRuntimeSettings.onChartSetupChanged) {
+                   return
+                } else {
+                     console.log("DEV_PARAM onChartSetupChanged is OK, let's move on")
+                }
             }
             if (!pulseRuntimeSettings.onTransChanged) {
                 console.log("DEV_PARAM checking transSetup")
                 transSetup()
-                return
+                if (!pulseRuntimeSettings.onTransChanged) {
+                   return
+                } else {
+                     console.log("DEV_PARAM onTransChanged is OK, let's move on")
+                }
             }
             if (!pulseRuntimeSettings.onDspSetupChanged) {
                 console.log("DEV_PARAM checking dspSetup")
                 dspSetup()
-                return
+                if (!pulseRuntimeSettings.onDspSetupChanged) {
+                   return
+                } else {
+                     console.log("DEV_PARAM onDspSetupChanged is OK, let's move on")
+                }
             }
             if (!pulseRuntimeSettings.onSoundChanged) {
                 console.log("DEV_PARAM checking soundSetup")
                 soundSetup()
+                if (!pulseRuntimeSettings.onSoundChanged) {
+                   return
+                } else {
+                     console.log("DEV_PARAM onSoundChanged is OK as, let's move on")
+                }
             }
             if (!pulseRuntimeSettings.onDatasetChanged) {
                 console.log("DEV_PARAM checking datasetSetup")
                 datasetSetup()
                 return
             }
+
         }
     }
 
@@ -1232,6 +1473,7 @@ ColumnLayout {
         pulseRuntimeSettings.chartSamples_ok = false
         pulseRuntimeSettings.chartResolution_ok = false
         pulseRuntimeSettings.chartOffset_ok = false
+        pulseRuntimeSettings.ch1Period_ok = false
         pulseRuntimeSettings.datasetTimestamp_ok = false
         pulseRuntimeSettings.datasetChart_ok = false
         pulseRuntimeSettings.datasetTemp_ok = false
@@ -1250,6 +1492,7 @@ ColumnLayout {
         pulseRuntimeSettings.onDspSetupChanged = false
         pulseRuntimeSettings.onSoundChanged = false
         //Overall
+        //pulseRuntimeSettings.echogramPausedForConfig = false
         pulseRuntimeSettings.devConfigured = false
         pulseRuntimeSettings.dynamicResolutionInit = false
         pulseRuntimeSettings.dynamicResolution = 0
@@ -1267,9 +1510,11 @@ ColumnLayout {
         // distMax
         if (!pulseRuntimeSettings.distMax_ok) {
             if (dev.distMax === pulseRuntimeSettings.distMax) {
+                pulseRuntimeSettings.distMax_Copy = dev.distMax
                 pulseRuntimeSettings.distMax_ok = true
+                console.log("DEV_PARAM distMax OK as", dev.distMax)
             } else {
-                //console.log("DEV_PARAM onDistSetupChanged distMax set to", pulseRuntimeSettings.distMax)
+                console.log("DEV_PARAM onDistSetupChanged distMax set to", pulseRuntimeSettings.distMax)
                 dev.distMax = pulseRuntimeSettings.distMax
                 return
             }
@@ -1278,9 +1523,11 @@ ColumnLayout {
         // distDeadZone
         if (!pulseRuntimeSettings.distDeadZone_ok) {
             if (dev.distDeadZone === pulseRuntimeSettings.distDeadZone) {
+                pulseRuntimeSettings.distDeadZone_Copy = dev.distDeadZone
                 pulseRuntimeSettings.distDeadZone_ok = true
+                console.log("DEV_PARAM distDeadZone OK as", dev.distDeadZone)
             } else {
-                //console.log("DEV_PARAM onDistSetupChanged distDeadZone set to", pulseRuntimeSettings.distDeadZone)
+                console.log("DEV_PARAM onDistSetupChanged distDeadZone set to", pulseRuntimeSettings.distDeadZone)
                 dev.distDeadZone = pulseRuntimeSettings.distDeadZone
                 return
             }
@@ -1289,9 +1536,11 @@ ColumnLayout {
         // distConfidence
         if (!pulseRuntimeSettings.distConfidence_ok) {
             if (dev.distConfidence === pulseRuntimeSettings.distConfidence) {
+                pulseRuntimeSettings.distConfidence_Copy = dev.distConfidence
                 pulseRuntimeSettings.distConfidence_ok = true
+                console.log("DEV_PARAM distConfidence OK as", dev.distConfidence)
             } else {
-                //console.log("DEV_PARAM onDistSetupChanged distConfidence set to", pulseRuntimeSettings.distConfidence)
+                console.log("DEV_PARAM onDistSetupChanged distConfidence set to", pulseRuntimeSettings.distConfidence)
                 dev.distConfidence = pulseRuntimeSettings.distConfidence
                 return
             }
@@ -1317,10 +1566,11 @@ ColumnLayout {
         // chartSamples
         if (!pulseRuntimeSettings.chartSamples_ok) {
             if (dev.chartSamples === pulseRuntimeSettings.chartSamples) {
+                pulseRuntimeSettings.chartSamples_Copy = dev.chartSamples
                 pulseRuntimeSettings.chartSamples_ok = true
-                //console.log("DEV_PARAM chartSamples OK as", dev.chartSamples)
+                console.log("DEV_PARAM chartSamples OK as", dev.chartSamples)
             } else {
-                //console.log("DEV_PARAM onChartSetupChanged chartSamples set to", pulseRuntimeSettings.chartSamples)
+                console.log("DEV_PARAM onChartSetupChanged, found dev.chartSamples as", dev.chartSamples, " try setting dev.chartSamples set to", pulseRuntimeSettings.chartSamples)
                 dev.chartSamples = pulseRuntimeSettings.chartSamples
                 return
             }
@@ -1329,10 +1579,12 @@ ColumnLayout {
         // chartResolution
         if (!pulseRuntimeSettings.chartResolution_ok) {
             if (dev.chartResolution === pulseRuntimeSettings.chartResolution) {
+                pulseRuntimeSettings.chartResolution_Copy = dev.chartResolution
                 pulseRuntimeSettings.chartResolution_ok = true
-                //console.log("DEV_PARAM chartResolution OK as", dev.chartResolution)
+                console.log("DEV_PARAM chartResolution OK as", dev.chartResolution)
             } else {
                 //console.log("DEV_PARAM onChartSetupChanged chartResolution set to", pulseRuntimeSettings.chartResolution)
+                console.log("DEV_PARAM onChartSetupChanged, found dev.chartResolution as", dev.chartResolution, " try setting dev.chartResolution set to", pulseRuntimeSettings.chartResolution)
                 dev.chartResolution = pulseRuntimeSettings.chartResolution
                 return
             }
@@ -1341,9 +1593,11 @@ ColumnLayout {
         // chartOffset
         if (!pulseRuntimeSettings.chartOffset_ok) {
             if (dev.chartOffset === pulseRuntimeSettings.chartOffset) {
+                pulseRuntimeSettings.chartOffset_Copy = dev.chartOffset
                 pulseRuntimeSettings.chartOffset_ok = true
-                //console.log("DEV_PARAM chartOffset OK as", dev.chartOffset)
+                console.log("DEV_PARAM chartOffset OK as", dev.chartOffset)
             } else {
+                console.log("DEV_PARAM onChartSetupChanged, found dev.chartOffset as", dev.chartOffset, " try setting dev.chartOffset set to", pulseRuntimeSettings.chartOffset)
                 //console.log("DEV_PARAM onChartSetupChanged chartOffset set to", pulseRuntimeSettings.chartOffset)
                 dev.chartOffset = pulseRuntimeSettings.chartOffset
                 return
@@ -1363,55 +1617,40 @@ ColumnLayout {
         if (dev === null)
             return
 
-        if (pulseRuntimeSettings.onDatasetChanged)
+        if (pulseRuntimeSettings.onDatasetChanged){
+            console.log("DEV_PARAM onDatasetChanged OK")
+            console.log("DEV_PARAM ch1Period_Copy OK as", dev.ch1Period)
+            console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
+            console.log("DEV_PARAM datasetDist OK as", dev.datasetDist)
+            console.log("DEV_PARAM datasetSDDBT OK as", dev.datasetSDDBT)
+            console.log("DEV_PARAM datasetEuler OK as", dev.datasetEuler)
+            console.log("DEV_PARAM datasetTemp OK as", dev.datasetTemp)
+            console.log("DEV_PARAM datasetTimestamp OK as", dev.datasetTimestamp)
             return
+        }
 
-        // datasetTimestamp
-        if (!pulseRuntimeSettings.datasetTimestamp_ok) {
-            if (dev.datasetTimestamp === pulseRuntimeSettings.datasetTimestamp) {
-                pulseRuntimeSettings.datasetTimestamp_ok = true
-                //console.log("DEV_PARAM datasetTimestamp OK as", dev.datasetTimestamp)
+        // ch1Period
+        if (!pulseRuntimeSettings.ch1Period_ok) {
+            if (dev.ch1Period === pulseRuntimeSettings.ch1Period) {
+                pulseRuntimeSettings.ch1Period_Copy = dev.ch1Period
+                pulseRuntimeSettings.ch1Period_ok = true
+                console.log("DEV_PARAM ch1Period OK as", dev.ch1Period)
             } else {
-                //console.log("DEV_PARAM onDatasetChanged datasetTimestamp set to", pulseRuntimeSettings.datasetTimestamp)
-                dev.datasetTimestamp = pulseRuntimeSettings.datasetTimestamp
+                console.log("DEV_PARAM onDatasetChanged ch1Period set to", pulseRuntimeSettings.ch1Period)
+                dev.ch1Period = pulseRuntimeSettings.ch1Period
                 return
             }
         }
 
-        /* // Handled separately, turned off during setup
         // datasetChart
         if (!pulseRuntimeSettings.datasetChart_ok) {
             if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
+                pulseRuntimeSettings.datasetChart_Copy = dev.datasetChart
                 pulseRuntimeSettings.datasetChart_ok = true
-                //console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
+                console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
             } else {
-                //console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
+                console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
                 dev.datasetChart = pulseRuntimeSettings.datasetChart
-                return
-            }
-        }
-        */
-
-        // datasetTemp
-        if (!pulseRuntimeSettings.datasetTemp_ok) {
-            if (dev.datasetTemp === pulseRuntimeSettings.datasetTemp) {
-                pulseRuntimeSettings.datasetTemp_ok = true
-                //console.log("DEV_PARAM datasetTemp OK as", dev.datasetTemp)
-            } else {
-                //console.log("DEV_PARAM onDatasetChanged datasetTemp set to", pulseRuntimeSettings.datasetTemp)
-                dev.datasetTemp = pulseRuntimeSettings.datasetTemp
-                return
-            }
-        }
-
-        // datasetEuler
-        if (!pulseRuntimeSettings.datasetEuler_ok) {
-            if (dev.datasetEuler === pulseRuntimeSettings.datasetEuler) {
-                pulseRuntimeSettings.datasetEuler_ok = true
-                //console.log("DEV_PARAM datasetEuler OK as", dev.datasetEuler)
-            } else {
-                //console.log("DEV_PARAM onDatasetChanged datasetEuler set to", pulseRuntimeSettings.datasetEuler)
-                dev.datasetEuler = pulseRuntimeSettings.datasetEuler
                 return
             }
         }
@@ -1419,10 +1658,11 @@ ColumnLayout {
         // datasetDist
         if (!pulseRuntimeSettings.datasetDist_ok) {
             if (dev.datasetDist === pulseRuntimeSettings.datasetDist) {
+                pulseRuntimeSettings.datasetDist_Copy = dev.datasetDist
                 pulseRuntimeSettings.datasetDist_ok = true
-                //console.log("DEV_PARAM datasetDist OK as", dev.datasetDist)
+                console.log("DEV_PARAM datasetDist OK as", dev.datasetDist)
             } else {
-                //console.log("DEV_PARAM onDatasetChanged datasetDist set to", pulseRuntimeSettings.datasetDist)
+                console.log("DEV_PARAM onDatasetChanged datasetDist set to", pulseRuntimeSettings.datasetDist)
                 dev.datasetDist = pulseRuntimeSettings.datasetDist
                 return
             }
@@ -1431,35 +1671,67 @@ ColumnLayout {
         // datasetSDDBT
         if (!pulseRuntimeSettings.datasetSDDBT_ok) {
             if (dev.datasetSDDBT === pulseRuntimeSettings.datasetSDDBT) {
+                pulseRuntimeSettings.datasetSDDBT_Copy = dev.datasetSDDBT
                 pulseRuntimeSettings.datasetSDDBT_ok = true
-                //console.log("DEV_PARAM datasetSDDBT OK as", dev.datasetSDDBT)
+                console.log("DEV_PARAM datasetSDDBT OK as", dev.datasetSDDBT)
             } else {
-                //console.log("DEV_PARAM onDatasetChanged datasetSDDBT set to", pulseRuntimeSettings.datasetSDDBT)
+                console.log("DEV_PARAM onDatasetChanged datasetSDDBT set to", pulseRuntimeSettings.datasetSDDBT)
                 dev.datasetSDDBT = pulseRuntimeSettings.datasetSDDBT
+                return
+            }
+        }
+
+        // datasetEuler
+        if (!pulseRuntimeSettings.datasetEuler_ok) {
+            if (dev.datasetEuler === pulseRuntimeSettings.datasetEuler) {
+                pulseRuntimeSettings.datasetEuler_Copy = dev.datasetEuler
+                pulseRuntimeSettings.datasetEuler_ok = true
+                console.log("DEV_PARAM datasetEuler OK as", dev.datasetEuler)
+            } else {
+                console.log("DEV_PARAM onDatasetChanged datasetEuler set to", pulseRuntimeSettings.datasetEuler)
+                dev.datasetEuler = pulseRuntimeSettings.datasetEuler
+                return
+            }
+        }
+
+        // datasetTemp
+        if (!pulseRuntimeSettings.datasetTemp_ok) {
+            if (dev.datasetTemp === pulseRuntimeSettings.datasetTemp) {
+                pulseRuntimeSettings.datasetTemp_Copy = dev.datasetTemp
+                pulseRuntimeSettings.datasetTemp_ok = true
+                console.log("DEV_PARAM datasetTemp OK as", dev.datasetTemp)
+            } else {
+                console.log("DEV_PARAM onDatasetChanged datasetTemp set to", pulseRuntimeSettings.datasetTemp)
+                dev.datasetTemp = pulseRuntimeSettings.datasetTemp
+                return
+            }
+        } else {
+            console.log("DEV_PARAM datasetTemp OK as", dev.datasetTemp)
+        }
+
+        // datasetTimestamp
+        if (!pulseRuntimeSettings.datasetTimestamp_ok) {
+            if (dev.datasetTimestamp === pulseRuntimeSettings.datasetTimestamp) {
+                pulseRuntimeSettings.datasetTimestamp_Copy = dev.datasetTimestamp
+                pulseRuntimeSettings.datasetTimestamp_ok = true
+                console.log("DEV_PARAM datasetTimestamp OK as", dev.datasetTimestamp)
+            } else {
+                console.log("DEV_PARAM onDatasetChanged datasetTimestamp set to", pulseRuntimeSettings.datasetTimestamp)
+                dev.datasetTimestamp = pulseRuntimeSettings.datasetTimestamp
                 return
             }
         }
 
         // Verify all
         if (pulseRuntimeSettings.datasetTimestamp_ok
+                && pulseRuntimeSettings.ch1Period_ok
                 && pulseRuntimeSettings.datasetTemp_ok
                 && pulseRuntimeSettings.datasetEuler_ok
                 && pulseRuntimeSettings.datasetDist_ok
                 && pulseRuntimeSettings.datasetSDDBT_ok) {
             pulseRuntimeSettings.onDatasetChanged = true
-            //console.log("DEV_PARAM onDatasetChanged complete")
+            console.log("DEV_PARAM onDatasetChanged complete, happy with everything")
         }
-        /*
-        if (pulseRuntimeSettings.datasetTimestamp_ok
-                && pulseRuntimeSettings.datasetChart_ok
-                && pulseRuntimeSettings.datasetTemp_ok
-                && pulseRuntimeSettings.datasetEuler_ok
-                && pulseRuntimeSettings.datasetDist_ok
-                && pulseRuntimeSettings.datasetSDDBT_ok) {
-            pulseRuntimeSettings.onDatasetChanged = true
-            //console.log("DEV_PARAM onDatasetChanged complete")
-        }
-        */
     }
 
     Timer {
@@ -1473,16 +1745,30 @@ ColumnLayout {
         }
     }
 
+    Timer {
+        id: turnOffConfiguringEchosounderMessageTimer
+        repeat: false
+        interval: 200
+        onTriggered: {
+            pulseRuntimeSettings.echogramPausedForConfig = false
+        }
+    }
+
     function datasetChartSetup () {
         if (dev === null)
             return
         // datasetChart
         if (!pulseRuntimeSettings.datasetChart_ok) {
-            if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
+
+            if (dev.datasetChart === "1") {
+            //if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
                 pulseRuntimeSettings.datasetChart_ok = true
+                turnOffConfiguringEchosounderMessageTimer.start()
+                logAllDevSetupAsCompleted()
                 //console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
             } else {
-                dev.datasetChart = pulseRuntimeSettings.datasetChart
+                pulseRuntimeSettings.datasetChart = "1"
+                //dev.datasetChart = pulseRuntimeSettings.datasetChart
                 //console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
                 return
             }
@@ -1511,10 +1797,11 @@ ColumnLayout {
         // transFreq
         if (!pulseRuntimeSettings.transFreq_ok) {
             if (dev.transFreq === pulseRuntimeSettings.transFreq) {
+                pulseRuntimeSettings.transFreq_Copy = dev.transFreq
                 pulseRuntimeSettings.transFreq_ok = true
-                //console.log("DEV_PARAM transFreq OK as", dev.transFreq)
+                console.log("DEV_PARAM transFreq OK as", dev.transFreq)
             } else {
-                //console.log("DEV_PARAM onTransChanged transFreq set to", pulseRuntimeSettings.transFreq)
+                console.log("DEV_PARAM onTransChanged transFreq set to", pulseRuntimeSettings.transFreq)
                 dev.transFreq = pulseRuntimeSettings.transFreq
                 return
             }
@@ -1523,10 +1810,11 @@ ColumnLayout {
         // transPulse
         if (!pulseRuntimeSettings.transPulse_ok) {
             if (dev.transPulse === pulseRuntimeSettings.transPulse) {
+                pulseRuntimeSettings.transPulse_Copy = dev.transPulse
                 pulseRuntimeSettings.transPulse_ok = true
-                //console.log("DEV_PARAM transPulse OK as", dev.transPulse)
+                console.log("DEV_PARAM transPulse OK as", dev.transPulse)
             } else {
-                //console.log("DEV_PARAM onTransChanged transPulse set to", pulseRuntimeSettings.transPulse)
+                console.log("DEV_PARAM onTransChanged transPulse set to", pulseRuntimeSettings.transPulse)
                 dev.transPulse = pulseRuntimeSettings.transPulse
                 return
             }
@@ -1535,10 +1823,11 @@ ColumnLayout {
         // transBoost
         if (!pulseRuntimeSettings.transBoost_ok) {
             if (dev.transBoost === pulseRuntimeSettings.transBoost) {
+                pulseRuntimeSettings.transBoost_Copy = dev.transBoost
                 pulseRuntimeSettings.transBoost_ok = true
-                //console.log("DEV_PARAM transBoost OK as", dev.transBoost)
+                console.log("DEV_PARAM transBoost OK as", dev.transBoost)
             } else {
-                //console.log("DEV_PARAM onTransChanged transBoost set to", pulseRuntimeSettings.transBoost)
+                console.log("DEV_PARAM onTransChanged transBoost set to", pulseRuntimeSettings.transBoost)
                 dev.transBoost = pulseRuntimeSettings.transBoost
                 return
             }
@@ -1558,7 +1847,7 @@ ColumnLayout {
         if (true){
             pulseRuntimeSettings.dspHorSmooth_ok = true
             pulseRuntimeSettings.onDspSetupChanged = true
-            console.log("DEV_PARAM onDspSetupChanged set to ", pulseRuntimeSettings.onDspSetupChanged)
+            console.log("DEV_PARAM onDspSetupChanged override to ", pulseRuntimeSettings.onDspSetupChanged)
             return
         }
 
@@ -1597,10 +1886,11 @@ ColumnLayout {
         // soundSpeed
         if (!pulseRuntimeSettings.soundSpeed_ok) {
             if (dev.soundSpeed === pulseRuntimeSettings.soundSpeed) {
+                pulseRuntimeSettings.soundSpeed_Copy = dev.soundSpeed
                 pulseRuntimeSettings.soundSpeed_ok = true
-                //console.log("DEV_PARAM soundSpeed OK as", dev.soundSpeed)
+                console.log("DEV_PARAM soundSpeed OK as", dev.soundSpeed)
             } else {
-                //console.log("DEV_PARAM onSoundChanged soundSpeed set to", pulseRuntimeSettings.soundSpeed)
+                console.log("DEV_PARAM onSoundChanged soundSpeed set to", pulseRuntimeSettings.soundSpeed)
                 dev.soundSpeed = pulseRuntimeSettings.soundSpeed
                 return
             }
@@ -1622,6 +1912,7 @@ ColumnLayout {
         console.log("DEV_PARAM_COMPLETE: chartSamples is ", dev.chartSamples)
         console.log("DEV_PARAM_COMPLETE: chartResolution is ", dev.chartResolution)
         console.log("DEV_PARAM_COMPLETE: chartOffset is ", dev.chartOffset)
+        console.log("DEV_PARAM_COMPLETE: ch1Period is ", dev.ch1Period)
         console.log("DEV_PARAM_COMPLETE: datasetTimestamp is ", dev.datasetTimestamp)
         console.log("DEV_PARAM_COMPLETE: datasetChart is ", dev.datasetChart)
         console.log("DEV_PARAM_COMPLETE: datasetTemp is ", dev.datasetTemp)
@@ -1676,7 +1967,9 @@ ColumnLayout {
                 pulseRuntimeSettings.transFreq = desiredFrequency
 
             } else {
+                //Pulse Blue
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
+                //doBottomTracking()
             }
         }
     }
@@ -1711,6 +2004,12 @@ ColumnLayout {
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
 
+        function onEchogramPausedForConfigChanged () {
+            if (pulseRuntimeSettings.echogramPausedForConfig) {
+                turnOffConfiguringEchosounderMessageTimer.start()
+            }
+        }
+
         function onEchoSounderRebootChanged () {
             if (pulseRuntimeSettings.echoSounderReboot) {
                 if (dev === null)
@@ -1719,12 +2018,17 @@ ColumnLayout {
                     return
                 dev.reboot()
                 resetAllSetupStates()
+                //pulseRuntimeSettings.userManualSetName = "..."
+                pulseRuntimeSettings.echoSounderReboot = false
             }
         }
 
         function onUserManualSetNameChanged () {
             if (pulseRuntimeSettings.userManualSetName !== "...") {
+                console.log("DEV_PARAM: onUserManualSetNameChanged observed, now we configure the device")
                 configurePulseDevice()
+            } else {
+                console.log("DEV_PARAM: onUserManualSetNameChanged observed, but devName is ... so nothing will happen")
             }
         }
 
@@ -1745,6 +2049,7 @@ ColumnLayout {
                 pulseRuntimeSettings.forceUpdateResolution = true
                 pulseRuntimeSettings.pulseBlueResSetOnce = false
                 pulseRuntimeSettings.doDynamicResolution = false
+                pulseRuntimeSettings.swapDeviceNow = false
                 //settingsCompleted = false
                 //deviceIdentified = false
                 //delayTimer.start()

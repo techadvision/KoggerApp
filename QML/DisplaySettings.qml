@@ -48,17 +48,20 @@ GridLayout {
                     onPressedChanged: {
                         if(pressed) {
                             model = dataset.channelsNameList()
+                            console.log("DisplaySettings: channel1Combo onPressedChanged provided model", model)
                         }
                     }
 
                     Component.onCompleted: {
                         model = dataset.channelsNameList()
+                        console.log("DisplaySettings: channel1Combo onCompleted provided model", model)
                         channel1Combo.currentIndex = 1
                     }
 
                     onCurrentTextChanged: {
                         var ch1 = channel1Combo.currentText !== qsTr("None") ? channel1Combo.currentText !== qsTr("First") ? channel1Combo.currentText : 32767 : 32768
                         var ch2 = channel2Combo.currentText !== qsTr("None") ? channel2Combo.currentText !== qsTr("First") ? channel2Combo.currentText : 32767 : 32768
+                        console.log("DisplaySettings: onCurrentTextChanged in channel1Combo: channel1", ch1, "channel2", ch2)
 
                         targetPlot.plotDatasetChannel(ch1, ch2)
                         core.setSideScanChannels(ch1, ch2);
@@ -74,10 +77,13 @@ GridLayout {
                     onPressedChanged: {
                         if(pressed) {
                             model = dataset.channelsNameList()
+                            console.log("DisplaySettings: channel2Combo onPressedChanged provided model", model)
                         }
                     }
 
                     Component.onCompleted: {
+                        model = dataset.channelsNameList()
+                        console.log("DisplaySettings: channel2Combo onCompleted provided model", model)
                         channel1Combo.currentIndex = 0
 
                     }
@@ -85,9 +91,42 @@ GridLayout {
                     onCurrentTextChanged: {
                         var ch1 = channel1Combo.currentText !== qsTr("None") ? channel1Combo.currentText !== qsTr("First") ? channel1Combo.currentText : 32767 : 32768
                         var ch2 = channel2Combo.currentText !== qsTr("None") ? channel2Combo.currentText !== qsTr("First") ? channel2Combo.currentText : 32767 : 32768
+                        console.log("DisplaySettings: onCurrentTextChanged in channel2Combo: channel1", ch1, "channel2", ch2)
 
                         targetPlot.plotDatasetChannel(ch1, ch2)
                         core.setSideScanChannels(ch1, ch2);
+                    }
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onUserManualSetNameChanged () {
+                        if (pulseRuntimeSettings.userManualSetName === "..."){
+                            return
+                        }
+                        channel1Combo.model = dataset.channelsNameList()
+                        console.log("DisplaySettings: onUserManualSetNameChanged provided channel1Combo.model", channel1Combo.model)
+                        channel2Combo.model = dataset.channelsNameList()
+                        console.log("DisplaySettings: onUserManualSetNameChanged provided channel2Combo.model", channel2Combo.model)
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                            let channel1Index = 1
+                            let channel2Index = 0
+                            channel1Combo.currentIndex = channel1Index
+                            channel2Combo.currentIndex = channel2Index
+                            console.log("DisplaySettings: 2D scan: channel1", channel1Index, "channel2", channel2Index)
+                        }
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
+                            let channel1Index = 2
+                            let channel2Index = 3
+                            console.log("DisplaySettings: Side scan: normal direction, channel1", channel1Index, "channel2", channel2Index)
+                            if (!PulseSettings.isSideScanCableFacingFront) {
+                                channel1Index = 3
+                                channel2Index = 2
+                                console.log("DisplaySettings: Side scan: mounted wrong direction, channel1", channel1Index, "channel2", channel2Index)
+                            }
+                            channel1Combo.currentIndex = channel1Index
+                            channel2Combo.currentIndex = channel2Index
+                        }
                     }
                 }
             }
@@ -97,10 +136,10 @@ GridLayout {
                     id: echogramVisible
                     Layout.fillWidth: true
                     //                        Layout.preferredWidth: 150
-                    checked: pulseRuntimeSettings.echogramVisible
+                    checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.echogramVisible : false
                     text: qsTr("Echogram")
                     onCheckedChanged: {
-                        pulseRuntimeSettings.echogramVisible = checked
+                        //pulseRuntimeSettings.echogramVisible = checked
                         targetPlot.plotEchogramVisible(checked)
                     }
                     Component.onCompleted: targetPlot.plotEchogramVisible(pulseRuntimeSettings.echogramVisible)
@@ -134,6 +173,21 @@ GridLayout {
                     Settings {
                         property alias echogramTypesList: echogramTypesList.currentIndex
                     }
+
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                                echogramTypesList.currentIndex = 0
+                            } else {
+                                echogramTypesList.currentIndex = 1
+                            }
+
+                        }
+                    }
                 }
             }
 
@@ -143,14 +197,25 @@ GridLayout {
                     id: bottomTrackVisible
                     Layout.fillWidth: true
                     text: qsTr("Bottom-Track")
-                    checked: pulseRuntimeSettings.bottomTrackVisible
+                    checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.bottomTrackVisible : false
                     onCheckedChanged: {
-                        pulseRuntimeSettings.bottomTrackVisible = checked
+                        //pulseRuntimeSettings.bottomTrackVisible = checked
                         targetPlot.plotBottomTrackVisible(checked)
+                        //targetPlot.plotBottomTrackVisible(false)
                     }
                     Component.onCompleted: {
                         //checked = false
-                        targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
+                        //targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
+                    }
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            bottomTrackVisible.checked = pulseRuntimeSettings.bottomTrackVisible
+                            console.log("DistProcessing: set bottomTrackVisible", pulseRuntimeSettings.bottomTrackVisible)
+                        }
                     }
                 }
 
@@ -159,26 +224,33 @@ GridLayout {
                     //                        Layout.fillWidth: true
                     //                        Layout.preferredWidth: 150
                     model: [qsTr("Line1"), qsTr("Line2"), qsTr("Dot1"), qsTr("Dot2"), qsTr("DotLine")]
-                    currentIndex: pulseRuntimeSettings.bottomTrackVisibleModel
+                    currentIndex: pulseRuntimeSettings !== null ? pulseRuntimeSettings.bottomTrackVisibleModel : 0
 
                     onCurrentIndexChanged: {
-                        pulseRuntimeSettings.bottomTrackVisibleModel = currentIndex
+                        //pulseRuntimeSettings.bottomTrackVisibleModel = currentIndex
                         targetPlot.plotBottomTrackTheme(currentIndex)
                     }
                     Component.onCompleted: targetPlot.plotBottomTrackTheme(pulseRuntimeSettings.bottomTrackVisibleModel)
 
                     Settings {
-                        //property alias bottomTrackThemeList: bottomTrackThemeList.currentIndex
+                        property alias bottomTrackThemeList: bottomTrackThemeList.currentIndex
                     }
                 }
             }
+
+            /*
+
+              TODO for "bottomTrackVisible and bottomTrackThemeList: Now commented out to fix binding loop, will it work?
+              qrc:/DisplaySettings.qml:157:17: QML CCombo: Binding loop detected for property "currentIndex"
+              qrc:/DisplaySettings.qml:142:17: QML CCheck: Binding loop detected for property "checked"
+              */
 
             RowLayout {
                 CCheck {
                     id: rangefinderVisible
                     Layout.fillWidth: true
                     text: qsTr("Rangefinder")
-                    checked: pulseRuntimeSettings.rangefinderVisible
+                    checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.rangefinderVisible : false
                     onCheckedChanged: {
                         pulseRuntimeSettings.rangefinderVisible = checked
                         targetPlot.plotRangefinderVisible(checked)
@@ -189,7 +261,7 @@ GridLayout {
                 CCombo  {
                     id: rangefinderThemeList
                     model: [qsTr("Text"), qsTr("Line"), qsTr("Dot")]
-                    currentIndex: pulseRuntimeSettings.rangefinderVisibleModel
+                    currentIndex: pulseRuntimeSettings !== null ? pulseRuntimeSettings.rangefinderVisibleModel : 0
 
                     onCurrentIndexChanged: {
                         pulseRuntimeSettings.rangefinderVisibleModel = currentIndex
@@ -198,7 +270,7 @@ GridLayout {
                     Component.onCompleted: targetPlot.plotRangefinderTheme(pulseRuntimeSettings.rangefinderVisibleModel)
 
                     Settings {
-                        //property alias rangefinderThemeList: rangefinderThemeList.currentIndex
+                        property alias rangefinderThemeList: rangefinderThemeList.currentIndex
                     }
                 }
             }
@@ -208,7 +280,7 @@ GridLayout {
                 visible: instruments > 1
                 id: ahrsVisible
                 text: qsTr("Attitude")
-                checked: pulseRuntimeSettings.ahrsVisible
+                checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.ahrsVisible : false
                 onCheckedChanged: {
                     pulseRuntimeSettings.ahrsVisible = checked
                     targetPlot.plotAttitudeVisible(checked)
@@ -341,7 +413,7 @@ GridLayout {
                 visible: instruments > 1
                 CCheck {
                     id: gnssVisible
-                    checked: pulseRuntimeSettings.ahrsVisible
+                    checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.ahrsVisible : false
                     Layout.fillWidth: true
                     text: qsTr("GNSS data")
 
@@ -352,7 +424,7 @@ GridLayout {
                     Component.onCompleted: targetPlot.plotGNSSVisible(pulseRuntimeSettings.ahrsVisible, 1)
 
                     Settings {
-                        //property alias gnssVisible: gnssVisible.checked
+                        property alias gnssVisible: gnssVisible.checked
                     }
                 }
             }
@@ -363,7 +435,7 @@ GridLayout {
                     CCheck {
                         id: gridVisible
                         Layout.fillWidth: true
-                        checked: pulseRuntimeSettings.gridVisible
+                        checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.gridVisible : false
                         text: qsTr("Grid")
                         onCheckedChanged: {
                             pulseRuntimeSettings.gridVisible = checked
@@ -374,7 +446,7 @@ GridLayout {
                         id: fillWidthGrid
                         Layout.fillWidth: true
                         text: qsTr("fill")
-                        checked: pulseRuntimeSettings.fillWidthGrid
+                        checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.fillWidthGrid : false
                         onCheckedChanged: {
                             pulseRuntimeSettings.fillWidthGrid = checked
                             targetPlot.plotGridFillWidth(checked)
@@ -385,7 +457,7 @@ GridLayout {
                             targetPlot.plotGridFillWidth(pulseRuntimeSettings.fillWidthGrid)
                         }
                         Settings {
-                            //property alias fillWidthGrid: fillWidthGrid.checked
+                            property alias fillWidthGrid: fillWidthGrid.checked
                         }
                     }
                 }
@@ -395,7 +467,7 @@ GridLayout {
                     from: 1
                     to: 24
                     stepSize: 1
-                    value: pulseRuntimeSettings.gridNumber
+                    value: pulseRuntimeSettings !== null ? pulseRuntimeSettings.gridNumber : 5
 
                     onValueChanged: {
                         pulseRuntimeSettings.gridNumber = gridNumber.value
@@ -404,7 +476,7 @@ GridLayout {
                     Component.onCompleted: targetPlot.plotGridVerticalNumber(pulseRuntimeSettings.gridNumber*gridVisible.checked)
 
                     Settings {
-                        //property alias gridNumber: gridNumber.value
+                        property alias gridNumber: gridNumber.value
                     }
                 }
             }
@@ -416,15 +488,16 @@ GridLayout {
                     id: angleVisible
                     Layout.fillWidth: true
                     text: qsTr("Angle range, °")
-                    checked: pulseRuntimeSettings.angleVisible
+                    checked: false
+                    //checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.angleVisible : false
                     onCheckedChanged: {
-                        pulseRuntimeSettings.angleVisible = checked
+                        //pulseRuntimeSettings.angleVisible = checked
                         targetPlot.plotAngleVisibility(checked)
                     }
-                    Component.onCompleted: targetPlot.plotAngleVisibility(pulseRuntimeSettings.angleVisible)
+                    Component.onCompleted: targetPlot.plotAngleVisibility(false)
 
                     Settings {
-                        //property alias angleVisible: angleVisible.checked
+                        property alias angleVisible: angleVisible.checked
                     }
                 }
 
@@ -468,15 +541,16 @@ GridLayout {
                     id: velocityVisible
                     Layout.fillWidth: true
                     text: qsTr("Velocity range, m/s")
-                    checked: pulseRuntimeSettings.velocityVisible
+                    checked: false
+                    //checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.velocityVisible : false
                     onCheckedChanged: {
-                        pulseRuntimeSettings.velocityVisible = checked
+                        //pulseRuntimeSettings.velocityVisible = checked
                         targetPlot.plotVelocityVisible(checked)
                     }
-                    Component.onCompleted: targetPlot.plotVelocityVisible(pulseRuntimeSettings.velocityVisible)
+                    Component.onCompleted: targetPlot.plotVelocityVisible(false)
 
                     Settings {
-                        //property alias velocityVisible: velocityVisible.checked
+                        property alias velocityVisible: velocityVisible.checked
                     }
                 }
 
@@ -522,7 +596,7 @@ GridLayout {
 
                 CCheck {
                     id: distanceAutoRange
-                    checked: pulseRuntimeSettings.distanceAutoRange
+                    checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.distanceAutoRange : false
                     Layout.fillWidth: true
                     text: qsTr("Distance auto range")
 
@@ -539,7 +613,7 @@ GridLayout {
                 CCombo  {
                     id: distanceAutoRangeList
                     model: [qsTr("Last data       "), qsTr("Last on screen"), qsTr("Max on screen")]
-                    currentIndex: pulseRuntimeSettings.distanceAutoRangeCurrentIndex
+                    currentIndex: pulseRuntimeSettings !== null ? pulseRuntimeSettings.distanceAutoRangeCurrentIndex : 0
                     onCurrentIndexChanged: distanceAutoRangeRow.distanceAutorangeMode()
                     Component.onCompleted: distanceAutoRangeRow.distanceAutorangeMode()
 
@@ -590,11 +664,9 @@ GridLayout {
                         core.fixBlackStripesState = pulseRuntimeSettings.fixBlackStripesState
                     }
 
-                    /*
                     Settings {
                         property alias fixBlackStripesCheckButton: fixBlackStripesCheckButton.checked
                     }
-                    */
                 }
 
                 SpinBoxCustom {
@@ -668,12 +740,10 @@ GridLayout {
                         core.fixBlackStripesForwardSteps = currValue
                     }
 
-
-                    /*
                     Settings {
-                        //property alias fixBlackStripesForwardStepsSpinBox: fixBlackStripesForwardStepsSpinBox.value
+                        property alias fixBlackStripesForwardStepsSpinBox: fixBlackStripesForwardStepsSpinBox.value
                     }
-                    */
+
 
                 }
 
@@ -743,26 +813,24 @@ GridLayout {
                         core.fixBlackStripesBackwardSteps = currValue
                     }
 
-
-                    /*
                     Settings {
-                        //property alias fixBlackStripesBackwardStepsSpinBox: fixBlackStripesBackwardStepsSpinBox.value
+                        property alias fixBlackStripesBackwardStepsSpinBox: fixBlackStripesBackwardStepsSpinBox.value
                     }
-                    */
+
 
 
                 }
         }
 
             Settings {
-                //property alias echogramVisible: echogramVisible.checked
-                //property alias rangefinderVisible: rangefinderVisible.checked
-                //property alias postProcVisible: bottomTrackVisible.checked
-                //property alias ahrsVisible: ahrsVisible.checked
-                //property alias gridVisible: gridVisible.checked
-                //property alias dopplerBeamVisible: dopplerBeamVisible.checked
-                //property alias dopplerInstrumentVisible: dopplerInstrumentVisible.checked
-                //property alias horisontalVertical: horisontalVertical.checked
+                property alias echogramVisible: echogramVisible.checked
+                property alias rangefinderVisible: rangefinderVisible.checked
+                property alias postProcVisible: bottomTrackVisible.checked
+                property alias ahrsVisible: ahrsVisible.checked
+                property alias gridVisible: gridVisible.checked
+                property alias dopplerBeamVisible: dopplerBeamVisible.checked
+                property alias dopplerInstrumentVisible: dopplerInstrumentVisible.checked
+                property alias horisontalVertical: horisontalVertical.checked
             }
         }
 
@@ -800,6 +868,46 @@ GridLayout {
                                             );
             }
 
+            Connections {
+                target: pulseRuntimeSettings
+                function onDevConfiguredChanged () {
+                    if (pulseRuntimeSettings === null) {
+                        return
+                    }
+                    if (!pulseRuntimeSettings.devConfigured) {
+                        return
+                    }
+                    if (pulseRuntimeSettings.userManualSetName === "...") {
+                        return
+                    }
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        return
+                    }
+                    targetPlot.refreshDistParams(bottomTrackList.currentIndex,
+                                                 bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
+                                                 bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value* 0.01 : 0,
+                                                 bottomTrackMinRange.checked ? bottomTrackMinRangeValue.realValue : 0,
+                                                 bottomTrackMaxRange.checked ? bottomTrackMaxRangeValue.realValue : 1000,
+                                                 bottomTrackGainSlope.checked ? bottomTrackGainSlopeValue.realValue : 1,
+                                                 bottomTrackThreshold.checked ? bottomTrackThresholdValue.realValue : 0,
+                                                 bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueX.value *  0.001 : 0,
+                                                 bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value *  0.001 : 0,
+                                                 bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
+                    console.log("DistProcessing: executing targetPlot.refreshDistParams")
+                    triggerProcessingTimer.start()
+                }
+            }
+
+            Timer {
+                id: triggerProcessingTimer
+                repeat: false
+                interval: 500
+                onTriggered: {
+                    console.log("DistProcessing: delayed executing bottomTrackProcessingGroup.updateProcessing()")
+                    bottomTrackProcessingGroup.updateProcessing()
+                }
+            }
+
             RowLayout {
                 ParamSetup {
                     paramName: qsTr("Preset:")
@@ -809,7 +917,7 @@ GridLayout {
                         //                        Layout.fillWidth: true
                         Layout.preferredWidth: 250
                         model: [qsTr("Normal 2D"), qsTr("Narrow 2D"), qsTr("Echogram Side-Scan")]
-                        currentIndex: pulseRuntimeSettings.distProcessing[0]
+                        currentIndex: pulseRuntimeSettings !== null ? pulseRuntimeSettings.distProcessing[0]: 0
 
 //                        onCurrentIndexChanged: bottomTrackProcessingGroup.updateProcessing()
 
@@ -818,11 +926,25 @@ GridLayout {
                         }
 
                         Component.onCompleted: {
-                            currentIndex = pulseRuntimeSettings.distProcessing[0]
+                            //currentIndex = pulseRuntimeSettings.distProcessing[0]
                         }
 
                         Settings {
                             property alias bottomTrackList: bottomTrackList.currentIndex
+                        }
+                        Connections {
+                            target: pulseRuntimeSettings
+                            function onUserManualSetNameChanged () {
+                                if (pulseRuntimeSettings === null)
+                                    return
+                                if (pulseRuntimeSettings.userManualSetName === "...") {
+                                    return
+                                }
+                                if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                    bottomTrackList.currentIndex = pulseRuntimeSettings.distProcessing[0]
+                                    console.log("DistProcessing: enable preset, theme", pulseRuntimeSettings.distProcessing[0])
+                                }
+                            }
                         }
                     }
                 }
@@ -837,6 +959,7 @@ GridLayout {
                     onCheckedChanged: {
                         if (checked) {
                             targetPlot.setGainSlope(bottomTrackGainSlopeValue.realValue)
+                            console.log("DistProcessing: bottomTrackGainSlope onCheckedChanged, triggered targetPlot.setGainSlope with value", bottomTrackGainSlopeValue.realValue)
                         }
                     }
 
@@ -847,6 +970,20 @@ GridLayout {
 
                     Settings {
                         property alias bottomTrackGainSlope: bottomTrackGainSlope.checked
+                    }
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings === null)
+                                return
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackGainSlope.checked = true
+                                console.log("DistProcessing: enable bottomTrackGainSlope")
+                            }
+                        }
                     }
                 }
 
@@ -876,20 +1013,35 @@ GridLayout {
                     onRealValueChanged: {
                         if (bottomTrackGainSlope.checked) {
                             targetPlot.setGainSlope(bottomTrackGainSlopeValue.realValue)
+                            console.log("DistProcessing: bottomTrackGainSlope onRealValueChanged, triggered targetPlot.setGainSlope with value", bottomTrackGainSlopeValue.realValue)
                         }
                     }
 
 
                     Component.onCompleted: {
-                        value = pulseRuntimeSettings.distProcessing[5] * 100
+                        //value = pulseRuntimeSettings.distProcessing[5] * 100
+                    }
+
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings === null)
+                                return
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackGainSlopeValue.value = pulseRuntimeSettings.distProcessing[5]
+                                console.log("DistProcessing: value bottomTrackGainSlope", pulseRuntimeSettings.distProcessing[5], "real value", bottomTrackGainSlopeValue.realValue)
+                            }
+                        }
                     }
 
 
-                    /*
                     Settings {
                         property alias bottomTrackGainSlopeValue: bottomTrackGainSlopeValue.value
                     }
-                    */
+
                 }
             }
 
@@ -963,6 +1115,7 @@ GridLayout {
                     onCheckedChanged: {
                         if (checked) {
                             targetPlot.setWindowSize(bottomTrackWindowValue.value)
+                            console.log("DistProcessing: bottomTrackWindow onCheckedChanged, triggered targetPlot.setWindowSize with value", bottomTrackWindowValue.value)
                         }
                     }
 
@@ -973,6 +1126,20 @@ GridLayout {
 
                     Settings {
                         property alias bottomTrackWindow: bottomTrackWindow.checked
+                    }
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings === null)
+                                return
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackWindow.checked = true
+                                console.log("DistProcessing: enable bottomTrackWindow")
+                            }
+                        }
                     }
                 }
 
@@ -986,6 +1153,7 @@ GridLayout {
                     onValueChanged: {
                         if (bottomTrackWindow.checked) {
                             targetPlot.setWindowSize(bottomTrackWindowValue.value)
+                            console.log("DistProcessing: bottomTrackWindowValue changed, triggered targetPlot.setWindowSize")
                         }
                     }
 
@@ -995,6 +1163,20 @@ GridLayout {
 
                     Settings {
                         property alias bottomTrackWindowValue: bottomTrackWindowValue.value
+                    }
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings === null)
+                                return
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackWindowValue.value = pulseRuntimeSettings.distProcessing[1]
+                                console.log("DistProcessing: value bottomTrackWindow", pulseRuntimeSettings.distProcessing[1])
+                            }
+                        }
                     }
                 }
             }
@@ -1133,7 +1315,21 @@ GridLayout {
 
                     Settings {
                         property alias bottomTrackMaxRange: bottomTrackMaxRange.checked
-                        //property alias bottomTrackMaxRange: true
+                    }
+
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings === null)
+                                return
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackMaxRange.checked = true
+                                console.log("DistProcessing: enable bottomTrackMaxRange")
+                            }
+                        }
                     }
                 }
 
@@ -1175,6 +1371,21 @@ GridLayout {
                     Settings {
                         property alias bottomTrackMaxRangeValue: bottomTrackMaxRangeValue.value
                     }
+
+                    Connections {
+                        target: pulseRuntimeSettings
+                        function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings === null)
+                                return
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackMaxRangeValue.value = pulseRuntimeSettings.distProcessing[4] * 1000
+                                console.log("DistProcessing: value bottomTrackMaxRangeValue", pulseRuntimeSettings.distProcessing[4])
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1191,6 +1402,11 @@ GridLayout {
                             targetPlot.setOffsetY(bottomTrackSensorOffsetValueY.value * 0.001)
                             targetPlot.setOffsetZ(bottomTrackSensorOffsetValueZ.value * 0.001)
                         }
+                    }
+
+                    Component.onCompleted: {
+                        //checked = true
+                        checked = false
                     }
 
                     Settings {
