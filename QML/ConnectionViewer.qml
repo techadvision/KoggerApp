@@ -33,7 +33,9 @@ ColumnLayout {
             if (pulseRuntimeSettings.forceBreakConnection) {
                 console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection)
                 let isConnected = pulseRuntimeSettings.uuidSuccessfullyOpened !== ""
-                if (isConnected) {
+                if (pulseRuntimeSettings.isOpeningKlfFile) {
+                    console.log("forceBreakConnection triggered, bit should not break as the user opens a KLF file")
+                } else if (isConnected) {
                     console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection, "and isConnected", isConnected)
                     linkManagerWrapper.closeLink(pulseRuntimeSettings.uuidSuccessfullyOpened)
                 } else {
@@ -60,9 +62,11 @@ ColumnLayout {
                     }
 
                     return
-                } else {
+                } else if (!pulseRuntimeSettings.isOpeningKlfFile) {
                     console.log("forceBreakConnection for device",pulseRuntimeSettings.devName, "beta status", PulseSettings.isBetaTester, "expert status", PulseSettings.isExpert)
                     pulseRuntimeSettings.forceBreakConnection = true
+                } else {
+                    console.log("forceBreakConnection for device not relevant as the user is opening a KLF file")
                 }
             }
         }
