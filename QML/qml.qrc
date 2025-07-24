@@ -113,7 +113,6 @@
         <file>PulseInfoRecording.qml</file>
         <file>PulseInfoColorScheme.qml</file>
         <file>PulseInfoNmeaSettings.qml</file>
-        <file>AppContext.qml</file>
         <file>HorizontalPopupSelectController.qml</file>
         <file>SettingsCheckBox.qml</file>
         <file>SettingRow.qml</file>
