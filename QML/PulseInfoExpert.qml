@@ -65,6 +65,17 @@ Flickable {
 
         SettingRow {
             toggle: false
+            text: "Stop echogram during setup"
+            visible: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            SettingsCheckBox {
+                target: pulseSettings ? pulseSettings : undefined
+                targetPropertyName: "stopEchogramToConfigure"
+                initialChecked: pulseSettings.stopEchogramToConfigure
+            }
+        }
+
+        SettingRow {
+            toggle: false
             text: "Pulse blue booster"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
             HorizontalControllerDoubleSettings {
@@ -98,7 +109,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: chartOffsetSelection
-                values: [0, 5, 10, 15, 20, 25, 30]
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
 
                 onPulsePreferenceValueChanged: pulseRuntimeSettings.chartOffset = newValue
                 height: 80
@@ -113,7 +126,7 @@ Flickable {
                 Connections {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onChartOffsetChanged () {
-                        console.log("Detected pulseRuntimeSettings.chartOffset got new value ", pulseRuntimeSettings.chartOffset)
+                        console.log("DEV_PARAM: Detected pulseRuntimeSettings.chartOffset got new value ", pulseRuntimeSettings.chartOffset)
                         var idx = chartOffsetSelection.values.indexOf(pulseRuntimeSettings.chartOffset)
                         chartOffsetSelection.currentIndex = idx >= 0 ? idx : 0
                     }
@@ -199,10 +212,13 @@ Flickable {
         SettingRow {
             toggle: false
             text: "Experimental samples adjust (1358)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: samplesSelection
-                values: [1358, 1400, 1500, 1600, 1700, 1800, 1900, 2000]
+                values: [700, 750, 800, 850, 900, 950,
+                    1000 ,1050, 1100, 1150, 1200, 1250, 1300,
+                    1358, 1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750,
+                    1800, 1850, 1900, 1950, 2000]
 
                 onPulsePreferenceValueChanged: pulseRuntimeSettings.chartSamples = newValue
                 height: 80
@@ -220,6 +236,39 @@ Flickable {
                         console.log("Detected pulseRuntimeSettings.chartSamples got new value ", pulseRuntimeSettings.chartSamples)
                         var idx = samplesSelection.values.indexOf(pulseRuntimeSettings.chartSamples)
                         samplesSelection.currentIndex = idx >= 0 ? idx : 0
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Experimental resolution adjust (37)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
+            HorizontalControllerDoubleSettings {
+                id: resolutionSelection
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                    31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                    41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+
+                onPulsePreferenceValueChanged: pulseRuntimeSettings.chartResolution = newValue
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.chartResolution)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onChartResolutionChanged () {
+                        console.log("Detected pulseRuntimeSettings.chartResolution got new value ", pulseRuntimeSettings.chartResolution)
+                        var idx = resolutionSelection.values.indexOf(pulseRuntimeSettings.chartResolution)
+                        resolutionSelection.currentIndex = idx >= 0 ? idx : 0
                     }
                 }
             }
@@ -262,39 +311,6 @@ Flickable {
                 }
             }
         }
-
-        /*
-        SettingRow {
-            text: "Experimental chart samples adjust"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
-            HorizontalControllerDoubleSettings {
-                id: chartSamplesSelection
-                values: [500, 510, 520, 530, 540, 550, 560, 570, 580, 590,
-                600, 610, 620, 630, 640, 650, 660, 670, 680, 690,
-                700, 710, 720, 730, 740, 750, 760, 770, 780, 790,
-                800, 810, 820, 830, 840, 850, 860, 870, 880, 890]
-
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.chartSamples = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.chartSamples)
-                    currentIndex = idx >= 0 ? idx : 0
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onChartSamplesChanged () {
-                        console.log("Detected pulseRuntimeSettings.chartSamples got new value ", pulseRuntimeSettings.chartSamples)
-                        var idx = chartSamplesSelection.values.indexOf(pulseRuntimeSettings.chartSamples)
-                        chartSamplesSelection.currentIndex = idx >= 0 ? idx : 0
-                    }
-                }
-            }
-        }
-        */
 
         SettingRow {
             toggle: false
@@ -340,24 +356,33 @@ Flickable {
                 function onPushFakeDepthChanged () {
                     dataset.addRangefinder(0, pulseRuntimeSettings.fakeDepthAddition)
                     pulseRuntimeSettings.pushFakeDepth = false
-                    /*
-                    let i = 0
-                    if (pulseRuntimeSettings.pushFakeDepth) {
-                        for (i = 0; i < 20; ++i) {
-                            dataset.addRangefinder(0, pulseRuntimeSettings.fakeDepthAddition)
-                        }
-                    }
-                    pulseRuntimeSettings.pushFakeDepth = false
-                    initialChecked = false
-                    */
                 }
             }
         }
 
         SettingRow {
             toggle: false
+            id: depthMeasureToggle
+            text: "Use tracker depth measure"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "bottomTrackVisible"
+                initialChecked: pulseRuntimeSettings.bottomTrackVisible
+            }
+            Connections {
+                target: pulseRuntimeSettings
+                function onBottomTrackVisibleChanged () {
+                    console.log("DEV_PARAM: Measure by rangefinder (instead of bottom track)?", pulseRuntimeSettings.bottomTrackVisible)
+                }
+            }
+        }
+
+        /*
+        SettingRow {
+            toggle: false
             text: "Chart: Resolution"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.is2DTransducer
             Text {
                 font.pixelSize: 30
                 text: pulseRuntimeSettings.chartResolution
@@ -384,6 +409,7 @@ Flickable {
             }
 
         }
+        */
 
         SettingRow {
             toggle: true
@@ -692,7 +718,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.chartResolution
+                text: pulseRuntimeSettings.chartResolution_Copy
+                //text: dev.chartResolution
             }
         }
 
@@ -703,7 +730,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.chartSamples
+                text: pulseRuntimeSettings.chartSamples_Copy
+                //text: dev.chartSamples
             }
         }
 
@@ -711,35 +739,12 @@ Flickable {
             toggle: false
             text: "Chart: Offset"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_chartOffset
-                minimum: 0
-                maximum: 50
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.chartOffset
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.chartOffset = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onChartOffsetChanged () {
-                        console.log("Detected pulseRuntimeSettings.chartOffset got new value ", pulseRuntimeSettings.chartOffset)
-                        //mod_chartOffset.currentValue = pulseRuntimeSettings.chartOffset
-                    }
-                }
-            }
-            */
 
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.chartOffset
+                text: pulseRuntimeSettings.chartOffset_Copy
+                //text: dev.chartOffset
             }
-
-
         }
 
         SettingRow {
@@ -747,34 +752,11 @@ Flickable {
             text: "Distance: Max"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_distMax
-                minimum: 50000
-                maximum: 100000
-                stepSize: 1000
-
-                currentValue: pulseRuntimeSettings.distMax
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.distMax = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDistMaxChanged () {
-                        console.log("Detected pulseRuntimeSettings.distMax got new value ", pulseRuntimeSettings.distMax)
-                        //mod_distMax.currentValue = pulseRuntimeSettings.distMax
-                    }
-                }
-            }
-            */
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.distMax
+                text: pulseRuntimeSettings.distMax_Copy
+                //text: dev.distMax
             }
-
         }
 
         SettingRow {
@@ -784,7 +766,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.distDeadZone
+                text: pulseRuntimeSettings.distDeadZone_Copy
+                //text: dev.distDeadZone
             }
         }
 
@@ -793,35 +776,11 @@ Flickable {
             text: "Distance: Confidence"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_distConfidence
-                minimum: 12
-                maximum: 15
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.distConfidence
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.distConfidence = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDistConfidenceChanged () {
-                        console.log("Detected pulseRuntimeSettings.distConfidence got new value ", pulseRuntimeSettings.distConfidence)
-                        //mod_distConfidence.currentValue = pulseRuntimeSettings.distConfidence
-                    }
-                }
-            }
-            */
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.distConfidence
+                text: pulseRuntimeSettings.distConfidence_Copy
+                //text: dev.distConfidence
             }
-
-
         }
 
         SettingRow {
@@ -831,7 +790,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.transPulse
+                text: pulseRuntimeSettings.transPulse_Copy
+                //text: dev.transPulse
             }
         }
 
@@ -840,36 +800,11 @@ Flickable {
             text: "Transducer: Frequency"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_transFreq
-                minimum: 400
-                maximum: 850
-                stepSize: 10
-
-                currentValue: pulseRuntimeSettings.transFreq
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.transFreq = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onTransFreqChanged () {
-                        console.log("Detected pulseRuntimeSettings.transFreq got new value ", pulseRuntimeSettings.transFreq)
-                        //mod_transFreq.currentValue = pulseRuntimeSettings.transFreq
-                    }
-                }
-            }
-            */
-
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.transFreq
+                text: pulseRuntimeSettings.transFreq_Copy
+                //text: dev.transFreq
             }
-
-
         }
 
         SettingRow {
@@ -879,7 +814,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.transBoost
+                text: pulseRuntimeSettings.transBoost_Copy
+                //text: dev.transBoost
             }
         }
 
@@ -890,7 +826,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.dspHorSmooth
+                text: pulseRuntimeSettings.dspHorSmooth_Copy
+                //text: dev.dspHorSmooth
             }
         }
 
@@ -899,35 +836,11 @@ Flickable {
             text: "Sound Of Speed"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-
-            HorizontalControllerMinMaxSettings {
-                id: mod_soundSpeed
-                minimum: 1300
-                maximum: 1700
-                stepSize: 10
-
-                currentValue: pulseRuntimeSettings.soundSpeed / 1000
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.soundSpeed = newValue *1000
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onSoundSpeedChanged () {
-                        console.log("Detected pulseRuntimeSettings.soundSpeed got new value ", pulseRuntimeSettings.soundSpeed)
-                    }
-                }
-
-            }
-            */
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.soundSpeed
+                text: pulseRuntimeSettings.soundSpeed_Copy
+                //text: dev.soundSpeed
             }
-
         }
 
         SettingRow {
@@ -935,32 +848,10 @@ Flickable {
             text: "Ch1 Period"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_ch1Period
-                minimum: 50
-                maximum: 100
-                stepSize: 10
-
-                currentValue: pulseRuntimeSettings.ch1Period
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.ch1Period = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onCh1PeriodChanged () {
-                        console.log("Detected pulseRuntimeSettings.ch1Period got new value ", pulseRuntimeSettings.ch1Period)
-                        //mod_ch1Period.currentValue = pulseRuntimeSettings.ch1Period
-                    }
-                }
-            }
-            */
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.ch1Period
+                text: pulseRuntimeSettings.ch1Period_Copy
+                //text: dev.ch1Period
             }
 
         }
@@ -970,36 +861,11 @@ Flickable {
             text: "Show chart"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_datasetChart
-                minimum: 0
-                maximum: 1
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.datasetChart
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.datasetChart = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDatasetChartChanged () {
-                        console.log("Detected pulseRuntimeSettings.datasetChart got new value ", pulseRuntimeSettings.datasetChart)
-                        //mod_datasetChart.currentValue = pulseRuntimeSettings.datasetChart
-                    }
-                }
-            }
-            */
-
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.datasetChart ? "On" : "Off"
+                text: pulseRuntimeSettings.datasetChart_Copy ? "On" : "Off"
+                //text: dev.datasetChart ? "On" : "Off"
             }
-
-
         }
 
         SettingRow {
@@ -1007,34 +873,11 @@ Flickable {
             text: "Use Distance"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_datasetDist
-                minimum: 0
-                maximum: 1
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.datasetDist
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.datasetDist = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDatasetDistChanged () {
-                        console.log("Detected pulseRuntimeSettings.datasetDist got new value ", pulseRuntimeSettings.datasetDist)
-                        //mod_datasetDist.currentValue = pulseRuntimeSettings.datasetDist
-                    }
-                }
-            }
-            */
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.datasetDist ? "On" : "Off"
+                text: pulseRuntimeSettings.datasetDist_Copy ? "On" : "Off"
+                //text: dev.datasetDist ? "On" : "Off"
             }
-
         }
 
         SettingRow {
@@ -1042,34 +885,11 @@ Flickable {
             text: "Use Distance NMEA"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_datasetSDDBT
-                minimum: 0
-                maximum: 1
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.datasetSDDBT
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.datasetSDDBT = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDatasetSDDBTChanged () {
-                        console.log("Detected pulseRuntimeSettings.datasetSDDBT got new value ", pulseRuntimeSettings.datasetSDDBT)
-                        //mod_datasetSDDBT.currentValue = pulseRuntimeSettings.datasetSDDBT
-                    }
-                }
-            }
-            */
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.datasetSDDBT ? "On" : "Off"
+                text: pulseRuntimeSettings.datasetSDDBT_Copy ? "On" : "Off"
+                //text: dev.datasetSDDBT ? "On" : "Off"
             }
-
         }
 
         SettingRow {
@@ -1077,36 +897,11 @@ Flickable {
             text: "Use Euler"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_datasetEuler
-                minimum: 0
-                maximum: 1
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.datasetEuler
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.datasetEuler = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDatasetEulerChanged () {
-                        console.log("Detected pulseRuntimeSettings.datasetEuler got new value ", pulseRuntimeSettings.datasetEuler)
-                        //mod_datasetEuler.currentValue = pulseRuntimeSettings.datasetEuler
-                    }
-                }
-            }
-            */
-
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.datasetEuler ? "On" : "Off"
+                text: pulseRuntimeSettings.datasetEuler_Copy ? "On" : "Off"
+                //text: dev.datasetEuler ? "On" : "Off"
             }
-
-
         }
 
         SettingRow {
@@ -1114,36 +909,11 @@ Flickable {
             text: "Use Temperature"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_datasetTemp
-                minimum: 0
-                maximum: 1
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.datasetTemp
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.datasetTemp = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDatasetTempChanged () {
-                        console.log("Detected pulseRuntimeSettings.datasetTemp got new value ", pulseRuntimeSettings.datasetTemp)
-                        //mod_datasetTemp.currentValue = pulseRuntimeSettings.datasetTemp
-                    }
-                }
-            }
-            */
-
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.datasetTemp ? "On" : "Off"
+                text: pulseRuntimeSettings.datasetTemp_Copy ? "On" : "Off"
+                //text: dev.datasetTemp ? "On" : "Off"
             }
-
-
         }
 
         SettingRow {
@@ -1151,34 +921,11 @@ Flickable {
             text: "Use Time Stamp"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
-            /*
-            HorizontalControllerMinMaxSettings {
-                id: mod_datasetTimestamp
-                minimum: 0
-                maximum: 1
-                stepSize: 1
-
-                currentValue: pulseRuntimeSettings.datasetTimestamp
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.datasetTimestamp = newValue
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onDatasetTimestampChanged () {
-                        console.log("Detected pulseRuntimeSettings.datasetTimestamp got new value ", pulseRuntimeSettings.datasetTimestamp)
-                        //mod_datasetTimestamp.currentValue = pulseRuntimeSettings.datasetTimestamp
-                    }
-                }
-            }
-            */
-
             Text {
                 font.pixelSize: 30
-                text: pulseRuntimeSettings.datasetTimestamp ? "On" : "Off"
+                text: pulseRuntimeSettings.datasetTimestamp_Copy ? "On" : "Off"
+                //text: dev.datasetTimestamp ? "On" : "Off"
             }
-
         }
 
         //Category: Config info
