@@ -11,6 +11,7 @@ Settings {
     // User interface control settings
     property int    maxDepthValue:              15
     property int    maxDepthValuePulseBlue:     25
+    property int    maxDepthValuePulseBlueFixed:35
     property bool   autoRange:                  false
     property bool   autoFilter:                 false
     property int    intensityDisplayValue:      10
@@ -58,8 +59,12 @@ Settings {
     property bool   isBetaTester:               false
     property bool   isExpert:                   false
 
+    // Experimental
+    property bool   stopEchogramToConfigure:    false
+
     // NMEA signals to keep C++ in sync
     signal                                      settingsChanged()
+
 
     onNmeaPortChanged: {
         console.log("settingsChanged, triggered by onNmeaPortChanged")

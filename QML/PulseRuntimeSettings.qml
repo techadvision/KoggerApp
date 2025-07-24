@@ -8,8 +8,8 @@ QtObject {
 
     //DEVICES
     property string devName:                "..."           //Stores the connected device name
-    property string modelPulseRed:          "PULSEred"      //Our device name for PulseRed. Will change!
-    property string modelPulseBlue:         "PULSEblue"     //Our device name dor PulseBlue. Will change!
+    property string modelPulseRed:          "PULSEred"      //Our device name for PulseRed.
+    property string modelPulseBlue:         "PULSEblue"     //Our device name dor PulseBlue.
     property string modelPulseRedProto:     "ECHO20"        //Our device name for PulseRed. Will change!
     property string modelPulseBlueProto:    "NanoSSS"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
@@ -48,39 +48,42 @@ QtObject {
     property bool   onDeviceVersionChanged: false
     // overall
     property bool   devConfigured:          false   // when all of the below is true we have set everything up
+    // safe configuration
+    property bool   echogramPausedForConfig:false   // If desired, the echogram is now paused to reduce traffic during parameter config
     // dist
-    property bool   onDistSetupChanged:     false
-    property bool   distMax_ok:             false
-    property bool   distDeadZone_ok:        false
-    property bool   distConfidence_ok:      false
+    property bool   onDistSetupChanged:     false   // Dist is complete
+    property bool   distMax_ok:             false   // distMax parameter is OK
+    property bool   distDeadZone_ok:        false   // distDeadZone parameter is OK
+    property bool   distConfidence_ok:      false   // distConfidence parameter is OK
     // chart
-    property bool   onChartSetupChanged:    false
-    property bool   chartSamples_ok:        false
+    property bool   onChartSetupChanged:    false   // Chart is complete
+    property bool   chartSamples_ok:        false   // chartSamples parameter is OK
     property bool   chartResolution_ok:     true    // THIS WE SET DYNAMICALLY!!!
-    property bool   chartOffset_ok:         false
+    property bool   chartOffset_ok:         false   // chartOffset parameter is OK
     // dataset
-    property bool   onDatasetChanged:       false
-    property bool   datasetTimestamp_ok:    false
-    property bool   datasetChart_ok:        false
-    property bool   datasetTemp_ok:         false
-    property bool   datasetEuler_ok:        false
-    property bool   datasetDist_ok:         false
-    property bool   datasetSDDBT_ok:        false
+    property bool   onDatasetChanged:       false   // Dataset is complete
+    property bool   ch1Period_ok:           false   // ch1Period parameter is OK
+    property bool   datasetTimestamp_ok:    false   // datasetTimestamp parameter is OK
+    property bool   datasetChart_ok:        false   // datasetChart parameter is OK
+    property bool   datasetTemp_ok:         false   // datasetTemp parameter is OK
+    property bool   datasetEuler_ok:        false   // datasetEuler parameter is OK
+    property bool   datasetDist_ok:         false   // datasetDist parameter is OK
+    property bool   datasetSDDBT_ok:        false   // datasetSDDBT parameter is OK
     // trans
-    property bool   onTransChanged:         false
-    property bool   transFreq_ok:           false
-    property bool   transPulse_ok:          false
-    property bool   transBoost_ok:          false
+    property bool   onTransChanged:         false   // Transducer is complete
+    property bool   transFreq_ok:           false   // transFreq parameter is OK
+    property bool   transPulse_ok:          false   // transPulse parameter is OK
+    property bool   transBoost_ok:          false   // transBoost parameter is OK
     // dsp
     property bool   onDspSetupChanged:      true    // LET'S NOT USE THIS AT ALL
-    property bool   dspHorSmooth_ok:        true
+    property bool   dspHorSmooth_ok:        true    // Avoided
     // sound
-    property bool   onSoundChanged:         false
-    property bool   soundSpeed_ok:          false
+    property bool   onSoundChanged:         false   // Sound is complete
+    property bool   soundSpeed_ok:          false   // soundSpeed parameter is OK
 
     //TRAFFIC STATES
     property bool   isReceivingData:        false   // When data is received, true
-    property bool   didEverReceiveData:     false   // When data is received, true
+    property bool   didEverReceiveData:     false   // When data is received at least at some point, true
     property bool   hasDeviceLostConnection:false   // if didEverReceiveData = true, and isReceivingData = false
     property bool   didReceiveDepthData:    false   // Used to track if depth data is received
     property bool   forceBreakConnection:   false   // Used to break connection if we do not like the device
@@ -88,7 +91,7 @@ QtObject {
     //TRAFFIC STATE CHANGE CONTROL
     property bool   dataUpdateActive:       false   // If dataUpdate is being signalled, this should be true
     property int    rebootWindowMs:         20000   // reboot if stale within this many ms of first data
-    property int    resetWindowMs:          60000  // clear “first data” after this many ms of stale
+    property int    resetWindowMs:          60000   // clear “first data” after this many ms of stale
     property int    firstDataTs:            0       // Date.now() when we first saw data this session
     property bool   guardActive:            false   // true until rebootWindowMs elapses
     property bool   echoSounderReboot:      false
@@ -163,8 +166,8 @@ QtObject {
 
     //FALSE DEPTH READING ALGORITHM TUNING
     property double kSmallAgreeMargin:      0.2    // Flucutations allowed in filtering
-    property double kLargeJumpThreshold:    3.0     // A jump from one value to the next before considered a likely false reading
-    property int    kConsistNeeded:         10       // The threshold of values required before we believe it
+    property double kLargeJumpThreshold:    3.0    // A jump from one value to the next before considered a likely false reading
+    property int    kConsistNeeded:         10     // The threshold of values required before we believe it
 
     //TESTING PROPERTIES
     property double fakeDepthAddition:      0.0
@@ -207,8 +210,8 @@ QtObject {
     //DISPLAY SETTINGS
 
     property bool   echogramVisible:                true
-    property bool   bottomTrackVisible:             false
-    property int    bottomTrackVisibleModel:        2
+    //property bool   bottomTrackVisible:             false     //moved to device dependent model
+    //property int    bottomTrackVisibleModel:        2         //moved to device dependent model
     property bool   rangefinderVisible:             true
     property int    rangefinderVisibleModel:        0
     property bool   ahrsVisible:                    false
@@ -255,44 +258,30 @@ QtObject {
     property var    fixBlackStripesBackwardSteps:   userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesBackwardSteps : pulseBlue.fixBlackStripesBackwardSteps
     property var    fixBlackStripesState:           userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesState         : pulseBlue.fixBlackStripesState
     property var    temperatureCorrection:          userManualSetName === modelPulseRed ? pulseRed.temperatureCorrection        : pulseBlue.temperatureCorrection
+    property var    bottomTrackVisible:             userManualSetName === modelPulseRed ? pulseRed.bottomTrackVisible           : pulseBlue.bottomTrackVisible
+    property var    bottomTrackVisibleModel:        userManualSetName === modelPulseRed ? pulseRed.bottomTrackVisibleModel      : pulseBlue.bottomTrackVisibleModel
 
+    //ACTUAL DEVICE PARAMETER VALUE COPY
 
-    /* // Force bad setting for testing
-    property var pulseRed: {
-        "devName":                      "ECHO20",
-        "settingVersion":               1,
-        "is2DTransducer":               true,
-        "useTemperature":               true,
-        "chartResolution":              6,
-        "chartSamples":                 530,
-        "chartOffset":                  1,
-        "distMax":                      49000,
-        "distDeadZone":                 20,
-        "distConfidence":               15,
-        "transPulse":                   11,
-        "transFreq":                    610,
-        "transBoost":                   0,
-        "dspHorSmooth":                 0,
-        "soundSpeed":                   1380*1000,
-        "ch1Period":                    25,
-        "datasetChart":                 1,
-        "datasetDist":                  1,
-        "datasetSDDBT":                 0,
-        "datasetEuler":                 1,
-        "datasetTemp":                  0,
-        "datasetTimestamp":             1,
-        "transFreqWide":                500,
-        "transFreqMedium":              610,
-        "transFreqNarrow":              730,
-        "maximumDepth":                 40,
-        "processBottomTrack":           true,
-        "doDynamicResolution":          true,
-        "fixBlackStripesBackwardSteps": 10,
-        "fixBlackStripesForwardSteps":  10,
-        "fixBlackStripesState":         false,
-        "temperatureCorrection":        -1.5
-    }
-    */
+    //PER DEVICE PROPERTIES
+    property int    chartResolution_Copy:                -1
+    property int    chartSamples_Copy:                   -1
+    property int    chartOffset_Copy:                    -1
+    property int    distMax_Copy:                        -1
+    property int    distDeadZone_Copy:                   -1
+    property int    distConfidence_Copy:                 -1
+    property int    transPulse_Copy:                     -1
+    property int    transFreq_Copy:                      -1
+    property int    transBoost_Copy:                     -1
+    property int    dspHorSmooth_Copy:                   -1
+    property int    soundSpeed_Copy:                     -1
+    property int    ch1Period_Copy:                      -1
+    property int    datasetChart_Copy:                   -1
+    property int    datasetDist_Copy:                    -1
+    property int    datasetSDDBT_Copy:                   -1
+    property int    datasetEuler_Copy:                   -1
+    property int    datasetTemp_Copy:                    -1
+    property int    datasetTimestamp_Copy:               -1
 
 
     property var pulseRed: {
@@ -327,7 +316,9 @@ QtObject {
         "fixBlackStripesBackwardSteps": 20,
         "fixBlackStripesForwardSteps":  20,
         "fixBlackStripesState":         true,
-        "temperatureCorrection":        -1.5
+        "temperatureCorrection":        -1.5,
+        "bottomTrackVisible":           false,
+        "bottomTrackVisibleModel":      0
     }
 
 
@@ -336,38 +327,53 @@ QtObject {
         "settingVersion":               1,
         "is2DTransducer":               false,
         "useTemperature":               false,
-        "chartResolution":              37,
-        "chartSamples":                 1358,
+        "chartResolution":              35,
+        "chartSamples":                 2000,
         "chartOffset":                  0,
-        "distMax":                      25000,
+        "distMax":                      35000,
         "distDeadZone":                 0,
         "distConfidence":               14,
         "transPulse":                   10,
-        "transFreq":                    540,
-        "transBoost":                   0,
+        "transFreq":                    460,
+        "transBoost":                   1,
         "dspHorSmooth":                 0,
         "soundSpeed":                   1480*1000,
-        "ch1Period":                    50,
+        "ch1Period":                    70,
         "datasetChart":                 1,
         "datasetDist":                  0,
         "datasetSDDBT":                 1,
         "datasetEuler":                 0,
         "datasetTemp":                  0,
         "datasetTimestamp":             0,
-        "transFreqWide":                540,
-        "transFreqMedium":              540,
-        "transFreqNarrow":              540,
-        "maximumDepth":                 25,
+        "transFreqWide":                460,
+        "transFreqMedium":              460,
+        "transFreqNarrow":              460,
+        "maximumDepth":                 35,
         "processBottomTrack":           true,
         "doDynamicResolution":          false,
         "fixBlackStripesBackwardSteps": 20,
         "fixBlackStripesForwardSteps":  20,
         "fixBlackStripesState":         true,
-        "temperatureCorrection":        0
+        "temperatureCorrection":        0,
+        "bottomTrackVisible":           true,
+        "bottomTrackVisibleModel":      0
     }
+
+    /* Updates of the blue parameter profile
+      transFreq: 510 to 460
+      transBoost: off to on
+      chPeriod: 50 to 70
+      chartSamples: 1358 to 2000
+      chartResolution: 37 to 35
+      bottomtrackVisibleModel_ from 4 to 0 (but should use 1 if pulse blue right hand side installation)
+      This increases echogram quality, reduces wifi data rate and maximises distance to 35
+      Maximum depth to 35, the depth to be stepped 25-30-35 for side scan imae
+
+      */
 
     //PER DEVICE DISTANCE PROCESSING
 
+    /*
     property var    distProcPulseRed: [
         1,
         10,
@@ -380,7 +386,35 @@ QtObject {
         0,
         0
     ]
+    */
 
+    property var    distProcPulseRed: [
+        1,
+        1,
+        0,
+        0,
+        50.0,
+        1,
+        0.0,
+        0,
+        0,
+        0
+    ]
+
+    property var    distProcPulseBlue: [
+        2,
+        22,
+        0,
+        0,
+        1000,
+        200,
+        0,
+        0,
+        0,
+        0
+    ]
+
+    /*
     property var    distProcPulseBlue: [
         2,
         20,
@@ -393,6 +427,9 @@ QtObject {
         0,
         0
     ]
+    */
+
+
     /*
     void doDistProcessing(
     int preset,
