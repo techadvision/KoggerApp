@@ -14,7 +14,8 @@ QT += sql
 }
 
 android {
-    ANDROID_TARGET_SDK_VERSION = 34
+    ANDROID_TARGET_SDK_VERSION = 35
+    ANDROID_MIN_SDK_VERSION = 23
 
     QT += androidextras
     QT += core-private
