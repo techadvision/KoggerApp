@@ -3,12 +3,11 @@ import QtQuick 2.15
 
 Rectangle {
     id: lostConnectionOverlay
-    //width: parent   // adjust or bind as needed
-    //height: parent // adjust or bind as needed
     anchors.centerIn: parent
-    width: 650
+    width: 800
     height: 300
-    color: "#30FF0000" // semi-transparent red (alpha ~53%)
+    color: "#30FF0000"
+
     radius: 20         // rounded corners
     border.width: 0
 
@@ -59,8 +58,9 @@ Rectangle {
         }
 
         // "Lost connection" text
+
         Text {
-            text: pulseRuntimeSettings.forceBreakConnection ? "Unknown device" : "Lost connection"
+            text: pulseRuntimeSettings.forceBreakConnection ? "Unknown device" : pulseRuntimeSettings.echogramPausedForConfig ? "Hang on ...." : "Lost connection"
             color: "white"
             font.pixelSize: 80
             font.bold: true
