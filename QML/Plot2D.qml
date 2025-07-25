@@ -859,7 +859,7 @@ WaterFall {
                         if (pulseRuntimeSettings.expertMode) {
                             return 5
                         } else {
-                            return 25
+                            return 15
                         }
                     }
                 }
