@@ -63,6 +63,7 @@ Flickable {
             }
         }
 
+        /*
         SettingRow {
             toggle: false
             text: "Stop echogram during setup"
@@ -73,6 +74,7 @@ Flickable {
                 initialChecked: pulseSettings.stopEchogramToConfigure
             }
         }
+        */
 
         SettingRow {
             toggle: false
@@ -134,18 +136,6 @@ Flickable {
             }
         }
 
-        /*
-        SettingRow {
-            toggle: false
-            text: "Kill current connection"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
-            SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "forceBreakConnection"
-                initialChecked: pulseRuntimeSettings.forceBreakConnection
-            }
-        }
-        */
 
         SettingRow {
             toggle: false
@@ -182,11 +172,26 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Experimental period adjust (50)"
+            //text: "Experimental period adjust (50)"
+            text: {
+                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    return "Experimental period adjust (50)"
+                } else {
+                    return "Experimental period adjust (70)"
+                }
+            }
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: periodSelection
-                values: [20, 30, 40, 50, 60, 70, 80, 90, 100]
+                values: {
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        return [20, 30, 40, 50, 60, 70, 80, 90, 100]
+                    } else {
+                        return [50, 60, 70, 80, 90, 100]
+                    }
+                }
+
+                //values: [20, 30, 40, 50, 60, 70, 80, 90, 100]
 
                 onPulsePreferenceValueChanged: pulseRuntimeSettings.ch1Period = newValue
                 height: 80
@@ -211,7 +216,7 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Experimental samples adjust (1358)"
+            text: "Experimental samples adjust (2000)"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: samplesSelection
@@ -243,7 +248,7 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Experimental resolution adjust (37)"
+            text: "Experimental resolution adjust (35)"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: resolutionSelection
@@ -274,6 +279,7 @@ Flickable {
             }
         }
 
+        /*
         SettingRow {
             toggle: false
             text: "Experimental maximum depth adjust"
@@ -311,10 +317,11 @@ Flickable {
                 }
             }
         }
+        */
 
         SettingRow {
             toggle: false
-            text: "Experimental fake add depth new"
+            text: "Experimental add fake depth"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerMinMaxSettings {
                 id: fakeDepthAddition
@@ -425,12 +432,56 @@ Flickable {
         SettingRow {
             toggle: false
             text: "Enable black stripes removal"
+            id: blackStripesToggle
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBlackStripes
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "fixBlackStripesState"
                 initialChecked: pulseRuntimeSettings.fixBlackStripesState
+
+                /*
+                onCheckedChanged: {
+                    console.log("DEV_PARAM: blackStripesToggle new value", checked)
+                    if (!checked) {
+                        if (pulseRuntimeSettings.fixBlackStripesForwardSteps > 0) {
+                            pulseRuntimeSettings.fixBlackStripesForwardSteps = 0
+                            pulseRuntimeSettings.fixBlackStripesBackwardSteps = 0
+                        }
+
+                    } else {
+                        if (pulseRuntimeSettings.fixBlackStripesForwardSteps === 0) {
+                            pulseRuntimeSettings.fixBlackStripesForwardSteps = 1
+                            pulseRuntimeSettings.fixBlackStripesBackwardSteps = 1
+                        }
+                    }
+                }
+                */
+
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onFixBlackStripesForwardStepsChanged () {
+                        console.log("DEV_PARAM: blackStripesToggle observed onFixBlackStripesForwardStepsChanged, value", pulseRuntimeSettings.fixBlackStripesForwardSteps)
+                        if (pulseRuntimeSettings.fixBlackStripesState) {
+                            console.log("DEV_PARAM: blackStripesToggle is enabled")
+                            if (pulseRuntimeSettings.fixBlackStripesForwardSteps === 0) {
+                                pulseRuntimeSettings.fixBlackStripesState = false
+                                //checked = false
+                                console.log("DEV_PARAM: fixBlackStripesForwardSteps is 0, fixBlackStripesState disable")
+                            }
+                        } else {
+                            console.log("DEV_PARAM: blackStripesToggle is disabled")
+                            if (pulseRuntimeSettings.fixBlackStripesForwardSteps > 0) {
+                                console.log("DEV_PARAM: fixBlackStripesForwardSteps is > 0, fixBlackStripesState enable")
+                                pulseRuntimeSettings.fixBlackStripesState = true
+                                //blackStripesToggle.checked = true
+                            }
+                        }
+
+                    }
+                }
+
             }
+
         }
 
         SettingRow {
@@ -457,6 +508,31 @@ Flickable {
                     core.fixBlackStripesForwardSteps  = newValue
                     core.fixBlackStripesBackwardSteps = newValue
                 }
+
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onFixBlackStripesStateChanged () {
+                        console.log("DEV_PARAM: onFixBlackStripesStateChanged observed, pulseRuntimeSettings.fixBlackStripesState is", pulseRuntimeSettings.fixBlackStripesState)
+                        if (!pulseRuntimeSettings.fixBlackStripesState) {
+                            blackStripesSize.currentIndex = 0
+                            pulseRuntimeSettings.fixBlackStripesForwardSteps  = 0
+                            pulseRuntimeSettings.fixBlackStripesBackwardSteps = 0
+                            core.fixBlackStripesForwardSteps  = 0
+                            core.fixBlackStripesBackwardSteps = 0
+                            console.log("DEV_PARAM: onFixBlackStripesStateChanged observed, turned off black stripes removal")
+                        } else {
+                            if (pulseRuntimeSettings.fixBlackStripesForwardSteps  === 0) {
+                                console.log("DEV_PARAM: onFixBlackStripesStateChanged observed, turned on minimum black stripes removal")
+                                blackStripesSize.currentIndex = 1
+                                pulseRuntimeSettings.fixBlackStripesForwardSteps  = 1
+                                pulseRuntimeSettings.fixBlackStripesBackwardSteps = 1
+                                core.fixBlackStripesForwardSteps  = 1
+                                core.fixBlackStripesBackwardSteps = 1
+                            }
+                        }
+                    }
+                }
+
             }
         }
 

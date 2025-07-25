@@ -204,17 +204,31 @@ GridLayout {
                         //targetPlot.plotBottomTrackVisible(false)
                     }
                     Component.onCompleted: {
-                        //checked = false
+                        checked = false
                         //targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
                     }
                     Connections {
                         target: pulseRuntimeSettings
                         function onUserManualSetNameChanged () {
+                            if (pulseRuntimeSettings === null)
+                                return
                             if (pulseRuntimeSettings.userManualSetName === "...") {
+                                return
+                            }
+                            if (!pulseRuntimeSettings.bottomTrackVisible) {
                                 return
                             }
                             bottomTrackVisible.checked = pulseRuntimeSettings.bottomTrackVisible
                             console.log("DistProcessing: set bottomTrackVisible", pulseRuntimeSettings.bottomTrackVisible)
+                        }
+                        function onBottomTrackVisibleChanged() {
+                            if (pulseRuntimeSettings.bottomTrackVisible) {
+                                bottomTrackVisible.checked = pulseRuntimeSettings.bottomTrackVisible
+                                console.log("DistProcessing: set bottomTrackVisible", pulseRuntimeSettings.bottomTrackVisible)
+                            } else {
+                                bottomTrackVisible.checked = false
+                                console.log("DistProcessing: turned off bottomTrackVisible")
+                            }
                         }
                     }
                 }
@@ -841,6 +855,7 @@ GridLayout {
 
             property bool autoApplyChange: false
 
+            /*
             Component.onCompleted: {
                 targetPlot.refreshDistParams(bottomTrackList.currentIndex,
                                              bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
@@ -853,6 +868,7 @@ GridLayout {
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value *  0.001 : 0,
                                              bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
             }
+            */
 
             function updateProcessing() {
                 targetPlot.doDistProcessing(bottomTrackList.currentIndex,
@@ -883,6 +899,9 @@ GridLayout {
                     if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         return
                     }
+                    if (!pulseRuntimeSettings.bottomTrackVisible) {
+                        return
+                    }
                     targetPlot.refreshDistParams(bottomTrackList.currentIndex,
                                                  bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
                                                  bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value* 0.01 : 0,
@@ -895,6 +914,25 @@ GridLayout {
                                                  bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
                     console.log("DistProcessing: executing targetPlot.refreshDistParams")
                     triggerProcessingTimer.start()
+                }
+
+                function onBottomTrackVisibleChanged() {
+                    if (pulseRuntimeSettings.bottomTrackVisible) {
+                        targetPlot.refreshDistParams(bottomTrackList.currentIndex,
+                                                     bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
+                                                     bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value* 0.01 : 0,
+                                                     bottomTrackMinRange.checked ? bottomTrackMinRangeValue.realValue : 0,
+                                                     bottomTrackMaxRange.checked ? bottomTrackMaxRangeValue.realValue : 1000,
+                                                     bottomTrackGainSlope.checked ? bottomTrackGainSlopeValue.realValue : 1,
+                                                     bottomTrackThreshold.checked ? bottomTrackThresholdValue.realValue : 0,
+                                                     bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueX.value *  0.001 : 0,
+                                                     bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value *  0.001 : 0,
+                                                     bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
+                        console.log("DistProcessing: executing targetPlot.refreshDistParams")
+                        triggerProcessingTimer.start()
+                    } else {
+                        console.log("DistProcessing: should not use bottom track")
+                    }
                 }
             }
 
@@ -940,7 +978,16 @@ GridLayout {
                                 if (pulseRuntimeSettings.userManualSetName === "...") {
                                     return
                                 }
+                                if (!pulseRuntimeSettings.bottomTrackVisible) {
+                                    return
+                                }
                                 if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                    bottomTrackList.currentIndex = pulseRuntimeSettings.distProcessing[0]
+                                    console.log("DistProcessing: enable preset, theme", pulseRuntimeSettings.distProcessing[0])
+                                }
+                            }
+                            function onBottomTrackVisibleChanged() {
+                                if (pulseRuntimeSettings.bottomTrackVisible) {
                                     bottomTrackList.currentIndex = pulseRuntimeSettings.distProcessing[0]
                                     console.log("DistProcessing: enable preset, theme", pulseRuntimeSettings.distProcessing[0])
                                 }
@@ -979,7 +1026,16 @@ GridLayout {
                             if (pulseRuntimeSettings.userManualSetName === "...") {
                                 return
                             }
+                            if (!pulseRuntimeSettings.bottomTrackVisible) {
+                                return
+                            }
                             if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackGainSlope.checked = true
+                                console.log("DistProcessing: enable bottomTrackGainSlope")
+                            }
+                        }
+                        function onBottomTrackVisibleChanged() {
+                            if (pulseRuntimeSettings.bottomTrackVisible) {
                                 bottomTrackGainSlope.checked = true
                                 console.log("DistProcessing: enable bottomTrackGainSlope")
                             }
@@ -1030,7 +1086,16 @@ GridLayout {
                             if (pulseRuntimeSettings.userManualSetName === "...") {
                                 return
                             }
+                            if (!pulseRuntimeSettings.bottomTrackVisible) {
+                                return
+                            }
                             if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackGainSlopeValue.value = pulseRuntimeSettings.distProcessing[5]
+                                console.log("DistProcessing: value bottomTrackGainSlope", pulseRuntimeSettings.distProcessing[5], "real value", bottomTrackGainSlopeValue.realValue)
+                            }
+                        }
+                        function onBottomTrackVisibleChanged() {
+                            if (pulseRuntimeSettings.bottomTrackVisible) {
                                 bottomTrackGainSlopeValue.value = pulseRuntimeSettings.distProcessing[5]
                                 console.log("DistProcessing: value bottomTrackGainSlope", pulseRuntimeSettings.distProcessing[5], "real value", bottomTrackGainSlopeValue.realValue)
                             }
@@ -1135,7 +1200,17 @@ GridLayout {
                             if (pulseRuntimeSettings.userManualSetName === "...") {
                                 return
                             }
+                            if (!pulseRuntimeSettings.bottomTrackVisible) {
+                                return
+                            }
                             if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackWindow.checked = true
+                                console.log("DistProcessing: enable bottomTrackWindow")
+                            }
+                        }
+
+                        function onBottomTrackVisibleChanged() {
+                            if (pulseRuntimeSettings.bottomTrackVisible) {
                                 bottomTrackWindow.checked = true
                                 console.log("DistProcessing: enable bottomTrackWindow")
                             }
@@ -1172,7 +1247,17 @@ GridLayout {
                             if (pulseRuntimeSettings.userManualSetName === "...") {
                                 return
                             }
+                            if (!pulseRuntimeSettings.bottomTrackVisible) {
+                                return
+                            }
                             if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackWindowValue.value = pulseRuntimeSettings.distProcessing[1]
+                                console.log("DistProcessing: value bottomTrackWindow", pulseRuntimeSettings.distProcessing[1])
+                            }
+                        }
+
+                        function onBottomTrackVisibleChanged() {
+                            if (pulseRuntimeSettings.bottomTrackVisible) {
                                 bottomTrackWindowValue.value = pulseRuntimeSettings.distProcessing[1]
                                 console.log("DistProcessing: value bottomTrackWindow", pulseRuntimeSettings.distProcessing[1])
                             }
@@ -1325,7 +1410,16 @@ GridLayout {
                             if (pulseRuntimeSettings.userManualSetName === "...") {
                                 return
                             }
+                            if (!pulseRuntimeSettings.bottomTrackVisible) {
+                                return
+                            }
                             if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackMaxRange.checked = true
+                                console.log("DistProcessing: enable bottomTrackMaxRange")
+                            }
+                        }
+                        function onBottomTrackVisibleChanged() {
+                            if (pulseRuntimeSettings.bottomTrackVisible) {
                                 bottomTrackMaxRange.checked = true
                                 console.log("DistProcessing: enable bottomTrackMaxRange")
                             }
@@ -1380,7 +1474,18 @@ GridLayout {
                             if (pulseRuntimeSettings.userManualSetName === "...") {
                                 return
                             }
+                            if (!pulseRuntimeSettings.bottomTrackVisible) {
+                                return
+                            }
+
                             if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed){
+                                bottomTrackMaxRangeValue.value = pulseRuntimeSettings.distProcessing[4] * 1000
+                                console.log("DistProcessing: value bottomTrackMaxRangeValue", pulseRuntimeSettings.distProcessing[4])
+                            }
+                        }
+
+                        function onBottomTrackVisibleChanged() {
+                            if (pulseRuntimeSettings.bottomTrackVisible) {
                                 bottomTrackMaxRangeValue.value = pulseRuntimeSettings.distProcessing[4] * 1000
                                 console.log("DistProcessing: value bottomTrackMaxRangeValue", pulseRuntimeSettings.distProcessing[4])
                             }

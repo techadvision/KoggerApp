@@ -355,7 +355,7 @@ QtObject {
         "fixBlackStripesForwardSteps":  20,
         "fixBlackStripesState":         true,
         "temperatureCorrection":        0,
-        "bottomTrackVisible":           true,
+        "bottomTrackVisible":           false,
         "bottomTrackVisibleModel":      0
     }
 
@@ -406,7 +406,7 @@ QtObject {
         22,
         0,
         0,
-        1000,
+        50.0,
         200,
         0,
         0,
