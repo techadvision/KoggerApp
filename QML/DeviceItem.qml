@@ -1577,6 +1577,11 @@ ColumnLayout {
         }
 
         // chartResolution
+        if (pulseRuntimeSettings.doDynamicResolution) {
+            pulseRuntimeSettings.chartResolution_Copy = dev.chartResolution
+            pulseRuntimeSettings.chartResolution_ok = true
+            console.log("DEV_PARAM chartResolution OK as", dev.chartResolution, ", using dynamic resolution")
+        }
         if (!pulseRuntimeSettings.chartResolution_ok) {
             if (dev.chartResolution === pulseRuntimeSettings.chartResolution) {
                 pulseRuntimeSettings.chartResolution_Copy = dev.chartResolution
