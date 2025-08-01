@@ -69,6 +69,12 @@ void Scene3dToolBarController::onTrackLastDataCheckButtonCheckedChanged(bool sta
 
 void Scene3dToolBarController::onUpdateBottomTrackCheckButtonCheckedChanged(bool state)
 {
+    /*
+    if (g_pulseRuntimeSettings) {
+        bool bottomTrackVisible = g_pulseRuntimeSettings->property("bottomTrackVisible").toBool();
+        state = bottomTrackVisible;
+    }
+    */
     updateBottomTrack_ = state;
 
     if (graphicsScene3dViewPtr_) {
