@@ -1058,29 +1058,39 @@ public:
         kConnection
     };
 
-    Q_PROPERTY(float dist READ dist NOTIFY distChanged)
-    Q_PROPERTY(float temp READ temp NOTIFY tempChanged)
-    Q_PROPERTY(QVariantList channels READ channels NOTIFY channelsUpdated)
+    //Telemetry depth and temperature
+    Q_PROPERTY(float dist                   READ dist                                                   NOTIFY distChanged)
+    Q_PROPERTY(float temp                   READ temp                                                   NOTIFY tempChanged)
+    Q_PROPERTY(float bottomTrackDepth       READ bottomTrackDepth                                       NOTIFY bottomTrackDepthChanged)
 
     /*methods*/
     Dataset();
     ~Dataset();
 
-    //Techadvision methods
-
+    //Pulse - getters
     float dist() const { return _dist; }
     float temp() const { return _temp; }
-    QVariantList channels() const {
-        QVariantList list;
-        // iterate your QMap<int,DatasetChannel>
-        for (auto it = _channelsSetup.constBegin(); it != _channelsSetup.constEnd(); ++it) {
-            QVariantMap m;
-            m[QStringLiteral("channel")] = it.value().channel;
-            m[QStringLiteral("count"  )] = it.value().count;
-            list.append(m);
-        }
-        return list;
-    }
+    float bottomTrackDepth() const { return _bottomTrackDepth; }
+    double smallAgreeMargin() const { return _kSmallAgreeMargin; }
+    double largeJumpThreshold() const { return _kLargeJumpThreshold; }
+    int consistNeeded() const { return _kConsistNeeded; }
+    double transducerOffsetMount() const { return _transducerOffsetMount; }
+    Q_INVOKABLE bool processBottomTrack() const { return _processBottomTrack; }
+    Q_INVOKABLE bool isBottomTrackInitiated() const { return _isBottomTrackInitiated; }
+    Q_INVOKABLE bool isBottomTrackActive() const { return _isBottomTrackActive; }
+    double bottomTrackMinDepth() const { return _bottomTrackMinDepth; }
+    double fakeDepthAddition() const { return _fakeDepthAddition; }
+    //Pulse setters
+    Q_INVOKABLE void setSmallAgreeMargin(double margin);
+    Q_INVOKABLE void setLargeJumpThreshold(double threshold);
+    Q_INVOKABLE void setConsistNeeded(int retries);
+    Q_INVOKABLE void setTransducerOffsetMount(double offset);
+    Q_INVOKABLE void setProcessBottomTrack(bool enabled);
+    Q_INVOKABLE void setIsBottomTrackInitiated(bool initiated);
+    Q_INVOKABLE void setIsBottomTrackActive(bool activated);
+    Q_INVOKABLE void setBottomTrackMinDepth(double minimumDepth);
+    Q_INVOKABLE void setFakeDepthAddition(double addedDepth);
+
 
     void setState(DatasetState state);
 
@@ -1236,6 +1246,7 @@ public slots:
 
 signals:
     void dataUpdate();
+    void chartsAdded();
     void bottomTrackUpdated(const ChannelId& channelId, int lEpoch, int rEpoch);
     void boatTrackUpdated();
     void updatedInterpolatedData(int indx);
@@ -1243,19 +1254,36 @@ signals:
     void channelsUpdated();
     void distChanged();
     void tempChanged();
+    void bottomTrackDepthChanged();
     void redrawEpochs(const QSet<int>& indxs);
+    void isBottomTrackActiveUpdated();
 
 private:
-    double m_transducerOffsetMount = 0.0;
+    //Pulse
     float _dist = 0; // Stores the distance value
     float _temp = 0; // Stores the temperature value
     SlidingWindowMedian _depthFilter{10};
     //float _lastFilteredDepth = 0.0;
     float _lastRawDepth = 0.0;
     int _consistCount = 0;
-    double kSmallAgreeMargin   = 0.05;
-    double kLargeJumpThreshold = 1.00;
-    int    kConsistNeeded      = 3;
+    //Pulse adjustable
+    double _kSmallAgreeMargin       = 0.5;
+    double _kLargeJumpThreshold     = 10.00;
+    int    _kConsistNeeded          = 3;
+    double _transducerOffsetMount   = 0.0;
+    bool   _processBottomTrack      = false;
+    bool   _isBottomTrackInitiated  = false;
+    bool   _isBottomTrackActive     = false;
+    double _bottomTrackMinDepth     = 0.5;
+    //Bottom track
+    float _bottomTrackDepth      = NAN;
+    float _lastStableBTDepth1    = NAN;
+    float _lastStableBTDepth2    = NAN;
+    float _btSpikeThreshold      = 2.0f;
+    long  _processingRound       = 0;
+    //Test
+    double _fakeDepthAddition    = 0;
+
 
 protected:
 

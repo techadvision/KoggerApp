@@ -2,7 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Dialogs 1.2
-import Pulse.Plot 1.0
+//Pulse Plot not installed, but do we need it? Not needed!
+//import Pulse.Plot 1.0
 
 
 Flickable {
@@ -217,7 +218,7 @@ Flickable {
                 anchors.centerIn: infoLeftContainer
                 width: 42
                 height: 42
-                source: "./icons/pulse_return_signal_weak.svg"
+                source: "./icons/ui/pulse_return_signal_weak.svg"
                 fillMode: Image.PreserveAspectFit
             }
         }
@@ -236,7 +237,7 @@ Flickable {
                 anchors.centerIn: infoRightContainer
                 width: 42
                 height: 42
-                source: "./icons/pulse_return_signal_hard.svg"
+                source: "./icons/ui/pulse_return_signal_hard.svg"
                 fillMode: Image.PreserveAspectFit
             }
         }

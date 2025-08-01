@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dataset.h"
+#include <QObject>
 
 
 class Plot2D;

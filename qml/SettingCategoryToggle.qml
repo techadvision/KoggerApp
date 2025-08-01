@@ -7,7 +7,7 @@ Item {
     property var    target
     property string targetPropertyName: ""
     property bool   initialValue:       false
-    property string showIconSource:     "./icons/pulse_setting_show.svg"
+    property string showIconSource:     "./icons/ui/pulse_setting_show.svg"
     property bool   expanded:           initialValue
 
     width: 64

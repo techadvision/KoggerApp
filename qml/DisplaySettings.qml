@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.1
+import org.techadvision.runtime 1.0
 
 GridLayout {
     id: control
@@ -85,6 +86,22 @@ GridLayout {
                     Settings {
                         property alias fixBlackStripesCheckButton: fixBlackStripesCheckButton.checked
                     }
+
+                    Connections {
+                        target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+                        function onUserManualSetNameChanged () {
+                            console.log("DEV_SETUP: DisplaySettings, fixBlackStripesCheckButton, onUserManualSetNameChanged - let's enable")
+                            if (pulseRuntimeSettings === null) {
+                                console.log("DEV_SETUP: fixBlackStripesCheckButton - pulseRuntimeSettings === null, abort")
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                console.log("DEV_SETUP: fixBlackStripesCheckButton - userManualSetName === ..., abort")
+                                return
+                            }
+                            fixBlackStripesCheckButton.checked = true
+                        }
+                    }
                 }
 
                 SpinBoxCustom {
@@ -116,6 +133,23 @@ GridLayout {
 
                     Settings {
                         property alias fixBlackStripesForwardStepsSpinBox: fixBlackStripesForwardStepsSpinBox.value
+                    }
+
+                    Connections {
+                        target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+                        function onUserManualSetNameChanged () {
+                            console.log("DEV_SETUP: DisplaySettings, fixBlackStripesForwardStepsSpinBox, onUserManualSetNameChanged - let's enable")
+                            if (pulseRuntimeSettings === null) {
+                                console.log("DEV_SETUP: fixBlackStripesForwardStepsSpinBox - pulseRuntimeSettings === null, abort")
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                console.log("DEV_SETUP: fixBlackStripesForwardStepsSpinBox - userManualSetName === ..., abort")
+                                return
+                            }
+                            fixBlackStripesForwardStepsSpinBox.value = pulseRuntimeSettings.fixBlackStripesForwardSteps
+                            console.log("DEV_SETUP: fixBlackStripesForwardStepsSpinBox - set value to", pulseRuntimeSettings.fixBlackStripesForwardSteps)
+                        }
                     }
                 }
 
@@ -149,6 +183,23 @@ GridLayout {
                     Settings {
                         property alias fixBlackStripesBackwardStepsSpinBox: fixBlackStripesBackwardStepsSpinBox.value
                     }
+
+                    Connections {
+                        target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+                        function onUserManualSetNameChanged () {
+                            console.log("DEV_SETUP: DisplaySettings, fixBlackStripesBackwardStepsSpinBox, onUserManualSetNameChanged - let's enable")
+                            if (pulseRuntimeSettings === null) {
+                                console.log("DEV_SETUP: fixBlackStripesBackwardStepsSpinBox - pulseRuntimeSettings === null, abort")
+                                return
+                            }
+                            if (pulseRuntimeSettings.userManualSetName === "...") {
+                                console.log("DEV_SETUP: fixBlackStripesBackwardStepsSpinBox - userManualSetName === ..., abort")
+                                return
+                            }
+                            fixBlackStripesBackwardStepsSpinBox.value = pulseRuntimeSettings.fixBlackStripesBackwardSteps
+                             console.log("DEV_SETUP: fixBlackStripesBackwardStepsSpinBox - set value to", pulseRuntimeSettings.fixBlackStripesBackwardSteps)
+                        }
+                    }
                 }
             }
         }
@@ -160,6 +211,7 @@ GridLayout {
 
             property bool autoApplyChange: false
 
+            /*
             Component.onCompleted: {
                 if (targetPlot) {
                     targetPlot.refreshDistParams(bottomTrackList.currentIndex,
@@ -174,6 +226,7 @@ GridLayout {
                                                  bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
                 }
             }
+            */
 
             function updateProcessing() {
                 if (targetPlot) {
@@ -188,6 +241,189 @@ GridLayout {
                                                 bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value*0.001 : 0,
                                                 bottomTrackSensorOffset.checked ? -bottomTrackSensorOffsetValueZ.value*0.001 : 0
                                                 );
+                    console.log("DistProcessing: bottomTrackProcessingGroup, did doDistProcessing")
+                }
+            }
+
+            function prepareDistProcessing () {
+                let list = []
+                list = dataset.channelsNameList()
+                if (list.length < 3) {
+                    console.log("DistProcessing: prepareDistProcessing, not enough channels:", list, ". Abort!")
+                    return
+                }
+                if (pulseRuntimeSettings === null) {
+                    console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings === null. Abort")
+                    return
+                }
+                if (pulseRuntimeSettings.userManualSetName === "...") {
+                    console.log("DistProcessing: prepareDistProcessing, userManualSetName === .... Abort")
+                    return
+                }
+                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings.userManualSetName", pulseRuntimeSettings.userManualSetName, ". Abort")
+                    return
+                }
+                if (!pulseRuntimeSettings.processBottomTrack) {
+                    console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings.processBottomTrack", pulseRuntimeSettings.processBottomTrack, ". Abort")
+                    return
+                }
+                // Configure everything
+                console.log("DistProcessing: prepareDistProcessing, all checks OK - let's configure and then enable")
+
+                //Make sure all checkboxes are unchecked
+                bottomTrackWindow.checked = false
+                bottomTrackVerticalGap.checked = false
+                bottomTrackMinRange.checked = false
+                bottomTrackMaxRange.checked = false
+                bottomTrackGainSlope.checked = false
+                bottomTrackThreshold.checked = false
+                bottomTrackSensorOffset.checked = false
+
+                //Set values
+                bottomTrackWindowValue.value = pulseRuntimeSettings.distProcessing[1]
+                bottomTrackVerticalGapValue.value = pulseRuntimeSettings.distProcessing[2]
+                bottomTrackMinRangeValue.value = pulseRuntimeSettings.distProcessing[3] * 1000
+                bottomTrackMaxRangeValue.value = pulseRuntimeSettings.distProcessing[4] * 1000
+                bottomTrackGainSlopeValue.value = pulseRuntimeSettings.distProcessing[5] * 100
+                bottomTrackThresholdValue.value = pulseRuntimeSettings.distProcessing[6]
+                bottomTrackSensorOffsetValueX.value = pulseRuntimeSettings.distProcessing[7]
+                bottomTrackSensorOffsetValueY.value = pulseRuntimeSettings.distProcessing[8]
+                bottomTrackSensorOffsetValueZ.value = pulseRuntimeSettings.distProcessing[9]
+
+                //Set proper preset
+                bottomTrackList.currentIndex = pulseRuntimeSettings.distProcessing[0]
+
+                //Enable select checkboxes
+                bottomTrackWindow.checked = true
+                bottomTrackVerticalGap.checked = true
+                bottomTrackMinRange.checked = true
+                bottomTrackMaxRange.checked = true
+                bottomTrackGainSlope.checked = true
+                bottomTrackThreshold.checked = false
+                bottomTrackSensorOffset.checked = false
+
+                //Go ahead
+                bottomTrackProcessingGroup.startDistProcessing()
+            }
+
+            function startDistProcessing () {
+                console.log("DistProcessing: bottomTrackProcessingGroup - let's configure")
+
+                let channelsList = []
+                channelsList = dataset.channelsNameList()
+
+                if (channelsList.length < 3) {
+                    console.log("DistProcessing: bottomTrackProcessingGroup - channels list length only",channelsList.length, ", abort")
+                    return
+                }
+                console.log("DistProcessing: bottomTrackProcessingGroup - channels list OK",channelsList, ". Continue!")
+
+                if (targetPlot) {
+                    /*
+                    targetPlot.refreshDistParams(bottomTrackList.currentIndex,
+                                                 bottomTrackWindow.checked ? bottomTrackWindowValue.value : 1,
+                                                 bottomTrackVerticalGap.checked ? bottomTrackVerticalGapValue.value* 0.01 : 0,
+                                                 bottomTrackMinRange.checked ? bottomTrackMinRangeValue.realValue : 0,
+                                                 bottomTrackMaxRange.checked ? bottomTrackMaxRangeValue.realValue : 1000,
+                                                 bottomTrackGainSlope.checked ? bottomTrackGainSlopeValue.realValue : 1,
+                                                 bottomTrackThreshold.checked ? bottomTrackThresholdValue.realValue : 0,
+                                                 bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueX.value *  0.001 : 0,
+                                                 bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueY.value *  0.001 : 0,
+                                                 bottomTrackSensorOffset.checked ? bottomTrackSensorOffsetValueZ.value * -0.001 : 0)
+                    console.log("DistProcessing: bottomTrackProcessingGroup, did refreshDistParams")
+                    */
+                    bottomTrackProcessingGroup.updateProcessing()
+                    triggerProcessingTimer.start()
+                } else {
+                    console.log("DistProcessing: bottomTrackProcessingGroup, could not refreshDistParams since no target plot")
+                }
+            }
+
+            Connections {
+                target: core
+                function onChannelListUpdated() {
+                    bottomTrackProcessingGroup.prepareDistProcessing()
+                }
+            }
+
+            Connections {
+                target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+
+                function onProcessBottomTrackChanged () {
+                    if (pulseRuntimeSettings === null) {
+                        console.log("DistProcessing: onProcessBottomTrackChanged - pulseRuntimeSettings === null, abort")
+                        return
+                    }
+                    if (pulseRuntimeSettings.userManualSetName === "...") {
+                        console.log("DistProcessing: onProcessBottomTrackChanged - userManualSetName === ..., abort")
+                        return
+                    }
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        console.log("DistProcessing: onProcessBottomTrackChanged - userManualSetName ===", pulseRuntimeSettings.userManualSetName,", should not use bottom track")
+                        return
+                    }
+                    if (pulseRuntimeSettings.processBottomTrack) {
+                        //Turned on
+                        console.log("DistProcessing: onProcessBottomTrackChanged - let us initiate tracking")
+                        bottomTrackProcessingGroup.prepareDistProcessing()
+                    }
+                }
+
+                function onUserManualSetNameChanged () {
+                    bottomTrackProcessingGroup.prepareDistProcessing()
+                }
+
+                function onDistProcessingChanged () {
+                    if (pulseRuntimeSettings === null) {
+                        console.log("DistProcessing: bottomTrackWindowValue - pulseRuntimeSettings === null, abort")
+                        return
+                    }
+                    if (pulseRuntimeSettings.userManualSetName === "...") {
+                        console.log("DistProcessing: bottomTrackWindowValue - userManualSetName === ..., abort")
+                        return
+                    }
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        console.log("DistProcessing: bottomTrackWindowValue - userManualSetName ===", pulseRuntimeSettings.userManualSetName,", should not use bottom track")
+                        return
+                    }
+                    if (!pulseRuntimeSettings.processBottomTrack) {
+                        console.log("DistProcessing: bottomTrackWindowValue - use bottom track", pulseRuntimeSettings.processBottomTrack)
+                        return
+                    }
+                    console.log("DistProcessing: value of bottom track parameter will be changed")
+                    pulseRuntimeSettings.isBottomTrackActive = false
+                    pulseRuntimeSettings.isBottomTrackInitiated = false
+                    if (dataset) {
+                        dataset.setIsBottomTrackInitiated(false)
+                        dataset.setIsBottomTrackActive(false)
+                    }
+
+                    triggerBottomTrackParameterChange.start()
+                }
+            }
+
+            Timer {
+                id: triggerBottomTrackParameterChange
+                repeat: false
+                interval: 100
+                onTriggered: {
+                    bottomTrackProcessingGroup.prepareDistProcessing()
+                }
+            }
+
+
+            Timer {
+                id: triggerProcessingTimer
+                repeat: false
+                interval: 1000
+                onTriggered: {
+                    pulseRuntimeSettings.processBottomTrack = true
+                    pulseRuntimeSettings.isBottomTrackInitiated = true
+                    if (dataset) {
+                        dataset.setProcessBottomTrack(pulseRuntimeSettings.processBottomTrack)
+                        dataset.setIsBottomTrackInitiated(pulseRuntimeSettings.isBottomTrackInitiated)
+                    }
                 }
             }
 
@@ -366,6 +602,7 @@ GridLayout {
                     Settings {
                         property alias bottomTrackWindowValue: bottomTrackWindowValue.value
                     }
+
                 }
             }
 

@@ -6,7 +6,7 @@
 
 constexpr float epsilon = 0.001f;
 
-Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontal_(true), isSideScanOnLeftHandSide_(true)
+Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontalGrid_(true), isSideScanOnLeftHandSide_(true)
 {}
 
 bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
@@ -26,9 +26,12 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         isSideScanOnLeftHandSide_ = g_pulseRuntimeSettings->property("isSideScanLeftHand").toBool();
         isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
         is2DTransducer = g_pulseRuntimeSettings->property("is2DTransducer").toBool();
+        isMetric_ = g_pulseRuntimeSettings->property("useMetricDepth").toBool();
+        isHorizontalGrid_ = g_pulseRuntimeSettings->property("isHorizontalGrid").toBool();
     }
 
     bool flipImage = isSideScanOnLeftHandSide_ && isSideScan2DView;
+    //qDebug() << "flipimage:" << flipImage << "isSideScanOnLeftHandSide_:" << isSideScanOnLeftHandSide_ << "isSideScan2DView:" << isSideScan2DView;
 
     QPen pen(_lineColor);
     pen.setWidth(_lineWidth);
@@ -54,6 +57,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     float totalRange = toDepth - fromDepth;
     if (totalRange == 0.0f)
         totalRange = 0.0001f;
+    assessedMaxDepth_ = totalRange;
 
     std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer, isSideScan2DView, isSideScanOnLeftHandSide_);
 
@@ -111,7 +115,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         }
 
         if (!lineText.isEmpty()) {
-            if (isHorizontal_) {
+            if (isHorizontalGrid_) {
 #ifdef Q_OS_ANDROID
                 int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
                 int baselineY = posYflipped - textYOffset;
@@ -155,7 +159,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
         if (isFillWidth())
             p->drawLine(0, posY, imageWidth, posY);
-        else if (isHorizontal_) {
+        else if (isHorizontalGrid_) {
             if (scaleX != 1.0) {
                 int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
                 if (scaleX != 1.0) {
@@ -182,7 +186,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
         QString range_text = QString::number(val, 'f', (isMetric_ ? 0 : 1)) + (isMetric_ ? QObject::tr(" m") : QObject::tr(" ft"));
 
-        if (isHorizontal_) {
+        if (isHorizontalGrid_) {
 #ifdef Q_OS_ANDROID
             int desiredX_device = imageWidth - textXOffset / 2 - range_text.count() * 25;
             int baselineY = imageHeight - 10;  // device coordinate for text baseline
@@ -216,6 +220,11 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             p->restore();
         }
 
+    }
+
+    //Pulse: Disabled
+    /*
+
     if (cursor.distance.isValid()) {
         p->setFont(QFont("Asap", 26, QFont::Normal));
         float val{ cursor.distance.to };
@@ -224,7 +233,6 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         p->drawText(imageWidth - textXOffset / 2 - rangeText.count() * 25, imageHeight - 10, rangeText);
     }
 
-    /*
     if (_rangeFinderLastVisible && cursor.distance.isValid()) {
         Epoch* lastEpoch = dataset->last();
         Epoch* preLastEpoch = dataset->lastlast();
@@ -246,9 +254,9 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             QString rangeText = QString::number(val, 'f', isInteger ? 0 : 2) + QObject::tr(" m");
             p->drawText(imageWidth / 2 - rangeText.count() * 32, imageHeight - 15, rangeText);
         }
+
     }
     */
-
 
     if(true) {
         Epoch* lastEpoch = dataset->last();
@@ -275,6 +283,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         // }
         // qDebug() << "Plot temp end: " << temp;
 
+        /* Pulse already has the te,perature
         if (isfinite(temp)) {
             pen.setColor(QColor(80, 200, 0));
             p->setPen(pen);
@@ -284,6 +293,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             QString rangeText = QString::number(val, 'f', isInteger ? 0 : 1) + QObject::tr("°");
             p->drawText(imageWidth / 2 - 300, imageHeight - 15, rangeText);
         }
+        */
     }
 
     return true;
@@ -346,17 +356,22 @@ void Plot2DGrid::setAngleVisibility(bool state)
 // Pulse
 void Plot2DGrid::setMeasuresMetric(bool metric)
 {
+    qDebug() << "Called setMeasuresMetric, is metric?" << metric;
     isMetric_ = metric;
 }
 
 void Plot2DGrid::setGridHorizontal(bool horizontal)
 {
-    isHorizontal_ = horizontal;
+    isHorizontalGrid_ = horizontal;
 }
 
 void Plot2DGrid::setSideScanOnLeftHandSide(bool isLeftSideInstalled)
 {
     isSideScanOnLeftHandSide_ = isLeftSideInstalled;
+}
+int Plot2DGrid::getAssessedMaxDepth()
+{
+    return assessedMaxDepth_;
 }
 
 std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand)
@@ -379,7 +394,7 @@ std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bo
             }
         }
     }
-    //qDebug() << "SIDE SCAN: Tick Value result general:" << bestTicks;
+    //qDebug() << "RULER TICKS: Tick Value result general:" << bestTicks << "using input" << maxDepth << ", metric" << isMetric << " for a 2D?" << is2DTransducer;
 
     if (!is2DTransducer) {
         std::vector<int> mirroredTicks;

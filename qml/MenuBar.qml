@@ -116,8 +116,8 @@ Item {
             MenuButton {
                 id: menuDisplay
                 //TAV PULSE: We do not need this
-                //visible: pulseRuntimeSettings.expertMode
-                visible: false
+                visible: pulseRuntimeSettings.expertMode
+                //visible: false
                 Layout.fillWidth: true
                 icon.source: "./settings-outline.svg"
 
@@ -146,8 +146,8 @@ Item {
             CheckButton {
                 id: settings3DButton
                 //TAV PULSE: We do not need this
-                //visible: instruments > 0
-                visible: false
+                visible: instruments > 0
+                //visible: false
                 implicitWidth: theme.controlHeight*1.2
                 icon.source: "qrc:/icons/ui/map.svg"
                 backColor: theme.controlBackColor
@@ -169,8 +169,8 @@ Item {
             CheckButton {
                 id: visible2dButton
                 //TAV PULSE: We do not need this
-                //visible: instruments > 0
-                visible: false
+                visible: instruments > 0
+                //visible: false
                 implicitWidth: theme.controlHeight*1.2
                 icon.source: "qrc:/icons/ui/ripple.svg"
 

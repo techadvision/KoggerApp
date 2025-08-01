@@ -32,7 +32,9 @@ HEADERS += \
     src/stream_list.h \
     src/stream_list_model.h \
     src/themes.h \
-    src/xtf_conf.h
+    src/xtf_conf.h \
+    src/NMEASender.h \
+    src/SlidingWindowMedian.h
 
 ### SOURCES
 SOURCES += \
@@ -48,7 +50,8 @@ SOURCES += \
     src/map_defs.cpp \
     src/proto_binnary.cpp \
     src/stream_list.cpp \
-    src/stream_list_model.cpp
+    src/stream_list_model.cpp \
+    src/NMEASender.cpp
 
 
 FLASHER {
@@ -72,6 +75,7 @@ TRANSLATIONS += \
     translations/translation_pl.ts
 
 RESOURCES += \
+    images.qrc \
     qml/qml.qrc \
     resources/icons.qrc \
     resources/resources.qrc
@@ -107,6 +111,13 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 ### DISTFILES
 DISTFILES += \
+    platform/android/res/drawable-hdpi/icon.png \
+    platform/android/res/drawable-mdpi/icon.png \
+    platform/android/res/drawable-xhdpi/icon.png \
+    platform/android/res/drawable-xxhdpi/icon.png \
+    platform/android/res/drawable-xxxhdpi/icon.png \
+    platform/android/res/drawable/logo_icon.png \
+    platform/android/res/values/styles.xml \
     qml/Common/MenuBlockEx.qml \
     qml/Scene3DToolbar.qml \
     qml/SceneObjectsControlBar/ActiveObjectParams.qml \

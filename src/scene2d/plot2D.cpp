@@ -131,6 +131,26 @@ bool Plot2D::plotEnabled() const
 bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizontal)
 {
     if (is_horizontal) {
+        //Pulse
+        if (g_pulseRuntimeSettings) {
+            bool isSideScanOnLeftHandSide = g_pulseRuntimeSettings->property("isSideScanLeftHand").toBool();
+            bool isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+            bool flipImage = isSideScanOnLeftHandSide && isSideScan2DView;
+            double echogramSpeed = g_pulseRuntimeSettings->property("echogramSpeed").toDouble();
+
+            if (echogramSpeed > 1 && !flipImage) {
+                painter->translate(width, 0);
+                painter->scale(echogramSpeed, 1.0);
+                painter->translate(-width, 0);
+            }
+
+            if (flipImage) {
+                painter->translate(0, height);
+                painter->scale(1.0, -1.0);
+            }
+
+        }
+        //----
         canvas_.setSize(width, height, painter);
     }
     else {
@@ -143,6 +163,7 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
     reRangeDistance();
 
     return true;
+
 }
 
 void Plot2D::draw(QPainter *painterPtr)
@@ -431,7 +452,20 @@ void Plot2D::setDistanceAutoRange(int auto_range_type) {
 }
 
 void Plot2D::setDistance(float from, float to) {
-    cursor_.distance.set(from, to);
+    //Pulse
+    bool isSideScanOnLeftHandSide = false;
+    bool isSideScan2DView = false;
+    if (g_pulseRuntimeSettings) {
+        isSideScanOnLeftHandSide = g_pulseRuntimeSettings->property("isSideScanLeftHand").toBool();
+        isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+    }
+    if (isSideScanOnLeftHandSide && isSideScan2DView) {
+        cursor_.distance.set(-1*to, from);
+    } else {
+        cursor_.distance.set(from, to);
+    }
+
+    //cursor_.distance.set(from, to);
 }
 
 void Plot2D::zoomDistance(float ratio)
@@ -467,10 +501,28 @@ void Plot2D::zoomDistance(float ratio)
         new_range = 500;
     }
 
+    //Pulse
+    if (g_pulseRuntimeSettings) {
+        int maximumTransducerRange = g_pulseRuntimeSettings->property("maximumDepth").toInt();
+        if ((cursor_.distance.from + new_range) > maximumTransducerRange) {
+            new_range = maximumTransducerRange;
+        }
+    }
+    //-----
+
 
     if (cursor_.isChannelDoubled()) {
-        cursor_.distance.from = -ceil(new_range / 2);
-        cursor_.distance.to = ceil(new_range / 2);
+        //Pulse
+        if (isHorizontal()) {
+            cursor_.distance.to = -ceil(cursor_.distance.from + new_range);
+        } else {
+            cursor_.distance.from = -ceil( new_range/2);
+            cursor_.distance.to = ceil( new_range/2);
+        }
+
+        //cursor_.distance.from = -ceil(new_range / 2);
+        //cursor_.distance.to = ceil(new_range / 2);
+        //-----
     }
     else {
        cursor_.distance.to = ceil(cursor_.distance.from + new_range);
@@ -857,6 +909,19 @@ void Plot2D::reRangeDistance()
 
     float max_range = NAN;
 
+    bool is2D = false;
+    bool doPulseAutoRange = false;
+    float pulseAutoRange = 0.5;
+    if (g_pulseRuntimeSettings) {
+        bool is2DTransducer = g_pulseRuntimeSettings->property("is2DTransducer").toBool();
+        bool isSSTransducerIn2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
+        doPulseAutoRange = g_pulseRuntimeSettings->property("shouldDoAutoRange").toBool();
+        pulseAutoRange = g_pulseRuntimeSettings->property("autoDepthMaxLevel").toFloat();
+        if (is2DTransducer || isSSTransducerIn2DView) {
+            is2D = true;
+        }
+    }
+
     if (cursor_.distance.mode == AutoRangeLastData) {
         for (int i = datasetPtr_->endIndex() - 3; i < datasetPtr_->endIndex(); i++) {
             Epoch* epoch = datasetPtr_->fromIndex(i);
@@ -893,15 +958,29 @@ void Plot2D::reRangeDistance()
         }
     }
 
-    if (isfinite(max_range)) {
-        const float dist = std::round(std::abs(max_range));
-        cursor_.distance.to = dist;
-
-        if (cursor_.isChannelDoubled()) {
-            cursor_.distance.from = -dist;
+    if (doPulseAutoRange) {
+        if(isfinite(max_range)) {
+            if(cursor_.isChannelDoubled()) {
+                cursor_.distance.from = -ceil(pulseAutoRange);;
+            } else {
+                cursor_.distance.from = 0;
+            }
+            if (is2D) {
+                cursor_.distance.from = 0;
+            }
+            cursor_.distance.to = ceil(pulseAutoRange);
         }
-        else {
-            cursor_.distance.from = 0;
+    } else {
+        if (isfinite(max_range)) {
+            const float dist = std::round(std::abs(max_range));
+            cursor_.distance.to = dist;
+
+            if (cursor_.isChannelDoubled()) {
+                cursor_.distance.from = -dist;
+            }
+            else {
+                cursor_.distance.from = 0;
+            }
         }
     }
 }

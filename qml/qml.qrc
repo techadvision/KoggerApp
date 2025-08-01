@@ -82,7 +82,6 @@
         <file>PointGroupControlMenu.qml</file>
         <file>PolygonGroupControlMenu.qml</file>
         <file>fit-in-view.svg</file>
-        <file>Plot2D.qml</file>
         <file>KoggerCommon/KWaitProgressBar.qml</file>
         <file>combo-selection.svg</file>
         <file>Scene3DControlMenu.qml</file>
@@ -123,5 +122,6 @@
         <file>KeyCodeInput.qml</file>
         <file>PulseTabbedSettingsNormal.qml</file>
         <file>PulseTabbedSettingsExpert.qml</file>
+        <file>Plot2D.qml</file>
     </qresource>
 </RCC>

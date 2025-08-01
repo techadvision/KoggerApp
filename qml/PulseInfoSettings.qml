@@ -262,6 +262,14 @@ Flickable {
                 targetPropertyName: "isSideScanOnLeftHandSide"
                 initialChecked: PulseSettings.isSideScanOnLeftHandSide
             }
+
+            Connections {
+                target: PulseSettings
+                function onIsSideScanOnLeftHandSideChanged() {
+                    pulseRuntimeSettings.isSideScanLeftHand = PulseSettings.isSideScanOnLeftHandSide
+                    console.log("DEVICE_INSTALLATION: pulseRuntimeSettings.isSideScanLeftHand new value", pulseRuntimeSettings.isSideScanLeftHand)
+                }
+            }
         }
 
         SettingRow {

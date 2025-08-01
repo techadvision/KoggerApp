@@ -33,12 +33,13 @@ ColumnLayout {
         function onForceBreakConnectionChanged () {
             if (pulseRuntimeSettings.forceBreakConnection) {
                 console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection)
-                let isConnected = pulseRuntimeSettings.uuidSuccessfullyOpened !== ""
+                let isConnected = pulseRuntimeSettings.isReceivingData
                 if (pulseRuntimeSettings.isOpeningKlfFile) {
                     console.log("forceBreakConnection triggered, bit should not break as the user opens a KLF file")
                 } else if (isConnected) {
                     console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection, "and isConnected", isConnected)
-                    linkManagerWrapper.closeLink(pulseRuntimeSettings.uuidSuccessfullyOpened)
+                    //linkManagerWrapper.closeLink(pulseRuntimeSettings.uuidSuccessfullyOpened)
+                    linkManagerWrapper.closeOpenedLinks()
                 } else {
                     console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection, "but cannot as isConnected", isConnected)
                 }
@@ -52,7 +53,9 @@ ColumnLayout {
                 let allowedRed = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed
                 let allowedBlue = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue
                 let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isBetaTester
-                let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isExpert
+                let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto  && PulseSettings.isExpert
+                //let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isBetaTester
+                //let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isExpert
                 if (allowedRed || allowedBlue || allowedBeta || allowedExpert) {
                     if (allowedRed || allowedBlue) {
                         console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is always allowed")

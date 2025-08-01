@@ -7,7 +7,7 @@ Plot2DEchogram::Plot2DEchogram()
     int levelLow = 10;
     int levelHigh = 100;
     int themeValue = 0;
-    if (g_pulseRuntimeSettings && g_pulseSettings) {dev_dri
+    if (g_pulseRuntimeSettings && g_pulseSettings) {
         //Users last saved real filtering values
         levelLow = g_pulseSettings->property("filterRealValue").toInt();
         levelHigh = g_pulseSettings->property("intensityRealValue").toInt();
@@ -116,6 +116,7 @@ QVariantList Plot2DEchogram::getThemeColors() const
     }
     return list;
 }
+
 
 int Plot2DEchogram::getThemeId() const
 {
@@ -1228,7 +1229,9 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     }
 
-    //;
+    //TODO: Kept setColorScheme(coloros, levels), need to re-implement the other stuff
+    //setColorScheme(coloros, levels);
+
 
     _rawThemeColors = coloros;
     qDebug() << "Theme ID was set by user, new ID is " << theme_id;
@@ -1239,14 +1242,16 @@ void Plot2DEchogram::setThemeId(int theme_id) {
     getThemeColors();
 
     emit themeColorsChanged();
-    emit themeIdChanged();
+    //emit themeIdChanged();
     //qDebug() << "Emitted new colors";
 }
+
 
 void Plot2DEchogram::setCompensation(int compensation_id)
 {
     _compensation_id = compensation_id;
 }
+
 
 
 void Plot2DEchogram::updateColors() {
@@ -1279,44 +1284,8 @@ void Plot2DEchogram::updateColors() {
     _image.setColorTable(_colorLevels);
 }
 
-
-
+//TODO: This was used in original app, we disable it here and use the original for now. _rawThemeColors not present
 /*
-
-void Plot2DEchogram::updateColors() {
-    // Map your user range [low..high] → [0..255]
-    float low    = _levels.low;
-    float high   = _levels.high;
-    float span   = (high - low) * 2.55f;    // same scaling you used before
-    float offset = low     * 2.55f;
-    float scale  = (span > 0.0f ? 255.0f / span : 0.0f);
-
-    _colorLevels.resize(256);
-
-    // Build a smooth 256-entry palette by blending _colorTable entries
-    for (int i = 0; i < 256; ++i) {
-        // compute fractional index into _colorTable
-        float idxf = (i - offset) * scale;
-        idxf = qBound(0.0f, idxf, 255.0f);
-
-        int idx  = int(floor(idxf));
-        int idxp = qMin(idx + 1, 255);
-        float t  = idxf - idx;
-
-        QRgb c0 = _colorTable[idx];
-        QRgb c1 = _colorTable[idxp];
-
-        int r = qRound(qRed(c0)   * (1 - t) + qRed(c1)   * t);
-        int g = qRound(qGreen(c0) * (1 - t) + qGreen(c1) * t);
-        int b = qRound(qBlue(c0)  * (1 - t) + qBlue(c1)  * t);
-
-        _colorLevels[i] = qRgb(r, g, b);
-    }
-
-    _flagColorChanged = true;
-    _image.setColorTable(_colorLevels);
-
-
 void Plot2DEchogram::updateColors()
 {
     float low = _levels.low;
@@ -1331,6 +1300,10 @@ void Plot2DEchogram::updateColors()
         index_map_scale = 10000;
     }
 
+    qDebug() << "updateColors():"
+             << "_colorTable.size() =" << _colorTable.size()
+             << "_colorLevels.size() =" << _colorLevels.size();
+
     for(int i = 0; i < _colorTable.size(); i++) {
         int index_map = ((float)(i - index_offset)*index_map_scale);
         if(index_map < 0) { index_map = 0; }
@@ -1343,6 +1316,7 @@ void Plot2DEchogram::updateColors()
 
 }
 */
+
 
 void Plot2DEchogram::resetCash()
 {

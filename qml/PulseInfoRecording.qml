@@ -68,7 +68,7 @@ Rectangle {
 
             Image {
                 id: iconRecording
-                source: pulseRuntimeSettings.isRecordingKlf === true ? "./icons/pulse_recording_active.svg" : "./icons/pulse_recording_inactive.svg"
+                source: pulseRuntimeSettings.isRecordingKlf === true ? "./icons/ui/pulse_recording_active.svg" : "./icons/ui/pulse_recording_inactive.svg"
                 anchors.fill: parent
                 fillMode: Image.PreserveAspectFit
                 smooth: true
@@ -109,7 +109,7 @@ Rectangle {
 
             Image {
                 id: iconOpen
-                source: "./icons/pulse_open.svg"
+                source: "./icons/ui/pulse_open.svg"
                 anchors.fill: parent
                 fillMode: Image.PreserveAspectFit
                 smooth: true

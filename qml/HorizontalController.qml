@@ -136,6 +136,15 @@ Item {
         border.color: "#40ffffff"
         border.width: 1
 
+        // CATCH‐ALL MOUSEAREA – blocks clicks from passing through to the pinch
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            hoverEnabled: false
+            preventStealing: true
+            onPressed: { /* nothing – absorb */ }
+        }
+
         RowLayout {
             anchors.centerIn: parent
             spacing: 5
@@ -375,34 +384,4 @@ Item {
         }
     }
 
-    // Progress Bar
-    /*
-    Rectangle {
-        id: progressBar
-        width: parent.width - 20
-        height: root.progressBarHeight
-        radius: progressBarHeight / 2
-        color: "#FF5722"
-        anchors.bottom: outerShape.top
-        anchors.bottomMargin: 10
-        visible: false
-
-        // Filling the progress bar based on the value
-        Rectangle {
-            width: progressBar.width * (parseInt(valueField.text) / 100)
-            height: progressBar.height
-            color: "#4CAF50"
-        }
-    }
-    */
-
-    // Timer to hide the progress bar after 2 seconds
-    /*
-    Timer {
-        id: progressBarTimer
-        interval: 2000
-        repeat: false
-        onTriggered: progressBar.visible = false
-    }
-    */
 }

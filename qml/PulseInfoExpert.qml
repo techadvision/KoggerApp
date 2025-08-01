@@ -63,6 +63,7 @@ Flickable {
             }
         }
 
+        /*
         SettingRow {
             toggle: false
             text: "Stop echogram during setup"
@@ -73,6 +74,7 @@ Flickable {
                 initialChecked: pulseSettings.stopEchogramToConfigure
             }
         }
+        */
 
         SettingRow {
             toggle: false
@@ -313,16 +315,32 @@ Flickable {
         }
 
         SettingRow {
+            toggle: true
+            text: "Depth manipulation settings"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCatDepthTricks"
+                initialValue: pulseRuntimeSettings.showCatDepthTricks
+            }
+        }
+
+        SettingRow {
             toggle: false
-            text: "Experimental fake add depth new"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            text: "Fake depth addition"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthTricks
             HorizontalControllerMinMaxSettings {
                 id: fakeDepthAddition
                 minimum: 0
                 maximum: 60
-                stepSize: 0.2
+                stepSize: 0.1
 
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.fakeDepthAddition = newValue
+                onPulsePreferenceValueChanged: {
+                    pulseRuntimeSettings.fakeDepthAddition = newValue
+                    if (dataset) {
+                        dataset.setFakeDepthAddition(newValue)
+                    }
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -343,73 +361,262 @@ Flickable {
 
         SettingRow {
             toggle: false
-            id: fakeDeptPushToggle
-            text: "Push fake depth to KLF"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            id: fakeDepthPushToggle
+            text: "Push fake depth to KLF view"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthTricks
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "pushFakeDepth"
                 initialChecked: pulseRuntimeSettings.pushFakeDepth
+                clearAfter: true
             }
             Connections {
                 target: pulseRuntimeSettings
                 function onPushFakeDepthChanged () {
-                    dataset.addRangefinder(0, pulseRuntimeSettings.fakeDepthAddition)
-                    pulseRuntimeSettings.pushFakeDepth = false
+                    if (pulseRuntimeSettings.pushFakeDepth) {
+                        if (dataset) {
+                            dataset.addRangefinder(0, pulseRuntimeSettings.fakeDepthAddition)
+                        }
+                    }
+                    //dataset.addRangefinder(0, pulseRuntimeSettings.fakeDepthAddition)
+                    //pulseRuntimeSettings.pushFakeDepth = false
                 }
             }
         }
 
         SettingRow {
             toggle: false
-            id: depthMeasureToggle
-            text: "Use tracker depth measure"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
+            id: resetFakeDepthPushToggle
+            text: "Reset false depth"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthTricks
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "resetFakeDepth"
+                initialChecked: pulseRuntimeSettings.resetFakeDepth
+                clearAfter: true
+            }
+            Connections {
+                target: pulseRuntimeSettings
+                function onResetFakeDepthChanged () {
+                    if (pulseRuntimeSettings.resetFakeDepth) {
+                        pulseRuntimeSettings.fakeDepthAddition = 0;
+                        pulseRuntimeSettings.resetBottomTrackActive = true
+                    } else {
+                        pulseRuntimeSettings.resetBottomTrackActive = false
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: true
+            text: "Bottom track settings"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCatBottomTrack"
+                initialValue: pulseRuntimeSettings.showCatBottomTrack
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            id: bottomTrackToggle
+            text: "Use bottom track depth"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.is2DTransducer
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "processBottomTrack"
+                initialChecked: pulseRuntimeSettings.processBottomTrack
+            }
+            Connections {
+                target: pulseRuntimeSettings
+                function onProcessBottomTrackChanged () {
+                    if (dataset) {
+                        dataset.setProcessBottomTrack(pulseRuntimeSettings.processBottomTrack)
+                    }
+                    console.log("DEV_PARAM: Measure by bottom track (instead of range finder)?", pulseRuntimeSettings.processBottomTrack)
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            id: bottomTrackToggleShowLines
+            text: "Show visible bottom tracks"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "bottomTrackVisible"
                 initialChecked: pulseRuntimeSettings.bottomTrackVisible
             }
-            Connections {
-                target: pulseRuntimeSettings
-                function onBottomTrackVisibleChanged () {
-                    console.log("DEV_PARAM: Measure by rangefinder (instead of bottom track)?", pulseRuntimeSettings.bottomTrackVisible)
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Minimum depth before activating track"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
+            HorizontalControllerDoubleSettings {
+                id: bottomTrackMinimumValue
+                values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50,
+                    0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00]
+
+                onPulsePreferenceValueChanged: {
+                    pulseRuntimeSettings.bottomTrackMinDepth = newValue
+                    if (dataset) {
+                        dataset.setBottomTrackMinDepth(newValue)
+                    }
                 }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.bottomTrackMinDepth)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Bottom track gain slope"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
+            HorizontalControllerDoubleSettings {
+                id: bottomTrackGainSlopeValue
+                values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
+                        2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
+
+                onPulsePreferenceValueChanged: {
+                    if (pulseRuntimeSettings.distProcessing[5] !== newValue) {
+                        pulseRuntimeSettings.distProcessing[5] = newValue
+                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
+                    }
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.distProcessing[5])
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Bottom track window"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
+            Text {
+                font.pixelSize: 30
+                text: pulseRuntimeSettings.distProcessing[1]
             }
         }
 
         /*
         SettingRow {
             toggle: false
-            text: "Chart: Resolution"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.is2DTransducer
-            Text {
-                font.pixelSize: 30
-                text: pulseRuntimeSettings.chartResolution
-            }
-        }
+            text: "Bottom track window"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.processBottomTrack
+            HorizontalControllerDoubleSettings {
+                id: bottomTrackWindowValue
+                values: [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 
-        SettingRow {
-            toggle: false
-            text: "Chart: Samples"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
-            Text {
-                font.pixelSize: 30
-                text: pulseRuntimeSettings.chartSamples
-            }
-        }
+                onPulsePreferenceValueChanged: {
+                    if (pulseRuntimeSettings.distProcessing[1] !== newValue) {
+                        pulseRuntimeSettings.distProcessing[1] = newValue
+                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
+                    }
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
 
-        SettingRow {
-            toggle: false
-            text: "Ch1 Period"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
-            Text {
-                font.pixelSize: 30
-                text: pulseRuntimeSettings.ch1Period
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.distProcessing[1])
+                    currentIndex = idx >= 0 ? idx : 0
+                }
             }
-
         }
         */
+
+        SettingRow {
+            toggle: false
+            text: "Bottom track vertical gap"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
+            HorizontalControllerDoubleSettings {
+                id: bottomTrackVerticalGapValue
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+                onPulsePreferenceValueChanged: {
+                    if (pulseRuntimeSettings.distProcessing[2] !== newValue) {
+                        pulseRuntimeSettings.distProcessing[2] = newValue
+                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
+                    }
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.distProcessing[2])
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Bottom track min depth evaluation"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
+            HorizontalControllerDoubleSettings {
+                id: bottomTrackMinDepthValue
+                values: [0.0, 0.5, 0.10, 0.15, 0.20, 0.25, 0.26, 0.30, 0.35, 0.40, 0.45, 0.50]
+
+                onPulsePreferenceValueChanged: {
+                    if (pulseRuntimeSettings.distProcessing[3] !== newValue) {
+                        pulseRuntimeSettings.distProcessing[3] = newValue
+                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
+                    }
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.distProcessing[3])
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Bottom track max depth evaluation"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
+            HorizontalControllerDoubleSettings {
+                id: bottomTrackMaxDepthValue
+                values: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                        31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                        41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+
+                onPulsePreferenceValueChanged: {
+                    if (pulseRuntimeSettings.distProcessing[4] !== newValue) {
+                        pulseRuntimeSettings.distProcessing[4] = newValue
+                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
+                    }
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.distProcessing[4])
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+            }
+        }
 
         SettingRow {
             toggle: true
@@ -490,6 +697,9 @@ Flickable {
                 onPulsePreferenceValueChanged: {
                     //console.log("WOW changed kSmallAgreeMargin to ", newValue)
                     pulseRuntimeSettings.kSmallAgreeMargin = newValue
+                    if (dataset) {
+                        dataset.setSmallAgreeMargin(newValue)
+                    }
                 }
             }
         }
@@ -500,7 +710,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering
             HorizontalControllerDoubleSettings {
                 id: kLargeJumpThreshold
-                values: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+                values: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
+                        11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0]
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -513,6 +724,9 @@ Flickable {
                 onPulsePreferenceValueChanged: {
                     //console.log("WOW changed kLargeJumpThreshold to ", newValue)
                     pulseRuntimeSettings.kLargeJumpThreshold = newValue
+                    if (dataset) {
+                        dataset.setLargeJumpThreshold(newValue)
+                    }
                 }
             }
         }
@@ -537,6 +751,9 @@ Flickable {
                 onPulsePreferenceValueChanged: {
                     //console.log("WOW changed kConsistNeeded to ", newValue)
                     pulseRuntimeSettings.kConsistNeeded = newValue
+                    if (dataset) {
+                        dataset.setConsistNeeded(newValue)
+                    }
                 }
             }
         }

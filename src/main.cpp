@@ -26,6 +26,8 @@
 #include "bottom_track.h"
 #if defined(Q_OS_ANDROID)
 #include "platform/android/src/android.h"
+#include <QtAndroidExtras/QAndroidJniObject>
+#include <QtAndroid>
 #endif
 
 Core core;
@@ -35,6 +37,30 @@ QVector<QString> availableLanguages{"en", "ru", "pl"};
 QObject* g_pulseRuntimeSettings = nullptr;
 QObject* g_pulseSettings = nullptr;
 
+
+static void makeStatusBarTransparent()
+{
+    const int FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS = 0x80000000;
+    const int FLAG_TRANSLUCENT_STATUS        = 0x04000000;
+
+    QtAndroid::runOnAndroidThread([=]() {
+        QAndroidJniObject activity =
+            QAndroidJniObject::callStaticObjectMethod(
+                "org/qtproject/qt5/android/QtNative",
+                "activity", "()Landroid/app/Activity;");
+        QAndroidJniObject window = activity.callObjectMethod(
+            "getWindow", "()Landroid/view/Window;");
+
+        // allow the window to draw system bar backgrounds
+        window.callMethod<void>("addFlags", "(I)V", FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        // clear the old translucent flag (so color takes effect)
+        window.callMethod<void>("clearFlags", "(I)V", FLAG_TRANSLUCENT_STATUS);
+        // set status bar color to transparent
+        window.callMethod<void>("setStatusBarColor", "(I)V",
+                                QAndroidJniObject::getStaticField<jint>(
+                                    "android/graphics/Color", "TRANSPARENT"));
+    });
+}
 
 void loadLanguage(QGuiApplication &app)
 {
@@ -124,7 +150,7 @@ int main(int argc, char *argv[])
     qmlRegisterSingletonType(QUrl("qrc:/PulseSettings.qml"), "org.techadvision.settings", 1, 0, "PulseSettings");
     qmlRegisterSingletonType(QUrl("qrc:/PulseRuntimeSettings.qml"), "org.techadvision.runtime", 1, 0, "PulseRuntimeSettings");
 
-    qmlRegisterType<Plot2DEchogram>("Pulse.Plot", 1, 0, "Plot2DEchogram");
+    //qmlRegisterType<Plot2DEchogram>("Pulse.Plot", 1, 0, "Plot2DEchogram");
 
     QQuickWindow::setSceneGraphBackend(QSGRendererInterface::OpenGLRhi);
 
@@ -157,6 +183,10 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("linkManagerWrapper", core.getLinkManagerWrapperPtr());
     engine.rootContext()->setContextProperty("deviceManagerWrapper", core.getDeviceManagerWrapperPtr());
 
+    //Pulse additions
+    auto grid = new Plot2DGrid();
+    engine.rootContext()->setContextProperty("plot2DGrid", grid);
+
     QQmlComponent component(&engine, QUrl("qrc:/PulseRuntimeSettings.qml"));
     QObject *runtimeSettingsInstance = component.create();
     if (!runtimeSettingsInstance) {
@@ -177,13 +207,21 @@ int main(int argc, char *argv[])
         g_pulseSettings = settingsInstance;
     }
 
+
     NMEASender* nmeaSender = new NMEASender(&core);  // Use an appropriate parent
+
     QObject::connect(core.getDatasetPtr(), &Dataset::distChanged, [=]() {
         nmeaSender->setLatestDepth(core.getDatasetPtr()->dist());
+    });
+    QObject::connect(core.getDatasetPtr(), &Dataset::bottomTrackDepthChanged, [=]() {
+        nmeaSender->setLatestDepth(core.getDatasetPtr()->bottomTrackDepth());
     });
     QObject::connect(core.getDatasetPtr(), &Dataset::tempChanged, [=]() {
         nmeaSender->setLatestTemp(core.getDatasetPtr()->temp());
     });
+
+
+    //************
 
 
 #ifdef FLASHER
@@ -206,6 +244,7 @@ int main(int argc, char *argv[])
 #ifdef Q_OS_ANDROID
     checkAndroidWritePermission();
     tryOpenFileAndroid(engine);
+    makeStatusBarTransparent();
 #else
     if (argc > 1) {
         QObject::connect(&engine,   &QQmlApplicationEngine::objectCreated,

@@ -10,8 +10,8 @@ QtObject {
     property string devName:                "..."           //Stores the connected device name
     property string modelPulseRed:          "PULSEred"      //Our device name for PulseRed.
     property string modelPulseBlue:         "PULSEblue"     //Our device name dor PulseBlue.
-    property string modelPulseRedProto:     "ECHO20"        //Our device name for PulseRed. Will change!
-    property string modelPulseBlueProto:    "NanoSSS"       //Our device name dor PulseBlue. Will change!
+    property string modelPulseRedProto:     "Basic2D"        //Our device name for PulseRed. Will change!
+    property string modelPulseBlueProto:    "Basic2D"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
     property string udpGateway:             "192.168.10.1"
     property string pulseRedBeta:           "PULSEred BETA"
@@ -124,6 +124,10 @@ QtObject {
     property int    dynamicSamples:         500     //
     property int    dynamicPeriod:          50      //
 
+    //APP PULSESETTINGS AND OTHER SYNC C++ PROBLEMS WORKAROUNDS
+    property bool   useMetricDepth:         true    // Workaround for missing ability to sync the c++ and qml settings
+    //property bool   isSideScanLeftHand:true    // Workaround already present
+    property bool   isHorizontalGrid:       true    // Workaround for missing ability to sync the c++ and qml settings
 
     //RECORDING KLF
     property bool   isRecordingKlf:         false   // If a KLF recording is started or not
@@ -136,6 +140,8 @@ QtObject {
     property bool   showCatTroubleShoot:    false
     property bool   showCatRecording:       false
     property bool   showCatExperimental:    false
+    property bool   showCatDepthTricks:     false
+    property bool   showCatBottomTrack:     false
     property bool   showCatDebug:           false
     property bool   showCatBlackStripes:    false
     property bool   showCatDepthFiltering:  false
@@ -165,44 +171,51 @@ QtObject {
     property bool   enableNmeaDbt:          true
 
     //FALSE DEPTH READING ALGORITHM TUNING
-    property double kSmallAgreeMargin:      0.2    // Flucutations allowed in filtering
-    property double kLargeJumpThreshold:    3.0    // A jump from one value to the next before considered a likely false reading
-    property int    kConsistNeeded:         10     // The threshold of values required before we believe it
+    property double kSmallAgreeMargin:      0.5    // Flucutations allowed in filtering
+    property double kLargeJumpThreshold:    10.0    // A jump from one value to the next before considered a likely false reading
+    property int    kConsistNeeded:         3     // The threshold of values required before we believe it
 
     //TESTING PROPERTIES
     property double fakeDepthAddition:      0.0
     property bool   pushFakeDepth:          false
+    property bool   resetFakeDepth:         false
+    property bool   resetBottomTrackActive: false
+
+    //PROPERTY CONTROLLING BOTTOM TRACK
+    property double bottomTrackMinDepth:    0.5     //Below this depth, the rangefinder shall always be used
+    property bool   isBottomTrackActive:    false   //If bottom track is to be used and is active, this is true
+    property bool   isBottomTrackInitiated: false   //Setup for bottom track is prepared
     
     //COLOR MAP
 
     property var    themeModelBlue: [
-        { id: 0,        icon: "./icons/pulse_color_ss_blue.svg",        title: "Blue"   },
-        { id: 1,        icon: "./icons/pulse_color_ss_sepia.svg",       title: "Yellow"   },
-        { id: 2,        icon: "./icons/pulse_color_ss_gray.svg",        title: "Gray"   },
-        { id: 3,        icon: "./icons/pulse_color_ss_red.svg",         title: "Red"   },
-        { id: 4,        icon: "./icons/pulse_color_ss_green.svg",       title: "Green" }
+        { id: 0,        icon: "./icons/ui/pulse_color_ss_blue.svg",        title: "Blue"   },
+        { id: 1,        icon: "./icons/ui/pulse_color_ss_sepia.svg",       title: "Yellow"   },
+        { id: 2,        icon: "./icons/ui/pulse_color_ss_gray.svg",        title: "Gray"   },
+        { id: 3,        icon: "./icons/ui/pulse_color_ss_red.svg",         title: "Red"   },
+        { id: 4,        icon: "./icons/ui/pulse_color_ss_green.svg",       title: "Green" }
     ]
 
     property var    themeModelRed: [
-        { id: 5,        icon: "./icons/pulse_color_2d_e500_black.svg",  title: "E Dark" },
-        { id: 6,        icon: "./icons/pulse_color_2d_e500_white.svg",  title: "E Bright"  },
-        { id: 7,        icon: "./icons/pulse_color_2d_furuno_black.svg",title: "F Dark"  },
-        { id: 8,        icon: "./icons/pulse_color_2d_furuno_white.svg",title: "F Bright"  },
-        { id: 9,        icon: "./icons/pulse_color_2d_sonic_black.svg", title: "S Dark"  },
-        { id: 10,       icon: "./icons/pulse_color_2d_sonic_white.svg", title: "S Bright"  },
-        { id: 11,       icon: "./icons/pulse_color_2d_lsss_black.svg",  title: "L Dark"  },
-        { id: 12,       icon: "./icons/pulse_color_2d_lsss_white.svg",  title: "L Bright"  },
-        { id: 13,       icon: "./icons/pulse_color_2d_hti_black.svg",   title: "H Dark"  },
-        { id: 14,       icon: "./icons/pulse_color_2d_hti_white.svg",   title: "H Bright"  },
-        { id: 15,       icon: "./icons/pulse_color_2d_dt4_black.svg",   title: "D Dark"  },
-        { id: 16,       icon: "./icons/pulse_color_2d_dt4_white.svg",   title: "D Bright"  },
-        { id: 19,       icon: "./icons/pulse_color_blue_red.svg",       title: "Pulse Blue-Red"  },
-        { id: 20,       icon: "./icons/pulse_color_2d_rainbow.svg",     title: "Pulse Pink-Red"  },
-        { id: 0,        icon: "./icons/pulse_color_ss_blue.svg",        title: "Blue"   },
-        { id: 1,        icon: "./icons/pulse_color_ss_sepia.svg",       title: "Yellow"   },
-        { id: 2,        icon: "./icons/pulse_color_ss_gray.svg",        title: "Gray"   },
-        { id: 3,        icon: "./icons/pulse_color_ss_red.svg",         title: "Red"   },
-        { id: 4,        icon: "./icons/pulse_color_ss_green.svg",       title: "Green" }
+        { id: 5,        icon: "./icons/ui/pulse_color_2d_e500_black.svg",  title: "E Dark" },
+        { id: 6,        icon: "./icons/ui/pulse_color_2d_e500_white.svg",  title: "E Bright"  },
+        { id: 7,        icon: "./icons/ui/pulse_color_2d_furuno_black.svg",title: "F Dark"  },
+        { id: 8,        icon: "./icons/ui/pulse_color_2d_furuno_white.svg",title: "F Bright"  },
+        { id: 9,        icon: "./icons/ui/pulse_color_2d_sonic_black.svg", title: "S Dark"  },
+        { id: 10,       icon: "./icons/ui/pulse_color_2d_sonic_white.svg", title: "S Bright"  },
+        { id: 11,       icon: "./icons/ui/pulse_color_2d_lsss_black.svg",  title: "L Dark"  },
+        { id: 12,       icon: "./icons/ui/pulse_color_2d_lsss_white.svg",  title: "L Bright"  },
+        { id: 13,       icon: "./icons/ui/pulse_color_2d_hti_black.svg",   title: "H Dark"  },
+        { id: 14,       icon: "./icons/ui/pulse_color_2d_hti_white.svg",   title: "H Bright"  },
+        { id: 15,       icon: "./icons/ui/pulse_color_2d_dt4_black.svg",   title: "D Dark"  },
+        { id: 16,       icon: "./icons/ui/pulse_color_2d_dt4_white.svg",   title: "D Bright"  },
+        { id: 19,       icon: "./icons/ui/pulse_color_blue_red.svg",       title: "Pulse Blue-Red"  },
+        { id: 20,       icon: "./icons/ui/pulse_color_2d_rainbow.svg",     title: "Pulse Pink-Red"  },
+        { id: 0,        icon: "./icons/ui/pulse_color_ss_blue.svg",        title: "Blue"   },
+        { id: 1,        icon: "./icons/ui/pulse_color_ss_sepia.svg",       title: "Yellow"   },
+        { id: 2,        icon: "./icons/ui/pulse_color_ss_gray.svg",        title: "Gray"   },
+        { id: 3,        icon: "./icons/ui/pulse_color_ss_red.svg",         title: "Red"   },
+        { id: 4,        icon: "./icons/ui/pulse_color_ss_green.svg",       title: "Green" }
     ]
 
     property var    currentThemeColors: []
@@ -251,8 +264,6 @@ QtObject {
     property int    transFreqMedium:                userManualSetName === modelPulseRed ? pulseRed.transFreqMedium              : pulseBlue.transFreqMedium
     property int    transFreqNarrow:                userManualSetName === modelPulseRed ? pulseRed.transFreqNarrow              : pulseBlue.transFreqNarrow
     property int    maximumDepth:                   userManualSetName === modelPulseRed ? pulseRed.maximumDepth                 : pulseBlue.maximumDepth
-    property bool   processBottomTrack:             userManualSetName === modelPulseRed ? pulseRed.processBottomTrack           : pulseBlue.processBottomTrack
-    property var    distProcessing:                 userManualSetName === modelPulseRed ? distProcPulseRed                      : distProcPulseBlue
     property var    doDynamicResolution:            userManualSetName === modelPulseRed ? pulseRed.doDynamicResolution          : pulseBlue.doDynamicResolution
     property var    fixBlackStripesForwardSteps:    userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesForwardSteps  : pulseBlue.fixBlackStripesForwardSteps
     property var    fixBlackStripesBackwardSteps:   userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesBackwardSteps : pulseBlue.fixBlackStripesBackwardSteps
@@ -260,6 +271,8 @@ QtObject {
     property var    temperatureCorrection:          userManualSetName === modelPulseRed ? pulseRed.temperatureCorrection        : pulseBlue.temperatureCorrection
     property var    bottomTrackVisible:             userManualSetName === modelPulseRed ? pulseRed.bottomTrackVisible           : pulseBlue.bottomTrackVisible
     property var    bottomTrackVisibleModel:        userManualSetName === modelPulseRed ? pulseRed.bottomTrackVisibleModel      : pulseBlue.bottomTrackVisibleModel
+    property bool   processBottomTrack:             userManualSetName === modelPulseRed ? pulseRed.processBottomTrack           : pulseBlue.processBottomTrack
+    property var    distProcessing:                 userManualSetName === modelPulseRed ? distProcPulseRed                      : distProcPulseBlue
 
     //ACTUAL DEVICE PARAMETER VALUE COPY
 
@@ -311,7 +324,7 @@ QtObject {
         "transFreqMedium":              710,
         "transFreqNarrow":              810,
         "maximumDepth":                 52,
-        "processBottomTrack":           true,
+        "processBottomTrack":           false,
         "doDynamicResolution":          true,
         "fixBlackStripesBackwardSteps": 20,
         "fixBlackStripesForwardSteps":  20,
@@ -355,7 +368,7 @@ QtObject {
         "fixBlackStripesForwardSteps":  20,
         "fixBlackStripesState":         true,
         "temperatureCorrection":        0,
-        "bottomTrackVisible":           true,
+        "bottomTrackVisible":           false,
         "bottomTrackVisibleModel":      0
     }
 
@@ -389,24 +402,11 @@ QtObject {
     */
 
     property var    distProcPulseRed: [
-        1,
-        1,
-        0,
-        0,
-        50.0,
-        1,
-        0.0,
-        0,
-        0,
-        0
-    ]
-
-    property var    distProcPulseBlue: [
         2,
         22,
         0,
         0,
-        1000,
+        50,
         200,
         0,
         0,
@@ -414,34 +414,47 @@ QtObject {
         0
     ]
 
-    /*
     property var    distProcPulseBlue: [
         2,
-        20,
-        0,
-        0.00,
-        30.0,
+        11,
+        4,
+        0.26,
+        35,
         2,
-        0.0,
+        0,
         0,
         0,
         0
+    ]
+
+    /*
+    property var    distProcPulseBlue: [
+        2,      0
+        22,     1
+        0,      2
+        0,      3
+        1000,   4
+        200,    5
+        0,      6
+        0,      7
+        0,      8
+        0       9
     ]
     */
 
 
     /*
     void doDistProcessing(
-    int preset,
-    int window_size,
-    float vertical_gap,
-    float range_min,
-    float range_max,
-    float gain_slope,
-    float threshold,
-    float offsetx,
-    float offsety,
-    float offsetz);
+    0 - int preset,
+    1 - int window_size,
+    2 - float vertical_gap,
+    3 - float range_min,
+    4 - float range_max,
+    5 - float gain_slope,
+    6 - float threshold,
+    7 - float offsetx,
+    8 - float offsety,
+    9 - float offsetz);
     */
 
 

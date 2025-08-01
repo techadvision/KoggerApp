@@ -85,7 +85,7 @@ Item {
 
         Image {
             id: actionIcon
-            source: editing ? "./icons/pulse_save.svg" : "./icons/pulse_edit.svg"
+            source: editing ? "./icons/ui/pulse_save.svg" : "./icons/ui/pulse_edit.svg"
             width: 64
             height: 64
             fillMode: Image.PreserveAspectFit
@@ -113,7 +113,7 @@ Item {
 
         Image {
             id: betaUser
-            source: "./icons/pulse_beta_user.svg"
+            source: "./icons/ui/pulse_beta_user.svg"
             width: 64
             height: 64
             fillMode: Image.PreserveAspectFit
@@ -127,7 +127,7 @@ Item {
 
         Image {
             id: expertUser
-            source: "./icons/pulse_guru_user.svg"
+            source: "./icons/ui/pulse_guru_user.svg"
             width: 64
             height: 64
             fillMode: Image.PreserveAspectFit

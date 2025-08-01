@@ -190,12 +190,15 @@ int qPlot2D::getThemeId() const
 void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz) {
     qDebug() << "DevDriver: doDistProcessing: "
                 " preset " << preset
+             << " windowSize " << window_size
              << " verticalGap " << vertical_gap
+             << " minDistance " << range_min
+             << " maxDistance " << range_max
              << " gainSlope " << gain_slope
              << " threshold " << threshold
-             << " windowSize " << window_size
-             << " minDistance " << range_min
-             << " maxDistance " << range_max;
+             << " offsetx " << offsetx
+             << " offsety " << offsety
+             << " offsetz " << offsetz;
 
     if (datasetPtr_ != nullptr) {
         if (auto btpPtr = datasetPtr_->getBottomTrackParamPtr(); btpPtr) {
@@ -223,14 +226,17 @@ void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, 
 void qPlot2D::refreshDistParams(int preset, int windowSize, float verticalGap, float rangeMin, float rangeMax, float gainSlope, float threshold, float offsetX, float offsetY, float offsetZ)
 {
     auto btPRefreshFunc = [this, preset, windowSize, verticalGap, rangeMin, rangeMax, gainSlope, threshold, offsetX, offsetY, offsetZ]() {
-        qDebug() << "DevDriver: refreshDistParams: "
+        qDebug() << "DevDriver: distProcessing, refreshDistParams: "
                     " preset " << preset
+                 << " windowSize " << windowSize
                  << " verticalGap " << verticalGap
+                 << " minDistance " << rangeMin
+                 << " maxDistance " << rangeMax
                  << " gainSlope " << gainSlope
                  << " threshold " << threshold
-                 << " windowSize " << windowSize
-                 << " minDistance " << rangeMin
-                 << " maxDistance " << rangeMax;
+                 << " offsetx " << offsetX
+                 << " offsety " << offsetY
+                 << " offsetz " << offsetZ;
         if (datasetPtr_) {
             if (auto btpPtr =datasetPtr_->getBottomTrackParamPtr(); btpPtr) {
                 btpPtr->preset = static_cast<BottomTrackPreset>(preset);

@@ -689,6 +689,46 @@ void GraphicsScene3dView::setDataset(Dataset *dataset)
                                     }
                                 }, Qt::DirectConnection);
 
+
+    //Pulse - added by suggestion of Eugeniy
+    QObject::connect(m_dataset, &Dataset::chartsAdded,
+                     this,     [this]() -> void {
+#ifndef SEPARATE_READING
+        if (isOpeningFile_) {
+            return;
+        }
+#endif
+                                    bool isBottomTrackInitiated = false;
+                                    if (g_pulseRuntimeSettings) {
+                                        isBottomTrackInitiated = g_pulseRuntimeSettings->property("isBottomTrackInitiated").toBool();
+                                        if (!isBottomTrackInitiated) {
+                                            //qDebug() << "distprocessing: isBottomTrackInitiated false, aborting bottom track";
+                                            return;
+                                        }
+                                    }
+                                    //qDebug() << "distprocessing: isBottomTrackInitiated true, initiating bottom track";
+
+                                    auto* btP = m_dataset->getBottomTrackParamPtr();
+
+                                    const int endIndx    = m_dataset->endIndex();
+                                    const int windowSize = btP->windowSize;
+
+                                    int currCount = std::floor(endIndx / windowSize);
+                                    if (bottomTrackWindowCounter_ != currCount) {
+
+                                        btP->indexFrom = windowSize * bottomTrackWindowCounter_ - (windowSize / 2 + 1);
+                                        btP->indexTo   = windowSize * currCount - (windowSize / 2 + 1);
+
+                                        const auto channels = m_dataset->channelsList();
+                                        for (auto it = channels.begin(); it != channels.end(); ++it) {
+                                            m_dataset->bottomTrackProcessing(it->channelId_, ChannelId());
+                                        }
+
+                                        bottomTrackWindowCounter_ = currCount;
+                                    }
+                                 }, Qt::DirectConnection);
+
+
     QObject::connect(m_dataset, &Dataset::boatTrackUpdated,
                       this,     [this]() -> void {
                                     m_boatTrack->setData(m_dataset->boatTrack(), GL_LINE_STRIP);
@@ -707,6 +747,7 @@ void GraphicsScene3dView::setDataset(Dataset *dataset)
 #endif
 
                                     if (updateMosaic_ || updateIsobaths_ || updateBottomTrack_) {
+                                        /* Pulse: Disable for now
                                         auto* btP = m_dataset->getBottomTrackParamPtr();
 
                                         const int endIndx    = m_dataset->endIndex();
@@ -725,6 +766,7 @@ void GraphicsScene3dView::setDataset(Dataset *dataset)
 
                                             bottomTrackWindowCounter_ = currCount;;
                                         }
+                                        */
                                     }
                                 }, Qt::DirectConnection);
 

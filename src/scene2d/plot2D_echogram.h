@@ -4,14 +4,36 @@
 #include "plot2D_defs.h"
 
 
-class Plot2DEchogram : public PlotLayer {
+class Plot2DEchogram : public QObject, public PlotLayer {
+    Q_OBJECT
+
 public:
+    Q_PROPERTY(QVariantList themeColors READ getThemeColors NOTIFY themeColorsChanged)
+    //Q_PROPERTY(int themeId READ getThemeId WRITE setThemeId NOTIFY themeIdChanged)
+
     enum ThemeId {
         ClassicTheme,
         SepiaTheme,
-        WRGBDTheme,
         WBTheme,
-        BWTheme
+        RedTheme,
+        GreenTheme,
+        Ek500BlackTheme,
+        Ek500WhiteTheme,
+        FurunoBlackTheme,
+        FurunoWhiteTheme,
+        SonicBlackTheme,
+        SonicWhiteTheme,
+        LsssBlackTheme,
+        LsssWhiteTheme,
+        HtiBlackTheme,
+        HtiWhiteTheme,
+        Dt4BlackTheme,
+        Dt4WhiteTheme,
+        Ek80BlackTheme,
+        Ek80WhiteTheme,
+        PulseTheme_bluered,
+        PulseTheme_rainbow,
+        SepiaTemeExtra
     };
 
     Plot2DEchogram();
@@ -34,6 +56,13 @@ public:
     void resetCash();
 
     void addReRenderPlotIndxs(const QSet<int>& indxs);
+
+    //Pulse
+    Q_INVOKABLE QVariantList getThemeColors() const;
+
+signals:
+    void themeColorsChanged();
+    //void themeIdChanged();
 
 protected:
     typedef struct {
@@ -89,4 +118,5 @@ protected:
 private:
     ThemeId themeId_;
     QSet<int> reRenderPlotIndxs_;
+    QVector<QColor> _rawThemeColors;
 };

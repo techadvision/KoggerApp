@@ -19,6 +19,33 @@ class PlotColorTable // TODO: copy-paste from Plot2DEchogram
 public:
     /*structures*/
     enum class ThemeId {
+        kUndefined,
+        ClassicTheme,
+        SepiaTheme,
+        WBTheme,
+        RedTheme,
+        GreenTheme,
+        Ek500BlackTheme,
+        Ek500WhiteTheme,
+        FurunoBlackTheme,
+        FurunoWhiteTheme,
+        SonicBlackTheme,
+        SonicWhiteTheme,
+        LsssBlackTheme,
+        LsssWhiteTheme,
+        HtiBlackTheme,
+        HtiWhiteTheme,
+        Dt4BlackTheme,
+        Dt4WhiteTheme,
+        Ek80BlackTheme,
+        Ek80WhiteTheme,
+        PulseTheme_bluered,
+        PulseTheme_rainbow,
+        SepiaTemeExtra
+    };
+
+    /*
+    enum class ThemeId {
         ClassicTheme,
         SepiaTheme,
         WBTheme,
@@ -32,7 +59,7 @@ public:
         KaijoWhiteTheme,
         SepiaTemeExtra
     };
-    /*
+
     enum class ThemeId {
         kUndefined,
         kClassic,

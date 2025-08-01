@@ -34,6 +34,16 @@ Item {
         border.color: "#40ffffff"
         border.width: 1
 
+        // CATCH‐ALL MOUSEAREA – blocks clicks from passing through to the pinch
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            hoverEnabled: false
+            preventStealing: true
+            onPressed: { /* nothing – absorb */ }
+        }
+
+
         RowLayout {
             anchors.centerIn: parent
             spacing: 5

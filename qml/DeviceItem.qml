@@ -101,9 +101,14 @@ ColumnLayout {
             pulseRuntimeSettings.chartOffset_Copy = dev.chartOffset
             //Check if settings are OK
             if (dev.chartResolution !== pulseRuntimeSettings.chartResolution) {
-                pulseRuntimeSettings.chartResolution_ok = false
-                pulseRuntimeSettings.onChartSetupChanged = false
-                console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartResolution", dev.chartResolution)
+                if (pulseRuntimeSettings.doDynamicResolution) {
+                    pulseRuntimeSettings.chartResolution_ok = true
+                    console.log("DEV_PARAM onChartSetupChanged, dev.chartResolution OK as", dev.chartResolution, "using doDynamicResolution")
+                } else {
+                    pulseRuntimeSettings.chartResolution_ok = false
+                    pulseRuntimeSettings.onChartSetupChanged = false
+                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartResolution", dev.chartResolution)
+                }
             }
             if (dev.chartSamples !== pulseRuntimeSettings.chartSamples) {
                 pulseRuntimeSettings.chartSamples_ok = false
@@ -1108,180 +1113,7 @@ ColumnLayout {
         }
     }
 
-
-    onTransducerDetected: {
-        //console.log("TAV: onTransducerDetected");
-        //columnItem.transducerName = name
-        //console.log("TAV: model was set:", model.toString());
-    }
-
-    function detectTransducer(name) {
-        // Trigger the signal when a transducer is detected
-        //console.log("TAV: function detectTransducer requested with value:", name);
-        columnItem.transducerName = name
-        columnItem.transducerDetected(name)
-    }
-
-    /*
-    function setTransducerFrequency (frequency) {
-        if (dev !== null) {
-            dev.transFreq = frequency
-        } else {
-            //console.log("TAV: FAILED to do dev.transFreq = frequency, dev == null");
-        }
-    }
-    */
-
-    function setPlotGeneral() {
-        // Default values for all Pulse devices
-        //console.log("TAV: setPlotGeneral - start");
-        //targetPlot.plotEchogramVisible(pulseRuntimeSettings.echogramVisible)
-        //targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
-        //targetPlot.plotBottomTrackTheme(pulseRuntimeSettings.bottomTrackVisibleModel)
-        //targetPlot.plotRangefinderVisible(pulseRuntimeSettings.rangefinderVisible)
-        //targetPlot.plotGNSSVisible(pulseRuntimeSettings.gnssVisible, 1)
-        //targetPlot.plotGridVerticalNumber(pulseRuntimeSettings.gridNumber)
-        //targetPlot.plotGridFillWidth(pulseRuntimeSettings.fillWidthGrid)
-        //targetPlot.plotAngleVisibility(pulseRuntimeSettings.angleVisible)
-        //targetPlot.plotVelocityVisible(pulseRuntimeSettings.velocityVisible)
-
-        //console.log("TAV: setPlotGeneral - done");
-    }
-
-    function setPlotPulseRed () {
-        // Device depentent values for PulseRed
-        console.log("TAV: setPlotPulseRed - start");
-
-        // General plot
-        /*
-        targetPlot.plotEchogramCompensation(0)
-        targetPlot.plotDatasetChannel(32767, 32768)
-        core.setSideScanChannels(32767, 32768)
-
-        // Bottom tracking
-        //disableBottomTracking()
-        /*
-        if (pulseRuntimeSettings.processBottomTrack) {
-            doBottomTracking()
-        }
-        */
-
-        console.log("TAV: setPlotPulseRed - done");
-    }
-
-    function setPlotPulseBlue () {
-        console.log("TAV: setPlotPulseBlue - start");
-
-        /*
-        let channel1 = 2
-        let channel2 = 3
-        console.log("Side scan: normal direction, channel1", channel1, "channel2", channel2)
-        if (!PulseSettings.isSideScanCableFacingFront) {
-            channel1 = 3
-            channel2 = 2
-            console.log("Side scan: mounted wrong direction, channel1", channel1, "channel2", channel2)
-        }
-
-        targetPlot.plotEchogramCompensation(1)
-        targetPlot.plotDatasetChannel(channel1, channel2)
-        core.setSideScanChannels(channel1, channel2)
-
-        //disableBottomTracking()
-        //doBottomTracking()
-        */
-
-        console.log("TAV: setPlotPulseBlue - done");
-    }
-
-    function disableBottomTracking () {
-        //targetPlot.plotBottomTrackVisible = false
-        targetPlot.refreshDistParams(
-            pulseRuntimeSettings.distProcessing[0],
-            1,
-            0,
-            0,
-            1000,
-            1,
-            0,
-            0,
-            0,
-            0
-        )
-    }
-
-    function doBottomTracking () {
-        //console.log("Bottom Track - start");
-        targetPlot.plotBottomTrackVisible(pulseRuntimeSettings.bottomTrackVisible)
-        if (!PulseSettings.isSideScanOnLeftHandSide) {
-            pulseRuntimeSettings.bottomTrackVisibleModel = 1
-            console.log("DistProcessing - use right hand line side (theme 1)")
-        } else {
-            console.log("DistProcessing - use default left hand line side (theme 0)")
-        }
-
-        targetPlot.plotBottomTrackTheme(pulseRuntimeSettings.bottomTrackVisibleModel)
-
-        console.log("DistProcessing - distanceParams", pulseRuntimeSettings.distProcessing);
-        console.log("DistProcessing - visible?", pulseRuntimeSettings.distProcessing, " - theme?", pulseRuntimeSettings.bottomTrackVisibleModel);
-
-        /* This is the right order to set the parameters, order is equal for
-          doDistanceProcessing
-          0 = preset = static_cast<BottomTrackPreset>(preset);
-          1 = windosSize = window_size
-          2 = verticalGap = vertical_gap
-          3 = minDistance = range_min
-          4 = maxDistance = range_max
-          5 = gainSlope = gain_slope
-          6 = threshold = threshold
-          7 = offset.x = offsetx;
-          8 = offset.y = offsety;
-          9 = offset.z = offsetz;
-        */
-
-        // While this will use the actual profile data for distance processing
-
-        /*
-        targetPlot.refreshDistParams(
-            pulseRuntimeSettings.distProcessing[0],
-            pulseRuntimeSettings.distProcessing[1],
-            pulseRuntimeSettings.distProcessing[2],
-            pulseRuntimeSettings.distProcessing[3],
-            pulseRuntimeSettings.distProcessing[4],
-            pulseRuntimeSettings.distProcessing[5],
-            pulseRuntimeSettings.distProcessing[6],
-            pulseRuntimeSettings.distProcessing[7],
-            pulseRuntimeSettings.distProcessing[8],
-            pulseRuntimeSettings.distProcessing[9]
-        )
-        */
-
-        targetPlot.doDistProcessing(
-            pulseRuntimeSettings.distProcessing[0],
-            pulseRuntimeSettings.distProcessing[1],
-            pulseRuntimeSettings.distProcessing[2],
-            pulseRuntimeSettings.distProcessing[3],
-            pulseRuntimeSettings.distProcessing[4],
-            pulseRuntimeSettings.distProcessing[5],
-            pulseRuntimeSettings.distProcessing[6],
-            pulseRuntimeSettings.distProcessing[7],
-            pulseRuntimeSettings.distProcessing[8],
-            pulseRuntimeSettings.distProcessing[9]
-        )
-
-        //console.log("TAV: doBottomTracking - done");
-    }
-
-
     function configurePulseDevice () {
-
-        console.log("DEV_PARAM: pulseRuntimeSettings, plot specific, for", pulseRuntimeSettings.userManualSetName)
-        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
-                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
-            setPlotPulseRed()
-        } else {
-            setPlotPulseBlue()
-        }
-
 
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
@@ -1583,10 +1415,15 @@ ColumnLayout {
                 pulseRuntimeSettings.chartResolution_ok = true
                 console.log("DEV_PARAM chartResolution OK as", dev.chartResolution)
             } else {
-                //console.log("DEV_PARAM onChartSetupChanged chartResolution set to", pulseRuntimeSettings.chartResolution)
-                console.log("DEV_PARAM onChartSetupChanged, found dev.chartResolution as", dev.chartResolution, " try setting dev.chartResolution set to", pulseRuntimeSettings.chartResolution)
-                dev.chartResolution = pulseRuntimeSettings.chartResolution
-                return
+                if (pulseRuntimeSettings.doDynamicResolution) {
+                    pulseRuntimeSettings.chartResolution_ok = true
+                    pulseRuntimeSettings.chartResolution_Copy = dev.chartResolution
+                    console.log("DEV_PARAM onChartSetupChanged, dev.chartResolution OK as", dev.chartResolution, "using doDynamicResolution")
+                } else {
+                    console.log("DEV_PARAM onChartSetupChanged, found dev.chartResolution as", dev.chartResolution, " try setting dev.chartResolution set to", pulseRuntimeSettings.chartResolution)
+                    dev.chartResolution = pulseRuntimeSettings.chartResolution
+                    return
+                }
             }
         }
 
@@ -1969,34 +1806,7 @@ ColumnLayout {
             } else {
                 //Pulse Blue
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
-                //doBottomTracking()
             }
-        }
-    }
-
-
-    Timer {
-        id: datasetChannelCounter
-        interval: 100
-        repeat: false
-        onTriggered: {
-            //console.log("number of channels:", dataset.channels.length)
-            pulseRuntimeSettings.numberOfDatasetChannels = dataset.channels.length
-        }
-    }
-
-    Connections {
-        target: dataset ? dataset : undefined
-        function onChannelsUpdated () {
-            datasetChannelCounter.restart()
-        }
-    }
-
-    Connections {
-        target: PulseSettings
-        function onIsSideScanCableFacingFrontChanged () {
-            console.log("Side scan: onIsSideScanCableFacingFrontChanged observed")
-            setPlotPulseBlue()
         }
     }
 
@@ -2004,11 +1814,13 @@ ColumnLayout {
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
 
+        /* Was never properly working
         function onEchogramPausedForConfigChanged () {
             if (pulseRuntimeSettings.echogramPausedForConfig) {
                 turnOffConfiguringEchosounderMessageTimer.start()
             }
         }
+        */
 
         function onEchoSounderRebootChanged () {
             if (pulseRuntimeSettings.echoSounderReboot) {
@@ -2143,7 +1955,7 @@ ColumnLayout {
                 pulseRuntimeSettings.devSettingsEnforced = true
                 //configurePulseDevice()
             }
-            if (pulseRuntimeSettings.pulseBetaName === "..." && pulseRuntimeSettings.devName === "ECHO20") {
+            if (pulseRuntimeSettings.pulseBetaName === "..." && pulseRuntimeSettings.devName === "Basic2D") {
                 if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {
                     pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
                 }
@@ -2238,7 +2050,6 @@ ColumnLayout {
 
     Component.onCompleted: {
         //console.log("TAV deviceItem onCompleted");
-        //setPlotGeneral()
         //pickDev()
         //delayTimer.start()
     }

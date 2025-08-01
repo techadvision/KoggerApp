@@ -28,9 +28,6 @@ ApplicationWindow  {
     property bool windowShadow: true
     property var lostConnectionAlert: null
 
-    // Create an instance of the singleton.
-        // You can use an Item or a dummy object if no visual representation is needed.
-
     Settings {
             id: appSettings
             property bool isFullScreen: false
@@ -71,6 +68,7 @@ ApplicationWindow  {
                     name: "Windowed"
                     StateChangeScript {
                         script: {
+                            mainview.flags = Qt.Window
                             if (Qt.platform.os !== "android") {
                                 mainview.flags = Qt.Window
                             }
@@ -102,6 +100,7 @@ ApplicationWindow  {
         pulseRuntimeSettings.betaMode   = isExpert || isBeta
         PulseSettings.isBetaTester = isBeta
         PulseSettings.isExpert = isExpert
+        console.log("App start code check: code=", code, ", isBeta=", isBeta, "isExpert", isExpert)
         theme.updateResCoeff()
 
         menuBar.languageChanged.connect(handleChildSignal)
@@ -172,7 +171,6 @@ ApplicationWindow  {
             //console.log("TAV: showLostConnection is null, cannot remove the alert or it was not there at all");
         }
     }
-
 
     Rectangle {
         id: banner
@@ -852,7 +850,7 @@ ApplicationWindow  {
 
                     CSlider {
                         id: historyScroll
-                        //TAV - hide
+                        //Pulse: hide
                         visible: false
                         Layout.margins: 0
                         Layout.fillWidth: true
@@ -887,7 +885,7 @@ ApplicationWindow  {
     MenuFrame {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        //Do we need this?
+        //Pulse: Always hide
         //visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
         visible: false
         isDraggable: true
@@ -1020,9 +1018,12 @@ ApplicationWindow  {
 
         Component.onCompleted: {
             menuBar.targetPlot = waterViewFirst
+            y = y + 40
         }
 
-        visible: !showBanner
+        //Pulse: Hide
+        visible: false
+        //visible: !showBanner
     }
 
     function handleChildSignal(langStr) {
@@ -1134,7 +1135,7 @@ ApplicationWindow  {
 
         Image {
                 anchors.fill: parent
-                source: "./icons/patternDots.svg"
+                source: "./icons/ui/patternDots.svg"
                 fillMode: Image.Tile
                 opacity: 0.8
             }
@@ -1267,6 +1268,32 @@ ApplicationWindow  {
                     }
                 }
             }
+            function onDevNameChanged () {
+                let detectedModel = "";
+                console.log("DEVICE: received an onDevNameChanged, devName is", pulseRuntimeSettings.devName);
+                if (pulseRuntimeSettings.devName === "...") {
+                    console.log("DEVICE: aborting this method for devName", pulseRuntimeSettings.devName);
+                    return
+                }
+                if (pulseRuntimeSettings.devName === "PULSEred") {
+                    detectedModel = pulseRuntimeSettings.modelPulseRed
+                }
+                if (pulseRuntimeSettings.devName === "PULSEblue") {
+                    detectedModel = pulseRuntimeSettings.modelPulseBlue
+                }
+                if (detectedModel !== "") {
+                    pulseRuntimeSettings.userManualSetName = detectedModel
+                    echoSounderSelectorRect.selectedDevice = detectedModel
+                    echoSounderSelectorRect.selectionMade = true
+                    pulseRuntimeSettings.devManualSelected = true
+                    console.log("DEV_PARAM: Automatically detected device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
+                } else {
+                    //ECHO20 has become "Basic2D"
+                    //TODO Still have not set the beta name. ow to do that?
+                    console.log("DEVICE: devName not auto selected, name is", pulseRuntimeSettings.devName);
+                }
+            }
+
             function onNumberOfDatasetChannelsChanged () {
                 if (pulseRuntimeSettings.swapDeviceNow) {
                     return
@@ -1274,25 +1301,38 @@ ApplicationWindow  {
 
                 let detectedModel = "";
                 if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {
-                    detectedModel = pulseRuntimeSettings.modelPulseRed
-                    if (pulseRuntimeSettings.devName === "ECHO20") {
+                    if (pulseRuntimeSettings.devName === "Basic2D") {
+                        detectedModel = pulseRuntimeSettings.modelPulseRed
                         pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
                     }
                 } else if (pulseRuntimeSettings.numberOfDatasetChannels === 2) {
-                    detectedModel = pulseRuntimeSettings.modelPulseBlue
-                    if (pulseRuntimeSettings.devName === "ECHO20") {
+                    if (pulseRuntimeSettings.devName === "Basic2D") {
+                        detectedModel = pulseRuntimeSettings.modelPulseBlue
                         pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
                     }
                 }
-                if (pulseRuntimeSettings.numberOfDatasetChannels > 0) {
+                if (detectedModel !== "") {
                     pulseRuntimeSettings.userManualSetName = detectedModel
                     echoSounderSelectorRect.selectedDevice = detectedModel
                     echoSounderSelectorRect.selectionMade = true
                     pulseRuntimeSettings.devManualSelected = true
-                    console.log("DEV_PARAM: Automatically detected device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
+                    console.log("DEV_PARAM: Automatically detected beta device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
                 } else {
                     console.log("DEV_PARAM: onNumberOfDatasetChannelsChanged, but channels are 0 so nothing happened")
                 }
+            }
+        }
+
+        Connections {
+            target: core
+            function onChannelListUpdated() {
+                let list = []
+                list = dataset.channelsNameList()
+                if (list.length < 2)
+                    return
+
+                pulseRuntimeSettings.numberOfDatasetChannels = list.length -1
+
             }
         }
 
@@ -1409,7 +1449,6 @@ ApplicationWindow  {
                 title: "PULSEblue"
                 titleColor: "blue"
                 description: "High-performance side-scan echo sounder"
-                //illustrationSource: "./image/PulseBlueImage400.png"
                 illustrationSource: "./image/PulseBlueForApp.jpg"
                 //versions: ["v1.0"]
                 //version: "v1.0"

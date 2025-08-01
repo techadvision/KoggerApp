@@ -659,7 +659,7 @@ void DevDriver::stopConnection() {
 
 void DevDriver::restartState() {
     m_processTimer.stop();
-    qDebug() << "restart";
+    //qDebug() << "dev_driver: process - restart";
     m_state.resetState();
     idVersion->reset();
     m_processTimer.start(200);
@@ -1437,12 +1437,12 @@ void DevDriver::process() {
         if(m_state.mark) {
             if(idVersion->boardVersion() != BoardNone) {
                 if(m_state.uptime != UptimeFix) {
-                    qDebug() << "UptimeFix";
+                    qDebug() << "dev_driver: process - UptimeFix";
                     m_state.uptime = UptimeFix;
                 }
 
                 if(!m_state.connect) {
-                    qDebug() << "connect = true";
+                    qDebug() << "dev_driver: process - connect = true";
                     m_state.connect = true;
                 }
 
@@ -1452,12 +1452,12 @@ void DevDriver::process() {
                     // idUpdate->putUpdate();
 
                     QTimer::singleShot(100, idUpdate, SLOT(putUpdate()));
-                    qDebug() << "To upgrading";
+                    qDebug() << "dev_driver: process - To upgrading";
                 }
 
                 if(!(m_state.in_boot || m_state.in_update) && m_state.conf < ConfRequest) {
                     requestSetup();
-                    qDebug() << "Request setup";
+                    qDebug() << "dev_driver: process - Request setup";
                 }
 
                 if(m_state.in_update && !m_bootloaderLagacyMode) {
@@ -1468,13 +1468,13 @@ void DevDriver::process() {
                 }
             } else {
                 idVersion->requestAll();
-                qDebug() << "Request version again";
+                qDebug() << "dev_driver: process - Request version again";
             }
         } else {
             restartState();
             idMark->setMark();
             idVersion->requestAll();
-            qDebug() << "Reset state";
+            //qDebug() << "dev_driver: process - Reset state";
         }
     }
 }

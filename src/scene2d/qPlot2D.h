@@ -6,6 +6,7 @@
 #include <dataset.h>
 #include <QTimer>
 #include "plot2D.h"
+#include <QDebug>
 
 //#define USE_PIXMAP
 
@@ -41,8 +42,17 @@ public:
 
     //Pulse app updates
     Q_INVOKABLE void updatePlot() { plotUpdate(); };
-    Q_INVOKABLE void setHorizontalNow() {setHorizontal(true);}
-    Q_INVOKABLE void setVerticalNow() {setHorizontal(false);}
+    Q_INVOKABLE void setHorizontalNow() {
+        qDebug() << "qPlot2.h setHorizontalNow";
+        setHorizontal(true);
+    }
+    Q_INVOKABLE void setVerticalNow() {
+        qDebug() << "qPlot2.h setVerticalNow";
+        setHorizontal(false);
+    }
+    int maxDepth() const {
+        return static_cast<int>(ceil(cursorFrom() + (cursorTo() - cursorFrom())));
+    }
 
     Q_INVOKABLE float cursorFrom() const { return Plot2D::cursor_.distance.from; }
     Q_INVOKABLE float cursorTo() const { return Plot2D::cursor_.distance.to; }
@@ -123,11 +133,10 @@ public slots:
     void plotDistanceRange2d(float max_range) { setDistance(0, max_range); }
     Q_INVOKABLE int getMaxDepth() { return maxDepth(); }
     Q_INVOKABLE bool isViewHorizontal() { return isHorizontal(); }
-    Q_INVOKABLE void setMeasuresMetricNow(bool metric) { setMeasuresMetric(metric); }
     Q_INVOKABLE void setIntensityValue (float intensity) { setEchogramHightLevel(intensity); }
     Q_INVOKABLE void setFilteringValue (float filter) { setEchogramLowLevel(filter); }
-    Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
-    Q_INVOKABLE void setSideScanOnLeftHandSideNow(bool isLeftSideInstalled) { setSideScanOnLeftHandSide(isLeftSideInstalled); }
+    //Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
+    //Q_INVOKABLE void setSideScanOnLeftHandSideNow(bool isLeftSideInstalled) { setSideScanOnLeftHandSide(isLeftSideInstalled); }
 
 
     void plotEchogramSetLevels(float low, float hight) {

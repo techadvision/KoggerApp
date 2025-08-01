@@ -59,28 +59,28 @@ Item {
                     display: AbstractButton.TextBesideIcon
                     text: "Device"
                     font.pointSize: 18 * root.scaleFactor
-                    icon.source: "qrc:/icons/pulse_info.svg"
+                    icon.source: "qrc:/icons/ui/pulse_info.svg"
                 }
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Settings"
                     font.pointSize: 18 * root.scaleFactor
-                    icon.source: "qrc:/icons/pulse_settings.svg"
+                    icon.source: "qrc:/icons/ui/pulse_settings.svg"
                 }
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Recording"
                     font.pointSize: 18 * root.scaleFactor
-                    icon.source: "qrc:/icons/pulse_recording_inactive.svg"
+                    icon.source: "qrc:/icons/ui/pulse_recording_inactive.svg"
                 }
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Colors"
                     font.pointSize: 18 * root.scaleFactor
-                    icon.source: "qrc:/icons/pulse_color_2d_e500_white.svg"
+                    icon.source: "qrc:/icons/ui/pulse_color_2d_e500_white.svg"
                 }
 
             }

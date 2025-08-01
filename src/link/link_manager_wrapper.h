@@ -23,7 +23,8 @@ public:
 
     LinkListModel* getModelPtr();
     LinkManager* getWorker();
-    void closeOpenedLinks();
+    //Pulse: Added Q_INVOKABLE FOR closeOpenedLinks(), allows us to break connection for any device we have no support for
+    Q_INVOKABLE void closeOpenedLinks();
     QHash<QUuid, QString> getLinkNames() const;
     void openClosedLinks();
     QVariant baudrateModel() const;

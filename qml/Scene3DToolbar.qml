@@ -393,6 +393,50 @@ ColumnLayout {
                 Settings {
                     property alias realtimeSurfaceProcessingCheckButton: realtimeSurfaceProcessingCheckButton.checked
                 }
+
+                Connections {
+                    target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+                    function onUserManualSetNameChanged () {
+                        if (pulseRuntimeSettings === null) {
+                            console.log("DistProcessing: onUserManualSetNameChanged, realtimeSurfaceProcessingCheckButton, pulseRuntimeSettings === null. Abort")
+                            return
+                        }
+                        if (pulseRuntimeSettings.userManualSetName === "...") {
+                            console.log("DistProcessing: onUserManualSetNameChanged, realtimeSurfaceProcessingCheckButton, userManualSetName === .... Abort")
+                            return
+                        }
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                            console.log("DistProcessing: onUserManualSetNameChanged, realtimeSurfaceProcessingCheckButton, pulseRuntimeSettings.userManualSetName", pulseRuntimeSettings.userManualSetName, ". Abort")
+                            return
+                        }
+                        if (!pulseRuntimeSettings.processBottomTrack) {
+                            console.log("DistProcessing: onUserManualSetNameChanged, realtimeSurfaceProcessingCheckButton, pulseRuntimeSettings.processBottomTrack", pulseRuntimeSettings.processBottomTrack, ". Abort")
+                            return
+                        }
+                        realtimeSurfaceProcessingCheckButton.checked = true;
+                        console.log("DistProcessing: onUserManualSetNameChanged, realtimeSurfaceProcessingCheckButton.checked = ", realtimeSurfaceProcessingCheckButton.checked)
+                    }
+                    function onProcessBottomTrackChanged () {
+                        if (pulseRuntimeSettings === null) {
+                            console.log("DistProcessing: onProcessBottomTrackChanged, realtimeSurfaceProcessingCheckButton, pulseRuntimeSettings === null. Abort")
+                            return
+                        }
+                        if (pulseRuntimeSettings.userManualSetName === "...") {
+                            console.log("DistProcessing: onProcessBottomTrackChanged, realtimeSurfaceProcessingCheckButton, userManualSetName === .... Abort")
+                            return
+                        }
+                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                            console.log("DistProcessing: onProcessBottomTrackChanged, realtimeSurfaceProcessingCheckButton, pulseRuntimeSettings.userManualSetName", pulseRuntimeSettings.userManualSetName, ". Abort")
+                            return
+                        }
+                        if (!pulseRuntimeSettings.processBottomTrack) {
+                            console.log("DistProcessing: onProcessBottomTrackChanged, realtimeSurfaceProcessingCheckButton, pulseRuntimeSettings.processBottomTrack", pulseRuntimeSettings.processBottomTrack, ". Abort")
+                            return
+                        }
+                        realtimeSurfaceProcessingCheckButton.checked = true;
+                        console.log("DistProcessing: onProcessBottomTrackChanged, realtimeSurfaceProcessingCheckButton.checked = ", realtimeSurfaceProcessingCheckButton.checked)
+                    }
+                }
             }
 
             CButton {

@@ -198,26 +198,32 @@ Item {
         running: true
         repeat: true
         onTriggered: {
-            if (!pulseRuntimeSettings.isReceivingData) {
-                //console.log("TAV: autoLevelTimer, not yet receiving data");
-                //return  // We should maybe not do this as depth data is OK to process anyway
-            }
-            if (!pulseRuntimeSettings.devConfigured) {
-                //console.log("TAV: autoLevelTimer, device not yet configured");
-                return  // We should maybe not do this as depth data is OK to process anyway
-            }
-            if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
-                    && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto){
-                //console.log("TAV: autoLevelTimer, Only do auto level when we have a pulseRed");
-                return
-            }
-
             autoLevelCalculate()
         }
     }
 
+    function currentDepthValue() {
+        if (dataset === null)
+            return 0
+        if (pulseRuntimeSettings === null)
+            return 0
+
+        if (!pulseRuntimeSettings.processBottomTrack) {
+            //console.log("Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.processBottomTrack is", pulseRuntimeSettings.processBottomTrack)
+            return dataset.dist
+        }
+        if (pulseRuntimeSettings.isBottomTrackActive) {
+            //console.log("Depth in UI from dataset.bottomTrackDepth as", dataset.bottomTrackDepth, "since pulseRuntimeSettings.isBottomTrackActive is", pulseRuntimeSettings.isBottomTrackActive)
+            return dataset.bottomTrackDepth
+        } else {
+            //console.log("Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.isBottomTrackActive is", pulseRuntimeSettings.isBottomTrackActive)
+            return dataset.dist
+        }
+    }
+
     function autoLevelCalculate () {
-        let currentDepth = (dataset !== null) ? dataset.dist : 0;
+        //let currentDepth = (dataset !== null) ? dataset.dist : 0;
+        let currentDepth = currentDepthValue()
         calculateDynamicResolution(currentDepth)
         let newLevel = calculateAutoLevel(depthAndTemperature.lastStableDepth);
         if (newLevel !== depthAndTemperature.autoLevel) {
@@ -252,6 +258,16 @@ Item {
         }
     }
 
+    Connections {
+        target: dataset ? dataset : undefined
+        function onIsBottomTrackActiveUpdated () {
+            if (!dataset)
+                return
+            pulseRuntimeSettings.isBottomTrackActive = dataset.isBottomTrackActive()
+            console.log("Depth received onIsBottomTrackActiveUpdated, dataset.isBottomTrackActive", dataset.isBottomTrackActive())
+        }
+    }
+
     Timer {
         id: initialAutoLevelCalculatorTimer
         repeat: false
@@ -263,7 +279,8 @@ Item {
     }
 
     function formatDepth() {
-        let depthInMeters = (dataset !== null) ? dataset.dist : 0
+        //let depthInMeters = (dataset !== null) ? dataset.dist : 0
+        let depthInMeters = currentDepthValue()
         let decimalPlaces = 1;
 
         return isMetric
@@ -300,7 +317,15 @@ Item {
 
     Timer {
         id: displayDepthTimer
-        interval: 250
+        interval: {
+            if (!pulseRuntimeSettings)
+                return 250
+            if (pulseRuntimeSettings.isBottomTrackActive) {
+                return 1
+            } else {
+                return 250
+            }
+        }
         repeat: true
         running: true
         onTriggered: {
@@ -329,6 +354,16 @@ Item {
         height: depthAndTemperature.height
         color: "transparent" // Use transparent for layout
         radius: parent.height / 2
+
+        // CATCH‐ALL MOUSEAREA – blocks clicks from passing through to the pinch
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            hoverEnabled: false
+            preventStealing: true
+            onPressed: { /* nothing – absorb */ }
+        }
+
 
         // Property to count the taps
         property int tapCount: 0
@@ -462,19 +497,21 @@ Item {
     }
 
         Component.onCompleted: {
-            setMeasuresMetricNow(PulseSettings.useMetricValues)
+            pulseRuntimeSettings.useMetricDepth = PulseSettings.useMetricDepth
+            //plot2DGrid.setMeasuresMetric(PulseSettings.useMetricDepth)
         }
 
         Connections {
-        target: PulseSettings
-        function onUseMetricDepthChanged () {
-            setMeasuresMetricNow(PulseSettings.useMetricDepth)
-        }
-        function onUseMetricTemperatureChanged () {
-            // do nothing!
-        }
-        function onShowTemperatureInUiChanged () {
-            // do nothing!
+            target: PulseSettings
+            function onUseMetricDepthChanged () {
+                pulseRuntimeSettings.useMetricDepth = PulseSettings.useMetricDepth
+                //plot2DGrid.setMeasuresMetric(PulseSettings.useMetricDepth)
+            }
+            function onUseMetricTemperatureChanged () {
+                // do nothing!
+            }
+            function onShowTemperatureInUiChanged () {
+                // do nothing!
         }
     }
 }

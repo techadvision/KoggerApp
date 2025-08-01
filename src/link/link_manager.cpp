@@ -59,34 +59,27 @@ void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
 
 
 #ifdef Q_OS_ANDROID
+    // TODO: Entire method disabled as we no longer use the USB serial link
+    /*
     for (Link* link : list_) {
-         //qDebug() << "Looping through link";
         // If this is a serial link and it is meant to be the USB device
-        // (e.g. match vendor/product IDs or if there's only one device),
-        // force its pinned attributes:
+
         if (link->getLinkType() == LinkSerial) {
-            // qDebug() << "Found serial";
-            // Suppose you decide that if the link’s port name is not empty,
-            // it is the actual device you want to auto-connect.
-            // Then update its values:
-            //link->setUuid(QUuid("{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"));  // your fixed uuidUsbSerial
+
             if (link->getUuid().isNull()) {
                  // Generate a new UUID if the imported one is null or invalid:
                  link->setUuid(QUuid::createUuid());
             }
             link->setControlType(kAuto);  // assuming kAuto equals control type 1
-            // The baudrate and parity are already set from createSerialPort,
-            // but you can enforce them:
             link->setBaudrate(921600);
             link->setParity(false);
-            // Mark as pinned:
             link->setIsPinned(true);
-            // And mark connection status as true (or force open if not already open)
             if (!link->getConnectionStatus()) {
                 link->openAsSerial();  // this will try to open it using the dynamic port name
             }
         }
     }
+    */
 #endif
 }
 
