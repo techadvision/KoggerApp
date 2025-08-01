@@ -69,6 +69,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.content.pm.ActivityInfo;
 
+import android.os.Build;
+import android.view.View;
+import android.view.WindowManager.LayoutParams;
+
 public class KoggerActivity extends QtActivity
 {
     public  static int                                  BAD_DEVICE_ID = 0;
@@ -240,14 +244,22 @@ public class KoggerActivity extends QtActivity
         super.onCreate(savedInstanceState);
         nativeInit();
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            if (!isInMultiWindowMode()) {
-                setRequestedOrientation(ORIENTATION_LANDSCAPE);
-            } else {
-                setRequestedOrientation(ORIENTATION_UNSPECIFIED);
-            }
-        } else {
+
+        // SDK35 workaround - app window overlaps statusbar. Let's make it transparent
+        getWindow().clearFlags(LayoutParams.FLAG_FULLSCREEN);
+
+        getWindow().getDecorView().setSystemUiVisibility(
+              View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        );
+
+        getWindow().addFlags(LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+
+        // fix for all but Samsung devices, these are not handling landscape in multi window mode well:
+        if (!isInMultiWindowMode()) {
             setRequestedOrientation(ORIENTATION_LANDSCAPE);
+        } else {
+            setRequestedOrientation(ORIENTATION_UNSPECIFIED);
         }
 
         PowerManager pm = (PowerManager)_instance.getSystemService(Context.POWER_SERVICE);
