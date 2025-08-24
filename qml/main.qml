@@ -87,7 +87,12 @@ ApplicationWindow  {
         target: core ? core : undefined
         function onSendIsFileOpening() {
             //console.log("TAV main onSendIsFileOpening");
-            pulseRuntimeSettings.isOpeningKlfFile = true
+            let isFileOpening = core.getIsFileOpening()
+            console.log ("FILE OPENING: isFileOpening euals", isFileOpening)
+            pulseRuntimeSettings.isOpeningKlfFile = isFileOpening
+            if (isFileOpening) {
+                pulseRuntimeSettings.wasKlfFileOpened = true
+            }
         }
     }
 
@@ -141,7 +146,7 @@ ApplicationWindow  {
 
     function showLostConnection () {
 
-        if (pulseRuntimeSettings.isOpeningKlfFile) {
+        if (pulseRuntimeSettings.wasKlfFileOpened) {
             //console.log("TAV: showLostConnection, please do not when viewing a file");
             return
         }

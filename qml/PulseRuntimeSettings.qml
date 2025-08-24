@@ -35,6 +35,7 @@ QtObject {
     property bool   isSideScan2DView:       false   // Side scan is detected, but user wants to show it as a 2D transducer (aka downscan)
     property bool   isSideScanLeftHand:     false   // Side scan mounted on the left side
     property bool   isOpeningKlfFile:       false
+    property bool   wasKlfFileOpened:       false
     property int    numberOfDatasetChannels:0       // The number of channels in the dataset received
     property int    currentDepthSolution:   -1      // Depth reporting inactive = 0, depth distance = 1, depth NMEA = 2
     property bool   disableAllSetup:        false

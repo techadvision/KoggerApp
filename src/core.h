@@ -115,7 +115,7 @@ public slots:
     void resetAim();
     void UILoad(QObject* object, const QUrl& url);
     void setSideScanChannels(const QString& firstChStr, const QString& secondChStr);
-    bool getIsFileOpening() const;
+    Q_INVOKABLE bool getIsFileOpening() const;
     void setIsMosaicUpdatingInThread(bool state);
     void setSideScanWorkMode(SideScanView::Mode mode);
     bool getIsMosaicUpdatingInThread() const;

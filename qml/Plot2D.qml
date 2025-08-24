@@ -960,6 +960,54 @@ WaterFall {
                 plot.updatePlot();
             }
 
+            Connections {
+                target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+
+                function onIsOpeningKlfFileChanged () {
+                    if (pulseRuntimeSettings === null) {
+                        return
+                    }
+                    if (pulseRuntimeSettings.isOpeningKlfFile) {
+                        return
+                    }
+                    //A file was opened completely, let's ensure the settings are now enforced
+                    console.log("FILE OPENING: A file was opened, set proper value for zoom")
+                    updateZoomTimer.start()
+                }
+
+                function onDevConfiguredChanged () {
+                    if (pulseRuntimeSettings === null) {
+                        return
+                    }
+                    if (!pulseRuntimeSettings.devConfigured) {
+                        return
+                    }
+                    //The device was set up, let's enforce the default zoom
+                    console.log("DEVICE CONFIGURED: Device configuration completed, set proper value for zoom")
+                    updateZoomTimer.start()
+                }
+            }
+
+            Timer {
+                id: updateZoomTimer
+                interval: 500
+                repeat: false
+                onTriggered: {
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        plot.plotDistanceRange2d(PulseSettings.maxDepthValue)
+                        //console.log("FILE OPENING: A file was opened for pulse red, execute plot.plotDistanceRange2d with value", PulseSettings.maxDepthValue)
+                    } else {
+                        if (pulseRuntimeSettings.isSideScan2DView) {
+                            plot.plotDistanceRange2d(PulseSettings.maxDepthValuePulseBlue)
+                            //console.log("FILE OPENING: A file was opened for pulse blue, execute plot.plotDistanceRange2d with value", PulseSettings.maxDepthValuePulseBlue)
+                        } else {
+                            plot.plotDistanceRange(PulseSettings.maxDepthValuePulseBlueFixed)
+                            //console.log("FILE OPENING: A file was opened for pulse blue, execute plot.plotDistanceRange with value", PulseSettings.maxDepthValuePulseBlueFixed)
+                        }
+                    }
+                    plot.updatePlot()
+                }
+            }
         }
 
 
@@ -990,6 +1038,32 @@ WaterFall {
             Component.onCompleted: {
                 plot.setIntensityValue(PulseSettings.intensityRealValue * 1.0)
                 plot.updatePlot()
+            }
+
+            Connections {
+                target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+
+                function onDevConfiguredChanged () {
+                    if (pulseRuntimeSettings === null) {
+                        return
+                    }
+                    if (!pulseRuntimeSettings.devConfigured) {
+                        return
+                    }
+                    //The device was set up, let's enforce the default intensity
+                    console.log("DEVICE CONFIGURED: Device configuration completed, set proper value for intensity")
+                    updateIntensityTimer.start()
+                }
+            }
+
+            Timer {
+                id: updateIntensityTimer
+                interval: 500
+                repeat: false
+                onTriggered: {
+                    plot.setIntensityValue(PulseSettings.intensityRealValue * 1.0)
+                    plot.updatePlot()
+                }
             }
         }
 
@@ -1038,6 +1112,37 @@ WaterFall {
                 plot.setFilteringValue(preferredValue)
 
                 plot.updatePlot()
+            }
+
+            Connections {
+                target: pulseRuntimeSettings !== null ? pulseRuntimeSettings : undefined
+
+                function onDevConfiguredChanged () {
+                    if (pulseRuntimeSettings === null) {
+                        return
+                    }
+                    if (!pulseRuntimeSettings.devConfigured) {
+                        return
+                    }
+                    //The device was set up, let's enforce the default filter
+                    console.log("DEVICE CONFIGURED: Device configuration completed, set proper value for filter")
+                    updateFilterTimer.start()
+                }
+            }
+
+            Timer {
+                id: updateFilterTimer
+                interval: 500
+                repeat: false
+                onTriggered: {
+                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                        plot.setFilteringValue(PulseSettings.filterRealValue)
+                        if (PulseSettings.autoFilter) {
+                            quickChangeObjects.doAutoFilter()
+                        }
+                        plot.updatePlot()
+                    }
+                }
             }
         }
 
