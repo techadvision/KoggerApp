@@ -1193,24 +1193,24 @@ ColumnLayout {
         interval: deviceParameterSetterRepeat
         repeat: !pulseRuntimeSettings.devConfigured
         onTriggered: {
-            console.log("DEV_PARAM deviceParameterSetterRepeat")
+            //console.log("DEV_PARAM deviceParameterSetterRepeat")
             if (pulseRuntimeSettings.devConfigured) {
                 console.log("DEV_PARAM completeDeviceConfigurationTimer no need to repeat as devConfigured complete")
                 return
             }
 
             if (dev === null){
-                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, dev === null")
+                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, dev === null")
                 return
             }
 
             if (pulseRuntimeSettings.userManualSetName === "...") {
-                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.userManualSetName === ...")
+                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.userManualSetName === ...")
                 return
             }
 
             if (pulseRuntimeSettings.devName === "...") {
-                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.devName === ...")
+                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.devName === ...")
                 return
             }
 
