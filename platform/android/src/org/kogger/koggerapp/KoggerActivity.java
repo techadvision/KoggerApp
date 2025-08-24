@@ -73,6 +73,12 @@ import android.os.Build;
 import android.view.View;
 import android.view.WindowManager.LayoutParams;
 
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import android.graphics.Color;
+
 public class KoggerActivity extends QtActivity
 {
     public  static int                                  BAD_DEVICE_ID = 0;
@@ -238,11 +244,35 @@ public class KoggerActivity extends QtActivity
         m_ioManager =               new HashMap<Integer, UsbIoManager>();
     }
 
+    // Sends insets to C++ (Qt) — implement this signature in your .cpp
+    private static native void notifyInsets(int left, int top, int right, int bottom, int imeBottom);
+
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
         nativeInit();
+
+        // --- added: explicit edge-to-edge for SDK 35 flow ---
+        // Let content lay out under system bars (status/nav). We'll handle insets ourselves.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        // Make bars transparent so content can be seen edge-to-edge.
+        if (Build.VERSION.SDK_INT >= 21) {
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+            getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        }
+        if (Build.VERSION.SDK_INT >= 29) {
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+        // For display cutouts (notches) when in landscape/edge-to-edge.
+        if (Build.VERSION.SDK_INT >= 28) {
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(lp);
+        }
+        // --- end added ---
 
 
         // SDK35 workaround - app window overlaps statusbar. Let's make it transparent
@@ -254,6 +284,34 @@ public class KoggerActivity extends QtActivity
         );
 
         getWindow().addFlags(LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+
+        // --- added: listen for WindowInsets and forward to C++ ---
+        final View root = getWindow().getDecorView();
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            WindowInsetsCompat wi = insets;
+
+            // Base system bars (status + nav)
+            Insets bars = wi.getInsets(WindowInsetsCompat.Type.systemBars());
+            // Tappable area (esp. 3-button nav bar button region)
+            Insets tappable = wi.getInsets(WindowInsetsCompat.Type.tappableElement());
+            // IME / keyboard overlap (bottom)
+            Insets ime = wi.getInsets(WindowInsetsCompat.Type.ime());
+
+            int left   = Math.max(0, bars.left);
+            int top    = Math.max(0, bars.top);
+            int right  = Math.max(0, bars.right);
+            // Protect bottom UI from 3-button nav bar and its tappable region when present
+            int bottom = Math.max(bars.bottom, tappable.bottom);
+            int imeBottom = Math.max(0, ime.bottom);
+
+            notifyInsets(left, top, right, bottom, imeBottom);
+
+            // Return as-is; we’re handling layout in QML with these values.
+            return insets;
+        });
+        // Make sure first insets dispatch runs
+        ViewCompat.requestApplyInsets(root);
+        // --- end added ---
 
         // fix for all but Samsung devices, these are not handling landscape in multi window mode well:
         if (!isInMultiWindowMode()) {

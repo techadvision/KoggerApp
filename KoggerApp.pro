@@ -13,6 +13,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 ### HEADERS
 HEADERS += \
+    src/InsetsHelper.h \
     src/black_stripes_processor.h \
     src/console.h \
     src/console_list_model.h \

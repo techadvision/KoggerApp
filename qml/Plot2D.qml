@@ -562,7 +562,7 @@ WaterFall {
 
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 20
+        anchors.bottomMargin: 20 + Math.max(Insets.bottom, Insets.ime)
         anchors.leftMargin: 20
         //anchors.bottomMargin: 20
 
@@ -1385,7 +1385,7 @@ WaterFall {
         id: companyWaterMark
         source: "./image/logo_techadvision_gray.png"
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 40
+        anchors.bottomMargin: 40 + Math.max(Insets.bottom, Insets.ime)
         anchors.left: quickChangeObjects.right
         anchors.leftMargin: 40
         width: 360

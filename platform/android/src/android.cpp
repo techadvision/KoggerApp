@@ -9,6 +9,7 @@
 
 #if defined(Q_OS_ANDROID)
 #include "android.h"
+#include "InsetsHelper.h"
 
 #if defined(Q_OS_ANDROID)
 #include <jni.h>
@@ -46,6 +47,23 @@ extern "C" {
 }
 
 //-----------------------------------------------------------------------------
+
+static void notifyInsets_native(JNIEnv*, jclass, jint l, jint t, jint r, jint b, jint ime)
+{
+    QMetaObject::invokeMethod(qApp, [=](){
+        auto *ih = InsetsHelper::instance();
+        if (ih->thread() != qApp->thread())
+            ih->moveToThread(qApp->thread());
+        ih->set(l, t, r, b, ime);
+    }, Qt::QueuedConnection);
+    /*
+    QMetaObject::invokeMethod(InsetsHelper::instance(), "set",
+      Qt::QueuedConnection,
+      Q_ARG(int, l), Q_ARG(int, t), Q_ARG(int, r), Q_ARG(int, b), Q_ARG(int, ime));
+    */
+}
+
+
 static void
 gst_android_init(JNIEnv* env, jobject context)
 {
@@ -80,7 +98,8 @@ static const char kJniClassName[] {"org/kogger/koggerapp/KoggerActivity"};
 void setNativeMethods(void)
 {
     JNINativeMethod javaMethods[] {
-        {"nativeInit", "()V", reinterpret_cast<void *>(gst_android_init)}
+        {"nativeInit", "()V", reinterpret_cast<void *>(gst_android_init)},
+        {"notifyInsets","(IIIII)V",reinterpret_cast<void*>(notifyInsets_native) }
     };
 
     QAndroidJniEnvironment jniEnv;

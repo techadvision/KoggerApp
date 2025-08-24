@@ -28,6 +28,7 @@
 #include "platform/android/src/android.h"
 #include <QtAndroidExtras/QAndroidJniObject>
 #include <QtAndroid>
+#include "InsetsHelper.h"
 #endif
 
 Core core;
@@ -170,6 +171,17 @@ int main(int argc, char *argv[])
     setApplicationDisplayName(app);
     QQmlApplicationEngine engine;
     engine.addImportPath("qrc:/");
+
+#if defined(Q_OS_ANDROID)
+    // Make the singleton available in QML as "Insets"
+    auto *ih = InsetsHelper::instance();
+    // make sure it's owned by the GUI/QML thread
+    if (ih->thread() != qApp->thread())
+        ih->moveToThread(qApp->thread());
+
+    // now expose it to QML as "Insets"
+    engine.rootContext()->setContextProperty("Insets", ih);
+#endif
 
     SceneObject::qmlDeclare();
 

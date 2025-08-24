@@ -3,6 +3,9 @@
 #include <QObject>
 #include <vector>
 #include <cmath>
+#ifdef Q_OS_ANDROID
+#include "InsetsHelper.h"
+#endif
 
 constexpr float epsilon = 0.001f;
 
@@ -43,6 +46,26 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
     const int imageHeight{ canvas.height() }, imageWidth{ canvas.width() },
         linesCount{ _lines }, textXOffset{ 30 }, textYOffset{ 10 };
+
+#ifdef Q_OS_ANDROID
+    // Pull current insets (right > 0 when 3-button bar is on the right in landscape)
+    const int insetLeft   = InsetsHelper::instance()->left();
+    const int insetTop    = InsetsHelper::instance()->top();
+    const int insetRight  = InsetsHelper::instance()->right();
+    const int insetBottom = std::max(InsetsHelper::instance()->bottom(),
+                                     InsetsHelper::instance()->ime()); // lift above IME if visible
+
+    // Define the drawable/safe rect in device coords
+    const int safeLeftEdge   = insetLeft;
+    const int safeTopEdge    = insetTop;
+    const int safeRightEdge  = imageWidth  - insetRight;
+    const int safeBottomEdge = imageHeight - insetBottom;
+#else
+    const int safeLeftEdge   = 0;
+    const int safeTopEdge    = 0;
+    const int safeRightEdge  = imageWidth;
+    const int safeBottomEdge = imageHeight;
+#endif
 
     float conversionFactor = 1.0; // Default to metric (meters)
     if (!isMetric_) {
@@ -117,7 +140,8 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         if (!lineText.isEmpty()) {
             if (isHorizontalGrid_) {
 #ifdef Q_OS_ANDROID
-                int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
+                //int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
+                int desiredX_device = safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset;
                 int baselineY = posYflipped - textYOffset;
                 //OLD
                 /*
@@ -127,6 +151,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                 */
                 QPoint textPos(desiredX_device, posYflipped - textYOffset);
                 drawTextWithBackdrop(p, lineText, textPos, TextAnchor::BaselineLeft, 5, imageWidth, 5);
+                //drawTextWithBackdrop(p, lineText, textPos, TextAnchor::BaselineLeft, 5, safeRightEdge, 5);
 #endif
 #ifdef Q_OS_WINDOWS
                 p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posYflipped - textYOffset, lineText);
@@ -134,7 +159,8 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             } else {
                 p->save();
                 int textWidth = fm.horizontalAdvance(lineText);
-                int pivotX = imageWidth - textXOffset;
+                int pivotX = safeRightEdge - textXOffset;
+                //int pivotX = imageWidth - textXOffset;
                 int pivotY = posYflipped - textYOffset;
 
                 p->translate(pivotX, pivotY);
@@ -157,25 +183,31 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             }
         }
 
-        if (isFillWidth())
-            p->drawLine(0, posY, imageWidth, posY);
-        else if (isHorizontalGrid_) {
+        if (isFillWidth()) {
+            //p->drawLine(0, posY, imageWidth, posY);
+            p->drawLine(0, posY, safeRightEdge, posY);
+        } else if (isHorizontalGrid_) {
             if (scaleX != 1.0) {
-                int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
+                //int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
+                int desiredX_device = safeRightEdge  - fm.horizontalAdvance(lineText) - textXOffset;
                 if (scaleX != 1.0) {
                     int logicalX = static_cast<int>((desiredX_device - (1 - scaleX) * imageWidth) / scaleX);
-                    p->drawLine(logicalX, posY, imageWidth, posY);
+                    //p->drawLine(logicalX, posY, imageWidth, posY);
+                    p->drawLine(logicalX, posY, safeRightEdge, posY);
                 } else {
-                    p->drawLine(desiredX_device, posY, imageWidth, posY);
+                    //p->drawLine(desiredX_device, posY, imageWidth, posY);
+                    p->drawLine(desiredX_device, posY, safeRightEdge, posY);
                 }
             } else {
-                p->drawLine(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY, imageWidth, posY); // line
+                //p->drawLine(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY, imageWidth, posY); // line
+                p->drawLine(safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset, posY, safeRightEdge, posY); // line
             }
 
         } else {
             // For vertical mode, use a fixed line length instead of one based on text width.
             const int fixedLineLength = 50; // Adjust this value as needed.
-            p->drawLine(imageWidth - textXOffset - fixedLineLength, posY, imageWidth - textXOffset, posY);
+            //p->drawLine(imageWidth - textXOffset - fixedLineLength, posY, imageWidth - textXOffset, posY);
+            p->drawLine(safeRightEdge  - textXOffset - fixedLineLength, posY, safeRightEdge  - textXOffset, posY);
         }
     }
 
@@ -188,17 +220,17 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
         if (isHorizontalGrid_) {
 #ifdef Q_OS_ANDROID
-            int desiredX_device = imageWidth - textXOffset / 2 - range_text.count() * 25;
-            int baselineY = imageHeight - 10;  // device coordinate for text baseline
-            if (flipImage) {
-                baselineY = imageHeight - baselineY;
-            }
-            drawTextWithBackdrop(p, range_text, QPoint(desiredX_device, baselineY),
-                                 TextAnchor::BaselineLeft,
-                                 5,            // margin
-                                 imageWidth,   // forceRightEdge: backdrop extends to screen edge.
-                                 5            // verticalOffset: lower the backdrop by 5 pixels.
-                                 /* textColor and backdropColor default to white and semi-transparent black */ );
+        int desiredX_device = imageWidth - textXOffset / 2 - range_text.count() * 25;
+        int baselineY = imageHeight - 10;  // device coordinate for text baseline
+        if (flipImage) {
+            baselineY = imageHeight - baselineY;
+        }
+        drawTextWithBackdrop(p, range_text, QPoint(desiredX_device, baselineY),
+                             TextAnchor::BaselineLeft,
+                             5,            // margin
+                             safeRightEdge,   // forceRightEdge: backdrop extends to screen edge: changed from imageWidth to safeRightEdge
+                             5            // verticalOffset: lower the backdrop by 5 pixels.
+                             /* textColor and backdropColor default to white and semi-transparent black */ );
 #endif
 #ifdef Q_OS_WINDOWS
             p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
