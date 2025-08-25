@@ -80,7 +80,7 @@ WaterFall {
                 plot.isLiveView = nowLive
                 console.log("TAV: horizontal live-view is now", plot.isLiveView,
                             "timeline position", plot.timelinePosition)
-                if (!pulseRuntimeSettings.isOpeningKlfFile) {
+                if (!pulseRuntimeSettings.wasKlfFileOpened) {
                     oldDataIndicator.visible = true
                     oldDataWarningRemovalTimer.restart()
                 }
