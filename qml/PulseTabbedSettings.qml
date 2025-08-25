@@ -7,6 +7,18 @@ Item {
     height: 550
 
     property real scaleFactor: Qt.application.primaryScreen.width / 480
+    property real _dpi: Screen.pixelDensity * 25.4
+    property real dpScale: _dpi / 160.0
+
+    function dp(x)   {
+        return Math.round(x * dpScale);
+    } // density-independent pixels
+
+    function sp(x)   {
+        console.log("Font using SP for", x, "returning", dp(x))
+        return dp(x);
+    } // if you don't read user "font scale", use dp as sp
+
     signal closeRequested()
 
     // ─── Semi-transparent background overlay ───────────────────────
@@ -91,28 +103,32 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Device"
-                    font.pointSize: 24 * root.scaleFactor
+                    font.pixelSize: sp(10)
+                    font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_info.svg"
                 }
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Settings"
-                    font.pointSize: 14 * root.scaleFactor
+                    font.pixelSize: sp(15)
+                    font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_settings.svg"
                 }
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Recording"
-                    font.pointSize: 14 * root.scaleFactor
+                    font.pixelSize: sp(20)
+                    font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_recording_inactive.svg"
                 }
                 TabButton {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Colors"
-                    font.pointSize: 14 * root.scaleFactor
+                    font.pixelSize: sp(25)
+                    font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_color_2d_e500_white.svg"
                 }
                 // ─────────────────────────────────────────────────
@@ -158,7 +174,8 @@ Item {
                 height: tabBar.height
                 display: AbstractButton.TextBesideIcon
                 text: "Expert"
-                font.pointSize: 14 * root.scaleFactor
+                font.pixelSize: sp(30)
+                font.pointSize: -1          // make sure point path is disabled
                 icon.source: "qrc:/icons/ui/pulse_settings.svg"
             }
         }
