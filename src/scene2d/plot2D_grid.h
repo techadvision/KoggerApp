@@ -29,6 +29,12 @@ public:
     Q_INVOKABLE int getAssessedMaxDepth();
     std::vector<int> calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand);
 
+private:
+    // ---- DPI / font scaling state & helpers ----
+    qreal dpScale_ = 1.0;          // dpi / 160
+    int   sp(qreal v) const;       // convert "sp" to pixels (implemented in .cpp)
+    void  updateDpScale();         // recompute dpScale_ from QScreen (implemented in .cpp)
+
 protected:
     bool angleVisibility_;
     bool _velocityVisible = true;

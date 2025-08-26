@@ -6,11 +6,34 @@
 #ifdef Q_OS_ANDROID
 #include "InsetsHelper.h"
 #endif
+#include <QGuiApplication>
+#include <QScreen>
+#include <limits>
+#include <algorithm>
 
 constexpr float epsilon = 0.001f;
 
 Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontalGrid_(true), isSideScanOnLeftHandSide_(true)
-{}
+{
+   updateDpScale();
+}
+
+int Plot2DGrid::sp(qreal v) const { return qRound(v * dpScale_); }
+
+void Plot2DGrid::updateDpScale() {
+    QScreen* s = QGuiApplication::primaryScreen();
+    if (!s) {
+        qDebug() << "updateDpScale !s";
+        dpScale_ = 1.0;
+        return;
+    }
+#ifdef Q_OS_ANDROID
+    const qreal dpi = s->physicalDotsPerInch();
+#else
+    const qreal dpi = s->logicalDotsPerInch();
+#endif
+    dpScale_ = dpi / 160.0;
+}
 
 bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 {
@@ -33,6 +56,21 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         isHorizontalGrid_ = g_pulseRuntimeSettings->property("isHorizontalGrid").toBool();
     }
 
+    float conversionFactor = 1.0; // Default to metric (meters)
+    if (!isMetric_) {
+        conversionFactor = 3.28084; // Convert to feet if not metric
+    }
+
+    float fromDepth = cursor.distance.from;
+    float toDepth = cursor.distance.to;
+    float logicalMaxDepth = std::max(std::abs(fromDepth), std::abs(toDepth));
+
+
+    float totalRange = toDepth - fromDepth;
+    if (totalRange == 0.0f)
+        totalRange = 0.0001f;
+    assessedMaxDepth_ = totalRange;
+
     bool flipImage = isSideScanOnLeftHandSide_ && isSideScan2DView;
     //qDebug() << "flipimage:" << flipImage << "isSideScanOnLeftHandSide_:" << isSideScanOnLeftHandSide_ << "isSideScan2DView:" << isSideScan2DView;
 
@@ -41,11 +79,17 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
     QPainter* p = canvas.painter();
     p->setPen(pen);
-    p->setFont(QFont("Asap", 20, QFont::Bold));
+    QFont f("Asap");
+    f.setPixelSize(sp(18));   // pick an sp value
+    f.setBold(true);
+    p->setFont(f);
+    //p->setFont(QFont("Asap", 20, QFont::Bold));
     QFontMetrics fm(p->font());
 
     const int imageHeight{ canvas.height() }, imageWidth{ canvas.width() },
         linesCount{ _lines }, textXOffset{ 30 }, textYOffset{ 10 };
+
+    //SDK35 EDGE to EGDE SAFE MARGINS
 
 #ifdef Q_OS_ANDROID
     // Pull current insets (right > 0 when 3-button bar is on the right in landscape)
@@ -67,34 +111,57 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     const int safeBottomEdge = imageHeight;
 #endif
 
-    float conversionFactor = 1.0; // Default to metric (meters)
-    if (!isMetric_) {
-        conversionFactor = 3.28084; // Convert to feet if not metric
-    }
+    const QRect safeRect(safeLeftEdge,
+                         safeTopEdge,
+                         safeRightEdge - safeLeftEdge,
+                         safeBottomEdge - safeTopEdge);
 
-    float fromDepth = cursor.distance.from;
-    float toDepth = cursor.distance.to;
-    float logicalMaxDepth = std::max(std::abs(fromDepth), std::abs(toDepth));
+    const int safeW = safeRightEdge - safeLeftEdge;
+    const int safeH = safeBottomEdge - safeTopEdge;
 
+    auto withDeviceSafe = [&](auto drawFn){
+        p->save();
+        p->resetTransform();      // draw in device coords
+        p->setClipRect(safeRect); // never paint under bars
+        drawFn();
+        p->restore();
+    };
 
-    float totalRange = toDepth - fromDepth;
-    if (totalRange == 0.0f)
-        totalRange = 0.0001f;
-    assessedMaxDepth_ = totalRange;
+    //SDK35 EDGE to EGDE SAFE METHODS
+
+    auto withTopWide = [&](auto&& fn){
+        p->save();
+        p->resetTransform();
+
+        const int devW = p->device()->width();
+        const int devH = p->device()->height();
+
+        const QRect band(0, safeTopEdge, devW, devH - safeTopEdge); // full width, below status bar
+        p->setClipRect(band);
+        fn(band);   // pass the rect we’re drawing in
+        p->restore();
+    };
+
+    auto mapMetersToXVisible = [&](float meters, const QRect& band)->int {
+        const float x0   = std::min(fromDepth, toDepth);
+        const float x1   = std::max(fromDepth, toDepth);
+        const float span = std::max(0.0001f, x1 - x0);
+
+        float rel = (meters - x0) / span;        // x0→0, x1→1
+        rel = std::clamp(rel, 0.0f, 1.0f);
+
+        return band.left() + int(std::lround(rel * (band.width() - 1)));
+    };
 
     std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer, isSideScan2DView, isSideScanOnLeftHandSide_);
 
+    //CREATE DEPTH LABELS AND LINES
     int linesCountNew = static_cast<int>(tickValues.size()) + 1; // +1 for final bottom value
-
-    qreal scaleX = p->transform().m11();
-
     for (int i = 1; i < linesCountNew; ++i) {
 
-        //int displayIndex = flipImage ? (linesCountNew - i) : i;
         int displayIndex = i;
 
         float tickValue = static_cast<float>(tickValues[displayIndex - 1]); // i starts from 1
-        //qDebug() << "SIDE SCAN: Tick Value:" << tickValue;
         float tickMeters = isMetric_ ? tickValue : tickValue / 3.28084f;
 
         // Make sure denominator is never zero
@@ -102,32 +169,19 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         if (totalRange == 0.0f)
             totalRange = 0.0001f; // prevent divide-by-zero crash
 
-        float relative = (tickMeters - fromDepth) / totalRange;
-        int posY = static_cast<int>(relative * imageHeight);
-        int posYflipped = posY;
+        const float d0 = std::min(fromDepth, toDepth);
+        const float d1 = std::max(fromDepth, toDepth);
+        const float ySpan = std::max(0.0001f, d1 - d0);
 
-        //NEW
-        if (flipImage) {
-            posYflipped = imageHeight - posY;
-        }
+        float relativeY  = (tickMeters - d0) / ySpan;     // 0..1
+        relativeY        = std::clamp(relativeY, 0.0f, 1.0f);
 
+        int posY         = int(relativeY * imageHeight);
+        int posYflipped  = flipImage ? (imageHeight - posY) : posY;
+
+        //BUILD DEPTH LABELS
         QString lineText = " ";
-
-        if (_velocityVisible && cursor.velocity.isValid()) { // velocity
-            const float velFrom{ cursor.velocity.from }, velTo{ cursor.velocity.to },
-                velRange{ velTo - velFrom }, attVal{ velRange * displayIndex / linesCountNew + velFrom };
-            lineText.append({ QString::number(attVal , 'f', 2) + QObject::tr(" m/s    ")});
-        }
-        if (angleVisibility_ && cursor.attitude.isValid()) { // angle
-            const float attFrom{ cursor.attitude.from }, attTo{ cursor.attitude.to },
-                attRange{ attTo - attFrom }, attVal{ attRange * displayIndex / linesCountNew + attFrom };
-            QString text{ QString::number(attVal, 'f', 0) + QStringLiteral("°    ") };
-            lineText.append(text);
-        }
-
-        bool isNegativeTick = tickValue < 0.0f;
-
-        if (cursor.distance.isValid()) { // depth
+        if (cursor.distance.isValid()) {
 
             float displayValue = std::abs(tickValue);  // always positive in text
             if (isMetric_) {
@@ -137,82 +191,90 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             }
         }
 
+        //POSTTION DEPTH LABELS
         if (!lineText.isEmpty()) {
             if (isHorizontalGrid_) {
+                //HORIZONTAL GRID
 #ifdef Q_OS_ANDROID
-                //int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
-                int desiredX_device = safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset;
-                int baselineY = posYflipped - textYOffset;
-                //OLD
-                /*
-                if (flipImage) {
-                    baselineY = imageHeight - baselineY;
-                }
-                */
-                QPoint textPos(desiredX_device, posYflipped - textYOffset);
-                drawTextWithBackdrop(p, lineText, textPos, TextAnchor::BaselineLeft, 5, imageWidth, 5);
-                //drawTextWithBackdrop(p, lineText, textPos, TextAnchor::BaselineLeft, 5, safeRightEdge, 5);
+                withDeviceSafe([&]{
+                    const int desiredX = safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset;
+                    const QPoint textPos(desiredX, posYflipped - textYOffset);
+                    // Force the backdrop’s right edge to the safe edge (not imageWidth)
+                    drawTextWithBackdrop(p, lineText, textPos,
+                                         TextAnchor::BaselineLeft,
+                                         5,               // margin
+                                         safeRightEdge,   // forceRightEdge
+                                         5);              // verticalOffset
+                });
 #endif
 #ifdef Q_OS_WINDOWS
-                p->drawText(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posYflipped - textYOffset, lineText);
+                p->drawText(safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset, posYflipped - textYOffset, lineText);
 #endif
-            } else {
-                p->save();
-                int textWidth = fm.horizontalAdvance(lineText);
-                int pivotX = safeRightEdge - textXOffset;
-                //int pivotX = imageWidth - textXOffset;
-                int pivotY = posYflipped - textYOffset;
+            } else {      
+                //VERTICAL GRID
+                withTopWide([&](const QRect& band){
+                    const int posX      = mapMetersToXVisible(tickMeters, band);
+                    const int textWidth = p->fontMetrics().horizontalAdvance(lineText);
+                    const int pad       = sp(6); // small gap between line and text
 
-                p->translate(pivotX, pivotY);
-                p->rotate(90);
+                    int labelX;
+                    if (tickMeters < 0.0f) {
+                        // Left channel: put text to the RIGHT of the tick line
+                        labelX = posX + pad;
+                    } else if (tickMeters > 0.0f) {
+                        // Right channel: put text to the LEFT of the tick line
+                        labelX = posX - textWidth - pad;
+                    } else {
+                        // (optional) 0 m: center over the tick
+                        labelX = posX - textWidth / 2;
+                    }
 
-                //bool isNegative = lineText.trimmed().startsWith('-');
-                bool isNegative = isNegativeTick;
+                    // Clamp inside the full-width band we’re drawing in
+                    labelX = std::clamp(labelX, band.left(), band.right() - textWidth);
 
-                // Draw text to the left (default) or right (for negatives)
-                if (isNegative) {
-                    p->drawText(textPadding, fm.ascent(), lineText);  // draw to the right of the line
-                } else {
-                    p->drawText(-textWidth, fm.ascent(), lineText);  // draw to the left (default)
-                }
-
-                //p->drawText(-textWidth, textY, lineText);
-
-                p->restore();
-
+                    const int baseY = band.top() + textYOffset + p->fontMetrics().ascent();
+                    drawTextWithBackdrop(p, lineText,
+                                         QPoint(labelX, baseY),
+                                         TextAnchor::BaselineLeft,
+                                         5,   // margin
+                                         -1,  // don’t force right edge
+                                         0);
+                });
             }
         }
 
-        if (isFillWidth()) {
-            //p->drawLine(0, posY, imageWidth, posY);
-            p->drawLine(0, posY, safeRightEdge, posY);
-        } else if (isHorizontalGrid_) {
-            if (scaleX != 1.0) {
-                //int desiredX_device = imageWidth - fm.horizontalAdvance(lineText) - textXOffset;
-                int desiredX_device = safeRightEdge  - fm.horizontalAdvance(lineText) - textXOffset;
-                if (scaleX != 1.0) {
-                    int logicalX = static_cast<int>((desiredX_device - (1 - scaleX) * imageWidth) / scaleX);
-                    //p->drawLine(logicalX, posY, imageWidth, posY);
-                    p->drawLine(logicalX, posY, safeRightEdge, posY);
-                } else {
-                    //p->drawLine(desiredX_device, posY, imageWidth, posY);
-                    p->drawLine(desiredX_device, posY, safeRightEdge, posY);
-                }
+        //POSITION RULER MARK LINES
+        if (isHorizontalGrid_) {
+            //HORIZONTAL GRID
+            if (isFillWidth()) {
+                withDeviceSafe([&]{ p->drawLine(safeLeftEdge, posYflipped, safeRightEdge, posYflipped); });
             } else {
-                //p->drawLine(imageWidth - fm.horizontalAdvance(lineText) - textXOffset, posY, imageWidth, posY); // line
-                p->drawLine(safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset, posY, safeRightEdge, posY); // line
+                const int startX = safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset;
+                withDeviceSafe([&]{ p->drawLine(startX, posYflipped, safeRightEdge, posYflipped); });
             }
 
         } else {
-            // For vertical mode, use a fixed line length instead of one based on text width.
-            const int fixedLineLength = 50; // Adjust this value as needed.
-            //p->drawLine(imageWidth - textXOffset - fixedLineLength, posY, imageWidth - textXOffset, posY);
-            p->drawLine(safeRightEdge  - textXOffset - fixedLineLength, posY, safeRightEdge  - textXOffset, posY);
+            //VERTICAL GRID
+            withTopWide([&](const QRect& band){
+                const int posX = mapMetersToXVisible(tickMeters, band);
+                if (isFillWidth()) {
+                    p->drawLine(posX, band.top(), posX, band.bottom());
+                } else {
+                    const int fixedLineLength = 50;
+                    p->drawLine(posX, band.top(), posX, band.top() + fixedLineLength);
+                }
+            });
         }
+
     }
 
+    // LAST DEPTH TEXT AT THE VERY BOTTOM, ONLY IN 2D VIEW
     if (cursor.distance.isValid() && !flipImage && is2DTransducer) {
-        p->setFont(QFont("Asap", 20, QFont::Bold));
+        QFont f("Asap");
+        f.setPixelSize(sp(18));
+        f.setBold(true);
+        p->setFont(f);
+        //p->setFont(QFont("Asap", 20, QFont::Bold));
 
         float val{ cursor.distance.to * conversionFactor };
 
@@ -220,22 +282,23 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
         if (isHorizontalGrid_) {
 #ifdef Q_OS_ANDROID
-        int desiredX_device = imageWidth - textXOffset / 2 - range_text.count() * 25;
-        int baselineY = imageHeight - 10;  // device coordinate for text baseline
-        if (flipImage) {
-            baselineY = imageHeight - baselineY;
-        }
-        drawTextWithBackdrop(p, range_text, QPoint(desiredX_device, baselineY),
-                             TextAnchor::BaselineLeft,
-                             5,            // margin
-                             safeRightEdge,   // forceRightEdge: backdrop extends to screen edge: changed from imageWidth to safeRightEdge
-                             5            // verticalOffset: lower the backdrop by 5 pixels.
-                             /* textColor and backdropColor default to white and semi-transparent black */ );
+            withDeviceSafe([&]{
+                const int desiredX = safeRightEdge - textXOffset/2 - fm.horizontalAdvance(range_text);
+                const int baseY    = safeBottomEdge - 10;   // inside the safe area
+                drawTextWithBackdrop(p, range_text, QPoint(desiredX, baseY),
+                                     TextAnchor::BaselineLeft,
+                                     5,            // margin
+                                     safeRightEdge,// forceRightEdge inside safeRect
+                                     5);           // vertical offset
+            });
 #endif
 #ifdef Q_OS_WINDOWS
-            p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
+            //p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
+            p->drawText(safeRightEdge - textXOffset / 2 - fm.horizontalAdvance(range_text),
+                        safeBottomEdge - 10, range_text);
 #endif
         } else {
+            /*
             p->save();
 
             int textWidth = fm.horizontalAdvance(range_text);
@@ -250,11 +313,12 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             p->drawText(-textWidth / 2, textHeight / 2, range_text);
 
             p->restore();
+            */
         }
 
     }
 
-    //Pulse: Disabled
+    //PULSE DOES NOT USE THE ON SCREEN DEPTH VALUE FROM THE GRID CLASS
     /*
 
     if (cursor.distance.isValid()) {
@@ -290,32 +354,14 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     }
     */
 
-    if(true) {
+    // TEMPERATURE, NOT USED BY PULSE
+    if(false) {
         Epoch* lastEpoch = dataset->last();
         Epoch* preLastEpoch = dataset->lastlast();
         float temp = NAN;
         temp = dataset->getLastTemp();
 
-        // qDebug() << "Plot temp def: " << temp;
-
-        // if (lastEpoch != NULL && isfinite(lastEpoch->temperatureAvail())) {
-        //     temp = lastEpoch->temperature();
-        //     qDebug() << "Plot temp one: " << temp;
-        // }
-        // else if (preLastEpoch != NULL && isfinite(preLastEpoch->temperatureAvail())) {
-        //     temp = preLastEpoch->temperature();
-        //     qDebug() << "Plot temp sec: " << temp;
-        // } else if() {
-
-        // if (lastEpoch != NULL && isfinite(lastEpoch->temperatureAvail())) {
-        //     temp = preLastEpoch->temperature();
-        //     qDebug() << "Plot temp sec: " << temp;
-        // }
-
-        // }
-        // qDebug() << "Plot temp end: " << temp;
-
-        /* Pulse already has the te,perature
+        /* Pulse already has the temperature
         if (isfinite(temp)) {
             pen.setColor(QColor(80, 200, 0));
             p->setPen(pen);
@@ -331,6 +377,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     return true;
 }
 
+//PULSE method
 void Plot2DGrid::drawTextWithBackdrop(QPainter* p,
                                       const QString &text,
                                       const QPoint &devicePos,
@@ -406,6 +453,7 @@ int Plot2DGrid::getAssessedMaxDepth()
     return assessedMaxDepth_;
 }
 
+//PULSE METHOD
 std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand)
 {
     const float conversionFactor = isMetric ? 1.0f : 3.28084f;

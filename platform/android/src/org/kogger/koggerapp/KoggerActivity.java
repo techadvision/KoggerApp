@@ -79,6 +79,9 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import android.graphics.Color;
 
+import android.view.ViewTreeObserver;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 public class KoggerActivity extends QtActivity
 {
     public  static int                                  BAD_DEVICE_ID = 0;
@@ -253,8 +256,14 @@ public class KoggerActivity extends QtActivity
         super.onCreate(savedInstanceState);
         nativeInit();
 
-        // --- added: explicit edge-to-edge for SDK 35 flow ---
-        // Let content lay out under system bars (status/nav). We'll handle insets ourselves.
+        // ENFORCE LANDSCAPE WHEN APP IS ALONE ON THE SCREEN
+        if (!isInMultiWindowMode()) {
+            setRequestedOrientation(ORIENTATION_LANDSCAPE);
+        } else {
+            setRequestedOrientation(ORIENTATION_UNSPECIFIED);
+        }
+
+        // SDK35 EGDE TO EDGE WITH TRANSPARENCY
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
         // Make bars transparent so content can be seen edge-to-edge.
@@ -272,8 +281,6 @@ public class KoggerActivity extends QtActivity
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             getWindow().setAttributes(lp);
         }
-        // --- end added ---
-
 
         // SDK35 workaround - app window overlaps statusbar. Let's make it transparent
         getWindow().clearFlags(LayoutParams.FLAG_FULLSCREEN);
@@ -285,8 +292,42 @@ public class KoggerActivity extends QtActivity
 
         getWindow().addFlags(LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
 
-        // --- added: listen for WindowInsets and forward to C++ ---
+        // WINDOW INSETS
         final View root = getWindow().getDecorView();
+        final AtomicBoolean insetsReady = new AtomicBoolean(false);
+
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+          WindowInsetsCompat wi   = insets;
+          Insets barsNow          = wi.getInsets(WindowInsetsCompat.Type.systemBars());
+          Insets barsStable       = wi.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.systemBars());
+          Insets cutout           = wi.getInsets(WindowInsetsCompat.Type.displayCutout());
+          Insets tappable         = wi.getInsets(WindowInsetsCompat.Type.tappableElement());
+          Insets ime              = wi.getInsets(WindowInsetsCompat.Type.ime());
+
+          int left   = Math.max(Math.max(barsNow.left,   barsStable.left),   cutout != null ? cutout.left   : 0);
+          int top    = Math.max(Math.max(barsNow.top,    barsStable.top),    cutout != null ? cutout.top    : 0);
+          int right  = Math.max(Math.max(barsNow.right,  barsStable.right),  Math.max(tappable.right,  cutout != null ? cutout.right  : 0));
+          int bottom = Math.max(Math.max(barsNow.bottom, barsStable.bottom), Math.max(tappable.bottom, cutout != null ? cutout.bottom : 0));
+
+          int imeBottom = Math.max(0, ime.bottom);
+
+          notifyInsets(left, top, right, bottom, imeBottom);
+          insetsReady.set(true);
+          root.getViewTreeObserver().dispatchOnGlobalLayout();
+
+          return insets;
+        });
+
+        root.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+          @Override public boolean onPreDraw() {
+            if (!insetsReady.get())
+                return false; // wait
+            root.getViewTreeObserver().removeOnPreDrawListener(this);
+            return true;
+          }
+        });
+
+        /*
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             WindowInsetsCompat wi = insets;
 
@@ -309,17 +350,12 @@ public class KoggerActivity extends QtActivity
             // Return as-is; we’re handling layout in QML with these values.
             return insets;
         });
+        */
         // Make sure first insets dispatch runs
         ViewCompat.requestApplyInsets(root);
         // --- end added ---
 
-        // fix for all but Samsung devices, these are not handling landscape in multi window mode well:
-        if (!isInMultiWindowMode()) {
-            setRequestedOrientation(ORIENTATION_LANDSCAPE);
-        } else {
-            setRequestedOrientation(ORIENTATION_UNSPECIFIED);
-        }
-
+        // KEEP SCREEN ON
         PowerManager pm = (PowerManager)_instance.getSystemService(Context.POWER_SERVICE);
         _wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "QGroundControl");
         if(_wakeLock != null) {
@@ -329,6 +365,7 @@ public class KoggerActivity extends QtActivity
         }
         _instance.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        // USB DEVICES
         _usbManager = (UsbManager)_instance.getSystemService(Context.USB_SERVICE);
 
         // Register for USB Detach and USB Permission intent
@@ -355,6 +392,7 @@ public class KoggerActivity extends QtActivity
             _wifiMulticastLock.setReferenceCounted(true);
         }
 
+        // MULTICAST
         _wifiMulticastLock.acquire();
         Log.d(TAG, "Multicast lock: " + _wifiMulticastLock.toString());
     }
@@ -380,6 +418,9 @@ public class KoggerActivity extends QtActivity
                 ? ORIENTATION_UNSPECIFIED
                 : ORIENTATION_LANDSCAPE);
         }
+
+        final View root = getWindow().getDecorView();
+        root.post(() -> ViewCompat.requestApplyInsets(root));
 
         // Plug in of USB ACCESSORY triggers only onResume event.
         // Then we scan if there is actually anything new
