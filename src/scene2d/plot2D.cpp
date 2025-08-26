@@ -180,7 +180,7 @@ void Plot2D::draw(QPainter *painterPtr)
     gnss_.draw(this, datasetPtr_);
     quadrature_.draw(this, datasetPtr_);
 
-    painterPtr->setCompositionMode(QPainter::CompositionMode_Exclusion);
+    //painterPtr->setCompositionMode(QPainter::CompositionMode_Exclusion);
     grid_.draw(this, datasetPtr_);
     aim_.draw(this, datasetPtr_);
 
