@@ -82,6 +82,10 @@ import android.graphics.Color;
 import android.view.ViewTreeObserver;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import android.content.res.Configuration;
+import java.lang.reflect.Method;
+import java.lang.Class;
+
 public class KoggerActivity extends QtActivity
 {
     public  static int                                  BAD_DEVICE_ID = 0;
@@ -249,6 +253,7 @@ public class KoggerActivity extends QtActivity
 
     // Sends insets to C++ (Qt) — implement this signature in your .cpp
     private static native void notifyInsets(int left, int top, int right, int bottom, int imeBottom);
+    private static native void notifyDexState(boolean dexOn, boolean dexFS);
 
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -311,7 +316,16 @@ public class KoggerActivity extends QtActivity
 
           int imeBottom = Math.max(0, ime.bottom);
 
+          boolean dexOn  = isDexEnabled(this);
+          boolean dexFS  = isDexFullscreen();
+          /*
+          if (dexFS) {
+              top += dpToPx(36f);   // your chosen DeX title/header height
+          }
+          */
+
           notifyInsets(left, top, right, bottom, imeBottom);
+          notifyDexState(dexOn, dexFS);
           insetsReady.set(true);
           root.getViewTreeObserver().dispatchOnGlobalLayout();
 
@@ -327,30 +341,6 @@ public class KoggerActivity extends QtActivity
           }
         });
 
-        /*
-        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
-            WindowInsetsCompat wi = insets;
-
-            // Base system bars (status + nav)
-            Insets bars = wi.getInsets(WindowInsetsCompat.Type.systemBars());
-            // Tappable area (esp. 3-button nav bar button region)
-            Insets tappable = wi.getInsets(WindowInsetsCompat.Type.tappableElement());
-            // IME / keyboard overlap (bottom)
-            Insets ime = wi.getInsets(WindowInsetsCompat.Type.ime());
-
-            int left   = Math.max(0, bars.left);
-            int top    = Math.max(0, bars.top);
-            int right  = Math.max(0, bars.right);
-            // Protect bottom UI from 3-button nav bar and its tappable region when present
-            int bottom = Math.max(bars.bottom, tappable.bottom);
-            int imeBottom = Math.max(0, ime.bottom);
-
-            notifyInsets(left, top, right, bottom, imeBottom);
-
-            // Return as-is; we’re handling layout in QML with these values.
-            return insets;
-        });
-        */
         // Make sure first insets dispatch runs
         ViewCompat.requestApplyInsets(root);
         // --- end added ---
@@ -406,6 +396,7 @@ public class KoggerActivity extends QtActivity
         } else {
             setRequestedOrientation(ORIENTATION_LANDSCAPE);
         }
+        ViewCompat.requestApplyInsets(getWindow().getDecorView());
     }
 
     @Override
@@ -496,6 +487,29 @@ public class KoggerActivity extends QtActivity
 
     public void onInit(int status) {
     }
+
+    private boolean isDexEnabled(Context ctx) {
+        try {
+            Configuration config = ctx.getResources().getConfiguration();
+            Class<?> cls = config.getClass();
+            int FLAG = cls.getField("SEM_DESKTOP_MODE_ENABLED").getInt(cls);
+            int value = cls.getField("semDesktopModeEnabled").getInt(config);
+            Log.d(TAG, "! ! ! dex is enabled ! ! !");
+            return value == FLAG;
+        } catch (Throwable t) {
+            Log.d(TAG, "! ! ! Exception caught for checking Dex ! ! !");
+            return false; // not Samsung or no DeX support
+        }
+    }
+
+    private boolean isDexFullscreen() {
+        return isDexEnabled(this) && !isInMultiWindowMode();
+    }
+
+    private int dpToPx(float dp) {
+        return Math.round(dp * getResources().getDisplayMetrics().density);
+    }
+
 
     /// Incrementally updates the list of drivers connected to the device
     private static void updateCurrentDrivers()

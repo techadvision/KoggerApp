@@ -56,11 +56,17 @@ static void notifyInsets_native(JNIEnv*, jclass, jint l, jint t, jint r, jint b,
             ih->moveToThread(qApp->thread());
         ih->set(l, t, r, b, ime);
     }, Qt::QueuedConnection);
-    /*
-    QMetaObject::invokeMethod(InsetsHelper::instance(), "set",
-      Qt::QueuedConnection,
-      Q_ARG(int, l), Q_ARG(int, t), Q_ARG(int, r), Q_ARG(int, b), Q_ARG(int, ime));
-    */
+
+}
+
+
+static void notifyDexState_native(JNIEnv*, jclass, jboolean enabled, jboolean fullscreen) {
+    QMetaObject::invokeMethod(qApp, [=](){
+        auto *ih = InsetsHelper::instance();
+        if (ih->thread() != qApp->thread())
+            ih->moveToThread(qApp->thread());
+        ih->setDex(enabled, fullscreen);
+    }, Qt::QueuedConnection);
 }
 
 
@@ -99,7 +105,8 @@ void setNativeMethods(void)
 {
     JNINativeMethod javaMethods[] {
         {"nativeInit", "()V", reinterpret_cast<void *>(gst_android_init)},
-        {"notifyInsets","(IIIII)V",reinterpret_cast<void*>(notifyInsets_native) }
+        {"notifyInsets","(IIIII)V",reinterpret_cast<void*>(notifyInsets_native) },
+        {"notifyDexState","(ZZ)V",   reinterpret_cast<void*>(notifyDexState_native)}
     };
 
     QAndroidJniEnvironment jniEnv;

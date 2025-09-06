@@ -98,10 +98,15 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     const int insetRight  = InsetsHelper::instance()->right();
     const int insetBottom = std::max(InsetsHelper::instance()->bottom(),
                                      InsetsHelper::instance()->ime()); // lift above IME if visible
+    const bool isDex      = InsetsHelper::instance()->dexEnabled();
 
     // Define the drawable/safe rect in device coords
-    const int safeLeftEdge   = insetLeft;
-    const int safeTopEdge    = insetTop;
+    const int safeLeftEdge = insetLeft;
+    int tempTopEdge        = insetTop;
+    if (isDex) {
+        tempTopEdge        = 0;
+    }
+    const int safeTopEdge    = tempTopEdge;
     const int safeRightEdge  = imageWidth  - insetRight;
     const int safeBottomEdge = imageHeight - insetBottom;
 #else
