@@ -155,13 +155,14 @@ Flickable {
             Text {
                 id: appIpText
                 text: {
+                    console.log("pulseRuntimeSettings.uuidSuccessfullyOpened is", pulseRuntimeSettings.uuidSuccessfullyOpened);
                     if (pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial) {
-                        return "Pulse Long Range"
+                        return "Pulse USB connection"
                     } else {
                         if (root.gatewayIp) {
-                            return "Wi-Fi gateway:\n" + root.gatewayIp
+                            return "Connected by Wi-Fi gateway:\n" + root.gatewayIp
                         } else {
-                            return "Wi-Fi:\nNo gateway detected"
+                            return "Wi-Fi:\nNo connection with gateway"
                         }
                     }
                 }

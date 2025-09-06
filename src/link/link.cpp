@@ -1,4 +1,5 @@
 #include "link.h"
+#include <QQmlProperty>
 
 
 Link::Link()
@@ -59,12 +60,24 @@ void Link::openAsSerial()
     serialPort->open(QIODevice::ReadWrite);
 
     if (serialPort->isOpen()) {
+        qDebug() << "Link::openAsSerial uuid open" << uuid_;
+        if (g_pulseRuntimeSettings) {
+            QVariant usbVar = QQmlProperty::read(g_pulseRuntimeSettings, "uuidUsbSerial");
+            QString usbSerial = usbVar.toString();
+            qDebug() << "Link::openAsSerial read uuidUsbSerial =" << usbSerial;
+
+            bool ok = QQmlProperty::write(g_pulseRuntimeSettings, "uuidSuccessfullyOpened", usbSerial);
+            qDebug() << "Link::openAsSerial wrote uuidSuccessfullyOpened ok?" << ok;
+        } else {
+            qDebug() << "Link::openAsSerial uuid g_pulseRuntimeSettings not available";
+        }
         setDev(serialPort);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
     }
     else {
         delete serialPort;
+        qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_;
         emit connectionStatusChanged(uuid_);
     }
     baudrateSearchList_ = baudrateSearchList;
@@ -105,6 +118,11 @@ void Link::openAsUdp()
         setDev(socketUdp);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
+        qDebug() << "Link::openAsUdp uuid open" << uuid_;
+        if (g_pulseRuntimeSettings) {
+            QString udp = g_pulseRuntimeSettings->property("uuidIpGateway").toString();
+            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", udp);
+        }
     }
     else {
         delete socketUdp;

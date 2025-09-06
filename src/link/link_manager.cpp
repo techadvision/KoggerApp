@@ -64,7 +64,7 @@ void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
     for (Link* link : list_) {
         // If this is a serial link and it is meant to be the USB device
 
-        if (link->getLinkType() == LinkSerial) {
+        if (link->getLinkType() == LinkType::kLinkSerial) {
 
             if (link->getUuid().isNull()) {
                  // Generate a new UUID if the imported one is null or invalid:
@@ -80,6 +80,7 @@ void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
         }
     }
     */
+
 #endif
 }
 
@@ -335,7 +336,7 @@ QString getAndroidGatewayIP() {
              .arg((gateway >> 24)& 0xFF);
 
     // Log the detected IP:
-    //qDebug() << "Detected gateway IP:" << ip;
+    qDebug() << "Detected gateway IP:" << ip;
 
     // Check if the IP matches allowed prefixes:
     bool allowed = ip.startsWith("192.168.10");
@@ -381,8 +382,8 @@ void LinkManager::importPinnedLinksFromXML()
     //qDebug() << "LinkManager::importPinnedLinksFromXML";
 
     QString gatewayIP = "0.0.0.0";
-    QString uuidIpGateway = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
-    QString uuidUsbSerial = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
+    //QString uuidIpGateway = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
+    //QString uuidUsbSerial = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
     int udpPort = 14560;
 
     if (g_pulseSettings) {
@@ -425,13 +426,30 @@ void LinkManager::importPinnedLinksFromXML()
             <is_not_available>false</is_not_available>
             <connection_status>true</connection_status>
         </link>
+        <link>
+            <uuid>%4</uuid>
+            <control_type>1</control_type>
+            <port_name>/dev/bus/usb/001/002</port_name>
+            <baudrate>921600</baudrate>
+            <parity>false</parity>
+            <link_type>1</link_type>
+            <address></address>
+            <source_port></source_port>
+            <destination_port></destination_port>
+            <is_pinned>true</is_pinned>
+            <is_hided>false</is_hided>
+            <is_not_available>false</is_not_available>
+            <connection_status>true</connection_status>
+        </link>
     </pinned_links>
     )")
                   .arg(uuidIpGateway)    // UDP link UUID #1
                   .arg(gatewayIP)        // Insert dynamic gateway IP
-                  .arg(udpPort);         // UDP link port #1
+                  .arg(udpPort)         // UDP link port #1
+                  .arg(uuidUsbSerial);
 
-    qDebug() << "Gateway UDP settings" << xmlData << "to be used";
+
+    //qDebug() << "Gateway UDP settings" << xmlData << "to be used";
 
     #endif
 
@@ -539,7 +557,7 @@ void LinkManager::importPinnedLinksFromXML()
 void LinkManager::onLinkConnectionStatusChanged(QUuid uuid)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::onLinkConnectionStatusChanged";
+    qDebug() << "LinkManager::onLinkConnectionStatusChanged for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
@@ -558,6 +576,7 @@ void LinkManager::onUpgradingFirmwareStateChanged(QUuid uuid)
 void LinkManager::onLinkBaudrateChanged(QUuid uuid)
 {
     TimerController(timer_.get());
+    qDebug() << "LinkManager::onLinkBaudrateChanged for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
@@ -571,6 +590,7 @@ void LinkManager::onLinkBaudrateChanged(QUuid uuid)
 void LinkManager::onLinkIsReceivesDataChanged(QUuid uuid)
 {
     TimerController(timer_.get());
+    qDebug() << "LinkManager::onLinkIsReceivesDataChanged for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
@@ -614,25 +634,36 @@ void LinkManager::onExpiredTimer()
 void LinkManager::openAsSerial(QUuid uuid, LinkAttribute attribute)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::openAsSerial";
+    qDebug() << "LinkManager::openAsSerial using uuid" << uuid << "when uuidUsbSerial is" << uuidUsbSerial;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setAttribute(attribute);
         linkPtr->setIsForceStopped(false);
         linkPtr->openAsSerial();
+        if (g_pulseRuntimeSettings) {
+             qDebug() << "link_manager: Open as serial";
+            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", uuidUsbSerial);
+        } else {
+            qDebug() << "link_manager: Open as g_pulseRuntimeSettings null";
+        }
+
     }
 }
 
 void LinkManager::openAsUdp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::openAsUdp";
+    qDebug() << "LinkManager::openAsUdp for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setAttribute(attribute);
         linkPtr->setIsForceStopped(false);
         linkPtr->updateUdpParameters(address, sourcePort, destinationPort);
         linkPtr->openAsUdp();
+        if (g_pulseRuntimeSettings) {
+            qDebug() << "link_manager: Open as UDP";
+            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", uuidIpGateway);
+        }
 
         doEmitAppendModifyModel(linkPtr); //
     }
@@ -641,7 +672,7 @@ void LinkManager::openAsUdp(QUuid uuid, QString address, int sourcePort, int des
 void LinkManager::openAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::openAsTcp";
+    qDebug() << "LinkManager::openAsTcp for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setAttribute(attribute);
@@ -656,12 +687,16 @@ void LinkManager::openAsTcp(QUuid uuid, QString address, int sourcePort, int des
 void LinkManager::closeLink(QUuid uuid)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::closeLink";
+    qDebug() << "LinkManager::closeLink for uuid", uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         if (linkPtr->getControlType() == ControlType::kAuto)
             linkPtr->setIsForceStopped(true);
         linkPtr->close();
+        if (g_pulseRuntimeSettings) {
+            qDebug() << "link_manager: Close link with uuid" << uuid;
+            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", "");
+        }
 
         doEmitAppendModifyModel(linkPtr); //
     }
@@ -670,7 +705,7 @@ void LinkManager::closeLink(QUuid uuid)
 void LinkManager::closeFLink(QUuid uuid)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::closeFLink";
+    qDebug() << "LinkManager::closeFLink for uuid", uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setIsForceStopped(true);
@@ -682,7 +717,7 @@ void LinkManager::closeFLink(QUuid uuid)
 void LinkManager::deleteLink(QUuid uuid)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::deleteLink";
+    qDebug() << "LinkManager::deleteLink for uuid", uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         emit linkDeleted(linkPtr->getUuid(), linkPtr);
@@ -709,6 +744,7 @@ void LinkManager::deleteLink(QUuid uuid)
 void LinkManager::updateBaudrate(QUuid uuid, int baudrate)
 {
     TimerController(timer_.get());
+    qDebug() << "LinkManager::updateBaudrate for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setBaudrate(baudrate);
@@ -799,6 +835,7 @@ void LinkManager::updateDestinationPort(QUuid uuid, int destinationPort)
 void LinkManager::updatePinnedState(QUuid uuid, bool state)
 {
     TimerController(timer_.get());
+    qDebug() << "LinkManager::updateBaudrate for updatePinnedState" << uuid << "with state" << state;
 
     if (auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setIsPinned(state);
@@ -828,7 +865,7 @@ void LinkManager::frameInput(Link *link, FrameParser frame)
 void LinkManager::createAsUdp(QString address, int sourcePort, int destinationPort)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::createAsUdp";
+    qDebug() << "LinkManager::createAsUdp";
 
     Link* newLinkPtr = createNewLink();
     newLinkPtr->createAsUdp(address, sourcePort, destinationPort);
@@ -840,7 +877,7 @@ void LinkManager::createAsUdp(QString address, int sourcePort, int destinationPo
 void LinkManager::createAsTcp(QString address, int sourcePort, int destinationPort)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::createAsTcp";
+    qDebug() << "LinkManager::createAsTcp";
 
     Link* newLinkPtr = createNewLink();
     newLinkPtr->createAsTcp(address, sourcePort, destinationPort);
@@ -852,7 +889,7 @@ void LinkManager::createAsTcp(QString address, int sourcePort, int destinationPo
 void LinkManager::openFLinks()
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::openFLinks";
+    qDebug() << "LinkManager::openFLinks";
 
     for (auto& itm : list_) {
         if (itm->getIsForceStopped()) {
@@ -861,13 +898,16 @@ void LinkManager::openFLinks()
             switch (itm->getLinkType()) {
             case LinkType::kLinkSerial: {
                 itm->openAsSerial();
+                qDebug() << "LinkManager::openFLinks trigger openAsSerial";
                 break;
             }
             case LinkType::kLinkIPTCP : {
                 itm->openAsTcp();
+                qDebug() << "LinkManager::openFLinks trigger openAsTcpl";
                 break;
             }
             case LinkType::kLinkIPUDP: {
+                qDebug() << "LinkManager::openFLinks trigger openAsUdp";
                 itm->openAsUdp();
                 break;
             }
@@ -906,6 +946,7 @@ void LinkManager::closeUdpProxy()
 QUuid LinkManager::getFirstOpend() {
     for (auto& itm : list_) {
         if (itm->isOpen()) {
+            qDebug() << "LinkManager::getFirstOpend with uuid" << itm->getUuid();
             return itm->getUuid();
         }
     }

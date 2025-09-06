@@ -102,4 +102,6 @@ private:
     static const int timerInterval_ = 500; // msecs
     QUuid proxyLinkUuid_;
     bool coldStarted_;
+    QString uuidIpGateway = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
+    QString uuidUsbSerial = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
 };

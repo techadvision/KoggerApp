@@ -48,12 +48,16 @@ ColumnLayout {
             }
         }
         function onDevNameChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("App start code check - onDevNameChanged: pulseRuntimeSettings.devName=", pulseRuntimeSettings.devName)
             if (pulseRuntimeSettings.devName !== "...") {
                 console.log("forceBreakConnection ability triggered by onDevNameChanged to something real, let's investigate if we allow this")
                 let allowedRed = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed
                 let allowedBlue = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue
                 let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isBetaTester
                 let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto  && PulseSettings.isExpert
+                console.log("App start code check - onDevNameChanged: PulseSettings.isBetaTester=", PulseSettings.isBetaTester, "PulseSettings.isExpert=", PulseSettings.isExpert)
                 //let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isBetaTester
                 //let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isExpert
                 if (allowedRed || allowedBlue || allowedBeta || allowedExpert) {

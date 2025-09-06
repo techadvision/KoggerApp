@@ -1200,17 +1200,17 @@ ColumnLayout {
             }
 
             if (dev === null){
-                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, dev === null")
+                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, dev === null")
                 return
             }
 
             if (pulseRuntimeSettings.userManualSetName === "...") {
-                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.userManualSetName === ...")
+                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.userManualSetName === ...")
                 return
             }
 
             if (pulseRuntimeSettings.devName === "...") {
-                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.devName === ...")
+                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.devName === ...")
                 return
             }
 
