@@ -20,6 +20,10 @@ ApplicationWindow  {
     minimumHeight: 256
     color:         "black"
     title:         qsTr("Pulse, TechAdVision")
+    header: Item {
+        Behavior on height { NumberAnimation { duration: 500 } }
+        height: Insets.dexEnabled ? Insets.top : 0
+    }
 
     readonly property int _rightBarWidth:                360
     readonly property int _activeObjectParamsMenuHeight: 500
@@ -105,7 +109,8 @@ ApplicationWindow  {
         pulseRuntimeSettings.betaMode   = isExpert || isBeta
         PulseSettings.isBetaTester = isBeta
         PulseSettings.isExpert = isExpert
-        console.log("App start code check: code=", code, ", isBeta=", isBeta, "isExpert", isExpert)
+        console.log("App start code check: code=", code, ", isBeta", isBeta, "isExpert", isExpert)
+        //console.log("App start code check: PulseSettings.isBetaTester=", PulseSettings.isBetaTester, "PulseSettings.isExpert=", PulseSettings.isExpert)
         theme.updateResCoeff()
 
         menuBar.languageChanged.connect(handleChildSignal)
