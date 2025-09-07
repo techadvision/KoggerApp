@@ -194,7 +194,7 @@ signals:
     void sendSoundSpeed(const ChannelId& channelId, uint32_t soundSpeed);
 
     void chartComplete(const ChannelId& channelId, const ChartParameters& chartsParams, const QVector<QVector<uint8_t>>& data, float resolution, float offset);
-    void rawDataRecieved(RawData raw_data);
+    void rawDataRecieved(const ChannelId& channelId, RawData raw_data);
 
     void iqComplete(QByteArray data, uint8_t type);
     void attitudeComplete(float yaw, float pitch, float roll);
@@ -203,7 +203,8 @@ signals:
     void usblSolutionComplete(IDBinUsblSolution::UsblSolution data);
     void beaconActivationComplete(uint8_t id);
 
-    void positionComplete(uint32_t date, uint32_t time, double lat, double lon);
+    void positionComplete(double lat, double lon, uint32_t date, uint32_t time);
+    void depthComplete(float depth);
     void chartSetupChanged();
     void dspSetupChanged();
     Q_INVOKABLE void distSetupChanged();
@@ -263,6 +264,10 @@ public slots:
     void askBeaconPosition(IDBinUsblSolution::USBLRequestBeacon ask);
     void enableBeaconOnce(float timeout);
 
+    void acousticPingRequest(uint8_t address, uint32_t timeout_us = 0xFFFFFFFF);
+    void acousticResponceFilter(uint8_t address);
+    void acousticResponceTimeout(uint32_t timeout_us = 0xFFFFFFFF);
+
 #ifdef SEPARATE_READING
     Q_INVOKABLE void initProcessTimerConnects();
     Q_INVOKABLE void initChildsTimersConnects();
@@ -302,6 +307,7 @@ protected:
     IDBinDVLMode* idDVLMode = NULL;
 
     IDBinUsblSolution* idUSBL = NULL;
+    IDBinUsblControl* idUSBLControl = NULL;
 
 //    QHash<ID, IDBin*> hashIDParsing;
 //    QHash<ID, ParseCallback> hashIDCallback;
@@ -393,6 +399,7 @@ protected slots:
     void receivedTimestamp(Type type, Version ver, Resp resp);
     void receivedDist(Type type, Version ver, Resp resp);
     void receivedChart(Type type, Version ver, Resp resp);
+    void receivedRaw(RawData raw_data);
     void receivedAtt(Type type, Version ver, Resp resp);
     void receivedTemp(Type type, Version ver, Resp resp);
 
@@ -415,6 +422,7 @@ protected slots:
     void receivedDVLMode(Type type, Version ver, Resp resp);
 
     void receivedUSBL(Type type, Version ver, Resp resp);
+    void receivedUSBLControl(Type type, Version ver, Resp resp);
 
 
     //void setPulseDevice(Type type, Version ver, Resp resp);
