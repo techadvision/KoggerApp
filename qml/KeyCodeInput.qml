@@ -26,19 +26,21 @@ Item {
 
             pulseRuntimeSettings.expertMode = isExpert
             pulseRuntimeSettings.betaMode   = isExpert || isBeta
-            PulseSettings.isBetaTester      = isBeta
-            PulseSettings.isExpert          = isExpert
+            pulseSettings.isBetaTester      = isBeta
+            pulseSettings.isExpert          = isExpert
 
             if (pulseRuntimeSettings.betaMode) {
-                PulseSettings.keyCode = code
+                pulseSettings.keyCode = code
+                pulseSettings.validateSalt = installToken.currentSalt
             } else {
-                PulseSettings.keyCode = "not_set"
+                pulseSettings.keyCode = "not_set"
             }
 
             console.log("Key Code: User entered", code)
             console.log(
                 "Key Code: result: expertMode", pulseRuntimeSettings.expertMode,
-                "and betaMode", pulseRuntimeSettings.betaMode
+                "and betaMode", pulseRuntimeSettings.betaMode,
+                "and validateSalt", pulseSettings.validateSalt, "for code", pulseSettings.keyCode
             )
             editing = false
         } else {
@@ -58,8 +60,8 @@ Item {
 
             // Show the real key when editing; otherwise “not_set” masked
             text: editing
-                  ? (PulseSettings.keyCode || "")
-                  : (PulseSettings.keyCode || "not_set")
+                  ? (pulseSettings.keyCode || "")
+                  : (pulseSettings.keyCode || "not_set")
             readOnly: !editing
             echoMode: editing ? TextInput.Normal : TextInput.Password
             passwordCharacter: "*"
@@ -117,7 +119,7 @@ Item {
             width: 64
             height: 64
             fillMode: Image.PreserveAspectFit
-            visible: PulseSettings.isBetaTester
+            visible: pulseSettings.isBetaTester
 
             anchors.verticalCenter: actionIcon.verticalCenter
             anchors.left:           actionIcon.right
@@ -131,7 +133,7 @@ Item {
             width: 64
             height: 64
             fillMode: Image.PreserveAspectFit
-            visible: PulseSettings.isExpert
+            visible: pulseSettings.isExpert
 
             anchors.verticalCenter: actionIcon.verticalCenter
             anchors.left:           actionIcon.right
