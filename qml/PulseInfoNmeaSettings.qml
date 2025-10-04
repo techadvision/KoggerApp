@@ -48,8 +48,8 @@ Rectangle {
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter
             anchors.horizontalCenter: depthSelector.horizontalCenter
-            // Bind the initial state to PulseSettings.enableNmeaDbt
-            checked: PulseSettings.enableNmeaDbt
+            // Bind the initial state to pulseSettings.enableNmeaDbt
+            checked: pulseSettings.enableNmeaDbt
 
             // Custom white background with a subtle border
             background: Rectangle {
@@ -119,16 +119,16 @@ Rectangle {
         HorizontalControllerDoubleSettings {
             id: depthSelector
             values: [250, 500, 1000]
-            //currentValue: PulseSettings.nmeaSendPerMilliSec
+            //currentValue: pulseSettings.nmeaSendPerMilliSec
 
             Component.onCompleted: {
-                var idx = values.indexOf(PulseSettings.nmeaSendPerMilliSec)
+                var idx = values.indexOf(pulseSettings.nmeaSendPerMilliSec)
                 currentIndex = idx >= 0 ? idx : 0
             }
 
             onPulsePreferenceValueChanged: {
-                //console.log("PulseSettingsValue pause between DBT messages changed to", newValue)
-                PulseSettings.nmeaSendPerMilliSec = newValue
+                //console.log("pulseSettingsValue pause between DBT messages changed to", newValue)
+                pulseSettings.nmeaSendPerMilliSec = newValue
                 //settingsPopup.pulsePreferenceValueChanged(newValue)
             }
 
@@ -152,16 +152,16 @@ Rectangle {
         HorizontalControllerDoubleSettings {
             id: minMeasureSelector
             values: [3000, 3100, 3200, 3300, 3400, 3500]
-            //currentValue: PulseSettings.nmeaPort
+            //currentValue: pulseSettings.nmeaPort
 
             Component.onCompleted: {
-                var idx = values.indexOf(PulseSettings.nmeaPort)
+                var idx = values.indexOf(pulseSettings.nmeaPort)
                 currentIndex = idx >= 0 ? idx : 0
             }
 
             onPulsePreferenceValueChanged: {
-                //console.log("PulseSettingsValue NMEA port changed to", newValue)
-                PulseSettings.nmeaPort = newValue
+                //console.log("pulseSettingsValue NMEA port changed to", newValue)
+                pulseSettings.nmeaPort = newValue
                 //settingsPopup.pulsePreferenceValueChanged(newValue)
             }
 

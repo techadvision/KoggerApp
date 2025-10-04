@@ -1,5 +1,5 @@
 // Non-persistent settings, storage for runtime preferences
-pragma Singleton
+//pragma Singleton
 
 import QtQuick 2.15
 
@@ -169,12 +169,14 @@ QtObject {
 
 
     //Temporary UDP preference (shall use persistent settings for this purpose
-    property bool   enableNmeaDbt:          true
+    property bool   enableNmeaDbt:              true
 
     //FALSE DEPTH READING ALGORITHM TUNING
-    property double kSmallAgreeMargin:      0.5    // Flucutations allowed in filtering
-    property double kLargeJumpThreshold:    10.0    // A jump from one value to the next before considered a likely false reading
-    property int    kConsistNeeded:         3     // The threshold of values required before we believe it
+    property double kSmallAgreeMargin:          0.5    // Fluctuations allowed in filtering
+    property double kLargeJumpThreshold:        5.0    // A jump from one value to the next before considered a likely false reading
+    property int    kConsistNeeded:             3      // The threshold of values required before we believe it
+    property bool   useDepthFilter:             true   // Ability to turn off/on for expert testers
+    property bool   useFilterWithBottomTrack:   true   // Ability to turn off/on for expert testers
 
     //TESTING PROPERTIES
     property double fakeDepthAddition:      0.0
@@ -183,9 +185,9 @@ QtObject {
     property bool   resetBottomTrackActive: false
 
     //PROPERTY CONTROLLING BOTTOM TRACK
-    property double bottomTrackMinDepth:    0.5     //Below this depth, the rangefinder shall always be used
-    property bool   isBottomTrackActive:    false   //If bottom track is to be used and is active, this is true
     property bool   isBottomTrackInitiated: false   //Setup for bottom track is prepared
+    property bool   isBottomTrackActive:    false   //If bottom track is to be used and is active, this is true: MMAY BE REDUNDANT
+    property double bottomTrackMinDepth:    0.5     //Below this depth, the rangefinder shall always be used
     
     //COLOR MAP
 
@@ -364,9 +366,9 @@ QtObject {
         "transFreqNarrow":              460,
         "maximumDepth":                 35,
         "processBottomTrack":           true,
-        "doDynamicResolution":          false,
-        "fixBlackStripesBackwardSteps": 20,
-        "fixBlackStripesForwardSteps":  20,
+        "doDynamicR esolution":          false,
+        "fixBlackStripesBackwardSteps": 3,
+        "fixBlackStripesForwardSteps":  3,
         "fixBlackStripesState":         true,
         "temperatureCorrection":        0,
         "bottomTrackVisible":           false,
@@ -417,7 +419,7 @@ QtObject {
 
     property var    distProcPulseBlue: [
         2,
-        11,
+        5,
         4,
         0.26,
         35,
@@ -514,7 +516,8 @@ QtObject {
         "w9q-1x6-ub2",
         "h5v-3k8-od9",
         "c4r-7t0-nj6",
-        "bet-aus-ers"
+        "bet-aus-ers",
+        "3dr-550-560"
     ]
 
     property var expertKeyCodes: [

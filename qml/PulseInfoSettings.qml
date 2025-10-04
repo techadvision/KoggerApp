@@ -54,12 +54,12 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: PulseSettings.useMetricDepth ? "Metric depth (checked)" : "Imperial depth (unchecked)"
+            text: pulseSettings.useMetricDepth ? "Metric depth (checked)" : "Imperial depth (unchecked)"
             show: pulseRuntimeSettings.showCatScreen
             SettingsCheckBox {
-                target: PulseSettings ? PulseSettings : undefined
+                target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "useMetricDepth"
-                initialChecked: PulseSettings.useMetricDepth
+                initialChecked: pulseSettings.useMetricDepth
             }
 
         }
@@ -69,20 +69,20 @@ Flickable {
             text: "Display temperature on screen"
             show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.useTemperature
             SettingsCheckBox {
-                target: PulseSettings ? PulseSettings : undefined
+                target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "showTemperatureInUi"
-                initialChecked: PulseSettings.showTemperatureInUi
+                initialChecked: pulseSettings.showTemperatureInUi
             }
         }
 
         SettingRow {
             toggle: false
-            text: PulseSettings.useMetricTemperature ? "Metric temperature (checked)" : "Imperial temperature (unchecked)"
-            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.useTemperature && PulseSettings.showTemperatureInUi
+            text: pulseSettings.useMetricTemperature ? "Metric temperature (checked)" : "Imperial temperature (unchecked)"
+            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.useTemperature && pulseSettings.showTemperatureInUi
             SettingsCheckBox {
-                target: PulseSettings ? PulseSettings : undefined
+                target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "useMetricTemperature"
-                initialChecked: PulseSettings.useMetricTemperature
+                initialChecked: pulseSettings.useMetricTemperature
             }
         }
 
@@ -91,9 +91,9 @@ Flickable {
             text: "Optimize to include second echo"
             show: pulseRuntimeSettings.showCatScreen
             SettingsCheckBox {
-                target: PulseSettings ? PulseSettings : undefined
+                target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "doubleEchoOptimize"
-                initialChecked: PulseSettings.doubleEchoOptimize
+                initialChecked: pulseSettings.doubleEchoOptimize
             }
         }
 
@@ -110,13 +110,46 @@ Flickable {
                 height: 80
                 Layout.preferredWidth: 280
                 Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.echogramSpeed)
-                    //console.log("PulseSettingsValue speedSelector Component.onCompleted idx calculated to ", idx)
+                    var idx = values.indexOf(pulseSettings.echogramSpeed)
+                    //console.log("pulseSettingssValue speedSelector Component.onCompleted idx calculated to ", idx)
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
                 onPulsePreferenceValueChanged: {
-                    //console.log("PulseSettingsValue speedSelector changed to", newValue)
+                    //console.log("pulseSettingsValue speedSelector changed to", newValue)
+                    pulseSettings.echogramSpeed = newValue
+                }
+
+                Connections {
+                    target: pulseSettings ? pulseSettings : undefined
+                    function onEchogramSpeedChanged () {
+                        var idx = speedSelector.values.indexOf(pulseSettings.echogramSpeed)
+                        if (idx >= 0) speedSelector.currentIndex = idx
+                    }
+                }
+            }
+        }
+        /* Replaced by persistent setting
+        SettingRow {
+            toggle: false
+            text: "Echogram screen speed (1-5)"
+            show: pulseRuntimeSettings.showCatScreen
+            HorizontalControllerDoubleSettings {
+                id: speedSelector
+                values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
+                    2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9,
+                    3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9,
+                    4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0]
+                height: 80
+                Layout.preferredWidth: 280
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.echogramSpeed)
+                    //console.log("pulseSettingssValue speedSelector Component.onCompleted idx calculated to ", idx)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                onPulsePreferenceValueChanged: {
+                    //console.log("pulseSettingsValue speedSelector changed to", newValue)
                     pulseRuntimeSettings.echogramSpeed = newValue
                 }
 
@@ -129,6 +162,7 @@ Flickable {
                 }
             }
         }
+        */
 
         //Category: NMEA
 
@@ -149,6 +183,17 @@ Flickable {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "enableNmeaDbt"
                 initialChecked: pulseSettings.enableNmeaDbt
+            }
+
+        }
+
+        SettingRow {
+            text: "Include MTW (temperature) message"
+            show: pulseRuntimeSettings.showCatNmea
+            SettingsCheckBox {
+                target: pulseSettings ? pulseSettings : undefined
+                targetPropertyName: "enableNmeaMtw"
+                initialChecked: pulseSettings.enableNmeaMtw
             }
 
         }
@@ -229,10 +274,10 @@ Flickable {
                 minimum: 0.0
                 maximum: 10.0
                 stepSize: 0.01
-                //currentValue: PulseSettings.transducerOffsetMount
+                //currentValue: pulseSettings.transducerOffsetMount
                 onPulsePreferenceValueChanged: {
                     console.log("transducerOffsetMount updated to", newValue)
-                    PulseSettings.transducerOffsetMount = newValue
+                    pulseSettings.transducerOffsetMount = newValue
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -241,8 +286,8 @@ Flickable {
                 Component.onCompleted: {
                     // If your singleton already has a value, pick that up,
                     // otherwise fall back to your minimum.
-                    if (typeof PulseSettings.transducerOffsetMount === "number") {
-                        currentValue = PulseSettings.transducerOffsetMount
+                    if (typeof pulseSettings.transducerOffsetMount === "number") {
+                        currentValue = pulseSettings.transducerOffsetMount
                         console.log("transducerOffsetMount from preferences used as current:", currentValue)
                     } else {
                         currentValue = minimum
@@ -256,17 +301,17 @@ Flickable {
         SettingRow {
             text: "PULSEblue: Left-hand side mount"
             toggle: false
-            show: pulseRuntimeSettings.showCatInstallation && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+            show: pulseRuntimeSettings.showCatInstallation && !pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
-                target: PulseSettings ? PulseSettings : undefined
+                target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "isSideScanOnLeftHandSide"
-                initialChecked: PulseSettings.isSideScanOnLeftHandSide
+                initialChecked: pulseSettings.isSideScanOnLeftHandSide
             }
 
             Connections {
-                target: PulseSettings
+                target: pulseSettings ? pulseSettings : undefined
                 function onIsSideScanOnLeftHandSideChanged() {
-                    pulseRuntimeSettings.isSideScanLeftHand = PulseSettings.isSideScanOnLeftHandSide
+                    pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
                     console.log("DEVICE_INSTALLATION: pulseRuntimeSettings.isSideScanLeftHand new value", pulseRuntimeSettings.isSideScanLeftHand)
                 }
             }
@@ -275,28 +320,28 @@ Flickable {
         SettingRow {
             text: "PULSEblue: Cable facing front"
             toggle: false
-            show: pulseRuntimeSettings.showCatInstallation && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+            show: pulseRuntimeSettings.showCatInstallation && !pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
-                target: PulseSettings ? PulseSettings : undefined
+                target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "isSideScanCableFacingFront"
-                initialChecked: PulseSettings.isSideScanCableFacingFront
+                initialChecked: pulseSettings.isSideScanCableFacingFront
             }
         }
 
         SettingRow {
             text: "Pulse Wi-Fi Server UDP port"
             toggle: false
-            show: pulseRuntimeSettings.showCatInstallation && pulseRuntimeSettings.expertMode
+            show: pulseRuntimeSettings.showCatInstallation && (pulseRuntimeSettings.expertMode || pulseRuntimeSettings.betaMode)
             HorizontalControllerDoubleSettings {
                 id: udpPortSelection
                 values: [14550, 14560]
-                onPulsePreferenceValueChanged: PulseSettings.udpPort = newValue
+                onPulsePreferenceValueChanged: pulseSettings.udpPort = newValue
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
 
                 Component.onCompleted: {
-                    var idx = values.indexOf(PulseSettings.udpPort)
+                    var idx = values.indexOf(pulseSettings.udpPort)
                     currentIndex = idx >= 0 ? idx : 0
                 }
             }

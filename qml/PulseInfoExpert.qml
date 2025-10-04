@@ -412,7 +412,7 @@ Flickable {
         SettingRow {
             toggle: true
             text: "Bottom track settings"
-            visible: pulseRuntimeSettings.expertMode
+            visible: pulseRuntimeSettings.expertMode && !pulseRuntimeSettings.is2DTransducer
             SettingCategoryToggle {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "showCatBottomTrack"
@@ -433,10 +433,12 @@ Flickable {
             Connections {
                 target: pulseRuntimeSettings
                 function onProcessBottomTrackChanged () {
-                    if (dataset) {
-                        dataset.setProcessBottomTrack(pulseRuntimeSettings.processBottomTrack)
+                    if (pulseRuntimeSettings.processBottomTrack) {
+                        pulseRuntimeSettings.isBottomTrackInitiated = true
+                    } else {
+                        pulseRuntimeSettings.isBottomTrackInitiated = false
                     }
-                    console.log("DEV_PARAM: Measure by bottom track (instead of range finder)?", pulseRuntimeSettings.processBottomTrack)
+                    console.log("DEV_PARAM: Measure by bottom track (instead of range finder)?", pulseRuntimeSettings.processBottomTrack, ", initiated?", pulseRuntimeSettings.isBottomTrackInitiated)
                 }
             }
         }
@@ -453,6 +455,7 @@ Flickable {
             }
         }
 
+        /*
         SettingRow {
             toggle: false
             text: "Minimum depth before activating track"
@@ -478,6 +481,7 @@ Flickable {
                 }
             }
         }
+        */
 
         SettingRow {
             toggle: false
@@ -486,7 +490,7 @@ Flickable {
             HorizontalControllerDoubleSettings {
                 id: bottomTrackGainSlopeValue
                 values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
-                        2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
+                        2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
 
                 onPulsePreferenceValueChanged: {
                     if (pulseRuntimeSettings.distProcessing[5] !== newValue) {
@@ -505,6 +509,7 @@ Flickable {
             }
         }
 
+        /*
         SettingRow {
             toggle: false
             text: "Bottom track window"
@@ -514,15 +519,18 @@ Flickable {
                 text: pulseRuntimeSettings.distProcessing[1]
             }
         }
+        */
 
-        /*
+
         SettingRow {
             toggle: false
             text: "Bottom track window"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.processBottomTrack
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackWindowValue
-                values: [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
+                values: [3, 4, 5, 6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
 
                 onPulsePreferenceValueChanged: {
                     if (pulseRuntimeSettings.distProcessing[1] !== newValue) {
@@ -540,7 +548,7 @@ Flickable {
                 }
             }
         }
-        */
+
 
         SettingRow {
             toggle: false
@@ -548,7 +556,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackVerticalGapValue
-                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
                 onPulsePreferenceValueChanged: {
                     if (pulseRuntimeSettings.distProcessing[2] !== newValue) {
@@ -573,7 +582,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackMinDepthValue
-                values: [0.0, 0.5, 0.10, 0.15, 0.20, 0.25, 0.26, 0.30, 0.35, 0.40, 0.45, 0.50]
+                values: [0.0, 0.5, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
 
                 onPulsePreferenceValueChanged: {
                     if (pulseRuntimeSettings.distProcessing[3] !== newValue) {
@@ -630,6 +639,7 @@ Flickable {
             }
         }
 
+        /*
         SettingRow {
             toggle: false
             text: "Enable black stripes removal"
@@ -640,6 +650,7 @@ Flickable {
                 initialChecked: pulseRuntimeSettings.fixBlackStripesState
             }
         }
+        */
 
         SettingRow {
             toggle: false
@@ -681,8 +692,50 @@ Flickable {
 
         SettingRow {
             toggle: false
+            id: activateDepthFilterToggle
+            text: "Use depth filter"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.is2DTransducer
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "useDepthFilter"
+                initialChecked: pulseRuntimeSettings.useDepthFilter
+                clearAfter: false
+            }
+            Connections {
+                target: pulseRuntimeSettings
+                function onUseDepthFilterChanged () {
+                    if (dataset) {
+                        dataset.setDepthFilterActive(pulseRuntimeSettings.useDepthFilter)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            id: activateDepthFilterBottomTrackToggle
+            text: "Use depth filter w/bottom track"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && !pulseRuntimeSettings.is2DTransducer
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "useFilterWithBottomTrack"
+                initialChecked: pulseRuntimeSettings.useFilterWithBottomTrack
+                clearAfter: false
+            }
+            Connections {
+                target: pulseRuntimeSettings
+                function onUseFilterWithBottomTrackChanged () {
+                    if (dataset) {
+                        dataset.setDepthFilterBottomTrackActive(pulseRuntimeSettings.useFilterWithBottomTrack)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
             text: "Filter: Fluctuation margin (m)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: kSmallAgreeMargin
                 values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
@@ -1156,6 +1209,19 @@ Flickable {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "showCatAppConfigInfo"
                 initialValue: pulseRuntimeSettings.showCatAppConfigInfo
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "UUID opened"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
+            Text {
+                font.pixelSize: 30
+                text: {
+                    console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidSuccessfullyOpened)
+                    return pulseRuntimeSettings.uuidSuccessfullyOpened
+                }
             }
         }
 

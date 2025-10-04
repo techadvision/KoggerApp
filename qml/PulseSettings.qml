@@ -1,5 +1,5 @@
 // PulseSettings.qml
-pragma Singleton
+//pragma Singleton
 import QtQuick 2.15
 import Qt.labs.settings 1.1
 
@@ -7,6 +7,9 @@ Settings {
     id: pulseSettings
 
     property int    settingsVersion:            1       //This MUST be updated (+1) if we decide to change the default runtime values
+
+    //Token for the installation
+    property string validateSalt:               ""
 
     // User interface control settings
     property int    maxDepthValue:              15
@@ -30,6 +33,7 @@ Settings {
     property bool   areUiControlsVisible:       true
     property int    bottomCompositionAddition:  0
     property bool   doubleEchoOptimize:         false
+    property double echogramSpeed:              1.0
 
     // Transducer telemetry settings
     property bool   useEchogram:                true
@@ -48,6 +52,9 @@ Settings {
     property int    nmeaPort:                   3500
     property int    nmeaSendPerMilliSec:        250
     property bool   enableNmeaDbt:              true
+    property bool   enableNmeaMtw:              false
+    property int    nmeaTempPeriodMs:           1000
+    property string nmeaBroadcastAddress:       "255.255.255.255"
 
     // Transducer installation settings
     property double transducerOffsetMount:      0.0   // Submerge measure, m (transducer below water surface)
@@ -63,7 +70,8 @@ Settings {
     property bool   stopEchogramToConfigure:    false
 
     // NMEA signals to keep C++ in sync
-    signal                                      settingsChanged()
+    /* No longer needed
+    //signal                                      settingsChanged()
 
 
     onNmeaPortChanged: {
@@ -78,18 +86,19 @@ Settings {
         console.log("settingsChanged, triggered by onEnableNmeaDbtChanged")
         settingsChanged()
     }
+    */
 
     // Offset mount update to keep C++ in sync
     onTransducerOffsetMountChanged: {
         if (dataset) {
-            dataset.updateTransducerOffset(transducerOffsetMount)
+            dataset.setTransducerOffsetMount(transducerOffsetMount)
             console.log("onTransducerOffsetMountChanged, notified dataset")
         } else {
             console.log("onTransducerOffsetMountChanged, but dataset null")
         }
     }
 
-    // Favorite color themes, for Pulse Red, maintains a subset of PulseRuntimeSettings.themeModelRed
+    // Favorite color themes, for Pulse Red, maintains a subset of pulseRuntimeSettings.themeModelRed
     property    bool    useFavoriteThemes2D:    false
     property    var     favoriteThemes2DNew:    []
 
