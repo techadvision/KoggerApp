@@ -351,11 +351,13 @@ public:
 
     double distProccesing(const ChannelId& channelId = CHANNEL_NONE)
     {
+        //qDebug() << "epoch-h disProcessing";
         if (channelId == CHANNEL_NONE) {
             for (auto it = charts_.cbegin(); it != charts_.cend(); ++it) {
                 for (const auto& iEchogram : it.value()) {
                     double distance = iEchogram.bottomProcessing.getDistance();
                     if (std::isfinite(distance)) {
+                        //qDebug() << "epoch-h disProcessing, channelId == CHANNEL_NONE, distance" << distance;
                         return distance;
                     }
                 }
@@ -365,6 +367,7 @@ public:
             for (const auto& ech : chart) {
                 double distance = ech.bottomProcessing.getDistance();
                 if (std::isfinite(distance)) {
+                    //qDebug() << "epoch-h disProcessing, charts_.contains(channelId), distance" << distance;
                     return distance;
                 }
             }

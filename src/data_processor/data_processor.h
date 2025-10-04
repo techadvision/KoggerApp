@@ -14,6 +14,7 @@
 #include "isobaths_processor.h"
 #include "mosaic_processor.h"
 #include "surface_processor.h"
+class SettingsBus;
 
 
 enum class DataProcessorType {
@@ -42,6 +43,8 @@ class DataProcessor : public QObject {
 public:
     explicit DataProcessor(QObject* parent = nullptr, Dataset* datasetPtr = nullptr);
     ~DataProcessor() override;
+    //PULSE
+    void setSettingsBus(SettingsBus* bus);
 
     void setDatasetPtr(Dataset* datasetPtr);
     inline bool isCancelRequested() const noexcept { return cancelRequested_.load(); }
@@ -140,6 +143,8 @@ private slots:
 
     void onBottomTrackStarted();
     void onBottomTrackFinished();
+    //PULSE
+    void setIsBottomTrackInitiated(bool state);
 
 private:
     // this
@@ -158,6 +163,9 @@ private:
     friend class BottomTrackProcessor;
     friend class IsobathsProcessor;
     friend class MosaicProcessor;
+
+    //PULSE
+    SettingsBus* settingsBus_ = nullptr;
 
     // this
     Dataset* datasetPtr_;
@@ -178,6 +186,7 @@ private:
     bool isOpeningFile_;
     // BottomTrackProcessor
     int bottomTrackWindowCounter_;
+    bool isBottomTrackInitiated_ = false;
     // MosaicProcessor
     int mosaicCounter_;
     // Surface

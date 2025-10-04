@@ -8,7 +8,7 @@
 #include <cmath>
 #include "compute_worker.h"
 #include "dataset.h"
-
+#include "SettingsBus.h"
 
 static inline uint32_t toMask(WorkSet s){ return static_cast<uint32_t>(s); }
 
@@ -70,6 +70,41 @@ DataProcessor::~DataProcessor()
     worker_->deleteLater();
 }
 
+void DataProcessor::setSettingsBus(SettingsBus* bus)
+{
+    if (settingsBus_ == bus) return;
+
+    if (settingsBus_) {
+        // drop any old connections to avoid duplicate handlers
+        QObject::disconnect(settingsBus_, nullptr, this, nullptr);
+    }
+
+    settingsBus_ = bus;
+    if (!settingsBus_) return;
+
+    QObject::connect(settingsBus_, &SettingsBus::runtimeChanged,
+                     this,
+                     [this](const QVariantMap& m){
+                         // updateBottomTrack
+                         if (auto it = m.constFind("updateBottomTrack"); it != m.constEnd()) {
+                             QMetaObject::invokeMethod(
+                                 this, "setUpdateBottomTrack",
+                                 Qt::QueuedConnection,
+                                 Q_ARG(bool, it.value().toBool()));
+                             qDebug () << "Observed a updateBottomTrack change";
+                         }
+                         // isBottomTrackInitiated
+                         if (auto it = m.constFind("isBottomTrackInitiated"); it != m.constEnd()) {
+                             QMetaObject::invokeMethod(
+                                 this, "setIsBottomTrackInitiated",
+                                 Qt::QueuedConnection,
+                                 Q_ARG(bool, it.value().toBool()));
+                             qDebug () << "Observed a setIsBottomTrackInitiated change";
+                         }
+                     },
+                     Qt::QueuedConnection);
+}
+
 void DataProcessor::setDatasetPtr(Dataset *datasetPtr)
 {
     datasetPtr_ = datasetPtr;
@@ -107,11 +142,26 @@ void DataProcessor::clearProcessing(DataProcessorType procType)
 
 void DataProcessor::setUpdateBottomTrack(bool state)
 {
-    updateBottomTrack_ = state;
+    //PULSE
+    updateBottomTrack_ = isBottomTrackInitiated_;
+    //updateBottomTrack_ = state;
 
     if ((updateBottomTrack_ || updateIsobaths_ || updateMosaic_) && !pendingSurfaceIndxs_.empty()) {
         scheduleLatest(WorkSet(WF_Surface));
     }
+}
+
+void DataProcessor::setIsBottomTrackInitiated(bool state)
+{
+    isBottomTrackInitiated_ = state;
+
+    // Optional: if the user just armed BT and auto-update is already on,
+    // kick the surface scheduling (if there are pending indices).
+
+    if (isBottomTrackInitiated_ && updateBottomTrack_ && !pendingSurfaceIndxs_.empty()) {
+        scheduleLatest(WorkSet(WF_Surface));
+    }
+
 }
 
 void DataProcessor::setUpdateIsobaths(bool state)
@@ -150,7 +200,9 @@ void DataProcessor::onChartsAdded(uint64_t indx)
         return;
     }
 #endif
-    
+
+    updateBottomTrack_ = isBottomTrackInitiated_;
+
     if (updateMosaic_ || updateIsobaths_ || updateBottomTrack_) {
         auto btP = datasetPtr_->getBottomTrackParam();
 

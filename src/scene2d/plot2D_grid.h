@@ -23,9 +23,12 @@ public:
     void setVelocityVisible(bool visible) { _velocityVisible = visible; }
     void setRangeFinderVisible(bool visible) { _rangeFinderLastVisible = visible; }
     //Pulse
-    Q_INVOKABLE void setMeasuresMetric(bool metric);
+    Q_INVOKABLE void applyRuntime(const QVariantMap& m);
+    Q_INVOKABLE void setMeasuresMetric( bool isMetric );
     Q_INVOKABLE void setGridHorizontal (bool horizontal);
     Q_INVOKABLE void setSideScanOnLeftHandSide (bool leftSideInstall);
+    Q_INVOKABLE void setIsSideScan2DView(bool sideScan2DView);
+    Q_INVOKABLE void setIs2DTransducer(bool is2DTransducer);
     Q_INVOKABLE int getAssessedMaxDepth();
     std::vector<int> calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand);
 
@@ -44,7 +47,9 @@ protected:
     //Pulse
     bool isMetric_ = true;
     bool isHorizontalGrid_ = true;
-    bool isSideScanOnLeftHandSide_ = true;
+    bool isSideScanOnLeftHandSide_ = false;
+    bool isSideScan2DView_   = false;
+    bool is2DTransducer_   = true;
     int assessedMaxDepth_ = 0;
     QColor _lineColor = QColor(255, 255, 255, 255);
     void drawTextWithBackdrop(QPainter* p,

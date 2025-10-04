@@ -16,6 +16,9 @@ public:
     DeviceManagerWrapper(QObject* parent = nullptr);
     ~DeviceManagerWrapper();
 
+    //PULSE
+    void setSettingsBus(SettingsBus* bus);
+
     Q_PROPERTY(QList<DevQProperty*> devs READ getDevList NOTIFY devChanged)
     Q_PROPERTY(bool protoBinConsoled WRITE setProtoBinConsoled)
     Q_PROPERTY(StreamListModel* streamsList READ streamsList NOTIFY streamChanged)

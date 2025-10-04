@@ -2,6 +2,9 @@
 #include <time.h>
 #include <core.h>
 #include <QXmlStreamWriter>
+#include <QThread>
+#include "SettingsBus.h"
+#include <QMetaObject>
 
 extern Core core;
 
@@ -67,6 +70,24 @@ DevDriver::DevDriver(QObject *parent)
     QObject::connect(idTransc, &IDBin::notifyDevDriver, this, &DevDriver::setTranscState);
     QObject::connect(idSoundSpeed, &IDBin::notifyDevDriver, this, &DevDriver::setSoundSpeedState);
     QObject::connect(idUART, &IDBin::notifyDevDriver, this, &DevDriver::setUartState);
+}
+
+//PULSE
+void DevDriver::setSettingsBus(SettingsBus* bus) { bus_ = bus; }
+
+void DevDriver::pushRuntime(const QVariantMap& m)
+{
+    if (!bus_) {
+        qDebug() << "SettingsBus::updateRuntime: Failed, no bus available" ;
+        return;
+    }
+    //qDebug() << "SettingsBus::updateRuntime: executing" ;
+    // Execute SettingsBus::updateRuntime on the GUI thread
+    QMetaObject::invokeMethod(
+        bus_, "updateRuntime",
+        Qt::QueuedConnection,
+        Q_ARG(QVariantMap, m)
+        );
 }
 
 DevDriver::~DevDriver()
@@ -259,9 +280,6 @@ void DevDriver::setBaudrate(int baudrate) {
 
 int DevDriver::getBaudrate() {
     int baud = idUART->getBaudrate();
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("rawDev_devBaudRate", baud);
-    }
     return baud;
 }
 
@@ -598,9 +616,7 @@ void DevDriver::initChildsTimersConnects()
 
 uint32_t DevDriver::devSerialNumber() {
     uint32_t sn = idVersion->serialNumber();
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("rawDev_devSerialNumber", sn);
-    }
+    pushRuntimeKV("rawDev_devSerialNumber", sn);
     return sn;
 }
 
@@ -1307,11 +1323,9 @@ void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
             emit deviceVersionChanged();
         }
     }
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("devName", m_devName);
-        g_pulseRuntimeSettings->setProperty("rawDev_firmwareVersion", m_fwVer);
-    }
-    //qDebug() << "Dev_value DevDriver::receivedVersion new name is " << m_devName;
+
+    pushRuntimeKV("devName", m_devName);
+    pushRuntimeKV("rawDev_firmwareVersion", m_fwVer);
 }
 
 void DevDriver::receivedMark(Type type, Version ver, Resp resp) {

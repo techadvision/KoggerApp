@@ -43,18 +43,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     if (!isVisible())
         return false;
 
-    //bool isSideScanOnLeftHandSide = false;
-    bool isSideScan2DView = false;
-    bool is2DTransducer = false;
     const int textPadding = 5;
-
-    if (g_pulseRuntimeSettings) {
-        isSideScanOnLeftHandSide_ = g_pulseRuntimeSettings->property("isSideScanLeftHand").toBool();
-        isSideScan2DView = g_pulseRuntimeSettings->property("isSideScan2DView").toBool();
-        is2DTransducer = g_pulseRuntimeSettings->property("is2DTransducer").toBool();
-        isMetric_ = g_pulseRuntimeSettings->property("useMetricDepth").toBool();
-        isHorizontalGrid_ = g_pulseRuntimeSettings->property("isHorizontalGrid").toBool();
-    }
 
     float conversionFactor = 1.0; // Default to metric (meters)
     if (!isMetric_) {
@@ -71,8 +60,9 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         totalRange = 0.0001f;
     assessedMaxDepth_ = totalRange;
 
-    bool flipImage = isSideScanOnLeftHandSide_ && isSideScan2DView;
-    //qDebug() << "flipimage:" << flipImage << "isSideScanOnLeftHandSide_:" << isSideScanOnLeftHandSide_ << "isSideScan2DView:" << isSideScan2DView;
+    bool flipImage = isSideScanOnLeftHandSide_ && isSideScan2DView_;
+    //bool flipImage = isSideScanOnLeftHandSide_ && isSideScan2DView;
+    //qDebug() << "RULER TICKS flipimage:" << flipImage << "isSideScanOnLeftHandSide_:" << isSideScanOnLeftHandSide_ << "isSideScan2DView:" << isSideScan2DView_;
 
     QPen pen(_lineColor);
     pen.setWidth(_lineWidth);
@@ -158,7 +148,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         return band.left() + int(std::lround(rel * (band.width() - 1)));
     };
 
-    std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer, isSideScan2DView, isSideScanOnLeftHandSide_);
+    std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer_, isSideScan2DView_, isSideScanOnLeftHandSide_);
 
     //CREATE DEPTH LABELS AND LINES
     int linesCountNew = static_cast<int>(tickValues.size()) + 1; // +1 for final bottom value
@@ -274,7 +264,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     }
 
     // LAST DEPTH TEXT AT THE VERY BOTTOM, ONLY IN 2D VIEW
-    if (cursor.distance.isValid() && !flipImage && is2DTransducer) {
+    if (cursor.distance.isValid() && !flipImage && is2DTransducer_) {
         QFont f("Asap");
         f.setPixelSize(sp(18));
         f.setBold(true);
@@ -456,10 +446,35 @@ void Plot2DGrid::setGridHorizontal(bool horizontal)
 void Plot2DGrid::setSideScanOnLeftHandSide(bool isLeftSideInstalled)
 {
     isSideScanOnLeftHandSide_ = isLeftSideInstalled;
+    qDebug() << "isSideScanOnLeftHandSide_ plot2D_grid new value" << isSideScanOnLeftHandSide_;
 }
 int Plot2DGrid::getAssessedMaxDepth()
 {
     return assessedMaxDepth_;
+}
+void Plot2DGrid::setIsSideScan2DView(bool sideScan2DView)
+{
+    isSideScan2DView_ =  sideScan2DView;
+}
+void Plot2DGrid::setIs2DTransducer(bool is2DTransducer)
+{
+    is2DTransducer_ =  is2DTransducer;
+}
+
+void Plot2DGrid::applyRuntime(const QVariantMap& m)
+{
+    if (m.contains("isSideScan2DView"))
+        isSideScan2DView_ = m.value("isSideScan2DView").toBool();
+    if (m.contains("isSideScanLeftHand"))
+        isSideScanOnLeftHandSide_ = m.value("isSideScanLeftHand").toBool();
+    if (m.contains("isHorizontalGrid"))
+        isHorizontalGrid_ = m.value("isHorizontalGrid").toBool();
+    if (m.contains("useMetricDepth"))
+        isMetric_ = m.value("useMetricDepth").toBool();
+    if (m.contains("is2DTransducer")) {
+        is2DTransducer_ = m.value("is2DTransducer").toBool();
+        qDebug() << "VALUE_CHANGE: is2DTransducer_ was updated to" << is2DTransducer_;
+    }
 }
 
 //PULSE METHOD
@@ -483,7 +498,7 @@ std::vector<int> Plot2DGrid::calculateRulerTicks(int maxDepth, bool isMetric, bo
             }
         }
     }
-    //qDebug() << "RULER TICKS: Tick Value result general:" << bestTicks << "using input" << maxDepth << ", metric" << isMetric << " for a 2D?" << is2DTransducer;
+    //qDebug() << "RULER TICKS: Tick Value result general:" << bestTicks << "using input" << maxDepth << ", metric" << isMetric << "is2DTransducer" << is2DTransducer << "isSideScan2DView" << isSideScan2DView << "isSideScanLeftHand" << isSideScanLeftHand;
 
     if (!is2DTransducer) {
         std::vector<int> mirroredTicks;

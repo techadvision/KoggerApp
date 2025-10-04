@@ -1,5 +1,6 @@
 #include "device_manager_wrapper.h"
 #include "device_defs.h"
+#include "SettingsBus.h"
 
 
 DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
@@ -29,6 +30,22 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     QObject::connect(workerObject_.get(), &DeviceManager::streamChanged,        this,                &DeviceManagerWrapper::streamChanged, connectionType);
     QObject::connect(workerObject_.get(), &DeviceManager::vruChanged,           this,                &DeviceManagerWrapper::vruChanged,    connectionType);
     QObject::connect(workerObject_.get(), &DeviceManager::chartLossesChanged,   this,                &DeviceManagerWrapper::calcAverageChartLosses,    connectionType);
+#endif
+}
+
+//PULSE
+void DeviceManagerWrapper::setSettingsBus(SettingsBus* bus)
+{
+#ifdef SEPARATE_READING
+    // worker is on its own thread
+    QMetaObject::invokeMethod(
+        workerObject_.get(),
+        [this, bus]{
+            workerObject_->setSettingsBus(bus);
+        },
+        Qt::QueuedConnection);
+#else
+    workerObject_->setSettingsBus(bus);
 #endif
 }
 

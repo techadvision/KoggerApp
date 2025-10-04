@@ -8,6 +8,7 @@
 #include <QUuid>
 #include "link_manager.h"
 #include "link_list_model.h"
+class SettingsBus;
 
 
 class LinkManagerWrapper : public QObject // wrapper for LinkManager in main thread
@@ -16,6 +17,8 @@ class LinkManagerWrapper : public QObject // wrapper for LinkManager in main thr
 public:
     Q_PROPERTY(LinkListModel* linkListModel READ getModelPtr NOTIFY modelChanged)
     Q_PROPERTY(QVariant baudrateModel READ baudrateModel CONSTANT)
+
+    void setSettingsBus(SettingsBus* bus);
 
     /*methods*/
     LinkManagerWrapper(QObject* parent);

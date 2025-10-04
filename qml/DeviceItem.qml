@@ -3,8 +3,8 @@ import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.1
-import org.techadvision.settings 1.0
-import org.techadvision.runtime 1.0
+//import org.techadvision.settings 1.0
+//import org.techadvision.runtime 1.0
 
 ColumnLayout {
     id: columnItem
@@ -1118,10 +1118,10 @@ ColumnLayout {
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
             console.log("DEV_PARAM: pulseRuntimeSettings - cone for", pulseRuntimeSettings.userManualSetName)
-            if (PulseSettings.ecoConeIndex === 0) {
+            if (pulseSettings.ecoConeIndex === 0) {
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
                 console.log("DEV_PARAM: pulse red wide")
-            } else if (PulseSettings.ecoConeIndex === 1) {
+            } else if (pulseSettings.ecoConeIndex === 1) {
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
                 console.log("DEV_PARAM: pulse red medium")
             } else {
@@ -1790,10 +1790,10 @@ ColumnLayout {
             if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                     || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
                 let desiredFrequency = 0
-                if (PulseSettings.ecoConeIndex === 0) {
+                if (pulseSettings.ecoConeIndex === 0) {
                     desiredFrequency = pulseRuntimeSettings.transFreqWide
                     console.log("DEV_PARAM: use frequency for pulse red wide")
-                } else if (PulseSettings.ecoConeIndex === 1) {
+                } else if (pulseSettings.ecoConeIndex === 1) {
                     desiredFrequency = pulseRuntimeSettings.transFreqMedium
                     console.log("DEV_PARAM: use frequency for pulse red metium")
                 } else {
@@ -1896,7 +1896,7 @@ ColumnLayout {
         //DevDriver sets the pulseRuntimeSettings.devName, triggering this alert. Name will be "..." for no device or real device name
         function onDevNameChanged() {
             //console.log("TAV: onDevNameChanged to:", pulseRuntimeSettings.devName);
-            PulseSettings.devname = pulseRuntimeSettings.devName
+            pulseSettings.devName = pulseRuntimeSettings.devName
             if (pulseRuntimeSettings.devName === "...") {
                 pulseRuntimeSettings.devIdentified = false
                 pulseRuntimeSettings.isReceivingData = false
@@ -1994,7 +1994,7 @@ ColumnLayout {
 
     Timer {
         //Delay timer was created when we could not reliably expect the device name to be delivered
-        //With a predictable solution where DevDriver sets PulseRuntimeSetting.devName we should no longer need this
+        //With a predictable solution where DevDriver sets pulseRuntimeSetting.devName we should no longer need this
         //To be altered to a new solution:
         //Initial blockers makes sense, as do the two booleans
         id: delayTimer
@@ -2008,7 +2008,7 @@ ColumnLayout {
                 return
             }
 
-            if (PulseSettings === null || pulseRuntimeSettings === null) {
+            if (pulseSettings === null || pulseRuntimeSettings === null) {
                 //console.log("TAV: delayTimer, settings === null, not ready to proceed");
                 return
             }

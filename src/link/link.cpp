@@ -1,6 +1,9 @@
 #include "link.h"
 #include <QQmlProperty>
-
+#include <QThread>
+#include "SettingsBus.h"
+#include <QVariantMap>
+#include <QDebug>
 
 Link::Link()
     : ioDevice_(nullptr),
@@ -37,6 +40,16 @@ Link::Link()
     QTimer::singleShot(500, this, [&]() -> void { checkTimer_->start(); });
 }
 
+//PULSE
+void Link::applyRuntime(const QVariantMap& m)
+{
+    if (m.contains("uuidIpGateway"))
+        uuidIpGateway_ = m.value("uuidIpGateway").toString();
+    if (m.contains("uuidUsbSerial"))
+        uuidUsbSerial_ = m.value("uuidUsbSerial").toString();
+    // (if you add more runtime keys later, handle them here)
+}
+
 void Link::createAsSerial(const QString &portName, int baudrate, bool parity)
 {
     linkType_ = LinkType::kLinkSerial;
@@ -60,24 +73,20 @@ void Link::openAsSerial()
     serialPort->open(QIODevice::ReadWrite);
 
     if (serialPort->isOpen()) {
-        qDebug() << "Link::openAsSerial uuid open" << uuid_;
-        if (g_pulseRuntimeSettings) {
-            QVariant usbVar = QQmlProperty::read(g_pulseRuntimeSettings, "uuidUsbSerial");
-            QString usbSerial = usbVar.toString();
-            qDebug() << "Link::openAsSerial read uuidUsbSerial =" << usbSerial;
-
-            bool ok = QQmlProperty::write(g_pulseRuntimeSettings, "uuidSuccessfullyOpened", usbSerial);
-            qDebug() << "Link::openAsSerial wrote uuidSuccessfullyOpened ok?" << ok;
-        } else {
-            qDebug() << "Link::openAsSerial uuid g_pulseRuntimeSettings not available";
-        }
         setDev(serialPort);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
+        if (bus_) {
+            QVariantMap m; m.insert("uuidSuccessfullyOpened", uuidUsbSerial_);
+            QMetaObject::invokeMethod(bus_, "updateRuntime",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(QVariantMap, m));
+            qDebug() << "Link::openAsSerial uuid open" << uuidUsbSerial_;
+        }
     }
     else {
         delete serialPort;
-        qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_;
+        //qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_;
         emit connectionStatusChanged(uuid_);
     }
     baudrateSearchList_ = baudrateSearchList;
@@ -118,11 +127,17 @@ void Link::openAsUdp()
         setDev(socketUdp);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
-        qDebug() << "Link::openAsUdp uuid open" << uuid_;
-        if (g_pulseRuntimeSettings) {
-            QString udp = g_pulseRuntimeSettings->property("uuidIpGateway").toString();
-            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", udp);
+        //if (bus_) bus_->updateRuntime({ { "uuidSuccessfullyOpened", uuidIpGateway_ } });
+        //Pulse
+        qDebug() << "Link::openAsUdp uuid open, will try to update runtime uuidIpGateway_" << uuidIpGateway_;
+        if (bus_) {
+            QVariantMap m; m.insert("uuidSuccessfullyOpened", uuidIpGateway_);
+            QMetaObject::invokeMethod(bus_, "updateRuntime",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(QVariantMap, m));
+            qDebug() << "Link::openAsUdp uuid open" << uuidIpGateway_;
         }
+
     }
     else {
         delete socketUdp;
@@ -722,6 +737,12 @@ void Link::aboutToClose()
         //emit changeState(); //
         emit connectionStatusChanged(uuid_);
         emit closed(uuid_, this);
+    }
+    if (bus_) {
+        QVariantMap m; m.insert("uuidSuccessfullyOpened", "");
+        QMetaObject::invokeMethod(bus_, "updateRuntime",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(QVariantMap, m));
     }
 }
 

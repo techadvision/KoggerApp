@@ -55,23 +55,23 @@ ColumnLayout {
                 console.log("forceBreakConnection ability triggered by onDevNameChanged to something real, let's investigate if we allow this")
                 let allowedRed = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed
                 let allowedBlue = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue
-                let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isBetaTester
-                let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto  && PulseSettings.isExpert
-                console.log("App start code check - onDevNameChanged: PulseSettings.isBetaTester=", PulseSettings.isBetaTester, "PulseSettings.isExpert=", PulseSettings.isExpert)
-                //let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isBetaTester
-                //let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && PulseSettings.isExpert
+                let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && pulseSettings.isBetaTester
+                let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto  && pulseSettings.isExpert
+                console.log("App start code check - onDevNameChanged: pulseSettings.isBetaTester=", pulseSettings.isBetaTester, "pulseSettings.isExpert=", pulseSettings.isExpert)
+                //let allowedBeta = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && pulseSettings.isBetaTester
+                //let allowedExpert = pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto && pulseSettings.isExpert
                 if (allowedRed || allowedBlue || allowedBeta || allowedExpert) {
                     if (allowedRed || allowedBlue) {
                         console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is always allowed")
                     } else if (allowedBeta) {
-                        console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is allowed for beta tester with status", PulseSettings.isBetaTester)
+                        console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is allowed for beta tester with status", pulseSettings.isBetaTester)
                     } else {
-                        console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is allowed for expert with status", PulseSettings.isExpert)
+                        console.log("forceBreakConnection avoided, the device",pulseRuntimeSettings.devName, "is allowed for expert with status", pulseSettings.isExpert)
                     }
 
                     return
                 } else if (!pulseRuntimeSettings.isOpeningKlfFile) {
-                    console.log("forceBreakConnection for device",pulseRuntimeSettings.devName, "beta status", PulseSettings.isBetaTester, "expert status", PulseSettings.isExpert)
+                    console.log("forceBreakConnection for device",pulseRuntimeSettings.devName, "beta status", pulseSettings.isBetaTester, "expert status", pulseSettings.isExpert)
                     pulseRuntimeSettings.forceBreakConnection = true
                 } else {
                     console.log("forceBreakConnection for device not relevant as the user is opening a KLF file")

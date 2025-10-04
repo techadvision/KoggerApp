@@ -23,7 +23,7 @@ Item {
     // Custom properties for auto depth behavior
     property bool isAutoRangeActive: false
     // Custom properties for auto filter behavior
-    property bool isAutoFilterActive: PulseSettings.autoFilter && (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed || pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto)
+    property bool isAutoFilterActive: pulseSettings.autoFilter && (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed || pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto)
 
     signal distanceAutoRangeRequested()
     signal distanceFixedRangeRequested()
@@ -89,23 +89,23 @@ Item {
                 if (root.controleName === 'selectorMaxDepth') {
                     // use max range as default
                     let maxRange = pulseRuntimeSettings.maximumDepth * 1.0
-                    PulseSettings.maxDepthValuePulseBlue = maxRange
-                    PulseSettings.maxDepthValuePulseBlueFixed = maxRange
+                    pulseSettings.maxDepthValuePulseBlue = maxRange
+                    pulseSettings.maxDepthValuePulseBlueFixed = maxRange
                     //root.defaultValue = maxRange
                     valueField.text = maxRange
                     console.log("Auto function: horizontal controller setting defaultValue", maxRange);
                     // auto range part
-                    PulseSettings.autoRange = false
+                    pulseSettings.autoRange = false
                     root.isAutoRangeActive = false;
                     root.distanceFixedRangeRequested();
-                    console.log("Auto function: horizontal controller setting auto range to", PulseSettings.autoRange);
+                    console.log("Auto function: horizontal controller setting auto range to", pulseSettings.autoRange);
                 }
                 if (root.controleName === 'selectorFiltering') {
                     // auto filter part
-                    PulseSettings.autoFilter = false
+                    pulseSettings.autoFilter = false
                     root.isAutoFilterActive = false
                     root.filterFixedRangeRequested();
-                    console.log("Auto function: horizontal controller setting auto filter to", PulseSettings.autoFilter);
+                    console.log("Auto function: horizontal controller setting auto filter to", pulseSettings.autoFilter);
                 }
             } else {
                 console.log("Auto function: horizontal controller, no change for", pulseRuntimeSettings.userManualSetName, "needed");
@@ -118,9 +118,9 @@ Item {
                 return
             }
             if (pulseRuntimeSettings.isSideScan2DView) {
-                valueField.text = PulseSettings.maxDepthValuePulseBlue
+                valueField.text = pulseSettings.maxDepthValuePulseBlue
             } else {
-                valueField.text = PulseSettings.maxDepthValuePulseBlueFixed
+                valueField.text = pulseSettings.maxDepthValuePulseBlueFixed
             }
         }
     }
@@ -312,8 +312,8 @@ Item {
 
                         Component.onCompleted: {
                             if (controleName==="selectorMaxDepth") {
-                                root.isAutoRangeActive = PulseSettings.autoRange
-                                root.isAutoFilterActive = PulseSettings.autoFilter
+                                root.isAutoRangeActive = pulseSettings.autoRange
+                                root.isAutoFilterActive = pulseSettings.autoFilter
                             }
                         }
                     }

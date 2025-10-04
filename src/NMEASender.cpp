@@ -2,173 +2,192 @@
 #include <QHostAddress>
 #include <QDebug>
 #include <cmath>
+#include "SettingsBus.h"
 
 NMEASender::NMEASender(QObject *parent)
-    : QObject(parent),
-    port(3500),
-    broadcastAddress("255.255.255.255"),
-    latestDepth(0.0f),
-    latestTemp(0.0f)
+    : QObject(parent)
 {
     udpSocket = new QUdpSocket(this);
 
-    // Bind the socket to any available IPv4 address.
-    if (!udpSocket->bind(QHostAddress::AnyIPv4, static_cast<quint16>(0), QUdpSocket::DefaultForPlatform)) {
+    if (!udpSocket->bind(QHostAddress::AnyIPv4, 0, QUdpSocket::DefaultForPlatform)) {
         qWarning() << "NMEA Failed to bind UDP socket:" << udpSocket->errorString();
     } else {
         qDebug() << "NMEA UDP socket successfully bound.";
     }
 
-    sendTimer = new QTimer(this);
-    connect(sendTimer, &QTimer::timeout, this, &NMEASender::onTimeout);
+    // timers
+    depthTimer = new QTimer(this);
+    tempTimer  = new QTimer(this);
 
+    // initial load from QSettings (will be overridden live by SettingsBus if attached)
+    updateSettings();
 
-    if (g_pulseSettings) {
-        qDebug() << "NMEA Found g_pulseSettings";
-        updateSettings();
-        connect(g_pulseSettings, SIGNAL(settingsChanged()), this, SLOT(updateSettings()));
-    } else {
-        sendTimer->setInterval(250);
-        qDebug() << "NMEA Did not find g_pulseSettings";
+    // wire ticks
+    connect(depthTimer, &QTimer::timeout, this, &NMEASender::onDepthTick);
+    connect(tempTimer,  &QTimer::timeout, this, &NMEASender::onTempTick);
+
+    // start timers; they self-check enable flags inside the tick
+    depthTimer->start(depthIntervalMs);
+    tempTimer->start(tempIntervalMs);
+}
+
+void NMEASender::setSettingsBus(SettingsBus* bus)
+{
+    if (bus_ == bus) return;
+    if (bus_) disconnect(bus_, nullptr, this, nullptr);
+    bus_ = bus;
+    if (!bus_) return;
+
+    // react only to persistent settings changes we care about
+    connect(bus_, &SettingsBus::persistentChanged, this,
+            [this](const QVariantMap& m){ applyPersistent(m); },
+            Qt::QueuedConnection);
+}
+
+void NMEASender::applyPersistent(const QVariantMap& m)
+{
+    bool changedDepthTick = false;
+    bool changedTempTick  = false;
+
+    if (m.contains("nmeaPort")) {
+        port = static_cast<quint16>(m.value("nmeaPort").toInt());
+    }
+    if (m.contains("nmeaSendPerMilliSec")) {
+        depthIntervalMs = m.value("nmeaSendPerMilliSec").toInt();
+        if (depthIntervalMs <= 0) depthIntervalMs = 250;
+        changedDepthTick = true;
+    }
+    if (m.contains("nmeaBroadcastAddress")) {
+        broadcastAddress = m.value("nmeaBroadcastAddress").toString();
+        if (broadcastAddress.isEmpty()) broadcastAddress = "255.255.255.255";
+    }
+    if (m.contains("enableNmeaDbt")) {
+        enableDbt = m.value("enableNmeaDbt").toBool();
+    }
+    if (m.contains("enableNmeaMtw")) {
+        enableMtw = m.value("enableNmeaMtw").toBool();
+    }
+    if (m.contains("nmeaTempPeriodMs")) {
+        tempIntervalMs = m.value("nmeaTempPeriodMs").toInt();
+        if (tempIntervalMs <= 0) tempIntervalMs = 1000;
+        changedTempTick = true;
     }
 
-    sendTimer->start();
-
-    tempTimer = new QTimer(this);
-    tempTimer->setInterval(1000);
-    connect(tempTimer, &QTimer::timeout, this, [=]() {
-        if (g_pulseSettings && g_pulseSettings->property("enableNmeaDbt").toBool()) {
-            auto mtw = createMTWSentence(latestTemp);
-            udpSocket->writeDatagram(mtw, QHostAddress::Broadcast, port);
-        }
-    });
-    tempTimer->start();
-
+    if (changedDepthTick && depthTimer) depthTimer->start(depthIntervalMs);
+    if (changedTempTick  && tempTimer)  tempTimer->start(tempIntervalMs);
 }
 
 void NMEASender::updateSettings()
 {
-    if (g_pulseSettings) {
-        int prefPort = g_pulseSettings->property("nmeaPort").toInt();
-        if (prefPort > 0) {
-            port = static_cast<quint16>(prefPort);
-        }
+    // one-shot bootstrap from QSettings; live updates come via SettingsBus
+    /*
+    port            = static_cast<quint16>(persistent<int>("nmeaPort", 3500));
+    depthIntervalMs = persistent<int>("nmeaSendPerMilliSec", 250);
+    tempIntervalMs  = persistent<int>("nmeaTempPeriodMs",     1000);
+    broadcastAddress= persistent<QString>("nmeaBroadcastAddress", "255.255.255.255");
+    enableDbt       = persistent<bool>("enableNmeaDbt", false);
+    enableMtw       = persistent<bool>("enableNmeaMtw", false);
+    */
 
-        int interval = g_pulseSettings->property("nmeaSendPerMilliSec").toInt();
-        if (interval <= 0) {
-            interval = 250; // Default interval if invalid.
-        }
+    if (depthIntervalMs <= 0) depthIntervalMs = 250;
+    if (tempIntervalMs  <= 0) tempIntervalMs  = 1000;
 
-        sendTimer->setInterval(interval);
+    if (depthTimer) depthTimer->setInterval(depthIntervalMs);
+    if (tempTimer)  tempTimer->setInterval(tempIntervalMs);
 
-        qDebug() << "Updated NMEASender settings:"
-                 << " NMEA port =" << port
-                 << ", NMEA send interval =" << interval << "ms";
-    } else {
-        qDebug() << "NMEA Did not find g_pulseSettings";
+    qDebug() << "NMEA bootstrap:"
+             << "port=" << port
+             << "depthIntervalMs=" << depthIntervalMs
+             << "tempIntervalMs="  << tempIntervalMs
+             << "broadcast=" << broadcastAddress
+             << "enableDbt=" << enableDbt
+             << "enableMtw=" << enableMtw;
+}
+
+int NMEASender::staleMsForDepth() const { return qMax(1000, depthIntervalMs * 2); }
+int NMEASender::staleMsForTemp()  const { return qMax(1000, tempIntervalMs  * 2); }
+
+void NMEASender::setLatestDepth(float d)
+{
+    latestDepth = d;
+    haveDepth   = true;
+    lastDepthTick.start();
+}
+
+void NMEASender::setLatestTemp(float t)
+{
+    latestTemp = t;
+    haveTemp   = true;
+    lastTempTick.start();
+}
+
+void NMEASender::onDepthTick()
+{
+    if (!enableDbt) return;
+
+    const bool fresh = haveDepth && lastDepthTick.isValid() &&
+                       lastDepthTick.elapsed() <= staleMsForDepth();
+
+    const QByteArray sentence = createDBTSentence(latestDepth, fresh);
+
+    QHostAddress target(broadcastAddress);
+    if (target.isNull()) target = QHostAddress::Broadcast;
+
+    const qint64 n = udpSocket->writeDatagram(sentence, target, port);
+    if (n == -1) {
+        qWarning() << "NMEA DBT write failed:" << udpSocket->errorString();
     }
 }
 
-void NMEASender::sendDepthData(float depthMeters)
+void NMEASender::onTempTick()
 {
+    if (!enableMtw) return;
 
-    if (g_pulseSettings) {
-        bool enabled = g_pulseSettings->property("enableNmeaDbt").toBool();
-        if (!enabled) {
-            qDebug() << "NMEA sending is disabled by preference: enableNmeaDbt=" << enabled;
-            return;
-        }
-    }
+    const bool fresh = haveTemp && lastTempTick.isValid() &&
+                       lastTempTick.elapsed() <= staleMsForTemp();
 
-    QByteArray sentence = createDBTSentence(depthMeters);
-    //qDebug() << "Sending NMEA sentence:" << sentence;
+    const QByteArray sentence = createMTWSentence(latestTemp, fresh);
 
-#ifdef Q_OS_WINDOWS
-    QHostAddress target("255.255.255.255");
-#else
-    //QHostAddress target = QHostAddress::Broadcast;
-    QHostAddress target = QHostAddress::LocalHost;
-#endif
+    QHostAddress target(broadcastAddress);
+    if (target.isNull()) target = QHostAddress::Broadcast;
 
-    qint64 bytesWritten = udpSocket->writeDatagram(sentence, target, port);
-    if (bytesWritten == -1) {
-        qWarning() << "NMEA Failed to write datagram:" << udpSocket->errorString();
+    const qint64 n = udpSocket->writeDatagram(sentence, target, port);
+    if (n == -1) {
+        qWarning() << "NMEA MTW write failed:" << udpSocket->errorString();
     }
 }
 
-QByteArray NMEASender::createDBTSentence(float depthMeters)
+static inline QString hexChecksum(const QByteArray& body)
 {
-    float depthFeet = depthMeters * 3.28084f;
-    float depthFathoms = depthMeters * 0.546807f;
-
-    QString payload = QString("PUDBT,%1,f,%2,M,%3,F")
-                          .arg(depthFeet, 0, 'f', 2)
-                          .arg(depthMeters, 0, 'f', 2)
-                          .arg(depthFathoms, 0, 'f', 2);
-
-    QByteArray sentence = "$" + payload.toUtf8();
-
-    quint8 checksum = 0;
-    for (int i = 1; i < sentence.size(); ++i) {
-        checksum ^= static_cast<quint8>(sentence.at(i));
-    }
-
-    QString checksumStr = QString("*%1").arg(checksum, 2, 16, QChar('0')).toUpper();
-    sentence.append(checksumStr.toUtf8());
-
-    return sentence;
+    quint8 cs = 0;
+    // XOR of chars after '$' (we provide body *without* the '$' below)
+    for (char c : body) cs ^= static_cast<quint8>(c);
+    return QString("*%1").arg(cs, 2, 16, QLatin1Char('0')).toUpper();
 }
 
-QByteArray NMEASender::createMTWSentence(float tempC)
+QByteArray NMEASender::createDBTSentence(float depthMeters, bool valid)
 {
-    // “MTW” = Water temperature in °C
-    QString payload = QString("PUMTW,%1,C").arg(tempC, 0, 'f', 1);
-    QByteArray sentence = "$" + payload.toUtf8();
+    // Empty fields when !valid
+    QString feet   = valid ? QString::number(depthMeters * 3.28084f, 'f', 2) : "";
+    QString meters = valid ? QString::number(depthMeters,               'f', 2) : "";
+    QString fathom = valid ? QString::number(depthMeters * 0.546807f,   'f', 2) : "";
 
-    quint8 checksum = 0;
-    for (int i = 1; i < sentence.size(); ++i)
-        checksum ^= static_cast<quint8>(sentence.at(i));
+    // Keep your talker/sentence prefix
+    const QString payload = QStringLiteral("PUDBT,%1,f,%2,M,%3,F")
+                                .arg(feet, meters, fathom);
 
-    sentence.append(QString("*%1")
-                        .arg(checksum, 2, 16, QChar('0'))
-                        .toUpper()
-                        .toUtf8());
-    return sentence;
+    QByteArray body = payload.toUtf8();   // no leading '$' here
+    QByteArray out  = "$" + body + hexChecksum(body).toUtf8();
+    return out;
 }
 
-void NMEASender::onTimeout()
+QByteArray NMEASender::createMTWSentence(float tempC, bool valid)
 {
+    // MTW: water temperature in C
+    QString t = valid ? QString::number(tempC, 'f', 1) : "";
+    const QString payload = QStringLiteral("PUMTW,%1,C").arg(t);
 
-    if (g_pulseSettings) {
-        bool enabled = g_pulseSettings->property("enableNmeaDbt").toBool();
-        if (!enabled) {
-            //qDebug() << "NMEA sending is disabled by preference.";
-            return;
-        }
-    } else {
-        qDebug() << "NMEA g_pulseSettings is not set yet; skipping sending.";
-        return;
-    }
-
-    sendDepthData(latestDepth);
-}
-
-
-void NMEASender::setLatestDepth(float depth)
-{
-    latestDepth = depth;
-    //qDebug() << "For NMEA, got depth:" << depth;
-}
-
-void NMEASender::setLatestTemp(float temp)
-{
-    latestTemp = temp;
-    //qDebug() << "For NMEA, got temp:" << temp;
-}
-
-
-
-void NMEASender::updateDepth()
-{
-
+    QByteArray body = payload.toUtf8();
+    QByteArray out  = "$" + body + hexChecksum(body).toUtf8();
+    return out;
 }

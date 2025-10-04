@@ -12,7 +12,7 @@
 #include "proto_binnary.h"
 #include "id_binnary.h"
 #include "dataset.h"
-
+class SettingsBus;
 
 class DeviceManager : public QObject
 {
@@ -22,6 +22,9 @@ public:
     /*methods*/
     DeviceManager();
     ~DeviceManager();
+
+    //PULSE
+    void setSettingsBus(SettingsBus* bus);
 
     Q_INVOKABLE float vruVoltage();
     Q_INVOKABLE float vruCurrent();
@@ -114,6 +117,8 @@ private:
     void delAllDev();
     void deleteDevicesByLink(QUuid uuid);
     DevQProperty* createDev(QUuid uuid, Link* link, uint8_t addr);
+    //PULSE
+    SettingsBus* bus_ = nullptr;
 
     /*data*/
     struct VruData {

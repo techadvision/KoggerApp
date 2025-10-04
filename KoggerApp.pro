@@ -14,6 +14,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 ### HEADERS
 HEADERS += \
     src/InsetsHelper.h \
+    src/SettingsBus.h \
     src/black_stripes_processor.h \
     src/console.h \
     src/console_list_model.h \
@@ -29,6 +30,7 @@ HEADERS += \
     src/id_binnary.h \
     src/delaunay.h \
     src/delaunay_defs.h \
+    src/installtoken.h \
     src/logger.h \
     src/map_defs.h \
     src/isobaths_defs.h \
@@ -44,6 +46,7 @@ HEADERS += \
 
 ### SOURCES
 SOURCES += \
+    src/SettingsBus.cpp \
     src/black_stripes_processor.cpp \
     src/console.cpp \
     src/console_list_model.cpp \
@@ -54,6 +57,7 @@ SOURCES += \
     src/epoch.cpp \
     src/hotkeys_manager.cpp \
     src/id_binnary.cpp \
+    src/installtoken.cpp \
     src/logger.cpp \
     src/main.cpp \
     src/map_defs.cpp \

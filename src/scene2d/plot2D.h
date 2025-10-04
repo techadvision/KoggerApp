@@ -27,11 +27,23 @@
 #include "dataset.h"
 #include "data_processor.h"
 
-
 class Plot2D
 {
 public:
     Plot2D();
+
+    void applyRuntime(const QVariantMap& m);   // NEW
+    void applyPersistent(const QVariantMap& m);// NEW (future-proof)
+
+    // Optional setters if other C++ wants to push directly
+    void setIsSideScanLeftHand(bool v)   { isSideScanLeftHand_ = v; }
+    void setIsSideScan2DView(bool v)     { isSideScan2DView_   = v; }
+    void setEchogramSpeed(double v)      { echogramSpeed_      = v; }
+    void setIs2DTransducer(bool v)       { is2DTransducer_     = v; }
+    void setShouldDoAutoRange(bool v)    { shouldDoAutoRange_  = v; }
+    void setAutoDepthMaxLevel(double v)  { autoDepthMaxLevel_  = v; }
+    void setMaximumDepth(int v)          { maximumDepth_       = v; }
+    void setAutoRange(int v)             { autoRange_          = v; }
 
     void setDataset(Dataset* dataset);
     void setDataProcessorPtr(DataProcessor* dataProcessorPtr);
@@ -157,5 +169,13 @@ protected:
     bool isHorizontal_;
 
 private:
-    bool isEnabled_;
+    bool   isEnabled_;
+    bool   isSideScanLeftHand_  = false;
+    bool   isSideScan2DView_    = false;
+    double echogramSpeed_       = 1.0;
+    bool   is2DTransducer_      = true;
+    bool   shouldDoAutoRange_   = false;
+    double autoDepthMaxLevel_   = 49.0;
+    int    maximumDepth_        = 50;
+    int    autoRange_           = 5;
 };

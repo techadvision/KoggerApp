@@ -42,6 +42,9 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
     if (btP.indexFrom < 0 || btP.indexTo < 0) { 
         return; 
     }
+    if (btP.indexFrom > btP.indexTo)
+        return;
+
 
     int epoch_min_index = btP.indexFrom - btP.windowSize/2;
 
@@ -55,7 +58,7 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
         epoch_max_index = size;
     }
 
-    if (epoch_max_index == epoch_min_index) {
+    if (epoch_max_index <= epoch_min_index) {
         return;
     }
 

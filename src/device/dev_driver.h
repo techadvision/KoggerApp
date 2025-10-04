@@ -7,9 +7,7 @@
 #include <QUuid>
 #include "proto_binnary.h"
 #include "id_binnary.h"
-
-
-extern QObject* g_pulseRuntimeSettings;
+class SettingsBus;
 
 using namespace Parsers;
 
@@ -21,6 +19,7 @@ class DevDriver : public QObject
 public:
 
     explicit DevDriver(QObject *parent = nullptr);
+    void setSettingsBus(SettingsBus* bus);
     ~DevDriver();
     typedef enum {
         DatasetOff = 0,
@@ -223,6 +222,8 @@ signals:
     void dvlSolutionComplete(IDBinDVL::DVLSolution dvlSolution);
 
     void pulseDeviceChanged();
+    void pulseBaudRateChanged();
+    void pulseSerialNumberChanged();
 
 public slots:
     void protoComplete(FrameParser& proto);
@@ -428,6 +429,15 @@ protected slots:
     //void setPulseDevice(Type type, Version ver, Resp resp);
 
 private:
+    void pushRuntime(const QVariantMap& m);  // NEW
+    template<typename T>
+    void pushRuntimeKV(const char* key, const T& v) { // NEW
+        QVariantMap m; m.insert(QString::fromLatin1(key), QVariant::fromValue(v));
+        //qDebug() << "SettingsBus::updateRuntime: pushRuntimeKV, m is" << m;
+        pushRuntime(m);
+    }
+    SettingsBus* bus_ = nullptr;
+
     bool datasetState_;
     bool distSetupState_;
     bool chartSetupState_;
@@ -439,4 +449,8 @@ private:
     int errorFreezeCnt_;
     int averageChartLosses_;
     QUuid linkUuid_;
+    //PULSE
+    int baud_;
+    int serialNumber_;
+
 };

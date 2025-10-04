@@ -30,13 +30,14 @@
 #include <QtAndroid>
 #include "InsetsHelper.h"
 #endif
+#include "installtoken.h"
 
 Core core;
 Themes theme;
 QTranslator translator;
 QVector<QString> availableLanguages{"en", "ru", "pl"};
-QObject* g_pulseRuntimeSettings = nullptr;
-QObject* g_pulseSettings = nullptr;
+//QObject* g_pulseRuntimeSettings = nullptr;
+//QObject* g_pulseSettings = nullptr;
 
 
 static void makeStatusBarTransparent()
@@ -148,12 +149,6 @@ int main(int argc, char *argv[])
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Round);
 #endif
 
-    // Register the singleton type
-    qmlRegisterSingletonType(QUrl("qrc:/PulseSettings.qml"), "org.techadvision.settings", 1, 0, "PulseSettings");
-    qmlRegisterSingletonType(QUrl("qrc:/PulseRuntimeSettings.qml"), "org.techadvision.runtime", 1, 0, "PulseRuntimeSettings");
-
-    //qmlRegisterType<Plot2DEchogram>("Pulse.Plot", 1, 0, "Plot2DEchogram");
-
     QQuickWindow::setSceneGraphBackend(QSGRendererInterface::OpenGLRhi);
 
     QSurfaceFormat format;
@@ -182,7 +177,7 @@ int main(int argc, char *argv[])
     engine.addImportPath("qrc:/");
 
 #if defined(Q_OS_ANDROID)
-    // Make the singleton available in QML as "Insets"
+    // PULSE Make the singleton available in QML as "Insets"
     auto *ih = InsetsHelper::instance();
     // make sure it's owned by the GUI/QML thread
     if (ih->thread() != qApp->thread())
@@ -207,29 +202,59 @@ int main(int argc, char *argv[])
     //Pulse additions
     auto grid = new Plot2DGrid();
     engine.rootContext()->setContextProperty("plot2DGrid", grid);
+    auto* bus = new SettingsBus(&engine);
 
-    QQmlComponent component(&engine, QUrl("qrc:/PulseRuntimeSettings.qml"));
-    QObject *runtimeSettingsInstance = component.create();
-    if (!runtimeSettingsInstance) {
-        qWarning() << "Failed to create PulseRuntimeSettings instance!";
+    engine.rootContext()->setContextProperty("settingsBus", bus);
+    core.getDeviceManagerWrapperPtr()->setSettingsBus(bus);
+    core.getLinkManagerWrapperPtr()->setSettingsBus(bus);
+    if (auto* dp = core.getDataProcessorPtr()) {
+        dp->setSettingsBus(bus);
     } else {
-        runtimeSettingsInstance->setObjectName("pulseRuntimeSettings");
-        engine.rootContext()->setContextProperty("pulseRuntimeSettings", runtimeSettingsInstance);
-        g_pulseRuntimeSettings = runtimeSettingsInstance;
+        qWarning() << "Core::getDataProcessorPtr() returned null; cannot wire SettingsBus yet.";
     }
 
-    QQmlComponent component2(&engine, QUrl("qrc:/PulseSettings.qml"));
-    QObject *settingsInstance = component2.create();
-    if (!settingsInstance) {
-        qWarning() << "Failed to create PulseSettings instance!";
-    } else {
-        settingsInstance->setObjectName("pulseSettings");
-        engine.rootContext()->setContextProperty("pulseSettings", settingsInstance);
-        g_pulseSettings = settingsInstance;
+    auto publish = [&](const char* name, QObject* obj) {
+        // Ensure GUI thread affinity and a sane owner
+        if (obj->thread() != qApp->thread())
+            obj->moveToThread(qApp->thread());
+
+        obj->setParent(&engine);                            // tie lifetime to engine
+        QQmlEngine::setObjectOwnership(obj, QQmlEngine::CppOwnership); // never GC
+        engine.rootContext()->setContextProperty(name, obj);
+    };
+
+    // PulseRuntimeSettings
+    QQmlComponent rtComp(&engine, QUrl("qrc:/PulseRuntimeSettings.qml"));
+    QObject* rt = rtComp.create(engine.rootContext());
+    if (!rt) { qCritical() << rtComp.errors(); return -1; }
+    publish("pulseRuntimeSettings", rt);
+    //g_pulseRuntimeSettings = rt;
+
+    // PulseSettings
+    QQmlComponent stComp(&engine, QUrl("qrc:/PulseSettings.qml"));
+    QObject* ps = stComp.create(engine.rootContext());
+    if (!ps) { qCritical() << stComp.errors(); return -1; }
+    publish("pulseSettings", ps);
+    //g_pulseSettings = ps;
+
+    //Hit the link manager in time to get the proper values avalable for testers and experts
+    {
+        QVariantMap p;
+        p["udpGateway"]   = ps->property("udpGateway");
+        p["udpPort"]      = ps->property("udpPort");
+        p["isBetaTester"] = ps->property("isBetaTester");
+        p["isExpert"]     = ps->property("isExpert");
+        bus->updatePersistent(p);
     }
 
+    //Installtoken
+    auto* installToken = new InstallToken(&engine);
+    engine.rootContext()->setContextProperty("installToken", installToken);
+
+    //PulseAppSettings::initializeCache();
 
     NMEASender* nmeaSender = new NMEASender(&core);  // Use an appropriate parent
+    nmeaSender->setSettingsBus(bus);
 
     QObject::connect(core.getDatasetPtr(), &Dataset::distChanged, [=]() {
         nmeaSender->setLatestDepth(core.getDatasetPtr()->dist());
@@ -288,12 +313,6 @@ int main(int argc, char *argv[])
 
     engine.load(url);
     qCritical() << "App is created";
-
-    if (g_pulseRuntimeSettings) {
-        qDebug() << "pulseRuntimeSettings instance found!";
-    } else {
-        qWarning() << "pulseRuntimeSettings instance not found!";
-    }
 
     return app.exec();
 }

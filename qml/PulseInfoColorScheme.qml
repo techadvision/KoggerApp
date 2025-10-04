@@ -35,8 +35,8 @@ Flickable {
 
         function getThemeId () {
             console.log("Color theme: function getThemeId")
-            let selectedThemeIndexBlue = PulseSettings.colorMapIndexSideScan
-            let selectedThemeIndexRed = PulseSettings.colorMapIndex2D
+            let selectedThemeIndexBlue = pulseSettings.colorMapIndexSideScan
+            let selectedThemeIndexRed = pulseSettings.colorMapIndex2D
             var selectedTheme
             if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
                     ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
@@ -62,12 +62,12 @@ Flickable {
             /*
             // helper to grab the 2D theme object by the persisted index
             function getSelected2DTheme() {
-                var i = PulseSettings.colorMapIndex2D
+                var i = pulseSettings.colorMapIndex2D
                 return pulseRuntimeSettings.themeModelRed[i] || { icon: "", title: "" }
             }
 
             Connections {
-                target: PulseSettings
+                target: pulseSettings ? pulseSettings : undefined
                 function onUseFavoriteThemes2DChanged() {
                     console.log("Favorites toggled → perhaps update colorBarLegend2D")
                     colorBarLegend2D.getSelected2DTheme()
@@ -87,7 +87,7 @@ Flickable {
             /*
             // 1) Define a binding property for the currently selected theme object:
             property var selected2DTheme: {
-                var i = PulseSettings.colorMapIndex2D
+                var i = pulseSettings.colorMapIndex2D
                 // if favorites‐only is on, make sure your singleton has already
                 // fallen back on removal, otherwise this just reads the index.
                 return pulseRuntimeSettings.themeModelRed[i] || { icon:"", title:"" }
@@ -102,7 +102,7 @@ Flickable {
 
                 Image {
                     id: colorImage2D
-                    source: (pulseRuntimeSettings.themeModelRed[PulseSettings.colorMapIndex2D] || {}).icon
+                    source: (pulseRuntimeSettings.themeModelRed[pulseSettings.colorMapIndex2D] || {}).icon
                     //source: colorBarLegend2D.getSelected2DTheme().icon
                     //source: colorBarLegend2D.selected2DTheme.icon
                     width: 80; height: 80
@@ -111,7 +111,7 @@ Flickable {
                 }
 
                 Text {
-                    text: (pulseRuntimeSettings.themeModelRed[PulseSettings.colorMapIndex2D] || {}).title
+                    text: (pulseRuntimeSettings.themeModelRed[pulseSettings.colorMapIndex2D] || {}).title
                     //text: colorBarLegend2D.getSelected2DTheme().title
                     //text: colorBarLegend2D.selected2DTheme.title
                     anchors.leftMargin: 10
@@ -138,7 +138,7 @@ Flickable {
 
             // helper to grab the 2D theme object by the persisted index
             function getSelectedSSTheme() {
-                var i = PulseSettings.colorMapIndexSideScan
+                var i = pulseSettings.colorMapIndexSideScan
                 return pulseRuntimeSettings.themeModelBlue[i] || { icon: "", title: "" }
             }
 
@@ -251,15 +251,15 @@ Flickable {
             anchors.topMargin: 20
             visible: pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
-                target: PulseSettings ? PulseSettings : undefined
+                target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "useFavoriteThemes2D"
-                initialChecked: PulseSettings.useFavoriteThemes2D
+                initialChecked: pulseSettings.useFavoriteThemes2D
             }
         }
 
         GridView {
             id: grid
-            visible: PulseSettings.useFavoriteThemes2D && pulseRuntimeSettings.is2DTransducer
+            visible: pulseSettings.useFavoriteThemes2D && pulseRuntimeSettings.is2DTransducer
             anchors.top: favoriteColors.bottom
             anchors.left: favoriteColors.left
             clip: true
@@ -273,8 +273,8 @@ Flickable {
 
                 SettingsCheckBox {
                     id: checkBox
-                    initialChecked: PulseSettings.favoriteThemes2DNew.findIndex(function(x){ return x.id === modelData.id }) !== -1
-                    //initialChecked: PulseSettings.favoriteThemes2D.indexOf(modelData.id) !== -1
+                    initialChecked: pulseSettings.favoriteThemes2DNew.findIndex(function(x){ return x.id === modelData.id }) !== -1
+                    //initialChecked: pulseSettings.favoriteThemes2D.indexOf(modelData.id) !== -1
                     clearAfter: false                // turn off auto-clear for favorites
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
@@ -284,16 +284,16 @@ Flickable {
                         if (!pulseRuntimeSettings.is2DTransducer)
                             return
                         if (checked) {
-                            PulseSettings.addFavorite2DNew(modelData)
-                            //PulseSettings.addFavorite2D(modelData.id)
+                            pulseSettings.addFavorite2DNew(modelData)
+                            //pulseSettings.addFavorite2D(modelData.id)
                             console.log("Favorite Colors: Added id", modelData.id, "with name", modelData.title, "and icon", modelData.icon)
-                            console.log("Favorite Colors: favoriteThemes2DNew contains", PulseSettings.favoriteThemes2DNew)
+                            console.log("Favorite Colors: favoriteThemes2DNew contains", pulseSettings.favoriteThemes2DNew)
 
                         } else {
-                            PulseSettings.removeFavorite2DNew(modelData)
-                            //PulseSettings.removeFavorite2D(modelData.id)
+                            pulseSettings.removeFavorite2DNew(modelData)
+                            //pulseSettings.removeFavorite2D(modelData.id)
                             console.log("Favorite Colors: removed id", modelData.id, "with name", modelData.title)
-                            console.log("Favorite Colors: favoriteThemes2DNew contains", PulseSettings.favoriteThemes2DNew)
+                            console.log("Favorite Colors: favoriteThemes2DNew contains", pulseSettings.favoriteThemes2DNew)
                         }
                     }
                 }

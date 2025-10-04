@@ -7,6 +7,9 @@
 #include <QTimer>
 #include "plot2D.h"
 #include <QDebug>
+#include "SettingsBus.h"
+#include <QQmlParserStatus>
+class SettingsBus;
 
 //#define USE_PIXMAP
 
@@ -14,8 +17,10 @@
 class qPlot2D : public QQuickPaintedItem, public Plot2D
 {
     Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
 public:
-    Q_PROPERTY(bool horizontal READ isHorizontal() WRITE setHorizontal)
+    //Q_PROPERTY(bool horizontal READ isHorizontal() WRITE setHorizontal)
+    Q_PROPERTY(bool horizontal READ isHorizontal WRITE setHorizontal)
     Q_PROPERTY(float timelinePosition READ timelinePosition WRITE setTimelinePosition NOTIFY timelinePositionChanged)
     Q_PROPERTY(bool isEnabled WRITE setPlotEnabled)
     Q_PROPERTY(QString contactInfo      READ getContactInfo      WRITE setContactInfo     NOTIFY contactChanged)
@@ -26,6 +31,12 @@ public:
     Q_PROPERTY(double  contactLat       READ getContactLat /*WRITE setContactLat*/ NOTIFY contactChanged)
     Q_PROPERTY(double  contactLon       READ getContactLon /*WRITE setContactLon*/ NOTIFY contactChanged)
     Q_PROPERTY(double  contactDepth     READ getContactDepth /*WRITE setContactLon*/ NOTIFY contactChanged)
+    //PULSE
+    Q_INVOKABLE void setSettingsBus(SettingsBus* bus);
+    SettingsBus* settingsBus() const { return bus_; }
+    // PULSE QQmlParserStatus
+    void classBegin() override {}
+    void componentComplete() override;
 
     qPlot2D(QQuickItem* parent = nullptr);
     void paint(QPainter *painter) override;
@@ -169,4 +180,10 @@ public slots:
 
 private:
     int indx_ = -1;
+    //PULSE
+    void wireBus(SettingsBus* bus);
+    SettingsBus* bus_ = nullptr;
+    //Plot2D plot_;
+    qPlot2D(const qPlot2D&) = delete;
+    qPlot2D& operator=(const qPlot2D&) = delete;
 };

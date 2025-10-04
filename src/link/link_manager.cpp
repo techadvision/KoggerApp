@@ -5,6 +5,11 @@
 #include <QDebug>
 #include <QStandardPaths>
 #include <QDir>
+#include <QThread>
+#include <QAndroidJniObject>
+#include <QtAndroid>
+#include <QDebug>
+#include "SettingsBus.h"
 
 
 LinkManager::LinkManager(QObject *parent) :
@@ -15,6 +20,60 @@ LinkManager::LinkManager(QObject *parent) :
     qRegisterMetaType<LinkType>("LinkType");
     qRegisterMetaType<FrameParser>("FrameParser");
 }
+
+//PULSE
+void LinkManager::setSettingsBus(SettingsBus* bus)
+{
+    if (bus_ == bus) return;
+
+    // avoid duplicate connections if this is called again
+    if (bus_) {
+        QObject::disconnect(bus_, nullptr, this, nullptr);
+    }
+
+    bus_ = bus;
+    if (!bus_) return;
+
+    // Subscribe to settings changes
+    QObject::connect(bus_, &SettingsBus::persistentChanged,
+                     this, [this](const QVariantMap& m){ applyPersistent(m); },
+                     Qt::QueuedConnection);
+
+    QObject::connect(bus_, &SettingsBus::runtimeChanged,
+                     this, [this](const QVariantMap& m){ applyRuntime(m); },
+                     Qt::QueuedConnection);
+
+    // Propagate bus to already created Link objects
+    for (Link* ln : list_) {
+        if (ln) ln->setSettingsBus(bus_);
+    }
+
+    /*
+    bus_ = bus;
+    // propagate to existing link objects
+    for (Link* l : list_) {
+        if (l) l->setSettingsBus(bus_);
+    }
+    */
+}
+
+void LinkManager::applyRuntime(const QVariantMap& m)
+{
+    if (m.contains("uuidIpGateway"))
+        uuidIpGateway_ = m.value("uuidIpGateway").toString();
+    if (m.contains("uuidUsbSerial"))
+        uuidUsbSerial_ = m.value("uuidUsbSerial").toString();
+}
+
+void LinkManager::applyPersistent(const QVariantMap& m)
+{
+    if (m.contains("udpGateway"))   udpGateway_   = m.value("udpGateway").toString();
+    if (m.contains("isBetaTester")) isBetaTester_ = m.value("isBetaTester").toBool();
+    if (m.contains("isExpert"))     isExpert_     = m.value("isExpert").toBool();
+    if (m.contains("udpPort"))      udpPort_      = m.value("udpPort").toInt();
+    qDebug() << "QA_ver_0.96: persistent values: udpGateway" << udpGateway_ << "isBetaTester" << isBetaTester_ << "isExpert" << isExpert_ << "udpPort" << udpPort_;
+}
+
 
 QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
 {
@@ -57,31 +116,6 @@ void LinkManager::addNewLinks(const QList<QSerialPortInfo> &currSerialList)
         }
     }
 
-
-#ifdef Q_OS_ANDROID
-    // TODO: Entire method disabled as we no longer use the USB serial link
-    /*
-    for (Link* link : list_) {
-        // If this is a serial link and it is meant to be the USB device
-
-        if (link->getLinkType() == LinkType::kLinkSerial) {
-
-            if (link->getUuid().isNull()) {
-                 // Generate a new UUID if the imported one is null or invalid:
-                 link->setUuid(QUuid::createUuid());
-            }
-            link->setControlType(kAuto);  // assuming kAuto equals control type 1
-            link->setBaudrate(921600);
-            link->setParity(false);
-            link->setIsPinned(true);
-            if (!link->getConnectionStatus()) {
-                link->openAsSerial();  // this will try to open it using the dynamic port name
-            }
-        }
-    }
-    */
-
-#endif
 }
 
 void LinkManager::deleteMissingLinks(const QList<QSerialPortInfo> &currSerialList)
@@ -293,120 +327,88 @@ void LinkManager::printLinkDebugInfo(Link* link) const
     }
 }
 
+QString LinkManager::getAndroidGatewayIP()
+{
 #ifdef Q_OS_ANDROID
-#include <QAndroidJniObject>
-#include <QtAndroid>
-
-QString getAndroidGatewayIP() {
-    QString defaultIp = "192.168.10.1";
-    QString ip = "192.168.10.1";
-    QString lastUsedIp = "192.168.10.1";
-    if (g_pulseSettings) {
-        lastUsedIp = g_pulseSettings->property("udpGateway").toString();
-        //qDebug() << "Preferred Gateway IP was" << ip;
-    }
-    // Get the current Android activity
+    QString ip = udpGateway_; // start from last known/persisted
+    // 1) pull gateway via Android APIs
     QAndroidJniObject activity = QtAndroid::androidActivity();
     if (!activity.isValid()) {
         qWarning() << "Android activity not valid";
-        return lastUsedIp;
+        return ip;
     }
-    // Get WifiManager via Context.getSystemService(Context.WIFI_SERVICE)
     QAndroidJniObject wifiService = activity.callObjectMethod(
         "getSystemService",
         "(Ljava/lang/String;)Ljava/lang/Object;",
         QAndroidJniObject::fromString("wifi").object<jstring>());
     if (!wifiService.isValid()) {
         qWarning() << "Wifi service not available";
-        return lastUsedIp;
+        return ip;
     }
-    // Get the DhcpInfo object from WifiManager.getDhcpInfo()
     QAndroidJniObject dhcpInfo = wifiService.callObjectMethod("getDhcpInfo", "()Landroid/net/DhcpInfo;");
     if (!dhcpInfo.isValid()) {
         qWarning() << "Could not get DhcpInfo";
-        return lastUsedIp;
+        return ip;
     }
-    // Retrieve the 'gateway' field (an int)
     jint gateway = dhcpInfo.getField<jint>("gateway");
-    // Convert the integer (stored in little-endian format) to an IP string:
     ip = QString("%1.%2.%3.%4")
              .arg(gateway        & 0xFF)
              .arg((gateway >> 8) & 0xFF)
              .arg((gateway >> 16)& 0xFF)
              .arg((gateway >> 24)& 0xFF);
 
-    // Log the detected IP:
     qDebug() << "Detected gateway IP:" << ip;
 
-    // Check if the IP matches allowed prefixes:
+    // 2) allow/override based on tester/expert flags
     bool allowed = ip.startsWith("192.168.10");
-    if (g_pulseSettings) {
-        bool betaTester = g_pulseSettings->property("isBetaTester").toBool();
-        if (betaTester) {
-            allowed = ip.startsWith("192.168.10.") ||
-                      ip.startsWith("192.168.2.");
-        }
-        bool expert = g_pulseSettings->property("isExpert").toBool();
-        if (expert) {
-            allowed = ip.startsWith("192.168.10.") ||
-                      ip.startsWith("192.168.2.")  ||
-                      ip.startsWith("192.168.144.")  ||
-                      ip.startsWith("10.0.0.");
-        }
-        if (expert && ip.startsWith("192.168.144.")) {
-            ip = "192.168.144.31";
-        }
+    if (isBetaTester_) {
+        allowed = ip.startsWith("192.168.10.") ||
+                  ip.startsWith("192.168.2.");
     }
-    if (!allowed) {
-        qWarning() << "Gateway IP" << ip << "does not match allowed prefixes. Using default IP:" << defaultIp;
-        ip = defaultIp;
-    } else {
-        if (g_pulseSettings) {
-            g_pulseSettings->setProperty("udpGateway", ip);
-            emit
-            qDebug() << "Gateway IP" << ip << "is allowed, pulseSettings updated.";
-            qDebug() << "Preferred Gateway IP updated to " << g_pulseSettings->property("udpGateway").toString();;
-        } else {
-            qDebug() << "Gateway IP" << ip << "is allowed, but could not update the pulseSettings";
-        }
+    if (isExpert_) {
+        allowed = ip.startsWith("192.168.10.")  ||
+                  ip.startsWith("192.168.2.")   ||
+                  ip.startsWith("192.168.144.") ||
+                  ip.startsWith("10.0.0.");
+        if (ip.startsWith("192.168.144."))
+            ip = "192.168.144.31";
     }
 
+    if (!allowed) {
+        qWarning() << "Gateway IP" << ip << "not allowed, using default:" << udpGateway_;
+        ip = udpGateway_;
+    } else {
+        // publish back to persistent settings (so QML + disk get updated)
+        if (bus_) bus_->updatePersistent({ { "udpGateway", ip } });
+        qDebug() << "Gateway IP accepted; updated persistent udpGateway to" << ip;
+    }
+    qDebug() << "QA_ver_0.96: values at verifying IP: udpGateway" << udpGateway_ << "isBetaTester" << isBetaTester_ << "isExpert" << isExpert_ << "udpPort" << udpPort_;
+    qDebug() << "QA_ver_0.96: resulting IP"<< ip;
     return ip;
-}
+#else
+    return udpGateway_;
 #endif
+}
+
 
 
 void LinkManager::importPinnedLinksFromXML()
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::importPinnedLinksFromXML";
+    qDebug() << "PulseAppSettings::importPinnedLinksFromXML";
 
-    QString gatewayIP = "0.0.0.0";
-    //QString uuidIpGateway = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
-    //QString uuidUsbSerial = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
     int udpPort = 14560;
-
-    if (g_pulseSettings) {
-        bool betaTester = g_pulseSettings->property("isBetaTester").toBool();
-        bool expert = g_pulseSettings->property("isExpert").toBool();
-        int expertUdpPort = g_pulseSettings->property("udpPort").toInt();
-        if (betaTester) {
-            udpPort = 14550;
-        }
-        if (expert) {
-            udpPort = expertUdpPort;
-        }
-        //udpPort = g_pulseSettings->property("udpPort").toInt();
-
-    }
-
-    #ifdef Q_OS_ANDROID
-        gatewayIP = getAndroidGatewayIP();
-    #endif
+    //if (isBetaTester_) udpPort = 14550;
+    if (isExpert_ || isBetaTester_)     udpPort = udpPort_;
+#ifdef Q_OS_ANDROID
+    const QString gatewayIP = getAndroidGatewayIP();
+#else
+    const QString gatewayIP = udpGateway_;
+#endif
+    const QString uuidIp = uuidIpGateway_;
+    const QString uuidUsb = uuidUsbSerial_;
 
     QString xmlData = "";
-
-
     #ifdef Q_OS_ANDROID
 
     xmlData = QString(R"(
@@ -443,13 +445,10 @@ void LinkManager::importPinnedLinksFromXML()
         </link>
     </pinned_links>
     )")
-                  .arg(uuidIpGateway)    // UDP link UUID #1
-                  .arg(gatewayIP)        // Insert dynamic gateway IP
-                  .arg(udpPort)         // UDP link port #1
-                  .arg(uuidUsbSerial);
-
-
-    //qDebug() << "Gateway UDP settings" << xmlData << "to be used";
+      .arg(uuidIp)
+      .arg(gatewayIP)
+      .arg(udpPort)
+      .arg(uuidUsb);
 
     #endif
 
@@ -479,15 +478,6 @@ void LinkManager::importPinnedLinksFromXML()
 
     #endif
 
-
-    //QString filePath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/pinned_links.xml";
-
-    //QFile file(filePath);
-    //if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-       // return;
-    //}
-
-    //QXmlStreamReader xmlReader(&file);
     QXmlStreamReader xmlReader(xmlData);
 
     while (!xmlReader.atEnd() && !xmlReader.hasError()) {
@@ -557,7 +547,7 @@ void LinkManager::importPinnedLinksFromXML()
 void LinkManager::onLinkConnectionStatusChanged(QUuid uuid)
 {
     TimerController(timer_.get());
-    qDebug() << "LinkManager::onLinkConnectionStatusChanged for uuid" << uuid;
+    //qDebug() << "LinkManager::onLinkConnectionStatusChanged for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
@@ -591,7 +581,21 @@ void LinkManager::onLinkIsReceivesDataChanged(QUuid uuid)
 {
     TimerController(timer_.get());
     qDebug() << "LinkManager::onLinkIsReceivesDataChanged for uuid" << uuid;
+    if (bus_) {
+        QVariantMap m;
 
+        if (auto* link = getLinkPtr(uuid)) {
+            const bool active = link->getIsRecievesData();
+            m.insert("uuidSuccessfullyOpened", active ? uuid.toString(QUuid::WithBraces) : QString());
+        } else {
+            m.insert("uuidSuccessfullyOpened", QString());
+        }
+
+        // cross-thread safe
+        QMetaObject::invokeMethod(bus_, "updateRuntime",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(QVariantMap, m));
+    }
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
     }
@@ -634,19 +638,12 @@ void LinkManager::onExpiredTimer()
 void LinkManager::openAsSerial(QUuid uuid, LinkAttribute attribute)
 {
     TimerController(timer_.get());
-    qDebug() << "LinkManager::openAsSerial using uuid" << uuid << "when uuidUsbSerial is" << uuidUsbSerial;
+    qDebug() << "LinkManager::openAsSerial using uuid" << uuid << "when uuidUsbSerial is" << uuidUsbSerial_;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setAttribute(attribute);
         linkPtr->setIsForceStopped(false);
         linkPtr->openAsSerial();
-        if (g_pulseRuntimeSettings) {
-             qDebug() << "link_manager: Open as serial";
-            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", uuidUsbSerial);
-        } else {
-            qDebug() << "link_manager: Open as g_pulseRuntimeSettings null";
-        }
-
     }
 }
 
@@ -660,11 +657,6 @@ void LinkManager::openAsUdp(QUuid uuid, QString address, int sourcePort, int des
         linkPtr->setIsForceStopped(false);
         linkPtr->updateUdpParameters(address, sourcePort, destinationPort);
         linkPtr->openAsUdp();
-        if (g_pulseRuntimeSettings) {
-            qDebug() << "link_manager: Open as UDP";
-            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", uuidIpGateway);
-        }
-
         doEmitAppendModifyModel(linkPtr); //
     }
 }
@@ -687,17 +679,12 @@ void LinkManager::openAsTcp(QUuid uuid, QString address, int sourcePort, int des
 void LinkManager::closeLink(QUuid uuid)
 {
     TimerController(timer_.get());
-    qDebug() << "LinkManager::closeLink for uuid", uuid;
+    qDebug() << "LinkManager::closeLink for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         if (linkPtr->getControlType() == ControlType::kAuto)
             linkPtr->setIsForceStopped(true);
         linkPtr->close();
-        if (g_pulseRuntimeSettings) {
-            qDebug() << "link_manager: Close link with uuid" << uuid;
-            g_pulseRuntimeSettings->setProperty("uuidSuccessfullyOpened", "");
-        }
-
         doEmitAppendModifyModel(linkPtr); //
     }
 }

@@ -1,27 +1,43 @@
 #include "plot2D_echogram.h"
 #include "plot2D.h"
+#include "SettingsBus.h"
 
 
 Plot2DEchogram::Plot2DEchogram()
 {
-    int levelLow = 10;
-    int levelHigh = 100;
-    int themeValue = 0;
-    if (g_pulseRuntimeSettings && g_pulseSettings) {
-        //Users last saved real filtering values
-        levelLow = g_pulseSettings->property("filterRealValue").toInt();
-        levelHigh = g_pulseSettings->property("intensityRealValue").toInt();
-        QString currentDevice = g_pulseRuntimeSettings->property("userManualSetName").toString();
-        themeValue = g_pulseSettings->property("colorMapIndexReal").toInt();
-        /*
-        if (!currentDevice.startsWith(".")) {
-            themeValue = g_pulseSettings->property("colorMapIndexReal").toInt();
-        }
-        */
+    setThemeId(theme_);
+    setLevels(low_, high_);
+}
 
+//Pulse
+void Plot2DEchogram::setSettingsBus(SettingsBus* bus)
+{
+    bus_ = bus;
+    // Optionally push the initial colors once the bus arrives:
+    publishThemeColors();
+}
+
+
+void Plot2DEchogram::applyPersistent(const QVariantMap& m)
+{
+    bool levelsChanged = false;
+    bool themeChanged  = false;
+
+    if (m.contains("filterRealValue")) {
+        const int v = m.value("filterRealValue").toInt();
+        if (v != low_) { low_ = v; levelsChanged = true; }
     }
-    setThemeId(ClassicTheme);
-    setLevels(10, 100);
+    if (m.contains("intensityRealValue")) {
+        const int v = m.value("intensityRealValue").toInt();
+        if (v != high_) { high_ = v; levelsChanged = true; }
+    }
+    if (m.contains("colorMapIndexReal")) {
+        const int v = m.value("colorMapIndexReal").toInt();
+        if (v != theme_) { theme_ = v; themeChanged = true; }
+    }
+
+    if (levelsChanged) setLevels(low_, high_);
+    if (themeChanged)  setThemeId(theme_);
 }
 
 void Plot2DEchogram::setLowLevel(float low)
@@ -71,50 +87,30 @@ void Plot2DEchogram::setColorScheme(QVector<QColor> coloros, QVector<int> levels
         _colorTable[v] = qRgb(r, g, b);
     }
     updateColors();
-
-
-    /*
-void Plot2DEchogram::setColorScheme(QVector<QColor> coloros, QVector<int> levels)
-{
-    if(coloros.length() != levels.length()) { return; }
-
-    _colorTable.resize(256);
-    _colorLevels.resize(256);
-
-    int nbr_levels = coloros.length() - 1;
-    int i_level = 0;
-
-    for(int i = 0; i < nbr_levels; i++) {
-        while(levels[i + 1] >= i_level) {
-            float b_koef = (float)(i_level - levels[i]) / (float)(levels[i + 1] - levels[i]);
-            float a_koef = 1.0f - b_koef;
-
-            int red = qRound(coloros[i].red()*a_koef + coloros[i + 1].red()*b_koef);
-            int green = qRound(coloros[i].green()*a_koef + coloros[i + 1].green()*b_koef);
-            int blue = qRound(coloros[i].blue()*a_koef + coloros[i + 1].blue()*b_koef);
-            _colorHashMap[i_level] = ((red / 8) << 10) | ((green / 8) << 5) | ((blue / 8));
-
-            _colorTable[i_level] = qRgb(red, green, blue);
-            i_level++;
-        }
-    }
-
-    updateColors();
-    */
 }
 
 
 QVariantList Plot2DEchogram::getThemeColors() const
 {
     QVariantList list;
-    //qDebug() << "YO MAN !!! getThemeColors() called; current _rawThemeColors:" << _rawThemeColors;
-    for (const QColor &col : _rawThemeColors) {
-        list.append(col.name());  // col.name() returns a string like "#RRGGBB"
-    }
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->setProperty("currentThemeColors", list);
+    for (const QColor& c : _rawThemeColors){
+        list.append(c.name());
     }
     return list;
+}
+
+void Plot2DEchogram::publishThemeColors()
+{
+    if (!bus_) return;
+    QVariantList list;
+    for (const QColor& c : _rawThemeColors){
+        list.append(c.name());
+    }
+    // one batched update; your SettingsBus dedups unchanged keys already
+    bus_->updateRuntime({ { "currentThemeColors", list } });
+
+    // also notify QML bindings of the local Q_PROPERTY
+    emit themeColorsChanged();
 }
 
 
@@ -1240,10 +1236,8 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     setColorScheme(coloros, levels);
     getThemeColors();
-
-    emit themeColorsChanged();
-    //emit themeIdChanged();
-    //qDebug() << "Emitted new colors";
+    publishThemeColors();
+    //emit themeColorsChanged();
 }
 
 
@@ -1283,39 +1277,6 @@ void Plot2DEchogram::updateColors() {
     _flagColorChanged = true;
     _image.setColorTable(_colorLevels);
 }
-
-//TODO: This was used in original app, we disable it here and use the original for now. _rawThemeColors not present
-/*
-void Plot2DEchogram::updateColors()
-{
-    float low = _levels.low;
-    float high = _levels.high;
-
-    int level_range = high - low;
-    int index_offset = (int)((float)low*2.5f);
-    float index_map_scale = 0;
-    if(level_range > 0) {
-        index_map_scale = (float)(256 - 1)/((float)(high - low)*2.55f);
-    } else {
-        index_map_scale = 10000;
-    }
-
-    qDebug() << "updateColors():"
-             << "_colorTable.size() =" << _colorTable.size()
-             << "_colorLevels.size() =" << _colorLevels.size();
-
-    for(int i = 0; i < _colorTable.size(); i++) {
-        int index_map = ((float)(i - index_offset)*index_map_scale);
-        if(index_map < 0) { index_map = 0; }
-        else if(index_map > 255) { index_map = 255; }
-        _colorLevels[i] = _colorTable[index_map];
-    }
-
-    _flagColorChanged = true;
-    _image.setColorTable(_colorLevels);
-
-}
-*/
 
 
 void Plot2DEchogram::resetCash()

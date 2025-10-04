@@ -21,7 +21,8 @@
 #include "link_defs.h"
 #include "proto_binnary.h"
 
-extern QObject* g_pulseRuntimeSettings;
+#include <QVariantMap>
+class SettingsBus;
 
 using namespace Parsers;
 
@@ -31,6 +32,10 @@ class Link : public QObject
 
 public:
     Link();
+    //PULSE
+    void setSettingsBus(SettingsBus* b) { bus_ = b; }
+    void applyRuntime(const QVariantMap& m);
+
     void createAsSerial(const QString& portName, int baudrate, bool parity);
     void openAsSerial();
     void createAsUdp(const QString& address, int sourcePort, int destinationPort);
@@ -146,6 +151,11 @@ private:
     int localGhostIgnoreCount_;
     int requestCnt_;
     bool autoConnOnce_;
+    //PULSE
+    SettingsBus* bus_ = nullptr;
+    QString uuidIpGateway_   = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}";
+    QString uuidUsbSerial_   = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}";
+    QString uuidOpenedLast_;
 
 private slots:
     void readyRead();

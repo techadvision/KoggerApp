@@ -7,6 +7,48 @@
 #include <QSGSimpleTextureNode>
 #include <QQuickWindow>
 #include "epoch_event.h"
+#include "SettingsBus.h"
+
+
+void qPlot2D::setSettingsBus(SettingsBus* bus) {
+    wireBus(bus);
+}
+
+//PULSE
+void qPlot2D::componentComplete() {
+    QQuickPaintedItem::componentComplete();
+
+    auto* ctx = QQmlEngine::contextForObject(this);
+    QObject* obj = ctx ? ctx->contextProperty(QStringLiteral("settingsBus")).value<QObject*>() : nullptr;
+    auto* bus = qobject_cast<SettingsBus*>(obj);
+
+    wireBus(bus);
+}
+void qPlot2D::wireBus(SettingsBus* bus) {
+    if (bus_ == bus) return;
+
+    if (bus_) QObject::disconnect(bus_, nullptr, this, nullptr);
+    bus_ = bus;
+    if (!bus_) return;
+
+    //qDebug() << "qPlot2D wiring bus. this=" << this;
+
+    const auto connType = static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection);
+
+    QObject::connect(bus_, &SettingsBus::runtimeChanged, this,
+                     [this](const QVariantMap& m){
+                         this->applyRuntime(m);
+                         update(); // ensure next frame uses new values
+                     }, connType);
+
+    QObject::connect(bus_, &SettingsBus::persistentChanged, this,
+                     [this](const QVariantMap& m){
+                         this->applyPersistent(m);
+                         update();
+                     }, connType);
+    echogram_.setSettingsBus(bus_);
+
+}
 
 
 qPlot2D::qPlot2D(QQuickItem* parent)
@@ -24,6 +66,7 @@ qPlot2D::qPlot2D(QQuickItem* parent)
 //    setFillColor(QColor(255, 255, 255));
 
     _isHorizontal = false;
+    //qDebug() << "qPlot2D::paint this=" << this;
 }
 
 void qPlot2D::paint(QPainter *painter)
@@ -35,6 +78,7 @@ void qPlot2D::paint(QPainter *painter)
     clock_t start = clock();
 
     if (m_plot != nullptr && painter != nullptr) {
+        //qDebug() << "qPlot2D::paint this=" << this;
         Plot2D::getImage((int)width(), (int)height(), painter, _isHorizontal);
         Plot2D::draw(painter);
         if (Plot2D::getIsContactChanged()) {

@@ -16,8 +16,6 @@
 #include "usbl_view.h"
 
 #include "SlidingWindowMedian.h"
-extern QObject* g_pulseRuntimeSettings;
-extern QObject* g_pulseSettings;
 
 class Dataset : public QObject
 {
@@ -64,11 +62,17 @@ public:
     Q_INVOKABLE void setLargeJumpThreshold(double threshold);
     Q_INVOKABLE void setConsistNeeded(int retries);
     Q_INVOKABLE void setTransducerOffsetMount(double offset);
-    Q_INVOKABLE void setProcessBottomTrack(bool enabled);
-    Q_INVOKABLE void setIsBottomTrackInitiated(bool initiated);
-    Q_INVOKABLE void setIsBottomTrackActive(bool activated);
+    //Q_INVOKABLE void setProcessBottomTrack(bool enabled);
+    //Q_INVOKABLE void setIsBottomTrackInitiated(bool initiated);
+    //Q_INVOKABLE void setIsBottomTrackActive(bool activated);
     Q_INVOKABLE void setBottomTrackMinDepth(double minimumDepth);
     Q_INVOKABLE void setFakeDepthAddition(double addedDepth);
+    Q_INVOKABLE void processBottomTrack(bool processTracks);
+    Q_INVOKABLE void initiateProcessBottomTrack(bool initiateProcessing);
+    Q_INVOKABLE void setTemperatureCorrection(bool temperatureCorrection);
+    Q_INVOKABLE void setDepthFilterActive(bool useDepthFilter);
+    Q_INVOKABLE void setDepthFilterBottomTrackActive(bool useDepthFilterWithBottomTrack);
+    float filterDepthRecords (float distance);
 
 
     void setState(DatasetState state);
@@ -288,6 +292,7 @@ signals:
     void bottomTrackDepthChanged();
     void redrawEpochs(const QSet<int>& indxs);
     void isBottomTrackActiveUpdated();
+    void didReceiveData();
 
 private:
     //Pulse
@@ -297,23 +302,28 @@ private:
     //float _lastFilteredDepth = 0.0;
     float _lastRawDepth = 0.0;
     int _consistCount = 0;
-    //Pulse adjustable
-    double _kSmallAgreeMargin       = 0.5;
-    double _kLargeJumpThreshold     = 10.00;
-    int    _kConsistNeeded          = 3;
-    double _transducerOffsetMount   = 0.0;
+    //Pulse adjustable incl depth filter
+    double _kSmallAgreeMargin               = 0.5;
+    double _kLargeJumpThreshold             = 5.00;
+    int    _kConsistNeeded                  = 3;
+    double _transducerOffsetMount           = 0.0;
+    bool   _didEverReceiveData              = false;
+    double _temperatureCorrection           = 0.0;
+    float  _lastFilteredDepth               = 0.0;
+    bool   _useDepthFilter                  = true;
+    bool   _useDepthFilterWithBottomTrack   = true;
+    //Bottom track
     bool   _processBottomTrack      = false;
     bool   _isBottomTrackInitiated  = false;
     bool   _isBottomTrackActive     = false;
     double _bottomTrackMinDepth     = 0.5;
-    //Bottom track
-    float _bottomTrackDepth      = NAN;
-    float _lastStableBTDepth1    = NAN;
-    float _lastStableBTDepth2    = NAN;
-    float _btSpikeThreshold      = 2.0f;
-    long  _processingRound       = 0;
+    float _bottomTrackDepth         = NAN;
+    float _lastStableBTDepth1       = NAN;
+    float _lastStableBTDepth2       = NAN;
+    float _btSpikeThreshold         = 2.0f;
+    long  _processingRound          = 0;
     //Test
-    double _fakeDepthAddition    = 0;
+    double _fakeDepthAddition       = 0;
 
 
 protected:
@@ -376,7 +386,6 @@ private:
     BlackStripesProcessor* bSProc_;
     QMap<ChannelId, int> lastAddChartEpochIndx_;
     QSet<ChannelId> channelsToResizeEthData_;
-    float _lastFilteredDepth = 0.0;
 
     // for GUI
     QList<QString> channelsNames_;

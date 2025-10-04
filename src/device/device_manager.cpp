@@ -31,6 +31,22 @@ DeviceManager::DeviceManager()
     qRegisterMetaType<FrameParser>("FrameParser");
 }
 
+void DeviceManager::setSettingsBus(SettingsBus* bus)
+{
+    bus_ = bus;
+
+    // propagate to all existing DevQProperty objects
+    for (auto it = devTree_.begin(); it != devTree_.end(); ++it) {
+        auto& addrMap = it.value(); // QHash<int, DevQProperty*>
+        for (auto jt = addrMap.begin(); jt != addrMap.end(); ++jt) {
+            if (auto* dev = jt.value()) {
+                // You’ll add this method to DevQProperty next
+                dev->setSettingsBus(bus_);
+            }
+        }
+    }
+}
+
 DeviceManager::~DeviceManager()
 {
 
@@ -741,6 +757,9 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     if (upgradeUuid_ == uuid && upgradeAddr_ == addr) {
         dev->setFirmware(upgradeData_);
         upgradeUuid_ = QUuid();
+    }
+    if (bus_) {
+        dev->setSettingsBus(bus_);   // ensure new devices also get it
     }
 
 #ifdef SEPARATE_READING

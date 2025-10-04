@@ -1,6 +1,8 @@
 #include "dataset.h"
 
 #include "core.h"
+#include <QThread>
+#include <cmath>
 extern Core core;
 
 
@@ -12,6 +14,7 @@ Dataset::Dataset() :
     qRegisterMetaType<ChannelId>("ChannelId");
     resetDataset();
 }
+
 
 Dataset::~Dataset()
 {
@@ -380,63 +383,6 @@ void Dataset::addDist(const ChannelId& channelId, int dist)
 
 }
 
-/*
-void Dataset::addDist(int dist) {
-    int pool_index = endIndex();
-    if (pool_index < 0 || _pool[pool_index].distAvail()) {
-        addNewEpoch();
-        pool_index = endIndex();
-    }
-
-    if (g_pulseRuntimeSettings) {
-        kSmallAgreeMargin = g_pulseRuntimeSettings->property("kSmallAgreeMargin").toDouble();
-        kLargeJumpThreshold = g_pulseRuntimeSettings->property("kLargeJumpThreshold").toDouble();  // e.g., 1.0 meter
-        kConsistNeeded = g_pulseRuntimeSettings->property("kConsistNeeded").toInt();               // e.g., 10
-        if (!g_pulseRuntimeSettings->property("didReceiveDepthData").toBool()) {
-            g_pulseRuntimeSettings->setProperty("didReceiveDepthData", true);
-        }
-    }
-
-    double rawDepth = static_cast<double>(dist) / 1000.0;
-    double delta = std::fabs(rawDepth - _lastFilteredDepth);
-
-    if (delta > kLargeJumpThreshold) {
-        // Potential bogus jump — accept only if we see consistent repeated values
-        if (std::fabs(rawDepth - _lastRawDepth) < kSmallAgreeMargin) {  // within 20 cm of last raw → consider consistent
-            _consistCount++;
-        } else {
-            _consistCount = 1;
-        }
-        _lastRawDepth = rawDepth;
-
-        if (_consistCount < kConsistNeeded) {
-            qDebug() << "Depth jump to" << rawDepth << "rejected (delta" << delta << "). Consistency count:" << _consistCount;
-            return;  // Not consistent yet → reject
-        }
-
-        // Enough repeated consistent values → accept new level
-        _lastFilteredDepth = rawDepth;
-        _consistCount = 0;
-    } else {
-        // Normal change → accept directly
-        _lastFilteredDepth = rawDepth;
-        _lastRawDepth = rawDepth;
-        _consistCount = 0;
-    }
-
-    _pool[pool_index].setDist(static_cast<int>(_lastFilteredDepth * 1000));
-    emit distChanged();
-    emit dataUpdate();
-}
-
-*/
-
-void Dataset::updateTransducerOffset(double offset) {
-    if (g_pulseSettings) {
-        _transducerOffsetMount = offset;
-        qDebug() << "Received a updateTransducerOffset, new value m_transducerOffsetMount" << offset;
-    }
-}
 
 //Pulse setters
 void Dataset::setSmallAgreeMargin(double margin) {
@@ -455,18 +401,6 @@ void Dataset::setTransducerOffsetMount(double offset) {
     _transducerOffsetMount = offset;
     qDebug() << "_transducerOffsetMount was set to" << offset;
 }
-void Dataset::setProcessBottomTrack(bool enabled) {
-    _processBottomTrack = enabled;
-    qDebug() << "_processBottomTrack was set to" << enabled;
-}
-void Dataset::setIsBottomTrackInitiated(bool initiated) {
-    _isBottomTrackInitiated = initiated;
-    qDebug() << "_isBottomTrackInitiated was set to" << initiated;
-}
-void Dataset::setIsBottomTrackActive(bool activated) {
-    _isBottomTrackActive = activated;
-    qDebug() << "_isBottomTrackActive was set to" << activated;
-}
 void Dataset::setBottomTrackMinDepth(double minimumDepth) {
     _bottomTrackMinDepth = minimumDepth;
     qDebug() << "_bottomTrackMinDepth was set to" << minimumDepth;
@@ -475,33 +409,145 @@ void Dataset::setFakeDepthAddition(double addedDepth) {
     _fakeDepthAddition = addedDepth;
     qDebug() << "_fakeDepthAddition was set to" << addedDepth;
 }
-
+void Dataset::processBottomTrack(bool processTracks) {
+    _processBottomTrack = processTracks;
+    qDebug() << "_processBottomTrack was set to" << _processBottomTrack;
+}
+void Dataset::initiateProcessBottomTrack(bool initiateProcessing) {
+    _isBottomTrackInitiated = initiateProcessing;
+    qDebug() << "_isBottomTrackInitiated was set to" << _isBottomTrackInitiated;
+}
+void Dataset::setTemperatureCorrection(bool temperatureCorrection) {
+    _temperatureCorrection = temperatureCorrection;
+    qDebug() << "_temperatureCorrection was set to" << _temperatureCorrection;
+}
+void Dataset::setDepthFilterActive(bool useDepthFilter) {
+    _useDepthFilter = useDepthFilter;
+    qDebug() << "_useDepthFilter was set to" << _useDepthFilter;
+}
+void Dataset::setDepthFilterBottomTrackActive(bool useDepthFilterWithBottomTrack) {
+    _useDepthFilterWithBottomTrack = useDepthFilterWithBottomTrack;
+    qDebug() << "_useDepthFilterWithBottomTrack was set to" << _useDepthFilterWithBottomTrack;
+}
 
 //-------------
 
 void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
-    if (_isBottomTrackActive)
+
+    if(!_didEverReceiveData) {
+        _didEverReceiveData = true;
+        emit didReceiveData();
+    }
+
+    if (_isBottomTrackInitiated)
         return;
+
+    //qDebug() << "addRangefinder triggered";
+
     Epoch* epoch = last();
     if (epoch->distAvail()) {
         epoch = addNewEpoch();
     }
 
-    if (g_pulseRuntimeSettings) {
-        if (!g_pulseRuntimeSettings->property("didReceiveDepthData").toBool()) {
-            g_pulseRuntimeSettings->setProperty("didReceiveDepthData", true);
-        }
+    float corrDistance = distance - _transducerOffsetMount + _fakeDepthAddition;
+    float filteredMeters = 0;
+
+    if (_useDepthFilter) {
+        filteredMeters = filterDepthRecords(corrDistance);
+    } else {
+        filteredMeters = corrDistance;
     }
 
-    double rawDepth = static_cast<double>(distance);
-    //deduct transducer offset distance
-    //rawDepth = rawDepth + _fakeDepthAddition - _transducerOffsetMount;
+    if (!_isBottomTrackInitiated) {
+        _dist = filteredMeters;
+        emit distChanged();
+        epoch->setDist(channelId, filteredMeters * 1000);
+        emit dataUpdate();
+    }
+}
 
-    double delta = std::fabs(rawDepth - _lastFilteredDepth);
+//PULSE
+float Dataset::filterDepthRecords(float distance)
+{
+    const double rawDepth = static_cast<double>(distance);
 
+    // First sample or uninitialized: accept immediately.
+    if (!std::isfinite(_lastFilteredDepth)) {
+        _lastFilteredDepth = rawDepth;
+        _lastRawDepth      = rawDepth;
+        _consistCount      = 0;
+        return static_cast<float>(_lastFilteredDepth);
+    }
+
+    const double delta = std::fabs(rawDepth - _lastFilteredDepth);
+
+    // ---------------- Bottom-track mode: only evaluate/eliminate big jumps ----------------
+    if (_isBottomTrackInitiated) {
+        if (delta > _kLargeJumpThreshold) {
+            // Require N consistent agreeing samples before accepting the jump.
+            if (std::fabs(rawDepth - _lastRawDepth) < _kSmallAgreeMargin) {
+                ++_consistCount;
+            } else {
+                _consistCount = 1;     // new candidate jump
+            }
+            _lastRawDepth = rawDepth;
+
+            if (_consistCount < _kConsistNeeded) {
+                // Hold previous trusted value until the jump is confirmed.
+                qDebug() << "Filter dropped bottom track depth value" << rawDepth << "used filtered value" << _lastFilteredDepth << "_consistCount" << _consistCount;
+                return static_cast<float>(_lastFilteredDepth);
+            }
+
+            // Jump confirmed by consistency: accept and reset.
+            _lastFilteredDepth = rawDepth;
+            _consistCount = 0;
+        } else {
+            // Non-large change: pass-through (no minor fluctuation handling here).
+            _lastFilteredDepth = rawDepth;
+            _lastRawDepth      = rawDepth;
+            _consistCount      = 0;
+        }
+
+        return static_cast<float>(_lastFilteredDepth);
+    }
+
+    // ---------------- 2D mode: original behavior (unchanged) ----------------
     if (delta > _kLargeJumpThreshold) {
         // Check for consistent repeated jump
-        if (std::fabs(rawDepth - _lastRawDepth) < _kSmallAgreeMargin) {  // 20 cm consistency margin
+        if (std::fabs(rawDepth - _lastRawDepth) < _kSmallAgreeMargin) {  // e.g., 50 cm margin
+            ++_consistCount;
+        } else {
+            _consistCount = 1;
+        }
+        _lastRawDepth = rawDepth;
+
+        if (_consistCount < _kConsistNeeded) {
+            qDebug() << "Filter dropped range finder depth value" << rawDepth << "used filtered value" << _lastFilteredDepth << "_consistCount" << _consistCount;
+            return static_cast<float>(_lastFilteredDepth);  // Not yet trusted
+        }
+
+        // Jump confirmed by consistency
+        _lastFilteredDepth = rawDepth;
+        _consistCount = 0;
+    } else {
+        // Normal update
+        _lastFilteredDepth = rawDepth;
+        _lastRawDepth      = rawDepth;
+        _consistCount      = 0;
+    }
+
+    return static_cast<float>(_lastFilteredDepth);
+}
+
+/* OLD FILTER
+float Dataset::filterDepthRecords (float distance) {
+    //qDebug() << "Depth filter evaluating" << distance;
+    double rawDepth = static_cast<double>(distance);
+
+    double delta = std::fabs(rawDepth - _lastFilteredDepth);
+    if (delta > _kLargeJumpThreshold) {
+        // Check for consistent repeated jump
+        if (std::fabs(rawDepth - _lastRawDepth) < _kSmallAgreeMargin) {  // 50 cm consistency margin
             _consistCount++;
         } else {
             _consistCount = 1;
@@ -509,8 +555,7 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
         _lastRawDepth = rawDepth;
 
         if (_consistCount < _kConsistNeeded) {
-            qDebug() << "addRangefinder: Depth jump to" << rawDepth << "rejected (delta" << delta << "). Consistency count:" << _consistCount;
-            return;  // Not yet trusted
+            return _lastFilteredDepth;  // Not yet trusted
         }
 
         // Jump confirmed by consistency
@@ -526,41 +571,9 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     // Push update
     float filteredMeters = static_cast<float>(_lastFilteredDepth);
 
-    if (_processBottomTrack && _isBottomTrackInitiated && !_isBottomTrackActive) {
-        if (filteredMeters + _fakeDepthAddition - _transducerOffsetMount >= _bottomTrackMinDepth) {
-            // If above threshold and we should use bottom track, activate the bottomTrack
-            if (g_pulseRuntimeSettings) {
-                bool resetActive = g_pulseRuntimeSettings->property("resetBottomTrackActive").toBool();
-                if (!resetActive) {
-                    _consistCount = 0;
-                    _lastRawDepth = 0;
-                    if (g_pulseRuntimeSettings->property("isBottomTrackActive").toBool()) {
-                        g_pulseRuntimeSettings->setProperty("isBottomTrackActive", true);
-                    }
-                }
-
-            }
-            _consistCount = 0;
-            //_lastFilteredDepth = _lastFilteredDepth - _fakeDepthAddition + _transducerOffsetMount;
-            setIsBottomTrackActive(true);
-            emit isBottomTrackActiveUpdated();
-        }
-    }
-    /*
-    if (_isBottomTrackActive) {
-        qDebug() << "distProcessing: switch from rangefinder to bottom track depth values";
-    } else {
-        qDebug() << "distProcessing: Using rangefinder depth" << filteredMeters << "_processBottomTrack" << _processBottomTrack << ", _isBottomTrackInitiated" << _isBottomTrackInitiated << "_isBottomTrackActive" << _isBottomTrackActive;
-    }
-    */
-
-    if (!_isBottomTrackActive) {
-        _dist = filteredMeters + _fakeDepthAddition - _transducerOffsetMount;;
-        emit distChanged();
-        epoch->setDist(channelId, filteredMeters * 1000);
-        emit dataUpdate();
-    }
+    return filteredMeters;
 }
+*/
 
 
 void Dataset::addUsblSolution(IDBinUsblSolution::UsblSolution data) {
@@ -768,21 +781,11 @@ void Dataset::addGnssVelocity(double h_speed, double course) {
 }
 
 void Dataset::addTemp(float temp_c) {
-    double temperatureCorrection = 0.0;
-    if (g_pulseRuntimeSettings) {
-        g_pulseRuntimeSettings->property("temperatureCorrection").toDouble();
-    }
-
-    temp_c = temp_c + temperatureCorrection;
-
-    if (_temp != temp_c) {
-        _temp = temp_c;
-        emit tempChanged();
-    }
-
-    lastTemp_ = temp_c;
+    _temp = temp_c + _temperatureCorrection;
+    lastTemp_ = _temp;
     Epoch* last_epoch = last();
-    last_epoch->setTemp(temp_c);
+    last_epoch->setTemp(lastTemp_);
+    emit tempChanged();
 }
 
 void Dataset::mergeGnssTrack(QList<Position> track) {
@@ -1081,6 +1084,23 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
 
         int guardInterval = bottomTrackParam_.windowSize; // bottomTrack will proceed epIndx - guardInterval in next iteration
         int compIndx = epIndx > guardInterval ? epIndx - guardInterval : epIndx;
+        //PULSE
+        float corrDistance = dist - _transducerOffsetMount + _fakeDepthAddition;
+        float filteredMeters = 0;
+        if (_useDepthFilterWithBottomTrack) {
+            filteredMeters = filterDepthRecords(corrDistance);
+        } else {
+            filteredMeters = corrDistance;
+        }
+        _bottomTrackDepth = filteredMeters;
+        emit bottomTrackDepthChanged();
+        /*
+        if (_bottomTrackDepth != dist) {
+            _bottomTrackDepth = dist;
+            emit bottomTrackDepthChanged();
+        }
+        */
+
         emit bottomTrackAdded(compIndx);
     }
 }

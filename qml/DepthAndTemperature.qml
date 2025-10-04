@@ -2,8 +2,8 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 import QtGraphicalEffects 1.15
-import org.techadvision.settings 1.0
-import org.techadvision.runtime 1.0
+//import org.techadvision.settings 1.0
+//import org.techadvision.runtime 1.0
 
 
 Item {
@@ -13,9 +13,9 @@ Item {
     clip: true
 
     property bool   dataAvailable:              false
-    property bool   isMetric:                   PulseSettings.useMetricDepth
-    property bool   isMetricTemperature:        PulseSettings.useMetricTemperature
-    property bool   userShowTemperature:        PulseSettings.showTemperatureInUi
+    property bool   isMetric:                   pulseSettings.useMetricDepth
+    property bool   isMetricTemperature:        pulseSettings.useMetricTemperature
+    property bool   userShowTemperature:        pulseSettings.showTemperatureInUi
     property int    datasetUpdatedCounter:      0
     property double autoLevel:                  2   // default value (for depth 0)
 
@@ -30,7 +30,7 @@ Item {
     property string tempText:                   "-.-"
     property string depthText:                  "-.-"
     property bool   forceUpdateResolution:      false
-    property bool   enableTemperature:          false
+    property bool   enableTemperature:          pulseRuntimeSettings.is2DTransducer && pulseRuntimeSettings.pulseBetaName === "..."
 
     signal swapUnits()
     //signal pulseAutoLevelChanged(int newAutoLevel)
@@ -84,7 +84,7 @@ Item {
         console.log("TAV: dynamicResolution called with ", candidateRes,"and depth", depth)
 
         // Increase resolution size to look further into bottom composition, additional steps of 1 meter
-        //candidateRes = candidateRes + (2 * PulseSettings.bottomCompositionAddition)
+        //candidateRes = candidateRes + (2 * pulseSettings.bottomCompositionAddition)
         console.log("TAV: dynamicResolution:  considering bottomCompositionAddition, new candidateRes ", candidateRes)
 
         pulseRuntimeSettings.dynamicResolution = candidateRes;
@@ -95,7 +95,7 @@ Item {
             pulseRuntimeSettings.dynamicSamples = pulseRuntimeSettings.dynamicSamplesMax
         }
 
-        console.log("DYNAMIC: setting dynamicResolution to", candidateRes,"for depth", depth,"compared to last stable", lastStableDepth,"and bottom composition addition", PulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel)
+        console.log("DYNAMIC: setting dynamicResolution to", candidateRes,"for depth", depth,"compared to last stable", lastStableDepth,"and bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel)
         stableCount = 0
         lastStableDepth = depth
         pulseRuntimeSettings.forceUpdateResolution = false
@@ -121,7 +121,7 @@ Item {
 
         let candidateRes = Math.round((depth + margin) * 2);
 
-        if (PulseSettings.doubleEchoOptimize) {
+        if (pulseSettings.doubleEchoOptimize) {
             candidateRes = Math.round(( 2* depth + margin) * 2);
         }
 
@@ -187,7 +187,7 @@ Item {
 
         pulseRuntimeSettings.dynamicSamples = candidateSamples;
         pulseRuntimeSettings.dynamicPeriod = candidatePeriod;
-        console.log("DYNAMIC: set dynamicSamples ",candidateSamples, "and dynamicPeriod",candidatePeriod, "for depth", depth,"with bottom composition addition", PulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel, "based on candidateRes", candidateRes)
+        console.log("DYNAMIC: set dynamicSamples ",candidateSamples, "and dynamicPeriod",candidatePeriod, "for depth", depth,"with bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel, "based on candidateRes", candidateRes)
         stableCount = 0
         lastStableDepth = depth
     }
@@ -208,15 +208,15 @@ Item {
         if (pulseRuntimeSettings === null)
             return 0
 
-        if (!pulseRuntimeSettings.processBottomTrack) {
+        if (!pulseRuntimeSettings.isBottomTrackInitiated) {
             //console.log("Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.processBottomTrack is", pulseRuntimeSettings.processBottomTrack)
             return dataset.dist
         }
-        if (pulseRuntimeSettings.isBottomTrackActive) {
-            //console.log("Depth in UI from dataset.bottomTrackDepth as", dataset.bottomTrackDepth, "since pulseRuntimeSettings.isBottomTrackActive is", pulseRuntimeSettings.isBottomTrackActive)
+        if (pulseRuntimeSettings.isBottomTrackInitiated) {
+            //console.log("Depth in UI from dataset.bottomTrackDepth as", dataset.bottomTrackDepth, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
             return dataset.bottomTrackDepth
         } else {
-            //console.log("Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.isBottomTrackActive is", pulseRuntimeSettings.isBottomTrackActive)
+            //console.log("Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
             return dataset.dist
         }
     }
@@ -252,7 +252,7 @@ Item {
     }
 
     Connections {
-        target: PulseSettings ? PulseSettings : undefined
+        target: pulseSettings ? pulseSettings : undefined
         function onDoubleEchoOptimizeChanged () {
             pulseRuntimeSettings.forceUpdateResolution = true
         }
@@ -260,12 +260,25 @@ Item {
 
     Connections {
         target: dataset ? dataset : undefined
+        /*
         function onIsBottomTrackActiveUpdated () {
             if (!dataset)
                 return
             pulseRuntimeSettings.isBottomTrackActive = dataset.isBottomTrackActive()
-            console.log("Depth received onIsBottomTrackActiveUpdated, dataset.isBottomTrackActive", dataset.isBottomTrackActive())
+            console.log("distProcessing: Depth received onIsBottomTrackActiveUpdated, dataset.isBottomTrackActive", dataset.isBottomTrackActive())
         }
+
+        function onBottomTrackUpdated () {
+            if (!dataset)
+                return
+            console.log("distProcessing: Depth available signalled onBottomTrackUpdated, dataset.bottomTrackDepth = ", dataset.bottomTrackDepth)
+        }
+        function onBottomTrackDepthChanged () {
+            if (!dataset)
+                return
+            console.log("distProcessing: Depth available signalled onBottomTrackDepthChanged, dataset.bottomTrackDepth = ", dataset.bottomTrackDepth)
+        }
+        */
     }
 
     Timer {
@@ -295,6 +308,7 @@ Item {
               : "32.0 °F";
         }
 
+        /*
         if (dataset) {
             if (dataset.temp) {
                 if (dataset.temp !== 0) {
@@ -304,6 +318,7 @@ Item {
                 }
             }
         }
+        */
 
         let tempC = dataset.temp;
 
@@ -318,6 +333,8 @@ Item {
     Timer {
         id: displayDepthTimer
         interval: {
+            return 250
+            /*
             if (!pulseRuntimeSettings)
                 return 250
             if (pulseRuntimeSettings.isBottomTrackActive) {
@@ -325,6 +342,7 @@ Item {
             } else {
                 return 250
             }
+            */
         }
         repeat: true
         running: true
@@ -497,15 +515,15 @@ Item {
     }
 
         Component.onCompleted: {
-            pulseRuntimeSettings.useMetricDepth = PulseSettings.useMetricDepth
-            //plot2DGrid.setMeasuresMetric(PulseSettings.useMetricDepth)
+            pulseRuntimeSettings.useMetricDepth = pulseSettings.useMetricDepth
+            //plot2DGrid.setMeasuresMetric(pulseSettings.useMetricDepth)
         }
 
         Connections {
-            target: PulseSettings
+            target: pulseSettings ? pulseSettings : undefined
             function onUseMetricDepthChanged () {
-                pulseRuntimeSettings.useMetricDepth = PulseSettings.useMetricDepth
-                //plot2DGrid.setMeasuresMetric(PulseSettings.useMetricDepth)
+                pulseRuntimeSettings.useMetricDepth = pulseSettings.useMetricDepth
+                //plot2DGrid.setMeasuresMetric(pulseSettings.useMetricDepth)
             }
             function onUseMetricTemperatureChanged () {
                 // do nothing!

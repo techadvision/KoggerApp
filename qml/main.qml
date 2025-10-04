@@ -45,6 +45,139 @@ ApplicationWindow  {
         sourceComponent: stateGroupComp
     }
 
+    Connections {
+        target: pulseRuntimeSettings
+        //User interface automated control and optionl settings
+        function onIsSideScanLeftHandChanged()      { settingsBus.updateRuntime({ isSideScanLeftHand:       pulseRuntimeSettings.isSideScanLeftHand         }) }
+        function onIsSideScan2DViewChanged()        { settingsBus.updateRuntime({ isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView           }) }
+        function onEchogramSpeedChanged()           { settingsBus.updateRuntime({ echogramSpeed:            pulseRuntimeSettings.echogramSpeed              }) }
+        function onIs2DTransducerChanged()          { settingsBus.updateRuntime({ is2DTransducer:           pulseRuntimeSettings.is2DTransducer             }) }
+        function onShouldDoAutoRangeChanged()       { settingsBus.updateRuntime({ shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange          }) }
+        function onAutoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel          }) }
+        function onMaximumDepthChanged()            { settingsBus.updateRuntime({ maximumDepth:             pulseRuntimeSettings.maximumDepth               }) }
+        function onIsHorizontalGridChanged()        { settingsBus.updateRuntime({ isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid           }) }
+        function onUseMetricDepthChanged()          { settingsBus.updateRuntime({ useMetricDepth:           pulseRuntimeSettings.useMetricDepth             }) }
+        function onautoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoRange:                pulseRuntimeSettings.autoDepthMaxLevel          }) }
+        //UUID for transducer
+        function onUuidIpGatewayChanged()           { settingsBus.updateRuntime({ uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway              }) }
+        function onUuidUsbSerialChanged()           { settingsBus.updateRuntime({ uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial              }) }
+        //Bottom track
+        function onUpdateBottomTrackChanged()       { settingsBus.updateRuntime({ updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack          }) }
+        function onIsBottomTrackInitiatedChanged()  { settingsBus.updateRuntime({ isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated     }) }
+        //App is ready configured, ensure C++ values are up to date:
+        function onUserManualSetNameChanged () {
+            if (pulseRuntimeSettings.userManualSetName === "...")
+                return
+            settingsBus.updatePersistent({
+                    filterRealValue:         pulseSettings.filterRealValue,
+                    intensityRealValue:      pulseSettings.intensityRealValue,
+                    colorMapIndexReal:       pulseSettings.colorMapIndexReal,
+                    //udpGateway:              pulseSettings.udpGateway,
+                    //udpPort:                 pulseSettings.udpPort,
+                    //isBetaTester:            pulseSettings.isBetaTester,
+                    //isExpert:                pulseSettings.isExpert,
+                    // NMEA
+                    enableNmeaDbt:           pulseSettings.enableNmeaDbt,
+                    enableNmeaMtw:           pulseSettings.enableNmeaMtw,
+                    nmeaPort:                pulseSettings.nmeaPort,
+                    nmeaSendPerMilliSec:     pulseSettings.nmeaSendPerMilliSec,
+                    nmeaTempPeriodMs:        pulseSettings.nmeaTempPeriodMs,
+                    nmeaBroadcastAddress:    pulseSettings.nmeaBroadcastAddress
+                })
+            pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
+            settingsBus.updateRuntime({
+                    isSideScanLeftHand:       pulseRuntimeSettings.isSideScanLeftHand,
+                    isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView,
+                    echogramSpeed:            pulseRuntimeSettings.echogramSpeed,
+                    is2DTransducer:           pulseRuntimeSettings.is2DTransducer,
+                    shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange,
+                    autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel,
+                    maximumDepth:             pulseRuntimeSettings.maximumDepth,
+                    isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid,
+                    useMetricDepth:           pulseRuntimeSettings.useMetricDepth,
+                    uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway,
+                    uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial,
+                    updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack,
+                    isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated
+                })
+            //Temperature
+            if (pulseRuntimeSettings.useTemperature) {
+                dataset.setTemperatureCorrection(pulseRuntimeSettings.temperatureCorrection)
+            }
+            //Other stuff
+            dataset.setTransducerOffsetMount(pulseSettings.transducerOffsetMount)
+        }
+
+    }
+
+    Connections {
+        target: pulseSettings   // <-- note lowercase
+        //User interface
+        function onFilterRealValueChanged()         { settingsBus.updatePersistent({ filterRealValue:       pulseSettings.filterRealValue       }) }
+        function onIntensityRealValueChanged()      { settingsBus.updatePersistent({ intensityRealValue:    pulseSettings.intensityRealValue    }) }
+        function onColorMapIndexRealChanged()       { settingsBus.updatePersistent({ colorMapIndexReal:     pulseSettings.colorMapIndexReal     }) }
+        //Trabsducer interface
+        function onUdpGatewayChanged()              { settingsBus.updatePersistent({ udpGateway:            pulseSettings.udpGateway            }) }
+        function onUdpPortChanged()                 { settingsBus.updatePersistent({ udpPort:               pulseSettings.udpPort               }) }
+        //Special user privilidges
+        function onIsBetaTesterChanged()            { settingsBus.updatePersistent({ isBetaTester:          pulseSettings.isBetaTester          }) }
+        function onIsExpertChanged()                { settingsBus.updatePersistent({ isExpert:              pulseSettings.isExpert              }) }
+        //NMEA
+        function onEnableNmeaDbtChanged()           { settingsBus.updatePersistent({ enableNmeaDbt:         pulseSettings.enableNmeaDbt         }) }
+        function onEnableNmeaMtwChanged()           { settingsBus.updatePersistent({ enableNmeaMtw:         pulseSettings.enableNmeaMtw         }) }
+        function onNmeaPortChanged()                { settingsBus.updatePersistent({ nmeaPort:              pulseSettings.nmeaPort              }) }
+        function onNmeaSendPerMilliSecChanged()     { settingsBus.updatePersistent({ nmeaSendPerMilliSec:   pulseSettings.nmeaSendPerMilliSec   }) }
+        function onNmeaTempPeriodMsChanged()        { settingsBus.updatePersistent({ nmeaTempPeriodMs:      pulseSettings.nmeaTempPeriodMs      }) }
+        function onNmeaBroadcastAddressChanged()    { settingsBus.updatePersistent({ nmeaBroadcastAddress:  pulseSettings.nmeaBroadcastAddress  }) }
+        //Echogram speed moved to the persistent settings, workaround to keep the runtime integration as is:
+        function onEchogramSpeedChanged ()          { pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed                             }
+        function onAutoRangeChanged ()              { pulseRuntimeSettings.shouldDoAutoRange = pulseSettings.autoRange                             }
+    }
+
+    Connections {
+        target: settingsBus
+        function onRuntimeChanged(m) {
+            dumpMap("settingsBus.runtimeChanged", m)
+            for (var k in m) {
+                if (k in pulseRuntimeSettings) {
+                    pulseRuntimeSettings[k] = m[k]
+                    console.log("applied -> pulseRuntimeSettings." + k, "=", toStr(m[k]))
+                } else {
+                    console.warn("IGNORED runtime key (no such property):", k, "=", toStr(m[k]))
+                }
+            }
+        }
+
+        function onPersistentChanged(m) {
+            dumpMap("settingsBus.persistentChanged", m)
+            for (var k in m) {
+                if (k in pulseSettings) {
+                    pulseSettings[k] = m[k]
+                    console.log("applied -> pulseSettings." + k, "=", toStr(m[k]))
+                } else {
+                    console.warn("IGNORED persistent key (no such property):", k, "=", toStr(m[k]))
+                }
+            }
+        }
+    }
+
+    //Logging helpers
+    function toStr(v) {
+        if (v === null) return "null"
+        if (v === undefined) return "undefined"
+        try { return v.toString ? v.toString() : String(v) }
+        catch (e) { return String(v) }
+    }
+
+    function dumpMap(tag, map) {
+        for (var k in map) {
+            var v = map[k]
+            console.log(tag + ":", k, "=", toStr(v), "(type:", typeof v + ")")
+        }
+    }
+    //---------------
+
+
     Component {
         id: stateGroupComp
         StateGroup {
@@ -105,17 +238,40 @@ ApplicationWindow  {
     }
 
     Component.onCompleted: {
-        pulseRuntimeSettings.isSideScanLeftHand = PulseSettings.isSideScanOnLeftHandSide
-        var code     = PulseSettings.keyCode
+        pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
+        pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
+        var code     = pulseSettings.keyCode
         var isBeta   = pulseRuntimeSettings.betaKeyCodes.indexOf(code)   !== -1
         var isExpert = pulseRuntimeSettings.expertKeyCodes.indexOf(code) !== -1
+        var saltMatches  = (pulseSettings.validateSalt === installToken.currentSalt)
+        if (!saltMatches && (isBeta || isExpert)) {
+            isBeta = false
+            isExpert = false
+            pulseSettings.keyCode = "not_set"
+            pulseSettings.validateSalt = ""
+        }
         pulseRuntimeSettings.expertMode = isExpert
         pulseRuntimeSettings.betaMode   = isExpert || isBeta
-        PulseSettings.isBetaTester = isBeta
-        PulseSettings.isExpert = isExpert
+        pulseSettings.isBetaTester = isBeta
+        pulseSettings.isExpert = isExpert
+        console.log(
+            "Key Code: component on completed: expertMode", pulseRuntimeSettings.expertMode,
+            "and betaMode", pulseRuntimeSettings.betaMode,
+            "and validateSalt", pulseSettings.validateSalt, "for code", pulseSettings.keyCode
+        )
+        settingsBus.updatePersistent({
+                udpGateway:              pulseSettings.udpGateway,
+                udpPort:                 pulseSettings.udpPort,
+                isBetaTester:            pulseSettings.isBetaTester,
+                isExpert:                pulseSettings.isExpert
+            })
         console.log("App start code check: code=", code, ", isBeta", isBeta, "isExpert", isExpert)
-        //console.log("App start code check: PulseSettings.isBetaTester=", PulseSettings.isBetaTester, "PulseSettings.isExpert=", PulseSettings.isExpert)
+        //console.log("App start code check: pulseSettings.isBetaTester=", pulseSettings.isBetaTester, "pulseSettings.isExpert=", pulseSettings.isExpert)
         theme.updateResCoeff()
+
+        //Important settings:
+
+        //-------------------
 
         scene3DToolbar.updateBottomTrack.connect(handleUpdateBottomTrack)
         menuBar.languageChanged.connect(handleChildSignal)
@@ -529,7 +685,8 @@ ApplicationWindow  {
 
             GraphicsScene3dView {
                 id:                renderer
-                visible: menuBar.is3DVisible
+                //visible: menuBar.is3DVisible - PULSE disable
+                visible: false
                 objectName: "GraphicsScene3dView"
                 Layout.fillHeight: true
                 Layout.fillWidth:  true
@@ -1154,7 +1311,8 @@ ApplicationWindow  {
         // the actual label
         Text {
             id: zoomText
-            text: "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
+            text: "Horizontal zoom: " + pulseSettings.echogramSpeed
+            //text: "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
             font.pixelSize: 40
             color: "white"
             anchors.centerIn: parent
@@ -1172,7 +1330,8 @@ ApplicationWindow  {
         Connections {
             target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
             function onEchogramSpeedChanged () {
-                zoomText.text = "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
+                //zoomText.text = "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
+                zoomText.text = "Horizontal zoom: " + pulseSettings.echogramSpeed
                 zoomIndicator.visible = true
                 hideTimer.restart()
             }
@@ -1253,6 +1412,7 @@ ApplicationWindow  {
                     }
                 }
             }
+
             function onDevNameChanged () {
                 let detectedModel = "";
                 console.log("DEVICE: received an onDevNameChanged, devName is", pulseRuntimeSettings.devName);
@@ -1260,11 +1420,29 @@ ApplicationWindow  {
                     console.log("DEVICE: aborting this method for devName", pulseRuntimeSettings.devName);
                     return
                 }
+                console.log("devName no longer ..., dataset numberOfDatasetChannels", pulseRuntimeSettings.numberOfDatasetChannels, "for devName", pulseRuntimeSettings.devName, "and rawDev_devName", pulseRuntimeSettings.rawDev_devName)
                 if (pulseRuntimeSettings.devName === "PULSEred") {
                     detectedModel = pulseRuntimeSettings.modelPulseRed
                 }
                 if (pulseRuntimeSettings.devName === "PULSEblue") {
                     detectedModel = pulseRuntimeSettings.modelPulseBlue
+                }
+                if (pulseRuntimeSettings.devName === "Basic2D") {
+                    const channelsList = dataset.channelsNameList();
+                    const values = channelsList
+                        .filter(Boolean)
+                        .map(String)
+                        .filter(v => v !== "None");
+                    const isBlue = values.some(v => /UDP\([^)]+\)\|\d+\|1\b/.test(v));
+                    if (isBlue) {
+                        detectedModel = pulseRuntimeSettings.modelPulseBlue
+                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
+                    } else {
+                        detectedModel = pulseRuntimeSettings.modelPulseRed
+                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
+                    }
+                    pulseRuntimeSettings.devManualSelected = true
+                    console.log("DEV_PARAM: observed this channel list and will use it to auto select for Basic2D", channelsList)
                 }
                 if (detectedModel !== "") {
                     pulseRuntimeSettings.userManualSetName = detectedModel
@@ -1283,6 +1461,7 @@ ApplicationWindow  {
                 if (pulseRuntimeSettings.swapDeviceNow) {
                     return
                 }
+                console.log("dataset numberOfDatasetChannels", pulseRuntimeSettings.numberOfDatasetChannels, "for devName", pulseRuntimeSettings.devName, "and rawDev_devName", pulseRuntimeSettings.rawDev_devName)
 
                 let detectedModel = "";
                 if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {

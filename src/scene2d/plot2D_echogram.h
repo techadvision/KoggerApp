@@ -2,6 +2,7 @@
 
 #include "plot2D_plot_layer.h"
 #include "plot2D_defs.h"
+class SettingsBus;
 
 
 class Plot2DEchogram : public QObject, public PlotLayer {
@@ -37,6 +38,10 @@ public:
     };
 
     Plot2DEchogram();
+    //PULSE
+    void applyPersistent(const QVariantMap& m);
+    void setSettingsBus(SettingsBus* bus);
+
     bool draw(Plot2D* parent, Dataset* dataset);
 
     float getLowLevel() const;
@@ -119,4 +124,10 @@ private:
     ThemeId themeId_;
     QSet<int> reRenderPlotIndxs_;
     QVector<QColor> _rawThemeColors;
+    int low_   = 10;
+    int high_  = 100;
+    int theme_ = 0;
+    //Pulse
+    void publishThemeColors();
+    SettingsBus* bus_ = nullptr;
 };

@@ -12,7 +12,7 @@ Flickable {
     contentWidth: width
     // Let contentHeight track the total children height
     contentHeight: contentItem.childrenRect.height
-    property string gatewayIp: PulseSettings.udpGateway
+    property string gatewayIp: pulseSettings.udpGateway
 
     // Always‐visible vertical scrollbar
     ScrollBar.vertical: ScrollBar {
@@ -192,6 +192,6 @@ Flickable {
 
     Component.onCompleted: {
         var versionString = loadVersion();
-        root.gatewayIp = PulseSettings.udpGateway;
+        root.gatewayIp = pulseSettings.udpGateway;
     }
 }

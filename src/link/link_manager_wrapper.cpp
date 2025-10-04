@@ -1,6 +1,7 @@
 #include "link_manager_wrapper.h"
 
 #include <QDebug>
+#include "SettingsBus.h"
 
 
 LinkManagerWrapper::LinkManagerWrapper(QObject* parent) : QObject(parent)
@@ -49,6 +50,22 @@ LinkManagerWrapper::LinkManagerWrapper(QObject* parent) : QObject(parent)
     workerThread_->setObjectName("LinkThread");
 
     workerThread_->start();
+}
+
+//PULSE
+void LinkManagerWrapper::setSettingsBus(SettingsBus* bus)
+{
+#ifdef SEPARATE_READING
+    // make sure we call into the worker's thread
+    QMetaObject::invokeMethod(
+        workerObject_.get(),       // whatever your unique_ptr name is
+        [this, bus]{
+            workerObject_->setSettingsBus(bus);
+        },
+        Qt::QueuedConnection);
+#else
+    workerObject_->setSettingsBus(bus);
+#endif
 }
 
 LinkManagerWrapper::~LinkManagerWrapper()

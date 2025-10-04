@@ -15,10 +15,9 @@
 #endif
 #include "link.h"
 #include "proto_binnary.h"
-
-extern QObject* g_pulseRuntimeSettings;
-extern QObject* g_pulseSettings;
-
+#include <QVariantMap>
+class SettingsBus;
+class Link;
 
 class LinkManager : public QObject
 {
@@ -27,6 +26,9 @@ class LinkManager : public QObject
 public:
     explicit LinkManager(QObject *parent = nullptr);
     Link *getLinkPtr(QUuid uuid);
+    void setSettingsBus(SettingsBus* b);
+    void applyRuntime(const QVariantMap& m);
+    void applyPersistent(const QVariantMap& m);
 
 public slots:
     void onLinkConnectionStatusChanged(QUuid uuid);
@@ -95,6 +97,7 @@ private:
     void exportPinnedLinksToXML();
     Link* createNewLink() const;
     void printLinkDebugInfo(Link* link) const;
+    QString  getAndroidGatewayIP();
 
     /*data*/
     QList<Link*> list_;
@@ -102,6 +105,11 @@ private:
     static const int timerInterval_ = 500; // msecs
     QUuid proxyLinkUuid_;
     bool coldStarted_;
-    QString uuidIpGateway = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
-    QString uuidUsbSerial = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
+    SettingsBus* bus_ = nullptr;
+    QString udpGateway_ = "192.168.10.1";
+    bool    isBetaTester_ = false;
+    bool    isExpert_     = false;
+    int     udpPort_      = 14560;
+    QString uuidIpGateway_ = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
+    QString uuidUsbSerial_ = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
 };
