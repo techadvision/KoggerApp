@@ -106,6 +106,12 @@ ApplicationWindow  {
             }
             //Other stuff
             dataset.setTransducerOffsetMount(pulseSettings.transducerOffsetMount)
+            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue ||
+                    pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
+                pulseRuntimeSettings.echogramSpeed = 1
+            }
+
+
         }
 
     }
@@ -1332,6 +1338,7 @@ ApplicationWindow  {
             function onEchogramSpeedChanged () {
                 //zoomText.text = "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
                 zoomText.text = "Horizontal zoom: " + pulseSettings.echogramSpeed
+                console.log("Horizontal zoom: New value", pulseRuntimeSettings.echogramSpeed)
                 zoomIndicator.visible = true
                 hideTimer.restart()
             }
