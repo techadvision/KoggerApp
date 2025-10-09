@@ -196,6 +196,17 @@ include($$PWD/src/tile_engine/tile_engine.pri)
 }
 
 android {
+    # 16 KB page size - Pulse
+    # QMAKE_LFLAGS += -Wl,--max-page-size=0x4000
+    QMAKE_LFLAGS += -Wl,-z,max-page-size=16384
+    QMAKE_LFLAGS += -Wl,-z,common-page-size=16384
+    ANDROID_EXTRA_LIBS += \
+        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++_shared.so \
+        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++abi.so \
+        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libunwind.so \
+        $$PWD/third_party/android_openssl/$${ANDROID_TARGET_ARCH}/libcrypto_1_1.so \
+        $$PWD/third_party/android_openssl/$${ANDROID_TARGET_ARCH}/libssl_1_1.so
+    # -------
     ANDROID_TARGET_SDK_VERSION = 35
     ANDROID_MIN_SDK_VERSION = 23
     QT -= widgets
@@ -235,8 +246,13 @@ android {
         LIBS += -L$$PWD/third_party/freetype/lib/armeabi-v7a -lfreetype
     }
 
-    OPENSSL_PATH = $$ANDROID_SDK_ROOT/android_openssl/openssl.pri
-    include($$OPENSSL_PATH)
+    #OPENSSL_PATH = $$ANDROID_SDK_ROOT/android_openssl/openssl.pri
+    #OPENSSL_PATH = $$PWD/third_party/android_openssl/openssl.pri
+    #ENABLE_OPENSSL_BUNDLING = no
+    #include($$OPENSSL_PATH)
+    #message(Final ANDROID_EXTRA_LIBS = $$ANDROID_EXTRA_LIBS)
+
+    ANDROID_EXTRA_LIBS = $$unique(ANDROID_EXTRA_LIBS)
 
     message("Building for Android (ARM) with OpenGL ES")
     RESOURCES += platform/android/shaders.qrc
