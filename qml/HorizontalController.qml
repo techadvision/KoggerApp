@@ -5,8 +5,24 @@ import QtQuick.Controls.Material 2.15
 
 Item {
     id: root
-    width: 280
-    height: 80 // Oval height
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+
+    width: _isAndroid ? 280 : 200
+    height: _isAndroid ? 80 : 60
+
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 60 : 40
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 42 : 32
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+
+
     property alias value: valueField.text
     property int minValue: 0
     property int maxValue: 100
@@ -151,8 +167,12 @@ Item {
 
             Image {
                 id: controlIcon
-                Layout.preferredWidth: 34
-                Layout.preferredHeight: 34
+                Layout.preferredWidth: root.controlIconSize
+                Layout.preferredHeight:root.controlIconSize
+                //Layout.preferredWidth: root._isAndroid ? 34 : 20
+                //Layout.preferredHeight:root._isAndroid ? 34 : 20
+                //Layout.preferredWidth: 34
+                //Layout.preferredHeight: 34
                 fillMode: Image.PreserveAspectFit
                 source: root.iconSource  // Bind icon source to the external property
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
@@ -162,8 +182,10 @@ Item {
             // Minus Button
             Rectangle {
                 id: selectorMinusButton
-                width: 80
-                height: 80
+                width: root.pressButtonSize
+                height: root.pressButtonSize
+                //width: 80
+                //height: 80
                 radius: 30
                 color: minusMouseArea.pressed ? "#666666" : "transparent"
                 Layout.leftMargin: 4
@@ -171,7 +193,8 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "-"
-                    font.pixelSize: 100
+                    font.pixelSize: root.displayPixels
+                    //font.pixelSize: 100
                     color: minusMouseArea.pressed ? "#80000000" : "white"
                     font.bold: true
                 }
@@ -235,8 +258,10 @@ Item {
                     // Value Display
                     Rectangle {
                         id: valueFieldRectangle
-                        width: 60
-                        height: 40
+                        width: root.valueTextWidth
+                        height: root.valueTextHeigh
+                        //width: 60
+                        //height: 40
                         radius: 20
                         color: "transparent"
 
@@ -244,7 +269,8 @@ Item {
                             id: valueField
                             anchors.centerIn: parent
                             text: root.defaultValue
-                            font.pixelSize: 42
+                            font.pixelSize: root.valuePixels
+                            //font.pixelSize: 42
                             color: "white"
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
@@ -258,7 +284,8 @@ Item {
                             id: valueFieldAuto
                             anchors.centerIn: parent
                             text: root.autoDepth
-                            font.pixelSize: 32
+                            font.pixelSize: root.autoPixels
+                            //font.pixelSize: 32
                             color: "white"
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
@@ -323,8 +350,10 @@ Item {
             // Plus Button
             Rectangle {
                 id: selectorPlusButton
-                width: 80
-                height: 80
+                width: root.pressButtonSize
+                height: root.pressButtonSize
+                //width: 80
+                //height: 80
                 radius: 30
                 color: plusMouseArea.pressed ? "#666666" : "transparent"
                 Layout.rightMargin: 4
@@ -333,7 +362,8 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "+"
-                    font.pixelSize: 80
+                    font.pixelSize: root.displayPixels
+                    //font.pixelSize: 80
                     color: plusMouseArea.pressed ? "#80000000" : "white"
                     font.bold: true
                 }

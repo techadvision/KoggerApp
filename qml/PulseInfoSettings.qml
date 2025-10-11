@@ -6,8 +6,23 @@ import QtQuick.Layouts 1.15
 
 Flickable {
     id: settingsPopup
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 60 : 40
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 42 : 32
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+    property int infoPixelsSize:  _isAndroid ? 32 : 22
+
     focus: true
-    width: 900
+    width: _isAndroid ? 900 : 600
 
     anchors.fill: parent
     flickableDirection: Flickable.VerticalFlick
@@ -15,7 +30,7 @@ Flickable {
     // Scrollbar always visible
     ScrollBar.vertical: ScrollBar {
         policy: ScrollBar.AlwaysOn
-        width: 16
+        width: _isAndroid ? 16 : 12
     }
 
     //color: "white"
@@ -32,12 +47,12 @@ Flickable {
 
     Rectangle{
         id: spacer
-        width: 900
-        height: 20
+        width: settingsPopup._isAndroid ? 900 : 600
+        height: settingsPopup._isAndroid ? 20 : 13
     }
 
     ColumnLayout {
-        spacing: 20
+        spacing: settingsPopup._isAndroid ? 20 : 13
         anchors.top: spacer.bottom
 
         //Category: Screen related settings
@@ -129,40 +144,6 @@ Flickable {
                 }
             }
         }
-        /* Replaced by persistent setting
-        SettingRow {
-            toggle: false
-            text: "Echogram screen speed (1-5)"
-            show: pulseRuntimeSettings.showCatScreen
-            HorizontalControllerDoubleSettings {
-                id: speedSelector
-                values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
-                    2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9,
-                    3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9,
-                    4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0]
-                height: 80
-                Layout.preferredWidth: 280
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.echogramSpeed)
-                    //console.log("pulseSettingssValue speedSelector Component.onCompleted idx calculated to ", idx)
-                    currentIndex = idx >= 0 ? idx : 0
-                }
-
-                onPulsePreferenceValueChanged: {
-                    //console.log("pulseSettingsValue speedSelector changed to", newValue)
-                    pulseRuntimeSettings.echogramSpeed = newValue
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onEchogramSpeedChanged () {
-                        var idx = speedSelector.values.indexOf(pulseRuntimeSettings.echogramSpeed)
-                        if (idx >= 0) speedSelector.currentIndex = idx
-                    }
-                }
-            }
-        }
-        */
 
         //Category: NMEA
 
@@ -245,11 +226,11 @@ Flickable {
             show: pulseRuntimeSettings.showCatNmea
             Text {
                 text: "Localhost (this device)"
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.infoPixelsSize
                 color: "gray"
 
-                height: 80
-                Layout.preferredWidth: 280
+                height: settingsPopup._isAndroid ? 80 : 54
+                Layout.preferredWidth: settingsPopup._isAndroid ? 280 : 190
             }
         }
 
@@ -364,8 +345,8 @@ Flickable {
             text: "My beta test key code"
             show: pulseRuntimeSettings.showCatBetaTesters
             KeyCodeInput {
-                height: 80
-                Layout.preferredWidth: 280
+                height: settingsPopup._isAndroid ? 80 : 54
+                Layout.preferredWidth: settingsPopup._isAndroid ? 280 : 180
                 Layout.alignment: Qt.AlignRight
                 anchors.bottom: betaTesters.bottom
                 anchors.top: betaTesters.top

@@ -23,6 +23,7 @@ MenuScroll {
         }
 
         MenuFrame {
+            //Pulse: hide
             visible: false
             FactoryBox {
                 dev: devConnection.dev

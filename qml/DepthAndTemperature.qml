@@ -8,8 +8,12 @@ import QtGraphicalEffects 1.15
 
 Item {
     id: depthAndTemperature
-    width: 350
-    height: 200
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+
+    width: _isAndroid ? 350 : 230
+    height: _isAndroid ? 200 : 140
     clip: true
 
     property bool   dataAvailable:              false
@@ -399,7 +403,7 @@ Item {
         Rectangle {
             id: wholeNumberRect
             width: parent.width * 0.75
-            height: 96
+            height: _isAndroid? 96 : 64
             color: "#80000000"
             anchors.right: decimalPartRect.left
             anchors.bottom: decimalPartRect.bottom
@@ -411,7 +415,7 @@ Item {
                 //text: depthAndTemperature.formatDepth().split('.')[0] + "."
                 color: "white"
                 font.bold: true
-                font.pixelSize: 96
+                font.pixelSize: _isAndroid ? 96 : 64
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -423,7 +427,7 @@ Item {
         Rectangle {
             id: decimalPartRect
             width: parent.width * 0.1
-            height: 96
+            height: _isAndroid? 96 : 64
             color: "#80000000"
             anchors.right: depthUnitRect.left
             anchors.top: parent.top
@@ -437,7 +441,7 @@ Item {
                 }
                 //text: depthAndTemperature.formatDepth().split('.')[1] ? depthAndTemperature.formatDepth().split('.')[1].split(' ')[0] : ""
                 color: "white"
-                font.pixelSize: 72
+                font.pixelSize: _isAndroid ? 72 : 48
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -448,7 +452,7 @@ Item {
         Rectangle {
             id: depthUnitRect
             width: parent.width * 0.15
-            height: 96
+            height: _isAndroid ? 96 : 64
             color: "#80000000"
             anchors.right: parent.right
             anchors.top: parent.top
@@ -459,7 +463,7 @@ Item {
                 id: depthUnit
                 text: displayDepth.split(' ')[1] // Extract the unit (m or ft)
                 color: "white"
-                font.pixelSize: 36
+                font.pixelSize: _isAndroid ? 36 : 24
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -471,7 +475,7 @@ Item {
         Rectangle {
             id: temperatureValueRect
             width: parent.width * 0.85
-            height: 72
+            height: _isAndroid ? 72 : 48
             color: "#80000000"
             anchors.right: temperatureUnitRect.left
             anchors.top: temperatureUnitRect.top
@@ -483,7 +487,7 @@ Item {
                 //text: depthAndTemperature.displayTemp.split(' ')[0] || "-.-"
                 //text: depthAndTemperature.formatTemperature().split(' ')[0] || "-.-"
                 color: "white"
-                font.pixelSize: 72
+                font.pixelSize: _isAndroid ? 72 : 48
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -494,7 +498,7 @@ Item {
         Rectangle {
             id: temperatureUnitRect
             width: parent.width * 0.15
-            height: 72
+            height: _isAndroid ? 72 : 48
             color: "#80000000"
             anchors.right: depthUnitRect.right
             anchors.top: depthUnitRect.bottom
@@ -505,7 +509,7 @@ Item {
                 id: temperatureUnit
                 text: depthAndTemperature.formatTemperature().split(' ')[1] // Temperature unit
                 color: "white"
-                font.pixelSize: 36
+                font.pixelSize: _isAndroid ? 36 : 24
                 horizontalAlignment: Text.AlignLeft
                 anchors.right: parent.right
                 anchors.top: parent.top

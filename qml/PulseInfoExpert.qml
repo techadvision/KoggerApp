@@ -5,8 +5,24 @@ import QtQuick.Layouts 1.15
 
 Flickable {
     id: settingsPopup
+
+
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 120 : 80
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 30 : 22
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+
     focus: true
-    width: 900
+    width: _isAndroid ? 900 : 600
 
     anchors.fill: parent
     flickableDirection: Flickable.VerticalFlick
@@ -515,7 +531,7 @@ Flickable {
             text: "Bottom track window"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.distProcessing[1]
             }
         }
@@ -830,7 +846,7 @@ Flickable {
             text: "Device: Device name"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devName
             }
         }
@@ -840,7 +856,7 @@ Flickable {
             text: "Device: Device type"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devType
             }
         }
@@ -850,7 +866,7 @@ Flickable {
             text: "Device: Baud rate"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devBaudRate
             }
         }
@@ -860,7 +876,7 @@ Flickable {
             text: "Device: Serial number"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devSerialNumber
             }
         }
@@ -870,7 +886,7 @@ Flickable {
             text: "Device: Firmware version"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_firmwareVersion
             }
         }
@@ -880,7 +896,7 @@ Flickable {
             text: "Device: Is a sonar?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isSonar
             }
         }
@@ -890,7 +906,7 @@ Flickable {
             text: "Device: Supports chart?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isChartSupport
             }
         }
@@ -900,7 +916,7 @@ Flickable {
             text: "Device: Is a transducer?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isTransducerSupport
             }
         }
@@ -910,7 +926,7 @@ Flickable {
             text: "Device: Supports distance?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isDistSupport
             }
         }
@@ -920,7 +936,7 @@ Flickable {
             text: "Device: Supports dataset?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isDatasetSupport
             }
         }
@@ -930,7 +946,7 @@ Flickable {
             text: "Device: Supports sound of speed?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isSoundSpeedSupport
             }
         }
@@ -940,7 +956,7 @@ Flickable {
             text: "Device: Can be upgraded?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isUpgradeSupport
             }
         }
@@ -988,7 +1004,7 @@ Flickable {
             text: "Chart: Resolution"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.chartResolution_Copy
                 //text: dev.chartResolution
             }
@@ -1000,7 +1016,7 @@ Flickable {
             text: "Chart: Samples"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.chartSamples_Copy
                 //text: dev.chartSamples
             }
@@ -1012,7 +1028,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.chartOffset_Copy
                 //text: dev.chartOffset
             }
@@ -1024,7 +1040,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.distMax_Copy
                 //text: dev.distMax
             }
@@ -1036,7 +1052,7 @@ Flickable {
             text: "Distance: Dead Zone"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.distDeadZone_Copy
                 //text: dev.distDeadZone
             }
@@ -1048,7 +1064,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.distConfidence_Copy
                 //text: dev.distConfidence
             }
@@ -1060,7 +1076,7 @@ Flickable {
             text: "Transducer: Pulse"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transPulse_Copy
                 //text: dev.transPulse
             }
@@ -1072,7 +1088,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreq_Copy
                 //text: dev.transFreq
             }
@@ -1084,7 +1100,7 @@ Flickable {
             text: "Transducer: Boost"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transBoost_Copy
                 //text: dev.transBoost
             }
@@ -1096,7 +1112,7 @@ Flickable {
             text: "Horizontal Smoothing"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.dspHorSmooth_Copy
                 //text: dev.dspHorSmooth
             }
@@ -1108,7 +1124,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.soundSpeed_Copy
                 //text: dev.soundSpeed
             }
@@ -1120,7 +1136,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.ch1Period_Copy
                 //text: dev.ch1Period
             }
@@ -1133,7 +1149,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetChart_Copy ? "On" : "Off"
                 //text: dev.datasetChart ? "On" : "Off"
             }
@@ -1145,7 +1161,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetDist_Copy ? "On" : "Off"
                 //text: dev.datasetDist ? "On" : "Off"
             }
@@ -1157,7 +1173,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetSDDBT_Copy ? "On" : "Off"
                 //text: dev.datasetSDDBT ? "On" : "Off"
             }
@@ -1169,7 +1185,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetEuler_Copy ? "On" : "Off"
                 //text: dev.datasetEuler ? "On" : "Off"
             }
@@ -1181,7 +1197,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetTemp_Copy ? "On" : "Off"
                 //text: dev.datasetTemp ? "On" : "Off"
             }
@@ -1193,7 +1209,7 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetTimestamp_Copy ? "On" : "Off"
                 //text: dev.datasetTimestamp ? "On" : "Off"
             }
@@ -1217,7 +1233,7 @@ Flickable {
             text: "UUID opened"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidSuccessfullyOpened)
                     return pulseRuntimeSettings.uuidSuccessfullyOpened
@@ -1230,7 +1246,7 @@ Flickable {
             text: "Is a 2D device?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.is2DTransducer
             }
         }
@@ -1240,7 +1256,7 @@ Flickable {
             text: "Should use temperature?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.useTemperature
             }
         }
@@ -1250,7 +1266,7 @@ Flickable {
             text: "Temperature correction"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo && pulseRuntimeSettings.useTemperature
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.temperatureCorrection
             }
         }
@@ -1260,7 +1276,7 @@ Flickable {
             text: "Frequency: wide"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreqWide
             }
         }
@@ -1270,7 +1286,7 @@ Flickable {
             text: "Frequency: medium"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreqMedium
             }
         }
@@ -1280,7 +1296,7 @@ Flickable {
             text: "Frequency: narrow"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreqNarrow
             }
         }
@@ -1290,7 +1306,7 @@ Flickable {
             text: "Maximum depth for App"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.maximumDepth
             }
         }
@@ -1314,7 +1330,7 @@ Flickable {
             text: "Distance config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onDistSetupChanged === true ?
                           "OK" :
                           "Not verified (struggle?)"
@@ -1326,7 +1342,7 @@ Flickable {
             text: "Transducer echogram config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onChartSetupChanged === true ?
                           "OK" :
                           "Not verified (struggle?)"
@@ -1338,7 +1354,7 @@ Flickable {
             text: "Dataset config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onDatasetChanged === true ?
                           "OK" :
                           "Not verified (struggle?)"
@@ -1350,7 +1366,7 @@ Flickable {
             text: "Transducer config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onTransChanged === true ?
                           "OK" :
                           "Not verified (struggle?)"
@@ -1362,7 +1378,7 @@ Flickable {
             text: "Sound speed config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onSoundChanged === true ?
                           "OK" :
                           "Not verified (struggle?)"
@@ -1374,7 +1390,7 @@ Flickable {
             text: "Echogram enabled"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
-                font.pixelSize: 30
+                font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetChart_ok === true ?
                           "OK" :
                           "Not verified (struggle?)"

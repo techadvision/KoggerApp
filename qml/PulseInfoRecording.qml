@@ -5,9 +5,24 @@ import QtQuick.Dialogs 1.2
 
 Rectangle {
     id: settingsPopup
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 60 : 40
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 42 : 32
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+    property int infoPixelsSize:  _isAndroid ? 28 : 18
+
     focus: true
-    width: 900
-    height: 400
+    width: _isAndroid ? 900 : 600
+    height: _isAndroid ? 400 : 270
     anchors.centerIn: parent
     color: "white"
     radius: 8
@@ -44,9 +59,9 @@ Rectangle {
         // --- Row 1
         Text {
             text: pulseRuntimeSettings.isRecordingKlf === true ? "Recording..." : "Record a file"
-            font.pixelSize: 30
+            font.pixelSize: settingsPopup.infoPixelsSize
 
-            height: 80
+            height: _isAndroid ? 80: 54
             GridLayout.row: 0
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
@@ -57,8 +72,8 @@ Rectangle {
         // record
         Rectangle {
             id: recording
-            Layout.preferredWidth: 80
-            Layout.preferredHeight: 80
+            Layout.preferredWidth: _isAndroid ? 80: 54
+            Layout.preferredHeight: _isAndroid ? 80: 54
             radius: 5
             GridLayout.row: 0
             GridLayout.column: 1
@@ -86,9 +101,9 @@ Rectangle {
         // --- Row 2
         Text {
             text: "View a file"
-            font.pixelSize: 30
+            font.pixelSize: settingsPopup.infoPixelsSize
 
-            height: 80
+            height: _isAndroid ? 80: 54
             GridLayout.row: 1
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
@@ -97,10 +112,10 @@ Rectangle {
 
         // Open
         Rectangle {
-            width: 80
-            height: 80
-            Layout.preferredWidth: 80
-            Layout.preferredHeight: 80
+            width: _isAndroid ? 80: 54
+            height: _isAndroid ? 80: 54
+            Layout.preferredWidth: _isAndroid ? 80: 54
+            Layout.preferredHeight: _isAndroid ? 80: 54
             radius: 5
             GridLayout.row: 1
             GridLayout.column: 1
@@ -129,8 +144,8 @@ Rectangle {
             hoverEnabled: true
             GridLayout.row: 1
             GridLayout.column: 2
-            Layout.minimumWidth: 400
-            Layout.preferredWidth: 400
+            Layout.minimumWidth: _isAndroid ? 400: 270
+            Layout.preferredWidth: _isAndroid ? 400: 270
 
             text: pulseRuntimeSettings.klfFilePath
             placeholderText: qsTr("Enter path")

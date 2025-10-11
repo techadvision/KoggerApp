@@ -42,6 +42,7 @@ QVector<QString> availableLanguages{"en", "ru", "pl"};
 
 static void makeStatusBarTransparent()
 {
+    #if defined(Q_OS_ANDROID)
     const int FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS = 0x80000000;
     const int FLAG_TRANSLUCENT_STATUS        = 0x04000000;
 
@@ -62,6 +63,7 @@ static void makeStatusBarTransparent()
                                 QAndroidJniObject::getStaticField<jint>(
                                     "android/graphics/Color", "TRANSPARENT"));
     });
+    #endif
 }
 
 void loadLanguage(QGuiApplication &app)

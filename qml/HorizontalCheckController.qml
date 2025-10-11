@@ -5,8 +5,23 @@ import QtQuick.Controls.Material 2.15
 
 Item {
     id: root
-    width: 155
-    height: 80
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+
+    width: _isAndroid ? 155 : 100
+    height: _isAndroid ? 80 : 60
+
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 60 : 40
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 42 : 32
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
 
     // Expose the checkbox state and icon source for external control
     property alias checked: checkBox.checked
@@ -32,8 +47,10 @@ Item {
             // Icon to indicate the type of controller
             Image {
                 id: controlIcon
-                Layout.preferredWidth: 34
-                Layout.preferredHeight: 34
+                Layout.preferredWidth: root.controlIconSize
+                Layout.preferredHeight: root.controlIconSize
+                //Layout.preferredWidth: 34
+                //Layout.preferredHeight: 34
                 source: root.iconSource
                 fillMode: Image.PreserveAspectFit
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
@@ -44,8 +61,10 @@ Item {
             // The checkbox component with a larger custom indicator
             CheckBox {
                 id: checkBox
-                implicitWidth: 56
-                implicitHeight: 56
+                implicitWidth: root.selectCheckSize
+                implicitHeight: root.selectCheckSize
+                //implicitWidth: 56
+                //implicitHeight: 56
 
                 // Custom white background with a subtle border
                 background: Rectangle {

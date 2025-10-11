@@ -6,6 +6,7 @@
 #ifdef Q_OS_ANDROID
 #include "InsetsHelper.h"
 #endif
+#include <functional>
 #include <QGuiApplication>
 #include <QScreen>
 #include <limits>
@@ -123,8 +124,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     };
 
     //SDK35 EDGE to EGDE SAFE METHODS
-
-    auto withTopWide = [&](auto&& fn){
+    auto withTopWide = [&](const std::function<void(const QRect&)>& fn){
         p->save();
         p->resetTransform();
 
@@ -133,7 +133,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
         const QRect band(0, safeTopEdge, devW, devH - safeTopEdge); // full width, below status bar
         p->setClipRect(band);
-        fn(band);   // pass the rect we’re drawing in
+        fn(band);
         p->restore();
     };
 
@@ -190,7 +190,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         if (!lineText.isEmpty()) {
             if (isHorizontalGrid_) {
                 //HORIZONTAL GRID
-#ifdef Q_OS_ANDROID
+//#ifdef Q_OS_ANDROID
                 withDeviceSafe([&]{
                     const int desiredX = safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset;
                     const QPoint textPos(desiredX, posYflipped - textYOffset);
@@ -201,10 +201,12 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                          safeRightEdge,   // forceRightEdge
                                          5);              // verticalOffset
                 });
-#endif
+//#endif
+/*
 #ifdef Q_OS_WINDOWS
                 p->drawText(safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset, posYflipped - textYOffset, lineText);
 #endif
+*/
             } else {      
                 //VERTICAL GRID
                 withTopWide([&](const QRect& band){
@@ -276,7 +278,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         QString range_text = QString::number(val, 'f', (isMetric_ ? 0 : 1)) + (isMetric_ ? QObject::tr(" m") : QObject::tr(" ft"));
 
         if (isHorizontalGrid_) {
-#ifdef Q_OS_ANDROID
+//#ifdef Q_OS_ANDROID
             withDeviceSafe([&]{
                 const int desiredX = safeRightEdge - textXOffset/2 - fm.horizontalAdvance(range_text);
                 const int baseY    = safeBottomEdge - 10;   // inside the safe area
@@ -286,12 +288,14 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                      safeRightEdge,// forceRightEdge inside safeRect
                                      5);           // vertical offset
             });
-#endif
+//#endif
+/*
 #ifdef Q_OS_WINDOWS
             //p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
             p->drawText(safeRightEdge - textXOffset / 2 - fm.horizontalAdvance(range_text),
                         safeBottomEdge - 10, range_text);
 #endif
+*/
         } else {
             /*
             p->save();

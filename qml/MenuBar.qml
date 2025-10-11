@@ -99,6 +99,7 @@ Item {
 
             MenuButton {
                 id: menuSettings
+                //Pulse: Hide
                 visible: false
                 icon.source: "qrc:/icons/ui/plug.svg"
                 Layout.fillWidth: true

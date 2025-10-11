@@ -4,14 +4,18 @@ import QtQuick.Controls 2.15
 
 Item {
     id: root
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+
     property var    target
     property string targetPropertyName: ""
     property bool   initialValue:       false
     property string showIconSource:     "./icons/ui/pulse_setting_show.svg"
     property bool   expanded:           initialValue
 
-    width: 64
-    height: 64
+    width: _isAndroid ? 64 : 32
+    height: _isAndroid ? 64 : 32
 
     Image {
         id: icon

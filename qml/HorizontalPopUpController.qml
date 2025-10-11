@@ -7,8 +7,27 @@ import QtQuick.Window 2.2   // for mapToItem(null, …)
 
 Item {
     id: root
-    width: 155
-    height: 80
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+
+    width: _isAndroid ? 155 : 100
+    height: _isAndroid ? 80 : 60
+    //height: 80
+
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 60 : 40
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 42 : 32
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+
+
+
 
     // ───────────────────────────────────────────────────────────────
     // Public API
@@ -51,8 +70,10 @@ Item {
             // Optional “control” icon on the left
             Image {
                 id: controlIcon
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 42
+                Layout.preferredWidth: root.controlIconSize
+                Layout.preferredHeight: root.controlIconSize
+                //Layout.preferredWidth: 42
+                //Layout.preferredHeight: 42
                 source: root.iconSource
                 fillMode: Image.PreserveAspectFit
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
@@ -62,8 +83,10 @@ Item {
             // The rectangle that shows the currently selected item:
             Rectangle {
                 id: iconRect
-                width: 80
-                height: 80
+                width: root.selectIconSize
+                height: root.selectIconSize
+                //width: 80
+                //height: 80
                 radius: 5
                 color: "transparent"
 
@@ -72,8 +95,10 @@ Item {
                     source: root.model.length > 0
                             ? root.model[root.selectedIndex]
                             : ""
-                    width: 80
-                    height: 80
+                    width: root.selectIconSize
+                    height: root.selectIconSize
+                    //width: 80
+                    //height: 80
                     fillMode: Image.PreserveAspectFit
                     smooth: true
                 }

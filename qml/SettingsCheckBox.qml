@@ -4,8 +4,12 @@ import QtQuick.Controls 2.15
 // Reusable CheckBox with custom indicator, background and optional auto-clear timer
 CheckBox {
     id: control
-    implicitWidth: 48
-    implicitHeight: 48
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+
+    implicitWidth: _isAndroid ? 54 : 32
+    implicitHeight: _isAndroid ? 54 : 32
 
     // Bind this to your model or initial state
     property bool initialChecked: false

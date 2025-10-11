@@ -556,7 +556,18 @@ WaterFall {
     GridLayout  {
 
         id: quickChangeObjects
-        width: 710
+
+        // Platform helpers
+        readonly property bool _isAndroid: Qt.platform.os === "android"
+        function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
+        // Safe accessors (0 on non-Android or when Insets missing)
+        function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top    : 0; }
+        function insetBottom() { return _hasInsets() && Insets.dexEnabled ? Insets.bottom : 0; }
+        function insetLeft()   { return _hasInsets() && Insets.dexEnabled ? Insets.left   : 0; }
+        function insetRight()  { return _hasInsets() && Insets.dexEnabled ? Insets.right  : 0; }
+
+        width: _isAndroid ? 710 : 480
+        //width: 710
         clip: true
         columns: 2
         rowSpacing: 10
@@ -571,13 +582,10 @@ WaterFall {
         property bool showAs2DTransducer: false
         property bool isDeviceDetected: false
 
-
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        //anchors.bottomMargin: 20 + Math.max(Insets.bottom, Insets.ime)
-        anchors.bottomMargin: 20 + Insets.bottom
+        anchors.bottomMargin: insetBottom() + 20
         anchors.leftMargin: 20
-        //anchors.bottomMargin: 20
 
         //Pulse functions
         //***************
@@ -840,10 +848,8 @@ WaterFall {
             GridLayout.row: 0
             GridLayout.column: 0
             Layout.rowSpan: 2
-            Layout.preferredWidth: 370
-            //Layout.preferredHeight: 200
-            //visible: true
-            //opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 0
+            Layout.preferredWidth: _isAndroid ? 370 : 260
+            //Layout.preferredWidth: 370
             opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 1
             enabled: (quickChangeObjects.isDeviceDetected)
         }
@@ -854,7 +860,7 @@ WaterFall {
 
             GridLayout.row: 1
             GridLayout.column: 1
-            Layout.preferredWidth: 310
+            Layout.preferredWidth: _isAndroid ? 310 : 210
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorMaxDepth"
             minValue: {
@@ -1029,7 +1035,7 @@ WaterFall {
             visible: pulseSettings.areUiControlsVisible
             GridLayout.row: 2
             GridLayout.column: 1
-            Layout.preferredWidth: 310
+            Layout.preferredWidth: _isAndroid ? 310 : 210
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorIntensity"
             minValue: 0
@@ -1086,7 +1092,7 @@ WaterFall {
             controleName: "selectorFiltering"
             GridLayout.row: 3
             GridLayout.column: 1
-            Layout.preferredWidth: 310
+            Layout.preferredWidth: _isAndroid ? 310 : 210
             Layout.alignment: Qt.AlignBottom
             minValue: 0
             maxValue: 20
@@ -1167,7 +1173,7 @@ WaterFall {
 
             GridLayout.row: 2
             GridLayout.column: 0
-            Layout.preferredWidth: 350
+            Layout.preferredWidth: _isAndroid ? 350 : 220
 
 
             HorizontalPopUpController {
@@ -1453,7 +1459,7 @@ WaterFall {
 
             GridLayout.row: 3
             GridLayout.column: 0
-            Layout.preferredWidth: 350
+            Layout.preferredWidth: _isAndroid ? 350 : 220
 
 
             HorizontalCheckController {
@@ -1534,7 +1540,7 @@ WaterFall {
         source: "./image/logo_techadvision_gray.png"
         anchors.bottom: parent.bottom
         //anchors.bottomMargin: 40 + Math.max(Insets.bottom, Insets.ime)
-        anchors.bottomMargin: 40 + Insets.bottom
+        anchors.bottomMargin: 40 + insetBottom()
         anchors.left: quickChangeObjects.right
         anchors.leftMargin: 40
         width: 360
@@ -1686,6 +1692,7 @@ WaterFall {
 
         MenuScroll {
             id: settingsScroll
+            //Pulse: Hide
             visible: false
             //visible: plotCheckButton.checked
             Layout.preferredHeight: parent.height
@@ -2538,6 +2545,7 @@ WaterFall {
         id: menuBlock
         Layout.alignment: Qt.AlignHCenter
         spacing: 1
+        //Pulse: Hide
         visible: false
         Layout.margins: 0
 

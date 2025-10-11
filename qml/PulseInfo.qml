@@ -4,8 +4,24 @@ import QtQuick.Layouts 1.15
 
 Flickable {
     id: root
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 60 : 40
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 42 : 32
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+    property int infoPixelsSize:  _isAndroid ? 32 : 22
+
     focus: true
-    width: 900
+    width: _isAndroid ? 900 : 600
+
 
     // Make the Flickable scrollable vertically
     flickableDirection: Flickable.VerticalFlick
@@ -33,16 +49,11 @@ Flickable {
 
         // Make width = 40% of the Flickable's width
         width: root.width * 0.4
-        // Compute height from the image's implicit dimensions to preserve aspect ratio:
-        //   height = width × (originalHeight / originalWidth)
-        //   implicitHeight and implicitWidth reflect the image's native size.
         height: width * implicitHeight / implicitWidth
 
         // 10 px margin from top and left of the Flickable
         anchors.top: parent.top
-        //anchors.topMargin: 10
         anchors.left: parent.left
-        //anchors.leftMargin: 10
     }
 
     // ——————————————————————————————————————————————————————————
@@ -70,7 +81,7 @@ Flickable {
         Rectangle {
             id: appIconRect
             width: parent.width
-            height: 135
+            height: _isAndroid ? 135 : 90
             color: "transparent"
             radius: 4
             anchors.topMargin: 20
@@ -79,8 +90,8 @@ Flickable {
             Image {
                 id: appIconImage
                 source: "./image/logo_icon.png"
-                height: 125
-                width: 125
+                height: _isAndroid ? 125 : 80
+                width: _isAndroid ? 125 : 80
                 fillMode: Image.PreserveAspectFit
                 anchors.top: parent.top
                 anchors.left: parent.left
@@ -104,7 +115,7 @@ Flickable {
                 id: appNameText
                 text: loadVersion()           // still calls your loadVersion() function
                 font.bold: true
-                font.pixelSize: 32
+                font.pixelSize: root.infoPixelsSize
                 anchors.top: appIconRect.bottom
                 anchors.left: parent.left
                 anchors.leftMargin: 5
@@ -135,7 +146,7 @@ Flickable {
                         return "Device:\nNo device connected"
                     }
                 }
-                font.pixelSize: 32
+                font.pixelSize: root.infoPixelsSize
                 anchors.top: appNameRect.bottom
                 anchors.left: parent.left
                 anchors.leftMargin: 5
@@ -166,7 +177,7 @@ Flickable {
                         }
                     }
                 }
-                font.pixelSize: 32
+                font.pixelSize: root.infoPixelsSize
                 anchors.top: deviceNameRect.bottom
                 anchors.left: parent.left
                 anchors.leftMargin: 5

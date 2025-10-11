@@ -20,9 +20,20 @@ ApplicationWindow  {
     minimumHeight: 256
     color:         "black"
     title:         qsTr("Pulse, TechAdVision")
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
+    // Safe accessors (0 on non-Android or when Insets missing)
+    function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top    : 0; }
+    function insetBottom() { return _hasInsets() && Insets.dexEnabled ? Insets.bottom : 0; }
+    function insetLeft()   { return _hasInsets() && Insets.dexEnabled ? Insets.left   : 0; }
+    function insetRight()  { return _hasInsets() && Insets.dexEnabled ? Insets.right  : 0; }
+
     header: Item {
         Behavior on height { NumberAnimation { duration: 500 } }
-        height: Insets.dexEnabled ? Insets.top : 0
+        height: insetTop()        // <- no ReferenceError on Windows
+        //height: Insets.dexEnabled ? Insets.top : 0
     }
 
     readonly property int _rightBarWidth:                360
@@ -1317,8 +1328,8 @@ ApplicationWindow  {
         // the actual label
         Text {
             id: zoomText
-            text: "Horizontal zoom: " + pulseSettings.echogramSpeed
-            //text: "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
+            text: "Echogram speed: " + pulseSettings.echogramSpeed
+            //text: "Echogram speed: " + pulseRuntimeSettings.echogramSpeed
             font.pixelSize: 40
             color: "white"
             anchors.centerIn: parent
@@ -1337,8 +1348,8 @@ ApplicationWindow  {
             target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
             function onEchogramSpeedChanged () {
                 //zoomText.text = "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
-                zoomText.text = "Horizontal zoom: " + pulseSettings.echogramSpeed
-                console.log("Horizontal zoom: New value", pulseRuntimeSettings.echogramSpeed)
+                zoomText.text = "Echogram speed: " + pulseSettings.echogramSpeed
+                console.log("Echogram speed: New value", pulseRuntimeSettings.echogramSpeed)
                 zoomIndicator.visible = true
                 hideTimer.restart()
             }

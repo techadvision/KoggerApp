@@ -4,8 +4,12 @@ import QtQuick.Window 2.15
 
 Item {
     id: root
-    width: 1000
-    height: 550
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+
+    width: _isAndroid ? 1000 : 650
+    height:_isAndroid ? 550 : 400
 
     //property real scaleFactor: Qt.application.primaryScreen.width / 480
     property real scaleFactor: 1

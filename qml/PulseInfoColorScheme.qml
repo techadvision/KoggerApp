@@ -8,8 +8,22 @@ import QtQuick.Dialogs 1.2
 
 Flickable {
     id: settingsPopup
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 120 : 80
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 30 : 22
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+
     focus: true
-    width: 900
+    width: _isAndroid ? 900 : 600
 
     anchors.fill: parent
     flickableDirection: Flickable.VerticalFlick
@@ -17,7 +31,7 @@ Flickable {
     // Scrollbar always visible
     ScrollBar.vertical: ScrollBar {
         policy: ScrollBar.AlwaysOn
-        width: 16
+        width: _isAndroid? 16 : 12
     }
 
     contentWidth: width
@@ -26,7 +40,7 @@ Flickable {
     Rectangle {
         id: colorsPopup
         focus: true
-        width: 900
+        width: _isAndroid ? 900 : 600
         implicitHeight: childrenRect.height   // auto-grow to fit all the children
         clip: true                            // hide overflow if you want
         //height: 400
@@ -50,49 +64,14 @@ Flickable {
 
         Rectangle {
             id: colorBarLegend2D
-            width: 700
-            height: 80
+            width: _isAndroid ? 700 : 470
+            height: settingsPopup.selectIconSize
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.leftMargin: 10
             anchors.topMargin: 10
             color: "transparent"
             visible: pulseRuntimeSettings.is2DTransducer
-
-            /*
-            // helper to grab the 2D theme object by the persisted index
-            function getSelected2DTheme() {
-                var i = pulseSettings.colorMapIndex2D
-                return pulseRuntimeSettings.themeModelRed[i] || { icon: "", title: "" }
-            }
-
-            Connections {
-                target: pulseSettings ? pulseSettings : undefined
-                function onUseFavoriteThemes2DChanged() {
-                    console.log("Favorites toggled → perhaps update colorBarLegend2D")
-                    colorBarLegend2D.getSelected2DTheme()
-                }
-                function onFavoriteThemes2DNewChanged()   {
-                    console.log("Favorites changed → perhaps update colorBarLegend2D")
-                    colorBarLegend2D.getSelected2DTheme()
-                }
-                function onColorMapIndex2DChanged () {
-                    console.log("Favorites color map index updated → perhaps update colorBarLegend2D")
-                    colorBarLegend2D.getSelected2DTheme()
-                }
-            }
-            */
-
-
-            /*
-            // 1) Define a binding property for the currently selected theme object:
-            property var selected2DTheme: {
-                var i = pulseSettings.colorMapIndex2D
-                // if favorites‐only is on, make sure your singleton has already
-                // fallen back on removal, otherwise this just reads the index.
-                return pulseRuntimeSettings.themeModelRed[i] || { icon:"", title:"" }
-            }
-            */
 
             Row {
                 anchors.top: parent.top
@@ -103,9 +82,8 @@ Flickable {
                 Image {
                     id: colorImage2D
                     source: (pulseRuntimeSettings.themeModelRed[pulseSettings.colorMapIndex2D] || {}).icon
-                    //source: colorBarLegend2D.getSelected2DTheme().icon
-                    //source: colorBarLegend2D.selected2DTheme.icon
-                    width: 80; height: 80
+                    width: settingsPopup.selectIconSize
+                    height: settingsPopup.selectIconSize
                     fillMode: Image.PreserveAspectFit
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -116,7 +94,7 @@ Flickable {
                     //text: colorBarLegend2D.selected2DTheme.title
                     anchors.leftMargin: 10
                     font {
-                            pixelSize: 40
+                            pixelSize: _isAndroid ? 40 : 26
                             bold: true
                             italic: true
                         }
@@ -127,8 +105,8 @@ Flickable {
 
         Rectangle {
             id: colorBarLegendSS
-            width: 700
-            height: 80
+            width: _isAndroid ? 700 : 470
+            height: settingsPopup.selectIconSize
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.leftMargin: 10
@@ -152,7 +130,8 @@ Flickable {
                 Image {
                     id: colorImageSS
                     source: colorBarLegendSS.getSelectedSSTheme().icon
-                    width: 80; height: 80
+                    width: settingsPopup.selectIconSize
+                    height: settingsPopup.selectIconSize
                     fillMode: Image.PreserveAspectFit
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -160,7 +139,7 @@ Flickable {
                 Text {
                     text: colorBarLegendSS.getSelectedSSTheme().title
                     font {
-                            pixelSize: 40
+                            pixelSize: _isAndroid ? 40 : 26
                             bold: true
                             italic: true
                         }
@@ -172,8 +151,8 @@ Flickable {
 
         Rectangle {
             id: colorBar
-            width: 850
-            height: 30
+            width: _isAndroid ? 850 : 560
+            height: _isAndroid ? 30 : 20
             anchors.left: parent.left
             anchors.topMargin: 5
             anchors.leftMargin: 20
@@ -206,8 +185,8 @@ Flickable {
 
         Rectangle {
             id: infoLeftContainer
-            width: 42
-            height: 42
+            width: _isAndroid ? 42 : 28
+            height: _isAndroid ? 42 : 28
             color:  "transparent"
 
             anchors.left: colorBar.left
@@ -216,8 +195,8 @@ Flickable {
 
             Image {
                 anchors.centerIn: infoLeftContainer
-                width: 42
-                height: 42
+                width: _isAndroid ? 42 : 28
+                height: _isAndroid ? 42 : 28
                 source: "./icons/ui/pulse_return_signal_weak.svg"
                 fillMode: Image.PreserveAspectFit
             }
@@ -225,8 +204,8 @@ Flickable {
 
         Rectangle {
             id: infoRightContainer
-            width: 42
-            height: 42
+            width: _isAndroid ? 42 : 28
+            height: _isAndroid ? 42 : 28
             color:  "transparent"
 
             anchors.top: colorBar.bottom
@@ -235,8 +214,8 @@ Flickable {
 
             Image {
                 anchors.centerIn: infoRightContainer
-                width: 42
-                height: 42
+                width: _isAndroid ? 42 : 28
+                height: _isAndroid ? 42 : 28
                 source: "./icons/ui/pulse_return_signal_hard.svg"
                 fillMode: Image.PreserveAspectFit
             }
@@ -265,8 +244,10 @@ Flickable {
             clip: true
             anchors.leftMargin: 15
             anchors.topMargin: 10
-            width: 900; height: 400
-            cellWidth: 150; cellHeight: 80
+            width: _isAndroid? 900 : 600
+            height: _isAndroid ? 400 : 270
+            cellWidth: _isAndroid ? 150 : 100
+            cellHeight: _isAndroid ? 80 : 54
             model: pulseRuntimeSettings.themeModelRed
             delegate: Item {
                 width: grid.cellWidth; height: grid.cellHeight
@@ -300,8 +281,8 @@ Flickable {
 
                 Image {
                     source: modelData.icon
-                    width: 64
-                    height: 64
+                    width: _isAndroid ? 64 : 42
+                    height: _isAndroid ? 64 : 42
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: checkBox.right
                     anchors.leftMargin: 5

@@ -6,8 +6,10 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QThread>
+#if defined(Q_OS_ANDROID)
 #include <QAndroidJniObject>
 #include <QtAndroid>
+#endif
 #include <QDebug>
 #include "SettingsBus.h"
 
@@ -464,8 +466,8 @@ void LinkManager::importPinnedLinksFromXML()
             <parity>false</parity>
             <link_type>2</link_type>
             <address>%2</address>
-            <source_port>14550</source_port>
-            <destination_port>14550</destination_port>
+            <source_port>%3</source_port>
+            <destination_port>%3</destination_port>
             <is_pinned>true</is_pinned>
             <is_hided>false</is_hided>
             <is_not_available>false</is_not_available>
@@ -473,8 +475,9 @@ void LinkManager::importPinnedLinksFromXML()
         </link>
     </pinned_links>
     )")
-                  .arg(uuidIpGateway)  // UDP link UUID
-                  .arg(gatewayIP);      // Insert dynamic gateway IP
+                  .arg(uuidIp)
+                  .arg(gatewayIP)
+                  .arg(udpPort);
 
     #endif
 
@@ -692,7 +695,7 @@ void LinkManager::closeLink(QUuid uuid)
 void LinkManager::closeFLink(QUuid uuid)
 {
     TimerController(timer_.get());
-    qDebug() << "LinkManager::closeFLink for uuid", uuid;
+    qDebug() << "LinkManager::closeFLink for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         linkPtr->setIsForceStopped(true);
@@ -704,7 +707,7 @@ void LinkManager::closeFLink(QUuid uuid)
 void LinkManager::deleteLink(QUuid uuid)
 {
     TimerController(timer_.get());
-    qDebug() << "LinkManager::deleteLink for uuid", uuid;
+    qDebug() << "LinkManager::deleteLink for uuid" << uuid;
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         emit linkDeleted(linkPtr->getUuid(), linkPtr);

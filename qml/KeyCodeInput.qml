@@ -4,6 +4,21 @@ import QtQuick.Controls 2.15
 
 Item {
     id: root
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    // Platform related sizes
+    property int controlIconSize: _isAndroid ? 34 : 20
+    property int pressButtonSize: _isAndroid ? 80 : 40
+    property int displayPixels:   _isAndroid ? 100 : 40
+    property int valueTextWidth:  _isAndroid ? 120 : 80
+    property int valueTextHeigh:  _isAndroid ? 40 : 30
+    property int valuePixels:     _isAndroid ? 30 : 22
+    property int autoPixels:      _isAndroid ? 32 : 24
+    property int selectIconSize:  _isAndroid ? 80 : 60
+    property int selectCheckSize: _isAndroid ? 56 : 40
+
+
     property bool editing: false
 
     // Hidden helper to measure “not_set_123” at pixelSize 30
@@ -56,7 +71,7 @@ Item {
 
         TextField {
             id: textField
-            font.pixelSize: 30
+            font.pixelSize: root.valuePixels
 
             // Show the real key when editing; otherwise “not_set” masked
             text: editing
@@ -88,8 +103,8 @@ Item {
         Image {
             id: actionIcon
             source: editing ? "./icons/ui/pulse_save.svg" : "./icons/ui/pulse_edit.svg"
-            width: 64
-            height: 64
+            width: _isAndroid ? 64 : 28
+            height: _isAndroid ? 64 : 28
             fillMode: Image.PreserveAspectFit
 
             anchors.verticalCenter: textField.verticalCenter
@@ -116,8 +131,8 @@ Item {
         Image {
             id: betaUser
             source: "./icons/ui/pulse_beta_user.svg"
-            width: 64
-            height: 64
+            width: _isAndroid ? 64 : 28
+            height: _isAndroid ? 64 : 28
             fillMode: Image.PreserveAspectFit
             visible: pulseSettings.isBetaTester
 
@@ -130,8 +145,8 @@ Item {
         Image {
             id: expertUser
             source: "./icons/ui/pulse_guru_user.svg"
-            width: 64
-            height: 64
+            width: _isAndroid ? 64 : 28
+            height: _isAndroid ? 64 : 28
             fillMode: Image.PreserveAspectFit
             visible: pulseSettings.isExpert
 

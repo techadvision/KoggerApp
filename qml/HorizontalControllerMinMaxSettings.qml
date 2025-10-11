@@ -4,6 +4,16 @@ import QtQuick.Layouts 1.15
 
 Item {
     id: root
+
+
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    // Platform related sizes
+    property int pressButtonSize: _isAndroid ? 54 : 32
+    property int displayPixels:   _isAndroid ? 80 : 40
+    property int valueTextWidth:  _isAndroid ? 120 : 80
+    property int valuePixels:     _isAndroid ? 30 : 22
+
     // Range and step properties
     property double minimum: 0.0
     property double maximum: 10.0
@@ -14,8 +24,9 @@ Item {
 
     signal pulsePreferenceValueChanged(double newValue)
 
-    implicitWidth: 280
-    implicitHeight: 80
+    implicitWidth: _isAndroid ? 280 : 180
+    implicitHeight: _isAndroid? 54 : 32
+    //implicitHeight: _isAndroid? 80 : 54
 
     // Recompute precision if stepSize changes
     onStepSizeChanged: precision = calcPrecision(stepSize)
@@ -25,16 +36,17 @@ Item {
 
     Row {
         anchors.fill: parent
-        width: 300
-        height: 80
+        width: parent.width
+        height: parent.height
+        //height: root._isAndroid ? 80 : 54
 
         // Minus button
         Button {
             id: minusButton
             text: "-"
-            font.pixelSize: 80
-            width: 80;
-            height: 60
+            font.pixelSize: root.displayPixels
+            width: root.pressButtonSize
+            height: root.pressButtonSize
             anchors.top: valueRect.top;
             anchors.bottom: valueRect.bottom
 
@@ -69,14 +81,15 @@ Item {
         // Display
         Rectangle {
             id: valueRect
-            width: 120; height: 60
+            width: root.valueTextWidth
+            height: root.pressButtonSize
             anchors.verticalCenter: parent.verticalCenter
             color: "transparent"
             border.width: 1; border.color: "#dddddd"
 
             Text {
                 anchors.centerIn: parent
-                font.pixelSize: 30
+                font.pixelSize: root.valuePixels
                 // Format with dynamic precision
                 text: root.currentValue.toFixed(root.precision)
             }
@@ -86,8 +99,9 @@ Item {
         Button {
             id: plusButton
             text: "+"
-            font.pixelSize: 60
-            width: 80; height: 60
+            font.pixelSize: root.displayPixels
+            width: root.pressButtonSize
+            height: root.pressButtonSize
             anchors.top: valueRect.top; anchors.bottom: valueRect.bottom
 
             background: Item {
