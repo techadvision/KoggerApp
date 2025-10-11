@@ -204,8 +204,8 @@ android {
         $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++_shared.so \
         $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++abi.so \
         $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libunwind.so \
-        $$PWD/third_party/android_openssl/$${ANDROID_TARGET_ARCH}/libcrypto_1_1.so \
-        $$PWD/third_party/android_openssl/$${ANDROID_TARGET_ARCH}/libssl_1_1.so
+        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libcrypto_1_1.so \
+        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libssl_1_1.so
     # -------
     ANDROID_TARGET_SDK_VERSION = 35
     ANDROID_MIN_SDK_VERSION = 23
