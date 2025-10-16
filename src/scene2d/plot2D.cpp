@@ -508,6 +508,7 @@ void Plot2D::setDistance(float from, float to) {
 
 void Plot2D::zoomDistance(float ratio)
 {
+    //qDebug() << "Plot2D::zoomDistance with ratio" << ratio;
     cursor_.distance.mode = AutoRangeNone;
 
     int  delta = ratio;
@@ -535,26 +536,40 @@ void Plot2D::zoomDistance(float ratio)
 
     if(new_range < 1) {
         new_range = 1;
-    } else if(new_range > 500) {
-        new_range = 500;
     }
 
     //Pulse
     int maximumTransducerRange = maximumDepth_;
-    new_range = maximumTransducerRange;
+    if (cursor_.isChannelDoubled() && !isHorizontal()) {
+        maximumTransducerRange = 2 * maximumTransducerRange;
+        if (new_range < 20) {
+            new_range = 20;
+        }
+    }
+    if (new_range > maximumTransducerRange)
+        new_range = maximumTransducerRange;
 
     if (cursor_.isChannelDoubled()) {
         //Pulse
         if (isHorizontal()) {
-            cursor_.distance.to = -ceil(cursor_.distance.from + new_range);
+            if (isSideScanLeftHand_) {
+                cursor_.distance.from = 0;
+                cursor_.distance.to = -ceil(cursor_.distance.from + new_range);
+                qDebug() << "zoomDistance leftHand: delta" << delta << "absrange" << absrange << "new_range" << new_range << "cursor_.distance.to" << cursor_.distance.to;
+                //cursor_.distance.to = 0;
+                //cursor_.distance.from = ceil(cursor_.distance.to + new_range);
+            } else {
+                cursor_.distance.from = 0;
+                cursor_.distance.to = ceil(cursor_.distance.from + new_range);
+                qDebug() << "zoomDistance rightHand: delta" << delta << "absrange" << absrange << "new_range" << new_range << "cursor_.distance.to" << cursor_.distance.to;
+            }
+
         } else {
             cursor_.distance.from = -ceil( new_range/2);
             cursor_.distance.to = ceil( new_range/2);
+            qDebug() << "zoomDistance dualChannel: delta" << delta << "absrange" << absrange << "new_range" << new_range << "cursor_.distance.to" << cursor_.distance.to;
         }
 
-        //cursor_.distance.from = -ceil(new_range / 2);
-        //cursor_.distance.to = ceil(new_range / 2);
-        //-----
     }
     else {
        cursor_.distance.to = ceil(cursor_.distance.from + new_range);

@@ -60,6 +60,7 @@ WaterFall {
     property real quickChangeMaxRangeValue: 15
     signal echogramWasZoomed(real updatedMaxValue)
     property bool isLiveView: true
+    property real depthStepAccum: 0.0
 
     //End of additiona - Properties
     //*****************************
@@ -230,7 +231,7 @@ WaterFall {
         }
 
         onPinchUpdated: {
-            console.info("onPinchUpdated")
+            //console.info("onPinchUpdated")
 
             if (movementX) {
                 let val = -(pinch.previousCenter.x - pinch.center.x)
@@ -263,32 +264,41 @@ WaterFall {
 
             else if (zoomY) {
                 //Pulse additions, replacing the logic
-                /*
-                let val = (pinch.previousScale - pinch.scale) * 500.0
-                plot.verZoomEvent(val)
-                plotCursorChanged(indx, cursorFrom(), cursorTo())
-                */
-                console.log("pinch: onPinchUpdated, view is horizontal: ", plot.isViewHorizontal());
-                if (plot.isViewHorizontal()) {
+                if (pulseRuntimeSettings.is2DTransducer) {
                     plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
+                    let newMaxDepthValue = Math.abs(plot.getMaxDepth())
+                    plot.quickChangeMaxRangeValue = newMaxDepthValue
+                    selectorMaxDepth.value = newMaxDepthValue
                 } else {
-                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
+                    // To overcome the complexity of blue, we modify the max depth picker directly instead of through the echogram
+                    if (plot.isViewHorizontal()) {
+                        let pinchDelta  = (pinch.previousScale - pinch.scale) * 10
+                        depthStepAccum += pinchDelta
+                        let steps = depthStepAccum > 0 ? Math.floor(depthStepAccum)
+                                                       : Math.ceil(depthStepAccum)
+                        if (steps !== 0) {
+                            depthStepAccum -= steps   // keep the fractional remainder
+                            let newVal = plot.quickChangeMaxRangeValue + steps
+                            if (newVal < 1) newVal = 1
+                            if (newVal > pulseRuntimeSettings.maximumDepth)
+                                newVal = pulseRuntimeSettings.maximumDepth
+
+                            plot.quickChangeMaxRangeValue = newVal
+                            selectorMaxDepth.value = newVal
+                        }
+                    } else {
+                        plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
+                        let newMaxDepthValue = Math.abs(plot.getMaxDepth())
+                        plot.quickChangeMaxRangeValue = newMaxDepthValue
+                        selectorMaxDepth.value = newMaxDepthValue
+                    }
                 }
-
-                let newMaxDepthValue = plot.getMaxDepth()
-                //let newMaxDepthValue = plot2DGrid.getAssessedMaxDepth()
-
-                plot.quickChangeMaxRangeValue = newMaxDepthValue
-                selectorMaxDepth.value = newMaxDepthValue
-                console.log("pinch: onPinchUpdated, new max is: ", plot.quickChangeMaxRangeValue);
-                plot.echogramWasZoomed(plot.quickChangeMaxRangeValue)
                 //***************
             }
 
             //Pulse additions, replacing the logic
             else if  (zoomX) {
-                if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseBlue
-                        && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseBlueProto) {
+                if (pulseRuntimeSettings.is2DTransducer) {
                     // 1) compute horizontal “ratio”
                     var hRatio = (pinch.scale - pinch.previousScale) * 50;
                     // 2) fraction of the 4-unit speed range
@@ -304,12 +314,6 @@ WaterFall {
                         pulseSettings.echogramSpeed = rounded;
                         //console.log("TAV: zoomX → echogramSpeed changed to", rounded);
                     }
-                    /*
-                    if (rounded !== pulseRuntimeSettings.echogramSpeed) {
-                        pulseRuntimeSettings.echogramSpeed = rounded;
-                        //console.log("TAV: zoomX → echogramSpeed changed to", rounded);
-                    }
-                    */
                 }
             }
 
@@ -562,9 +566,10 @@ WaterFall {
         function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
         // Safe accessors (0 on non-Android or when Insets missing)
         function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top    : 0; }
-        function insetBottom() { return _hasInsets() && Insets.dexEnabled ? Insets.bottom : 0; }
-        function insetLeft()   { return _hasInsets() && Insets.dexEnabled ? Insets.left   : 0; }
-        function insetRight()  { return _hasInsets() && Insets.dexEnabled ? Insets.right  : 0; }
+        function insetBottom() { return _hasInsets() ? Insets.bottom : 0; }
+        function insetLeft()   { return _hasInsets() ? Insets.left   : 0; }
+        function insetRight()  { return _hasInsets() ? Insets.right  : 0; }
+        function insetsIme()   { return _hasInsets() ? Insets.ime  : 0; }
 
         width: _isAndroid ? 710 : 480
         //width: 710
@@ -908,6 +913,7 @@ WaterFall {
             iconSource: "./icons/ui/pulse_ruler.svg"
 
             onSelectorValueChanged: {
+                console.log("pinch: onSelectorValueChanged: ", value);
                 plot.quickChangeMaxRangeValue = value;
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                     pulseSettings.maxDepthValue = value;
@@ -1540,7 +1546,7 @@ WaterFall {
         source: "./image/logo_techadvision_gray.png"
         anchors.bottom: parent.bottom
         //anchors.bottomMargin: 40 + Math.max(Insets.bottom, Insets.ime)
-        anchors.bottomMargin: 40 + insetBottom()
+        anchors.bottomMargin: 40 + Math.max(insetBottom(), insetsIme())
         anchors.left: quickChangeObjects.right
         anchors.leftMargin: 40
         width: 360
