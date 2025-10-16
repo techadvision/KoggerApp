@@ -58,7 +58,16 @@ void Link::createAsSerial(const QString &portName, int baudrate, bool parity)
     parity_ = parity;
     baudrate_ = baudrate;
     baudrateSearchList_ = baudrateSearchList; // by default
+    qDebug() << "Link::createAsSerial, uuid" << uuid_
+             << "portName_" << portName_
+             << "baudrate_" << baudrate_
+             << "baudrateSearchList_" << baudrateSearchList_;
     resetLastSearchIndx();
+/*
+#if defined(Q_OS_ANDROID)
+    openAsSerial();
+#endif
+*/
 }
 
 void Link::openAsSerial()
@@ -76,17 +85,22 @@ void Link::openAsSerial()
         setDev(serialPort);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
+        qDebug() << "Link::openAsSerial isOpen uuid" << uuid_;
         if (bus_) {
-            QVariantMap m; m.insert("uuidSuccessfullyOpened", uuidUsbSerial_);
+            QVariantMap m; m.insert("uuidUsbSerial", uuid_);
             QMetaObject::invokeMethod(bus_, "updateRuntime",
                                       Qt::QueuedConnection,
                                       Q_ARG(QVariantMap, m));
-            qDebug() << "Link::openAsSerial uuid open" << uuidUsbSerial_;
+            QVariantMap m2; m2.insert("uuidSuccessfullyOpened", uuid_);
+            QMetaObject::invokeMethod(bus_, "updateRuntime",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(QVariantMap, m));
+            qDebug() << "Link::openAsSerial uuid open" << uuid_;
         }
     }
     else {
         delete serialPort;
-        //qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_;
+        qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_;
         emit connectionStatusChanged(uuid_);
     }
     baudrateSearchList_ = baudrateSearchList;

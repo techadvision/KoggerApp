@@ -64,6 +64,8 @@ public slots:
     void createAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort);
     void closeUdpProxy();
     QUuid getFirstOpend();
+    //PULSE
+    void handleLinkOpened(QUuid uuid, Link* link);
 
 signals:
     void appendModifyModel(QUuid uuid, bool connectionStatus, bool receivesData, ControlType controlType, QString portName, int baudrate, bool parity,

@@ -61,10 +61,14 @@ void LinkManager::setSettingsBus(SettingsBus* bus)
 
 void LinkManager::applyRuntime(const QVariantMap& m)
 {
-    if (m.contains("uuidIpGateway"))
+    if (m.contains("uuidIpGateway")) {
         uuidIpGateway_ = m.value("uuidIpGateway").toString();
-    if (m.contains("uuidUsbSerial"))
+        qDebug() << "LinkManager::ApplyRuntime uuidIpGateway" << uuidIpGateway_;
+    }
+    if (m.contains("uuidUsbSerial")) {
         uuidUsbSerial_ = m.value("uuidUsbSerial").toString();
+        qDebug() << "LinkManager::ApplyRuntime uuidUsbSerial" << uuidUsbSerial_;
+    }
 }
 
 void LinkManager::applyPersistent(const QVariantMap& m)
@@ -73,13 +77,27 @@ void LinkManager::applyPersistent(const QVariantMap& m)
     if (m.contains("isBetaTester")) isBetaTester_ = m.value("isBetaTester").toBool();
     if (m.contains("isExpert"))     isExpert_     = m.value("isExpert").toBool();
     if (m.contains("udpPort"))      udpPort_      = m.value("udpPort").toInt();
-    qDebug() << "QA_ver_0.96: persistent values: udpGateway" << udpGateway_ << "isBetaTester" << isBetaTester_ << "isExpert" << isExpert_ << "udpPort" << udpPort_;
+    qDebug() << "QA_ver_0.96: LinkManager persistent values: udpGateway" << udpGateway_ << "isBetaTester" << isBetaTester_ << "isExpert" << isExpert_ << "udpPort" << udpPort_;
 }
 
 
 QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
 {
-    return QSerialPortInfo::availablePorts();
+    //return QSerialPortInfo::availablePorts();
+    const QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
+
+    for (const QSerialPortInfo &p : ports) {
+        qDebug().noquote()
+        << QString("port=%1  location=%2  desc=%3  mfg=%4  serial=%5  busy=%6")
+                .arg(p.portName(),
+                     p.systemLocation(),
+                     p.description(),
+                     p.manufacturer(),
+                     p.serialNumber(),
+                     p.isBusy() ? "yes" : "no");
+    }
+
+    return ports;
 }
 
 Link* LinkManager::createSerialPort(const QSerialPortInfo &serialInfo) const
@@ -90,8 +108,11 @@ Link* LinkManager::createSerialPort(const QSerialPortInfo &serialInfo) const
     if (serialInfo.isNull())
         return newLinkPtr;
     newLinkPtr = createNewLink();
-    newLinkPtr->createAsSerial(serialInfo.portName(), 921600, false);   
-
+    newLinkPtr->createAsSerial(serialInfo.portName(), 921600, false);
+#if defined(Q_OS_ANDROID)
+    newLinkPtr->setControlType(ControlType::kAuto);
+    newLinkPtr->setAutoConnOnce(true);
+#endif
     return newLinkPtr;
 }
 
@@ -311,8 +332,25 @@ Link *LinkManager::createNewLink() const
     QObject::connect(retVal, &Link::baudrateChanged, this, &LinkManager::onLinkIsReceivesDataChanged);
     QObject::connect(retVal, &Link::isReceivesDataChanged, this, &LinkManager::onLinkIsReceivesDataChanged);
     QObject::connect(retVal, &Link::sendDoRequestAll, this, &LinkManager::sendDoRequestAll);
+    //Pulse
+    QObject::connect(retVal, &Link::opened, this, &LinkManager::handleLinkOpened);
 
     return retVal;
+}
+
+void LinkManager::handleLinkOpened(QUuid uuid, Link* link)
+{
+    qDebug() << "LinkManager::handleLinkOpened" << uuid;
+#if defined(Q_OS_ANDROID)
+    if (link && link->getLinkType() == LinkType::kLinkSerial) {
+        const QUuid gwUuid{uuidIpGateway_};
+        if (auto* gw = getLinkPtr(gwUuid)) {
+            gw->setIsForceStopped(true);
+            closeLink(gwUuid);
+        }
+    }
+#endif
+    emit linkOpened(uuid, link); // re-emit manager signal
 }
 
 void LinkManager::printLinkDebugInfo(Link* link) const
@@ -425,21 +463,6 @@ void LinkManager::importPinnedLinksFromXML()
             <address>%2</address>
             <source_port>%3</source_port>
             <destination_port>%3</destination_port>
-            <is_pinned>true</is_pinned>
-            <is_hided>false</is_hided>
-            <is_not_available>false</is_not_available>
-            <connection_status>true</connection_status>
-        </link>
-        <link>
-            <uuid>%4</uuid>
-            <control_type>1</control_type>
-            <port_name>/dev/bus/usb/001/002</port_name>
-            <baudrate>921600</baudrate>
-            <parity>false</parity>
-            <link_type>1</link_type>
-            <address></address>
-            <source_port></source_port>
-            <destination_port></destination_port>
             <is_pinned>true</is_pinned>
             <is_hided>false</is_hided>
             <is_not_available>false</is_not_available>
@@ -887,6 +910,11 @@ void LinkManager::openFLinks()
 
             switch (itm->getLinkType()) {
             case LinkType::kLinkSerial: {
+                //How to fix USB serial on all Android devices?
+                itm->setUuid(QUuid(uuidUsbSerial_));
+                itm->setControlType(static_cast<ControlType>(1));
+                itm->setBaudrate(921600);
+                itm->setParity(false);
                 itm->openAsSerial();
                 qDebug() << "LinkManager::openFLinks trigger openAsSerial";
                 break;
