@@ -39,7 +39,7 @@ import java.nio.ByteBuffer;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.kogger.koggerapp.KoggerActivity;
+import org.techadvision.pulse.PulseActivity;
 
 /**
  * A {@link CommonUsbSerialDriver} implementation for a variety of FTDI devices
@@ -231,35 +231,35 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
     public void open() throws IOException {
         D2xxManager ftD2xx = null;
         try {
-            ftD2xx = D2xxManager.getInstance(KoggerActivity.m_context);
+            ftD2xx = D2xxManager.getInstance(PulseActivity.m_context);
         } catch (D2xxManager.D2xxException ex) {
-            // KoggerActivity.qgcLogDebug("D2xxManager.getInstance threw exception: " + ex.getMessage());
+            // PulseActivity.qgcLogDebug("D2xxManager.getInstance threw exception: " + ex.getMessage());
         }
 
         if (ftD2xx == null) {
             String errMsg = "Unable to retrieve D2xxManager instance.";
-            // KoggerActivity.qgcLogWarning(errMsg);
+            // PulseActivity.qgcLogWarning(errMsg);
             throw new IOException(errMsg);
         }
-        // KoggerActivity.qgcLogDebug("Opened D2xxManager");
+        // PulseActivity.qgcLogDebug("Opened D2xxManager");
 
-        int DevCount = ftD2xx.createDeviceInfoList(KoggerActivity.m_context);
-        // KoggerActivity.qgcLogDebug("Found " + DevCount + " ftdi devices.");
+        int DevCount = ftD2xx.createDeviceInfoList(PulseActivity.m_context);
+        // PulseActivity.qgcLogDebug("Found " + DevCount + " ftdi devices.");
         if (DevCount < 1) {
             throw new IOException("No FTDI Devices found");
         }
 
         m_ftDev = null;
         try {
-            m_ftDev = ftD2xx.openByIndex(KoggerActivity.m_context, 0);
+            m_ftDev = ftD2xx.openByIndex(PulseActivity.m_context, 0);
         } catch (NullPointerException e) {
-            // KoggerActivity.qgcLogDebug("ftD2xx.openByIndex exception: " + e.getMessage());
+            // PulseActivity.qgcLogDebug("ftD2xx.openByIndex exception: " + e.getMessage());
         } finally {
             if (m_ftDev == null) {
                 throw new IOException("No FTDI Devices found");
             }
         }
-        // KoggerActivity.qgcLogDebug("Opened FTDI device.");
+        // PulseActivity.qgcLogDebug("Opened FTDI device.");
     }
 
     @Override
@@ -268,7 +268,7 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
             try {
                 m_ftDev.close();
             } catch (Exception e) {
-                // KoggerActivity.qgcLogWarning("close exception: " + e.getMessage());
+                // PulseActivity.qgcLogWarning("close exception: " + e.getMessage());
             }
             m_ftDev = null;
         }
@@ -285,7 +285,7 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
                 totalBytesRead = m_ftDev.read(dest, bytesAvailable, timeoutMillis);
             } catch (NullPointerException e) {
                 final String errorMsg = "Error reading: " + e.getMessage();
-                // KoggerActivity.qgcLogWarning(errorMsg);
+                // PulseActivity.qgcLogWarning(errorMsg);
                 throw new IOException(errorMsg, e);
             }
         }
@@ -299,7 +299,7 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
             m_ftDev.write(src);
             return src.length;
         } catch (Exception e) {
-            // KoggerActivity.qgcLogWarning("Error writing: " + e.getMessage());
+            // PulseActivity.qgcLogWarning("Error writing: " + e.getMessage());
         }
         return 0;
     }
@@ -309,7 +309,7 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
             m_ftDev.setBaudRate(baudRate);
             return baudRate;
         } catch (Exception e) {
-            // KoggerActivity.qgcLogWarning("Error setting baud rate: " + e.getMessage());
+            // PulseActivity.qgcLogWarning("Error setting baud rate: " + e.getMessage());
         }
         return 0;
     }
@@ -360,7 +360,7 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
         try {
             m_ftDev.setDataCharacteristics((byte)dataBits, (byte)stopBits, (byte)parity);
         } catch (Exception e) {
-            // KoggerActivity.qgcLogWarning("Error setDataCharacteristics: " + e.getMessage());
+            // PulseActivity.qgcLogWarning("Error setDataCharacteristics: " + e.getMessage());
         }
     }
     @Override
@@ -408,7 +408,7 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
                 m_ftDev.purge(D2xxManager.FT_PURGE_RX);
             } catch (Exception e) {
                 String errMsg = "Error purgeHwBuffers(RX): "+ e.getMessage();
-                // KoggerActivity.qgcLogWarning(errMsg);
+                // PulseActivity.qgcLogWarning(errMsg);
                 throw new IOException(errMsg);
             }
         }
@@ -418,7 +418,7 @@ public class FtdiSerialDriver extends CommonUsbSerialDriver {
                 m_ftDev.purge(D2xxManager.FT_PURGE_TX);
             } catch (Exception e) {
                 String errMsg = "Error purgeHwBuffers(TX): " + e.getMessage();
-                // KoggerActivity.qgcLogWarning(errMsg);
+                // PulseActivity.qgcLogWarning(errMsg);
                 throw new IOException(errMsg);
             }
         }

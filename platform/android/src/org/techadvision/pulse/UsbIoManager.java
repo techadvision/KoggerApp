@@ -1,4 +1,4 @@
-package org.kogger.koggerapp;
+package org.techadvision.pulse;
 
 /* Copyright 2011 Google Inc.
 *

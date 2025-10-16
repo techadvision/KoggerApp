@@ -1,4 +1,4 @@
-package org.kogger.koggerapp;
+package org.techadvision.pulse;
 
 /* Copyright 2013 Google Inc.
  *
@@ -23,7 +23,7 @@ package org.kogger.koggerapp;
 //  Written by: Mike Goza April 2014
 //
 //  These routines interface with the Android USB Host devices for serial port communication.
-//  The code uses the usb-serial-for-android software library.  The KoggerActivity class is the
+//  The code uses the usb-serial-for-android software library.  The Pulse class is the
 //  interface to the C++ routines through jni calls.  Do not change the functions without also
 //  changing the corresponding calls in the C++ routines or you will break the interface.
 //
@@ -86,17 +86,17 @@ import android.content.res.Configuration;
 import java.lang.reflect.Method;
 import java.lang.Class;
 
-public class KoggerActivity extends QtActivity
+public class PulseActivity extends QtActivity
 {
     public  static int                                  BAD_DEVICE_ID = 0;
     //private static boolean                              shutdownInPogress = false;
     private static final AtomicBoolean                  shutdownInPogress = new AtomicBoolean(false);
-    private static KoggerActivity                          _instance = null;
+    private static PulseActivity                          _instance = null;
     private static UsbManager                           _usbManager = null;
     private static List<UsbSerialDriver>                _drivers;
     private static HashMap<Integer, UsbIoManager>       m_ioManager;
     private static HashMap<Integer, Long>               _userDataHashByDeviceId;
-    private static final String                         TAG = "Kogger_KoggerActivity";
+    private static final String                         TAG = "Pulse_PulseActivity";
     private static PowerManager.WakeLock                _wakeLock;
     private static final String                         ACTION_USB_PERMISSION = "org.mavlink.qgroundcontrol.action.USB_PERMISSION";
     private static PendingIntent                        _usbPermissionIntent = null;
@@ -200,11 +200,11 @@ public class KoggerActivity extends QtActivity
                         qgcLogDebug("Do shutdown - shutdownInPogress is " + shutdownInPogress.get());
                         Toast.makeText(context, "Lost USB, Pulse shut itself down", Toast.LENGTH_LONG).show();
 
-                        if (KoggerActivity._instance != null) {
+                        if (PulseActivity._instance != null) {
                             new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                                 @Override
                                 public void run() {
-                                    KoggerActivity._instance.finishAffinity();;
+                                    PulseActivity._instance.finishAffinity();;
                                     System.exit(0);
                                 }
                             }, 500);
@@ -214,8 +214,8 @@ public class KoggerActivity extends QtActivity
 
 
                 } else if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
-                if (KoggerActivity._instance != null) {
-                         KoggerActivity._instance.probeAccessories();
+                if (PulseActivity._instance != null) {
+                         PulseActivity._instance.probeAccessories();
                     }
                     Toast.makeText(context, "USB DEVICE ATTACHED", Toast.LENGTH_SHORT).show();
                 }
@@ -242,8 +242,8 @@ public class KoggerActivity extends QtActivity
 
     public native void nativeInit();
 
-    // KoggerActivity singleton
-    public KoggerActivity()
+    // PulseActivity singleton
+    public PulseActivity()
     {
         _instance =                 this;
         _drivers =                  new ArrayList<UsbSerialDriver>();
@@ -431,11 +431,11 @@ public class KoggerActivity extends QtActivity
         if (!shutdownInPogress.get()) {
             qgcLogDebug("Do shutdown - onStop triggered, shutdownInPogress is " + shutdownInPogress.get());
             shutdownInPogress.set(true);
-            if (KoggerActivity._instance != null) {
+            if (PulseActivity._instance != null) {
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override
                     public void run() {
-                        KoggerActivity._instance.finishAffinity();;
+                        PulseActivity._instance.finishAffinity();;
                         System.exit(0);
                     }
                 });
@@ -453,11 +453,11 @@ public class KoggerActivity extends QtActivity
         if (!shutdownInPogress.get()) {
             qgcLogDebug("Do shutdown - onDestroy triggered, shutdownInPogress is " + shutdownInPogress.get());
             shutdownInPogress.set(true);
-            if (KoggerActivity._instance != null) {
+            if (PulseActivity._instance != null) {
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override
                     public void run() {
-                        KoggerActivity._instance.finishAffinity();;
+                        PulseActivity._instance.finishAffinity();;
                         System.exit(0);
                     }
                 });

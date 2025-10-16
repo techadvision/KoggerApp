@@ -71,7 +71,7 @@ QT_BEGIN_NAMESPACE
 
 #define BAD_PORT 0
 
-static const char kJniClassName[] {"org/kogger/koggerapp/KoggerActivity"};
+static const char kJniClassName[] {"org/techadvision/pulse/PulseActivity"};
 
 static void jniDeviceHasDisconnected(JNIEnv *envA, jobject thizA, jlong userDataA)
 {

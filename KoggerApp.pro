@@ -8,6 +8,8 @@ CONFIG += c++17 qmltypes
 QML_IMPORT_NAME = SceneGraphRendering
 QML_IMPORT_MAJOR_VERSION = 1
 
+TEMPLATE = app
+TARGET   = Pulse
 
 DEFINES += QT_DEPRECATED_WARNINGS
 

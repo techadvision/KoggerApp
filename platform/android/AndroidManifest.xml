@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
-<manifest package="org.techadvision.pulse" xmlns:android="http://schemas.android.com/apk/res/android" android:versionName="Pulse Echo Sounder v. 0.97" android:versionCode="97" android:installLocation="auto">
+<manifest package="org.techadvision.pulse" xmlns:android="http://schemas.android.com/apk/res/android" android:versionName="Pulse Echo Sounder v. 0.99" android:versionCode="99" android:installLocation="auto">
     <uses-sdk android:minSdkVersion="23"/>
 
     <supports-screens android:largeScreens="true" android:normalScreens="true" android:anyDensity="true" android:smallScreens="true"/>
 
     <application android:hardwareAccelerated="true" android:name="org.qtproject.qt5.android.bindings.QtApplication" android:label="Pulse Echo Sounder" android:extractNativeLibs="true" android:icon="@drawable/icon" android:usesCleartextTraffic="true">
 
-        <activity android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|keyboard|keyboardHidden|navigation|mcc|mnc|density" android:name="org.kogger.koggerapp.KoggerActivity" android:label="Pulse" android:launchMode="singleTop" android:exported="true" android:screenOrientation="landscape" android:theme="@style/splashScreenTheme">
+        <activity android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|keyboard|keyboardHidden|navigation|mcc|mnc|density" android:name="org.techadvision.pulse.PulseActivity" android:label="Pulse" android:launchMode="singleTop" android:exported="true" android:screenOrientation="landscape" android:theme="@style/splashScreenTheme">
             <!-- Main launcher intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -84,6 +84,9 @@
                 -->
             <meta-data android:name="android.app.extract_android_style" android:value="full"/>
             <!-- extract android style -->
+            <meta-data android:name="android.app.splash_screen_drawable" android:resource="@drawable/splashscreen"/>
+            <meta-data android:name="android.app.splash_screen_drawable" android:resource="@drawable/splashscreen"/>
+            <meta-data android:name="android.app.splash_screen_drawable" android:resource="@drawable/splashscreen"/>
             <meta-data android:name="android.app.splash_screen_drawable" android:resource="@drawable/splashscreen"/>
             <meta-data android:name="android.app.splash_screen_drawable" android:resource="@drawable/splashscreen"/>
             <meta-data android:name="android.app.splash_screen_drawable" android:resource="@drawable/splashscreen"/>

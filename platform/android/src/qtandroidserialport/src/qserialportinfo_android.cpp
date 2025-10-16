@@ -60,7 +60,7 @@
 extern Core core;
 
 QT_BEGIN_NAMESPACE
-static const char V_jniClassName[] {"org/kogger/koggerapp/KoggerActivity"};
+static const char V_jniClassName[] {"org/techadvision/pulse/PulseActivity"};
 static const char V_TAG[] {"QSerialPortInfo"};
 
 extern void cleanJavaException();

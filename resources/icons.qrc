@@ -146,5 +146,8 @@
         <file>icons/ui/pulse_view_side_scan.svg</file>
         <file>icons/ui/pulse_view_sidescan.svg</file>
         <file>icons/ui/patternDots.svg</file>
+        <file>icons/app/kogger_app.ico</file>
+        <file>icons/app/kogger_app.png</file>
+        <file>icons/app/app.ico</file>
     </qresource>
 </RCC>

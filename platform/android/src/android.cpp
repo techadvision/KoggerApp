@@ -99,7 +99,7 @@ gst_android_init(JNIEnv* env, jobject context)
 }
 
 //-----------------------------------------------------------------------------
-static const char kJniClassName[] {"org/kogger/koggerapp/KoggerActivity"};
+static const char kJniClassName[] {"org/techadvision/pulse/PulseActivity"};
 
 void setNativeMethods(void)
 {
