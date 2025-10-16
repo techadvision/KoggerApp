@@ -26,9 +26,10 @@ ApplicationWindow  {
     function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
     // Safe accessors (0 on non-Android or when Insets missing)
     function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top    : 0; }
-    function insetBottom() { return _hasInsets() && Insets.dexEnabled ? Insets.bottom : 0; }
-    function insetLeft()   { return _hasInsets() && Insets.dexEnabled ? Insets.left   : 0; }
-    function insetRight()  { return _hasInsets() && Insets.dexEnabled ? Insets.right  : 0; }
+    function insetBottom() { return _hasInsets() ? Insets.bottom : 0; }
+    function insetLeft()   { return _hasInsets() ? Insets.left   : 0; }
+    function insetRight()  { return _hasInsets() ? Insets.right  : 0; }
+    function insetsIme()   { return _hasInsets() ? Insets.ime  : 0; }
 
     header: Item {
         Behavior on height { NumberAnimation { duration: 500 } }
@@ -79,6 +80,7 @@ ApplicationWindow  {
         function onUserManualSetNameChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
+            pulseSettings.nmeaBroadcastAddress = pulseRuntimeSettings.nmeaBroadcastAddress
             settingsBus.updatePersistent({
                     filterRealValue:         pulseSettings.filterRealValue,
                     intensityRealValue:      pulseSettings.intensityRealValue,

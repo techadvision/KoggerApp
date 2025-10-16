@@ -129,6 +129,7 @@ QtObject {
     property bool   useMetricDepth:         true    // Workaround for missing ability to sync the c++ and qml settings
     //property bool   isSideScanLeftHand:true    // Workaround already present
     property bool   isHorizontalGrid:       true    // Workaround for missing ability to sync the c++ and qml settings
+    property string nmeaBroadcastAddress:   "255.255.255.255"
 
     //RECORDING KLF
     property bool   isRecordingKlf:         false   // If a KLF recording is started or not

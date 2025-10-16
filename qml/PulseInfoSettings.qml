@@ -225,7 +225,7 @@ Flickable {
             text: "NMEA send to IP"
             show: pulseRuntimeSettings.showCatNmea
             Text {
-                text: "Localhost (this device)"
+                text: "255.255.255.255 "
                 font.pixelSize: settingsPopup.infoPixelsSize
                 color: "gray"
 
