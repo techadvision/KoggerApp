@@ -404,7 +404,8 @@ Item {
             id: wholeNumberRect
             width: parent.width * 0.75
             height: _isAndroid? 96 : 64
-            color: "#80000000"
+            color: "transparent"
+            //color: "#80000000"
             anchors.right: decimalPartRect.left
             anchors.bottom: decimalPartRect.bottom
             anchors.topMargin: 20
@@ -414,6 +415,9 @@ Item {
                 text: displayDepth.split('.')[0] + "."
                 //text: depthAndTemperature.formatDepth().split('.')[0] + "."
                 color: "white"
+                style: Text.Outline            // 1px outline
+                styleColor: "black"            // outline color
+                renderType: Text.NativeRendering  // crisper on many platforms
                 font.bold: true
                 font.pixelSize: _isAndroid ? 96 : 64
                 horizontalAlignment: Text.AlignRight
@@ -428,7 +432,8 @@ Item {
             id: decimalPartRect
             width: parent.width * 0.1
             height: _isAndroid? 96 : 64
-            color: "#80000000"
+            color: "transparent"
+            //color: "#80000000"
             anchors.right: depthUnitRect.left
             anchors.top: parent.top
             anchors.topMargin: 10
@@ -441,6 +446,9 @@ Item {
                 }
                 //text: depthAndTemperature.formatDepth().split('.')[1] ? depthAndTemperature.formatDepth().split('.')[1].split(' ')[0] : ""
                 color: "white"
+                style: Text.Outline            // 1px outline
+                styleColor: "black"            // outline color
+                renderType: Text.NativeRendering  // crisper on many platforms
                 font.pixelSize: _isAndroid ? 72 : 48
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
@@ -453,7 +461,8 @@ Item {
             id: depthUnitRect
             width: parent.width * 0.15
             height: _isAndroid ? 96 : 64
-            color: "#80000000"
+            color: "transparent"
+            //color: "#80000000"
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.topMargin: 10
@@ -463,6 +472,9 @@ Item {
                 id: depthUnit
                 text: displayDepth.split(' ')[1] // Extract the unit (m or ft)
                 color: "white"
+                style: Text.Outline            // 1px outline
+                styleColor: "black"            // outline color
+                renderType: Text.NativeRendering  // crisper on many platforms
                 font.pixelSize: _isAndroid ? 36 : 24
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
@@ -476,7 +488,8 @@ Item {
             id: temperatureValueRect
             width: parent.width * 0.85
             height: _isAndroid ? 72 : 48
-            color: "#80000000"
+            color: "transparent"
+            //color: "#80000000"
             anchors.right: temperatureUnitRect.left
             anchors.top: temperatureUnitRect.top
             visible: pulseRuntimeSettings.useTemperature && enableTemperature && userShowTemperature
@@ -484,9 +497,10 @@ Item {
             Text {
                 id: temperatureValue
                 text: tempText
-                //text: depthAndTemperature.displayTemp.split(' ')[0] || "-.-"
-                //text: depthAndTemperature.formatTemperature().split(' ')[0] || "-.-"
                 color: "white"
+                style: Text.Outline            // 1px outline
+                styleColor: "black"            // outline color
+                renderType: Text.NativeRendering  // crisper on many platforms
                 font.pixelSize: _isAndroid ? 72 : 48
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
@@ -499,7 +513,8 @@ Item {
             id: temperatureUnitRect
             width: parent.width * 0.15
             height: _isAndroid ? 72 : 48
-            color: "#80000000"
+            color: "transparent"
+            //color: "#80000000"
             anchors.right: depthUnitRect.right
             anchors.top: depthUnitRect.bottom
             anchors.topMargin: 20
@@ -509,6 +524,9 @@ Item {
                 id: temperatureUnit
                 text: depthAndTemperature.formatTemperature().split(' ')[1] // Temperature unit
                 color: "white"
+                style: Text.Outline            // 1px outline
+                styleColor: "black"            // outline color
+                renderType: Text.NativeRendering  // crisper on many platforms
                 font.pixelSize: _isAndroid ? 36 : 24
                 horizontalAlignment: Text.AlignLeft
                 anchors.right: parent.right
