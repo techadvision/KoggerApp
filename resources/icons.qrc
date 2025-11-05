@@ -149,5 +149,12 @@
         <file>icons/app/kogger_app.ico</file>
         <file>icons/app/kogger_app.png</file>
         <file>icons/app/app.ico</file>
+        <file>icons/ui/pulse_play_pause.svg</file>
+        <file>icons/ui/pulse_recording_mini.svg</file>
+        <file>icons/ui/pulse_crosshair.svg</file>
+        <file>icons/ui/pulse_view_down_scan_460.svg</file>
+        <file>icons/ui/pulse_view_down_scan_820.svg</file>
+        <file>icons/ui/pulse_view_side_scan_460.svg</file>
+        <file>icons/ui/pulse_view_side_scan_820.svg</file>
     </qresource>
 </RCC>
