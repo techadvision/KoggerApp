@@ -76,6 +76,9 @@ WaterFall {
             if (plot === null)
                 return
 
+            if (pulseRuntimeSettings.echogramPause)
+                return
+
             // compute the new boolean
             var nowLive = plot.timelinePosition >= 0.999
 
@@ -132,6 +135,37 @@ WaterFall {
         Text {
             id: oldDataText
             text: "Old data"
+            font.pixelSize: 40
+            color: "white"
+            anchors.centerIn: parent
+        }
+    }
+
+    Rectangle {
+        id: pauseDataIndicator
+        // start hidden
+        visible: false
+        anchors.top: parent.top
+        anchors.topMargin: 40
+        anchors.right: parent.right
+        anchors.rightMargin: 20
+
+        // styling: semi-transparent black, rounded corners
+        color: "#80000000"
+        //opacity: 0.6
+        radius: 8
+
+        // padding around the text
+        property int contentMargin: 12
+
+        // size to fit the text + padding
+        implicitWidth: oldDataText.width + contentMargin*2
+        implicitHeight: oldDataText.height + contentMargin*2
+
+        // the actual label
+        Text {
+            id: pausedDataText
+            text: "paused"
             font.pixelSize: 40
             color: "white"
             anchors.centerIn: parent
@@ -350,11 +384,14 @@ WaterFall {
             property int lastMouseX: -1
             property bool wasMoved: false
             property point startMousePos: Qt.point(-1, -1)
-            property real mouseThreshold: 15
+            property real mouseThreshold: 30
             property int contactMouseX: -1
             property int contactMouseY: -1
             //Pulse addition
             property int lastMouseY: -1
+            property bool longPressFired: false
+            property int pressButton: Qt.LeftButton
+            property bool draggingInPaused: false
             //**************
 
             hoverEnabled: true
@@ -364,13 +401,24 @@ WaterFall {
                 interval: 500
                 repeat: false
                 onTriggered: {
-                    if (Qt.platform.os === "android" && theme.instrumentsGrade !== 0 && !mousearea.wasMoved) {
-                        plot.onCursorMoved(mousearea.mouseX, mousearea.mouseY)
-                        mousearea.contactMouseX = mousearea.mouseX
-                        mousearea.contactMouseY = mousearea.mouseY
-                        plot.simplePlotMousePosition(mousearea.mouseX, mousearea.mouseY)
+                    // we only want this behavior when paused
+                    console.log("AddWaypoint: longPressTimer, echogramPause=", pulseRuntimeSettings.echogramPause, "and !wasMoved=", !mousearea.wasMoved)
+                    if (pulseRuntimeSettings.echogramPause &&
+                        !mousearea.wasMoved) {
+                        console.log("AddWaypoint: longPressTimer, TRIGGER")
+                        if (mousearea.pressButton === Qt.LeftButton) {
+                            menuBlock.visible = false
+                            plot.plotMousePosition(mousearea.lastMouseX, mousearea.lastMouseY)
+                            plotPressed(indx, mousearea.lastMouseX, mousearea.lastMouseY)
+                        }
 
-                        menuBlock.position(mousearea.mouseX, mousearea.mouseY)
+                        if (mousearea.pressButton === Qt.RightButton) {
+                            mousearea.contactMouseX = mousearea.pressX
+                            mousearea.contactMouseY = mousearea.pressY
+                            plot.simplePlotMousePosition(mousearea.lastMouseX, mousearea.lastMouseY)
+                        }
+                        plot.setDragActive(false)
+                        mousearea.longPressFired = true
                     }
                 }
             }
@@ -400,29 +448,40 @@ WaterFall {
                 lastMouseX = mouse.x
                 //Pulse addition
                 lastMouseY = mouse.y
+                mousearea.pressButton = mouse.button
                 //**************
 
                 if (Qt.platform.os === "android") {
                     startMousePos = Qt.point(mouse.x, mouse.y)
                     longPressTimer.start()
                 }
+                console.log("AddWaypoint: onPressed triggered!")
 
-                //Pulse disabled
-                /*
-                if (mouse.button === Qt.LeftButton) {
-                    menuBlock.visible = false
-                    plot.plotMousePosition(mouse.x, mouse.y)
-                    plotPressed(indx, mouse.x, mouse.y)
-                }
-                */
-
-                if (mouse.button === Qt.RightButton) {
+                //Pulse
+                if (pulseRuntimeSettings.echogramPause && mouse.button === Qt.RightButton) {
                     contactMouseX = mouse.x
                     contactMouseY = mouse.y
-
                     plot.simplePlotMousePosition(mouse.x, mouse.y)
                 }
 
+                if (pulseRuntimeSettings.echogramPause && mousearea.longPressFired) {
+                    mousearea.longPressFired = false
+                    if (mouse.button === Qt.LeftButton) {
+                        menuBlock.visible = false
+                        plot.plotMousePosition(mouse.x, mouse.y)
+                        plotPressed(indx, mouse.x, mouse.y)
+                    }
+
+                    if (mouse.button === Qt.RightButton) {
+                        contactMouseX = mouse.x
+                        contactMouseY = mouse.y
+
+                        plot.simplePlotMousePosition(mouse.x, mouse.y)
+                    }
+                }
+
+                longPressFired = false
+                draggingInPaused = false
                 wasMoved = false
             }
 
@@ -431,6 +490,10 @@ WaterFall {
                 //Pulse addition
                 lastMouseY = -1
                 //**************
+                if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
+                    plot.setDragActive(false)
+                }
+                draggingInPaused = false
 
                 if (Qt.platform.os === "android") {
                     longPressTimer.stop()
@@ -460,6 +523,10 @@ WaterFall {
                 //Pulse addition
                 lastMouseY = -1
                 //**************
+                if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
+                    plot.setDragActive(false)
+                }
+                draggingInPaused = false
 
                 if (Qt.platform.os === "android") {
                     longPressTimer.stop()
@@ -473,48 +540,44 @@ WaterFall {
             onPositionChanged: {
                 plot.onCursorMoved(mouse.x, mouse.y)
 
-                if (Qt.platform.os === "android") {
-                    if (!wasMoved) {
-                        var currDelta = Math.sqrt(Math.pow((mouse.x - startMousePos.x), 2) + Math.pow((mouse.y - startMousePos.y), 2));
-                        if (currDelta > mouseThreshold) {
-                            wasMoved = true;
+                // 1) detect movement
+                if (!wasMoved) {
+                    var currDelta = Math.sqrt(Math.pow(mouse.x - startMousePos.x, 2) +
+                                              Math.pow(mouse.y - startMousePos.y, 2))
+                    if (currDelta > mouseThreshold) {
+                        wasMoved = true
+                        longPressTimer.stop()
+
+                        if (pulseRuntimeSettings.echogramPause && !mousearea.longPressFired) {
+                            draggingInPaused = true
+                            plot.setDragActive(true)
                         }
                     }
                 }
 
+                // 2) update deltas
                 var delta = mouse.x - lastMouseX
                 lastMouseX = mouse.x
-                //Pulse addition
                 var deltaY = mouse.y - lastMouseY
                 lastMouseY = mouse.y
-                //**************
 
-                if (mousearea.pressedButtons & Qt.LeftButton) {
-                    //Pulse replace
-                    /*
-                    plot.plotMousePosition(mouse.x, mouse.y)
-                    plotPressed(indx, mouse.x, mouse.y)
-                    */
-                    //Pulse function
+                // 3) normal (not paused) drag
+                if ((mousearea.pressedButtons & Qt.LeftButton) && !pulseRuntimeSettings.echogramPause) {
+                    plot.setDragActive(true)
                     if (plot.isViewHorizontal()) {
                         plot.horScrollEvent(delta)
-                        if (oldDataIndicator.visible) {
-                            oldDataWarningRemovalTimer.restart()
-                        }
                     } else {
                         plot.horScrollEvent(deltaY)
-                        if (oldDataIndicator.visible) {
-                            oldDataWarningRemovalTimer.restart()
-                        }
                     }
-                    //**************
                 }
-
-                if (mouse.button === Qt.RightButton) {
-                    contactMouseX = mouse.x
-                    contactMouseY = mouse.y
-
-                    plot.simplePlotMousePosition(mouse.x, mouse.y)
+                // 4) paused drag (only if we *latched* into draggingInPaused)
+                else if (draggingInPaused) {
+                    plot.setDragActive(true)
+                    if (plot.isViewHorizontal()) {
+                        plot.horScrollEvent(delta)
+                    } else {
+                        plot.horScrollEvent(deltaY)
+                    }
                 }
             }
 
@@ -863,9 +926,9 @@ WaterFall {
             id: selectorMaxDepth
             visible: pulseSettings.areUiControlsVisible
 
-            GridLayout.row: 1
+            GridLayout.row: 0
             GridLayout.column: 1
-            Layout.preferredWidth: _isAndroid ? 310 : 210
+            Layout.preferredWidth: _isAndroid ? 330 : 220
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorMaxDepth"
             minValue: {
@@ -1039,9 +1102,9 @@ WaterFall {
         HorizontalController {
             id: selectorIntensity
             visible: pulseSettings.areUiControlsVisible
-            GridLayout.row: 2
+            GridLayout.row: 1
             GridLayout.column: 1
-            Layout.preferredWidth: _isAndroid ? 310 : 210
+            Layout.preferredWidth: _isAndroid ? 330 : 220
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorIntensity"
             minValue: 0
@@ -1096,9 +1159,9 @@ WaterFall {
             id: selectorFiltering
             visible: pulseSettings.areUiControlsVisible
             controleName: "selectorFiltering"
-            GridLayout.row: 3
+            GridLayout.row: 2
             GridLayout.column: 1
-            Layout.preferredWidth: _isAndroid ? 310 : 210
+            Layout.preferredWidth: _isAndroid ? 330 : 220
             Layout.alignment: Qt.AlignBottom
             minValue: 0
             maxValue: 20
@@ -1167,6 +1230,49 @@ WaterFall {
                         }
                         plot.updatePlot()
                     }
+                }
+            }
+        }
+
+        RowLayout {
+            id: quickChangeMedia
+            spacing: 2
+            Layout.topMargin: 10
+            visible: pulseSettings.areUiControlsVisible
+
+            GridLayout.row: 3
+            GridLayout.column: 1
+            Layout.preferredWidth: _isAndroid ? 350 : 220
+
+            HorizontalCheckController {
+                id: echogramPlayPause
+                iconSource: "./icons/ui/pulse_crosshair.svg"
+                controleName: "echogramPlayPause"
+                checked: false
+                onStateChanged: {
+                    pulseRuntimeSettings.echogramPause = checked
+                    if (checked) {
+                        oldDataWarningRemovalTimer.stop()
+                        oldDataIndicator.visible = false
+                        pauseDataIndicator.visible = true
+                    } else {
+                        pauseDataIndicator.visible = false
+                        let nowLive = plot.timelinePosition >= 0.999
+                        if (!nowLive) {
+                            oldDataIndicator.visible = true
+                            oldDataWarningRemovalTimer.start()
+                        }
+                    }
+                }
+            }
+            HorizontalCheckController {
+                id: recordingStartStop
+                iconSource: "./icons/ui/pulse_recording_mini.svg"
+                controleName: "RecordKlf"
+                checked: false
+                onStateChanged: {
+                    pulseRuntimeSettings.isRecordingKlf = checked
+                    core.loggingKlf = pulseRuntimeSettings.isRecordingKlf
                 }
             }
         }
@@ -1313,8 +1419,10 @@ WaterFall {
                 id: themeSelector2
                 visible: !pulseRuntimeSettings.is2DTransducer
                 model: [
-                    "./icons/ui/pulse_view_down_scan.svg",
-                    "./icons/ui/pulse_view_side_scan.svg"
+                    "./icons/ui/pulse_view_down_scan_460.svg",
+                    "./icons/ui/pulse_view_down_scan_820.svg",
+                    "./icons/ui/pulse_view_side_scan_460.svg",
+                    "./icons/ui/pulse_view_side_scan_820.svg"
                 ]
                 iconSource: "./icons/ui/pulse_glasses.svg"
                 selectedIndex: pulseSettings.ecoViewIndex
@@ -1323,55 +1431,104 @@ WaterFall {
                 onIconSelected: {
                     plot.plotEchogramCompensation(selectedIndex);
                     pulseSettings.ecoViewIndex = selectedIndex
+                    //Downscan 460
                     if (selectedIndex === 0) {
-                        pulseRuntimeSettings.isSideScan2DView = true
-                        pulseRuntimeSettings.isHorizontalGrid = true
-                        //plot.setHorizontalNow()
-                        //plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
-                         plotDistanceRange2dTimer.start()
-                    } else {
-                        pulseRuntimeSettings.isSideScan2DView = false
-                        pulseRuntimeSettings.isHorizontalGrid = false
-                        //plot.setVerticalNow()
-                        plot.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
-                        //plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
-                        plotDistanceRangeTimer.start()
+                        setDownScan(460)
+                    }
+                    //Downscan 820
+                    if (selectedIndex === 1) {
+                        setDownScan(820)
+                    }
+                    //Sidescan 460
+                    if (selectedIndex === 2) {
+                        setSideScan(460)
+                    }
+                    //Sidescan 820
+                    if (selectedIndex === 3) {
+                        setSideScan(820)
                     }
                     plot.updatePlot()
                     quickChangeObjects.reArrangeQuickChangeObject()
 
                 }
+
+                function setDownScan (frequency) {
+                    pulseRuntimeSettings.isSideScan2DView = true
+                    pulseRuntimeSettings.isHorizontalGrid = true
+                     plotDistanceRange2dTimer.start()
+                    //Set the offset
+                    pulseRuntimeSettings.chartOffset = 0
+                    //Set the frequency
+                    pulseRuntimeSettings.transFreq = frequency
+                }
+                function setSideScan (frequency) {
+                    pulseRuntimeSettings.isSideScan2DView = false
+                    pulseRuntimeSettings.isHorizontalGrid = false
+                    plot.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
+                    plotDistanceRangeTimer.start()
+                    //Set the offset
+                    if (pulseSettings === null)
+                        return
+                    let sideScanOffet = pulseSettings.pulseBlueOffset
+                    pulseRuntimeSettings.chartOffset = sideScanOffet
+                    //Set the frequency
+                    pulseRuntimeSettings.transFreq = frequency
+                }
+
+                Timer {
+                    id: setPulseBlueEcoViewOnAppStart
+                    repeat: false
+                    interval: 1000
+                    onTriggered: {
+                        if (pulseSettings.ecoViewIndex === 0) {
+                            themeSelector2.setDownScan(460)
+                        }
+                        if (pulseSettings.ecoViewIndex === 1) {
+                            themeSelector2.setDownScan(820)
+                        }
+                        if (pulseSettings.ecoViewIndex === 2) {
+                            themeSelector2.setSideScan(460)
+                        }
+                        if (pulseSettings.ecoViewIndex === 3) {
+                            themeSelector2.setSideScan(820)
+                        }
+                    }
+
+                }
+
                 Connections {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onUserManualSetNameChanged () {
                         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
                                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
-                            if (pulseSettings.ecoViewIndex === 0) {
-                                pulseRuntimeSettings.isHorizontalGrid = true
-                                pulseRuntimeSettings.isSideScan2DView = true
-                                //plot.setHorizontalNow()
-                                //plot.plotDistanceRange2d(plot.quickChangeMaxRangeValue * 1.0)
-                                plotDistanceRange2dTimer.start()
-                            } else {
-                                pulseRuntimeSettings.isHorizontalGrid = false
-                                pulseRuntimeSettings.isSideScan2DView = false
-                                //plot.setVerticalNow()
-                                //plot.plotDistanceRange(plot.quickChangeMaxRangeValue * 1.0)
-                                plotDistanceRangeTimer.start()
-                            }
-                            //console.log("TAV: viewSelector is side scan");
-                            //plot.updatePlot();
-                        } else {
-                            //console.log("TAV: viewSelector is 2D transducer, do not set for side scan");
-                       }
+
+                            setPulseBlueEcoViewOnAppStart.start()
+                        }
                     }
                 }
 
                 Connections {
                     target: pulseSettings ? pulseSettings : undefined
                     function onColorMapIndexSideScanChanged () {
+                        if (pulseSettings === null)
+                            return
                         themeSelectorColor2D.selectedIndex = pulseSettings.colorMapIndexSideScan
                         //console.log("TAV: colormap updated to index:", pulseSettings.colorMapIndexSideScan);
+                    }
+                    function onPulseBlueOffsetChanged () {
+                        if (pulseSettings === null)
+                            return
+                        if (pulseRuntimeSettings == null)
+                            return
+                        if (pulseRuntimeSettings.is2DTransducer)
+                                return
+                        let sideScanOffet = pulseSettings.pulseBlueOffset
+                        if (pulseRuntimeSettings.isSideScan2DView) {
+                            pulseRuntimeSettings.chartOffset = 0
+                        } else {
+                            pulseRuntimeSettings.chartOffset = sideScanOffet
+                        }
+
                     }
                 }
 
@@ -1476,15 +1633,9 @@ WaterFall {
                 onStateChanged: {
                     //console.log("Checkbox state changed:", checked)
                     pulseSettings.areUiControlsVisible = checked
-                    /*
-                    if (pulseSettings.areUiControlsVisible) {
-                        plot.plotGridVerticalNumber(5)
-                    } else {
-                        plot.plotGridVerticalNumber(0)
+                    if (!pulseSettings.areUiControlsVisible) {
+                        pulseRuntimeSettings.echogramVisible = true
                     }
-                    */
-
-                    // Update persistent settings or trigger other UI actions here
                 }
 
             }

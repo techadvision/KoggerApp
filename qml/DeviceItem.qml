@@ -362,7 +362,7 @@ ColumnLayout {
                     }
 
                     function onDynamicResolutionChanged () {
-                        console.log("DEV_PARAM: onChartResolutionChanged")
+                        console.log("DEV_PARAM: onDynamicResolutionChanged")
                         if (pulseRuntimeSettings.hasDeviceLostConnection) {
                             console.log("DEV_PARAM: no need to set resolution dynamically when connection is lost")
                             return
@@ -1807,6 +1807,45 @@ ColumnLayout {
                 //Pulse Blue
                 pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
             }
+        }
+
+        if (pulseRuntimeSettings.expertMode) {
+            console.log("BETA UDP TEST: let's enable proxy")
+            linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14550)
+        }
+        if (pulseSettings.positionSourceAutoPilot) {
+            console.log("Autopilot said to be connected: let's enable proxy")
+            linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14550)
+        }
+    }
+
+    Connections {
+        target: pulseSettings ? pulseSettings : undefined
+
+        function onEchogramWidthChanged () {
+            if (pulseSettings === null)
+                return
+            if (dev === null)
+                return
+
+            let newResoultion = pulseSettings.echogramWidth
+            pulseRuntimeSettings.chartResolution = newResoultion
+
+            let newMaxDepth = newResoultion * 1000
+            pulseRuntimeSettings.distMax = newMaxDepth
+        }
+
+        function onPositionSourceAutoPilotChanged () {
+            if (pulseSettings === null)
+                return
+            if (dev === null)
+                return
+            if (pulseSettings.positionSourceAutoPilot) {
+                linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14550)
+            } else {
+                linkManagerWrapper.sendCloseUdpProxy()
+            }
+
         }
     }
 

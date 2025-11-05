@@ -23,6 +23,8 @@ Item {
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
 
+    property string controleName: ""
+
     // Expose the checkbox state and icon source for external control
     property alias checked: checkBox.checked
     property alias iconSource: controlIcon.source
@@ -69,7 +71,17 @@ Item {
                 // Custom white background with a subtle border
                 background: Rectangle {
                     anchors.fill: parent
-                    color: "white"
+                    //color: "white"
+                    color: {
+                        if (!root.checked)
+                            return "white"
+                        if (root.controleName === "echogramPlayPause")
+                            return "green"
+                        if (root.controleName === "RecordKlf")
+                            return "red"
+                        return "white"
+                    }
+
                     radius: 8
                     border.width: 1
                     border.color: "gray"

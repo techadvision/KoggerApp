@@ -34,6 +34,8 @@ Settings {
     property int    bottomCompositionAddition:  0
     property bool   doubleEchoOptimize:         false
     property double echogramSpeed:              1.0
+    property double echogramWidth:              25
+    property double pulseBlueOffset:            20
 
     // Transducer telemetry settings
     property bool   useEchogram:                true
@@ -68,6 +70,12 @@ Settings {
 
     // Experimental
     property bool   stopEchogramToConfigure:    false
+
+    // Source of origin position and yaw
+    property bool   positionSourceAutoPilot:    false
+    property bool   positionSourceDeviceGps:    false
+    property bool   positionSourceNmeaGps:      false
+
 
     // NMEA signals to keep C++ in sync
     /* No longer needed

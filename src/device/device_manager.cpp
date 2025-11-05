@@ -314,6 +314,39 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, FrameParser frame)
         }
 
         if (frame.isCompleteAsMAVLink()) {
+            bool linkIsNull = link == nullptr;
+            //qDebug() << "mavlink frame observed: link == nullptr?" << linkIsNull << "proxyLinkUuid_" << proxyLinkUuid_ << "uuid" << uuid << "mavlinUuid_" << mavlinUuid_;
+            ProtoMAVLink& mavlink_frame = (ProtoMAVLink&)frame;
+            if(mavlink_frame.msgId() == MAVLink_MSG_GLOBAL_POSITION_INT::getID()) {
+                //qDebug() << "mavlink frame is MAVLink_MSG_GLOBAL_POSITION_INT";
+                MAVLink_MSG_GLOBAL_POSITION_INT pos = mavlink_frame.read<MAVLink_MSG_GLOBAL_POSITION_INT>();
+                if (pos.isValid()) {
+                    if (link != nullptr && mavlinUuid_ != uuid) {
+                        mavlinUuid_ = uuid;
+                    }
+                    emit positionComplete(pos.latitude(), pos.longitude(), pos.time_boot_msec()/1000, (pos.time_boot_msec()%1000)*1e6);
+                    //qDebug() << "mavlink frame MAVLink_MSG_GLOBAL_POSITION_INT has a valid position. lat" << pos.latitude() << "lng" << pos.longitude();
+                    emit gnssVelocityComplete(pos.velocityH(), 0);
+                    vru_.velocityH = pos.velocityH();
+                    emit vruChanged();
+                }
+            }
+            if (mavlink_frame.msgId() == 30) {
+                MAVLink_MSG_ATTITUDE attitude = mavlink_frame.read<MAVLink_MSG_ATTITUDE>();
+
+                const float yaw = attitude.yawDeg();
+                const float pitch = attitude.pitchDeg();
+                const float roll = attitude.rollDeg();
+                if (link != nullptr && mavlinUuid_ != uuid) {
+                    mavlinUuid_ = uuid;
+                }
+
+                if (!qFuzzyIsNull(yaw) || !qFuzzyIsNull(pitch) || !qFuzzyIsNull(roll)) {
+                    //qDebug() << "mavlink frame MAVLink_MSG_ATTITUDE has a valid yaw" << yaw;
+                    emit attitudeComplete(yaw, attitude.pitchDeg(), attitude.rollDeg());
+                }
+            }
+
             if (link == nullptr || proxyLinkUuid_ != uuid) {
                 emit writeProxyFrame(frame);
 
@@ -328,19 +361,11 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, FrameParser frame)
 
                 ProtoMAVLink& mavlink_frame = (ProtoMAVLink&)frame;
 
-                // if (mavlink_frame.msgId() == 24) { // GLOBAL_POSITION_INT
-                //     MAVLink_MSG_GPS_RAW_INT pos = mavlink_frame.read<MAVLink_MSG_GPS_RAW_INT>();
-                //     if (pos.isValid()) {
-                //         emit positionComplete(pos.latitude(), pos.longitude(), pos.time_boot_msec()/1000, (pos.time_boot_msec()%1000)*1e6);
-                //         emit gnssVelocityComplete(pos.velocityH(), 0);
-                //         vru_.velocityH = pos.velocityH();
-                //         emit vruChanged();
-                //     }
-                // }
-
                 if(mavlink_frame.msgId() == MAVLink_MSG_GLOBAL_POSITION_INT::getID()) {
+                    //qDebug() << "mavlink frame is MAVLink_MSG_GLOBAL_POSITION_INT";
                     MAVLink_MSG_GLOBAL_POSITION_INT pos = mavlink_frame.read<MAVLink_MSG_GLOBAL_POSITION_INT>();
                     if (pos.isValid()) {
+                        //qDebug() << "mavlink frame MAVLink_MSG_GLOBAL_POSITION_INT has a valid position";
                         emit positionComplete(pos.latitude(), pos.longitude(), pos.time_boot_msec()/1000, (pos.time_boot_msec()%1000)*1e6);
                         emit gnssVelocityComplete(pos.velocityH(), 0);
                         vru_.velocityH = pos.velocityH();
@@ -382,6 +407,7 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, FrameParser frame)
             }
             else {
                 if (link != nullptr) {
+                    //qDebug() << "mavlink frame emitted";
                     emit writeMavlinkFrame(frame);
                 }
             }

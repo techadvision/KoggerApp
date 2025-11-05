@@ -109,6 +109,7 @@ QtObject {
     property int    requiredStableReading:  3       // resolution shift count threshold
     property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
+    property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
 
     //APP DYNAMIC CONTROLS
     property int    dynamicResolutionMin:   50      // The minimum allowed resolution in mm, reduced from 90 to 50
@@ -138,6 +139,7 @@ QtObject {
     //SETTING CATEGORY FILTERS
     property bool   showCatScreen:         false
     property bool   showCatNmea:            false
+    property bool   showCatPositionSource:  false
     property bool   showCatInstallation:    false
     property bool   showCatTroubleShoot:    false
     property bool   showCatRecording:       false
@@ -344,10 +346,10 @@ QtObject {
         "settingVersion":               1,
         "is2DTransducer":               false,
         "useTemperature":               false,
-        "chartResolution":              35,
+        "chartResolution":              pulseSettings.echogramWidth,
         "chartSamples":                 2000,
         "chartOffset":                  0,
-        "distMax":                      35000,
+        "distMax":                      1000 * pulseSettings.echogramWidth,
         "distDeadZone":                 0,
         "distConfidence":               14,
         "transPulse":                   10,
@@ -365,7 +367,7 @@ QtObject {
         "transFreqWide":                460,
         "transFreqMedium":              460,
         "transFreqNarrow":              460,
-        "maximumDepth":                 35,
+        "maximumDepth":                 pulseSettings.echogramWidth,
         "processBottomTrack":           true,
         "doDynamicR esolution":          false,
         "fixBlackStripesBackwardSteps": 3,

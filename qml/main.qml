@@ -76,6 +76,8 @@ ApplicationWindow  {
         //Bottom track
         function onUpdateBottomTrackChanged()       { settingsBus.updateRuntime({ updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack          }) }
         function onIsBottomTrackInitiatedChanged()  { settingsBus.updateRuntime({ isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated     }) }
+        //Play/Pause echogram
+        function onEchogramPauseChanged()           { settingsBus.updateRuntime({ echogramPause:            pulseRuntimeSettings.echogramPause              }) }
         //App is ready configured, ensure C++ values are up to date:
         function onUserManualSetNameChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")

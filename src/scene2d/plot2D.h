@@ -145,6 +145,9 @@ public:
     virtual void plotUpdate();
     virtual void sendSyncEvent(int epoch_index, QEvent::Type eventType);
 
+    //Pulse
+    Q_INVOKABLE void setDragActive(bool active);
+
 protected:
     Canvas canvas_;
     DatasetCursor cursor_;
@@ -178,4 +181,6 @@ private:
     double autoDepthMaxLevel_   = 49.0;
     int    maximumDepth_        = 50;
     int    autoRange_           = 5;
+    bool   echogramPause_       = false;
+    bool   echogramDragActive_  = false;
 };

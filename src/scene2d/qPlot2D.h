@@ -71,6 +71,10 @@ public:
     Q_INVOKABLE float cursorTo() const { return Plot2D::cursor_.distance.to; }
     Q_INVOKABLE void setCursorFromTo(float from, float to) { cursor_.distance.mode = AutoRangeNone; Plot2D::cursor_.distance.from = from; Plot2D::cursor_.distance.to = to; }
     Q_INVOKABLE void setIndx(int indx) { indx_ = indx; }
+    //Pulse
+    Q_INVOKABLE void setDragActive(bool active) {
+        Plot2D::setDragActive(active);
+    }
 
 protected:
     Dataset* m_plot = nullptr;

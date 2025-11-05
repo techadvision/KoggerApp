@@ -114,7 +114,7 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Echogram screen speed (1-5)"
+            text: "2D echogram screen speed (1-5)"
             show: pulseRuntimeSettings.showCatScreen
             HorizontalControllerDoubleSettings {
                 id: speedSelector
@@ -140,6 +140,67 @@ Flickable {
                     function onEchogramSpeedChanged () {
                         var idx = speedSelector.values.indexOf(pulseSettings.echogramSpeed)
                         if (idx >= 0) speedSelector.currentIndex = idx
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Side-/downscan meters"
+            show: pulseRuntimeSettings.showCatScreen && !pulseRuntimeSettings.is2DTransducer
+            HorizontalControllerDoubleSettings {
+                id: widthSelector
+                values: [25, 35]
+                height: 80
+                Layout.preferredWidth: 280
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseSettings.echogramWidth)
+                    //console.log("pulseSettingssValue speedSelector Component.onCompleted idx calculated to ", idx)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                onPulsePreferenceValueChanged: {
+                    //console.log("pulseSettingsValue speedSelector changed to", newValue)
+                    pulseSettings.echogramWidth = newValue
+                }
+
+                Connections {
+                    target: pulseSettings ? pulseSettings : undefined
+                    function onEchogramWidthChanged () {
+                        var idx = widthSelector.values.indexOf(pulseSettings.echogramWidth)
+                        if (idx >= 0) widthSelector.currentIndex = idx
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Sidescan mid lines removal"
+            show: pulseRuntimeSettings.showCatScreen && !pulseRuntimeSettings.is2DTransducer
+            HorizontalControllerDoubleSettings {
+                id: noiseKillSelector
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                        11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+                height: 80
+                Layout.preferredWidth: 280
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseSettings.pulseBlueOffset)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                onPulsePreferenceValueChanged: {
+                    //console.log("pulseSettingsValue speedSelector changed to", newValue)
+                    pulseSettings.pulseBlueOffset = newValue
+                }
+
+                Connections {
+                    target: pulseSettings ? pulseSettings : undefined
+                    function onPulseBlueOffsethanged () {
+                        var idx = noiseKillSelector.values.indexOf(pulseSettings.pulseBlueOffset)
+                        if (idx >= 0) noiseKillSelector.currentIndex = idx
                     }
                 }
             }
@@ -234,6 +295,38 @@ Flickable {
             }
         }
 
+        //Category: Position integration
+        SettingRow {
+            toggle: true
+            text: "Positioning source"
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCatPositionSource"
+                initialValue: pulseRuntimeSettings.showCatPositionSource
+            }
+        }
+
+        SettingRow {
+            text: "Receives position from autopilot"
+            show: pulseRuntimeSettings.showCatPositionSource
+            SettingsCheckBox {
+                target: pulseSettings ? pulseSettings : undefined
+                targetPropertyName: "positionSourceAutoPilot"
+                initialChecked: pulseSettings.positionSourceAutoPilot
+            }
+            Connections {
+                target: pulseSettings ? pulseSettings : undefined
+                function onPositionSourceAutoPilotChanged() {
+                    if (pulseSettings == null)
+                        return
+                    if (pulseSettings.positionSourceAutoPilot) {
+                        pulseSettings.positionSourceNmeaGps = false
+                        pulseSettings.positionSourceDeviceGps = false
+                    }
+                }
+            }
+
+        }
 
         //Category: Installation
 

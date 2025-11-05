@@ -44,9 +44,14 @@ void Plot2D::applyRuntime(const QVariantMap& m)
     if (m.contains("autoDepthMaxLevel"))   autoDepthMaxLevel_  = m.value("autoDepthMaxLevel").toDouble();
     if (m.contains("maximumDepth"))        maximumDepth_       = m.value("maximumDepth").toInt();
     if (m.contains("autoRange"))           autoRange_          = m.value("autoRange").toInt();
+    if (m.contains("echogramPause")) {
+        echogramPause_ = m.value("echogramPause").toBool();
+        echogramDragActive_ = false;
+    }
 
     grid_.applyRuntime(m);
     echogram_.applyPersistent(m);
+    aim_.applyRuntime(m);
 }
 
 
@@ -190,11 +195,21 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
         painter->translate(-height, 0);
     }
 
+    //if (echogramPause_)
+    //    return true;
+    if (echogramPause_ && !echogramDragActive_)
+        return true;
     reindexingCursor();
     reRangeDistance();
 
     return true;
 
+}
+
+void Plot2D::setDragActive(bool active)
+{
+    qDebug () << "AddWaypoint: Plot2D::setDragActive set to" << active;
+    echogramDragActive_ = active;
 }
 
 void Plot2D::draw(QPainter *painterPtr)
@@ -243,6 +258,10 @@ void Plot2D::setTimelinePosition(float position)
     if (position < 0) {
         position = 0;
     }
+
+    if (echogramPause_ && !echogramDragActive_)
+        return;
+
     if (cursor_.position != position) {
         cursor_.position = position;
         plotUpdate();
@@ -263,12 +282,18 @@ void Plot2D::setTimelinePositionSec(float position)
         position = 0;
     }
 
+    if (echogramPause_ && !echogramDragActive_)
+        return;
+
+
     cursor_.position = position;
     plotUpdate();
 }
 
 void Plot2D::setTimelinePositionByEpoch(int epochIndx)
 {
+    if (echogramPause_ && !echogramDragActive_)
+        return;
     float pos = epochIndx == -1 ? cursor_.position : static_cast<float>(epochIndx + cursor_.indexes.size() / 2) / static_cast<float>(datasetPtr_->size());
     cursor_.selectEpochIndx = epochIndx;
     setTimelinePositionSec(pos);
