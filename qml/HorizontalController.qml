@@ -98,6 +98,37 @@ Item {
     }
 
     Connections {
+        target: pulseSettings ? pulseSettings : undefined
+
+        function onEchogramWidthChanged () {
+            if (pulseSettings === null)
+                return
+
+            if (root.controleName !== 'selectorMaxDepth')
+                return
+
+            if (pulseRuntimeSettings.is2DTransducer)
+                return
+
+            let newMaxDepthValue = pulseSettings.echogramWidth
+
+            if (pulseSettings.maxDepthValuePulseBlue > newMaxDepthValue)
+                pulseSettings.maxDepthValuePulseBlue = newMaxDepthValue
+
+            if (pulseSettings.maxDepthValuePulseBlueFixed > newMaxDepthValue)
+                pulseSettings.maxDepthValuePulseBlueFixed = newMaxDepthValue
+
+            let currentValue = root.quickChangeMaxRangeValue
+            if (currentValue > newMaxDepthValue) {
+                valueField.text = newMaxDepthValue;
+                root.quickChangeMaxRangeValue = newMaxDepthValue;
+                root.selectorValueChanged(newMaxDepthValue);
+            }
+        }
+    }
+
+
+    Connections {
         target: pulseRuntimeSettings
         function onUserManualSetNameChanged () {
             console.log("Auto function: onUserManualSetNameCganged triggered for", pulseRuntimeSettings.userManualSetName);
