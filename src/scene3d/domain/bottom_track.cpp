@@ -2,7 +2,8 @@
 #include "scene3d_view.h"
 #include "epoch_event.h"
 #include "boat_track.h"
-#include <QtOpenGLExtensions/QOpenGLExtensions>
+#include <QOpenGLFunctions>
+//#include <QtOpenGLExtensions/QOpenGLExtensions>
 
 #include <QHash>
 

@@ -42,6 +42,7 @@ HEADERS += \
     src/stream_list.h \
     src/stream_list_model.h \
     src/themes.h \
+    src/udp_broadcaster.h \
     src/xtf_conf.h \
     src/NMEASender.h \
     src/SlidingWindowMedian.h
@@ -181,9 +182,27 @@ linux:!android {
 win32:CONFIG(release, debug|release): LIBS += -L$$PWD/third_party/freetype/lib/mingw-x64/ -lfreetype
 else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/third_party/freetype/lib/mingw-x64/ -lfreetype
 
-INCLUDEPATH += $$PWD/third_party/freetype/include
+# --- macOS (arm64/x64) ---
+macx {
+    # Use pkg-config: best way to resolve headers + transitive libs (libpng, brotli, zlib)
+    #CONFIG += link_pkgconfig
+    #PKGCONFIG += freetype2
+    # Manual include+link with Homebrew paths
+    INCLUDEPATH += /opt/homebrew/include/freetype2
+    LIBS += -L/opt/homebrew/lib -lfreetype
+    QMAKE_RPATHDIR += /opt/homebrew/lib
+}
+
 INCLUDEPATH += $$PWD/src
-DEPENDPATH += $$PWD/third_party/freetype/include
+
+# If you still vendor headers for non-mac:
+!macx {
+    INCLUDEPATH += $$PWD/third_party/freetype/include
+    DEPENDPATH  += $$PWD/third_party/freetype/include
+}
+
+#INCLUDEPATH += $$PWD/third_party/freetype/include
+#DEPENDPATH += $$PWD/third_party/freetype/include
 
 # Module includes
 include($$PWD/src/data_processor/data_processor.pri)
@@ -215,6 +234,7 @@ android {
     QT += androidextras svg
     QTPLUGIN += qsqlite qandroidbearer
     ANDROID_ABIS = armeabi-v7a arm64-v8a
+    #ANDROID_ABIS = arm64-v8a
     ANDROID_PACKAGE_SOURCE_DIR = $$PWD/platform/android
     ANDROID_EXTRA_PLUGINS += \
         $$[QT_INSTALL_PLUGINS]/sqldrivers \
@@ -259,3 +279,4 @@ android {
     message("Building for Android (ARM) with OpenGL ES")
     RESOURCES += platform/android/shaders.qrc
 }
+#android: include(/Users/olavaamaas/Documents/GitHub/KoggerApp/third_party/android-libs/openssl.pri)

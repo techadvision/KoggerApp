@@ -16,7 +16,8 @@
 #include <QMatrix4x4>
 #include "qsystemdetection.h"
 #if !defined(Q_OS_ANDROID) && !defined(LINUX_ES)
-#include <GL/gl.h>
+#include <QtGui/qopengl.h>
+//#include <GL/gl.h>
 #include <QOpenGLFunctions>
 #include <QOpenGLExtraFunctions>
 #include <QOpenGLTexture>

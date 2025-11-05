@@ -3,6 +3,8 @@
 
 #include <QVector3D>
 
+#include <QtGui/qopengl.h>
+/*
 #include "qsystemdetection.h"
 #if !defined(Q_OS_ANDROID) && !defined(LINUX_ES)
 #include <GL/gl.h>
@@ -12,6 +14,7 @@
 #include <GLES3/gl31.h>
 #include <GLES3/gl32.h>
 #endif
+*/
 
 #include "scene_object.h"
 
@@ -197,14 +200,25 @@ void RayCaster::pickAsQuads(std::shared_ptr<SceneObject> object)
             hit.setIndices(i, i+4);
             hit.setWorldIntersection(intersectionPoint);
             hit.setSourceObject(object);
+            //hit.setSourcePrimitive({
+              //                  {   quad.A().toQVector3D(),
+              //                      quad.B().toQVector3D(),
+              //                      quad.C().toQVector3D(),
+              //                      quad.D().toQVector3D()
+              //                  },
+              //                  GL_QUADS
+              //                  });
             hit.setSourcePrimitive({
-                                {   quad.A().toQVector3D(),
-                                    quad.B().toQVector3D(),
-                                    quad.C().toQVector3D(),
-                                    quad.D().toQVector3D()
-                                },
-                                GL_QUADS
-                                });
+                {
+                    quad.A().toQVector3D(),
+                    quad.B().toQVector3D(),
+                    quad.C().toQVector3D(),
+                    quad.A().toQVector3D(),
+                    quad.C().toQVector3D(),
+                    quad.D().toQVector3D()
+                },
+                GL_TRIANGLES
+            });
             m_hits.append(hit);
         }
     }

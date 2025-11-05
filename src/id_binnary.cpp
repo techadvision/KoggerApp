@@ -2,12 +2,14 @@
 #include "math.h"
 
 #include <core.h>
+#include <iterator>
 extern Core core;
-
+/*
 #if defined(Q_OS_ANDROID) || (defined Q_OS_LINUX)
 template < typename T, size_t N >
-size_t _countof( T const (&array)[ N ] ) { Q_UNUSED(array); return N; }
+size_t std::size( T const (&array)[ N ] ) { Q_UNUSED(array); return N; }
 #endif
+*/
 IDBin::IDBin(QObject *parent) :
     QObject(parent),
     setTimerCount_(0),
@@ -469,7 +471,7 @@ Resp IDBinDVL::parsePayload(FrameParser &proto) {
 Resp IDBinDataset::parsePayload(FrameParser &proto) {
     if (proto.ver() == v0) {
         const uint8_t chId = proto.read<U1>();
-        if (chId < _countof(m_channel)) {
+        if (chId < std::size(m_channel)) {
             m_channel[chId].id = chId;
             m_channel[chId].period = proto.read<U4>();
             m_channel[chId].mask = proto.read<U4>();
@@ -496,7 +498,7 @@ uint32_t IDBinDataset::mask(U1 ch_id) {
         for(int i = 1; i < 3; i++) {
             mask |= m_channel[i].mask;
         }
-    } else if(ch_id < _countof(m_channel)) {
+    } else if(ch_id < std::size(m_channel)) {
         mask = m_channel[ch_id].mask;
     }
     return mask;
@@ -508,7 +510,7 @@ void IDBinDataset::setMask(U1 ch_id, uint32_t mask) {
 }
 
 uint32_t IDBinDataset::period(U1 ch_id) {
-    if(ch_id < _countof(m_channel)) {
+    if(ch_id < std::size(m_channel)) {
         return m_channel[ch_id].period;
     }
     return 0;
@@ -536,7 +538,7 @@ IDBinDataset::Channel IDBinDataset::getChannel(U1 channelId) const
 }
 
 void IDBinDataset::sendChannel(U1 ch_id, uint32_t period, uint32_t mask) {
-    if(ch_id < _countof(m_channel)) {
+    if(ch_id < std::size(m_channel)) {
         m_channel[ch_id].period = period;
 
         ProtoBinOut id_out;
@@ -723,7 +725,7 @@ Resp IDBinUART::parsePayload(FrameParser &proto)
         if(checkKeyConfirm(proto.read<U4>())) {
             uint8_t uart_id = proto.read<U1>();
 
-            if(uart_id < _countof(m_uart)) {
+            if(uart_id < std::size(m_uart)) {
                 m_uart[uart_id].id = uart_id;
                 m_uart[uart_id].baudrate = proto.read<U4>();
             }
@@ -734,7 +736,7 @@ Resp IDBinUART::parsePayload(FrameParser &proto)
         if(checkKeyConfirm(proto.read<U4>())) {
             uint8_t uart_id = proto.read<U1>();
 
-            if(uart_id < _countof(m_uart)) {
+            if(uart_id < std::size(m_uart)) {
                 m_uart[uart_id].id = uart_id;
                 m_uart[uart_id].dev_address = proto.read<U1>();
             }

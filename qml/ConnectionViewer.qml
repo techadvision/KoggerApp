@@ -517,12 +517,12 @@ ColumnLayout {
                 if (checked) {
 
                     console.info("2")
-                    linkManagerWrapper.sendCreateAndOpenAsUdpProxy("127.0.0.1", 14551, 14550)
+                    //linkManagerWrapper.sendCreateAndOpenAsUdpProxy("127.0.0.1", 14551, 14550)
                 }
                 else {
 
                     console.info("3")
-                    linkManagerWrapper.sendCloseUdpProxy()
+                    //linkManagerWrapper.sendCloseUdpProxy()
                 }
             }
         }

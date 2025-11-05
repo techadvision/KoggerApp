@@ -10,14 +10,27 @@
 #include "math_defs.h"
 #include "dsp_defs.h"
 
+#if defined(Q_OS_ANDROID) || defined(Q_OS_LINUX)
 
-#if defined(Q_OS_ANDROID) || (defined Q_OS_LINUX)
-#define MAKETIME(t) mktime(t)
-#define GMTIME(t) gmtime(t)
+#define MAKETIME(tptr) mktime((tptr))
+#define GMTIME(secptr) gmtime((secptr))
+
+#elif defined(Q_OS_WIN)
+
+#define MAKETIME(tptr) _mkgmtime64((tptr))
+#define GMTIME(secptr) _gmtime64((secptr))
+
+#elif defined(Q_OS_DARWIN) /* macOS/iOS */
+
+#define MAKETIME(tptr) timegm((tptr))
+#define GMTIME(secptr) gmtime((secptr))
+
 #else
-#define MAKETIME(t) _mkgmtime64(t)
-#define GMTIME(t) _gmtime64(&sec);
+// Fallback for any other POSIX-ish platforms
+#define MAKETIME(tptr) timegm((tptr))
+#define GMTIME(secptr) gmtime((secptr))
 #endif
+
 
 #define CONSTANTS_RADIUS_OF_EARTH 6371000 /* meters (m) */
 #define M_TWOPI_F 6.28318530717958647692f
