@@ -1094,8 +1094,8 @@ ApplicationWindow  {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         //Pulse: hide
-        visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
-        //visible: false
+        //visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
+        visible: false
         isDraggable: true
         isOpacityControlled: true
         Keys.forwardTo: [splitLayer]
@@ -1230,8 +1230,8 @@ ApplicationWindow  {
         }
 
         //Pulse: Hide
-        //visible: false
-        visible: !showBanner
+        visible: false
+        //visible: !showBanner
     }
 
     function handleChildSignal(langStr) {
