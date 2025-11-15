@@ -2,6 +2,7 @@
 
 #include "plot2D_plot_layer.h"
 #include <QElapsedTimer>
+#include "plot2D_zoom.h"
 
 
 class Plot2DAim : public PlotLayer {
@@ -10,13 +11,23 @@ public:
     Plot2DAim();
     //PULSE
     void applyRuntime(const QVariantMap& m);
+    /*
+    void drawZoomPanel(QPainter* p,
+                       const QPixmap& echPix,
+                       const QPointF& centerWorld,
+                       bool rotateForView,
+                       bool flipForLeftHand,
+                       double depthMeters,
+                       bool showAddBtn);
+    */
+
     bool draw(Plot2D* parent, Dataset* dataset);
     void setEpochEventState(bool state);
-    //void drawPopup(QPainter* p, const QString& text, int scaleFactor);
-    //void setPause(Plot2D* parent, Dataset* dataset, bool on);
-    //bool isPaused() const { return echogramPause_; }
-    //int  lastAtPause() const { return lastIndexAtPause_; }
-    //int  visibleColsAtPause() const { return visibleColsAtPause_; }
+    void drawPopup(QPainter* p, const QString& text, int scaleFactor);
+    void setPause(Plot2D* parent, Dataset* dataset, bool on);
+    bool isPaused() const { return echogramPause_; }
+    int  lastAtPause() const { return lastIndexAtPause_; }
+    int  visibleColsAtPause() const { return visibleColsAtPause_; }
 
 protected:
     bool beenEpochEvent_;
@@ -28,8 +39,8 @@ protected:
     bool paused_ = false;
     bool isSideScanLeftHand_ = false;
     bool isSideScan2DView_   = false;
-    //int lastIndexAtPause_ = -1;
-    //int visibleColsAtPause_ = 0;
+    int lastIndexAtPause_ = -1;
+    int visibleColsAtPause_ = 0;
 
 private:
     //Pulse
@@ -80,5 +91,6 @@ private:
     QPointF pendingTapLogical_{-1, -1};
     bool hasTap_ = false;
     bool popupJustOpened_ = false;
+    Plot2DZoom zoom_;
 };
 
