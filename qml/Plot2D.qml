@@ -48,6 +48,14 @@ WaterFall {
         }
     }
 
+    Connections {
+        target: deviceManagerWrapper
+        function onMavlinkWasDetected () {
+            pulseRuntimeSettings.mavlinkDetected = deviceManagerWrapper.mavlinkDetected
+            console.log("AddWaypoint: deviceManagerWrapper.mavlinkDetected", deviceManagerWrapper.mavlinkDetected)
+        }
+    }
+
     signal plotCursorChanged(int indx, real from, real to)
     signal updateOtherPlot(int indx)
     signal plotPressed(int indx, int mousex, int mousey)
@@ -139,6 +147,14 @@ WaterFall {
             color: "white"
             anchors.centerIn: parent
         }
+
+        onVisibleChanged: {
+            if (visible) {
+                plot.setHoldHistory(true)
+            } else {
+                plot.setHoldHistory(false)
+            }
+        }
     }
 
     Rectangle {
@@ -196,10 +212,46 @@ WaterFall {
         // the actual label
         Text {
             id: configurationInProgressText
-            text: "Configuring transducer..."
+            text: {
+                if (pulseRuntimeSettings.unableToConfigure) {
+                    return "Fixing transducer com link..."
+                } else {
+                    return "Configuring transducer..."
+                }
+            }
             font.pixelSize: 40
             color: "white"
             anchors.centerIn: parent
+        }
+
+        // Start/stop the timer when visibility changes
+            onVisibleChanged: {
+                if (visible) {
+                    // ensure a fresh countdown each time it becomes visible
+                    console.log("LinkManager: configure transducer, let us keep track and see if successful")
+                    breakAndReconnectLinkTimer.stop()
+                    breakAndReconnectLinkTimer.start()
+                } else {
+                    breakAndReconnectLinkTimer.stop()
+                    pulseRuntimeSettings.unableToConfigure = false
+                }
+            }
+
+            // Handle the case where we start already visible
+            Component.onCompleted: {
+                if (visible) {
+                    breakAndReconnectLinkTimer.stop()
+                    breakAndReconnectLinkTimer.start()
+                }
+            }
+    }
+
+    Timer {
+        id: breakAndReconnectLinkTimer
+        repeat: false
+        interval: 5000
+        onTriggered: {
+            pulseRuntimeSettings.unableToConfigure = true
         }
     }
 
@@ -375,7 +427,8 @@ WaterFall {
             pinchStartPos = Qt.point(-1, -1)
         }
 
-        MouseArea {
+
+       MouseArea {
             id: mousearea
             enabled: true
             anchors.fill: parent
@@ -453,7 +506,9 @@ WaterFall {
 
                 if (Qt.platform.os === "android") {
                     startMousePos = Qt.point(mouse.x, mouse.y)
-                    longPressTimer.start()
+                    if (!mousearea.longPressFired) {
+                        longPressTimer.start()
+                    }
                 }
                 console.log("AddWaypoint: onPressed triggered!")
 
@@ -603,6 +658,224 @@ WaterFall {
             */
         }
     }
+
+        /*
+        MouseArea {
+            id: mousearea
+            enabled: true
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+            property int lastMouseX: -1
+            property bool wasMoved: false
+            property point startMousePos: Qt.point(-1, -1)
+            property real mouseThreshold: 30
+            property int contactMouseX: -1
+            property int contactMouseY: -1
+            //Pulse addition
+            property int lastMouseY: -1
+            property bool longPressFired: false
+            property int pressButton: Qt.LeftButton
+            property bool draggingInPaused: false
+            property bool gestureConsumed: false
+            property real pressXSnapshot: -1
+            property real pressYSnapshot: -1
+            property int pressSeq: 0        // monotonically increasing press id
+            property int timerSeq: 0        // the press id for the currently running timer
+            preventStealing: true           // stops Flickable/others from cancel-stealing your press
+            //**************
+
+            hoverEnabled: true
+
+            Timer {
+                id: longPressTimer
+                interval: 500
+                repeat: false
+                onTriggered: {
+                    if (pulseRuntimeSettings.echogramPause && !mousearea.wasMoved) {
+                        if (mousearea.pressButton === Qt.LeftButton) {
+                            menuBlock.visible = false
+                            plot.plotMousePosition(mousearea.pressXSnapshot, mousearea.pressYSnapshot)
+                            plotPressed(indx, mousearea.pressXSnapshot, mousearea.pressYSnapshot)
+                        } else
+
+                        if (mousearea.pressButton === Qt.RightButton) {
+                            mousearea.contactMouseX = mousearea.pressXSnapshot
+                            mousearea.contactMouseY = mousearea.pressYSnapshot
+                            plot.simplePlotMousePosition(mousearea.pressXSnapshot, mousearea.pressYSnapshot)
+                        }
+                        plot.setDragActive(false)
+                        mousearea.longPressFired = true
+                        mousearea.gestureConsumed = true
+                    }
+                }
+            }
+
+
+            onPressed: {
+
+                lastMouseX = mouse.x
+                //Pulse addition
+                lastMouseY = mouse.y
+                mousearea.pressButton = mouse.button
+                pressXSnapshot = mouse.x
+                pressYSnapshot = mouse.y
+                //**************
+
+                wasMoved = false
+                draggingInPaused = false
+
+                if (Qt.platform.os === "android") {
+                    startMousePos = Qt.point(mouse.x, mouse.y)
+                    longPressTimer.start()
+                }
+
+                //Pulse
+                if (pulseRuntimeSettings.echogramPause && mouse.button === Qt.RightButton) {
+                    contactMouseX = mouse.x
+                    contactMouseY = mouse.y
+                    plot.simplePlotMousePosition(mouse.x, mouse.y)
+                }
+
+
+                if (pulseRuntimeSettings.echogramPause && mousearea.longPressFired) {
+                    //mousearea.longPressFired = false
+                    if (mousearea.pressButton === Qt.LeftButton) {
+                        menuBlock.visible = false
+                        plot.plotMousePosition(mousearea.pressXSnapshot, mousearea.pressYSnapshot)
+                        plotPressed(indx, mousearea.pressXSnapshot, mousearea.pressYSnapshot)
+                        //plot.plotMousePosition(mouse.x, mouse.y)
+                        //plotPressed(indx, mouse.x, mouse.y)
+                    }
+
+                    if (mouse.button === Qt.RightButton) {
+                        contactMouseX = mouse.x
+                        contactMouseY = mouse.y
+
+                        plot.simplePlotMousePosition(mouse.x, mouse.y)
+                    }
+                }
+
+
+                longPressFired = false
+                gestureConsumed = false
+
+
+                //longPressFired = false
+                //draggingInPaused = false
+                //wasMoved = false
+            }
+
+            onReleased: {
+                lastMouseX = -1
+                //Pulse addition
+                lastMouseY = -1
+                //**************
+                if (Qt.platform.os === "android") {
+                    longPressTimer.stop()
+                }
+
+                if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
+                    plot.setDragActive(false)
+                }
+
+                if (longPressFired) {
+                    //Do nothing
+                } else {
+                    if (pulseRuntimeSettings.echogramPause && !wasMoved && !gestureConsumed) {
+                        menuBlock.visible = false
+                        plot.plotMousePosition(-1, -1)
+                    }
+                    plotReleased(indx)
+                }
+
+                wasMoved = false
+                draggingInPaused = false
+                startMousePos = Qt.point(-1, -1)
+                longPressFired = false
+                gestureConsumed = false
+
+                //pressXSnapshot = -1; pressYSnapshot = -1
+
+
+            }
+
+            onCanceled: {
+                lastMouseX = -1
+                //Pulse addition
+                lastMouseY = -1
+                //**************
+                if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
+                    plot.setDragActive(false)
+                }
+
+                if (Qt.platform.os === "android") {
+                    longPressTimer.stop()
+                }
+
+                if (!longPressFired) {
+                        // only treat as tap/cancel if no long-press happened
+                        if (pulseRuntimeSettings.echogramPause && !wasMoved && !gestureConsumed) {
+                            menuBlock.visible = false
+                            plot.plotMousePosition(-1, -1)
+                        }
+                        plotReleased(indx)
+                    }
+
+                wasMoved = false
+                draggingInPaused = false
+                startMousePos = Qt.point(-1, -1)
+                longPressFired = false
+                gestureConsumed = false
+                //plotReleased(indx)
+            }
+
+            onPositionChanged: {
+                plot.onCursorMoved(mouse.x, mouse.y)
+
+                // 1) detect movement
+                if (!wasMoved) {
+                    var currDelta = Math.sqrt(Math.pow(mouse.x - startMousePos.x, 2) +
+                                              Math.pow(mouse.y - startMousePos.y, 2))
+                    if (currDelta > mouseThreshold) {
+                        wasMoved = true
+                        longPressTimer.stop()
+
+                        if (pulseRuntimeSettings.echogramPause && !mousearea.longPressFired) {
+                            draggingInPaused = true
+                            plot.setDragActive(true)
+                        }
+                    }
+                }
+
+                // 2) update deltas
+                var delta = mouse.x - lastMouseX
+                lastMouseX = mouse.x
+                var deltaY = mouse.y - lastMouseY
+                lastMouseY = mouse.y
+
+                // 3) normal (not paused) drag
+                if ((mousearea.pressedButtons & Qt.LeftButton) && !pulseRuntimeSettings.echogramPause) {
+                    plot.setDragActive(true)
+                    if (plot.isViewHorizontal()) {
+                        plot.horScrollEvent(delta)
+                    } else {
+                        plot.horScrollEvent(deltaY)
+                    }
+                }
+                // 4) paused drag (only if we *latched* into draggingInPaused)
+                else if (draggingInPaused) {
+                    plot.setDragActive(true)
+                    if (plot.isViewHorizontal()) {
+                        plot.horScrollEvent(delta)
+                    } else {
+                        plot.horScrollEvent(deltaY)
+                    }
+                }
+            }
+        }
+    }
+    */
 
     onHeightChanged: {
         if(menuBlock.visible) {
@@ -913,6 +1186,7 @@ WaterFall {
 
         DepthAndTemperature {
             id: thisDepthAndTemperature
+            visible: !pulseRuntimeSettings.echogramPause
             GridLayout.row: 0
             GridLayout.column: 0
             Layout.rowSpan: 2
@@ -924,7 +1198,7 @@ WaterFall {
 
         HorizontalController {
             id: selectorMaxDepth
-            visible: pulseSettings.areUiControlsVisible
+            visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
 
             GridLayout.row: 0
             GridLayout.column: 1
@@ -1101,7 +1375,7 @@ WaterFall {
 
         HorizontalController {
             id: selectorIntensity
-            visible: pulseSettings.areUiControlsVisible
+            visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
             GridLayout.row: 1
             GridLayout.column: 1
             Layout.preferredWidth: _isAndroid ? 330 : 220
@@ -1157,7 +1431,7 @@ WaterFall {
 
         HorizontalController {
             id: selectorFiltering
-            visible: pulseSettings.areUiControlsVisible
+            visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
             controleName: "selectorFiltering"
             GridLayout.row: 2
             GridLayout.column: 1
@@ -1238,7 +1512,6 @@ WaterFall {
             id: quickChangeMedia
             spacing: 2
             Layout.topMargin: 10
-            visible: pulseSettings.areUiControlsVisible
 
             GridLayout.row: 3
             GridLayout.column: 1
@@ -1248,6 +1521,8 @@ WaterFall {
                 id: echogramPlayPause
                 iconSource: "./icons/ui/pulse_crosshair.svg"
                 controleName: "echogramPlayPause"
+                visible: pulseRuntimeSettings.mavlinkDetected
+                //opacity: pulseRuntimeSettings.echogramPause ? 0 : 100
                 checked: false
                 onStateChanged: {
                     pulseRuntimeSettings.echogramPause = checked
@@ -1270,6 +1545,7 @@ WaterFall {
                 iconSource: "./icons/ui/pulse_recording_mini.svg"
                 controleName: "RecordKlf"
                 checked: false
+                visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
                 onStateChanged: {
                     pulseRuntimeSettings.isRecordingKlf = checked
                     core.loggingKlf = pulseRuntimeSettings.isRecordingKlf
@@ -1281,7 +1557,7 @@ WaterFall {
             id: quickChangeTheme
             spacing: 2
             Layout.topMargin: 10
-            visible: pulseSettings.areUiControlsVisible
+            visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
 
             GridLayout.row: 2
             GridLayout.column: 0
@@ -1628,7 +1904,8 @@ WaterFall {
             HorizontalCheckController {
                 id: showMyControls
                 iconSource: "./icons/ui/pulse_controls.svg"
-                checked: pulseSettings.areUiControlsVisible  // Bind this to your persistent setting
+                checked: pulseSettings.areUiControlsVisible
+                visible: !pulseRuntimeSettings.echogramPause
 
                 onStateChanged: {
                     //console.log("Checkbox state changed:", checked)
@@ -1644,7 +1921,7 @@ WaterFall {
                 id: showInfo
                 iconSource: "./icons/ui/pulse_info.svg"
                 checked: false
-                visible: pulseSettings.areUiControlsVisible
+                visible: pulseSettings.areUiControlsVisible  && !pulseRuntimeSettings.echogramPause
 
                 onStateChanged: {
                     //console.log("Checkbox state changed:", checked)
