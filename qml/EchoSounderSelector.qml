@@ -63,22 +63,8 @@ Rectangle {
         // Ensure multi‐line support (no automatic eliding)
         wrapMode: Text.NoWrap
     }
-    /*
-    Text {
-        id: titleText
-        visible: !isSelected
-        text: "My device is:\n" + container.title
-        color: "white"
-        font.pointSize: 20
-        anchors.top: parent.top
-        anchors.topMargin: 20
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.margins: 10
-    }
-    */
 
     // Version selection:
-    // If more than one version is provided, use a ComboBox; otherwise, just display the version.
     Item {
         id: versionContainer
         anchors.top: titleText.bottom
