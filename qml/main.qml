@@ -41,7 +41,7 @@ ApplicationWindow  {
     readonly property int _activeObjectParamsMenuHeight: 500
     readonly property int _sceneObjectsListHeight:       300
 
-    property bool windowShadow: true
+    property bool windowShadow: false
     property var lostConnectionAlert: null
 
     Settings {
@@ -71,8 +71,8 @@ ApplicationWindow  {
         function onUseMetricDepthChanged()          { settingsBus.updateRuntime({ useMetricDepth:           pulseRuntimeSettings.useMetricDepth             }) }
         function onautoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoRange:                pulseRuntimeSettings.autoDepthMaxLevel          }) }
         //UUID for transducer
-        function onUuidIpGatewayChanged()           { settingsBus.updateRuntime({ uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway              }) }
-        function onUuidUsbSerialChanged()           { settingsBus.updateRuntime({ uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial              }) }
+        //function onUuidIpGatewayChanged()           { settingsBus.updateRuntime({ uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway              }) }
+        //function onUuidUsbSerialChanged()           { settingsBus.updateRuntime({ uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial              }) }
         //Bottom track
         function onUpdateBottomTrackChanged()       { settingsBus.updateRuntime({ updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack          }) }
         function onIsBottomTrackInitiatedChanged()  { settingsBus.updateRuntime({ isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated     }) }
@@ -110,8 +110,8 @@ ApplicationWindow  {
                     maximumDepth:             pulseRuntimeSettings.maximumDepth,
                     isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid,
                     useMetricDepth:           pulseRuntimeSettings.useMetricDepth,
-                    uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway,
-                    uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial,
+                    //uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway,
+                    //uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial,
                     updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack,
                     isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated
                 })
@@ -127,6 +127,15 @@ ApplicationWindow  {
             }
 
 
+        }
+        function onUuidSuccessfullyOpenedChanged () {
+            console.log("LinkManager: main.qml onUuidSuccessfullyOpenedChanged new value", pulseRuntimeSettings.uuidSuccessfullyOpened)
+        }
+        function onUuidUsbSerialChanged () {
+            console.log("LinkManager: main.qml onUuidUsbSerialChanged new value", pulseRuntimeSettings.uuidUsbSerial)
+        }
+        function onUuidIpGatewayChanged () {
+            console.log("LinkManager: main.qml onUuidIpGatewayChanged new value", pulseRuntimeSettings.uuidIpGateway)
         }
 
     }
@@ -280,17 +289,40 @@ ApplicationWindow  {
             "and betaMode", pulseRuntimeSettings.betaMode,
             "and validateSalt", pulseSettings.validateSalt, "for code", pulseSettings.keyCode
         )
+        settingsBus.updateRuntime({
+            devName:                "..."
+        })
         settingsBus.updatePersistent({
-                udpGateway:              pulseSettings.udpGateway,
-                udpPort:                 pulseSettings.udpPort,
-                isBetaTester:            pulseSettings.isBetaTester,
-                isExpert:                pulseSettings.isExpert
-            })
+            udpGateway:              pulseSettings.udpGateway,
+            udpPort:                 pulseSettings.udpPort,
+            isBetaTester:            pulseSettings.isBetaTester,
+            isExpert:                pulseSettings.isExpert
+        })
         console.log("App start code check: code=", code, ", isBeta", isBeta, "isExpert", isExpert)
         //console.log("App start code check: pulseSettings.isBetaTester=", pulseSettings.isBetaTester, "pulseSettings.isExpert=", pulseSettings.isExpert)
         theme.updateResCoeff()
 
         //Important settings:
+
+        console.log("LinkMamnager main: Let's get a snapshot from the settingsbus")
+
+        // one-shot hydration from the bus’ current state
+            var snap = settingsBus.runtimeSnapshot();
+            if (snap.devName !== undefined && snap.devName !== null)
+                pulseRuntimeSettings.devName = snap.devName;
+
+            if (snap.uuidUsbSerial){
+                console.log("LinkMamnager main: Snapshot uuid serial:", snap.uuidUsbSerial)
+                pulseRuntimeSettings.uuidUsbSerial = snap.uuidUsbSerial;
+            }
+            if (snap.uuidIpGateway){
+                console.log("LinkMamnager main: Snapshot uuid wifi:", snap.uuidIpGateway)
+                pulseRuntimeSettings.uuidIpGateway = snap.uuidIpGateway;
+            }
+            if (snap.uuidSuccessfullyOpened) {
+                console.log("LinkMamnager main: Snapshot uuid opened:", snap.uuidSuccessfullyOpened)
+                pulseRuntimeSettings.uuidSuccessfullyOpened = snap.uuidSuccessfullyOpened;
+            }
 
         //-------------------
 
@@ -325,6 +357,8 @@ ApplicationWindow  {
             }
         }
         Qt.callLater(setupConnections);
+
+        settingsBus.replayRuntime()
     }
 
     // banner on languageChanged
@@ -706,7 +740,7 @@ ApplicationWindow  {
 
             GraphicsScene3dView {
                 id:                renderer
-                //visible: menuBar.is3DVisible - PULSE disable
+                //visible: menuBar.is3DVisible //- PULSE disable
                 visible: false
                 objectName: "GraphicsScene3dView"
                 Layout.fillHeight: true
@@ -1059,9 +1093,9 @@ ApplicationWindow  {
     MenuFrame {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        //Pulse: Always hide
-        //visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
-        visible: false
+        //Pulse: hide
+        visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
+        //visible: false
         isDraggable: true
         isOpacityControlled: true
         Keys.forwardTo: [splitLayer]
@@ -1196,8 +1230,8 @@ ApplicationWindow  {
         }
 
         //Pulse: Hide
-        visible: false
-        //visible: !showBanner
+        //visible: false
+        visible: !showBanner
     }
 
     function handleChildSignal(langStr) {
@@ -1371,15 +1405,54 @@ ApplicationWindow  {
         anchors.centerIn: parent
         color: "transparent"
 
+        // Decides when the whole selector is allowed to appear
+        property bool revealGate: false
+        visible: revealGate || selectionMade
+        opacity: 1
         // These properties control which item was selected.
         property bool selectionMade: false
         property string selectedDevice: ""
+
+        Timer {
+            id: selectorDelayTimer
+            interval: 1000
+            repeat: false
+            onTriggered: {
+                if (!echoSounderSelectorRect.selectionMade) {
+                    // only show the full selector if nothing auto-selected
+                    echoSounderSelectorRect.revealGate = true
+                    mainview.windowShadow = true
+                }
+            }
+        }
+
+        Component.onCompleted: selectorDelayTimer.start()
 
         Connections {
             target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
             function onSwapDeviceNowChanged () {
                 if (pulseRuntimeSettings.swapDeviceNow) {
                     console.log("DEV_RESELECT initialize in main")
+
+                    // 1) Don't force it visible now; let the gate control it
+                    echoSounderSelectorRect.revealGate     = false
+                    echoSounderSelectorRect.selectionMade  = false
+                    echoSounderSelectorRect.selectedDevice = ""
+
+                    // 2) Show both choices when/if the gate opens
+                    pulseRedSelector.visible  = true
+                    pulseBlueSelector.visible = true
+
+                    // 3) Clear any lingering state + restart the reveal delay
+                    echoSounderSelectorRect.state = ""
+                    selectorDelayTimer.restart()
+
+                    // 4) Clear other UI bits
+                    pulseRuntimeSettings.devManualSelected = false
+                    pulseRuntimeSettings.swapDeviceNow = false
+                    mainview.windowShadow = true
+
+                    /*
 
                     // 1) Bring the container back
                     echoSounderSelectorRect.visible = true
@@ -1402,6 +1475,7 @@ ApplicationWindow  {
                     // and put back your shadow, etc.
                     pulseRuntimeSettings.devManualSelected = false
                     mainview.windowShadow = true
+                    */
 
                     console.log("DEV_RESELECT now we want to re-select the device in main")
                 }
@@ -1436,6 +1510,7 @@ ApplicationWindow  {
             }
 
             function onDevNameChanged () {
+                console.log("onDevnameChanged in main.qml: name", pulseRuntimeSettings.devName)
                 let detectedModel = "";
                 console.log("DEVICE: received an onDevNameChanged, devName is", pulseRuntimeSettings.devName);
                 if (pulseRuntimeSettings.devName === "...") {
@@ -1555,7 +1630,6 @@ ApplicationWindow  {
             interval: pulseRuntimeSettings.dataIsStaleElapseTime
             repeat: false
             onTriggered: {
-                console.log("DATAFLOW: Stale data detected ")
                 pulseRuntimeSettings.dataUpdateActive = false
                 // If we’re still inside our initial window, reboot:
                 if (pulseRuntimeSettings.guardActive) {
@@ -1682,8 +1756,8 @@ ApplicationWindow  {
                 PropertyChanges {
                     target: pulseBlueSelector ? pulseBlueSelector : undefined
                     // center it exactly
-                    x: (freeContainer.width - pulseRedSelector.width)/2
-                    y: (freeContainer.height - pulseRedSelector.height)/2
+                    x: (freeContainer.width - pulseBlueSelector.width)/2
+                    y: (freeContainer.height - pulseBlueSelector.height)/2
                 }
             }
         ]
