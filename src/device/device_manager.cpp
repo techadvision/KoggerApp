@@ -47,6 +47,56 @@ void DeviceManager::setSettingsBus(SettingsBus* bus)
     }
 }
 
+bool DeviceManager::mavlinkDetected() const {
+    return mavlinkDetected_;
+}
+
+void DeviceManager::setMavlinkDetected(bool detected) {
+    mavlinkDetected_ = detected;
+}
+
+qint64 DeviceManager::nowUnixNs() {
+    return static_cast<qint64>(QDateTime::currentMSecsSinceEpoch()) * 1'000'000LL;
+}
+
+bool DeviceManager::hasSystemTimeMapping(const QUuid& srcUuid) const {
+    auto it = mavEpochSync_.find(srcUuid);
+    return (it != mavEpochSync_.end() && it->offset_ns != std::numeric_limits<qint64>::min());
+}
+
+void DeviceManager::setEpochSyncFromSystemTime(const QUuid& srcUuid,
+                                               qint64 time_unix_us,
+                                               qint64 time_boot_ms)
+{
+    // Ignore “no time” reports
+    if (time_unix_us <= 0 || time_boot_ms < 0) return;
+
+    auto &s = mavEpochSync_[srcUuid];
+
+    // Authoritative mapping: UNIX - boot
+    s.offset_ns    = time_unix_us * 1000LL - time_boot_ms * 1'000'000LL;
+    s.last_boot_ms = time_boot_ms;
+}
+
+std::pair<quint32,quint32>
+DeviceManager::toUnixFromBootMs(const QUuid& srcUuid, qint64 boot_ms) const
+{
+    // If we don’t have SYSTEM_TIME yet, fall back to app-arrival time (best effort)
+    qint64 offset_ns;
+    auto it = mavEpochSync_.find(srcUuid);
+    if (it == mavEpochSync_.end() || it->offset_ns == std::numeric_limits<qint64>::min()) {
+        // Best effort guess so you still get reasonable stamps before SYSTEM_TIME appears
+        offset_ns = nowUnixNs() - boot_ms * 1'000'000LL;
+    } else {
+        offset_ns = it->offset_ns;
+    }
+
+    const qint64 unix_ns = boot_ms * 1'000'000LL + offset_ns;
+    const quint32 sec  = static_cast<quint32>(unix_ns / 1'000'000'000LL);
+    const quint32 nsec = static_cast<quint32>(unix_ns % 1'000'000'000LL);
+    return {sec, nsec};
+}
+
 DeviceManager::~DeviceManager()
 {
 
@@ -316,30 +366,60 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, FrameParser frame)
         if (frame.isCompleteAsMAVLink()) {
             bool linkIsNull = link == nullptr;
             //qDebug() << "mavlink frame observed: link == nullptr?" << linkIsNull << "proxyLinkUuid_" << proxyLinkUuid_ << "uuid" << uuid << "mavlinUuid_" << mavlinUuid_;
+
+            if (link != nullptr && mavlinUuid_ != uuid) {
+                mavlinUuid_ = uuid;
+                mavlinkLink_ = link;
+                //connect(this, &DeviceManager::writeMavlinkFrame, mavlinkLink_, &Link::writeFrame, Qt::UniqueConnection);
+            }
+
+            if (!mavlinkDetected_) {
+                setMavlinkDetected(true);
+                emit mavlinkWasDetected();
+            }
+
             ProtoMAVLink& mavlink_frame = (ProtoMAVLink&)frame;
+
+            if (mavlink_frame.msgId() == 2) { // MAVLINK_MSG_ID_SYSTEM_TIME
+                MAVLink_MSG_SYSTEM_TIME sys = mavlink_frame.read<MAVLink_MSG_SYSTEM_TIME>();
+                setEpochSyncFromSystemTime(uuid,
+                                           static_cast<qint64>(sys.time_unix_usec),
+                                           static_cast<qint64>(sys.time_boot_ms));
+            }
+
             if(mavlink_frame.msgId() == MAVLink_MSG_GLOBAL_POSITION_INT::getID()) {
                 //qDebug() << "mavlink frame is MAVLink_MSG_GLOBAL_POSITION_INT";
                 MAVLink_MSG_GLOBAL_POSITION_INT pos = mavlink_frame.read<MAVLink_MSG_GLOBAL_POSITION_INT>();
                 if (pos.isValid()) {
+                    /*
                     if (link != nullptr && mavlinUuid_ != uuid) {
                         mavlinUuid_ = uuid;
                     }
-                    emit positionComplete(pos.latitude(), pos.longitude(), pos.time_boot_msec()/1000, (pos.time_boot_msec()%1000)*1e6);
-                    //qDebug() << "mavlink frame MAVLink_MSG_GLOBAL_POSITION_INT has a valid position. lat" << pos.latitude() << "lng" << pos.longitude();
+                    */
+                    //Calculate usin msg id 2 SYSTEM_TIME
+                    const qint64 boot_ms = pos.time_boot_msec();
+                    auto [sec, nsec] = toUnixFromBootMs(uuid, boot_ms);
+
+                    emit positionComplete(pos.latitude(), pos.longitude(), sec, nsec);
+                    //emit positionComplete(pos.latitude(), pos.longitude(), pos.time_boot_msec()/1000, (pos.time_boot_msec()%1000)*1e6);
+                    qDebug() << "mavlink frame MAVLink_MSG_GLOBAL_POSITION_INT has a valid position. lat" << pos.latitude() << "lng" << pos.longitude();
                     emit gnssVelocityComplete(pos.velocityH(), 0);
                     vru_.velocityH = pos.velocityH();
                     emit vruChanged();
                 }
             }
+
             if (mavlink_frame.msgId() == 30) {
                 MAVLink_MSG_ATTITUDE attitude = mavlink_frame.read<MAVLink_MSG_ATTITUDE>();
 
                 const float yaw = attitude.yawDeg();
                 const float pitch = attitude.pitchDeg();
                 const float roll = attitude.rollDeg();
+                /*
                 if (link != nullptr && mavlinUuid_ != uuid) {
                     mavlinUuid_ = uuid;
                 }
+                */
 
                 if (!qFuzzyIsNull(yaw) || !qFuzzyIsNull(pitch) || !qFuzzyIsNull(roll)) {
                     //qDebug() << "mavlink frame MAVLink_MSG_ATTITUDE has a valid yaw" << yaw;
