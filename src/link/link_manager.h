@@ -43,6 +43,8 @@ public slots:
     void openAsUdp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void openAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void closeLink(QUuid uuid);
+    QUuid getUuidFromString (QString uuidAsString);
+    void resetMyOpenLink();
     void closeFLink(QUuid uuid);
     void deleteLink(QUuid uuid);
     void updateBaudrate(QUuid uuid, int baudrate);
@@ -114,4 +116,6 @@ private:
     int     udpPort_      = 14560;
     QString uuidIpGateway_ = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"; //As defined in pulseRuntimeSettings
     QString uuidUsbSerial_ = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
+    QString uuidProxyLink_ = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}";
+    QString uuidSuccessfullyOpened_ = "";
 };

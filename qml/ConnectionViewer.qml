@@ -6,6 +6,8 @@ import Qt.labs.settings 1.1
 
 ColumnLayout {
     property var dev: null
+    property var dev1: null
+    property var dev2: null
     property var devList: deviceManagerWrapper.devs
     property string filePath: pathText.text
 
@@ -14,8 +16,28 @@ ColumnLayout {
 
 
     onDevListChanged: {
+        selectCorrectDevice()
+    }
+
+    function selectCorrectDevice () {
         if (devList.length > 0) {
-            dev = devList[0]
+            if (devList.length > 1) {
+                dev2 = devList[1]
+                if (dev2.devName !== null && dev2.devName.length > 0 && dev2.devName !== "...") {
+                    dev = devList[1]
+                    console.log("onDevListChanged occurred: found multiple devices, device #2 is the real device", dev.devName)
+                }
+                dev1 = devList[0]
+                if (dev1.devName !== null && dev1.devName.length > 0 && dev1.devName !== "...") {
+                    dev = devList[0]
+                    console.log("onDevListChanged occurred: found multiple devices, device #1 is the real device", dev.devName)
+                }
+                dev1 = null
+                dev2 = null
+            } else {
+                dev = devList[0]
+                console.log("onDevListChanged occurred: found one device", dev.devName)
+            }
         }
     }
 
@@ -30,6 +52,14 @@ ColumnLayout {
 
     Connections {
         target: pulseRuntimeSettings
+
+        function onUnableToConfigureChanged () {
+            if (!pulseRuntimeSettings.unableToConfigure)
+                return
+            //pulseRuntimeSettings.unableToConfigure = false
+            selectCorrectDevice()
+        }
+
         function onForceBreakConnectionChanged () {
             if (pulseRuntimeSettings.forceBreakConnection) {
                 console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection)
@@ -47,6 +77,7 @@ ColumnLayout {
                 console.log("forceBreakConnection triggered, should break?", pulseRuntimeSettings.forceBreakConnection)
             }
         }
+
         function onDevNameChanged () {
             if (pulseRuntimeSettings === null)
                 return

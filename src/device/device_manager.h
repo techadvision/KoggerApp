@@ -12,7 +12,14 @@
 #include "proto_binnary.h"
 #include "id_binnary.h"
 #include "dataset.h"
+#include <QtGlobal>
+#include <limits>
 class SettingsBus;
+
+struct BootEpochSync {
+    qint64 offset_ns = std::numeric_limits<qint64>::min(); // invalid sentinel
+    qint64 last_boot_ms = -1;
+};
 
 class DeviceManager : public QObject
 {
@@ -34,6 +41,8 @@ public:
     QList<DevQProperty*> getDevList();
     QList<DevQProperty*> getDevList(BoardVersion ver);
     int calcAverageChartLosses();
+    //Pulse
+    Q_INVOKABLE bool mavlinkDetected() const;
 
 public slots:
     Q_INVOKABLE bool isCreatedId(int id);
@@ -63,6 +72,7 @@ public slots:
 
     void onStartUpgradingFirmware(QUuid linkUuid, uint8_t address, const QByteArray& firmware);
     void onUpgradingFirmwareDone();
+    void setMavlinkDetected (bool detected);
 
 signals:
     //
@@ -100,6 +110,8 @@ signals:
     void encoderComplete(float e1, float e2, float e3);
     void fileStopsOpening();
     void chartLossesChanged();
+    //Pulse
+    void mavlinkWasDetected();
 
     // logger
     void sendProtoFrame(const ProtoBinOut& protoOut);
@@ -119,6 +131,13 @@ private:
     DevQProperty* createDev(QUuid uuid, Link* link, uint8_t addr);
     //PULSE
     SettingsBus* bus_ = nullptr;
+    QHash<QUuid, BootEpochSync> mavEpochSync_;
+    void setEpochSyncFromSystemTime(const QUuid& srcUuid,
+                                    qint64 time_unix_us,
+                                    qint64 time_boot_ms);
+    bool hasSystemTimeMapping(const QUuid& srcUuid) const;
+    std::pair<quint32,quint32> toUnixFromBootMs(const QUuid& srcUuid, qint64 boot_ms) const;
+    static qint64 nowUnixNs();
 
     /*data*/
     struct VruData {
@@ -170,6 +189,7 @@ private:
     QUuid upgradeUuid_;
     uint8_t upgradeAddr_;
     QByteArray upgradeData_;
+    bool mavlinkDetected_;
 
 private slots:
     void readyReadProxy(Link* link);

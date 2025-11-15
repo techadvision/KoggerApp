@@ -73,21 +73,29 @@ DevDriver::DevDriver(QObject *parent)
 }
 
 //PULSE
-void DevDriver::setSettingsBus(SettingsBus* bus) { bus_ = bus; }
+void DevDriver::setSettingsBus(SettingsBus* bus)
+{
+    bus_ = bus;
+}
 
 void DevDriver::pushRuntime(const QVariantMap& m)
 {
+
     if (!bus_) {
         qDebug() << "SettingsBus::updateRuntime: Failed, no bus available" ;
         return;
     }
     //qDebug() << "SettingsBus::updateRuntime: executing" ;
     // Execute SettingsBus::updateRuntime on the GUI thread
+
+
+    /*
     QMetaObject::invokeMethod(
         bus_, "updateRuntime",
         Qt::QueuedConnection,
         Q_ARG(QVariantMap, m)
         );
+    */
 }
 
 DevDriver::~DevDriver()
@@ -1324,7 +1332,15 @@ void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
         }
     }
 
-    pushRuntimeKV("devName", m_devName);
+    if (bus_) {
+        QVariantMap m; m.insert("devName", m_devName);
+        QMetaObject::invokeMethod(bus_, "updateRuntime",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(QVariantMap, m));
+        //qDebug() << "devName detected::receivedVersion" << m_devName;
+    }
+
+    //pushRuntimeKV("devName", m_devName);
     pushRuntimeKV("rawDev_firmwareVersion", m_fwVer);
 }
 

@@ -33,7 +33,7 @@ class Link : public QObject
 public:
     Link();
     //PULSE
-    void setSettingsBus(SettingsBus* b) { bus_ = b; }
+    void setSettingsBus(SettingsBus* bus);
     void applyRuntime(const QVariantMap& m);
 
     void createAsSerial(const QString& portName, int baudrate, bool parity);
@@ -154,7 +154,7 @@ private:
     //PULSE
     SettingsBus* bus_ = nullptr;
     QString uuidIpGateway_   = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}";
-    QString uuidUsbSerial_   = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}";
+    QString uuidUsbSerial_   = "{2ad43efc-0000-4321-a925-a8e0cd188cd0}";
     QString uuidOpenedLast_;
 
 private slots:

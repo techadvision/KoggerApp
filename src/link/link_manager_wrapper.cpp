@@ -20,6 +20,8 @@ LinkManagerWrapper::LinkManagerWrapper(QObject* parent) : QObject(parent)
     QObject::connect(this,                &LinkManagerWrapper::sendCreateAsTcp,             workerObject_.get(), &LinkManager::createAsTcp,                  connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendOpenAsTcp,               workerObject_.get(), &LinkManager::openAsTcp,                    connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendCloseLink,               workerObject_.get(), &LinkManager::closeLink,                    connectionType);
+    QObject::connect(this,                &LinkManagerWrapper::sendGetUuidFromString,       workerObject_.get(), &LinkManager::getUuidFromString,            connectionType);
+    QObject::connect(this,                &LinkManagerWrapper::sendResetMyOpenLink,         workerObject_.get(), &LinkManager::resetMyOpenLink,              connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendFCloseLink,              workerObject_.get(), &LinkManager::closeFLink,                   connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendOpenFLinks,              workerObject_.get(), &LinkManager::openFLinks,                   connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendDeleteLink,              workerObject_.get(), &LinkManager::deleteLink,                   connectionType);
@@ -137,6 +139,16 @@ void LinkManagerWrapper::createAsTcp(QString address, int sourcePort, int destin
 void LinkManagerWrapper::openAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute)
 {
     emit sendOpenAsTcp(uuid, address, sourcePort, destinationPort, attribute);
+}
+
+QUuid LinkManagerWrapper::getUuidFromString(QString uuidAsString)
+{
+    emit sendGetUuidFromString(uuidAsString);
+}
+
+void LinkManagerWrapper::resetMyOpenLink()
+{
+    emit sendResetMyOpenLink();
 }
 
 void LinkManagerWrapper::closeLink(QUuid uuid)

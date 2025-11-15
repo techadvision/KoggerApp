@@ -40,14 +40,35 @@ Link::Link()
     QTimer::singleShot(500, this, [&]() -> void { checkTimer_->start(); });
 }
 
+void Link::setSettingsBus(SettingsBus* bus)
+{
+    if (bus_ == bus) return;
+
+    // disconnect old bus if any
+    if (bus_) {
+        QObject::disconnect(bus_, nullptr, this, nullptr);
+    }
+
+    bus_ = bus;
+
+    if (bus_) {
+        // If you want Link to react to runtime keys from QML later, hook it up:
+        QObject::connect(bus_, &SettingsBus::runtimeChanged,
+                         this, [this](const QVariantMap& m){ applyRuntime(m); },
+                         Qt::QueuedConnection);
+    }
+}
+
 //PULSE
 void Link::applyRuntime(const QVariantMap& m)
 {
+    /*
     if (m.contains("uuidIpGateway"))
         uuidIpGateway_ = m.value("uuidIpGateway").toString();
     if (m.contains("uuidUsbSerial"))
         uuidUsbSerial_ = m.value("uuidUsbSerial").toString();
     // (if you add more runtime keys later, handle them here)
+    */
 }
 
 void Link::createAsSerial(const QString &portName, int baudrate, bool parity)
@@ -85,18 +106,17 @@ void Link::openAsSerial()
         setDev(serialPort);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
-        qDebug() << "Link::openAsSerial isOpen uuid" << uuid_;
+        qDebug() << "LinkManager Link::openAsSerial isOpen uuid" << uuid_;
+        /*
         if (bus_) {
-            QVariantMap m; m.insert("uuidUsbSerial", uuid_);
-            QMetaObject::invokeMethod(bus_, "updateRuntime",
-                                      Qt::QueuedConnection,
-                                      Q_ARG(QVariantMap, m));
-            QVariantMap m2; m2.insert("uuidSuccessfullyOpened", uuid_);
+            qDebug() << "LinkManager Link::openAsSerial update runtime with" << uuid_;
+            QVariantMap m; m.insert("uuidUsbSerial", uuid_.toString(QUuid::WithBraces));
             QMetaObject::invokeMethod(bus_, "updateRuntime",
                                       Qt::QueuedConnection,
                                       Q_ARG(QVariantMap, m));
             qDebug() << "Link::openAsSerial uuid open" << uuid_;
         }
+        */
     }
     else {
         delete serialPort;
@@ -141,17 +161,6 @@ void Link::openAsUdp()
         setDev(socketUdp);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
-        //if (bus_) bus_->updateRuntime({ { "uuidSuccessfullyOpened", uuidIpGateway_ } });
-        //Pulse
-        qDebug() << "Link::openAsUdp uuid open, will try to update runtime uuidIpGateway_" << uuidIpGateway_;
-        if (bus_) {
-            QVariantMap m; m.insert("uuidSuccessfullyOpened", uuidIpGateway_);
-            QMetaObject::invokeMethod(bus_, "updateRuntime",
-                                      Qt::QueuedConnection,
-                                      Q_ARG(QVariantMap, m));
-            qDebug() << "Link::openAsUdp uuid open" << uuidIpGateway_;
-        }
-
     }
     else {
         delete socketUdp;
@@ -752,12 +761,14 @@ void Link::aboutToClose()
         emit connectionStatusChanged(uuid_);
         emit closed(uuid_, this);
     }
+    /*
     if (bus_) {
         QVariantMap m; m.insert("uuidSuccessfullyOpened", "");
         QMetaObject::invokeMethod(bus_, "updateRuntime",
                                   Qt::QueuedConnection,
                                   Q_ARG(QVariantMap, m));
     }
+    */
 }
 
 void Link::handleSerialError(QSerialPort::SerialPortError error)

@@ -39,6 +39,8 @@ public slots:
     void createAsTcp(QString address, int sourcePort, int destinationPort);
     void openAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void closeLink(QUuid uuid);
+    QUuid getUuidFromString (QString uuidAsString);
+    void resetMyOpenLink();
     void closeFLink(QUuid uuid);
     void deleteLink(QUuid uuid);
     void updateBaudrate(QUuid uuid, int baudrate);
@@ -61,6 +63,8 @@ signals:
     void sendCreateAsTcp(QString address, int sourcePort, int destinationPort);
     void sendOpenAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void sendCloseLink(QUuid uuid);
+    QUuid sendGetUuidFromString(QString uuidAsString);
+    void sendResetMyOpenLink();
     void sendFCloseLink(QUuid uuid);
     void sendDeleteLink(QUuid uuid);
     void sendUpdateBaudrate(QUuid uuid, int baudrate);
