@@ -1233,10 +1233,49 @@ Flickable {
             text: "UUID opened"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: settingsPopup.valuePixels
+                font.pixelSize: settingsPopup.valuePixels -14
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidSuccessfullyOpened)
                     return pulseRuntimeSettings.uuidSuccessfullyOpened
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "UUID serial"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
+            Text {
+                font.pixelSize: settingsPopup.valuePixels -14
+                text: {
+                    console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidUsbSerial)
+                    return pulseRuntimeSettings.uuidUsbSerial
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "UUID wifi"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
+            Text {
+                font.pixelSize: settingsPopup.valuePixels -14
+                text: {
+                    console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidIpGateway)
+                    return pulseRuntimeSettings.uuidIpGateway
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "UUID proxy"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
+            Text {
+                font.pixelSize: settingsPopup.valuePixels -14
+                text: {
+                    console.log("pulseRuntimeSettings.uuidProxyLink", pulseRuntimeSettings.uuidProxyLink)
+                    return pulseRuntimeSettings.uuidProxyLink
                 }
             }
         }
