@@ -29,6 +29,8 @@ public:
     Q_PROPERTY(int pilotModeState READ pilotModeState NOTIFY vruChanged)
     Q_PROPERTY(int averageChartLosses READ getAverageChartLosses NOTIFY chartLossesChanged)
     Q_PROPERTY(bool isbeaconDirectQueueAsk WRITE setUSBLBeaconDirectAsk)
+    //Pulse
+    Q_PROPERTY(bool mavlinkDetected READ mavlinkDetected NOTIFY mavlinkWasDetected)
 
     DeviceManager* getWorker();
     QUuid getFileUuid() const;
@@ -48,10 +50,11 @@ public:
 
     int getAverageChartLosses() const {
         return averageChartLosses_;
-    };
+    }
+    bool mavlinkDetected() const;
 
 public slots:
-    Q_INVOKABLE bool isCreatedId(int id) { return getWorker()->isCreatedId(id); };
+    Q_INVOKABLE bool isCreatedId(int id) { return getWorker()->isCreatedId(id); }
     void calcAverageChartLosses();
 
 signals:
@@ -66,6 +69,7 @@ signals:
     void streamChanged();
     void vruChanged();
     void chartLossesChanged();
+    void mavlinkWasDetected();
 
 private:
     std::unique_ptr<DeviceManager> workerObject_;

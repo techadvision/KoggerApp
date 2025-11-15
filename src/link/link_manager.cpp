@@ -61,6 +61,7 @@ void LinkManager::setSettingsBus(SettingsBus* bus)
 
 void LinkManager::applyRuntime(const QVariantMap& m)
 {
+
     if (m.contains("uuidIpGateway")) {
         uuidIpGateway_ = m.value("uuidIpGateway").toString();
         qDebug() << "LinkManager::ApplyRuntime uuidIpGateway" << uuidIpGateway_;
@@ -69,6 +70,12 @@ void LinkManager::applyRuntime(const QVariantMap& m)
         uuidUsbSerial_ = m.value("uuidUsbSerial").toString();
         qDebug() << "LinkManager::ApplyRuntime uuidUsbSerial" << uuidUsbSerial_;
     }
+    if (m.contains("uuidProxyLink")) {
+        uuidProxyLink_ = m.value("uuidProxyLink").toString();
+        qDebug() << "LinkManager::ApplyRuntime uuidProxyLink" << uuidProxyLink_;
+    }
+
+
 }
 
 void LinkManager::applyPersistent(const QVariantMap& m)
@@ -323,6 +330,9 @@ Link *LinkManager::createNewLink() const
 {
     Link* retVal = new Link();
     //qDebug() << "LinkManager::createNewLink";
+    if (bus_) {
+        retVal->setSettingsBus(bus_);
+    }
 
     QObject::connect(retVal, &Link::connectionStatusChanged, this, &LinkManager::onLinkConnectionStatusChanged);
     QObject::connect(retVal, &Link::upgradingFirmwareStateChanged, this, &LinkManager::onUpgradingFirmwareStateChanged);
@@ -340,16 +350,16 @@ Link *LinkManager::createNewLink() const
 
 void LinkManager::handleLinkOpened(QUuid uuid, Link* link)
 {
-    qDebug() << "LinkManager::handleLinkOpened" << uuid;
-#if defined(Q_OS_ANDROID)
+
     if (link && link->getLinkType() == LinkType::kLinkSerial) {
-        const QUuid gwUuid{uuidIpGateway_};
-        if (auto* gw = getLinkPtr(gwUuid)) {
-            gw->setIsForceStopped(true);
-            closeLink(gwUuid);
-        }
+        uuidUsbSerial_ = uuid.toString(QUuid::WithBraces);
+        qDebug() << "LinkManager::handleLinkOpened - serial opened, keep track of serial uuid" << uuidUsbSerial_;
     }
-#endif
+    if (link->getLinkType() == LinkType::kLinkIPUDP) {
+        uuidIpGateway_ = uuid.toString(QUuid::WithBraces);
+        qDebug() << "LinkManager::handleLinkOpened - UDP opened, keep track of UDP uuid" << uuidIpGateway_;
+    }
+
     emit linkOpened(uuid, link); // re-emit manager signal
 }
 
@@ -472,8 +482,7 @@ void LinkManager::importPinnedLinksFromXML()
     )")
       .arg(uuidIp)
       .arg(gatewayIP)
-      .arg(udpPort)
-      .arg(uuidUsb);
+      .arg(udpPort);
 
     #endif
 
@@ -609,18 +618,97 @@ void LinkManager::onLinkIsReceivesDataChanged(QUuid uuid)
     qDebug() << "LinkManager::onLinkIsReceivesDataChanged for uuid" << uuid;
     if (bus_) {
         QVariantMap m;
+        bool shouldUpdateRuntime = false;
 
         if (auto* link = getLinkPtr(uuid)) {
             const bool active = link->getIsRecievesData();
-            m.insert("uuidSuccessfullyOpened", active ? uuid.toString(QUuid::WithBraces) : QString());
-        } else {
-            m.insert("uuidSuccessfullyOpened", QString());
+            LinkType type = link->getLinkType();
+            const QUuid gwUuidWifi{uuidIpGateway_};
+            const QUuid gwUuidSerial{uuidUsbSerial_};
+            const QUuid proxyLink(uuidProxyLink_);
+
+            if (active) {
+                //USB type: If receiving we close UDP link (but not the proxyLink)
+                if (type == LinkType::kLinkSerial) {
+                    if (auto* usbLink = getLinkPtr(uuid)) {
+                        bool usbReceivesData = usbLink->getIsRecievesData();
+                        if (usbReceivesData) {
+                            uuidUsbSerial_ = uuid.toString(QUuid::WithBraces);
+                            //gwUuidSerial{uuidUsbSerial_};
+                            uuidSuccessfullyOpened_ = uuid.toString(QUuid::WithBraces);
+                            shouldUpdateRuntime = true;
+                            auto* wifiLink = getLinkPtr(gwUuidWifi);
+                            if (wifiLink && uuid != proxyLink) {
+                                wifiLink->setIsForceStopped(true);
+                                closeLink(gwUuidWifi);
+                            }
+                        }
+                    }
+                }
+                if (type == LinkType::kLinkIPUDP) {
+                    if (auto* udpLink = getLinkPtr(uuid)) {
+                        bool udpReceivesData = udpLink->getIsRecievesData();
+                        if (udpReceivesData) {
+                            if (uuid != proxyLink) {
+                                uuidIpGateway_ = uuid.toString(QUuid::WithBraces);
+                                uuidSuccessfullyOpened_ = uuid.toString(QUuid::WithBraces);
+                                shouldUpdateRuntime = true;
+                            }
+                        }
+                    }
+                    /*
+                    if (uuid == proxyLink) {
+                        uuidProxyLink_ = uuid.toString(QUuid::WithBraces);
+                    } else {
+                        if (uuidSuccessfullyOpened_ != uuidUsbSerial_) {
+                            uuidIpGateway_ = uuid.toString(QUuid::WithBraces);
+                            uuidSuccessfullyOpened_ = uuid.toString(QUuid::WithBraces);
+                        }
+                    }
+                    uuidIpGateway_ = uuid.toString(QUuid::WithBraces);
+                    */
+                }
+                /*
+                if (uuid == gwUuidWifi && uuid != proxyLink) {
+                    if (!uuidUsbSerial_.isEmpty()){
+                        if (auto* usbLink = getLinkPtr(gwUuidSerial)) {
+                            bool usbReceivesData = usbLink->getIsRecievesData();
+                            if (usbReceivesData) {
+                                qDebug() << "LinkManager::onLinkIsReceivesDataChanged: Wi-Fi became active but serial exists; keep serial and close Wi-Fi";
+                                if (auto* wifi = getLinkPtr(gwUuidWifi)) {
+                                    wifi->setIsForceStopped(true);
+                                    closeLink(gwUuidWifi);
+                                }
+                            }
+                        }
+
+                    }
+                }
+                if (uuid == gwUuidSerial) {
+                    uuidSuccessfullyOpened_ = uuid.toString(QUuid::WithBraces);
+                    auto* gw = getLinkPtr(uuidIpGateway_);
+                    qDebug() << "LinkManager::onLinkIsReceivesDataChanged - serial - close the wifi" << uuidIpGateway_;
+                    gw->setIsForceStopped(true);
+                    closeLink(gwUuidWifi);
+                }
+                */
+                m.insert("uuidSuccessfullyOpened", uuidSuccessfullyOpened_);
+                if (!uuidSuccessfullyOpened_.isEmpty())  m.insert("uuidSuccessfullyOpened",  uuidSuccessfullyOpened_);
+                if (!uuidUsbSerial_.isEmpty())           m.insert("uuidUsbSerial",           uuidUsbSerial_);
+                if (!uuidIpGateway_.isEmpty())           m.insert("uuidIpGateway",           uuidIpGateway_);
+
+
+                //shouldUpdateRuntime = true;
+            }
+        }
+        // cross-thread safe
+        if (shouldUpdateRuntime) {
+            qDebug() << "LinkManager::onLinkIsReceivesDataChanged, let us also update QML runtime preferences";
+            QMetaObject::invokeMethod(bus_, "updateRuntime",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(QVariantMap, m));
         }
 
-        // cross-thread safe
-        QMetaObject::invokeMethod(bus_, "updateRuntime",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(QVariantMap, m));
     }
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
@@ -713,6 +801,37 @@ void LinkManager::closeLink(QUuid uuid)
         linkPtr->close();
         doEmitAppendModifyModel(linkPtr); //
     }
+}
+
+QUuid LinkManager::getUuidFromString(QString uuidAsString)
+{
+    qDebug() << "LinkManager::getUuidFromString: Asked for uuid from string" << uuidAsString;
+    qDebug() << "LinkManager::getUuidFromString: already have uuidSuccessfullyOpened_" << uuidSuccessfullyOpened_;
+
+    //const QUuid successfullyOpened{uuidSuccessfullyOpened_};
+    //return QUuid::fromString(uuidAsString);
+    return QUuid::fromString(uuidSuccessfullyOpened_);
+}
+
+
+void LinkManager::resetMyOpenLink()
+{
+    const QUuid successfullyOpened{uuidSuccessfullyOpened_};
+    const QUuid uuidGateway{uuidIpGateway_};
+    const QUuid uuidSerial{uuidUsbSerial_};
+
+    /*
+
+    closeLink(uuidSuccessfullyOpened_);
+
+    if (uuidSuccessfullyOpened_ == uuidUsbSerial_) {
+        openAsSerial(uuidSerial);
+    } else {
+        openAsUdp(uuidGateway, udpGateway_, udpPort_, LinkType::kLinkIPUDP);
+    }
+    */
+
+
 }
 
 void LinkManager::closeFLink(QUuid uuid)
@@ -939,14 +1058,22 @@ void LinkManager::openFLinks()
 void LinkManager::createAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort)
 {
     TimerController(timer_.get());
-    //qDebug() << "LinkManager::createAndOpenAsUdpProxy";
+    qDebug() << "LinkManager::createAndOpenAsUdpProxy" << "address" << address << "sourcePort" << sourcePort << "destinationPort" << destinationPort;
 
     Link* newLinkPtr = createNewLink();
     newLinkPtr->createAsUdp(address, sourcePort, destinationPort);
     newLinkPtr->setIsProxy(true);
     newLinkPtr->setIsHided(true);
     proxyLinkUuid_ = newLinkPtr->getUuid();
+    uuidProxyLink_ = proxyLinkUuid_.toString();
     list_.append(newLinkPtr);
+
+    QVariantMap m;
+    if (!uuidProxyLink_.isEmpty())  m.insert("uuidProxyLink",  uuidProxyLink_);
+    qDebug() << "LinkManager::createAndOpenAsUdpProxy, let us also update QML runtime preferences";
+    QMetaObject::invokeMethod(bus_, "updateRuntime",
+                              Qt::QueuedConnection,
+                              Q_ARG(QVariantMap, m));
 
     newLinkPtr->openAsUdp();
 }
@@ -959,6 +1086,14 @@ void LinkManager::closeUdpProxy()
     //qDebug() << "LinkManager::closeUdpProxy";
     deleteLink(proxyLinkUuid_);
     proxyLinkUuid_ = QUuid();
+    uuidProxyLink_ = proxyLinkUuid_.toString();
+
+    QVariantMap m;
+    if (!uuidProxyLink_.isEmpty())  m.insert("uuidProxyLink",  uuidProxyLink_);
+    qDebug() << "LinkManager::createAndOpenAsUdpProxy, let us also update QML runtime preferences";
+    QMetaObject::invokeMethod(bus_, "updateRuntime",
+                              Qt::QueuedConnection,
+                              Q_ARG(QVariantMap, m));
 }
 
 QUuid LinkManager::getFirstOpend() {

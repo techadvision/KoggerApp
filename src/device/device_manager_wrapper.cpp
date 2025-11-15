@@ -18,6 +18,7 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::streamChanged,        this,                &DeviceManagerWrapper::streamChanged, connectionType));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::vruChanged,           this,                &DeviceManagerWrapper::vruChanged,    connectionType));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::chartLossesChanged,   this,                &DeviceManagerWrapper::calcAverageChartLosses,    connectionType));
+    deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::mavlinkWasDetected,   this,                &DeviceManagerWrapper::mavlinkWasDetected,        connectionType));
 
     workerObject_->moveToThread(workerThread_.get());
     workerThread_->setObjectName("DevManThread");
@@ -30,6 +31,7 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     QObject::connect(workerObject_.get(), &DeviceManager::streamChanged,        this,                &DeviceManagerWrapper::streamChanged, connectionType);
     QObject::connect(workerObject_.get(), &DeviceManager::vruChanged,           this,                &DeviceManagerWrapper::vruChanged,    connectionType);
     QObject::connect(workerObject_.get(), &DeviceManager::chartLossesChanged,   this,                &DeviceManagerWrapper::calcAverageChartLosses,    connectionType);
+    QObject::connect(workerObject_.get(), &DeviceManager::mavlinkWasDetected,   this,                &DeviceManagerWrapper::mavlinkWasDetected,        connectionType);
 #endif
 }
 
@@ -47,6 +49,10 @@ void DeviceManagerWrapper::setSettingsBus(SettingsBus* bus)
 #else
     workerObject_->setSettingsBus(bus);
 #endif
+}
+
+bool DeviceManagerWrapper::mavlinkDetected() const {
+    return workerObject_->mavlinkDetected();
 }
 
 DeviceManagerWrapper::~DeviceManagerWrapper()

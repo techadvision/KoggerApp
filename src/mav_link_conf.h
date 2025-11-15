@@ -692,6 +692,44 @@ typedef struct __attribute__((packed)) {
 
 } MAVLink_MSG_ATTITUDE;
 
+struct MavUnixStamp {
+    uint32_t sec;
+    uint32_t nsec;
+};
+
+// MAVLink msg id 2 — SYSTEM_TIME
+typedef struct __attribute__((packed)) {
+    uint64_t time_unix_usec; // UNIX epoch time in microseconds (0 until GPS time is available)
+    uint32_t time_boot_ms;   // Time since system boot in milliseconds
+
+    static uint32_t getID() { return 2; }
+
+    // True iff FC reports a real UNIX time (> 0)
+    bool hasUnixTime() const { return time_unix_usec > 0ULL; }
+
+    // UNIX epoch time in nanoseconds (only valid if hasUnixTime())
+    uint64_t unixTimeNs() const { return time_unix_usec * 1000ULL; }
+
+    // Convenient accessors
+    uint32_t bootMs() const { return time_boot_ms; }
+
+    // Authoritative mapping offset: UNIX_ns - boot_ms_to_ns
+    // Use this to convert any future boot_ms timestamps to UNIX epoch.
+    int64_t epochOffsetNs() const {
+        return static_cast<int64_t>(time_unix_usec * 1000ULL)
+        - static_cast<int64_t>(time_boot_ms) * 1000000LL;
+    }
+
+    // Convert an arbitrary boot_ms (e.g., from GLOBAL_POSITION_INT) to UNIX (sec,nsec)
+    // using the epoch offset derived from THIS SYSTEM_TIME message.
+    MavUnixStamp toUnixFromBootMs(uint32_t any_boot_ms) const {
+        const int64_t unix_ns = static_cast<int64_t>(any_boot_ms) * 1000000LL + epochOffsetNs();
+        MavUnixStamp out;
+        out.sec  = static_cast<uint32_t>(unix_ns / 1000000000LL);
+        out.nsec = static_cast<uint32_t>(unix_ns % 1000000000LL);
+        return out;
+    }
+} MAVLink_MSG_SYSTEM_TIME;
 
 
 
