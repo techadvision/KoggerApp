@@ -1338,6 +1338,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
         to1 = -from;
     }
 
+    /*
     int wrap_start_pos = qAbs(cursor.getIndex(0) % width);
 
     for (unsigned int i = 0; i < cursor.indexes.size(); i++) {
@@ -1346,6 +1347,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
             break;
         }
     }
+    */
 
 
 //    _cashPosition = wrap_start_pos;
@@ -1369,13 +1371,21 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
             }
         }
 
+        const int pool_index = (column >= 0 && column < (int)cursor.indexes.size())
+                                   ? cursor.indexes[column]
+                                   : -1;
+        const int pool_index_safe = dataset->validIndex(pool_index);
+
+
+        /*
         int cursor_pos = column - wrap_start_pos;
         if(column < wrap_start_pos) {
             cursor_pos += width;
         }
+        */
 
-        int pool_index = cursor.getIndex(cursor_pos);
-        int pool_index_safe = dataset->validIndex(pool_index);
+        //int pool_index = cursor.getIndex(cursor_pos);
+        //int pool_index_safe = dataset->validIndex(pool_index);
         if(pool_index_safe >= 0) {
 
             bool wasValidlyRendered = true;
@@ -1473,7 +1483,8 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
     _lastWidth = width;
     _lastHeight = height;
 
-    return wrap_start_pos;
+    return 0;
+    //return wrap_start_pos;
 }
 
 bool Plot2DEchogram::draw(Plot2D* parent, Dataset* dataset)

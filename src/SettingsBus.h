@@ -18,6 +18,7 @@ public:
     // Optional: handy snapshots (debugging/initial sync if you want)
     Q_INVOKABLE QVariantMap runtimeSnapshot() const { return runtime_; }
     Q_INVOKABLE QVariantMap persistentSnapshot() const { return persistent_; }
+    Q_INVOKABLE void replayRuntime() { emit runtimeChanged(runtime_); }
 
 signals:
     // Emitted with *only* the keys that actually changed

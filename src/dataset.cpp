@@ -170,6 +170,86 @@ void Dataset::setChartSetup(const ChannelId& channelId, uint16_t resol, uint16_t
     channelsToResizeEthData_.insert(channelId);
 }
 
+void Dataset::trimOldEpochsIfNeeded()
+{
+    // Quick check without lock
+    const int hardCap = kMaxEpochsCap();
+    int sz = pool_.size();
+
+    if (sz <= hardCap)
+        return;
+
+    if (pendingEpochsSinceLastTrim_ < kTrimBatch())
+        return;
+
+    qDebug() << "DataCap32bit: capping at pool size" << sz << "using hard cap" << hardCap;
+    qDebug() << "DataCap32bit: and pendingEpochsSinceLastTrim_" << pendingEpochsSinceLastTrim_ << "< kTrimBatch()" << kTrimBatch();
+
+    QWriteLocker wl(&poolMtx_);
+
+    // Decide how much to remove (front). Prefer fixed-size batches.
+    int wantRemove = 0;
+    if (sz > hardCap) {
+        // if we're above the hard cap, remove enough whole batches to go just under/at cap
+        wantRemove = (sz - hardCap + kTrimBatch() - 1) / kTrimBatch() * kTrimBatch();
+    } else {
+        // periodic housekeeping: drop one batch to keep memory flat
+        wantRemove = kTrimBatch();
+    }
+
+    // Safety: always keep at least one epoch (so we never end up empty)
+    if (wantRemove > sz - 1)
+        wantRemove = std::max(0, sz - 1);
+
+    if (wantRemove <= 0) {
+        pendingEpochsSinceLastTrim_ = 0;
+        return;
+    }
+
+    //Log before erase
+    const int beforeSize   = sz;
+    const int eraseFirst   = 0;
+    const int eraseLast    = wantRemove - 1;
+    const int oldOldestIdx = 0;
+    const int oldNewestIdx = beforeSize - 1;
+    qDebug() << "DataCap32bit TRIM(front): size" << beforeSize
+             << "erasing [" << eraseFirst << ".." << eraseLast << "]"
+             << "oldest->newest [" << oldOldestIdx << ".." << oldNewestIdx << "]";
+    // erase oldest from the front
+    pool_.erase(pool_.begin(), pool_.begin() + wantRemove);
+    //Log after erase:
+    sz -= wantRemove;
+    const int newOldestIdx = 0;
+    const int newNewestIdx = sz - 1;
+    qDebug() << "DataCap32bit TRIM(front): size now" << sz
+             << "oldest->newest now [" << newOldestIdx << ".." << newNewestIdx << "]";
+
+    // shift absolute indices down by wantRemove
+    for (auto it = lastAddChartEpochIndx_.begin(); it != lastAddChartEpochIndx_.end(); ++it) {
+        int v = it.value();
+        if (v >= 0) { v -= wantRemove; if (v < -1) v = -1; it.value() = v; }
+    }
+    if (lastBottomTrackEpoch_ >= 0) { lastBottomTrackEpoch_ -= wantRemove; if (lastBottomTrackEpoch_ < -1) lastBottomTrackEpoch_ = -1; }
+    if (bottomTrackParam_.indexFrom >= 0) { bottomTrackParam_.indexFrom -= wantRemove; if (bottomTrackParam_.indexFrom < -1) bottomTrackParam_.indexFrom = -1; }
+    if (bottomTrackParam_.indexTo   >= 0) { bottomTrackParam_.indexTo   -= wantRemove; if (bottomTrackParam_.indexTo   < -1) bottomTrackParam_.indexTo   = -1; }
+
+    pendingEpochsSinceLastTrim_ = 0;
+
+    if (kIs32BitProcess()) {
+        // shrink capacity to current size to reduce fragmentation
+        QVector<Epoch>(pool_).swap(pool_);
+    }
+
+    // 3) Tell views to rebuild their pixel cache (cheap + safe)
+    emit redrawEpochs(QSet<int>()); // empty set -> treat as "full repaint" in your consumers
+
+    qDebug() << "DataCap32bit trimmed" << wantRemove
+             << "epochs; pool size now" << pool_.size();
+    emit epochsTrimmed(wantRemove, true);
+    emit epochsDroppedFront(wantRemove);
+}
+
+
 void Dataset::setFixBlackStripesState(bool state)
 {
     bSProc_->setState(state);
@@ -213,6 +293,9 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
             bSProc_->tryResizeEthalonData(channelId, numSubChannels, BlackStripesProcessor::Direction::kBackward, count);
         }
 
+
+        int remainingIndx = lastAddChartEpochIndx_[channelId] + 1;
+        if (remainingIndx < 0) remainingIndx = 0;
 
         // FORWARD
         if (bSProc_->getForwardSteps()) {
@@ -304,6 +387,10 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
     int lastIndx = std::max(0, (size() - 1) - (bSProc_->getState() ? bSProc_->getBackwardSteps() : 0)); // TODO: не просто кол-во эпох - окно назад, а последняя неизменная эпоха по чартам
     emit dataUpdate();
     emit chartAdded(lastIndx);
+    //32bit low mem workaround
+    if ((pendingEpochsSinceLastTrim_ += 1) >= kTrimBatch()) { // keep arithmetic explicit
+        trimOldEpochsIfNeeded();
+    }
 }
 
 void Dataset::rawDataRecieved(const ChannelId& channelId, RawData raw_data) {
@@ -1177,12 +1264,16 @@ Epoch *Dataset::addNewEpoch()
         ptrAdded = last();
 
         beenAdded = true;
-        indxAdded = newSize;
+        //indxAdded = newSize;
+        indxAdded = newSize -1;
     }
 
     if (beenAdded) {
         emit epochAdded(indxAdded);
     }
+
+    pendingEpochsSinceLastTrim_++;
+    trimOldEpochsIfNeeded();
 
     return ptrAdded;
 }

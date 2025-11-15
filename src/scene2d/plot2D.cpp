@@ -85,6 +85,39 @@ std::tuple<ChannelId, uint8_t, QString> Plot2D::getSelectedChannelId(float curso
 void Plot2D::setDataset(Dataset *dataset)
 {
     datasetPtr_ = dataset;
+    //Low mem fix for 32 bit devices
+    if (!datasetPtr_) return;
+    // grab a QObject context
+    QObject* ctx = qobjectContext_;
+    // (optional) guard: if no context, use the raw 3-arg connect w/o context *and* remember to disconnect on dtor
+    //Q_ASSERT(ctx && "Call setQObjectContext() with a valid QObject before setDataset().");
+
+    QObject::connect(datasetPtr_, &Dataset::epochsDroppedFront,
+                     ctx,
+                     [this](int /*n*/) {
+                         // 1) force a cursor rebuild next frame
+                         cursor_.last_dataset_size = 0;  // invalidate “sticky head”
+
+                         // 2) clear index map so no stale absolute indices linger
+                         if (!cursor_.indexes.empty())
+                             std::fill(cursor_.indexes.begin(), cursor_.indexes.end(), -1);
+
+                         // 3) drop column caches (echogram side)
+                         echogram_.resetCash();
+
+                         // 4) schedule a repaint
+                         plotUpdate();
+                     });
+
+    // Keep your redraw plumbing, but also bind it to a QObject context:
+    QObject::connect(datasetPtr_, &Dataset::redrawEpochs,
+                     ctx,
+                     [this](const QSet<int>&) {
+                         echogram_.resetCash();
+                         plotUpdate();
+                     });
+
+
     if (pendingBtpLambda_) {
         pendingBtpLambda_();
         pendingBtpLambda_ = nullptr;
@@ -211,6 +244,12 @@ void Plot2D::setDragActive(bool active)
     qDebug () << "AddWaypoint: Plot2D::setDragActive set to" << active;
     echogramDragActive_ = active;
 }
+
+void Plot2D::setHoldHistory(bool hold)
+{
+    echogramHoldHistory_ = hold;
+}
+
 
 void Plot2D::draw(QPainter *painterPtr)
 {
@@ -936,6 +975,8 @@ void Plot2D::sendSyncEvent(int epoch_index, QEvent::Type eventType) {
 void Plot2D::reindexingCursor() {
     if(datasetPtr_ == nullptr) { return; }
 
+    const bool followLive = kIs32BitProcess() && !echogramDragActive_ && !echogramPause_ && !echogramHoldHistory_;
+
     const int image_width = canvas_.width();
     const int data_width = datasetPtr_->size();
     const int last_indexes_size = cursor_.indexes.size();
@@ -946,7 +987,23 @@ void Plot2D::reindexingCursor() {
 
     if(cursor_.last_dataset_size > 0) {
         float position = timelinePosition();
+        if (followLive) {
+            position = 1.0f;
+            setTimelinePosition(position);
+        } else {
+            if (data_width > 0) {
+                const float last_head      = std::round(position * cursor_.last_dataset_size);
+                const float last_tail_gap  = float(cursor_.last_dataset_size) - last_head;   // distance from head to newest
+                const float new_head       = float(data_width) - last_tail_gap;              // preserve the gap
+                position = (data_width > 0) ? (new_head / float(data_width)) : 1.0f;
+                // clamp to [0,1]
+                if (position < 0.f) position = 0.f;
+                if (position > 1.f) position = 1.f;
+                setTimelinePosition(position);
+            }
+        }
 
+        /*
         float last_head = round(position*cursor_.last_dataset_size);
         float last_offset_head = float(cursor_.last_dataset_size) - last_head;
         float new_head = data_width - last_offset_head;
@@ -954,7 +1011,9 @@ void Plot2D::reindexingCursor() {
         position = float(new_head)/float(data_width);
 
         setTimelinePosition(position);
+        */
     }
+
     cursor_.last_dataset_size = data_width;
 
     float hor_ratio = 1.0f;

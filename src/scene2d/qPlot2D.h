@@ -75,6 +75,9 @@ public:
     Q_INVOKABLE void setDragActive(bool active) {
         Plot2D::setDragActive(active);
     }
+    Q_INVOKABLE void setHoldHistory(bool hold) {
+        Plot2D::setHoldHistory(hold);
+    }
 
 protected:
     Dataset* m_plot = nullptr;
@@ -190,4 +193,5 @@ private:
     //Plot2D plot_;
     qPlot2D(const qPlot2D&) = delete;
     qPlot2D& operator=(const qPlot2D&) = delete;
+    Plot2D plot2d_;
 };

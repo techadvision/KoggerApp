@@ -27,6 +27,8 @@
 #include "dataset.h"
 #include "data_processor.h"
 
+class QObject;
+
 class Plot2D
 {
 public:
@@ -34,6 +36,11 @@ public:
 
     void applyRuntime(const QVariantMap& m);   // NEW
     void applyPersistent(const QVariantMap& m);// NEW (future-proof)
+    void setQObjectContext(QObject* ctx) { qobjectContext_ = ctx; }
+    QObject* qobjectContext() const { return qobjectContext_; }
+    static inline bool kIs32BitProcess() {
+        return sizeof(void*) == 4;
+    }
 
     // Optional setters if other C++ wants to push directly
     void setIsSideScanLeftHand(bool v)   { isSideScanLeftHand_ = v; }
@@ -147,6 +154,8 @@ public:
 
     //Pulse
     Q_INVOKABLE void setDragActive(bool active);
+    Q_INVOKABLE void setHoldHistory (bool hold);
+    const QPixmap& echogramPixmap() const { return echogram_.pixmap(); }
 
 protected:
     Canvas canvas_;
@@ -183,4 +192,6 @@ private:
     int    autoRange_           = 5;
     bool   echogramPause_       = false;
     bool   echogramDragActive_  = false;
+    bool   echogramHoldHistory_ = false;
+    QObject* qobjectContext_ = nullptr;
 };

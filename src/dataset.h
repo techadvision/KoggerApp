@@ -16,12 +16,31 @@
 #include "usbl_view.h"
 
 #include "SlidingWindowMedian.h"
+#include <QSysInfo>
 
 class Dataset : public QObject
 {
     Q_OBJECT
 
 public:
+    //Low mem 32 bit devices workaround
+    static inline bool kIs32BitProcess() {
+        return sizeof(void*) == 4;
+    }
+    // epochs ~= ping rows (20/s at 50 ms). On 32-bit, ~9 minutes @ 20/s = 10,800.
+    // epochs ~= ping rows (20/s at 50 ms). On 32-bit, ~7 * 60 * 20 = 8400.
+    // Give some headroom; keep ~7 minutes.
+    static inline int kMaxEpochsFor32() { return 7000; }   // ~7.5 min @ 20/s
+    static inline int kMaxEpochsFor64() { return 120000; } // plenty on 64-bit
+
+    static inline int kMaxEpochsCap() {
+        return kIs32BitProcess() ? kMaxEpochsFor32() : kMaxEpochsFor64();
+    }
+
+    // Trim in batches to avoid frequent O(n) memmoves.
+    static inline int kTrimBatch() { return 256; }
+
+
     /*structures*/
     enum class DatasetState {
         kUndefined = 0,
@@ -293,12 +312,16 @@ signals:
     void redrawEpochs(const QSet<int>& indxs);
     void isBottomTrackActiveUpdated();
     void didReceiveData();
+    void epochsTrimmed(int removedFromFront, bool fromFront);
+    void epochsDroppedFront(int n);
 
 private:
     //Pulse
     float _dist = 0; // Stores the distance value
     float _temp = 0; // Stores the temperature value
     SlidingWindowMedian _depthFilter{10};
+    void trimOldEpochsIfNeeded();
+    int  pendingEpochsSinceLastTrim_ = 0;
     //float _lastFilteredDepth = 0.0;
     float _lastRawDepth = 0.0;
     int _consistCount = 0;

@@ -67,6 +67,7 @@ qPlot2D::qPlot2D(QQuickItem* parent)
 
     _isHorizontal = false;
     //qDebug() << "qPlot2D::paint this=" << this;
+    plot2d_.setQObjectContext(this);
 }
 
 void qPlot2D::paint(QPainter *painter)

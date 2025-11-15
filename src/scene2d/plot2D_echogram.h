@@ -39,8 +39,11 @@ public:
 
     Plot2DEchogram();
     //PULSE
+    Q_INVOKABLE QVariantList getThemeColors() const;
     void applyPersistent(const QVariantMap& m);
     void setSettingsBus(SettingsBus* bus);
+    static inline bool kIs32BitProcess() { return sizeof(void*) == 4; }
+    const QPixmap& pixmap() const { return _pixmap; }
 
     bool draw(Plot2D* parent, Dataset* dataset);
 
@@ -61,9 +64,6 @@ public:
     void resetCash();
 
     void addReRenderPlotIndxs(const QSet<int>& indxs);
-
-    //Pulse
-    Q_INVOKABLE QVariantList getThemeColors() const;
 
 signals:
     void themeColorsChanged();
