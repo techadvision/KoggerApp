@@ -266,6 +266,8 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     }
 
     // LAST DEPTH TEXT AT THE VERY BOTTOM, ONLY IN 2D VIEW
+    //We also disable this in 2D view as the "with safe" and full screen puts this measure at the wrong position
+    /*
     if (cursor.distance.isValid() && !flipImage && is2DTransducer_) {
         QFont f("Asap");
         f.setPixelSize(sp(18));
@@ -278,7 +280,6 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         QString range_text = QString::number(val, 'f', (isMetric_ ? 0 : 1)) + (isMetric_ ? QObject::tr(" m") : QObject::tr(" ft"));
 
         if (isHorizontalGrid_) {
-//#ifdef Q_OS_ANDROID
             withDeviceSafe([&]{
                 const int desiredX = safeRightEdge - textXOffset/2 - fm.horizontalAdvance(range_text);
                 const int baseY    = safeBottomEdge - 10;   // inside the safe area
@@ -288,34 +289,10 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                      safeRightEdge,// forceRightEdge inside safeRect
                                      5);           // vertical offset
             });
-//#endif
-/*
-#ifdef Q_OS_WINDOWS
-            //p->drawText(imageWidth - textXOffset / 2 - range_text.count() * 25, imageHeight - 10, range_text);
-            p->drawText(safeRightEdge - textXOffset / 2 - fm.horizontalAdvance(range_text),
-                        safeBottomEdge - 10, range_text);
-#endif
-*/
-        } else {
-            /*
-            p->save();
-
-            int textWidth = fm.horizontalAdvance(range_text);
-            int textHeight = fm.height();
-
-            int centerX = imageWidth - textXOffset / 2 - textWidth / 2;
-            int centerY = imageHeight - 30 - textHeight;
-
-            p->translate(centerX, centerY);
-            p->rotate(90);
-
-            p->drawText(-textWidth / 2, textHeight / 2, range_text);
-
-            p->restore();
-            */
         }
 
     }
+    */
 
     //PULSE DOES NOT USE THE ON SCREEN DEPTH VALUE FROM THE GRID CLASS
     /*
