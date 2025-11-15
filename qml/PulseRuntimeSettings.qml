@@ -20,8 +20,9 @@ QtObject {
 
     //CONNECTIONS UUID
     property string uuidIpGateway:          "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}"
-    property string uuidIpGateway2:         "{2ad43efc-61d1-4321-a925-a8e0cd188ca3}"
+    //property string uuidIpGateway2:         "{2ad43efc-61d1-4321-a925-a8e0cd188ca3}"
     property string uuidUsbSerial:          "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"
+    property string uuidProxyLink:          "{2ad43efc-61d1-4321-a925-a8e0cd188cd5}"
     property string uuidSuccessfullyOpened: ""
 
     //GENERAL SETUP STATES
@@ -54,8 +55,8 @@ QtObject {
     // dist
     property bool   onDistSetupChanged:     false   // Dist is complete
     property bool   distMax_ok:             false   // distMax parameter is OK
-    property bool   distDeadZone_ok:        false   // distDeadZone parameter is OK
-    property bool   distConfidence_ok:      false   // distConfidence parameter is OK
+    property bool   distDeadZone_ok:        true    // distDeadZone parameter is OK. Let's not configure this
+    property bool   distConfidence_ok:      true    // distConfidence parameter is OK. Let's not configure this
     // chart
     property bool   onChartSetupChanged:    false   // Chart is complete
     property bool   chartSamples_ok:        false   // chartSamples parameter is OK
@@ -64,12 +65,12 @@ QtObject {
     // dataset
     property bool   onDatasetChanged:       false   // Dataset is complete
     property bool   ch1Period_ok:           false   // ch1Period parameter is OK
-    property bool   datasetTimestamp_ok:    false   // datasetTimestamp parameter is OK
-    property bool   datasetChart_ok:        false   // datasetChart parameter is OK
-    property bool   datasetTemp_ok:         false   // datasetTemp parameter is OK
-    property bool   datasetEuler_ok:        false   // datasetEuler parameter is OK
-    property bool   datasetDist_ok:         false   // datasetDist parameter is OK
-    property bool   datasetSDDBT_ok:        false   // datasetSDDBT parameter is OK
+    property bool   datasetTimestamp_ok:    true    // datasetTimestamp parameter is OK. Let's not configure this
+    property bool   datasetChart_ok:        false   // datasetChart parameter is OK.
+    property bool   datasetTemp_ok:         false   // datasetTemp parameter is OK.
+    property bool   datasetEuler_ok:        true    // datasetEuler parameter is OK. Let's not configure this
+    property bool   datasetDist_ok:         false   // datasetDist parameter is OK.
+    property bool   datasetSDDBT_ok:        false   // datasetSDDBT parameter is OK.
     // trans
     property bool   onTransChanged:         false   // Transducer is complete
     property bool   transFreq_ok:           false   // transFreq parameter is OK
@@ -79,8 +80,10 @@ QtObject {
     property bool   onDspSetupChanged:      true    // LET'S NOT USE THIS AT ALL
     property bool   dspHorSmooth_ok:        true    // Avoided
     // sound
-    property bool   onSoundChanged:         false   // Sound is complete
-    property bool   soundSpeed_ok:          false   // soundSpeed parameter is OK
+    property bool   onSoundChanged:         true    // Sound is complete. Let's not configure this
+    property bool   soundSpeed_ok:          true    // soundSpeed parameter is OK. Let's not configure this
+    // problem
+    property bool   unableToConfigure:      false   // Used to signal that config takes too much time
 
     //TRAFFIC STATES
     property bool   isReceivingData:        false   // When data is received, true
@@ -136,6 +139,9 @@ QtObject {
     property bool   isRecordingKlf:         false   // If a KLF recording is started or not
     property string klfFilePath:            ""      // File path used to view a KLF file
 
+    //MAVLINK RELATED
+    property bool   mavlinkDetected:        false   // If mavlink is presently available in Pulse app
+
     //SETTING CATEGORY FILTERS
     property bool   showCatScreen:         false
     property bool   showCatNmea:            false
@@ -177,7 +183,7 @@ QtObject {
     //FALSE DEPTH READING ALGORITHM TUNING
     property double kSmallAgreeMargin:          0.5    // Fluctuations allowed in filtering
     property double kLargeJumpThreshold:        5.0    // A jump from one value to the next before considered a likely false reading
-    property int    kConsistNeeded:             3      // The threshold of values required before we believe it
+    property int    kConsistNeeded:             10     // The threshold of values required before we believe it
     property bool   useDepthFilter:             true   // Ability to turn off/on for expert testers
     property bool   useFilterWithBottomTrack:   true   // Ability to turn off/on for expert testers
 
