@@ -47,11 +47,20 @@ static inline QPoint devRotNeg90(const QPoint& d, int deviceW) {
     return QPoint(d.y(), deviceW - 1 - d.x());
 }
 
+static inline int visibleColsFromTransform(const QTransform& W, int canvasW) {
+    // robust even when rotated: |W * (1,0)|
+    const double sxMag = std::hypot(W.m11(), W.m12());
+    const double sx = std::max(1e-6, sxMag);
+    return std::max(1, int(std::floor(double(canvasW)/sx + 0.5)));
+}
+
 
 //Pulse helper to only trigger one sending of data to UDP per screen press
+/*
 static inline bool nearlyEqual(double a, double b, double eps=1e-7) {
     return std::abs(a - b) <= eps;
 }
+*/
 
 //Pulse helpers for nearest yaw
 struct NearestYawIdx {
@@ -65,6 +74,51 @@ static inline float wrap360(float deg) {
     float d = fmodf(deg, 360.f);
     if (d < 0) d += 360.f;
     return d;
+}
+
+static NearestYawIdx findNearestYawByIndexRanged(Dataset* ds,
+                                                 int idx,
+                                                 int maxLookEpochs,
+                                                 int minIdx,
+                                                 int maxIdx)
+{
+    NearestYawIdx best;
+    if (!ds) return best;
+
+    const int last = ds->size() - 1;
+    if (last < 0) return best;
+
+    // clamp bounds to dataset
+    minIdx = std::max(0, std::min(minIdx, last));
+    maxIdx = std::max(minIdx, std::min(maxIdx, last));
+
+    // clamp starting idx into the band
+    idx = std::max(minIdx, std::min(idx, maxIdx));
+
+    auto testAt = [&](int j)->bool {
+        if (j < minIdx || j > maxIdx) return false;
+        if (auto* ep = ds->fromIndex(j); ep && ep->isAttAvail()) {
+            best.found    = true;
+            best.epochIdx = j;
+            best.dIdx     = std::abs(j - idx);
+            best.yawDeg   = ep->yaw();
+            return true;
+        }
+        return false;
+    };
+
+    if (testAt(idx)) return best;
+
+    for (int off = 1; off <= maxLookEpochs; ++off) {
+        const int j = idx - off;
+        if (j >= minIdx && testAt(j)) return best;
+
+        const int k = idx + off;
+        if (k <= maxIdx && testAt(k)) return best;
+
+        if (j < minIdx && k > maxIdx) break;
+    }
+    return best;
 }
 
 NearestYawIdx findNearestYawByIndex(Dataset* ds, int idx, int maxLookEpochs)
@@ -109,6 +163,54 @@ struct NearestPosIdx {
     int    dIdx     = 0;    // index distance from the tapped epoch
     Position pos;           // the GNSS position
 };
+
+// Search outward by index, but clamp to [minIdx, maxIdx] (inclusive).
+static NearestPosIdx findNearestGNSSByIndexRanged(Dataset* ds,
+                                                  int idx,
+                                                  int maxLookEpochs,
+                                                  int minIdx,
+                                                  int maxIdx)
+{
+    NearestPosIdx best;
+    if (!ds) return best;
+
+    const int last = ds->size() - 1;
+    if (last < 0) return best;
+
+    // clamp bounds to dataset
+    minIdx = std::max(0, std::min(minIdx, last));
+    maxIdx = std::max(minIdx, std::min(maxIdx, last));
+
+    // clamp starting idx into the band
+    idx = std::max(minIdx, std::min(idx, maxIdx));
+
+    auto testAt = [&](int j)->bool {
+        if (j < minIdx || j > maxIdx) return false;
+        if (auto* ep = ds->fromIndex(j); ep && ep->isPosAvail()) {
+            best.found   = true;
+            best.epochIdx= j;
+            best.dIdx    = std::abs(j - idx);
+            best.pos     = ep->getPositionGNSS();
+            return true;
+        }
+        return false;
+    };
+
+    // check the tapped epoch first
+    if (testAt(idx)) return best;
+
+    // then expand symmetrically
+    for (int off = 1; off <= maxLookEpochs; ++off) {
+        const int j = idx - off;
+        if (j >= minIdx && testAt(j)) return best;
+
+        const int k = idx + off;
+        if (k <= maxIdx && testAt(k)) return best;
+
+        if (j < minIdx && k > maxIdx) break;
+    }
+    return best; // not found
+}
 
 // Search outward by index only (idx-1, idx+1, idx-2, …) up to maxLookEpochs.
 NearestPosIdx findNearestGNSSByIndex(Dataset* ds, int idx, int maxLookEpochs)
@@ -215,11 +317,14 @@ void Plot2DAim::setPause(Plot2D* parent, Dataset* dataset, bool on) {
     echogramPause_ = on;
     paused_ = on;
     if (on) {
+        //lastIndexAtPause_   = dataset ? (dataset->size() - 1) : -1;
         lastIndexAtPause_   = dataset ? (dataset->size() - 1) : -1;
         // freeze the column window that was on screen when we paused
         const QTransform W = canvas.painter()->worldTransform();
         const double sx = std::max(1e-6, W.m11());
-        visibleColsAtPause_ = std::max(1, int(std::floor(double(canvas.width())/sx + 0.5)));
+        //visibleColsAtPause_ = std::max(1, int(std::floor(double(canvas.width())/sx + 0.5)));
+        visibleColsAtPause_ = visibleColsFromTransform(canvas.painter()->worldTransform(),
+                                                       canvas.width());
     } else {
         lastIndexAtPause_   = -1;
         visibleColsAtPause_ = 0;
@@ -293,7 +398,8 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     const QTransform Winv = W.inverted();
     const QPointF mouseLogical = Winv.map(QPointF(cursor.mouseX, cursor.mouseY));
     const double sx = std::max(1e-6, W.m11());
-    const int visibleCols = std::max(1, int(std::floor(double(canvas.width()) / sx + 0.5)));
+    //const int visibleCols = std::max(1, int(std::floor(double(canvas.width()) / sx + 0.5)));
+    const int visibleCols = visibleColsFromTransform(p->worldTransform(), canvas.width());
 
     //Pulse
     QPointF tapLogical(-1, -1);
@@ -420,12 +526,13 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     auto [channelId, subIndx, name] = parent->getSelectedChannelId();
 
     //Capture data for the tapped point
-    if (cursor.currentEpochIndx != -1) {
+    if (cursor.currentEpochIndx != -1 && echogramPause_) {
 
         if (auto* ep = dataset->fromIndex(cursor.currentEpochIndx)) {
             const bool pausedNow = isPaused();
             int epochIdxForTap = cursor.currentEpochIndx;
 
+            /*
             if (pausedNow) {
                 // Map device-space X back to the frozen-frame index
                 QPoint devPt = cand_.active ? cand_.crossDev : QPoint(cursor.mouseX, cursor.mouseY);
@@ -447,9 +554,10 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 const int left  = canvas.width() - visibleCols;
                 epochIdxForTap  = std::clamp(start + (devPt.x() - left), 0, last);
             }
+            */
 
 
-            const int maxLookEpochs = 5; // 200 ≈ 10 s at 50 ms/epoch: 10 should be sufficient
+            const int maxLookEpochs = 6; // 200 ≈ 10 s at 50 ms/epoch: 10 should be sufficient
             const QString model = isSideScan ? "SS" : "2D";
 
             // Which side was tapped (visually)
@@ -471,10 +579,25 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             }
 
             // Find nearest pos/yaw
-            const auto nearestPos = findNearestGNSSByIndex(dataset, epochIdxForTap, maxLookEpochs);
-            const auto nearestYaw = findNearestYawByIndex(dataset, epochIdxForTap, maxLookEpochs);
-            //const auto nearestPos = findNearestGNSSByIndex(dataset, cursor.currentEpochIndx, maxLookEpochs);
-            //const auto nearestYaw = findNearestYawByIndex(dataset, cursor.currentEpochIndx, maxLookEpochs);
+            const int lastCap       = pausedNow ? lastIndexAtPause_ : (dataset->size() - 1);
+            auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap, maxLookEpochs, 0, lastCap);
+            auto nearestYaw = findNearestYawByIndexRanged(dataset, epochIdxForTap, maxLookEpochs, 0, lastCap);
+
+            auto logNearest = [](const char* tag, int tap, int idx, bool found) {
+                if (!found) { qDebug().noquote() << "[Aim]" << tag << "not found"; return; }
+                const int d = tap - idx;
+                qDebug().noquote() << "PositionError: [Aim]" << tag << "idx=" << idx << " dIdx=" << d
+                                   << " (~" << (d * 0.05) << " s at 50ms)";
+            };
+            qDebug().noquote() << "PositionError: [Aim] tapEpochIdx=" << epochIdxForTap
+                               << " lastAtPause=" << lastIndexAtPause_
+                               << " visColsAtPause=" << visibleColsAtPause_;
+            logNearest("GNSS", epochIdxForTap, nearestPos.epochIdx, nearestPos.found);
+            logNearest("YAW ", epochIdxForTap, nearestYaw.epochIdx, nearestYaw.found);
+
+
+            //const auto nearestPos = findNearestGNSSByIndex(dataset, epochIdxForTap, maxLookEpochs);
+            //const auto nearestYaw = findNearestYawByIndex(dataset, epochIdxForTap, maxLookEpochs);
 
             // Depth
             double depth = NAN;
