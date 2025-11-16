@@ -405,6 +405,103 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     auto [channelId, subIndx, name] = parent->getSelectedChannelId();
 
     //Capture data for the tapped point
+    // --- Capture data for the tapped point (works even if cursor.currentEpochIndx == -1) ---
+    if (echogramPause_) {
+        const int epochIdxForTap =
+            parent->getEpochIndxByMousePosPausedAware(cursor.mouseX,
+                                                      cursor.mouseY,
+                                                      parent->isHorizontal());
+        if (epochIdxForTap >= 0 && epochIdxForTap < dataset->size()) {
+            const bool pausedNow = isPaused();
+            const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
+
+            // Which side (for SS)
+            int side = 0;
+            if (isSideScan) {
+                if (isSideScan2DView_) {
+                    side = isSideScanLeftHand_ ? -1 : +1;
+                } else {
+                    const int midY = canvas.height() / 2;
+                    const int tapY = cand_.active ? cand_.crossDev.y() : cursor.mouseY;
+                    side = (tapY < midY) ? -1 : +1;
+                }
+            }
+
+            // Depth from the *tapped* epoch (not from cursor.currentEpochIndx)
+            double depth = NAN;
+            if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
+                if (isSideScan) {
+                    if (auto* eg = epTap->chart(channelId, subIndx)) {
+                        depth = eg->bottomProcessing.getDistance();
+                    }
+                } else {
+                    depth = epTap->rangeFinder();
+                }
+                if (!std::isfinite(depth) || depth < 0) depth = epTap->rangeFinder();
+            }
+
+            const int maxLookEpochs = 6;
+            const int lastCap = pausedNow ? lastIndexAtPause_ : (dataset->size() - 1);
+
+            auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
+                                                           maxLookEpochs, 0, lastCap);
+            auto nearestYaw = findNearestYawByIndexRanged( dataset, epochIdxForTap,
+                                                          maxLookEpochs, 0, lastCap);
+
+            // Fallback once across the full dataset if the frozen cap was too tight (first pause edge case)
+            if (!nearestPos.found)
+                nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
+                                                          maxLookEpochs, 0, dataset->size()-1);
+            if (!nearestYaw.found)
+                nearestYaw = findNearestYawByIndexRanged( dataset, epochIdxForTap,
+                                                         maxLookEpochs, 0, dataset->size()-1);
+
+            // Unified slant range already computed above
+            const double r_slant   = cursor_distance;
+            const double depthAbs  = std::isfinite(depth)   ? std::abs(depth)   : NAN;
+            const double rSlantAbs = std::isfinite(r_slant) ? std::abs(r_slant) : NAN;
+
+            // Solve target
+            double txLat=NAN, txLon=NAN;
+            bool haveTarget=false;
+            if (nearestPos.found && nearestYaw.found) {
+                const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
+                const double yaw_rad = deg2rad(nearestYaw.yawDeg);
+                const bool waterColumn = !std::isfinite(depthAbs) || (rSlantAbs <= depthAbs + kWaterMargin);
+
+                if (!isSideScan || waterColumn) {
+                    txLat = boat.lat; txLon = boat.lon; haveTarget = true;
+                } else {
+                    const auto sol = solveSidescanTap(boat, yaw_rad, rSlantAbs, depthAbs, side);
+                    if (sol.ok && !sol.wasWaterColumn) {
+                        txLat = sol.point.lat; txLon = sol.point.lon; haveTarget = true;
+                    }
+                }
+            }
+
+            // Arm candidate on a real tap (outside the panel)
+            if (beenEpochEvent_ && echogramPause_ && !tapOnPanel) {
+                const bool wasActive = cand_.active;
+                cand_.active     = true;
+                cand_.anchorDev  = QPoint(cursor.mouseX, cursor.mouseY);
+                cand_.crossDev   = cand_.anchorDev;
+                cand_.lat        = txLat;
+                cand_.lon        = txLon;
+                cand_.depth      = std::isfinite(depthAbs) ? depthAbs : NAN;
+                cand_.yawDeg     = nearestYaw.found ? nearestYaw.yawDeg : NAN;
+                cand_.model      = isSideScan ? "SS" : "2D";
+                cand_.tapEpochIdx= epochIdxForTap;
+                cand_.tapRangeM  = rSlantAbs;
+                cand_.tapIsSS    = isSideScan;
+                cand_.tapSide    = side;
+                cand_.haveTarget = haveTarget;
+                popupJustOpened_ = !wasActive;
+            }
+        }
+    }
+
+
+    /*
     if (cursor.currentEpochIndx != -1 && echogramPause_) {
 
         if (auto* ep = dataset->fromIndex(cursor.currentEpochIndx)) {
@@ -452,7 +549,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                                << " visColsAtPause=" << visibleColsAtPause_;
             logNearest("GNSS", epochIdxForTap, nearestPos.epochIdx, nearestPos.found);
             logNearest("YAW ", epochIdxForTap, nearestYaw.epochIdx, nearestYaw.found);
-            */
+
 
             // Depth
             double depth = NAN;
@@ -519,6 +616,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             }
         }
     }
+    */
 
     //Paint the zoom box
 
@@ -545,6 +643,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         zin.viewport       = p->viewport();
         zin.scale          = scaleFactor_;
         zin.depthMeters    = std::isfinite(cand_.depth) ? std::abs(cand_.depth) : NAN;
+        zin.crossMeters    = std::isfinite(cursor_distance) ? std::abs(cursor_distance) : NAN;
         zin.showAddBtn     = cand_.haveTarget;
         zin.rotateForView  = !parent->isHorizontal();         // you rotate(-90) when vertical (:contentReference[oaicite:7]{index=7})
         zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);

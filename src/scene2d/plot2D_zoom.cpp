@@ -36,6 +36,35 @@ void Plot2DZoom::drawOutlinedDepth(QPainter* p, const QRect& zoomRect,
     p->fillPath(glyphs,  Qt::white);
 }
 
+// Replace the existing drawOutlinedDepth(...) with this generic helper:
+static void drawOutlinedText(QPainter* p, const QRect& zoomRect,
+                             const QFont& font, int titlePad, int scale,
+                             const QString& text)
+{
+    if (text.isEmpty()) return;
+
+    QFontMetrics fm(font);
+    const int textW = fm.horizontalAdvance(text);
+    const int textX = zoomRect.center().x() - textW/2;
+    const int textBaselineY = zoomRect.top() + titlePad + fm.ascent();
+
+    QPainterPath glyphs;
+    glyphs.addText(QPointF(textX, textBaselineY), font, text);
+
+    QPainterPathStroker stroker;
+    stroker.setWidth(qMax(1.0, 2.0 * double(scale)));
+    stroker.setJoinStyle(Qt::RoundJoin);
+    stroker.setMiterLimit(2.0);
+
+    const QPainterPath outline = stroker.createStroke(glyphs);
+
+    p->setRenderHint(QPainter::Antialiasing, true);
+    p->setRenderHint(QPainter::TextAntialiasing, true);
+    p->fillPath(outline, Qt::black);
+    p->fillPath(glyphs,  Qt::white);
+}
+
+
 Plot2DZoom::Output Plot2DZoom::draw(QPainter* p, const Input& in) const
 {
     Output out;
@@ -133,12 +162,39 @@ Plot2DZoom::Output Plot2DZoom::draw(QPainter* p, const Input& in) const
     }
 
     // outlined depth text (top-center inside zoom)
+    // outlined combined text (top-center inside zoom)
+    {
+        QFont font("Asap", 14 * scale, QFont::Normal);
+        font.setPixelSize(18 * scale);
+        p->setFont(font);
+
+        const bool haveCross = std::isfinite(in.crossMeters);
+        const bool haveDepth = std::isfinite(in.depthMeters);
+
+        QString label;
+        if (haveCross && haveDepth) {
+            label = QStringLiteral("C: %1 m - D: %2 m")
+            .arg(QString::number(std::abs(in.crossMeters), 'f', 1))
+                .arg(QString::number(std::abs(in.depthMeters), 'f', 1));
+        } else if (haveCross) {
+            label = QStringLiteral("C: %1 m")
+            .arg(QString::number(std::abs(in.crossMeters), 'f', 1));
+        } else if (haveDepth) {
+            label = QStringLiteral("D: %1 m")
+            .arg(QString::number(std::abs(in.depthMeters), 'f', 1));
+        }
+
+        drawOutlinedText(p, zoomRect, font, titlePad, scale, label);
+    }
+
+    /*
     {
         QFont font("Asap", 14 * scale, QFont::Normal);
         font.setPixelSize(18 * scale);
         p->setFont(font);
         drawOutlinedDepth(p, zoomRect, font, titlePad, scale, in.depthMeters);
     }
+    */
 
     // Add WP button
     if (in.showAddBtn) {

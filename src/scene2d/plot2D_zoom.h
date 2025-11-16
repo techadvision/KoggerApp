@@ -19,7 +19,8 @@ public:
         QPointF        centerWorld;         // world/pixmap coords under crosshair
         QRect          viewport;            // painter->viewport()
         int            scale = 1;           // UI scale factor from Plot2DAim
-        double         depthMeters = NAN;   // text, if finite
+        double         depthMeters = NAN;   // depth at bottom
+        double         crossMeters = NAN;   // depth at crosshair
         bool           showAddBtn = false;  // show "Add WP"
         bool           rotateForView = false; // !parent->isHorizontal()
         bool           flipForLeftHand = false; // SS 2D view + left-hand

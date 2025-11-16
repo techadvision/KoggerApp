@@ -56,6 +56,7 @@ private:
         double lat = std::numeric_limits<double>::quiet_NaN();
         double lon = std::numeric_limits<double>::quiet_NaN();
         double depth = std::numeric_limits<double>::quiet_NaN();
+        double crossMeters = std::numeric_limits<double>::quiet_NaN();
         float  yawDeg = std::numeric_limits<float>::quiet_NaN();
         bool   haveTarget = false;
         QString model; // "2D" / "SS"
