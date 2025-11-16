@@ -1526,8 +1526,6 @@ WaterFall {
                 id: echogramPlayPause
                 iconSource: "./icons/ui/pulse_crosshair.svg"
                 controleName: "echogramPlayPause"
-                visible: pulseRuntimeSettings.mavlinkDetected
-                //opacity: pulseRuntimeSettings.echogramPause ? 0 : 100
                 checked: false
                 onStateChanged: {
                     pulseRuntimeSettings.echogramPause = checked

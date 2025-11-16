@@ -73,15 +73,19 @@ Item {
                     anchors.fill: parent
                     //color: "white"
                     color: {
+                        if (root.controleName === "echogramPlayPause") {
+                            if (pulseRuntimeSettings.mavlinkDetected) {
+                                return "green"
+                            } else {
+                                return "white"
+                            }
+                        }
                         if (!root.checked)
                             return "white"
-                        if (root.controleName === "echogramPlayPause")
-                            return "green"
                         if (root.controleName === "RecordKlf")
                             return "red"
                         return "white"
                     }
-
                     radius: 8
                     border.width: 1
                     border.color: "gray"
