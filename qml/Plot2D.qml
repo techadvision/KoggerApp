@@ -91,10 +91,11 @@ WaterFall {
             var nowLive = plot.timelinePosition >= 0.999
 
             // only update (and log) when it actually flips
-            if (nowLive !== plot.isLiveView) {
-                plot.isLiveView = nowLive
+            if (nowLive !== pinch2D.isLiveView) {
+                pinch2D.isLiveView = nowLive
                 console.log("TAV: horizontal live-view is now", plot.isLiveView,
-                            "timeline position", plot.timelinePosition)
+                            "timeline position", plot.timelinePosition,
+                            "wasKlfFileOpened", pulseRuntimeSettings.wasKlfFileOpened)
                 if (!pulseRuntimeSettings.wasKlfFileOpened) {
                     oldDataIndicator.visible = true
                     oldDataWarningRemovalTimer.restart()
@@ -623,6 +624,10 @@ WaterFall {
                         plot.horScrollEvent(delta)
                     } else {
                         plot.horScrollEvent(deltaY)
+                    }
+                    var nowLive = plot.timelinePosition >= 0.999
+                    if (!nowLive) {
+                        oldDataWarningRemovalTimer.restart()
                     }
                 }
                 // 4) paused drag (only if we *latched* into draggingInPaused)
