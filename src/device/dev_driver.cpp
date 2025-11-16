@@ -448,7 +448,7 @@ void DevDriver::exportSettingsToXML(const QString& filePath) {
 }
 
 void DevDriver::setDatasetState(bool state) {
-    qDebug() << "DevDriver check: setDatasetState " << state;
+    //qDebug() << "DevDriver check: setDatasetState " << state;
     if (state != datasetState_) {
         datasetState_ = state;
         emit datasetChanged();
@@ -456,7 +456,7 @@ void DevDriver::setDatasetState(bool state) {
 }
 
 void DevDriver::setDistSetupState(bool state) {
-    qDebug() << "DevDriver check: setDistSetupState " << state;
+    //qDebug() << "DevDriver check: setDistSetupState " << state;
     if (state != distSetupState_) {
         distSetupState_ = state;
         emit distSetupChanged();
@@ -464,7 +464,7 @@ void DevDriver::setDistSetupState(bool state) {
 }
 
 void DevDriver::setChartSetupState(bool state) {
-    qDebug() << "DevDriver check: setChartSetupState " << state;
+    //qDebug() << "DevDriver check: setChartSetupState " << state;
     if (state != chartSetupState_) {
         chartSetupState_ = state;
         emit sendChartSetup(getChannelId(), idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
@@ -480,7 +480,7 @@ void DevDriver::setDspSetupState(bool state) {
 }
 
 void DevDriver::setTranscState(bool state) {
-    qDebug() << "DevDriver check: setTranscState " << state;
+    //qDebug() << "DevDriver check: setTranscState " << state;
     if (state != transcState_) {
         transcState_ = state;
         emit sendTranscSetup(getChannelId(), idTransc->freq(), idTransc->pulse(), idTransc->boost());
@@ -489,7 +489,7 @@ void DevDriver::setTranscState(bool state) {
 }
 
 void DevDriver::setSoundSpeedState(bool state) {
-    qDebug() << "DevDriver check: setSoundSpeedState " << state;
+    //qDebug() << "DevDriver check: setSoundSpeedState " << state;
     if (state != soundSpeedState_) {
         soundSpeedState_ = state;
         emit sendSoundSpeed(getChannelId(), idSoundSpeed->getSoundSpeed());
@@ -498,7 +498,7 @@ void DevDriver::setSoundSpeedState(bool state) {
 }
 
 void DevDriver::setUartState(bool state) {
-    qDebug() << "DevDriver check: setUartState " << state;
+    //qDebug() << "DevDriver check: setUartState " << state;
     if (state != uartState_) {
         uartState_ = state;
         emit UARTChanged();
@@ -691,7 +691,7 @@ void DevDriver::startConnection(bool duplex) {
 }
 
 void DevDriver::stopConnection() {
-    qDebug() << "DevDriver check: stopConnection";
+    //qDebug() << "DevDriver check: stopConnection";
     m_state.connect = false;
     m_processTimer.stop();
     m_devName = "...";
@@ -761,7 +761,7 @@ int DevDriver::transFreq() {
 }
 
 void DevDriver::setTransFreq(int freq) {
-    qDebug() << "DevDriver check: setTransFreq " << freq;
+    //qDebug() << "DevDriver check: setTransFreq " << freq;
     if(!m_state.connect) return;
     bool is_changed = transFreq() != freq;
     idTransc->setFreq((U2)freq);
@@ -777,7 +777,7 @@ int DevDriver::transPulse() {
 }
 
 void DevDriver::setTransPulse(int pulse) {
-    qDebug() << "DevDriver check: setTransPulse " << pulse;
+    //qDebug() << "DevDriver check: setTransPulse " << pulse;
     if(!m_state.connect) return;
     bool is_changed = transPulse() != pulse;
     idTransc->setPulse((U1)pulse);
@@ -793,7 +793,7 @@ int DevDriver::transBoost() {
 }
 
 void DevDriver::setTransBoost(int boost) {
-    qDebug() << "DevDriver check: setTransBoost " << boost;
+    //qDebug() << "DevDriver check: setTransBoost " << boost;
     if(!m_state.connect) return;
     bool is_changed = transBoost() != boost;
     idTransc->setBoost((U1)boost);
@@ -809,7 +809,7 @@ int DevDriver::soundSpeed() {
 }
 
 void DevDriver::setSoundSpeed(int speed) {
-    qDebug() << "DevDriver check: setSoundSpeed " << speed;
+    //qDebug() << "DevDriver check: setSoundSpeed " << speed;
     if(!m_state.connect) return;
     bool is_changed = transBoost() != speed;
     idSoundSpeed->setSoundSpeed(speed);
@@ -855,7 +855,7 @@ int DevDriver::distMax() {
     return idDistSetup->max();
 }
 void DevDriver::setDistMax(int dist) {
-    qDebug() << "DevDriver check: setDistMax " << dist;
+    //qDebug() << "DevDriver check: setDistMax " << dist;
     if(!m_state.connect) return;
     bool is_changed = dist != distMax();
     idDistSetup->setMax(dist);
@@ -867,7 +867,7 @@ int DevDriver::distDeadZone() {
 }
 
 void DevDriver::setDistDeadZone(int dead_zone) {
-    qDebug() << "DevDriver check: setDistDeadZone " << dead_zone;
+    //qDebug() << "DevDriver check: setDistDeadZone " << dead_zone;
     if(!m_state.connect) return;
     bool is_changed = dead_zone != distDeadZone();
     idDistSetup->setDeadZone(dead_zone);
@@ -879,7 +879,7 @@ int DevDriver::distConfidence() {
 }
 
 void DevDriver::setConfidence(int confidence) {
-    qDebug() << "DevDriver check: setConfidence " << confidence;
+    //qDebug() << "DevDriver check: setConfidence " << confidence;
     if(!m_state.connect) return;
     bool is_changed = confidence != distConfidence();
     idDistSetup->setConfidence(confidence);
@@ -891,7 +891,7 @@ int DevDriver::chartSamples() {
 }
 
 void DevDriver::setChartSamples(int smpls) {
-    qDebug() << "DevDriver check: setChartSamples " << smpls;
+    //qDebug() << "DevDriver check: setChartSamples " << smpls;
     if(!m_state.connect) return;
     bool is_changed = smpls != chartSamples();
     idChartSetup->setCount((U2)smpls);
@@ -906,7 +906,7 @@ int DevDriver::chartResolution() {
 }
 
 void DevDriver::setChartResolution(int resol) {
-    qDebug() << "DevDriver check: setChartResolution " << resol;
+    //qDebug() << "DevDriver check: setChartResolution " << resol;
     if(!m_state.connect) return;
     bool is_changed = resol != chartResolution();
     idChartSetup->setResolution((U2)resol);
@@ -921,7 +921,7 @@ int DevDriver::chartOffset() {
 }
 
 void DevDriver::setChartOffset(int offset) {
-    qDebug() << "DevDriver check: setChartOffset " << offset;
+    //qDebug() << "DevDriver check: setChartOffset " << offset;
     if(!m_state.connect) return;
     bool is_changed = offset != chartOffset();
     idChartSetup->setOffset((U2)offset);
@@ -974,7 +974,7 @@ int DevDriver::datasetDist() {
 }
 
 void DevDriver::setDatasetDist(int ch_param) {
-    qDebug() << "DevDriver check: setDatasetDist " << ch_param;
+    //qDebug() << "DevDriver check: setDatasetDist " << ch_param;
     if(!m_state.connect) return;
     bool is_changed = (ch_param != datasetDist());
     idDataset->setDist_v0(ch_param);
@@ -994,7 +994,7 @@ int DevDriver::datasetChart() {
 }
 
 void DevDriver::setDatasetChart(int ch_param) {
-    qDebug() << "DevDriver check: setDatasetChart " << ch_param;
+    //qDebug() << "DevDriver check: setDatasetChart " << ch_param;
     if(!m_state.connect) return;
     bool is_changed = (ch_param != datasetChart());
     idDataset->setChart_v0(ch_param);
@@ -1014,7 +1014,7 @@ int DevDriver::datasetTemp() {
 }
 
 void DevDriver::setDatasetTemp(int ch_param) {
-    qDebug() << "DevDriver check: setDatasetTemp " << ch_param;
+    //qDebug() << "DevDriver check: setDatasetTemp " << ch_param;
     if(!m_state.connect) return;
     bool is_changed = (ch_param != datasetTemp());
     idDataset->setTemp_v0(ch_param);
@@ -1034,7 +1034,7 @@ int DevDriver::datasetEuler() {
 }
 
 void DevDriver::setDatasetEuler(int ch_param) {
-    qDebug() << "DevDriver check: setDatasetEuler " << ch_param;
+    //qDebug() << "DevDriver check: setDatasetEuler " << ch_param;
     if(!m_state.connect) return;
     bool is_changed = (ch_param != datasetEuler());
     idDataset->setEuler(ch_param);
@@ -1054,7 +1054,7 @@ int DevDriver::datasetSDDBT() {
 }
 
 void DevDriver::setDatasetSDDBT(int ch_param) {
-    qDebug() << "DevDriver check: setDatasetSDDBT " << ch_param;
+    //qDebug() << "DevDriver check: setDatasetSDDBT " << ch_param;
     if(!m_state.connect) return;
     bool is_changed = (ch_param != datasetSDDBT());
     idDataset->setSDDBT(ch_param);
@@ -1074,7 +1074,7 @@ int DevDriver::datasetSDDBT_P2() {
 }
 
 void DevDriver::setDatasetSDDBT_P2(int ch_param) {
-    qDebug() << "DevDriver check: setDatasetSDDBT_P2 " << ch_param;
+    //qDebug() << "DevDriver check: setDatasetSDDBT_P2 " << ch_param;
     if(!m_state.connect) return;
     bool is_changed = (ch_param != datasetSDDBT_P2());
     idDataset->setSDDBT_P2(ch_param);
@@ -1088,7 +1088,7 @@ int DevDriver::ch1Period() {
 }
 
 void DevDriver::setCh1Period(int period) {
-    qDebug() << "DevDriver check: setCh1Period " << period;
+    //qDebug() << "DevDriver check: setCh1Period " << period;
     if(!m_state.connect) return;
     bool is_changed = (period != ch1Period());
     idDataset->setPeriod(1, (uint)period);
@@ -1100,7 +1100,7 @@ int DevDriver::ch2Period() {
 }
 
 void DevDriver::setCh2Period(int period) {
-    qDebug() << "DevDriver check: setCh2Period " << period;
+    //qDebug() << "DevDriver check: setCh2Period " << period;
     if(!m_state.connect) return;
     bool is_changed = (period != ch2Period());
     idDataset->setPeriod(2, (uint)period);

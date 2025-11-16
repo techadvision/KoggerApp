@@ -167,11 +167,11 @@ ApplicationWindow  {
     Connections {
         target: settingsBus
         function onRuntimeChanged(m) {
-            dumpMap("settingsBus.runtimeChanged", m)
+            //dumpMap("settingsBus.runtimeChanged", m)
             for (var k in m) {
                 if (k in pulseRuntimeSettings) {
                     pulseRuntimeSettings[k] = m[k]
-                    console.log("applied -> pulseRuntimeSettings." + k, "=", toStr(m[k]))
+                    //console.log("applied -> pulseRuntimeSettings." + k, "=", toStr(m[k]))
                 } else {
                     console.warn("IGNORED runtime key (no such property):", k, "=", toStr(m[k]))
                 }
@@ -179,11 +179,11 @@ ApplicationWindow  {
         }
 
         function onPersistentChanged(m) {
-            dumpMap("settingsBus.persistentChanged", m)
+            //dumpMap("settingsBus.persistentChanged", m)
             for (var k in m) {
                 if (k in pulseSettings) {
                     pulseSettings[k] = m[k]
-                    console.log("applied -> pulseSettings." + k, "=", toStr(m[k]))
+                    //console.log("applied -> pulseSettings." + k, "=", toStr(m[k]))
                 } else {
                     console.warn("IGNORED persistent key (no such property):", k, "=", toStr(m[k]))
                 }

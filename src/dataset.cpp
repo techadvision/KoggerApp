@@ -581,7 +581,7 @@ float Dataset::filterDepthRecords(float distance)
 
             if (_consistCount < _kConsistNeeded) {
                 // Hold previous trusted value until the jump is confirmed.
-                qDebug() << "Filter dropped bottom track depth value" << rawDepth << "used filtered value" << _lastFilteredDepth << "_consistCount" << _consistCount;
+                //qDebug() << "Filter dropped bottom track depth value" << rawDepth << "used filtered value" << _lastFilteredDepth << "_consistCount" << _consistCount;
                 return static_cast<float>(_lastFilteredDepth);
             }
 
@@ -609,7 +609,7 @@ float Dataset::filterDepthRecords(float distance)
         _lastRawDepth = rawDepth;
 
         if (_consistCount < _kConsistNeeded) {
-            qDebug() << "Filter dropped range finder depth value" << rawDepth << "used filtered value" << _lastFilteredDepth << "_consistCount" << _consistCount;
+            //qDebug() << "Filter dropped range finder depth value" << rawDepth << "used filtered value" << _lastFilteredDepth << "_consistCount" << _consistCount;
             return static_cast<float>(_lastFilteredDepth);  // Not yet trusted
         }
 

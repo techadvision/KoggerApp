@@ -85,11 +85,11 @@ Item {
             }
         }
 
-        console.log("TAV: dynamicResolution called with ", candidateRes,"and depth", depth)
+        //console.log("TAV: dynamicResolution called with ", candidateRes,"and depth", depth)
 
         // Increase resolution size to look further into bottom composition, additional steps of 1 meter
         //candidateRes = candidateRes + (2 * pulseSettings.bottomCompositionAddition)
-        console.log("TAV: dynamicResolution:  considering bottomCompositionAddition, new candidateRes ", candidateRes)
+        //console.log("TAV: dynamicResolution:  considering bottomCompositionAddition, new candidateRes ", candidateRes)
 
         pulseRuntimeSettings.dynamicResolution = candidateRes;
         if (pulseRuntimeSettings.dynamicPeriod !== pulseRuntimeSettings.dynamicPeriodMax) {
@@ -99,7 +99,7 @@ Item {
             pulseRuntimeSettings.dynamicSamples = pulseRuntimeSettings.dynamicSamplesMax
         }
 
-        console.log("DYNAMIC: setting dynamicResolution to", candidateRes,"for depth", depth,"compared to last stable", lastStableDepth,"and bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel)
+        //console.log("DYNAMIC: setting dynamicResolution to", candidateRes,"for depth", depth,"compared to last stable", lastStableDepth,"and bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel)
         stableCount = 0
         lastStableDepth = depth
         pulseRuntimeSettings.forceUpdateResolution = false
@@ -174,10 +174,10 @@ Item {
         }
 
         stableCount ++;
-        console.log("DYNAMIC: stepped stableCount up by one")
+        //console.log("DYNAMIC: stepped stableCount up by one")
 
         if (stableCount < pulseRuntimeSettings.requiredStableReading) {
-            console.log("DYNAMIC: stableCount below threshold of", pulseRuntimeSettings.requiredStableReading)
+            //console.log("DYNAMIC: stableCount below threshold of", pulseRuntimeSettings.requiredStableReading)
             return
         }
 
@@ -185,13 +185,13 @@ Item {
         if (depth > lastStableDepth) {
             candidateSamples = candidateSamples + pulseRuntimeSettings.dynamicSamplesStep
             candidatePeriod = candidatePeriod + pulseRuntimeSettings.dynamicPeriodStep
-            console.log("DYNAMIC: increased candidateSamples ",candidateSamples, "and candidatePeriod",candidatePeriod, ": depth deeper than before ", depth," > lastStableDepth", lastStableDepth)
+           // console.log("DYNAMIC: increased candidateSamples ",candidateSamples, "and candidatePeriod",candidatePeriod, ": depth deeper than before ", depth," > lastStableDepth", lastStableDepth)
         }
 
 
         pulseRuntimeSettings.dynamicSamples = candidateSamples;
         pulseRuntimeSettings.dynamicPeriod = candidatePeriod;
-        console.log("DYNAMIC: set dynamicSamples ",candidateSamples, "and dynamicPeriod",candidatePeriod, "for depth", depth,"with bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel, "based on candidateRes", candidateRes)
+        //console.log("DYNAMIC: set dynamicSamples ",candidateSamples, "and dynamicPeriod",candidatePeriod, "for depth", depth,"with bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel, "based on candidateRes", candidateRes)
         stableCount = 0
         lastStableDepth = depth
     }
@@ -234,9 +234,9 @@ Item {
             depthAndTemperature.autoLevel = newLevel;
             if (pulseRuntimeSettings !== null) {
                 pulseRuntimeSettings.autoDepthMaxLevel = newLevel
-                console.log("TAV: Auto level changed to: " + newLevel);
-                console.log("TAV: Auto level step: " + pulseRuntimeSettings.autoDepthLevelStep);
-                console.log("TAV: Auto level distance below: " + pulseRuntimeSettings.autoDepthDistanceBelow);
+                //console.log("TAV: Auto level changed to: " + newLevel);
+                //console.log("TAV: Auto level step: " + pulseRuntimeSettings.autoDepthLevelStep);
+                //console.log("TAV: Auto level distance below: " + pulseRuntimeSettings.autoDepthDistanceBelow);
             } else {
                 console.log("TAV: Auto level cannot be set when pulseRuntimeSettings is null");
             }
@@ -291,7 +291,7 @@ Item {
         interval: 1000
         onTriggered: {
             pulseRuntimeSettings.forceUpdateResolution = true
-            console.log("TAV: dynamicResolution: Set the pulseRuntimeSettings.forceUpdateResolution to", pulseRuntimeSettings.forceUpdateResolution);
+            //console.log("TAV: dynamicResolution: Set the pulseRuntimeSettings.forceUpdateResolution to", pulseRuntimeSettings.forceUpdateResolution);
         }
     }
 

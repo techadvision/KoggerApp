@@ -553,7 +553,7 @@ ColumnLayout {
                         if (dev !== null) {
                             if (dev.chartSamples !== pulseRuntimeSettings.chartSamples) {
                                 dev.chartSamples = pulseRuntimeSettings.chartSamples
-                                console.log("DYNAMIC: Set the dev.chartSamples to ", dev.chartSamples, " using source pulseRuntimeSettings.chartSamples of ", pulseRuntimeSettings.chartSamples)
+                                //console.log("DYNAMIC: Set the dev.chartSamples to ", dev.chartSamples, " using source pulseRuntimeSettings.chartSamples of ", pulseRuntimeSettings.chartSamples)
                             }
                         }
                     }
@@ -562,7 +562,7 @@ ColumnLayout {
                             return
                         }
                         pulseRuntimeSettings.chartSamples = pulseRuntimeSettings.dynamicSamples
-                        console.log("DYNAMIC: received onDynamicSamplesChanged value ", pulseRuntimeSettings.dynamicSamples)
+                        //console.log("DYNAMIC: received onDynamicSamplesChanged value ", pulseRuntimeSettings.dynamicSamples)
                     }
                 }
             }
@@ -966,7 +966,7 @@ ColumnLayout {
                         if (dev === null)
                             return
                         //pulseRuntimeSettings.ch1Period = value
-                        console.log("DYNAMIC: Set the dev.ch1Period to ", dev.ch1Period, " onValueChanged ", value)
+                        //console.log("DYNAMIC: Set the dev.ch1Period to ", dev.ch1Period, " onValueChanged ", value)
                         //dev.ch1Period = pulseRuntimeSettings.ch1Period
                     }
                     isDriverChanged = false
@@ -978,7 +978,7 @@ ColumnLayout {
                         if (dev !== null) {
                             if (dev.ch1Period !== pulseRuntimeSettings.ch1Period) {
                                 dev.ch1Period = pulseRuntimeSettings.ch1Period
-                                console.log("DYNAMIC: Set the dev.ch1Period to ", dev.ch1Period, " using source pulseRuntimeSettings.ch1Period of ", pulseRuntimeSettings.ch1Period)
+                                //console.log("DYNAMIC: Set the dev.ch1Period to ", dev.ch1Period, " using source pulseRuntimeSettings.ch1Period of ", pulseRuntimeSettings.ch1Period)
                             }
                         }
                     }
