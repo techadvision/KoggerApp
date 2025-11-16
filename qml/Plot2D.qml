@@ -111,6 +111,36 @@ WaterFall {
 
     Timer {
         id: oldDataWarningRemovalTimer
+        // keep single-shot timer; interval is derived from oldDataResetSeconds
+        interval: oldDataResetSeconds * 1000
+        repeat: false
+        onTriggered: {
+            // show "0" first, then wait 100 ms before hiding
+            oldDataIndicator._setCountdown(0)
+            hideDelayTimer.start()
+        }
+    }
+
+    // tiny delay so users can *see* the zero
+    Timer {
+        id: hideDelayTimer
+        interval: 100
+        repeat: false
+        onTriggered: {
+            oldDataIndicator.visible = false
+            plot.timelinePosition = 1
+        }
+    }
+
+    Rectangle {
+        id: oldDataIndicator
+        visible: false
+        anchors.top: parent.top
+        anchors.topMargin: 40
+        anchors.right: parent.right
+        anchors.rightMargin: 20
+    Timer {
+        id: oldDataWarningRemovalTimer
         interval: 5000
         repeat: false
         onTriggered: {
