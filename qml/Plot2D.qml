@@ -69,6 +69,7 @@ WaterFall {
     signal echogramWasZoomed(real updatedMaxValue)
     property bool isLiveView: true
     property real depthStepAccum: 0.0
+    property int oldDataResetSeconds: 6
 
     //End of additiona - Properties
     //*****************************
@@ -139,6 +140,110 @@ WaterFall {
         anchors.topMargin: 40
         anchors.right: parent.right
         anchors.rightMargin: 20
+        color: "#80000000"
+        radius: 8
+        property int contentMargin: 12
+        implicitWidth: oldDataText.width + contentMargin*2
+        implicitHeight: oldDataText.height + contentMargin*2
+
+        // NEW: countdown state
+        property int _remaining: 0
+
+        // helper to set text consistently
+        function _setCountdown(v) {
+            _remaining = v
+            oldDataText.text = "Old data (" + _remaining + ")"
+        }
+
+        // per-second countdown
+        Timer {
+            id: countdownTimer
+            interval: 1000
+            repeat: true
+            onTriggered: {
+                // decrement but don't go negative—main timer handles the hide
+                if (oldDataIndicator._remaining > 0) {
+                    oldDataIndicator._setCountdown(oldDataIndicator._remaining - 1)
+                } else if (oldDataIndicator._remaining === 0) {
+                    // let it tick to 0 and stop; hideDelayTimer will fire next
+                    stop()
+                }
+            }
+        }
+
+        Text {
+            id: oldDataText
+            text: "Old data"
+            font.pixelSize: 40
+            color: "white"
+            anchors.centerIn: parent
+        }
+
+        // start/stop logic kept here to avoid touching other parts of the app
+        onVisibleChanged: {
+            if (visible) {
+                plot.setHoldHistory(true)
+
+                // (re)start countdown only if we're not paused
+                if (!pauseDataIndicator.visible) {
+                    countdownTimer.stop()
+                    oldDataIndicator._setCountdown(oldDataResetSeconds)
+                    // ensure main timer matches the configured seconds
+                    oldDataWarningRemovalTimer.interval = oldDataResetSeconds * 1000
+                    oldDataWarningRemovalTimer.restart()
+                    countdownTimer.start()
+                }
+            } else {
+                plot.setHoldHistory(false)
+                countdownTimer.stop()
+                hideDelayTimer.stop()
+            }
+        }
+    }
+
+    Rectangle {
+        id: pauseDataIndicator
+        visible: false
+        anchors.top: parent.top
+        anchors.topMargin: 40
+        anchors.right: parent.right
+        anchors.rightMargin: 20
+        color: "#80000000"
+        radius: 8
+        property int contentMargin: 12
+        implicitWidth: oldDataText.width + contentMargin*2
+        implicitHeight: oldDataText.height + contentMargin*2
+
+        Text {
+            id: pausedDataText
+            text: "paused"
+            font.pixelSize: 40
+            color: "white"
+            anchors.centerIn: parent
+        }
+
+        // NEW: pause/unpause hooks
+        onVisibleChanged: {
+            if (visible) {
+                // freeze everything while paused
+                countdownTimer.stop()
+                hideDelayTimer.stop()
+                oldDataWarningRemovalTimer.stop()
+            } else {
+                // when un-paused, if "old data" is still showing, resume the countdown
+                if (oldDataIndicator.visible) {
+                    oldDataIndicator._setCountdown(oldDataResetSeconds)
+                    oldDataWarningRemovalTimer.interval = oldDataResetSeconds * 1000
+                    oldDataWarningRemovalTimer.restart()
+                    countdownTimer.start()
+                }
+            }
+        }
+    }
+
+
+
+    /*
     Timer {
         id: oldDataWarningRemovalTimer
         interval: 5000
@@ -187,7 +292,8 @@ WaterFall {
             }
         }
     }
-
+    */
+    /*
     Rectangle {
         id: pauseDataIndicator
         // start hidden
@@ -218,6 +324,7 @@ WaterFall {
             anchors.centerIn: parent
         }
     }
+    */
 
     Rectangle {
         id: configurationInProgressIndicator
@@ -480,6 +587,20 @@ WaterFall {
 
             hoverEnabled: true
 
+            Connections {
+                target: pulseRuntimeSettings
+
+                function onEchogramPauseChanged () {
+                    if (!pulseRuntimeSettings.echogramPause) {
+                        mousearea.longPressFired = false;
+                        mousearea.draggingInPaused = false
+                        mousearea.lastMouseX = -1
+                        mousearea.lastMouseY = -1
+                        mousearea.wasMoved = false
+                    }
+                }
+            }
+
             Timer {
                 id: longPressTimer
                 interval: 500
@@ -657,7 +778,11 @@ WaterFall {
                     }
                     var nowLive = plot.timelinePosition >= 0.999
                     if (!nowLive) {
+                        countdownTimer.stop()
+                        oldDataIndicator._setCountdown(oldDataResetSeconds)
+                        oldDataWarningRemovalTimer.interval = oldDataResetSeconds * 1000
                         oldDataWarningRemovalTimer.restart()
+                        countdownTimer.start()
                     }
                 }
                 // 4) paused drag (only if we *latched* into draggingInPaused)
