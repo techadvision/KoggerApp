@@ -41,6 +41,9 @@ public:
     static inline bool kIs32BitProcess() {
         return sizeof(void*) == 4;
     }
+    int rightmostEpochOnScreen() const { return rightmostEpochOnScreen_; }
+    int visibleColsOnScreen()   const { return visibleColsOnScreen_; }
+    int getEpochIndxByMousePosPausedAware(int mouseX, int mouseY, bool isHorizontal) const;
 
     // Optional setters if other C++ wants to push directly
     void setIsSideScanLeftHand(bool v)   { isSideScanLeftHand_ = v; }
@@ -194,4 +197,6 @@ private:
     bool   echogramDragActive_  = false;
     bool   echogramHoldHistory_ = false;
     QObject* qobjectContext_ = nullptr;
+    int rightmostEpochOnScreen_ = -1;
+    int visibleColsOnScreen_    = 0;
 };

@@ -84,7 +84,7 @@ private:
     void armCandidateFromTap(Plot2D* parent, Dataset* dataset,
                              int epochIdx, int mouseX, int mouseY,
                              double cursorDistance);
-    void drawPopup(QPainter* p, const QString& text, int scaleFactor, bool showAddBtn);
+    //void drawPopup(QPainter* p, const QString& text, int scaleFactor, bool showAddBtn);
     bool handleClickInsideButtons(int x, int y, Dataset* dataset);
     void fireWaypointAndClose();
     double rangeTFromDeviceTap(const QPoint& dev, int W, int H) const;

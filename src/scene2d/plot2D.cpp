@@ -220,18 +220,29 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
             painter->scale(1.0, -1.0);
         }
         canvas_.setSize(width, height, painter);
+
+        const QTransform W = painter->worldTransform();
+        const double sxMag = std::hypot(W.m11(), W.m12());
+        const double sx    = std::max(1e-6, sxMag);
+        visibleColsOnScreen_ = std::max(1, int(std::floor(double(canvas_.width())/sx + 0.5)));
     }
     else {
         //qDebug() << "TICKS getImage echogramSpeed is" << echogramSpeed_ << "but is_horizontal is" << is_horizontal;
         canvas_.setSize(height, width, painter);
+
+        const QTransform W = painter->worldTransform();
+        const double sxMag = std::hypot(W.m11(), W.m12());
+        const double sx    = std::max(1e-6, sxMag);
+        visibleColsOnScreen_ = std::max(1, int(std::floor(double(canvas_.width())/sx + 0.5)));
+
         painter->rotate(-90);
         painter->translate(-height, 0);
     }
 
-    //if (echogramPause_)
-    //    return true;
-    if (echogramPause_ && !echogramDragActive_)
+    if (echogramPause_)
         return true;
+    //if (echogramPause_ && !echogramDragActive_)
+    //    return true;
     reindexingCursor();
     reRangeDistance();
 
@@ -298,7 +309,8 @@ void Plot2D::setTimelinePosition(float position)
         position = 0;
     }
 
-    if (echogramPause_ && !echogramDragActive_)
+    if (echogramPause_ )
+    //if (echogramPause_ && !echogramDragActive_)
         return;
 
     if (cursor_.position != position) {
@@ -321,7 +333,9 @@ void Plot2D::setTimelinePositionSec(float position)
         position = 0;
     }
 
-    if (echogramPause_ && !echogramDragActive_)
+
+    if (echogramPause_)
+    //if (echogramPause_ && !echogramDragActive_)
         return;
 
 
@@ -972,6 +986,106 @@ void Plot2D::sendSyncEvent(int epoch_index, QEvent::Type eventType) {
     Q_UNUSED(eventType);
 }
 
+// Pulse
+int Plot2D::getEpochIndxByMousePosPausedAware(int mouseX, int mouseY, bool isHorizontal) const
+{
+    // If not paused, just use the regular path
+    if (!echogramPause_) {
+        return getEpochIndxByMousePos(mouseX, mouseY, isHorizontal);
+    }
+
+    const int W = canvas_.width();
+    if (W <= 0 || cursor_.indexes.empty()) return -1;
+
+    // Column in current orientation
+    int col = isHorizontal ? mouseX : (W - 1 - mouseY);
+    if (col < 0 || col >= W) return -1;
+
+    const bool flipImage = isSideScanLeftHand_ && isSideScan2DView_;
+    const double s = (isHorizontal && !flipImage) ? std::max(1e-6, double(echogramSpeed_)) : 1.0;
+
+    // Invert the painter transform used in getImage():
+    // painter->translate(W,0); painter->scale(s,1); painter->translate(-W,0);
+    // Forward: x_draw = s*x_src + (1-s)*W
+    // Inverse: x_src = (x_draw - (1-s)*W) / s
+    const double x_src = (double(col) - (1.0 - s) * double(W - 1)) / s;
+
+    const int xi = std::clamp(int(std::lround(x_src)), 0, W - 1);
+    return cursor_.indexes[xi];
+}
+
+void Plot2D::reindexingCursor() {
+    if (!datasetPtr_) return;
+
+    const int W = canvas_.width();
+    const int N = datasetPtr_->size();
+
+    // Handle degenerate cases + keep sizes in sync
+    if (W <= 0 || N <= 0) {
+        cursor_.indexes.assign(std::max(0, W), -1);
+        cursor_.numZeroEpoch     = std::max(0, W);
+        cursor_.last_dataset_size = N;
+        return;
+    }
+    if (int(cursor_.indexes.size()) != W)
+        cursor_.indexes.resize(W);
+
+    // Preserve timeline gap to the head when dataset grows/shrinks
+    const bool followLive = kIs32BitProcess() && !echogramDragActive_ && !echogramPause_ && !echogramHoldHistory_;
+    if (cursor_.last_dataset_size > 0) {
+        float pos = timelinePosition();
+        if (followLive) {
+            pos = 1.0f;
+            setTimelinePosition(pos);
+        } else {
+            const float last_head = std::round(pos * cursor_.last_dataset_size);
+            const float tail_gap  = float(cursor_.last_dataset_size) - last_head;
+            const float new_head  = float(N) - tail_gap;
+            pos = (N > 0) ? std::clamp(float(new_head) / float(N), 0.0f, 1.0f) : 1.0f;
+            setTimelinePosition(pos);
+        }
+    }
+    cursor_.last_dataset_size = N;
+
+    // --- Mirror draw-time transform ---
+    // In getImage(): for horizontal && !flipImage we do:
+    //   translate(W,0); scale(s,1); translate(-W,0)  with  s = echogramSpeed_ (>1)
+    // So one data column spans 's' device pixels, right-anchored at the screen's right edge.
+    const bool flipImage = isSideScanLeftHand_ && isSideScan2DView_;
+    const double s_applied = (isHorizontal_ && !flipImage && echogramSpeed_ > 1.0)
+                                 ? double(echogramSpeed_)
+                                 : 1.0;
+    const double hor_ratio = s_applied; // device pixels per data column when stretched
+
+    // Dataset "head" (right edge + 1)
+    const int head = int(std::round(double(timelinePosition()) * double(N)));
+
+    int zeros = 0;
+    for (int x = 0; x < W; ++x) {
+        // Right-anchored mapping:
+        //  - Rightmost device pixel (x = W-1) should show data index head-1
+        //  - Moving left, each data column occupies 'hor_ratio' pixels
+        const int dx    = x - (W - 1);                      // 0 at the right edge; negative to the left
+        const int dcols = int(std::floor(double(dx) / hor_ratio));
+        const int idx   = head + dcols - 1;                 // → head-1 at x = W-1
+
+        if (idx >= 0 && idx < N) {
+            cursor_.indexes[x] = idx;
+        } else {
+            cursor_.indexes[x] = -1;
+            ++zeros;
+        }
+    }
+    cursor_.numZeroEpoch = zeros;
+
+    // Optional: keep a readout for the rightmost visible epoch while running
+    if (!echogramPause_) {
+        rightmostEpochOnScreen_ = std::clamp(head - 1, 0, N - 1);
+    }
+}
+
+
+/*
 void Plot2D::reindexingCursor() {
     if(datasetPtr_ == nullptr) { return; }
 
@@ -980,6 +1094,15 @@ void Plot2D::reindexingCursor() {
     const int image_width = canvas_.width();
     const int data_width = datasetPtr_->size();
     const int last_indexes_size = cursor_.indexes.size();
+
+    const int W = canvas_.width();
+    const int N = datasetPtr_->size();
+
+    if (W <= 0 || N <= 0) {
+        cursor_.indexes.clear();
+        cursor_.last_dataset_size = N;
+        return;
+    }
 
     if(image_width != last_indexes_size) {
         cursor_.indexes.resize(image_width);
@@ -1002,38 +1125,38 @@ void Plot2D::reindexingCursor() {
                 setTimelinePosition(position);
             }
         }
-
-        /*
-        float last_head = round(position*cursor_.last_dataset_size);
-        float last_offset_head = float(cursor_.last_dataset_size) - last_head;
-        float new_head = data_width - last_offset_head;
-
-        position = float(new_head)/float(data_width);
-
-        setTimelinePosition(position);
-        */
     }
 
     cursor_.last_dataset_size = data_width;
 
-    float hor_ratio = 1.0f;
+    //float hor_ratio = 1.0f;
 
     float position = timelinePosition();
 
     int head_data_index = round(position*float(data_width));
 
-    int cntZeros = 0;
-    for(int i = 0; i < image_width; i++) {
-        int data_index = head_data_index + round((i - image_width)/hor_ratio) - 1;
-        if(data_index >= 0 && data_index < data_width) {
-             cursor_.indexes[i] = data_index;
-        } else {
-            ++cntZeros;
-             cursor_.indexes[i] = -1;
-        }
+    const double s         = (echogramSpeed_ > 0.0) ? echogramSpeed_ : 1.0; // s>1 = fewer columns visible
+    const double hor_ratio = s;                                              // device px per data column
+    const int    head      = int(std::round(position * double(N)));         // dataset head (right edge + 1)
+
+    int zeros = 0;
+    for (int x = 0; x < W; ++x) {
+        const int dx    = x - (W - 1);                              // 0 at rightmost device pixel
+        const int delta = int(std::floor(double(dx) / hor_ratio));  // step left in data columns
+        int idx = head + delta - 1;                                  // rightmost maps to head-1
+
+        if (idx >= 0 && idx < N) cursor_.indexes[x] = idx;
+        else { cursor_.indexes[x] = -1; ++zeros; }
     }
-    cursor_.numZeroEpoch = cntZeros;
+    cursor_.numZeroEpoch = zeros;
+
+    // Keep this for Aim if you still want the “A” fields:
+    if (!echogramPause_) {
+        rightmostEpochOnScreen_ = std::clamp(head - 1, 0, N - 1);
+    }
+
 }
+*/
 
 void Plot2D::reRangeDistance()
 {
