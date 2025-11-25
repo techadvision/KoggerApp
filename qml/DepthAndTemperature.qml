@@ -107,6 +107,7 @@ Item {
     }
 
     function calculateDynamicResolution(depth) {
+        /*
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
             if (!pulseRuntimeSettings.pulseBlueResSetOnce) {
@@ -116,6 +117,7 @@ Item {
             }
             return;
         }
+        */
         if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
                 && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto) {
             return;
