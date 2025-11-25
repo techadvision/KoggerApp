@@ -423,10 +423,10 @@ ColumnLayout {
                 devValue: {
                     if (dev !== null && pulseRuntimeSettings !== null) {
                         if (pulseRuntimeSettings.doDynamicResolution) {
-                            console.log("DEV_PARAM: chartResolution as devValue set to ", pulseRuntimeSettings.dynamicResolution), " by doDynamicResolution";
+                            console.log("DEV_PARAM: chartResolution as devValue should be ", pulseRuntimeSettings.dynamicResolution), " by doDynamicResolution";
                             return pulseRuntimeSettings.dynamicResolution
                         } else {
-                            console.log("DEV_PARAM: chartResolution as devValue set to ", pulseRuntimeSettings.chartResolution, "dynamicResolution is false");
+                            console.log("DEV_PARAM: chartResolution as devValue should be", pulseRuntimeSettings.chartResolution, "for", pulseRuntimeSettings.devName);
                             return pulseRuntimeSettings.chartResolution
                         }
                     } else {
@@ -452,8 +452,6 @@ ColumnLayout {
                                 console.log("DEV_PARAM: onValueChanged, dev.chartResolution set to pulseRuntimeSettings.chartResolution", pulseRuntimeSettings.chartResolution)
                             }
                         }
-                        //TODO: Is it correct to disable this?
-                        //pulseRuntimeSettings.chartResolution = value
                         console.log("DEV_PARAM: chartResolution onValueChanged, but now we did not set pulseRuntimeSettings.chartResolution to ", value);
                     }
                     isDriverChanged = false
@@ -1325,6 +1323,8 @@ ColumnLayout {
         repeat: !pulseRuntimeSettings.devConfigured
         onTriggered: {
             //console.log("DEV_PARAM deviceParameterSetterRepeat")
+            if (pulseRuntimeSettings.wasKlfFileOpened)
+                return
             if (pulseRuntimeSettings.devConfigured) {
                 console.log("DEV_PARAM completeDeviceConfigurationTimer no need to repeat as devConfigured complete")
                 return
@@ -1533,15 +1533,16 @@ ColumnLayout {
 
         // chartResolution
         if (!pulseRuntimeSettings.chartResolution_ok) {
-            if (dev.chartResolution === pulseRuntimeSettings.chartResolution) {
+            if (pulseRuntimeSettings.doDynamicResolution) {
                 pulseRuntimeSettings.chartResolution_Copy = dev.chartResolution
                 pulseRuntimeSettings.chartResolution_ok = true
-                console.log("DEV_PARAM chartResolution OK as", dev.chartResolution)
+                console.log("DEV_PARAM chartResolution OK as", dev.chartResolution, ". We set it dynamically for 2D transducers anyway")
             } else {
-                if (pulseRuntimeSettings.doDynamicResolution) {
-                    pulseRuntimeSettings.chartResolution_ok = true
+                //Pulse blue
+                if (dev.chartResolution === pulseRuntimeSettings.chartResolution) {
                     pulseRuntimeSettings.chartResolution_Copy = dev.chartResolution
-                    console.log("DEV_PARAM onChartSetupChanged, dev.chartResolution OK as", dev.chartResolution, "using doDynamicResolution")
+                    pulseRuntimeSettings.chartResolution_ok = true
+                    console.log("DEV_PARAM chartResolution OK for",pulseRuntimeSettings.devName ,"as", dev.chartResolution)
                 } else {
                     console.log("DEV_PARAM onChartSetupChanged, found dev.chartResolution as", dev.chartResolution, " try setting dev.chartResolution set to", pulseRuntimeSettings.chartResolution)
                     dev.chartResolution = pulseRuntimeSettings.chartResolution
@@ -1861,18 +1862,6 @@ ColumnLayout {
             */
         }
 
-        if (dev !== null) {
-            pulseRuntimeSettings.rawDev_devName = dev.devName
-            pulseRuntimeSettings.rawDev_devType = dev.devType
-            pulseRuntimeSettings.rawDev_isSonar = dev.isSonar
-            pulseRuntimeSettings.rawDev_isChartSupport = dev.isChartSupport
-            pulseRuntimeSettings.rawDev_isDistSupport = dev.isDistSupport
-            pulseRuntimeSettings.rawDev_isTransducerSupport = dev.isTransducerSupport
-            pulseRuntimeSettings.rawDev_isDatasetSupport = dev.isDatasetSupport
-            pulseRuntimeSettings.rawDev_isSoundSpeedSupport = dev.isSoundSpeedSupport
-            pulseRuntimeSettings.rawDev_isUpgradeSupport = dev.isUpgradeSupport
-        }
-
         if (pulseRuntimeSettings.userManualSetName !== "...") {
             if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                     || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
@@ -1892,17 +1881,28 @@ ColumnLayout {
 
             } else {
                 //Pulse Blue
-                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
+                //pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
+                pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth
+                pulseRuntimeSettings.distMax = 1000 * pulseSettings.echogramWidth
+                pulseRuntimeSettings.maximumDepth = pulseSettings.echogramWidth
             }
         }
 
-        if (pulseRuntimeSettings.expertMode) {
-            console.log("BETA UDP TEST: let's enable proxy")
-            linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14550)
-        }
         if (pulseSettings.positionSourceAutoPilot) {
-            console.log("Autopilot said to be connected: let's enable proxy")
+            console.log("Autopilot is sending data: let's enable receiving it")
             linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14550)
+        } 
+
+        if (dev !== null) {
+            pulseRuntimeSettings.rawDev_devName = dev.devName
+            pulseRuntimeSettings.rawDev_devType = dev.devType
+            pulseRuntimeSettings.rawDev_isSonar = dev.isSonar
+            pulseRuntimeSettings.rawDev_isChartSupport = dev.isChartSupport
+            pulseRuntimeSettings.rawDev_isDistSupport = dev.isDistSupport
+            pulseRuntimeSettings.rawDev_isTransducerSupport = dev.isTransducerSupport
+            pulseRuntimeSettings.rawDev_isDatasetSupport = dev.isDatasetSupport
+            pulseRuntimeSettings.rawDev_isSoundSpeedSupport = dev.isSoundSpeedSupport
+            pulseRuntimeSettings.rawDev_isUpgradeSupport = dev.isUpgradeSupport
         }
     }
 
@@ -1917,6 +1917,7 @@ ColumnLayout {
 
             let newResoultion = pulseSettings.echogramWidth
             pulseRuntimeSettings.chartResolution = newResoultion
+            console.log("Got a new resolution from echogramWidth:", pulseSettings.echogramWidth," let's change chartResolution")
 
             let newMaxDepth = newResoultion * 1000
             pulseRuntimeSettings.distMax = newMaxDepth
