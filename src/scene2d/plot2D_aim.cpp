@@ -213,7 +213,32 @@ static inline double clamp01(double v){ return v < 0 ? 0 : (v > 1 ? 1 : v); }
 // returns t in [0..1], where 0 means cursor.distance.from and 1 means cursor.distance.to
 
 void Plot2DAim::setPause(Plot2D* parent, Dataset* dataset, bool on) {
-    //if (echogramPause_ == on) return;
+    if (paused_ == on) return;
+
+    echogramPause_ = on;
+    paused_        = on;
+
+    if (on) {
+        // Make sure cursor_.indexes matches the *current* orientation/scale
+        // before we freeze any “at pause” snapshots.
+        parent->reindexingCursor();
+
+        // Snapshot the rightmost (newest) epoch on screen and visible columns
+        lastIndexAtPause_   = parent->rightmostEpochOnScreen();
+        visibleColsAtPause_ = parent->visibleColsOnScreen();
+
+        // (Optional) touch the transform for completeness — we don’t use it here now
+        (void)dataset;
+        auto& canvas = parent->canvas();
+        const QTransform W = canvas.painter()->worldTransform();
+        Q_UNUSED(W);
+    } else {
+        lastIndexAtPause_   = -1;
+        visibleColsAtPause_ = 0;
+        needClearUi_        = true; // clear popup/crosshair on unpause
+    }
+
+    /*
     if (paused_ == on) return;
     auto& canvas = parent->canvas();
     auto& cursor = parent->cursor();
@@ -230,6 +255,7 @@ void Plot2DAim::setPause(Plot2D* parent, Dataset* dataset, bool on) {
         visibleColsAtPause_ = 0;
         needClearUi_ = true; // (your existing UI clear flag)
     }
+*/
 }
 
 
@@ -275,14 +301,15 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     if(!dataset)
         return false;
 
-    if ((cursor.mouseX < 0 || cursor.mouseY < 0) && (cursor.selectEpochIndx == -1)) {
+    if (cursor.mouseX < 0 || cursor.mouseY < 0) {
+    //if ((cursor.mouseX < 0 || cursor.mouseY < 0) && (cursor.selectEpochIndx == -1)) {
         return false;
     }
 
     QPainter* p = canvas.painter();
 
-    const int tapX = cursor.mouseX;
-    const int tapY = cursor.mouseY;
+    //const int tapX = cursor.mouseX;
+    //const int tapY = cursor.mouseY;
 
     const QTransform W = p->worldTransform();
     const QTransform Winv = W.inverted();
@@ -290,17 +317,17 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     const double sx = std::max(1e-6, W.m11());
     const int visibleCols = visibleColsFromTransform(p->worldTransform(), canvas.width());
 
-    QPointF tapLogical(-1, -1);
+    //QPointF tapLogical(-1, -1);
     hasTap_ = false;
     if (beenEpochEvent_ && echogramPause_) {
-        tapLogical = QPointF(cursor.mouseX, cursor.mouseY);
-        pendingTapLogical_ = mouseLogical;
+        //tapLogical = QPointF(cursor.mouseX, cursor.mouseY);
+        //pendingTapLogical_ = mouseLogical;
         hasTap_ = true;
     }
     if (beenEpochEvent_ && !echogramPause_) {
         beenEpochEvent_ = false; // ignore
     }
-    const QPoint tapDevAtArm = QPoint(cursor.mouseX, cursor.mouseY);
+    //const QPoint tapDevAtArm = QPoint(cursor.mouseX, cursor.mouseY);
 
     if (cursor.selectEpochIndx != -1 && !cand_.active && !hasTap_) {
         const bool isPaused = echogramPause_;
@@ -329,6 +356,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
     const bool isDualSS   = isSideScan && !isSideScan2DView_;
 
+    // DID WE TAP THE PANEL?
     bool tapOnPanel = false;
     QPoint tapDev;
     if (hasTap_ && cand_.active) {
@@ -339,6 +367,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         tapOnPanel = cand_.infoRect.contains(tapDev);      // infoRect is device space
     }
 
+    // CREATE CROSS HAIR FROM THE TAP
     QPen pen;
     pen.setWidth(lineWidth_);
     pen.setColor(lineColor_);
@@ -348,6 +377,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     font.setPixelSize(18 * scaleFactor_);
     p->setFont(font);
 
+    // --- crosshair ---
     auto drawCrosshairAtWorld = [&](double lx, double ly){
         const int Wlog = canvas.width();
         const int Hlog = canvas.height();
@@ -358,12 +388,12 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         p->drawLine(QPointF(lx, 0),     QPointF(lx,  Hlog));
     };
 
-    bool drewCrosshair = false;
+    //bool drewCrosshair = false;
 
     if (cand_.active && echogramPause_) {
         if (cand_.crossDev.x() >= 0 && cand_.crossDev.y() >= 0) {
 
-            QPoint devPt = cand_.crossDev;
+            QPoint devPt = cand_.active ? cand_.crossDev : QPoint(cursor.mouseX, cursor.mouseY);
 
             // dual-side SS is drawn rotated -90° → rotate the tap to match
             if (isDualSS) {
@@ -373,14 +403,21 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
             const QPointF crossWorld = Winv.map(QPointF(devPt));
             drawCrosshairAtWorld(crossWorld.x(), crossWorld.y());
-            drewCrosshair = true;
+            //drewCrosshair = true;
         }
     }
 
 
     // --- unified distance from device tap ---
-    const QPoint devPtForRange = (cand_.active ? cand_.crossDev
+    QPoint devPtForRange = (cand_.active ? cand_.crossDev
                                                : QPoint(cursor.mouseX, cursor.mouseY));
+
+
+    // Dual-side SS view is drawn rotated -90°. Map tap back to unrotated device axes
+    // before deriving the vertical fraction used by rangeTFromDeviceTap().
+    if (isSideScan && !isSideScan2DView_) {
+        //devPtForRange = devRotNeg90(devPtForRange, canvas.width());
+    }
 
     double t = rangeTFromDeviceTap(devPtForRange, canvas.width(), canvas.height());
 
@@ -407,10 +444,15 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     //Capture data for the tapped point
     // --- Capture data for the tapped point (works even if cursor.currentEpochIndx == -1) ---
     if (echogramPause_) {
-        const int epochIdxForTap =
-            parent->getEpochIndxByMousePosPausedAware(cursor.mouseX,
-                                                      cursor.mouseY,
-                                                      parent->isHorizontal());
+        const int epochIdxForTap = cursor.currentEpochIndx;
+
+        /*
+        const int epochIdxForTapOld =
+            parent->getEpochIndxByMousePosPausedAware(p,
+                                                    cursor.mouseX,
+                                                    cursor.mouseY,
+                                                    parent->isHorizontal());
+        */
         if (epochIdxForTap >= 0 && epochIdxForTap < dataset->size()) {
             const bool pausedNow = isPaused();
             const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
@@ -440,13 +482,17 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 if (!std::isfinite(depth) || depth < 0) depth = epTap->rangeFinder();
             }
 
-            const int maxLookEpochs = 6;
+            const int maxLookEpochs = 12;
             const int lastCap = pausedNow ? lastIndexAtPause_ : (dataset->size() - 1);
 
             auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
                                                            maxLookEpochs, 0, lastCap);
             auto nearestYaw = findNearestYawByIndexRanged( dataset, epochIdxForTap,
                                                           maxLookEpochs, 0, lastCap);
+
+            if (nearestPos.found) {
+                qDebug () << "AIM: Looked at epoch" << epochIdxForTap << "and found position at" << nearestPos.epochIdx << "positions away" << nearestPos.dIdx;
+            }
 
             // Fallback once across the full dataset if the frozen cap was too tight (first pause edge case)
             if (!nearestPos.found)
@@ -467,6 +513,37 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             if (nearestPos.found && nearestYaw.found) {
                 const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
                 const double yaw_rad = deg2rad(nearestYaw.yawDeg);
+
+                // Only permit lateral offsets for *dual-side* SS view.
+                // Single-side SS shown as downscan (isSideScan2DView_ == true) is treated as water-column.
+                const bool isDualSS = isSideScan && !isSideScan2DView_;
+                const bool forceWaterColumn = !isDualSS;
+
+                // Water column when depth unknown OR slant ≤ bottom depth, or in forced mode
+                const bool waterColumn = forceWaterColumn
+                                         || !std::isfinite(depthAbs)
+                                         || (rSlantAbs <= depthAbs + kWaterMargin);
+
+                if (waterColumn) {
+                    // beneath the boat
+                    txLat = boat.lat;
+                    txLon = boat.lon;
+                    haveTarget = true;
+                } else {
+                    // valid lateral hit → offset using yaw ± 90°
+                    const auto sol = solveSidescanTap(boat, yaw_rad, rSlantAbs, depthAbs, side);
+                    if (sol.ok && !sol.wasWaterColumn) {
+                        txLat = sol.point.lat;
+                        txLon = sol.point.lon;
+                        haveTarget = true;
+                    }
+                }
+            }
+
+            /*
+            if (nearestPos.found && nearestYaw.found) {
+                const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
+                const double yaw_rad = deg2rad(nearestYaw.yawDeg);
                 const bool waterColumn = !std::isfinite(depthAbs) || (rSlantAbs <= depthAbs + kWaterMargin);
 
                 if (!isSideScan || waterColumn) {
@@ -478,6 +555,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                     }
                 }
             }
+            */
 
             // Arm candidate on a real tap (outside the panel)
             if (beenEpochEvent_ && echogramPause_ && !tapOnPanel) {
@@ -496,127 +574,26 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 cand_.tapSide    = side;
                 cand_.haveTarget = haveTarget;
                 popupJustOpened_ = !wasActive;
+                auto yawInDegrees = cand_.yawDeg;
+                auto longitude = cand_.lon;
+                auto latitude = cand_.lat;
+                qDebug().noquote().nospace()
+                    << qSetRealNumberPrecision(8)
+                    << "[AIM] tap=" << epochIdxForTap
+                    << " yaw=" << (nearestYaw.found ? nearestYaw.yawDeg : NAN)
+                    << " lat=" << (nearestPos.found ? nearestPos.pos.lla.latitude  : NAN)
+                    << " lon=" << (nearestPos.found ? nearestPos.pos.lla.longitude : NAN)
+                    << " crossDepth=" << cursor_distance
+                    << " r_slant=" << rSlantAbs
+                    << " depth=" << depthAbs
+                    << " side=" << side;
+                const QPointF worldPt = p->worldTransform().inverted().map(QPointF(cursor.mouseX, cursor.mouseY));
+                qDebug() << "[AIM] worldX=" << worldPt.x() << "worldY=" << worldPt.y()
+                         << "W=" << parent->canvas().width() << "H=" << parent->canvas().height();
             }
         }
     }
 
-
-    /*
-    if (cursor.currentEpochIndx != -1 && echogramPause_) {
-
-        if (auto* ep = dataset->fromIndex(cursor.currentEpochIndx)) {
-            const bool pausedNow = isPaused();
-            const int epochIdxForTap =
-                parent->getEpochIndxByMousePosPausedAware(cursor.mouseX,
-                                                          cursor.mouseY,
-                                                          parent->isHorizontal());
-
-            const int maxLookEpochs = 6;
-            const QString model = isSideScan ? "SS" : "2D";
-
-            // Which side was tapped (visually)
-            int side = 0;  // -1 = left, +1 = right
-            if (isSideScan) {
-                if (isSideScan2DView_) {
-                    // Single-side SS rendered horizontally (like 2D).
-                    // The chosen channel defines the side.
-                    side = isSideScanLeftHand_ ? -1 : +1;
-                } else {
-                    // Dual-side SS rendered vertically after rotate(-90):
-                    // TOP half is LEFT  (-1), BOTTOM half is RIGHT (+1).
-                    const int midY = canvas.height() / 2;
-                    const int tapY = cand_.active ? cand_.crossDev.y() : cursor.mouseY; // device-Y
-                    side = (tapY < midY) ? -1 : +1;
-                }
-            } else {
-                side = 0;  // 2D echogram doesn't use lateral side for solve
-            }
-
-            // Find nearest pos/yaw
-            const int lastCap       = pausedNow ? lastIndexAtPause_ : (dataset->size() - 1);
-            auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap, maxLookEpochs, 0, lastCap);
-            auto nearestYaw = findNearestYawByIndexRanged(dataset, epochIdxForTap, maxLookEpochs, 0, lastCap);
-
-            /* Log helper
-            auto logNearest = [](const char* tag, int tap, int idx, bool found) {
-                if (!found) { qDebug().noquote() << "[Aim]" << tag << "not found"; return; }
-                const int d = tap - idx;
-                qDebug().noquote() << "PositionError: [Aim]" << tag << "idx=" << idx << " dIdx=" << d
-                                   << " (~" << (d * 0.05) << " s at 50ms)";
-            };
-            qDebug().noquote() << "PositionError: [Aim] tapEpochIdx=" << epochIdxForTap
-                               << " lastAtPause=" << lastIndexAtPause_
-                               << " visColsAtPause=" << visibleColsAtPause_;
-            logNearest("GNSS", epochIdxForTap, nearestPos.epochIdx, nearestPos.found);
-            logNearest("YAW ", epochIdxForTap, nearestYaw.epochIdx, nearestYaw.found);
-
-
-            // Depth
-            double depth = NAN;
-            if (isSideScan) {
-                if (auto* echogram = ep->chart(channelId, subIndx); echogram)
-                    depth = echogram->bottomProcessing.getDistance();
-            } else {
-                depth = ep->rangeFinder();
-            }
-            if (!std::isfinite(depth) || depth < 0) depth = ep->rangeFinder();
-
-            // Slant (cursor) range at the tap row
-            const double r_slant = cursor_distance;
-
-            // Absolute values may be needed for the slant and the depth
-            const double depthAbs  = std::isfinite(depth)   ? std::abs(depth)   : NAN;
-            const double rSlantAbs = std::isfinite(r_slant) ? std::abs(r_slant) : NAN;
-
-            // --- Compute target if possible ---
-            double txLat = NAN, txLon = NAN;
-            bool haveTarget = false;
-
-            if (nearestPos.found && nearestYaw.found) {
-                const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
-                const double yaw_rad = deg2rad(nearestYaw.yawDeg);
-                const bool waterColumn = !std::isfinite(depthAbs) || (rSlantAbs <= depthAbs + kWaterMargin);
-
-                if (!isSideScan || waterColumn) {
-                    // 2D, or SS water-column → waypoint at boat
-                    txLat = boat.lat;
-                    txLon = boat.lon;
-                    haveTarget = true;
-                } else {
-                    // SS bottom hit → offset laterally by r_cross
-                    const auto sol = solveSidescanTap(boat, yaw_rad, rSlantAbs, depthAbs, side);
-                    if (sol.ok && !sol.wasWaterColumn) {
-                        txLat = sol.point.lat;
-                        txLon = sol.point.lon;
-                        haveTarget = true;
-                    }
-                }
-            }
-
-            // --- Arm candidate on a tap while paused and not on the panel ---
-            if (beenEpochEvent_ && echogramPause_ && !tapOnPanel) {
-                const bool wasActive = cand_.active;
-                cand_.active     = true;
-                cand_.anchorDev  = tapDevAtArm;
-                cand_.crossDev   = tapDevAtArm;
-                //cand_.anchorDev  = QPoint(cursor.mouseX, cursor.mouseY); // popup anchor
-                //cand_.crossDev   = cand_.anchorDev;                      // crosshair
-                cand_.lat        = txLat;                  // may be NAN
-                cand_.lon        = txLon;                  // may be NAN
-                cand_.depth      = std::isfinite(depthAbs) ? depthAbs : NAN;
-                cand_.yawDeg     = nearestYaw.found ? nearestYaw.yawDeg : NAN;
-                cand_.model      = model;
-                //cand_.tapEpochIdx= cursor.currentEpochIndx;
-                cand_.tapEpochIdx = epochIdxForTap;
-                cand_.tapRangeM  = rSlantAbs;
-                cand_.tapIsSS    = isSideScan;
-                cand_.tapSide    = side;
-                cand_.haveTarget = haveTarget;            // ← true only if we solved a position
-                popupJustOpened_ = !wasActive;
-            }
-        }
-    }
-    */
 
     //Paint the zoom box
 
@@ -625,16 +602,22 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         QPoint devPt = cand_.crossDev;
         const bool isSideScan  = cursor.channel1.isValid() && cursor.channel2.isValid();
         const bool isDualSS    = isSideScan && !isSideScan2DView_;
+        QPoint devPtForSolve = QPoint(cursor.mouseX, cursor.mouseY);
+
         if (isDualSS) {
-            devPt = devRotNeg90(devPt, canvas.width()); // your helper (:contentReference[oaicite:6]{index=6})
+            //devPt = devRotNeg90(devPt, canvas.width());
+            devPtForSolve = devRotNeg90(devPtForSolve, canvas.width());
         }
-        const QPointF crossWorld = Winv.map(QPointF(devPt)); // world/pixmap coords
+
+        const QPointF crossWorld = Winv.map(QPointF(devPtForSolve)); // world/pixmap coords
 
         // device-space anchor (using your existing placement convention)
         QPoint popupAnchor = cand_.anchorDev;
+
         if (isDualSS) {
             popupAnchor = devRotNeg90(popupAnchor, canvas.width());
         }
+
 
         Plot2DZoom::Input zin;
         zin.echPixmap      = &parent->echogramPixmap(); // forwarder getter

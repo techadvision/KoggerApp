@@ -307,7 +307,8 @@ Flickable {
         }
 
         SettingRow {
-            text: "Receives position from autopilot"
+            text: "Supported autopilot position"
+            beta: true
             show: pulseRuntimeSettings.showCatPositionSource
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined

@@ -26,6 +26,7 @@
 #include "plot2D_usbl_solution.h"
 #include "dataset.h"
 #include "data_processor.h"
+//#define TRACE_ECH_PICK 1 // <-- enable logging
 
 class QObject;
 
@@ -43,7 +44,6 @@ public:
     }
     int rightmostEpochOnScreen() const { return rightmostEpochOnScreen_; }
     int visibleColsOnScreen()   const { return visibleColsOnScreen_; }
-    int getEpochIndxByMousePosPausedAware(int mouseX, int mouseY, bool isHorizontal) const;
 
     // Optional setters if other C++ wants to push directly
     void setIsSideScanLeftHand(bool v)   { isSideScanLeftHand_ = v; }
@@ -159,6 +159,11 @@ public:
     Q_INVOKABLE void setDragActive(bool active);
     Q_INVOKABLE void setHoldHistory (bool hold);
     const QPixmap& echogramPixmap() const { return echogram_.pixmap(); }
+    void clearPauseFreeze();
+    void freezePauseWindow();
+    bool hasFrozenWindow() const { return frozenValid_; }
+    int  frozenHead()     const { return frozenHead_; }
+    int  frozenHeight()   const { return frozenH_; }
 
 protected:
     Canvas canvas_;
@@ -197,6 +202,17 @@ private:
     bool   echogramDragActive_  = false;
     bool   echogramHoldHistory_ = false;
     QObject* qobjectContext_ = nullptr;
-    int rightmostEpochOnScreen_ = -1;
-    int visibleColsOnScreen_    = 0;
+    int rightmostEpochOnScreen_ = 0;
+    int visibleColsOnScreen_ = 0;
+    int  frozenHead_   = -1;   // headAtPause = lastCap + 1 (newest = head-1)
+    int  frozenH_      = 0;    // canvas height at pause
+    bool frozenValid_  = false;
+
+#ifdef TRACE_ECH_PICK
+    QTransform lastEch_WorldToDevice_;
+    QTransform lastEch_DeviceToWorld_;
+    int        lastEch_W_ = 0;
+    int        lastEch_H_ = 0;
+    int        lastEch_Frame_ = 0;
+#endif
 };

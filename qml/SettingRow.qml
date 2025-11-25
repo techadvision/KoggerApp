@@ -22,7 +22,8 @@ GridLayout {
 
     // caller can tweak the width of the label column in one place:
     property int labelWidth: _isAndroid ? 560 : 320
-    property bool toggle: false
+    property bool toggle:    false
+    property bool beta:      false
 
     property bool show: true
     property bool _fadingOut: false
@@ -58,6 +59,40 @@ GridLayout {
         }
 
     // ——— label ———
+    RowLayout {
+        id: labelRow
+        Layout.preferredWidth: root.labelWidth
+        Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+        Layout.leftMargin: toggle ? 20 : 40
+        spacing: 8
+
+        Image {
+            id: betaIcon
+            visible: root.beta
+            source: "./icons/ui/pulse_beta_feature.svg"
+            width: 48
+            height: 48
+            fillMode: Image.PreserveAspectFit
+            Layout.leftMargin: toggle ? 20 : 40
+            sourceSize.width: 64
+            sourceSize.height: 64
+        }
+
+        Text {
+            id: label
+            text: ""
+            font.pixelSize: root.infoPixelsSize
+            wrapMode: Text.Wrap
+            Layout.preferredWidth: root.labelWidth
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: toggle ? 20 : 40
+            color: toggle ? "black" : "#464646"
+        }
+
+    }
+
+
+    /*
     Text {
         id: label
         text: ""
@@ -68,6 +103,7 @@ GridLayout {
         Layout.leftMargin: toggle ? 20 : 40
         color: toggle ? "black" : "#464646"
     }
+    */
 
     // ——— spacer ———
     Item {

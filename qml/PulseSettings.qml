@@ -72,7 +72,7 @@ Settings {
     property bool   stopEchogramToConfigure:    false
 
     // Source of origin position and yaw
-    property bool   positionSourceAutoPilot:    false
+    property bool   positionSourceAutoPilot:    true
     property bool   positionSourceDeviceGps:    false
     property bool   positionSourceNmeaGps:      false
 

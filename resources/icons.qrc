@@ -156,5 +156,6 @@
         <file>icons/ui/pulse_view_down_scan_820.svg</file>
         <file>icons/ui/pulse_view_side_scan_460.svg</file>
         <file>icons/ui/pulse_view_side_scan_820.svg</file>
+        <file>icons/ui/pulse_beta_feature.svg</file>
     </qresource>
 </RCC>

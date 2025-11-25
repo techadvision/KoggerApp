@@ -144,7 +144,8 @@ Plot2DZoom::Output Plot2DZoom::draw(QPainter* p, const Input& in) const
     if (src.bottom() > imgH-1)   src.moveBottom(imgH-1);
 
     QPixmap tile = in.echPixmap->copy(src.toRect());
-    if (in.rotateForView)   tile = tile.transformed(QTransform().rotate(90));
+    //if (in.rotateForView)   tile = tile.transformed(QTransform().rotate(90));
+    if (in.rotateForView)   tile = tile.transformed(QTransform().rotate(-90));
     if (in.flipForLeftHand) tile = tile.transformed(QTransform().scale(1, -1));
 
     // draw zoom tile

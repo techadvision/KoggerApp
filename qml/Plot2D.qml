@@ -117,6 +117,8 @@ WaterFall {
         repeat: false
         onTriggered: {
             // show "0" first, then wait 100 ms before hiding
+            if (pulseRuntimeSettings.wasKlfFileOpened)
+                return
             oldDataIndicator._setCountdown(0)
             hideDelayTimer.start()
         }
@@ -128,6 +130,8 @@ WaterFall {
         interval: 100
         repeat: false
         onTriggered: {
+            if (pulseRuntimeSettings.wasKlfFileOpened)
+                return
             oldDataIndicator.visible = false
             plot.timelinePosition = 1
         }
@@ -656,6 +660,7 @@ WaterFall {
                 mousearea.pressButton = mouse.button
                 //**************
 
+                /*
                 if (Qt.platform.os === "android") {
                     startMousePos = Qt.point(mouse.x, mouse.y)
                     if (!mousearea.longPressFired) {
@@ -663,6 +668,7 @@ WaterFall {
                     }
                 }
                 console.log("AddWaypoint: onPressed triggered!")
+                */
 
                 //Pulse
                 if (pulseRuntimeSettings.echogramPause && mouse.button === Qt.RightButton) {
@@ -671,7 +677,8 @@ WaterFall {
                     plot.simplePlotMousePosition(mouse.x, mouse.y)
                 }
 
-                if (pulseRuntimeSettings.echogramPause && mousearea.longPressFired) {
+                if (pulseRuntimeSettings.echogramPause && !wasMoved) {
+                //if (pulseRuntimeSettings.echogramPause && mousearea.longPressFired) {
                     mousearea.longPressFired = false
                     if (mouse.button === Qt.LeftButton) {
                         menuBlock.visible = false
@@ -777,13 +784,16 @@ WaterFall {
                         plot.horScrollEvent(deltaY)
                     }
                     var nowLive = plot.timelinePosition >= 0.999
-                    if (!nowLive) {
-                        countdownTimer.stop()
-                        oldDataIndicator._setCountdown(oldDataResetSeconds)
-                        oldDataWarningRemovalTimer.interval = oldDataResetSeconds * 1000
-                        oldDataWarningRemovalTimer.restart()
-                        countdownTimer.start()
+                    if (!pulseRuntimeSettings.wasKlfFileOpened) {
+                        if (!nowLive) {
+                            countdownTimer.stop()
+                            oldDataIndicator._setCountdown(oldDataResetSeconds)
+                            oldDataWarningRemovalTimer.interval = oldDataResetSeconds * 1000
+                            oldDataWarningRemovalTimer.restart()
+                            countdownTimer.start()
+                        }
                     }
+
                 }
                 // 4) paused drag (only if we *latched* into draggingInPaused)
                 else if (draggingInPaused) {
@@ -1380,7 +1390,6 @@ WaterFall {
                     }
                 }
             }
-            //minValue: pulseRuntimeSettings.is2DTransducer ? 1 : 25
             maxValue: pulseRuntimeSettings.maximumDepth
             step: {
                 if (pulseRuntimeSettings.is2DTransducer) {
@@ -1393,7 +1402,6 @@ WaterFall {
                     }
                 }
             }
-            //step: pulseRuntimeSettings.is2DTransducer ? 1 : 5
             allowLongPressControl: {
                 if (pulseRuntimeSettings.is2DTransducer) {
                     return true
@@ -1405,8 +1413,8 @@ WaterFall {
                     }
                 }
             }
-            //allowLongPressControl: pulseRuntimeSettings.is2DTransducer
-            defaultValue: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ? pulseSettings.maxDepthValue : pulseSettings.maxDepthValuePulseBlue
+            defaultValue: pulseRuntimeSettings.is2DTransducer ? pulseSettings.maxDepthValue : pulseSettings.maxDepthValuePulseBlue
+            //defaultValue: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ? pulseSettings.maxDepthValue : pulseSettings.maxDepthValuePulseBlue
             iconSource: "./icons/ui/pulse_ruler.svg"
 
             onSelectorValueChanged: {
@@ -1426,15 +1434,14 @@ WaterFall {
                     plot.plotDistanceRange2d(value * 1.0)
                 } else {
                     plot.plotDistanceRange(value * 1.0)
-                    if (!pulseRuntimeSettings.isSideScan2DView) {
-                        //plot.chartResolution = value //TODO: Not working, need a variable
-                    }
                 }
                 plot.updatePlot()
                 //console.log("TAV: selectorMaxDepth changed max depth:", value)
             }
 
             onDistanceAutoRangeRequested: {
+                if (!pulseRuntimeSettings.is2DTransducer)
+                    return
                 plot.plotDistanceAutoRange(0)
                 pulseSettings.autoRange = true
                 pulseRuntimeSettings.shouldDoAutoRange = true
@@ -1458,14 +1465,16 @@ WaterFall {
 
             Component.onCompleted: {
                 if (pulseSettings.autoRange) {
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    if (pulseRuntimeSettings.is2DTransducer) {
+                    //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         pulseRuntimeSettings.shouldDoAutoRange = true
                         plot.plotDistanceAutoRange(0);
                     }
                 } else {
                     pulseRuntimeSettings.shouldDoAutoRange = false
                     plot.plotDistanceAutoRange(-1);
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    if (pulseRuntimeSettings.is2DTransducer) {
+                    //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange(pulseSettings.maxDepthValue * 1.0)
                         pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValue * 1.0
                     } else {
@@ -1515,7 +1524,8 @@ WaterFall {
                 interval: 500
                 repeat: false
                 onTriggered: {
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    if (pulseRuntimeSettings.is2DTransducer) {
+                    //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange2d(pulseSettings.maxDepthValue)
                         //console.log("FILE OPENING: A file was opened for pulse red, execute plot.plotDistanceRange2d with value", pulseSettings.maxDepthValue)
                     } else {
@@ -1613,7 +1623,8 @@ WaterFall {
             }
 
             Component.onCompleted: {
-                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                if (pulseRuntimeSettings.is2DTransducer) {
+                //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                     plot.setFilteringValue(pulseSettings.filterRealValue)
                     if (pulseSettings.autoFilter) {
                         quickChangeObjects.doAutoFilter()
@@ -1623,6 +1634,8 @@ WaterFall {
 
             onFilterAutoRangeRequested: {
                 //console.log("TAV: Auto filter requested");
+                if (!pulseRuntimeSettings.is2DTransducer)
+                    return
                 pulseSettings.autoFilter = true
                 quickChangeObjects.doAutoFilter()
             }
@@ -1657,7 +1670,8 @@ WaterFall {
                 interval: 500
                 repeat: false
                 onTriggered: {
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    if (pulseRuntimeSettings.is2DTransducer) {
+                    //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.setFilteringValue(pulseSettings.filterRealValue)
                         if (pulseSettings.autoFilter) {
                             quickChangeObjects.doAutoFilter()

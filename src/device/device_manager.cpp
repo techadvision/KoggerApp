@@ -401,7 +401,6 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, FrameParser frame)
                     auto [sec, nsec] = toUnixFromBootMs(uuid, boot_ms);
 
                     emit positionComplete(pos.latitude(), pos.longitude(), sec, nsec);
-                    //emit positionComplete(pos.latitude(), pos.longitude(), pos.time_boot_msec()/1000, (pos.time_boot_msec()%1000)*1e6);
                     //qDebug() << "mavlink frame MAVLink_MSG_GLOBAL_POSITION_INT has a valid position. lat" << pos.latitude() << "lng" << pos.longitude();
                     emit gnssVelocityComplete(pos.velocityH(), 0);
                     vru_.velocityH = pos.velocityH();
