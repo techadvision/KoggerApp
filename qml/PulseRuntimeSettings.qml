@@ -60,7 +60,7 @@ QtObject {
     // chart
     property bool   onChartSetupChanged:    false   // Chart is complete
     property bool   chartSamples_ok:        false   // chartSamples parameter is OK
-    property bool   chartResolution_ok:     true    // THIS WE SET DYNAMICALLY!!!
+    property bool   chartResolution_ok:     false   // THIS WE SET DYNAMICALLY!!! But not for Pulse Blue!!!
     property bool   chartOffset_ok:         false   // chartOffset parameter is OK
     // dataset
     property bool   onDatasetChanged:       false   // Dataset is complete
@@ -352,10 +352,10 @@ QtObject {
         "settingVersion":               1,
         "is2DTransducer":               false,
         "useTemperature":               false,
-        "chartResolution":              pulseSettings.echogramWidth,
+        "chartResolution":              25,
         "chartSamples":                 2000,
         "chartOffset":                  0,
-        "distMax":                      1000 * pulseSettings.echogramWidth,
+        "distMax":                      1000 * 25,
         "distDeadZone":                 0,
         "distConfidence":               14,
         "transPulse":                   10,
@@ -373,7 +373,7 @@ QtObject {
         "transFreqWide":                460,
         "transFreqMedium":              460,
         "transFreqNarrow":              460,
-        "maximumDepth":                 pulseSettings.echogramWidth,
+        "maximumDepth":                 25,
         "processBottomTrack":           true,
         "doDynamicR esolution":          false,
         "fixBlackStripesBackwardSteps": 3,
@@ -383,35 +383,6 @@ QtObject {
         "bottomTrackVisible":           false,
         "bottomTrackVisibleModel":      0
     }
-
-    /* Updates of the blue parameter profile
-      transFreq: 510 to 460
-      transBoost: off to on
-      chPeriod: 50 to 70
-      chartSamples: 1358 to 2000
-      chartResolution: 37 to 35
-      bottomtrackVisibleModel_ from 4 to 0 (but should use 1 if pulse blue right hand side installation)
-      This increases echogram quality, reduces wifi data rate and maximises distance to 35
-      Maximum depth to 35, the depth to be stepped 25-30-35 for side scan imae
-
-      */
-
-    //PER DEVICE DISTANCE PROCESSING
-
-    /*
-    property var    distProcPulseRed: [
-        1,
-        10,
-        0,
-        0,
-        50.0,
-        2,
-        0.0,
-        0,
-        0,
-        0
-    ]
-    */
 
     property var    distProcPulseRed: [
         2,
