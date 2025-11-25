@@ -11,5 +11,13 @@
         <file>image/PulseRedImage400.png</file>
         <file>image/SettingsNMEA.jpg</file>
         <file>image/techadvision_logo_color.png</file>
+        <file>image/pulse_logo_black.png</file>
+        <file>image/pulse_logo_blue.png</file>
+        <file>image/pulse_logo_red.png</file>
+        <file>image/pulse_info_blue.png</file>
+        <file>image/pulse_info_logo.png</file>
+        <file>image/pulse_info_red_black.png</file>
+        <file>image/pulse_info_blue_large.png</file>
+        <file>image/pulse_info_red_black_large.png</file>
     </qresource>
 </RCC>

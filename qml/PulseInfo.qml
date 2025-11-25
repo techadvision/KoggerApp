@@ -43,8 +43,8 @@ Flickable {
         id: appIcon
         source: (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ||
                  pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto)
-                   ? "./image/PulseRedForApp.jpg"
-                   : "./image/PulseBlueForApp.jpg"
+                   ? "./image/pulse_info_red_black_large.png"
+                   : "./image/pulse_info_blue_large.png"
         fillMode: Image.PreserveAspectFit
 
         // Make width = 40% of the Flickable's width
@@ -52,8 +52,9 @@ Flickable {
         height: width * implicitHeight / implicitWidth
 
         // 10 px margin from top and left of the Flickable
-        anchors.top: parent.top
+        //anchors.top: parent.top
         anchors.left: parent.left
+        anchors.verticalCenter: deviceLogo.verticalCenter
     }
 
     // ——————————————————————————————————————————————————————————
@@ -125,6 +126,95 @@ Flickable {
         // ——————————————————————————————
         // 2) Device name text (with Connections to pulseRuntimeSettings.devName changes)
         // ——————————————————————————————
+        // ——————————————————————————————
+        // 2) Device logo (and beta badge) or "No device" text
+        // ——————————————————————————————
+        Rectangle {
+            id: deviceNameRect
+            width: parent.width
+            // Auto-size to content
+            height: Math.max(
+                        deviceContent.visible ? deviceContent.implicitHeight : 0,
+                        noDeviceText.visible ? noDeviceText.implicitHeight : 0
+                    ) + 10
+            anchors.topMargin: 20
+            color: "transparent"
+            radius: 4
+
+            // "No device" fallback
+            Text {
+                id: noDeviceText
+                //visible: pulseRuntimeSettings.devName === "..."
+                text: {
+                    if (pulseRuntimeSettings.devName === "...")
+                        return "Device:\nNo device connected"
+                    return "Connected to:"
+                }
+                font.pixelSize: root.infoPixelsSize
+                anchors.top: appNameRect.bottom
+                anchors.left: parent.left
+                anchors.leftMargin: 5
+            }
+
+            // Device logo + optional beta badge
+            Row {
+                id: deviceContent
+                visible: pulseRuntimeSettings.devName !== "..."
+                spacing: 8
+                anchors.top: noDeviceText.bottom
+                anchors.left: parent.left
+                anchors.leftMargin: 5
+
+                // Transducer logo (red/blue)
+                Image {
+                    id: deviceLogo
+                    source: {
+                        // If it's a beta, decide by exact beta name
+                        if (pulseRuntimeSettings.pulseBetaName !== "...") {
+                            if (pulseRuntimeSettings.pulseBetaName === pulseRuntimeSettings.pulseRedBeta)
+                                return "./image/pulse_logo_red.png";
+                            if (pulseRuntimeSettings.pulseBetaName === pulseRuntimeSettings.pulseBlueBeta)
+                                return "./image/pulse_logo_blue.png";
+                            // Unknown beta type -> default to blue
+                            return "./image/pulse_logo_blue.png";
+                        }
+
+                        // Non-beta: fall back to userManualSetName (same logic as your app icon)
+                        var isRed = (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                                     || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto);
+                        return isRed ? "./image/pulse_logo_red.png" : "./image/pulse_logo_blue.png";
+                    }
+                    fillMode: Image.PreserveAspectFit
+                    // Good, platform-aware size you already use
+                    //height: root.selectIconSize
+                    width: 265
+                }
+
+                Image {
+                    id: deviceLogoBlack
+                    visible: pulseRuntimeSettings.pulseBetaName === pulseRuntimeSettings.pulseRedBeta
+                    source: "./image/pulse_logo_black.png"
+                    anchors.verticalCenter: deviceLogo.verticalCenter
+                    fillMode: Image.PreserveAspectFit
+                    width: 300
+                }
+
+                // Beta badge (only when beta)
+                Image {
+                    id: betaBadge
+                    visible: pulseRuntimeSettings.pulseBetaName !== "..."
+                    source: "./icons/ui/pulse_beta_feature.svg"
+                    fillMode: Image.PreserveAspectFit
+                    // Size relative to the logo so it looks balanced
+                    height: deviceLogo.height
+                    //width: height
+                    anchors.verticalCenter: deviceLogo.verticalCenter
+                }
+            }
+        }
+
+
+        /*
         Rectangle {
             id: deviceNameRect
             width: parent.width
@@ -152,12 +242,14 @@ Flickable {
                 anchors.leftMargin: 5
             }
         }
+        */
 
         // ——————————————————————————————
         // 3) App IP / Mode text
         // ——————————————————————————————
         Rectangle {
             id: appIpRect
+            visible: pulseRuntimeSettings.devName !== "..."
             width: parent.width
             height: appIpText.implicitHeight + 10
             color: "transparent"
@@ -168,12 +260,15 @@ Flickable {
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened is", pulseRuntimeSettings.uuidSuccessfullyOpened);
                     if (pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial) {
-                        return "Pulse USB connection"
+                        return "\nConnected by:\nPulse USB connection"
                     } else {
                         if (root.gatewayIp) {
-                            return "Connected by Wi-Fi gateway:\n" + root.gatewayIp
-                        } else {
-                            return "Wi-Fi:\nNo connection with gateway"
+                            if (pulseRuntimeSettings.expertMode) {
+                                return "\nConnected by WiFi:\nGateway:" + root.gatewayIp
+                            } else {
+                                return "\nConnected by:\nWiFi Gateway"
+                            }
+
                         }
                     }
                 }

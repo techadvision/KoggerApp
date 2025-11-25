@@ -1683,7 +1683,8 @@ ApplicationWindow  {
                 title: "PULSEred"
                 titleColor: "red"
                 description: "High-performance 2D echo sounder"
-                illustrationSource: "./image/PulseRedForApp.jpg"
+                //illustrationSource: "./image/PulseRedForApp.jpg"
+                illustrationSource: "./image/pulse_info_red_black_large.png"
                 onVisibleChanged: {
                     console.log("DEV_SELECTION: pulseRedSelector visible?", visible)
                     console.log("DEV_SELECTION: pulseRedSelector visible? echoSounderSelectorRect.selectedDevice", echoSounderSelectorRect.selectedDevice)
@@ -1709,7 +1710,8 @@ ApplicationWindow  {
                 title: "PULSEblue"
                 titleColor: "blue"
                 description: "High-performance side-scan echo sounder"
-                illustrationSource: "./image/PulseBlueForApp.jpg"
+                //illustrationSource: "./image/PulseBlueForApp.jpg"
+                illustrationSource: "./image/pulse_info_blue_large.png"
                 //versions: ["v1.0"]
                 //version: "v1.0"
                 onVisibleChanged: {

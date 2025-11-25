@@ -79,19 +79,6 @@ Flickable {
             }
         }
 
-        /*
-        SettingRow {
-            toggle: false
-            text: "Stop echogram during setup"
-            visible: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
-            SettingsCheckBox {
-                target: pulseSettings ? pulseSettings : undefined
-                targetPropertyName: "stopEchogramToConfigure"
-                initialChecked: pulseSettings.stopEchogramToConfigure
-            }
-        }
-        */
-
         SettingRow {
             toggle: false
             text: "Pulse blue booster"
