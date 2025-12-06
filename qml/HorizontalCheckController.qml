@@ -65,8 +65,6 @@ Item {
                 id: checkBox
                 implicitWidth: root.selectCheckSize
                 implicitHeight: root.selectCheckSize
-                //implicitWidth: 56
-                //implicitHeight: 56
 
                 // Custom white background with a subtle border
                 background: Rectangle {

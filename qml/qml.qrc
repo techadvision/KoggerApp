@@ -125,5 +125,9 @@
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>MosaicExtraSettings.qml</file>
+        <file>TimeLineShifter.qml</file>
+        <file>TimelineSliderHorizontal.qml</file>
+        <file>TimelineSliderVertical.qml</file>
+        <file>PulseSpinner.qml</file>
     </qresource>
 </RCC>

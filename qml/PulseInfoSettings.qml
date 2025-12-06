@@ -175,6 +175,7 @@ Flickable {
             }
         }
 
+        /*
         SettingRow {
             toggle: false
             text: "Sidescan mid lines removal"
@@ -205,6 +206,7 @@ Flickable {
                 }
             }
         }
+        */
 
         //Category: NMEA
 

@@ -1013,7 +1013,7 @@ ColumnLayout {
                 title: qsTr("Please choose a file")
                 folder: shortcuts.home
 
-                nameFilters: ["Logs (*.klf *.KLF *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.klf *.KLF)", "U-blox (*.ubx *.UBX)"]
+                nameFilters: ["Logs (*.plog *.PLOG *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.plog *.PLOG)", "U-blox (*.ubx *.UBX)"]
 
                 onAccepted: {
                     pathText.text = newFileDialog.fileUrl.toString().replace("file:///", Qt.platform.os === "windows" ? "" : "/")

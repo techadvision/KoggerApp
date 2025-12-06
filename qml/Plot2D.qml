@@ -141,14 +141,14 @@ WaterFall {
         id: oldDataIndicator
         visible: false
         anchors.top: parent.top
-        anchors.topMargin: 40
+        anchors.topMargin: 60 + insetTop()
         anchors.right: parent.right
         anchors.rightMargin: 20
         color: "#80000000"
-        radius: 8
+        radius: height / 2
         property int contentMargin: 12
         implicitWidth: oldDataText.width + contentMargin*2
-        implicitHeight: oldDataText.height + contentMargin*2
+        implicitHeight: _isAndroid ? 80 : 60 //oldDataText.height + contentMargin*2 +5
 
         // NEW: countdown state
         property int _remaining: 0
@@ -209,14 +209,14 @@ WaterFall {
         id: pauseDataIndicator
         visible: false
         anchors.top: parent.top
-        anchors.topMargin: 40
+        anchors.topMargin: 60 + insetTop()
         anchors.right: parent.right
         anchors.rightMargin: 20
         color: "#80000000"
-        radius: 8
+        radius: height / 2
         property int contentMargin: 12
         implicitWidth: oldDataText.width + contentMargin*2
-        implicitHeight: oldDataText.height + contentMargin*2
+        implicitHeight: _isAndroid ? 80 : 60 //oldDataText.height + contentMargin*2 +5
 
         Text {
             id: pausedDataText
@@ -235,7 +235,7 @@ WaterFall {
                 oldDataWarningRemovalTimer.stop()
             } else {
                 // when un-paused, if "old data" is still showing, resume the countdown
-                if (oldDataIndicator.visible) {
+                if (oldDataIndicator.visible && !pulseRuntimeSettings.wasKlfFileOpened) {
                     oldDataIndicator._setCountdown(oldDataResetSeconds)
                     oldDataWarningRemovalTimer.interval = oldDataResetSeconds * 1000
                     oldDataWarningRemovalTimer.restart()
@@ -245,111 +245,26 @@ WaterFall {
         }
     }
 
-
-
-    /*
-    Timer {
-        id: oldDataWarningRemovalTimer
-        interval: 5000
-        repeat: false
-        onTriggered: {
-            oldDataIndicator.visible = false
-            plot.timelinePosition = 1
-        }
-    }
-
-    Rectangle {
-        id: oldDataIndicator
-        // start hidden
-        visible: false
-        anchors.top: parent.top
-        anchors.topMargin: 40
-        anchors.right: parent.right
-        anchors.rightMargin: 20
-
-        // styling: semi-transparent black, rounded corners
-        color: "#80000000"
-        //opacity: 0.6
-        radius: 8
-
-        // padding around the text
-        property int contentMargin: 12
-
-        // size to fit the text + padding
-        implicitWidth: oldDataText.width + contentMargin*2
-        implicitHeight: oldDataText.height + contentMargin*2
-
-        // the actual label
-        Text {
-            id: oldDataText
-            text: "Old data"
-            font.pixelSize: 40
-            color: "white"
-            anchors.centerIn: parent
-        }
-
-        onVisibleChanged: {
-            if (visible) {
-                plot.setHoldHistory(true)
-            } else {
-                plot.setHoldHistory(false)
-            }
-        }
-    }
-    */
-    /*
-    Rectangle {
-        id: pauseDataIndicator
-        // start hidden
-        visible: false
-        anchors.top: parent.top
-        anchors.topMargin: 40
-        anchors.right: parent.right
-        anchors.rightMargin: 20
-
-        // styling: semi-transparent black, rounded corners
-        color: "#80000000"
-        //opacity: 0.6
-        radius: 8
-
-        // padding around the text
-        property int contentMargin: 12
-
-        // size to fit the text + padding
-        implicitWidth: oldDataText.width + contentMargin*2
-        implicitHeight: oldDataText.height + contentMargin*2
-
-        // the actual label
-        Text {
-            id: pausedDataText
-            text: "paused"
-            font.pixelSize: 40
-            color: "white"
-            anchors.centerIn: parent
-        }
-    }
-    */
-
     Rectangle {
         id: configurationInProgressIndicator
         // start hidden
         visible: !pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.dataUpdateActive
         anchors.top: parent.top
-        anchors.topMargin: 40
+        anchors.topMargin: 60 + insetTop()
         anchors.left: parent.left
         anchors.leftMargin: 20
 
         // styling: semi-transparent black, rounded corners
         color: "#80000000"
         //opacity: 0.6
-        radius: 8
+        radius: height / 2
 
         // padding around the text
         property int contentMargin: 12
 
         // size to fit the text + padding
         implicitWidth: configurationInProgressText.width + contentMargin*2
-        implicitHeight: configurationInProgressText.height + contentMargin*2
+        implicitHeight: _isAndroid ? 80 : 60 //configurationInProgressText.height + contentMargin*2
 
         // the actual label
         Text {
@@ -587,6 +502,8 @@ WaterFall {
             property bool longPressFired: false
             property int pressButton: Qt.LeftButton
             property bool draggingInPaused: false
+            property int dragCommitX: -1
+            property int dragCommitY: -1
             //**************
 
             hoverEnabled: true
@@ -610,6 +527,8 @@ WaterFall {
                 interval: 500
                 repeat: false
                 onTriggered: {
+                    if (true)
+                        return
                     // we only want this behavior when paused
                     console.log("AddWaypoint: longPressTimer, echogramPause=", pulseRuntimeSettings.echogramPause, "and !wasMoved=", !mousearea.wasMoved)
                     if (pulseRuntimeSettings.echogramPause &&
@@ -626,32 +545,11 @@ WaterFall {
                             mousearea.contactMouseY = mousearea.pressY
                             plot.simplePlotMousePosition(mousearea.lastMouseX, mousearea.lastMouseY)
                         }
-                        plot.setDragActive(false)
+                        //plot.setDragActive(false)
                         mousearea.longPressFired = true
                     }
                 }
             }
-
-            //Pulse disabled
-            /*
-            onClicked: {
-                lastMouseX = mouse.x
-                plot.focus = true
-
-                if (mouse.button === Qt.RightButton) {
-                    contactMouseX = mouse.x
-                    contactMouseY = mouse.y
-
-                    plot.simplePlotMousePosition(mouse.x, mouse.y)
-
-                    if (theme.instrumentsGrade !== 0) {
-                        menuBlock.position(mouse.x, mouse.y)
-                    }
-                }
-
-                wasMoved = false
-            }
-            */
 
             onPressed: {
                 lastMouseX = mouse.x
@@ -660,25 +558,28 @@ WaterFall {
                 mousearea.pressButton = mouse.button
                 //**************
 
-                /*
-                if (Qt.platform.os === "android") {
+                if (pulseRuntimeSettings.echogramPause) {
                     startMousePos = Qt.point(mouse.x, mouse.y)
-                    if (!mousearea.longPressFired) {
-                        longPressTimer.start()
-                    }
                 }
-                console.log("AddWaypoint: onPressed triggered!")
-                */
+                plot.draggingInPaused = false
 
-                //Pulse
-                if (pulseRuntimeSettings.echogramPause && mouse.button === Qt.RightButton) {
-                    contactMouseX = mouse.x
-                    contactMouseY = mouse.y
-                    plot.simplePlotMousePosition(mouse.x, mouse.y)
+                if (pulseRuntimeSettings.echogramPause &&
+                    mouse.button === Qt.LeftButton &&
+                    plot.isTapInsideZoomForQml(mouse.x, mouse.y)) {
+
+                    // Forward to C++ so Plot2DAim can handle buttons/panel,
+                    // but do NOT treat this as an echogram tap.
+                    plot.plotMousePosition(mouse.x, mouse.y)
+
+                    longPressTimer.stop()
+                    mousearea.wasMoved = false
+                    mousearea.draggingInPaused = false
+                    mousearea.longPressFired = false
+
+                    return
                 }
 
                 if (pulseRuntimeSettings.echogramPause && !wasMoved) {
-                //if (pulseRuntimeSettings.echogramPause && mousearea.longPressFired) {
                     mousearea.longPressFired = false
                     if (mouse.button === Qt.LeftButton) {
                         menuBlock.visible = false
@@ -704,29 +605,62 @@ WaterFall {
                 //Pulse addition
                 lastMouseY = -1
                 //**************
-                if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
-                    plot.setDragActive(false)
-                }
-                draggingInPaused = false
 
-                if (Qt.platform.os === "android") {
-                    longPressTimer.stop()
+                var insideZoom = pulseRuntimeSettings.echogramPause &&
+                                     plot.isTapInsideZoomForQml(mouse.x, mouse.y)
+
+                if (insideZoom && mouse.button === Qt.LeftButton) {
+                    // Popup tap/drag release:
+                    //  - C++ already processed the press for buttons/panel
+                    //  - We just clean up gesture state and go home.
+                    if (Qt.platform.os === "android") {
+                        longPressTimer.stop()
+                    }
+
+                    draggingInPaused = false
+                    wasMoved = false
+                    startMousePos = Qt.point(-1, -1)
+                    dragCommitX = -1
+                    dragCommitY = -1
+
+                    return
                 }
 
-                //Pulse disabled
-                /*
                 if (mouse.button === Qt.LeftButton) {
-                    plot.plotMousePosition(-1, -1)
-                }
-                */
+                    if (pulseRuntimeSettings.echogramPause && wasMoved) {
+                        // >>> This makes the drag behave like a normal single-tap at release <<<
+                        var x = dragCommitX
+                        var y = dragCommitY
+                        // defend against weird sequences
+                        if (x < 0 || y < 0) { x = mouse.x; y = mouse.y }
 
+                        // exactly the same sequence your single-tap uses:
+                        menuBlock.visible = false
+                        //plot.plotMousePosition(x, y)
+                        plotPressed(indx, x, y)
+                        plotReleased(indx)
+
+                        // reset drag state and bail out early
+                        wasMoved = false
+                        startMousePos = Qt.point(-1, -1)
+                        dragCommitX = -1
+                        dragCommitY = -1
+                        return
+                    }
+                    // (else: not a drag — keep your existing left-button logic, if any)
+                }
+
+                /*
                 if (mouse.button === Qt.RightButton) {
                     contactMouseX = mouse.x
                     contactMouseY = mouse.y
 
                     plot.simplePlotMousePosition(mouse.x, mouse.y)
                 }
+                */
 
+                dragCommitX = -1
+                dragCommitY = -1
                 wasMoved = false
                 startMousePos = Qt.point(-1, -1)
                 plotReleased(indx)
@@ -738,9 +672,10 @@ WaterFall {
                 lastMouseY = -1
                 //**************
                 if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
-                    plot.setDragActive(false)
+                    //plot.setDragActive(false)
                 }
                 draggingInPaused = false
+                plot.draggingInPaused = false
 
                 if (Qt.platform.os === "android") {
                     longPressTimer.stop()
@@ -764,7 +699,8 @@ WaterFall {
 
                         if (pulseRuntimeSettings.echogramPause && !mousearea.longPressFired) {
                             draggingInPaused = true
-                            plot.setDragActive(true)
+                            plot.draggingInPaused = true
+                            //plot.setDragActive(true)
                         }
                     }
                 }
@@ -777,7 +713,7 @@ WaterFall {
 
                 // 3) normal (not paused) drag
                 if ((mousearea.pressedButtons & Qt.LeftButton) && !pulseRuntimeSettings.echogramPause) {
-                    plot.setDragActive(true)
+                    //plot.setDragActive(true)
                     if (plot.isViewHorizontal()) {
                         plot.horScrollEvent(delta)
                     } else {
@@ -796,256 +732,19 @@ WaterFall {
 
                 }
                 // 4) paused drag (only if we *latched* into draggingInPaused)
-                else if (draggingInPaused) {
-                    plot.setDragActive(true)
-                    if (plot.isViewHorizontal()) {
-                        plot.horScrollEvent(delta)
-                    } else {
-                        plot.horScrollEvent(deltaY)
-                    }
-                }
-            }
-
-            //Pulse disable
-            /*
-            onWheel: {
-                if (wheel.modifiers & Qt.ControlModifier) {
-                    let val = -wheel.angleDelta.y
-                    plot.verZoomEvent(val)
-                    plotCursorChanged(indx, cursorFrom(), cursorTo())
-                }
-                else if (wheel.modifiers & Qt.ShiftModifier) {
-                    let val = -wheel.angleDelta.y
-                    plot.verScrollEvent(val)
-                    plotCursorChanged(indx, cursorFrom(), cursorTo())
-                }
-                else {
-                    let val = wheel.angleDelta.y
-                    plot.horScrollEvent(val)
-                    updateOtherPlot(indx)
-                }
-            }
-            */
-        }
-    }
-
-        /*
-        MouseArea {
-            id: mousearea
-            enabled: true
-            anchors.fill: parent
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-            property int lastMouseX: -1
-            property bool wasMoved: false
-            property point startMousePos: Qt.point(-1, -1)
-            property real mouseThreshold: 30
-            property int contactMouseX: -1
-            property int contactMouseY: -1
-            //Pulse addition
-            property int lastMouseY: -1
-            property bool longPressFired: false
-            property int pressButton: Qt.LeftButton
-            property bool draggingInPaused: false
-            property bool gestureConsumed: false
-            property real pressXSnapshot: -1
-            property real pressYSnapshot: -1
-            property int pressSeq: 0        // monotonically increasing press id
-            property int timerSeq: 0        // the press id for the currently running timer
-            preventStealing: true           // stops Flickable/others from cancel-stealing your press
-            //**************
-
-            hoverEnabled: true
-
-            Timer {
-                id: longPressTimer
-                interval: 500
-                repeat: false
-                onTriggered: {
-                    if (pulseRuntimeSettings.echogramPause && !mousearea.wasMoved) {
-                        if (mousearea.pressButton === Qt.LeftButton) {
-                            menuBlock.visible = false
-                            plot.plotMousePosition(mousearea.pressXSnapshot, mousearea.pressYSnapshot)
-                            plotPressed(indx, mousearea.pressXSnapshot, mousearea.pressYSnapshot)
-                        } else
-
-                        if (mousearea.pressButton === Qt.RightButton) {
-                            mousearea.contactMouseX = mousearea.pressXSnapshot
-                            mousearea.contactMouseY = mousearea.pressYSnapshot
-                            plot.simplePlotMousePosition(mousearea.pressXSnapshot, mousearea.pressYSnapshot)
-                        }
-                        plot.setDragActive(false)
-                        mousearea.longPressFired = true
-                        mousearea.gestureConsumed = true
-                    }
-                }
-            }
-
-
-            onPressed: {
-
-                lastMouseX = mouse.x
-                //Pulse addition
-                lastMouseY = mouse.y
-                mousearea.pressButton = mouse.button
-                pressXSnapshot = mouse.x
-                pressYSnapshot = mouse.y
-                //**************
-
-                wasMoved = false
-                draggingInPaused = false
-
-                if (Qt.platform.os === "android") {
-                    startMousePos = Qt.point(mouse.x, mouse.y)
-                    longPressTimer.start()
-                }
-
-                //Pulse
-                if (pulseRuntimeSettings.echogramPause && mouse.button === Qt.RightButton) {
-                    contactMouseX = mouse.x
-                    contactMouseY = mouse.y
-                    plot.simplePlotMousePosition(mouse.x, mouse.y)
-                }
-
-
-                if (pulseRuntimeSettings.echogramPause && mousearea.longPressFired) {
-                    //mousearea.longPressFired = false
-                    if (mousearea.pressButton === Qt.LeftButton) {
-                        menuBlock.visible = false
-                        plot.plotMousePosition(mousearea.pressXSnapshot, mousearea.pressYSnapshot)
-                        plotPressed(indx, mousearea.pressXSnapshot, mousearea.pressYSnapshot)
-                        //plot.plotMousePosition(mouse.x, mouse.y)
-                        //plotPressed(indx, mouse.x, mouse.y)
-                    }
-
-                    if (mouse.button === Qt.RightButton) {
-                        contactMouseX = mouse.x
-                        contactMouseY = mouse.y
-
-                        plot.simplePlotMousePosition(mouse.x, mouse.y)
-                    }
-                }
-
-
-                longPressFired = false
-                gestureConsumed = false
-
-
-                //longPressFired = false
-                //draggingInPaused = false
-                //wasMoved = false
-            }
-
-            onReleased: {
-                lastMouseX = -1
-                //Pulse addition
-                lastMouseY = -1
-                //**************
-                if (Qt.platform.os === "android") {
-                    longPressTimer.stop()
-                }
-
-                if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
-                    plot.setDragActive(false)
-                }
-
-                if (longPressFired) {
-                    //Do nothing
-                } else {
-                    if (pulseRuntimeSettings.echogramPause && !wasMoved && !gestureConsumed) {
-                        menuBlock.visible = false
-                        plot.plotMousePosition(-1, -1)
-                    }
-                    plotReleased(indx)
-                }
-
-                wasMoved = false
-                draggingInPaused = false
-                startMousePos = Qt.point(-1, -1)
-                longPressFired = false
-                gestureConsumed = false
-
-                //pressXSnapshot = -1; pressYSnapshot = -1
-
-
-            }
-
-            onCanceled: {
-                lastMouseX = -1
-                //Pulse addition
-                lastMouseY = -1
-                //**************
-                if (pulseRuntimeSettings.echogramPause || draggingInPaused) {
-                    plot.setDragActive(false)
-                }
-
-                if (Qt.platform.os === "android") {
-                    longPressTimer.stop()
-                }
-
-                if (!longPressFired) {
-                        // only treat as tap/cancel if no long-press happened
-                        if (pulseRuntimeSettings.echogramPause && !wasMoved && !gestureConsumed) {
-                            menuBlock.visible = false
-                            plot.plotMousePosition(-1, -1)
-                        }
-                        plotReleased(indx)
-                    }
-
-                wasMoved = false
-                draggingInPaused = false
-                startMousePos = Qt.point(-1, -1)
-                longPressFired = false
-                gestureConsumed = false
-                //plotReleased(indx)
-            }
-
-            onPositionChanged: {
-                plot.onCursorMoved(mouse.x, mouse.y)
-
-                // 1) detect movement
-                if (!wasMoved) {
-                    var currDelta = Math.sqrt(Math.pow(mouse.x - startMousePos.x, 2) +
-                                              Math.pow(mouse.y - startMousePos.y, 2))
-                    if (currDelta > mouseThreshold) {
-                        wasMoved = true
-                        longPressTimer.stop()
-
-                        if (pulseRuntimeSettings.echogramPause && !mousearea.longPressFired) {
-                            draggingInPaused = true
-                            plot.setDragActive(true)
-                        }
-                    }
-                }
-
-                // 2) update deltas
-                var delta = mouse.x - lastMouseX
-                lastMouseX = mouse.x
-                var deltaY = mouse.y - lastMouseY
-                lastMouseY = mouse.y
-
-                // 3) normal (not paused) drag
-                if ((mousearea.pressedButtons & Qt.LeftButton) && !pulseRuntimeSettings.echogramPause) {
-                    plot.setDragActive(true)
-                    if (plot.isViewHorizontal()) {
-                        plot.horScrollEvent(delta)
-                    } else {
-                        plot.horScrollEvent(deltaY)
-                    }
-                }
-                // 4) paused drag (only if we *latched* into draggingInPaused)
-                else if (draggingInPaused) {
-                    plot.setDragActive(true)
-                    if (plot.isViewHorizontal()) {
-                        plot.horScrollEvent(delta)
-                    } else {
-                        plot.horScrollEvent(deltaY)
-                    }
+                else if (pulseRuntimeSettings.echogramPause && wasMoved) {
+                    dragCommitX = mouse.x
+                    dragCommitY = mouse.y
+                    plot.plotMousePosition(mouse.x, mouse.y)
+                    //plot.simplePlotMousePosition(mouse.x, mouse.y)
+                    //plotPressed(indx, mouse.x, mouse.y)
+                    //plotReleased(indx)
+                    //wasMoved = false
                 }
             }
         }
     }
-    */
+
 
     onHeightChanged: {
         if(menuBlock.visible) {
@@ -1705,7 +1404,7 @@ WaterFall {
                     } else {
                         pauseDataIndicator.visible = false
                         let nowLive = plot.timelinePosition >= 0.999
-                        if (!nowLive) {
+                        if (!nowLive && !pulseRuntimeSettings.wasKlfFileOpened) {
                             oldDataIndicator.visible = true
                             oldDataWarningRemovalTimer.start()
                         }
@@ -1717,7 +1416,7 @@ WaterFall {
                 iconSource: "./icons/ui/pulse_recording_mini.svg"
                 controleName: "RecordKlf"
                 checked: false
-                visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
+                visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause && !pulseRuntimeSettings.wasKlfFileOpened
                 onStateChanged: {
                     pulseRuntimeSettings.isRecordingKlf = checked
                     core.loggingKlf = pulseRuntimeSettings.isRecordingKlf
@@ -1914,11 +1613,13 @@ WaterFall {
                     pulseRuntimeSettings.isHorizontalGrid = false
                     plot.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
                     plotDistanceRangeTimer.start()
-                    //Set the offset
+                    //Set the offset TODO: DIABLED FOR NOW
+                    /*
                     if (pulseSettings === null)
                         return
                     let sideScanOffet = pulseSettings.pulseBlueOffset
                     pulseRuntimeSettings.chartOffset = sideScanOffet
+                    */
                     //Set the frequency
                     pulseRuntimeSettings.transFreq = frequency
                 }
@@ -1970,12 +1671,15 @@ WaterFall {
                             return
                         if (pulseRuntimeSettings.is2DTransducer)
                                 return
+                        //TODO DISABLED FOR NOW
+                        /*
                         let sideScanOffet = pulseSettings.pulseBlueOffset
                         if (pulseRuntimeSettings.isSideScan2DView) {
                             pulseRuntimeSettings.chartOffset = 0
                         } else {
                             pulseRuntimeSettings.chartOffset = sideScanOffet
                         }
+                        */
 
                     }
                 }

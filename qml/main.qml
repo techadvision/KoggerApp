@@ -73,6 +73,8 @@ ApplicationWindow  {
         //UUID for transducer
         //function onUuidIpGatewayChanged()           { settingsBus.updateRuntime({ uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway              }) }
         //function onUuidUsbSerialChanged()           { settingsBus.updateRuntime({ uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial              }) }
+        //usb baud Rate
+        //function onUsbSerialBaudChanged()           { settingsBus.updateRuntime({ usbSerialBaud:            pulseRuntimeSettings.usbSerialBaud              }) }
         //Bottom track
         function onUpdateBottomTrackChanged()       { settingsBus.updateRuntime({ updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack          }) }
         function onIsBottomTrackInitiatedChanged()  { settingsBus.updateRuntime({ isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated     }) }
@@ -87,10 +89,6 @@ ApplicationWindow  {
                     filterRealValue:         pulseSettings.filterRealValue,
                     intensityRealValue:      pulseSettings.intensityRealValue,
                     colorMapIndexReal:       pulseSettings.colorMapIndexReal,
-                    //udpGateway:              pulseSettings.udpGateway,
-                    //udpPort:                 pulseSettings.udpPort,
-                    //isBetaTester:            pulseSettings.isBetaTester,
-                    //isExpert:                pulseSettings.isExpert,
                     // NMEA
                     enableNmeaDbt:           pulseSettings.enableNmeaDbt,
                     enableNmeaMtw:           pulseSettings.enableNmeaMtw,
@@ -146,9 +144,10 @@ ApplicationWindow  {
         function onFilterRealValueChanged()         { settingsBus.updatePersistent({ filterRealValue:       pulseSettings.filterRealValue       }) }
         function onIntensityRealValueChanged()      { settingsBus.updatePersistent({ intensityRealValue:    pulseSettings.intensityRealValue    }) }
         function onColorMapIndexRealChanged()       { settingsBus.updatePersistent({ colorMapIndexReal:     pulseSettings.colorMapIndexReal     }) }
-        //Trabsducer interface
+        //Transducer interface
         function onUdpGatewayChanged()              { settingsBus.updatePersistent({ udpGateway:            pulseSettings.udpGateway            }) }
         function onUdpPortChanged()                 { settingsBus.updatePersistent({ udpPort:               pulseSettings.udpPort               }) }
+        function onUsbSerialBaudChanged()           { settingsBus.updatePersistent({ usbSerialBaud:         pulseSettings.usbSerialBaud         }) }
         //Special user privilidges
         function onIsBetaTesterChanged()            { settingsBus.updatePersistent({ isBetaTester:          pulseSettings.isBetaTester          }) }
         function onIsExpertChanged()                { settingsBus.updatePersistent({ isExpert:              pulseSettings.isExpert              }) }
@@ -162,6 +161,7 @@ ApplicationWindow  {
         //Echogram speed moved to the persistent settings, workaround to keep the runtime integration as is:
         function onEchogramSpeedChanged ()          { pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed                             }
         function onAutoRangeChanged ()              { pulseRuntimeSettings.shouldDoAutoRange = pulseSettings.autoRange                             }
+        //function onUsbSerialBaudChanged ()          { pulseRuntimeSettings.usbSerialBaud = pulseSettings.usbSerialBaud                             }
     }
 
     Connections {
@@ -296,7 +296,8 @@ ApplicationWindow  {
             udpGateway:              pulseSettings.udpGateway,
             udpPort:                 pulseSettings.udpPort,
             isBetaTester:            pulseSettings.isBetaTester,
-            isExpert:                pulseSettings.isExpert
+            isExpert:                pulseSettings.isExpert,
+            usbSerialBaud:           pulseSettings.usbSerialBaud
         })
         console.log("App start code check: code=", code, ", isBeta", isBeta, "isExpert", isExpert)
         //console.log("App start code check: pulseSettings.isBetaTester=", pulseSettings.isBetaTester, "pulseSettings.isExpert=", pulseSettings.isExpert)
@@ -376,11 +377,11 @@ ApplicationWindow  {
             var component = Qt.createComponent("LostConnectionOverlay.qml")
             lostConnectionAlert = component.createObject( mainview, {"x": 0, "y": 0 } )
             if (lostConnectionAlert !== null) {
-                lostConnectionAlert.anchors.centerIn = echoSounderSelectorRect
-                //pulseRuntimeSettings.devName = "..."
-                //console.log("TAV: showLostConnection, showing the alert");
-            } else {
-                //console.log("TAV: showLostConnection is null, cannot show the alert");
+                //lostConnectionAlert.anchors.centerIn = echoSounderSelectorRect
+                lostConnectionAlert.anchors.bottom = overlay.anchors.bottom
+                lostConnectionAlert.anchors.right = overlay.anchors.right
+                lostConnectionAlert.anchors.rightMargin = mainview.insetRight() + 20
+                lostConnectionAlert.anchors.bottomMargin = mainview.insetBottom() + 120
             }
         }
 
@@ -455,12 +456,21 @@ ApplicationWindow  {
                     for (var i = 0; i < drag.urls.length; ++i) {
                         var url = drag.urls[i]
                         var filePath = url.replace("file:///", "").toLowerCase()
-                        if (filePath.endsWith(".klf") ||
+                        if (filePath.endsWith(".plog") ||
                             filePath.endsWith(".xtf")) {
                             draggedFilePath = filePath
                             overlay.opacity = 0.3
                             break
                         }
+                        /*
+                        if (filePath.endsWith(".klf") ||
+                            filePath.endsWith(".plog") ||
+                            filePath.endsWith(".xtf")) {
+                            draggedFilePath = filePath
+                            overlay.opacity = 0.3
+                            break
+                        }
+                        */
                     }
                 }
             }
@@ -1016,6 +1026,7 @@ ApplicationWindow  {
 
                         onTimelinePositionChanged: {
                             historyScroll.value = waterViewFirst.timelinePosition
+                            historyTimeLineScroll.timeLineScrollerPosition = timelinePosition
                         }
 
                         Component.onCompleted: {
@@ -1049,6 +1060,7 @@ ApplicationWindow  {
 
                         onTimelinePositionChanged: {
                             historyScroll.value = timelinePosition
+                            historyTimeLineScroll.timeLineScrollerPosition = timelinePosition
                         }
 
                         Component.onCompleted: {
@@ -1075,7 +1087,7 @@ ApplicationWindow  {
                             core.setTimelinePosition(value);
                         }
                         onMoved: {
-                            core.resetAim();
+                            core.resetAim()
                         }
                     }
                 }
@@ -1089,6 +1101,22 @@ ApplicationWindow  {
             SplitView.maximumHeight: mainview.height - theme.controlHeight/2 - theme.controlHeight
         }
     }
+
+
+
+    TimeLineShifter {
+        id: historyTimeLineScroll
+        visibleWhenPaused: pulseRuntimeSettings.echogramPause
+        //visibleWhenPaused: false
+        from: 0
+        to: 1
+        stepSize: 0.0001
+        Layout.fillWidth: pulseRuntimeSettings.isHorizontalGrid
+        Layout.fillHeight: !pulseRuntimeSettings.isHorizontalGrid
+        //onValueChanged: core.setTimelinePosition(value)
+        //onMoved: core.resetAim()
+    }
+
 
     MenuFrame {
         anchors.top: parent.top
@@ -1302,8 +1330,8 @@ ApplicationWindow  {
         radius: 10
         anchors.centerIn: parent
         //Do we need this?
-        visible: core.isFileOpening && !core.isSeparateReading
-        //visible: false
+        //visible: core.isFileOpening && !core.isSeparateReading
+        visible: false
         implicitWidth: textItem.implicitWidth + 40
         implicitHeight: textItem.implicitHeight + 40
 
