@@ -3,9 +3,11 @@ import QtQuick 2.15
 
 Rectangle {
     id: lostConnectionOverlay
-    anchors.centerIn: parent
-    width: 800
-    height: 300
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    //anchors.centerIn: parent
+    width: 300 //800
+    height: 160 //300
     color: "#30FF0000"
 
     radius: 20         // rounded corners
@@ -22,7 +24,8 @@ Rectangle {
             width: 100
             height: 100
             rotation: 0
-            anchors.horizontalCenter: parent.horizontalCenter
+            //anchors.horizontalCenter: lostConnectionOverlay.horizontalCenter
+            anchors.horizontalCenter: lostConnectionText.horizontalCenter
 
             Canvas {
                 id: spinnerCanvas
@@ -51,7 +54,7 @@ Rectangle {
                 property: "rotation"
                 from: 0
                 to: 359
-                duration: 3000  // duration in milliseconds (adjustable)
+                duration: 6000  // duration in milliseconds (adjustable)
                 loops: Animation.Infinite
                 running: true
             }
@@ -60,9 +63,14 @@ Rectangle {
         // "Lost connection" text
 
         Text {
-            text: pulseRuntimeSettings.forceBreakConnection ? "Unknown device" : pulseRuntimeSettings.echogramPausedForConfig ? "Hang on ...." : "Lost connection"
+            id: lostConnectionText
+            text: pulseRuntimeSettings.forceBreakConnection
+                  ? "Unknown device"
+                  : pulseRuntimeSettings.echogramPausedForConfig
+                    ? "Hang on ...."
+                    : "Lost connection"
             color: "white"
-            font.pixelSize: 80
+            font.pixelSize: 35
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
         }
