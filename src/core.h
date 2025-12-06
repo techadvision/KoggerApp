@@ -35,6 +35,9 @@
 //#include <FileReader.h>
 #include "data_horizon.h"
 #include "data_processor_defs.h"
+//Pulse
+#include <QtConcurrent>
+#include <QFutureWatcher>
 
 
 class Core : public QObject
@@ -90,6 +93,9 @@ public slots:
 #else
     void openLogFile(const QString& filePath, bool isAppend = false, bool onCustomEvent = false);
     bool closeLogFile();
+    Q_INVOKABLE void openLogFileAsync(const QString &filePath,
+                                      bool isAppend = false,
+                                      bool onCustomEvent = false);
 #endif
     void onFileOpened();
     bool openXTF(const QByteArray& data);
@@ -115,6 +121,7 @@ public slots:
     void setPlotStartLevel(int level);
     void setPlotStopLevel(int level);
     void setTimelinePosition(double position);
+    double  getTimelinePosition();
     void resetAim();
     void UILoad(QObject* object, const QUrl& url);
     void setMosaicChannels(const QString& firstChStr, const QString& secondChStr);
@@ -175,6 +182,10 @@ private:
     QString getFilePath() const;
     void fixFilePathString(QString& filePath) const;
     void loadLLARefFromSettings();
+    //Pulse
+    void doOpenLogFileHeavyWork(const QString &filePath,
+                                bool isAppend,
+                                bool onCustomEvent);
 
     /*data*/
     Console* consolePtr_;
@@ -225,6 +236,8 @@ private:
     QString sChName_;
 
     bool isFileOpening_;
+    //Pulse
+    QFutureWatcher<void> openFileWatcher_;
 
 #ifdef FLASHER
     Q_PROPERTY(QString flasherTextInfo READ flasherTextInfo NOTIFY dev_flasher_changed)

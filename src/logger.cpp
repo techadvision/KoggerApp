@@ -44,7 +44,20 @@ bool Logger::startNewKlfLog()
     if (dir.mkpath(logPath)) {
         dir.setPath(logPath);
 
-        QString fileName = QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss") + ".klf";
+        QString device = "pulse_log_";
+
+        auto channelsList = datasetPtr_->channelsNameList();
+        if (!channelsList.isEmpty()) {
+            int numberOfChannels = channelsList.size() - 1;
+            if (numberOfChannels == 1) {
+                device = "2D_" + device;
+            }
+            if (numberOfChannels > 1) {
+                device = "SS_" + device;
+            }
+        }
+
+        QString fileName = device + QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss") + ".plog";
         fileName.replace(':', '.');
 
         klfLogFile_->setFileName(logPath + "/" + fileName);

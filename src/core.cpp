@@ -311,6 +311,18 @@ void Core::onFileOpenBreaked(bool onOpen)
 #else
 void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEvent)
 {
+    QString testFilePath = filePath;
+    QStringList splitTestname = testFilePath.split(QLatin1Char('.'), Qt::SkipEmptyParts);
+    QString testFormat = splitTestname.last();
+    if (testFormat.size() >1) {
+        if (testFormat.contains("klf", Qt::CaseInsensitive)) {
+            return;
+        }
+    } else {
+        return;
+    }
+
+
     isFileOpening_ = true;
     emit sendIsFileOpening();
 
@@ -387,6 +399,165 @@ void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEven
         onChannelsUpdated();
     });
 }
+
+void Core::openLogFileAsync(const QString &filePath,
+                            bool isAppend,
+                            bool onCustomEvent)
+{
+    if (isFileOpening_)
+        return;   // already opening something
+
+    isFileOpening_ = true;
+    emit sendIsFileOpening();      // QML: core.isFileOpening = true → spinner shows
+
+    // If this watcher was used before, disconnect old connections
+    openFileWatcher_.disconnect(this);
+
+    // When the background work finishes, this lambda runs on the GUI thread
+    connect(&openFileWatcher_, &QFutureWatcher<void>::finished, this, [this]() {
+        isFileOpening_ = false;
+        emit sendIsFileOpening();  // QML: spinner hides
+
+        // Whatever you currently do when finished:
+        onFileStopsOpening();
+        QMetaObject::invokeMethod(
+            dataProcessor_,
+            "setIsOpeningFile",
+            Qt::QueuedConnection,
+            Q_ARG(bool, false));
+    });
+
+    // Launch background task
+    auto future = QtConcurrent::run([this, filePath, isAppend, onCustomEvent]() {
+        doOpenLogFileHeavyWork(filePath, isAppend, onCustomEvent);
+    });
+
+    openFileWatcher_.setFuture(future);
+}
+
+void Core::doOpenLogFileHeavyWork(const QString &filePath,
+                                  bool isAppend,
+                                  bool onCustomEvent)
+{
+    QString localfilePath = filePath;
+
+    // --- GUI-thread stuff must be marshalled back with invokeMethod ---
+
+    if (onCustomEvent) {
+        QMetaObject::invokeMethod(
+            this,
+            [this, localfilePath]() mutable {
+                fixFilePathString(localfilePath);
+                filePath_ = localfilePath;
+                emit filePathChanged();
+            },
+            Qt::BlockingQueuedConnection);
+    }
+
+    // Close links, reset dataset, etc. These almost certainly belong on GUI thread:
+    QMetaObject::invokeMethod(
+        this,
+        [this, isAppend]() {
+            linkManagerWrapperPtr_->closeOpenedLinks();
+            removeLinkManagerConnections();
+
+            // Let the GUI breathe a little if needed
+            QCoreApplication::processEvents(QEventLoop::AllEvents);
+
+            if (!isAppend) {
+                resetDataProcessorConnections();
+                datasetPtr_->resetDataset();
+                dataHorizon_->clear();
+                QMetaObject::invokeMethod(
+                    dataProcessor_,
+                    "clearProcessing",
+                    Qt::QueuedConnection);
+                setDataProcessorConnections();
+                dataHorizon_->setIsFileOpening(isFileOpening_);
+            }
+
+            if (scene3dViewPtr_) {
+                if (!isAppend) {
+                    scene3dViewPtr_->clear();
+                }
+            }
+
+            QMetaObject::invokeMethod(
+                dataProcessor_,
+                "setIsOpeningFile",
+                Qt::QueuedConnection,
+                Q_ARG(bool, true));
+        },
+        Qt::BlockingQueuedConnection);
+
+    // Now we are still in the worker thread.
+    // Do heavy I/O (reading file) and pure computation here.
+
+    QString localPathCopy = localfilePath;
+    QStringList splitname = localPathCopy.split(QLatin1Char('.'), Qt::SkipEmptyParts);
+
+    if (splitname.size() > 1) {
+        QString format = splitname.last();
+        if (format.contains("xtf", Qt::CaseInsensitive)) {
+            QFile file;
+            QUrl url(localPathCopy);
+            url.isLocalFile() ? file.setFileName(url.toLocalFile())
+                              : file.setFileName(url.toString());
+            if (file.open(QIODevice::ReadOnly)) {
+                QByteArray data = file.readAll();
+
+                // If openXTF is thread-safe and does not touch GUI objects,
+                // you can call it directly here:
+                openXTF(data);
+            }
+
+            openedfilePath_ = localPathCopy;
+
+            // Any follow-up that *must* happen on GUI thread:
+            QMetaObject::invokeMethod(
+                this,
+                [this]() {
+                    onFileStopsOpening();
+                    QMetaObject::invokeMethod(
+                        dataProcessor_,
+                        "setIsOpeningFile",
+                        Qt::QueuedConnection,
+                        Q_ARG(bool, false));
+                },
+                Qt::QueuedConnection);
+
+            return;
+        }
+    }
+
+    // Non-XTF case: heavy parts go here.
+    // If deviceManagerWrapperPtr_ lives in another thread already,
+    // emit is fine – otherwise this might still be heavy on GUI thread.
+    QMetaObject::invokeMethod(
+        this,
+        [this, localPathCopy, isAppend]() {
+            datasetPtr_->setState(Dataset::DatasetState::kFile);
+
+            emit deviceManagerWrapperPtr_->sendOpenFile(localPathCopy);
+
+            openedfilePath_ = localPathCopy;
+
+            if (scene3dViewPtr_) {
+                scene3dViewPtr_->fitAllInView();
+            }
+            datasetPtr_->setRefPositionByFirstValid();
+            datasetPtr_->usblProcessing();
+
+            if (scene3dViewPtr_) {
+                scene3dViewPtr_->addPoints(datasetPtr_->beaconTrack(),  QColor(255, 0, 0), 10);
+                scene3dViewPtr_->addPoints(datasetPtr_->beaconTrack1(), QColor(0, 255, 0), 10);
+            }
+
+            onChannelsUpdated();
+        },
+        Qt::BlockingQueuedConnection);
+}
+
 
 bool Core::closeLogFile()
 {
@@ -1064,6 +1235,22 @@ void Core::setTimelinePosition(double position)
         if (plot2dList_.at(i) != NULL)
             plot2dList_.at(i)->setTimelinePosition(position);
     }
+}
+
+double Core::getTimelinePosition()
+{
+    // Iterate through the list until we find a valid plot
+    for (int i = 0; i < plot2dList_.size(); i++) {
+        // Use a null pointer check (C++11/14/17 can use 'nullptr' instead of 'NULL')
+        if (plot2dList_.at(i) != nullptr) {
+            // Found a valid one! Return its position immediately.
+            return plot2dList_.at(i)->timelinePosition();
+        }
+    }
+
+    // If the loop finishes without finding any valid plot in the list:
+    // We must return a default or error value (e.g., 0.0 or -1.0)
+    return -1.0; // Return a default value if list is empty or full of NULLs
 }
 
 void Core::resetAim()
