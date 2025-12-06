@@ -39,7 +39,12 @@ ColumnLayout {
 
             if (pulseRuntimeSettings.devName === "..." && !pulseRuntimeSettings.devConfigured) {
             //if (dev.devName === "..." && !pulseRuntimeSettings.devConfigured) {
-                console.log("DEV_PARAM onDeviceVersionChanged, but devName was ", pulseRuntimeSettings.devName, ". Aborting.")
+                //console.log("DEV_PARAM onDeviceVersionChanged, but devName was ", pulseRuntimeSettings.devName, ". Aborting.")
+                return
+            }
+
+            if (pulseRuntimeSettings.wasKlfFileOpened) {
+                console.log("DEV_PARAM onDeviceVersionChanged, we do not want to reconfigure the device if we just opened a file")
                 return
             }
 
@@ -1244,6 +1249,11 @@ ColumnLayout {
 
     function configurePulseDevice () {
 
+        if (pulseRuntimeSettings.wasKlfFileOpened){
+            console.log("DEV_PARAM: We just opened a file and do not want to setup the app once more")
+            return
+        }
+
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
             console.log("DEV_PARAM: pulseRuntimeSettings - cone for", pulseRuntimeSettings.userManualSetName)
@@ -1890,7 +1900,7 @@ ColumnLayout {
 
         if (pulseSettings.positionSourceAutoPilot) {
             console.log("Autopilot is sending data: let's enable receiving it")
-            linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14550)
+            linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14568)
         } 
 
         if (dev !== null) {
@@ -1929,7 +1939,7 @@ ColumnLayout {
             if (dev === null)
                 return
             if (pulseSettings.positionSourceAutoPilot) {
-                linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14550)
+                linkManagerWrapper.sendCreateAndOpenAsUdpProxy("0.0.0.0", 14569, 14568)
             } else {
                 linkManagerWrapper.sendCloseUdpProxy()
             }
@@ -1948,6 +1958,33 @@ ColumnLayout {
             }
         }
         */
+
+        function onReconnectAfterLogViewChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+
+            if (!pulseRuntimeSettings.reconnectAfterLogView)
+                return
+
+            pulseRuntimeSettings.wasKlfFileOpened = false;
+            pulseRuntimeSettings.didEverReceiveData = false
+            pulseRuntimeSettings.hasDeviceLostConnection = false
+            resetAllSetupStates()
+            pulseRuntimeSettings.pulseBetaName = "..."
+            pulseRuntimeSettings.userManualSetName = "..."
+            pulseRuntimeSettings.devDetected = false
+            pulseRuntimeSettings.devIdentified = false
+            pulseRuntimeSettings.devConfigured = false
+            pulseRuntimeSettings.devSettingsEnforced = false
+            pulseRuntimeSettings.appConfigured = false
+            pulseRuntimeSettings.numberOfDatasetChannels = 0
+            pulseRuntimeSettings.forceUpdateResolution = true
+            pulseRuntimeSettings.pulseBlueResSetOnce = false
+            pulseRuntimeSettings.doDynamicResolution = false
+            pulseRuntimeSettings.swapDeviceNow = false
+            pulseRuntimeSettings.reconnectAfterLogView = false
+            core.closeLogFile()
+        }
 
         function onEchoSounderRebootChanged () {
             if (pulseRuntimeSettings.echoSounderReboot) {
