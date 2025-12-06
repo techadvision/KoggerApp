@@ -118,4 +118,5 @@ private:
     QString uuidUsbSerial_ = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"; //As defined in pulseRuntimeSettings
     QString uuidProxyLink_ = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}";
     QString uuidSuccessfullyOpened_ = "";
+    int     usbSerialBaud_ = 921600;
 };

@@ -49,6 +49,7 @@ Settings {
     property string udpGateway:                 "192.168.10.1"
     property bool   useWifiLongRange:           false
     property int    udpPort:                    14560
+    property int    usbSerialBaud:              921600
 
     // NMEA settings
     property int    nmeaPort:                   3500

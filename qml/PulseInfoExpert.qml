@@ -319,6 +319,35 @@ Flickable {
         }
 
         SettingRow {
+            toggle: false
+            text: "Experimental USB baud rate"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial
+            HorizontalControllerDoubleSettings {
+                id: baudSelection
+                values: [115200, 921600]
+
+                onPulsePreferenceValueChanged: pulseSettings.usbSerialBaud = newValue
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseSettings.usbSerialBaud)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                Connections {
+                    target: pulseSettings ? pulseSettings : undefined
+                    function onUsbSerialBaudChanged () {
+                        console.log("Detected pulseSettings.usbSerialBaud got new value ", pulseSettings.usbSerialBaud)
+                        var idx = baudSelection.values.indexOf(pulseSettings.usbSerialBaud)
+                        baudSelection.currentIndex = idx >= 0 ? idx : 0
+                    }
+                }
+            }
+        }
+
+        SettingRow {
             toggle: true
             text: "Depth manipulation settings"
             visible: pulseRuntimeSettings.expertMode

@@ -24,6 +24,7 @@ QtObject {
     property string uuidUsbSerial:          "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"
     property string uuidProxyLink:          "{2ad43efc-61d1-4321-a925-a8e0cd188cd5}"
     property string uuidSuccessfullyOpened: ""
+    property int    usbSerialBaud:          921600
 
     //GENERAL SETUP STATES
     property bool   devDetected:            false   // App automatically detected the transducer by name
@@ -42,6 +43,7 @@ QtObject {
     property bool   disableAllSetup:        false
     property bool   forceUpdateResolution:  false
     property bool   pulseBlueResSetOnce:    false   // Will be set to true provided we set resolution once for the blue
+    property bool   reconnectAfterLogView:  false   // Used to reset all states when we want to reconnect
 
     //CHANGE DEVICE STATE
     property bool   swapDeviceNow:          false   // Should reset and restart the setup

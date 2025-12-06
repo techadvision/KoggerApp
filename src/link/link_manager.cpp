@@ -74,6 +74,16 @@ void LinkManager::applyRuntime(const QVariantMap& m)
         uuidProxyLink_ = m.value("uuidProxyLink").toString();
         qDebug() << "LinkManager::ApplyRuntime uuidProxyLink" << uuidProxyLink_;
     }
+    /*
+    if (m.contains("usbSerialBaud")) {
+        int newUsbBaudRate = m.value("usbSerialBaud").toInt();
+        if (newUsbBaudRate != usbSerialBaud_) {
+            usbSerialBaud_ = newUsbBaudRate;
+            //updateBaudrate(uuidUsbSerial_, usbSerialBaud_);
+            qDebug() << "LinkManager::ApplyRuntime usbSerialBaud" << usbSerialBaud_;
+        }
+    }
+    */
 
 
 }
@@ -84,6 +94,14 @@ void LinkManager::applyPersistent(const QVariantMap& m)
     if (m.contains("isBetaTester")) isBetaTester_ = m.value("isBetaTester").toBool();
     if (m.contains("isExpert"))     isExpert_     = m.value("isExpert").toBool();
     if (m.contains("udpPort"))      udpPort_      = m.value("udpPort").toInt();
+    if (m.contains("usbSerialBaud")) {
+        int newUsbBaudRate = m.value("usbSerialBaud").toInt();
+        if (newUsbBaudRate != usbSerialBaud_) {
+            usbSerialBaud_ = newUsbBaudRate;
+            updateBaudrate(uuidUsbSerial_, usbSerialBaud_);
+            qDebug() << "LinkManager::applyPersistent usbSerialBaud" << usbSerialBaud_;
+        }
+    }
     qDebug() << "QA_ver_0.96: LinkManager persistent values: udpGateway" << udpGateway_ << "isBetaTester" << isBetaTester_ << "isExpert" << isExpert_ << "udpPort" << udpPort_;
 }
 
@@ -1032,7 +1050,8 @@ void LinkManager::openFLinks()
                 //How to fix USB serial on all Android devices?
                 itm->setUuid(QUuid(uuidUsbSerial_));
                 itm->setControlType(static_cast<ControlType>(1));
-                itm->setBaudrate(921600);
+                itm->setBaudrate(usbSerialBaud_);
+                //itm->setBaudrate(921600);
                 itm->setParity(false);
                 itm->openAsSerial();
                 qDebug() << "LinkManager::openFLinks trigger openAsSerial";
