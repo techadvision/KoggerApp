@@ -1356,7 +1356,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
 //            _cash[column].stateColor = CashLine::CashStateNotValid;
             _cash[column].state = CashLine::CashStateNotValid;
             _cash[column].data.resize(height);
-//            _cash[column].data.fill(0);
+            _cash[column].data.fill(0); //TODO: Does this help remove the side scan remaining artifact?
             _cash[column].poolIndex = -1;
             _cash[column].state = CashLine::CashStateEraced;
             _cash[column].isNeedUpdate = true;
@@ -1500,7 +1500,10 @@ bool Plot2DEchogram::draw(Plot2D* parent, Dataset* dataset)
         if(_image.width() != image_width || _image.height() != image_height) {
             _image = QImage(image_width, image_height, QImage::Format_Indexed8);
             _image.setColorTable(_colorLevels);
+            _image.fill(0); //TODO: Does this help remove the side scan remaining artifact?
             _pixmap = QPixmap(image_width, image_height);
+            //_pixmap.fill(Qt::black); //TODO: Does this help remove the side scan remaining artifact?
+            resetCash(); //TODO: Does this help remove the side scan remaining artifact?
         }
 
         const int cash_width = canvas.width();

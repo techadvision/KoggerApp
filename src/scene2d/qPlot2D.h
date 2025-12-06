@@ -34,6 +34,7 @@ public:
     //PULSE
     Q_INVOKABLE void setSettingsBus(SettingsBus* bus);
     SettingsBus* settingsBus() const { return bus_; }
+    Q_PROPERTY(bool draggingInPaused READ draggingInPaused WRITE setDraggingInPaused NOTIFY draggingInPausedChanged)
     // PULSE QQmlParserStatus
     void classBegin() override {}
     void componentComplete() override;
@@ -66,6 +67,15 @@ public:
     int maxDepth() const {
         return static_cast<int>(ceil(cursorFrom() + (cursorTo() - cursorFrom())));
     }
+    bool draggingInPaused() const { return m_draggingInPaused; }
+    void setDraggingInPaused(bool v) {
+        if (m_draggingInPaused == v)
+            return;
+        m_draggingInPaused = v;
+        emit draggingInPausedChanged();
+    }
+    Q_INVOKABLE bool isTapInsideZoomForQml(int x, int y) const;
+
 
     Q_INVOKABLE float cursorFrom() const { return Plot2D::cursor_.distance.from; }
     Q_INVOKABLE float cursorTo() const { return Plot2D::cursor_.distance.to; }
@@ -79,6 +89,7 @@ public:
         Plot2D::setHoldHistory(hold);
     }
 
+
 protected:
     Dataset* m_plot = nullptr;
     QTimer* m_updateTimer;
@@ -89,6 +100,7 @@ protected:
 signals:
     void timelinePositionChanged();
     void contactChanged();
+    void draggingInPausedChanged();
 
 protected slots:
     void timerUpdater();
@@ -190,6 +202,7 @@ private:
     //PULSE
     void wireBus(SettingsBus* bus);
     SettingsBus* bus_ = nullptr;
+    bool m_draggingInPaused = false;
     //Plot2D plot_;
     qPlot2D(const qPlot2D&) = delete;
     qPlot2D& operator=(const qPlot2D&) = delete;

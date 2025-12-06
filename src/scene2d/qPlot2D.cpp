@@ -418,9 +418,26 @@ void qPlot2D::setOffsetZ(float value)
     }
 }
 
+/*
 void qPlot2D::plotMousePosition(int x, int y, bool isSync)
 {
     //setAimEpochEventState(false);
+    if (isEchogramPaused() && isTapInsideZoom(x, y)) {
+        setAimEpochEventState(true);
+
+        // Set device-space mouse for hit-test only (no map scroll)
+        if (_isHorizontal) {
+            Plot2D::simpleSetMousePosition(x, y);
+        } else {
+            if (x >= 0 && y >= 0) {
+                Plot2D::simpleSetMousePosition(height() - y, x);
+            } else {
+                Plot2D::simpleSetMousePosition(-1, -1);
+            }
+        }
+
+        return;
+    }
     setAimEpochEventState(true);
     if(_isHorizontal) {
         setMousePosition(x, y, isSync);
@@ -433,6 +450,54 @@ void qPlot2D::plotMousePosition(int x, int y, bool isSync)
 
     }
 }
+*/
+
+bool qPlot2D::isTapInsideZoomForQml(int x, int y) const
+{
+    if (!isEchogramPaused())
+        return false;
+
+    return isTapInsideZoom(x, y);
+}
+
+void qPlot2D::plotMousePosition(int x, int y, bool isSync)
+{
+    const bool paused     = isEchogramPaused();
+    const bool insideZoom = paused && isTapInsideZoom(x, y);
+
+    // Only treat the zoom as a "dead" hit area when we're *not* dragging in pause.
+    const bool zoomHitWithoutDrag = insideZoom && !m_draggingInPaused;
+
+    setAimEpochEventState(true);
+
+    if (zoomHitWithoutDrag) {
+        // Hit-test only; don't move crosshair or scroll map
+        if (_isHorizontal) {
+            Plot2D::simpleSetMousePosition(x, y);
+        } else {
+            if (x >= 0 && y >= 0) {
+                Plot2D::simpleSetMousePosition(height() - y, x);
+            } else {
+                Plot2D::simpleSetMousePosition(-1, -1);
+            }
+        }
+        plotUpdate();
+        return;
+    }
+
+    // Normal mouse move / tap → update aim cursor
+    if (_isHorizontal) {
+        setMousePosition(x, y, isSync);
+    } else {
+        if (x >= 0 && y >= 0) {
+            setMousePosition(height() - y, x, isSync);
+        } else {
+            setMousePosition(-1, -1, isSync);
+        }
+    }
+}
+
+
 
 void qPlot2D::simplePlotMousePosition(int x, int y) {
     Plot2D::setAimEpochEventState(false);
@@ -449,6 +514,7 @@ void qPlot2D::simplePlotMousePosition(int x, int y) {
         }
     }
 }
+
 
 void qPlot2D::onCursorMoved(int x, int y)
 {

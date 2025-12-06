@@ -26,11 +26,16 @@ public:
         bool           flipForLeftHand = false; // SS 2D view + left-hand
         int            boxSizePx = 180;     // visible zoom square (before margins)
         int            zoomFactor = 3;      // magnification
+        int            dirSide = 0;         // Which side of the echogram
+        bool           isDualSideScan = false;
+        bool           isMetric = true;     // User may have a metric or an imperial preference
     };
 
     struct Output {
         QRect panelRect;  // full panel (for outside-tap dismissal)
         QRect addRect;    // Add WP button (if empty → hidden)
+        QRect abortRect;    // abort button
+        QRect tapDeadRect;    // dead area to avoid tapping
     };
 
     Plot2DZoom() = default;

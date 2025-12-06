@@ -44,7 +44,6 @@ static inline int visibleColsFromTransform(const QTransform& W, int canvasW) {
     return std::max(1, int(std::floor(double(canvasW)/sx + 0.5)));
 }
 
-
 //Pulse helpers for nearest yaw
 struct NearestYawIdx {
     bool   found   = false;
@@ -129,12 +128,19 @@ static NearestPosIdx findNearestGNSSByIndexRanged(Dataset* ds,
 
     auto testAt = [&](int j)->bool {
         if (j < minIdx || j > maxIdx) return false;
-        if (auto* ep = ds->fromIndex(j); ep && ep->isPosAvail()) {
-            best.found   = true;
-            best.epochIdx= j;
-            best.dIdx    = std::abs(j - idx);
-            best.pos     = ep->getPositionGNSS();
-            return true;
+
+        if (auto* ep = ds->fromIndex(j)) {
+
+            auto dt = ep->getPositionDataType();
+
+            // Treat both raw and interpolated GNSS as “available”
+            if (dt == DataType::kRaw || dt == DataType::kInterpolated) {
+                best.found    = true;
+                best.epochIdx = j;
+                best.dIdx     = std::abs(j - idx);
+                best.pos      = ep->getPositionGNSS();
+                return true;
+            }
         }
         return false;
     };
@@ -237,25 +243,6 @@ void Plot2DAim::setPause(Plot2D* parent, Dataset* dataset, bool on) {
         visibleColsAtPause_ = 0;
         needClearUi_        = true; // clear popup/crosshair on unpause
     }
-
-    /*
-    if (paused_ == on) return;
-    auto& canvas = parent->canvas();
-    auto& cursor = parent->cursor();
-
-    echogramPause_ = on;
-    paused_ = on;
-    if (on) {
-        lastIndexAtPause_   = parent->rightmostEpochOnScreen();
-        visibleColsAtPause_ = parent->visibleColsOnScreen();
-        const QTransform W = canvas.painter()->worldTransform();
-        const double sx = std::max(1e-6, W.m11());
-    } else {
-        lastIndexAtPause_   = -1;
-        visibleColsAtPause_ = 0;
-        needClearUi_ = true; // (your existing UI clear flag)
-    }
-*/
 }
 
 
@@ -280,6 +267,27 @@ void Plot2DAim::applyRuntime(const QVariantMap& m)
     }
     if (m.contains("isSideScanLeftHand"))  isSideScanLeftHand_ = m.value("isSideScanLeftHand").toBool();
     if (m.contains("isSideScan2DView"))    isSideScan2DView_   = m.value("isSideScan2DView").toBool();
+    if (m.contains("useMetricDepth"))      isMetric_           = m.value("useMetricDepth").toBool();
+}
+
+bool Plot2DAim::isTapInsideZoom(Plot2D* parent, int devX, int devY) const
+{
+    if (!cand_.active)
+        return false;
+
+    const QPoint raw(devX, devY);
+
+    //Somewhere the zoom box was tapped, regardless where
+    if (cand_.infoRect.contains(raw))
+        return true;
+
+    auto& canvas = parent->canvas();
+    const QPoint rot = devRotNeg90(raw, canvas.width());
+    //Somewhere the zoom box was tapped, regardless where
+    if (cand_.infoRect.contains(rot))
+        return true;
+
+    return false;
 }
 
 //Draw the aim (adapted for Pulse)
@@ -302,32 +310,22 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         return false;
 
     if (cursor.mouseX < 0 || cursor.mouseY < 0) {
-    //if ((cursor.mouseX < 0 || cursor.mouseY < 0) && (cursor.selectEpochIndx == -1)) {
         return false;
     }
 
     QPainter* p = canvas.painter();
 
-    //const int tapX = cursor.mouseX;
-    //const int tapY = cursor.mouseY;
-
     const QTransform W = p->worldTransform();
     const QTransform Winv = W.inverted();
-    const QPointF mouseLogical = Winv.map(QPointF(cursor.mouseX, cursor.mouseY));
-    const double sx = std::max(1e-6, W.m11());
     const int visibleCols = visibleColsFromTransform(p->worldTransform(), canvas.width());
 
-    //QPointF tapLogical(-1, -1);
     hasTap_ = false;
     if (beenEpochEvent_ && echogramPause_) {
-        //tapLogical = QPointF(cursor.mouseX, cursor.mouseY);
-        //pendingTapLogical_ = mouseLogical;
         hasTap_ = true;
     }
     if (beenEpochEvent_ && !echogramPause_) {
         beenEpochEvent_ = false; // ignore
     }
-    //const QPoint tapDevAtArm = QPoint(cursor.mouseX, cursor.mouseY);
 
     if (cursor.selectEpochIndx != -1 && !cand_.active && !hasTap_) {
         const bool isPaused = echogramPause_;
@@ -337,7 +335,6 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                                       : visibleCols;
 
         const int x = epochToLogicalXScaled(cursor.selectEpochIndx, dsSizeForMap, canvas.width(), visColsForMap);
-        //const int x = epochToLogicalXScaled(cursor.selectEpochIndx, dataset->size(), canvas.width(), visibleCols);
         if (x >= 0 && x < canvas.width()) {
             if (auto* ep = dataset->fromIndex(cursor.selectEpochIndx)) {
                 if (const auto datasetChannels = dataset->channelsList(); !datasetChannels.empty()) {
@@ -367,6 +364,27 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         tapOnPanel = cand_.infoRect.contains(tapDev);      // infoRect is device space
     }
 
+    // EARLY CONSUME: if popup is visible and the tap is inside it (not on buttons), swallow now
+    if (cand_.active && hasTap_) {
+        QPoint tapDevNow = QPoint(cursor.mouseX, cursor.mouseY);
+        if (isDualSS) tapDevNow = devRotNeg90(tapDevNow, canvas.width());
+
+        const int pad = 20 * scaleFactor_;
+        const QRect abortHit = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
+        const QRect addHit   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
+
+        if (cand_.infoRect.contains(tapDevNow) &&
+            !abortHit.contains(tapDevNow) &&
+            !addHit.contains(tapDevNow))
+        {
+            // Important: clear the tap so it never reaches the arming block below.
+            beenEpochEvent_ = false;
+            debounce_.restart();
+            qDebug() << "[AIM] early consume: tap inside zoom";
+            return true;
+        }
+    }
+
     // CREATE CROSS HAIR FROM THE TAP
     QPen pen;
     pen.setWidth(lineWidth_);
@@ -376,36 +394,6 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     QFont font("Asap", 14 * scaleFactor_, QFont::Normal);
     font.setPixelSize(18 * scaleFactor_);
     p->setFont(font);
-
-    // --- crosshair ---
-    auto drawCrosshairAtWorld = [&](double lx, double ly){
-        const int Wlog = canvas.width();
-        const int Hlog = canvas.height();
-
-        // Horizontal line at ly across full world width
-        p->drawLine(QPointF(0,    ly), QPointF(Wlog, ly));
-        // Vertical line at lx across full world height
-        p->drawLine(QPointF(lx, 0),     QPointF(lx,  Hlog));
-    };
-
-    //bool drewCrosshair = false;
-
-    if (cand_.active && echogramPause_) {
-        if (cand_.crossDev.x() >= 0 && cand_.crossDev.y() >= 0) {
-
-            QPoint devPt = cand_.active ? cand_.crossDev : QPoint(cursor.mouseX, cursor.mouseY);
-
-            // dual-side SS is drawn rotated -90° → rotate the tap to match
-            if (isDualSS) {
-                // canvas.width() is the device width for this view
-                devPt = devRotNeg90(devPt, canvas.width());
-            }
-
-            const QPointF crossWorld = Winv.map(QPointF(devPt));
-            drawCrosshairAtWorld(crossWorld.x(), crossWorld.y());
-            //drewCrosshair = true;
-        }
-    }
 
 
     // --- unified distance from device tap ---
@@ -441,18 +429,10 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
     auto [channelId, subIndx, name] = parent->getSelectedChannelId();
 
-    //Capture data for the tapped point
     // --- Capture data for the tapped point (works even if cursor.currentEpochIndx == -1) ---
     if (echogramPause_) {
         const int epochIdxForTap = cursor.currentEpochIndx;
 
-        /*
-        const int epochIdxForTapOld =
-            parent->getEpochIndxByMousePosPausedAware(p,
-                                                    cursor.mouseX,
-                                                    cursor.mouseY,
-                                                    parent->isHorizontal());
-        */
         if (epochIdxForTap >= 0 && epochIdxForTap < dataset->size()) {
             const bool pausedNow = isPaused();
             const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
@@ -464,7 +444,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                     side = isSideScanLeftHand_ ? -1 : +1;
                 } else {
                     const int midY = canvas.height() / 2;
-                    const int tapY = cand_.active ? cand_.crossDev.y() : cursor.mouseY;
+                    const int tapY = cursor.mouseY;
                     side = (tapY < midY) ? -1 : +1;
                 }
             }
@@ -490,9 +470,19 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             auto nearestYaw = findNearestYawByIndexRanged( dataset, epochIdxForTap,
                                                           maxLookEpochs, 0, lastCap);
 
+            /* debug result of the found position
             if (nearestPos.found) {
-                qDebug () << "AIM: Looked at epoch" << epochIdxForTap << "and found position at" << nearestPos.epochIdx << "positions away" << nearestPos.dIdx;
+                qDebug () << "AIM: Looked at epoch" << epochIdxForTap << "and found position at" << nearestPos.epochIdx << "positions away" << nearestPos.dIdx
+                         << "nearest lat" << nearestPos.pos.lla.latitude
+                         << "nearest lon" << nearestPos.pos.lla.longitude;
             }
+            */
+
+            /* debug result of the found yaw
+            if (nearestYaw.found) {
+                qDebug () << "AIM: Looked at epoch" << epochIdxForTap << "and found yaw at" << nearestYaw.epochIdx << "positions away" << nearestYaw.dIdx;
+            }
+            */
 
             // Fallback once across the full dataset if the frozen cap was too tight (first pause edge case)
             if (!nearestPos.found)
@@ -540,25 +530,9 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 }
             }
 
-            /*
-            if (nearestPos.found && nearestYaw.found) {
-                const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
-                const double yaw_rad = deg2rad(nearestYaw.yawDeg);
-                const bool waterColumn = !std::isfinite(depthAbs) || (rSlantAbs <= depthAbs + kWaterMargin);
-
-                if (!isSideScan || waterColumn) {
-                    txLat = boat.lat; txLon = boat.lon; haveTarget = true;
-                } else {
-                    const auto sol = solveSidescanTap(boat, yaw_rad, rSlantAbs, depthAbs, side);
-                    if (sol.ok && !sol.wasWaterColumn) {
-                        txLat = sol.point.lat; txLon = sol.point.lon; haveTarget = true;
-                    }
-                }
-            }
-            */
 
             // Arm candidate on a real tap (outside the panel)
-            if (beenEpochEvent_ && echogramPause_ && !tapOnPanel) {
+            if (beenEpochEvent_ && echogramPause_ && (!cand_.active || !tapOnPanel)) {
                 const bool wasActive = cand_.active;
                 cand_.active     = true;
                 cand_.anchorDev  = QPoint(cursor.mouseX, cursor.mouseY);
@@ -574,9 +548,8 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 cand_.tapSide    = side;
                 cand_.haveTarget = haveTarget;
                 popupJustOpened_ = !wasActive;
-                auto yawInDegrees = cand_.yawDeg;
-                auto longitude = cand_.lon;
-                auto latitude = cand_.lat;
+                beenEpochEvent_  = false;
+                /* debug the concluded data extract for the zoom
                 qDebug().noquote().nospace()
                     << qSetRealNumberPrecision(8)
                     << "[AIM] tap=" << epochIdxForTap
@@ -587,9 +560,37 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                     << " r_slant=" << rSlantAbs
                     << " depth=" << depthAbs
                     << " side=" << side;
+
                 const QPointF worldPt = p->worldTransform().inverted().map(QPointF(cursor.mouseX, cursor.mouseY));
                 qDebug() << "[AIM] worldX=" << worldPt.x() << "worldY=" << worldPt.y()
                          << "W=" << parent->canvas().width() << "H=" << parent->canvas().height();
+                */
+            }
+
+            // --- crosshair ---
+            auto drawCrosshairAtWorld = [&](double lx, double ly){
+                const int Wlog = canvas.width();
+                const int Hlog = canvas.height();
+
+                // Horizontal line at ly across full world width
+                p->drawLine(QPointF(0,    ly), QPointF(Wlog, ly));
+                // Vertical line at lx across full world height
+                p->drawLine(QPointF(lx, 0),     QPointF(lx,  Hlog));
+            };
+            if (cand_.active && echogramPause_) {
+                if (cand_.crossDev.x() >= 0 && cand_.crossDev.y() >= 0) {
+
+                    QPoint devPt = cand_.active ? cand_.crossDev : QPoint(cursor.mouseX, cursor.mouseY);
+
+                    // dual-side SS is drawn rotated -90° → rotate the tap to match
+                    if (isDualSS) {
+                        // canvas.width() is the device width for this view
+                        devPt = devRotNeg90(devPt, canvas.width());
+                    }
+
+                    const QPointF crossWorld = Winv.map(QPointF(devPt));
+                    drawCrosshairAtWorld(crossWorld.x(), crossWorld.y());
+                }
             }
         }
     }
@@ -599,13 +600,11 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
     if (cand_.active) {
         // compute the world-space center under the crosshair
-        QPoint devPt = cand_.crossDev;
         const bool isSideScan  = cursor.channel1.isValid() && cursor.channel2.isValid();
         const bool isDualSS    = isSideScan && !isSideScan2DView_;
         QPoint devPtForSolve = QPoint(cursor.mouseX, cursor.mouseY);
 
         if (isDualSS) {
-            //devPt = devRotNeg90(devPt, canvas.width());
             devPtForSolve = devRotNeg90(devPtForSolve, canvas.width());
         }
 
@@ -618,7 +617,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             popupAnchor = devRotNeg90(popupAnchor, canvas.width());
         }
 
-
+        // zoombox input
         Plot2DZoom::Input zin;
         zin.echPixmap      = &parent->echogramPixmap(); // forwarder getter
         zin.anchorPx       = popupAnchor;
@@ -632,46 +631,78 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);
         zin.boxSizePx      = 180;                             // your current size
         zin.zoomFactor     = 3;
+        zin.dirSide        = cand_.tapSide;  // -1 left, +1 right (computed earlier)
+        zin.isDualSideScan = (cursor.channel1.isValid() && cursor.channel2.isValid()) && !isSideScan2DView_;
+        zin.isMetric       = isMetric_;
 
         p->save();
         p->resetTransform(); // draw in device space
         const auto out = zoom_.draw(p, zin);
         p->restore();
 
-        // keep your existing hit-testing flow (device space)
+        // zoom box objects that eventually will be touched
         cand_.infoRect     = out.panelRect;
-        cand_.btnAbortRect = QRect();         // no abort button
+        cand_.tapDeadRect  = out.tapDeadRect;
+        cand_.btnAbortRect = out.abortRect;
         cand_.btnAddRect   = out.addRect;
+        if (cand_.active && hasTap_) {
+            QPoint tapDevNow(cursor.mouseX, cursor.mouseY);
+            if (isDualSS) tapDevNow = devRotNeg90(tapDevNow, canvas.width());
+
+            const int pad = 20 * scaleFactor_;
+            const QRect abortHit = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
+            const QRect addHit   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
+
+            if (cand_.infoRect.contains(tapDevNow) &&
+                !abortHit.contains(tapDevNow) &&
+                !addHit.contains(tapDevNow))
+            {
+                beenEpochEvent_ = false;     // swallow
+                debounce_.restart();         // avoid double-fire on some touch stacks
+                qDebug() << "[AIM] tap inside zoom consumed";
+                return true;
+            }
+        }
     }
 
-    //Handle the user taps on screen when box is shown
+    //Handle the user taps on screen and on the zoom square and its buttons when box is shown
     if (cand_.active && hasTap_) {
+        qDebug() << "AddWaypoint: plot2D_aim: Some tap registered";
 
-        // Skip the opening tap once
-        if (popupJustOpened_) {
-            popupJustOpened_ = false;
-            beenEpochEvent_  = false;
-            return true;
-        }
+        // Always compute current tap in device space here (don’t trust earlier scope)
+        QPoint tapDevLocal(cursor.mouseX, cursor.mouseY);
+        if (isDualSS) tapDevLocal = devRotNeg90(tapDevLocal, canvas.width());
 
-        // Tap mapped into painter logical coords (same space as popup rects)
-
+        // Build padded hit rects first
         const int pad = 20 * scaleFactor_;
         const QRect abortRect = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
         const QRect addRect   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
+        const QRect infoRect  = cand_.infoRect    .adjusted(-pad, -pad, +pad, +pad);
 
-        // Optional: draw a small cross at tapDev
-        p->save();
-        p->resetTransform();
-        p->setPen(QColor(255,255,0));
-        p->drawLine(tapDev.x()-8, tapDev.y(), tapDev.x()+8, tapDev.y());
-        p->drawLine(tapDev.x(),tapDev.y()-8, tapDev.x(),   tapDev.y()+8);
-        p->restore();
+        const bool onAbort = abortRect.contains(tapDevLocal);
+        const bool onAdd   = (!cand_.btnAddRect.isEmpty() && addRect.contains(tapDevLocal));
+        const bool onPanel = (!onAbort && !onAdd && infoRect.contains(tapDevLocal));
 
+        // --- Debounce & “skip opening tap” — but NEVER for button presses ---
+        if (!onAbort && !onAdd) {
+            if (debounce_.elapsed() < 120) {
+                beenEpochEvent_ = false;
+                return true; // consume non-button tap
+            }
+            debounce_.restart();
+
+            if (popupJustOpened_) {
+                popupJustOpened_ = false;
+                beenEpochEvent_  = false;
+                return true;    // consume the first non-button tap after opening
+            }
+        }
+
+        // From here we’ll handle the tap exactly once
         beenEpochEvent_ = false;
 
-        //Abort
-        if (abortRect.contains(tapDev)) {
+        //Abort button
+        if (onAbort) {
             cand_.active = false;
             cand_.haveTarget = false;
             cand_.anchorDev = QPoint(-1, -1);
@@ -680,13 +711,14 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             qDebug() << "AddWaypoint: plot2D_aim: Abort pressed";
             return true;
         }
-        //Add a waypoint
-        if (cand_.haveTarget && cand_.btnAddRect.contains(tapDev)) {
+
+        //Add a waypoint button
+        if (onAdd && cand_.haveTarget) {
             static UdpBroadcaster g_udp;
             g_udp.sendJsonPoint(
                 cand_.lat, cand_.lon,
                 std::isfinite(cand_.depth) ? cand_.depth : NAN,
-                cand_.model, "TGT"
+                cand_.model, "Pulse"
                 );
             cand_.active = false;
             cand_.haveTarget = false;
@@ -697,14 +729,9 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             return true;
         }
 
-        // Tap outside panel closes popup
-        if (!cand_.infoRect.contains(tapDev)) {
-            cand_.active = false;
-            cand_.haveTarget = false;
-            cand_.anchorDev = QPoint(-1, -1);
-            cand_.crossDev  = QPoint(-1, -1);
-            cursor.setMouse(-1, -1);
-            qDebug() << "AddWaypoint: plot2D_aim: dismiss press";
+        //Tapped inside the panel (not a button) → consume
+        if (onPanel) {
+            qDebug() << "AddWaypoint: plot2D_aim: panel pressed";
             return true;
         }
     }

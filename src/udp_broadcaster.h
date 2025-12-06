@@ -20,7 +20,7 @@ public:
         //socket_.setSocketOption(QAbstractSocket::BroadcastTtlOption, 1);
     }
 
-    // Send a JSON point: {"lat":12.34,"lon":56.78,"name":"TGT001"}
+    // Send a JSON point: {"lat":12.34,"lon":56.78,"name":"Pulse"}
     bool sendJsonPoint(double lat, double lon, double depth_m,
                        const QString& model = QString(),
                        const QString& name = QString(),

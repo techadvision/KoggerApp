@@ -28,6 +28,7 @@ public:
     bool isPaused() const { return echogramPause_; }
     int  lastAtPause() const { return lastIndexAtPause_; }
     int  visibleColsAtPause() const { return visibleColsAtPause_; }
+    bool isTapInsideZoom(Plot2D* parent, int devX, int devY) const;
 
 protected:
     bool beenEpochEvent_;
@@ -49,6 +50,7 @@ private:
     double lastSentLon_   = std::numeric_limits<double>::quiet_NaN();
     QElapsedTimer debounce_;
     bool  onlySendIfArmed_ = true;
+    bool  isMetric_ = true;
 
     struct Candidate {
         bool   active = false;
@@ -62,6 +64,7 @@ private:
         QString model; // "2D" / "SS"
         // UI geometry from last draw
         QRect  infoRect;
+        QRect  tapDeadRect;
         QRect  btnAbortRect;
         QRect  btnAddRect;
         // evice-space anchors
