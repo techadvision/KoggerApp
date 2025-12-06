@@ -35,7 +35,7 @@ Rectangle {
         title: qsTr("Please choose a file")
         folder: shortcuts.home
 
-        nameFilters: ["Logs (*.klf *.KLF *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.klf *.KLF)", "U-blox (*.ubx *.UBX)"]
+        nameFilters: ["Logs (*.plog *.PLOG *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.plog *.PLOG)", "U-blox (*.ubx *.UBX)"]
 
         onAccepted: {
             pathText.text = newFileDialog.fileUrl.toString().replace("file:///", Qt.platform.os === "windows" ? "" : "/")
@@ -43,6 +43,8 @@ Rectangle {
             var name_parts = newFileDialog.fileUrl.toString().split('.')
 
             core.openLogFile(pathText.text, false, false);
+            //TODO: Make it async
+            //core.openLogFileAsync(pathText.text, false, false)
             pulseRuntimeSettings.klfFilePath = pathText.text
         }
         onRejected: {
@@ -91,6 +93,7 @@ Rectangle {
 
             MouseArea {
                 anchors.fill: parent
+                enabled: !pulseRuntimeSettings.wasKlfFileOpened
                 onClicked: {
                     pulseRuntimeSettings.isRecordingKlf = !pulseRuntimeSettings.isRecordingKlf
                     core.loggingKlf = pulseRuntimeSettings.isRecordingKlf
@@ -100,7 +103,19 @@ Rectangle {
 
         // --- Row 2
         Text {
-            text: "View a file"
+            visible: !pulseRuntimeSettings.isRecordingKlf
+            text: {
+                if (core.isFileOpening) {
+                    return "File chosen"
+                } else {
+                    if (pulseRuntimeSettings.wasKlfFileOpened) {
+                        return "Showing file"
+                    } else {
+                        return "Show a file"
+                    }
+                }
+            }
+
             font.pixelSize: settingsPopup.infoPixelsSize
 
             height: _isAndroid ? 80: 54
@@ -110,8 +125,9 @@ Rectangle {
             Layout.leftMargin: 20
         }
 
-        // Open
+        // view a file statement
         Rectangle {
+            visible: !pulseRuntimeSettings.isRecordingKlf
             width: _isAndroid ? 80: 54
             height: _isAndroid ? 80: 54
             Layout.preferredWidth: _isAndroid ? 80: 54
@@ -139,8 +155,52 @@ Rectangle {
 
         }
 
+        // show the file is being opened
+        Item {
+            id: openingIndicator
+            visible: !pulseRuntimeSettings.isRecordingKlf && core.isFileOpening
+            GridLayout.row: 1
+            GridLayout.column: 2
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+            Layout.minimumWidth: _isAndroid ? 400 : 270
+            Layout.preferredWidth: Layout.minimumWidth
+
+            RowLayout {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+
+                Text {
+                    text: qsTr("Wait - opening file ...")
+                    font.pixelSize: settingsPopup.infoPixelsSize
+                    height: _isAndroid ? 80: 54
+                    Layout.leftMargin: 20
+                }
+
+                Image {
+                    id: iconToWait
+                    source: "./icons/ui/pulse_waiting.svg"
+                    Layout.preferredWidth: _isAndroid ? 54 : 42
+                    Layout.preferredHeight: _isAndroid ? 54 : 42
+                    fillMode: Image.PreserveAspectFit
+                    //smooth: true
+                }
+
+                /* TODO: If we can get it to open async, here is the spinning wheel ready
+                PulseSpinner {
+                    id: fileOpenSpinner
+                    width: 24
+                    height: 24
+                    strokeColor: "black"
+                }
+                */
+            }
+        }
+
+        // show the file path
         CTextField {
             id: pathText
+            visible: !pulseRuntimeSettings.isRecordingKlf && !core.isFileOpening
             hoverEnabled: true
             GridLayout.row: 1
             GridLayout.column: 2
@@ -158,6 +218,8 @@ Rectangle {
                     pulseRuntimeSettings.klfFilePath = pathText.text
                     //core.filePath = pathText.text
                     core.openLogFile(pathText.text, false, false)
+                    //TODO: Make it async
+                    //core.openLogFileAsync(pathText.text, false, false)
                     //console.log("log viewer: open file again")
                 } else {
                     //console.log("log viewer: text length 0")
@@ -176,12 +238,55 @@ Rectangle {
                     pulseRuntimeSettings.klfFilePath = pathText.text
                     //core.filePath = pathText.text
                     core.openLogFile(pathText.text, false, false);
-                    //console.log("log viewer: Keys.onPressed triggered by ", event.key)
+                    //TODO: Make it async
+                    //core.openLogFileAsync(pathText.text, false, false)
+
                 }
             }
         }
 
-        // --- Row 3
+        Text {
+            //visible: pulseRuntimeSettings.wasKlfFileOpened
+            visible: false
+            text: "Reconnect"
+
+            font.pixelSize: settingsPopup.infoPixelsSize
+
+            height: _isAndroid ? 80: 54
+            GridLayout.row: 2
+            GridLayout.column: 0
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: 20
+        }
+
+        Rectangle {
+            //visible: pulseRuntimeSettings.wasKlfFileOpened
+            visible: false
+            width: _isAndroid ? 80: 54
+            height: _isAndroid ? 80: 54
+            Layout.preferredWidth: _isAndroid ? 80: 54
+            Layout.preferredHeight: _isAndroid ? 80: 54
+            radius: 5
+            GridLayout.row: 2
+            GridLayout.column: 1
+            color: "transparent"
+            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+
+            Image {
+                id: iconReconnect
+                source: "./icons/ui/pulse_reconnect.svg"
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    pulseRuntimeSettings.reconnectAfterLogView = true
+                }
+            }
+        }
 
     }
 

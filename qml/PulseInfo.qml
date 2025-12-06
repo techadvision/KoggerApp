@@ -41,10 +41,13 @@ Flickable {
     // ——————————————————————————————————————————————————————————
     Image {
         id: appIcon
+        source: pulseRuntimeSettings.is2DTransducer ? "./image/pulse_info_red_black_large.png" : "./image/pulse_info_blue_large.png"
+        /*
         source: (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ||
                  pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto)
                    ? "./image/pulse_info_red_black_large.png"
                    : "./image/pulse_info_blue_large.png"
+        */
         fillMode: Image.PreserveAspectFit
 
         // Make width = 40% of the Flickable's width
@@ -132,7 +135,6 @@ Flickable {
         Rectangle {
             id: deviceNameRect
             width: parent.width
-            // Auto-size to content
             height: Math.max(
                         deviceContent.visible ? deviceContent.implicitHeight : 0,
                         noDeviceText.visible ? noDeviceText.implicitHeight : 0
@@ -148,6 +150,8 @@ Flickable {
                 text: {
                     if (pulseRuntimeSettings.devName === "...")
                         return "Device:\nNo device connected"
+                    if (pulseRuntimeSettings.wasKlfFileOpened)
+                        return "Showing content rendered as"
                     return "Connected to:"
                 }
                 font.pixelSize: root.infoPixelsSize
@@ -168,35 +172,19 @@ Flickable {
                 // Transducer logo (red/blue)
                 Image {
                     id: deviceLogo
-                    source: {
-                        // If it's a beta, decide by exact beta name
-                        if (pulseRuntimeSettings.pulseBetaName !== "...") {
-                            if (pulseRuntimeSettings.pulseBetaName === pulseRuntimeSettings.pulseRedBeta)
-                                return "./image/pulse_logo_red.png";
-                            if (pulseRuntimeSettings.pulseBetaName === pulseRuntimeSettings.pulseBlueBeta)
-                                return "./image/pulse_logo_blue.png";
-                            // Unknown beta type -> default to blue
-                            return "./image/pulse_logo_blue.png";
-                        }
-
-                        // Non-beta: fall back to userManualSetName (same logic as your app icon)
-                        var isRed = (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
-                                     || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto);
-                        return isRed ? "./image/pulse_logo_red.png" : "./image/pulse_logo_blue.png";
-                    }
+                    source: pulseRuntimeSettings.is2DTransducer ? "./image/pulse_logo_red.png" : "./image/pulse_logo_blue.png"
                     fillMode: Image.PreserveAspectFit
-                    // Good, platform-aware size you already use
-                    //height: root.selectIconSize
-                    width: 265
+                    width: 245
+
                 }
 
                 Image {
                     id: deviceLogoBlack
-                    visible: pulseRuntimeSettings.pulseBetaName === pulseRuntimeSettings.pulseRedBeta
+                    visible: pulseRuntimeSettings.is2DTransducer
                     source: "./image/pulse_logo_black.png"
                     anchors.verticalCenter: deviceLogo.verticalCenter
                     fillMode: Image.PreserveAspectFit
-                    width: 300
+                    width: 270
                 }
 
                 // Beta badge (only when beta)
@@ -214,36 +202,6 @@ Flickable {
         }
 
 
-        /*
-        Rectangle {
-            id: deviceNameRect
-            width: parent.width
-            height: deviceNameText.implicitHeight + 10
-            anchors.topMargin: 20
-            color: "transparent"
-            radius: 4
-
-            Text {
-                id: deviceNameText
-                text: {
-                    if (pulseRuntimeSettings.devName !== "...") {
-                        if (pulseRuntimeSettings.pulseBetaName !== "...") {
-                            return "Device:\n" + pulseRuntimeSettings.pulseBetaName
-                        } else {
-                            return "Device:\n" + pulseRuntimeSettings.devName
-                        }
-                    } else {
-                        return "Device:\nNo device connected"
-                    }
-                }
-                font.pixelSize: root.infoPixelsSize
-                anchors.top: appNameRect.bottom
-                anchors.left: parent.left
-                anchors.leftMargin: 5
-            }
-        }
-        */
-
         // ——————————————————————————————
         // 3) App IP / Mode text
         // ——————————————————————————————
@@ -258,6 +216,10 @@ Flickable {
             Text {
                 id: appIpText
                 text: {
+                    if (pulseRuntimeSettings.wasKlfFileOpened && pulseRuntimeSettings.uuidSuccessfullyOpened !== "") {
+                        return "\nWas connected when opening log:"
+                    }
+
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened is", pulseRuntimeSettings.uuidSuccessfullyOpened);
                     if (pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial) {
                         return "\nConnected by:\nPulse USB connection"
@@ -274,10 +236,49 @@ Flickable {
                 }
                 font.pixelSize: root.infoPixelsSize
                 anchors.top: deviceNameRect.bottom
+                anchors.topMargin: 20
                 anchors.left: parent.left
                 anchors.leftMargin: 5
             }
         }
+
+        Rectangle {
+            id:reconnectRect
+            visible: (pulseRuntimeSettings.wasKlfFileOpened && pulseRuntimeSettings.uuidSuccessfullyOpened !== "")
+            width: parent.width
+            height: iconReconnect.implicitHeight + 10
+
+
+            Text {
+                id: reconnectText
+                text: "Try reconnect?"
+                font.pixelSize: root.infoPixelsSize
+                anchors.left: parent.left
+                anchors.topMargin: 20
+                anchors.leftMargin: 5
+            }
+
+            Image {
+                id: iconReconnect
+                source: "./icons/ui/pulse_reconnect.svg"
+                width: _isAndroid ? 80: 54
+                height: _isAndroid ? 80: 54
+                anchors.left: reconnectText.right
+                anchors.leftMargin: 10
+                anchors.top: reconnectText.top
+                anchors.bottom: reconnectText.bottom
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+            }
+
+            MouseArea {
+                anchors.fill: iconReconnect
+                onClicked: {
+                    pulseRuntimeSettings.reconnectAfterLogView = true
+                }
+            }
+        }
+
     }
 
     // ——————————————————————————————————————————————————————————
