@@ -17,6 +17,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 HEADERS += \
     src/InsetsHelper.h \
     src/SettingsBus.h \
+    src/UiMetrics.h \
     src/black_stripes_processor.h \
     src/console.h \
     src/console_list_model.h \
@@ -50,6 +51,7 @@ HEADERS += \
 ### SOURCES
 SOURCES += \
     src/SettingsBus.cpp \
+    src/UiMetrics.cpp \
     src/black_stripes_processor.cpp \
     src/console.cpp \
     src/console_list_model.cpp \

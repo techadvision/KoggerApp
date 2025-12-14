@@ -12,6 +12,7 @@
 #include <limits>
 #include <algorithm>
 #include "math_defs.h"
+#include "UiMetrics.h"
 
 
 Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontalGrid_(true), isSideScanOnLeftHandSide_(true)
@@ -71,7 +72,20 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     QPainter* p = canvas.painter();
     p->setPen(pen);
     QFont f("Asap");
+    /*
     f.setPixelSize(sp(18));   // pick an sp value
+    */
+    if (UiMetrics* ui = UiMetrics::instance()) {
+        // Option A: use one of your standard UI font sizes
+        // f.setPixelSize(ui->fontL());       // or fontM(), fontXL(), tweak to taste
+
+        // Option B: recreate your QML-style Math.round(18 * Ui.scale)
+        const qreal scale = ui->scale();
+        f.setPixelSize(qRound(18.0 * scale)); // 18 = your reference size on the tablet
+    } else {
+        // Fallback to previous behavior (pure DPI-based sp)
+        f.setPixelSize(sp(18));
+    }
     f.setBold(true);
     p->setFont(f);
     //p->setFont(QFont("Asap", 20, QFont::Bold));

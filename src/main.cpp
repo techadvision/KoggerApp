@@ -31,6 +31,7 @@
 #include "InsetsHelper.h"
 #endif
 #include "installtoken.h"
+#include "UiMetrics.h"
 
 Core core;
 Themes theme;
@@ -188,6 +189,11 @@ int main(int argc, char *argv[])
     // now expose it to QML as "Insets"
     engine.rootContext()->setContextProperty("Insets", ih);
 #endif
+
+    // Register as QML singleton: Ui in module Echo.UI 1.0
+    UiMetrics uiMetrics;
+    UiMetrics::setInstance(&uiMetrics);
+    qmlRegisterSingletonInstance<UiMetrics>("Echo.UI", 1, 0, "Ui", &uiMetrics);
 
     SceneObject::qmlDeclare();
 

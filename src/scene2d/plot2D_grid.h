@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QQmlContext>
 
+class UiMetrics;
 
 class Plot2DGrid : public QObject, public PlotLayer
 {

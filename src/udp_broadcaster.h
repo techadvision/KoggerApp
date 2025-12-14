@@ -20,6 +20,43 @@ public:
         //socket_.setSocketOption(QAbstractSocket::BroadcastTtlOption, 1);
     }
 
+    bool sendJsonPointWithSnapshot(double lat, double lon, double depth_m,
+                                   const QString& model,
+                                   const QString& name,
+                                   const QByteArray& snapshotPngBase64,
+                                   quint16 port = 14570)
+    {
+        QByteArray payload = "{";
+        payload += "\"type\":\"echosounder_target\"";
+        payload += ",\"lat\":" + QByteArray::number(lat, 'f', 6);
+        payload += ",\"lon\":" + QByteArray::number(lon, 'f', 6);
+        if (std::isfinite(depth_m)) {
+            payload += ",\"depth_m\":" + QByteArray::number(depth_m, 'f', 2);
+        } else {
+            payload += ",\"depth_m\":null";
+        }
+        if (!model.isEmpty()) {
+            payload += ",\"model\":\"" + model.toUtf8() + "\"";
+        }
+        if (!name.isEmpty()) {
+            payload += ",\"name\":\"" + name.toUtf8() + "\"";
+        }
+        payload += ",\"latlong\":\"" +
+                   QByteArray::number(lat, 'f', 6) + "," +
+                   QByteArray::number(lon, 'f', 6) + "\"";
+        payload += ",\"ts_unix_ms\":" + QByteArray::number(QDateTime::currentMSecsSinceEpoch());
+
+        if (!snapshotPngBase64.isEmpty()) {
+            payload += ",\"snapshot_png_b64\":\"";
+            payload += snapshotPngBase64;   // base64 has no quotes, safe in JSON string
+            payload += "\"";
+        }
+
+        payload += "}";
+        return broadcast(payload, port);
+    }
+
+
     // Send a JSON point: {"lat":12.34,"lon":56.78,"name":"Pulse"}
     bool sendJsonPoint(double lat, double lon, double depth_m,
                        const QString& model = QString(),
