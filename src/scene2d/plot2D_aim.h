@@ -76,6 +76,8 @@ private:
         double tapRangeM   = NAN;    // slant/bottom range at tap (meters)
         bool   tapIsSS     = false;  // sidescan vs 2D at tap time
         int    tapSide     = 0;      // -1 left, +1 right (useful if you need it later)
+        QPixmap zoomTile;            // Image source to be shared with autopilot
+
 
     } cand_;
 
@@ -96,5 +98,6 @@ private:
     bool hasTap_ = false;
     bool popupJustOpened_ = false;
     Plot2DZoom zoom_;
+    double echogramSpeed_ = 1.0;
 };
 

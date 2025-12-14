@@ -5,6 +5,11 @@
 #include <cmath>
 #include <algorithm>
 #include <QPainterPath>
+#include <QBuffer>
+#include <QFile>
+#include <QDir>
+#include <QStandardPaths>
+#include <QDateTime>
 
 
 Plot2DAim::Plot2DAim()
@@ -29,6 +34,63 @@ static inline int epochToLogicalXScaled(int i, int datasetSize, int canvasW, int
     const int left  = canvasW - visibleCols;
     return left + (i - start); // may be < left (off left) or >= canvasW (off right)
 }
+
+// NEW: inverse of epochToLogicalXScaled – map logical X back to epoch index
+static inline int logicalXToEpochScaled(double x,
+                                        int datasetSize,
+                                        int canvasW,
+                                        int visibleCols)
+{
+    if (datasetSize <= 0 || canvasW <= 0 || visibleCols <= 0)
+        return -1;
+
+    const int last  = datasetSize - 1;
+    const int start = std::max(0, last - visibleCols + 1);
+    const int left  = canvasW - visibleCols;
+
+    // Map world X → column within the visible window
+    const int col = static_cast<int>(std::floor(x + 0.5)) - left;
+    if (col < 0 || col >= visibleCols)
+        return -1;
+
+    const int idx = start + col;
+    return std::clamp(idx, 0, datasetSize - 1);
+}
+
+// Map *logical* X (after undoing painter transform) back to an epoch index
+// using the current visible window: [start..end] where end = rightmostIdx
+static inline int logicalXToEpochInWindow(double xLogical,
+                                          int canvasW,
+                                          int rightmostIdx,
+                                          int visibleCols,
+                                          int dataSize)
+{
+    if (canvasW <= 0 || visibleCols <= 0 || dataSize <= 0)
+        return -1;
+
+    // Clamp rightmost to dataset
+    if (rightmostIdx < 0)
+        rightmostIdx = dataSize - 1;
+    rightmostIdx = std::clamp(rightmostIdx, 0, dataSize - 1);
+
+    // Visible window [start..end] anchored to the right edge
+    const int end   = rightmostIdx;
+    const int start = std::max(0, end - visibleCols + 1);
+    const int left  = canvasW - visibleCols;   // leftmost logical X of the window
+
+    // Column inside the window
+    const int col = static_cast<int>(std::floor(xLogical + 0.5)) - left;
+    if (col < 0 || col >= visibleCols)
+        return -1;
+
+    const int idx = start + col;
+    if (idx < 0 || idx >= dataSize)
+        return -1;
+
+    return idx;
+}
+
+
 
 //Pulse helper for crosshair when echogram is rotated 90 degrees
 static inline QPoint devRotNeg90(const QPoint& d, int deviceW) {
@@ -268,6 +330,7 @@ void Plot2DAim::applyRuntime(const QVariantMap& m)
     if (m.contains("isSideScanLeftHand"))  isSideScanLeftHand_ = m.value("isSideScanLeftHand").toBool();
     if (m.contains("isSideScan2DView"))    isSideScan2DView_   = m.value("isSideScan2DView").toBool();
     if (m.contains("useMetricDepth"))      isMetric_           = m.value("useMetricDepth").toBool();
+    if (m.contains("echogramSpeed"))       echogramSpeed_      = m.value("echogramSpeed").toDouble();
 }
 
 bool Plot2DAim::isTapInsideZoom(Plot2D* parent, int devX, int devY) const
@@ -431,15 +494,79 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
     // --- Capture data for the tapped point (works even if cursor.currentEpochIndx == -1) ---
     if (echogramPause_) {
-        const int epochIdxForTap = cursor.currentEpochIndx;
 
-        if (epochIdxForTap >= 0 && epochIdxForTap < dataset->size()) {
-            const bool pausedNow = isPaused();
-            const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
+        const int xTap = cursor.mouseX;
+        const int yTap = cursor.mouseY;
+
+        const int data_width = dataset ? dataset->size() : 0;
+        int epochIdxForTap   = -1;
+        int calculatedEpochIdx = -1;
+
+        // For logging / sanity
+        const int originalEpochIdxForTap = cursor.currentEpochIndx;
+
+        const bool isSideScan     = cursor.channel1.isValid() && cursor.channel2.isValid();
+        const bool isDualSS       = isSideScan && !isSideScan2DView_;
+        const bool isHorizontal   = parent->isHorizontal();
+        const bool is2DMode       = isHorizontal && !isSideScan;
+
+        if (is2DMode && data_width > 0 && xTap >= 0 && xTap < canvas.width()) {
+            // Current window info (updated by Plot2D::reindexingCursor)
+            const int rightmost = parent->rightmostEpochOnScreen();
+            const int visCols   = parent->visibleColsOnScreen();
+
+            // Device-space tap; undo rotation if dual SS (defensive – for 2D this is no-op)
+            QPoint devTap(xTap, yTap);
+            if (isDualSS) {
+                devTap = devRotNeg90(devTap, canvas.width());
+            }
+
+            if (echogramSpeed_ > 1.0) {
+                double factor    = std::pow(0.9, echogramSpeed_ - 1.0);
+                double someValue = originalEpochIdxForTap / factor;
+                calculatedEpochIdx = static_cast<int>(std::round(someValue));
+            }
+
+            // Device -> world (undo stretch/rotation/mirror)
+            const QPointF tapWorld = Winv.map(QPointF(devTap));
+            double lx              = tapWorld.x();
+            const int Wlog         = canvas.width();    // logical width before stretch
+
+            if (Wlog > 0) {
+                // Clamp to [0 .. Wlog-1]
+                if (lx < 0.0)            lx = 0.0;
+                if (lx > double(Wlog-1)) lx = double(Wlog-1);
+
+                epochIdxForTap = logicalXToEpochInWindow(lx,
+                                                         Wlog,
+                                                         rightmost,
+                                                         visCols,
+                                                         data_width);
+            }
+        }
+
+        // Fallback: if mapping failed or we’re in SS, use the cursor’s current epoch
+        if (epochIdxForTap < 0 || epochIdxForTap >= data_width) {
+            epochIdxForTap = originalEpochIdxForTap;
+        }
+
+        if (hasTap_) {
+            const int head = parent->rightmostEpochOnScreen();
+            qDebug() << "AIM tap 2D: origEpoch=" << originalEpochIdxForTap
+                     << "xTap=" << xTap
+                     << "head=" << head
+                     << "speed=" << echogramSpeed_
+                     << " -> epochIdxForTap=" << epochIdxForTap
+                     << "and calculatedEpochIdx=" << calculatedEpochIdx;
+        }
+
+        if (epochIdxForTap >= 0 && epochIdxForTap < data_width) {
+            const bool pausedNow       = isPaused();
+            const bool isSideScanLocal = isSideScan;
 
             // Which side (for SS)
             int side = 0;
-            if (isSideScan) {
+            if (isSideScanLocal) {
                 if (isSideScan2DView_) {
                     side = isSideScanLeftHand_ ? -1 : +1;
                 } else {
@@ -452,18 +579,23 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             // Depth from the *tapped* epoch (not from cursor.currentEpochIndx)
             double depth = NAN;
             if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
-                if (isSideScan) {
+                if (isSideScanLocal) {
+                    auto [channelId, subIndx, name] = parent->getSelectedChannelId();
                     if (auto* eg = epTap->chart(channelId, subIndx)) {
                         depth = eg->bottomProcessing.getDistance();
                     }
                 } else {
                     depth = epTap->rangeFinder();
                 }
-                if (!std::isfinite(depth) || depth < 0) depth = epTap->rangeFinder();
+                if (!std::isfinite(depth) || depth < 0) {
+                    depth = epTap->rangeFinder();
+                }
             }
 
             const int maxLookEpochs = 12;
-            const int lastCap = pausedNow ? lastIndexAtPause_ : (dataset->size() - 1);
+            const int lastCap       = pausedNow
+                                    ? lastIndexAtPause_
+                                    : (data_width - 1);
 
             auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
                                                            maxLookEpochs, 0, lastCap);
@@ -629,11 +761,12 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         zin.showAddBtn     = cand_.haveTarget;
         zin.rotateForView  = !parent->isHorizontal();         // you rotate(-90) when vertical (:contentReference[oaicite:7]{index=7})
         zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);
-        zin.boxSizePx      = 180;                             // your current size
+        zin.boxSizePx      = 250;                             // your current size
         zin.zoomFactor     = 3;
         zin.dirSide        = cand_.tapSide;  // -1 left, +1 right (computed earlier)
         zin.isDualSideScan = (cursor.channel1.isValid() && cursor.channel2.isValid()) && !isSideScan2DView_;
         zin.isMetric       = isMetric_;
+        zin.captureTile    = cand_.haveTarget; // No need to capture a tile if there is no position
 
         p->save();
         p->resetTransform(); // draw in device space
@@ -645,6 +778,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         cand_.tapDeadRect  = out.tapDeadRect;
         cand_.btnAbortRect = out.abortRect;
         cand_.btnAddRect   = out.addRect;
+        cand_.zoomTile     = out.zoomTile;
         if (cand_.active && hasTap_) {
             QPoint tapDevNow(cursor.mouseX, cursor.mouseY);
             if (isDualSS) tapDevNow = devRotNeg90(tapDevNow, canvas.width());
@@ -715,6 +849,44 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         //Add a waypoint button
         if (onAdd && cand_.haveTarget) {
             static UdpBroadcaster g_udp;
+
+            // Possibly also an image
+            if (!cand_.zoomTile.isNull()) {
+                QByteArray pngBytes;
+                QBuffer buffer(&pngBytes);
+                buffer.open(QIODevice::WriteOnly);
+                cand_.zoomTile.save(&buffer, "PNG");
+                buffer.close();
+
+                // Option A: save to file (e.g. Pictures/PulseEcho/)
+                {
+                    QString baseDir =
+                        QStandardPaths::writableLocation(QStandardPaths::PicturesLocation)
+                        + "/PulseEcho/";
+                    QDir().mkpath(baseDir);
+
+                    QString fileName = baseDir
+                                       + QDateTime::currentDateTimeUtc().toString("'echo_'yyyyMMdd_hhmmsszzz'.png'");
+                    QFile f(fileName);
+                    if (f.open(QIODevice::WriteOnly)) {
+                        f.write(pngBytes);
+                        f.close();
+                        qDebug() << "AddWaypoint: saved zoom PNG to" << fileName;
+                    } else {
+                        qDebug() << "AddWaypoint: failed to save zoom PNG to" << fileName;
+                    }
+                }
+
+                // Option B (optional): include base64 PNG in JSON via a new UDP method
+                // QByteArray b64 = pngBytes.toBase64();
+                // g_udp.sendJsonPointWithSnapshot(
+                //     cand_.lat, cand_.lon,
+                //     std::isfinite(cand_.depth) ? cand_.depth : NAN,
+                //     cand_.model, "Pulse",
+                //     b64
+                // );
+            }
+
             g_udp.sendJsonPoint(
                 cand_.lat, cand_.lon,
                 std::isfinite(cand_.depth) ? cand_.depth : NAN,
