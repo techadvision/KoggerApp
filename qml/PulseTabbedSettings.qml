@@ -1,11 +1,25 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import Echo.UI 1.0
 
 Item {
     id: root
-    width: 1000
-    height: 550
+    //width: 1000
+    //height: 550
 
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
+    width: Math.round(1000 * s)
+    height: Math.round(550 * s)
+
+    // Tab styling derived from UiMetrics
+    readonly property int tabFontSize: Ui.fontM      // try fontM; switch to fontS if it feels big
+    readonly property int headerHeight: Math.round(44 * s)
+
+    /*
     property real scaleFactor: Qt.application.primaryScreen.width / 480
     property real _dpi: Screen.pixelDensity * 25.4
     property real dpScale: _dpi / 160.0
@@ -18,6 +32,8 @@ Item {
         console.log("Font using SP for", x, "returning", dp(x))
         return dp(x);
     } // if you don't read user "font scale", use dp as sp
+    */
+
 
     signal closeRequested()
 
@@ -26,24 +42,6 @@ Item {
         anchors.fill: parent
         color: "#80000000"
     }
-
-    /*
-    Rectangle {
-       id: panelShadow
-       width: parent.width * 0.99
-       height: parent.height * 0.98
-
-       // Anchor to center, then shift right/down by 5px (tweak as desired)
-       anchors.horizontalCenter: parent.horizontalCenter
-       anchors.verticalCenter: parent.verticalCenter
-       anchors.horizontalCenterOffset: 10
-       anchors.verticalCenterOffset: 10
-
-       color: "#40000000"   // semi‐transparent black (25% opacity)
-       radius: 8
-       z: 0
-   }
-   */
 
     // ─── Main “popup” panel ────────────────────────────────────────
     Rectangle {
@@ -61,7 +59,8 @@ Item {
             anchors.top: mainPanel.top
             anchors.left: mainPanel.left
             anchors.right: mainPanel.right
-            height: 55
+            //height: 55
+            height: headerHeight
             color: "lightgray"
 
             // ─────────────────────────────────────────────────────────
@@ -103,7 +102,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Device"
-                    font.pixelSize: sp(10)
+                    //font.pixelSize: sp(10)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_info.svg"
                 }
@@ -111,7 +111,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Settings"
-                    font.pixelSize: sp(15)
+                    //font.pixelSize: sp(15)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_settings.svg"
                 }
@@ -119,7 +120,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Recording"
-                    font.pixelSize: sp(20)
+                    //font.pixelSize: sp(20)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_recording_inactive.svg"
                 }
@@ -127,7 +129,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Colors"
-                    font.pixelSize: sp(25)
+                    //font.pixelSize: sp(25)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1          // make sure point path is disabled
                     icon.source: "qrc:/icons/ui/pulse_color_2d_e500_white.svg"
                 }
@@ -174,7 +177,8 @@ Item {
                 height: tabBar.height
                 display: AbstractButton.TextBesideIcon
                 text: "Expert"
-                font.pixelSize: sp(30)
+                //font.pixelSize: sp(30)
+                font.pixelSize: tabFontSize
                 font.pointSize: -1          // make sure point path is disabled
                 icon.source: "qrc:/icons/ui/pulse_settings.svg"
             }

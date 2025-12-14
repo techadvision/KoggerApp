@@ -2,6 +2,8 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 import QtGraphicalEffects 1.15
+import Echo.UI 1.0
+
 //import org.techadvision.settings 1.0
 //import org.techadvision.runtime 1.0
 
@@ -11,10 +13,44 @@ Item {
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
 
+    // Base “design” size for this control on your 10" tablet
+    readonly property int baseWidth: 350
+    readonly property int baseHeight: 200
+
+    // Natural size for layouts
+
+    implicitWidth:  Math.round(baseWidth  * s)
+    implicitHeight: Math.round(baseHeight * s)
+
+    // Good defaults when NOT inside a layout
+    width:  Math.round(baseWidth  * s)
+    height: Math.round(baseHeight * s)
+    clip: true
+
+    /*
     width: _isAndroid ? 350 : 230
     height: _isAndroid ? 200 : 140
     clip: true
+
+    property int fontPixelsBase:        96
+    property int fontPixelsDepthInt:    96
+    property int fontPixelsDepthDec:    72
+    property int fontPixelsDepthUnit:   33
+    property int fontPixelsTempInt:     72
+    property int fontPixelsTempDec:     72
+    property int fontPixelsTempUnit:    33
+    */
+    property int fontPixelsBase:        104
+    property int fontPixelsDepthInt:    Math.round(fontPixelsBase * s)
+    property int fontPixelsDepthDec:    Math.round(fontPixelsBase * s * 0.75)
+    property int fontPixelsDepthUnit:   Math.round(fontPixelsBase * s * 0.33)
+    property int fontPixelsTempInt:     Math.round(fontPixelsBase * s * 0.75)
+    property int fontPixelsTempDec:     Math.round(fontPixelsBase * s * 0.50)
+    property int fontPixelsTempUnit:    Math.round(fontPixelsBase * s * 0.33)
+
 
     property bool   dataAvailable:              false
     property bool   isMetric:                   pulseSettings.useMetricDepth
@@ -376,7 +412,7 @@ Item {
         id: depthTempRect
         width: depthAndTemperature.width
         height: depthAndTemperature.height
-        color: "transparent" // Use transparent for layout
+        color: "transparent"
         radius: parent.height / 2
 
         // CATCH‐ALL MOUSEAREA – blocks clicks from passing through to the pinch
@@ -405,7 +441,8 @@ Item {
         Rectangle {
             id: wholeNumberRect
             width: parent.width * 0.75
-            height: _isAndroid? 96 : 64
+            //height: _isAndroid? 96 : 64
+            height: depthAndTemperature.fontPixelsDepthInt
             color: "transparent"
             //color: "#80000000"
             anchors.right: decimalPartRect.left
@@ -421,7 +458,8 @@ Item {
                 styleColor: "black"            // outline color
                 renderType: Text.NativeRendering  // crisper on many platforms
                 font.bold: true
-                font.pixelSize: _isAndroid ? 96 : 64
+                //font.pixelSize: _isAndroid ? 96 : 64
+                font.pixelSize: depthAndTemperature.fontPixelsDepthInt
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -433,7 +471,8 @@ Item {
         Rectangle {
             id: decimalPartRect
             width: parent.width * 0.1
-            height: _isAndroid? 96 : 64
+            //height: _isAndroid? 96 : 64
+            height: depthAndTemperature.fontPixelsDepthInt
             color: "transparent"
             //color: "#80000000"
             anchors.right: depthUnitRect.left
@@ -451,7 +490,8 @@ Item {
                 style: Text.Outline            // 1px outline
                 styleColor: "black"            // outline color
                 renderType: Text.NativeRendering  // crisper on many platforms
-                font.pixelSize: _isAndroid ? 72 : 48
+                //font.pixelSize: _isAndroid ? 72 : 48
+                font.pixelSize: depthAndTemperature.fontPixelsDepthDec
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -462,7 +502,8 @@ Item {
         Rectangle {
             id: depthUnitRect
             width: parent.width * 0.15
-            height: _isAndroid ? 96 : 64
+            //height: _isAndroid ? 96 : 64
+            height: depthAndTemperature.fontPixelsDepthInt
             color: "transparent"
             //color: "#80000000"
             anchors.right: parent.right
@@ -477,7 +518,8 @@ Item {
                 style: Text.Outline            // 1px outline
                 styleColor: "black"            // outline color
                 renderType: Text.NativeRendering  // crisper on many platforms
-                font.pixelSize: _isAndroid ? 36 : 24
+                //font.pixelSize: _isAndroid ? 36 : 24
+                font.pixelSize: depthAndTemperature.fontPixelsDepthUnit
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -488,25 +530,60 @@ Item {
         // Temperature Value
         Rectangle {
             id: temperatureValueRect
-            width: parent.width * 0.85
-            height: _isAndroid ? 72 : 48
+            width: parent.width * 0.73
+            //height: _isAndroid ? 72 : 48
+            height: depthAndTemperature.fontPixelsTempInt
             color: "transparent"
-            //color: "#80000000"
-            anchors.right: temperatureUnitRect.left
-            anchors.top: temperatureUnitRect.top
+            anchors.right: decimalTempPartRect.left
+            anchors.top: decimalTempPartRect.top
+            //anchors.topMargin: 10
             visible: pulseRuntimeSettings.useTemperature && enableTemperature && userShowTemperature
 
             Text {
                 id: temperatureValue
-                text: tempText
+                //text: tempText
+                text: tempText.split('.')[0] + "."
                 color: "white"
                 style: Text.Outline            // 1px outline
                 styleColor: "black"            // outline color
                 renderType: Text.NativeRendering  // crisper on many platforms
-                font.pixelSize: _isAndroid ? 72 : 48
+                //font.pixelSize: _isAndroid ? 72 : 48
+                font.pixelSize: depthAndTemperature.fontPixelsTempInt
                 horizontalAlignment: Text.AlignRight
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+
+        // Temperature Value (Decimal Part)
+        Rectangle {
+            id: decimalTempPartRect
+            width: parent.width * 0.12
+            //height: _isAndroid? 96 : 64
+            height: depthAndTemperature.fontPixelsDepthInt
+            color: "transparent"
+            //color: "#80000000"
+            anchors.right: temperatureUnitRect.left
+            anchors.top: depthUnitRect.bottom
+            anchors.topMargin: 10
+            visible: pulseRuntimeSettings.useTemperature && enableTemperature && userShowTemperature
+
+            Text {
+                id: decimalTempPart
+                text: {
+                    var parts = tempText.split('.');
+                    return parts[1] ? parts[1].split(' ')[0] : "";
+                }
+                //text: depthAndTemperature.formatDepth().split('.')[1] ? depthAndTemperature.formatDepth().split('.')[1].split(' ')[0] : ""
+                color: "white"
+                style: Text.Outline            // 1px outline
+                styleColor: "black"            // outline color
+                renderType: Text.NativeRendering  // crisper on many platforms
+                //font.pixelSize: _isAndroid ? 72 : 48
+                font.pixelSize: depthAndTemperature.fontPixelsTempDec
+                horizontalAlignment: Text.AlignRight
+                anchors.right: parent.right
+                anchors.top: parent.top
             }
         }
 
@@ -514,12 +591,13 @@ Item {
         Rectangle {
             id: temperatureUnitRect
             width: parent.width * 0.15
-            height: _isAndroid ? 72 : 48
+            //height: _isAndroid ? 72 :
+            height: depthAndTemperature.fontPixelsTempUnit
             color: "transparent"
             //color: "#80000000"
             anchors.right: depthUnitRect.right
             anchors.top: depthUnitRect.bottom
-            anchors.topMargin: 20
+            anchors.topMargin: 10
             visible: pulseRuntimeSettings.useTemperature && enableTemperature && userShowTemperature
 
             Text {
@@ -529,7 +607,8 @@ Item {
                 style: Text.Outline            // 1px outline
                 styleColor: "black"            // outline color
                 renderType: Text.NativeRendering  // crisper on many platforms
-                font.pixelSize: _isAndroid ? 36 : 24
+                //font.pixelSize: _isAndroid ? 36 : 24
+                font.pixelSize: depthAndTemperature.fontPixelsTempUnit
                 horizontalAlignment: Text.AlignLeft
                 anchors.right: parent.right
                 anchors.top: parent.top

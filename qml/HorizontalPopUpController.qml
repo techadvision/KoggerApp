@@ -4,13 +4,48 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls.Material 2.15
 import QtQuick.Window 2.2   // for mapToItem(null, …)
+import Echo.UI 1.0
+
 
 Item {
     id: root
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+    readonly property int buttonIconSizeRef: Ui.iconTouch
+    readonly property int controlIconSizeRef: Ui.iconIllustration
 
+    // Platform related sizes
+    /*
+    width: Math.round(125 * s)
+    height: Math.round(70 * s)
+    */
+
+    // Base “design” size for this control on your 10" tablet
+    readonly property int baseWidth: 125
+    readonly property int baseHeight: 70
+
+    // Natural size for layouts
+    implicitWidth:  Math.round(baseWidth  * s)
+    implicitHeight: Math.round(baseHeight * s)
+
+    // Good defaults when NOT inside a layout
+    width:  implicitWidth
+    height: implicitHeight
+
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(56 * s)
+    property int selectCheckSize: Math.round(48 * s)
+
+    /*
     width: _isAndroid ? 155 : 100
     height: _isAndroid ? 80 : 60
     //height: 80
@@ -25,6 +60,7 @@ Item {
     property int autoPixels:      _isAndroid ? 32 : 24
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
+    */
 
 
 
@@ -65,13 +101,13 @@ Item {
 
         RowLayout {
             anchors.centerIn: parent
-            spacing: 5
+            spacing: 10
 
             // Optional “control” icon on the left
             Image {
                 id: controlIcon
-                Layout.preferredWidth: root.controlIconSize
-                Layout.preferredHeight: root.controlIconSize
+                Layout.preferredWidth: root.controlIconSizeRef//controlIconSize
+                Layout.preferredHeight: root.controlIconSizeRef//controlIconSize
                 //Layout.preferredWidth: 42
                 //Layout.preferredHeight: 42
                 source: root.iconSource
@@ -83,8 +119,8 @@ Item {
             // The rectangle that shows the currently selected item:
             Rectangle {
                 id: iconRect
-                width: root.selectIconSize
-                height: root.selectIconSize
+                width: root.buttonIconSizeRef //selectIconSize
+                height: root.buttonIconSizeRef //selectIconSize
                 //width: 80
                 //height: 80
                 radius: 5
@@ -95,8 +131,8 @@ Item {
                     source: root.model.length > 0
                             ? root.model[root.selectedIndex]
                             : ""
-                    width: root.selectIconSize
-                    height: root.selectIconSize
+                    width: root.buttonIconSizeRef //selectIconSize
+                    height: root.buttonIconSizeRef //selectIconSize
                     //width: 80
                     //height: 80
                     fillMode: Image.PreserveAspectFit
@@ -124,39 +160,48 @@ Item {
     // (B) The “drop-up” list properties
     property bool showList: false
 
-    property int visibleItems: 5
+    property int visibleItems: 5          // max rows when there are many entries
+    property int minFullRows: 4           // never clamp when list has ≤ 4 items
     property int itemMargin: 5
     property int itemSpacing: 10
 
     property real listX: 0
     property real listY: 0
 
-    // the “extra” to make one more row half‐visible:
-    property int halfRowExtra: (iconRect.height + itemSpacing)/2
+    // Use the button icon height as the row height
+    //readonly property int rowSize: iconRect.height
+    readonly property int rowSize: buttonIconSizeRef
 
-    // Un-clamped total height (all rows + spacing + margins):
-    property int fullContentHeight:
-        (model.length * iconRect.height)
-      + ((model.length - 1) * itemSpacing)
-      + (2 * itemMargin)
+    // Un-clamped total height (all rows + spacing + margins)
+    property int fullContentHeight: {
+        if (model.length <= 0)
+            return 0;
 
-    // Clamped so we show at most `visibleItems` rows:
-    /*
-    property int clampedHeight: Math.min(
-        fullContentHeight,
-        (visibleItems * iconRect.height)
-      + ((visibleItems - 1) * itemSpacing)
-      + (2 * itemMargin)
-    )
-    */
+        return (model.length * rowSize)
+             + ((model.length - 1) * itemSpacing)
+             + (2 * itemMargin);
+    }
+
+    // Only clamp when we have more than minFullRows items
     property int clampedHeight: {
-        var maxFull = (visibleItems * iconRect.height)
-                    + ((visibleItems - 1) * itemSpacing)
-                    + (2 * itemMargin)
-        // “5½” rows:
-        var withHalf = maxFull + halfRowExtra
+        console.log("PopupList: clampedHeight: model.length is", model.length, "and minFullRows", minFullRows)
+        if (model.length <= minFullRows) {
+            console.log("PopupList: clampedHeight: returned fullContentHeight", fullContentHeight)
+            // Always show full list (no abbreviation)
+            return fullContentHeight;
+        }
 
-        return Math.min(fullContentHeight, withHalf)
+        // Height for at most `visibleItems` rows
+        var maxRows = visibleItems;
+        var maxFull = (maxRows * rowSize)
+                    + ((maxRows - 1) * itemSpacing)
+                    + (2 * itemMargin);
+
+        // Optionally show an extra half row to hint that it’s scrollable
+        var withHalf = maxFull + rowSize / 2;
+        console.log("PopupList: clampedHeight: returned Math.min(fullContentHeight, withHalf)", Math.min(fullContentHeight, withHalf))
+
+        return Math.min(fullContentHeight, withHalf);
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -167,9 +212,9 @@ Item {
         x: listX
         y: listY
 
-        width: iconRect.width +10
+        width: root.buttonIconSizeRef + 10 //Ui.iconTouch + 10 //Rect.width +10
         height: clampedHeight
-        color: "#C0000000"
+        color: "#000000"
         radius: 10
         border.color: "#40ffffff"
         border.width: 1
@@ -187,8 +232,8 @@ Item {
             model: root.model
 
             delegate: Item {
-                width: iconRect.width
-                height: iconRect.height
+                width: root.buttonIconSizeRef //selectIconSize //iconRect.width
+                height: root.buttonIconSizeRef //selectIconSize //iconRect.height
 
                 // Highlight the currently selected item
                 Rectangle {
@@ -203,10 +248,10 @@ Item {
                 Image {
                     id: iconImage
                     source: modelData
-                    width: iconRect.width
-                    height: iconRect.height
-                    anchors.horizontalCenter: iconListView.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
+                    width: root.buttonIconSizeRef //selectIconSize //iconRect.width
+                    height: root.buttonIconSizeRef //selectIconSize //iconRect.height
+                    //anchors.horizontalCenter: iconListView.horizontalCenter
+                    //anchors.verticalCenter: parent.verticalCenter
                     fillMode: Image.PreserveAspectFit
                     smooth: true
                     onStatusChanged: {
@@ -258,27 +303,37 @@ Item {
     // ───────────────────────────────────────────────────────────────
     // (F) Helper function: compute listX, listY so “bottom of list” = “top of button”
     function positionListAbove() {
-        // 1) Get outerShape’s top-left in window coordinates:
-        var topLeftInWindow = iconRect.mapToItem(null, 0, 0)
-        //var topLeftInWindow = outerShape.mapToItem(null, 0, 0)
+        if (!hostWindow)
+            return;
 
-        // 2) Set y so that bottom of list = topLeftInWindow.y:
-        listY = (topLeftInWindow.y - clampedHeight)
-        console.log("POPUP: listY =", listY)
+        // 1) iconRect position in *hostWindow* coordinates,
+        //    NOT global (null) coordinates:
+        var topLeft = iconRect.mapToItem(hostWindow, 0, 0)
 
-        // 3) Set x so left edges line up, but clamp if off-screen:
-        var desiredX = topLeftInWindow.x
-        var wW = root.window ? root.window.width : Screen.width
-        if (desiredX < 0) {
+        // 2) Y: put list above the button
+        var y = topLeft.y - clampedHeight
+
+        // If there isn't enough room above, open below instead
+        if (y -Math.round(20 * s) < 0) {
+            y = topLeft.y + iconRect.height
+        }
+        listY = y - Math.round(20 * s)
+
+        // 3) X: center popup horizontally over the icon
+        var desiredX = topLeft.x + (iconRect.width - iconListRect.width) / 2
+
+        // 4) Clamp horizontally so it stays inside hostWindow
+        var maxX = hostWindow.width - iconListRect.width
+        if (desiredX < 0)
             desiredX = 0
-        }
-        if (desiredX + outerShape.width > wW) {
-            desiredX = wW - outerShape.width
-            if (desiredX < 0) {
-                desiredX = 0
-            }
-        }
+        else if (desiredX > maxX)
+            desiredX = maxX
+
         listX = desiredX
-        console.log("POPUP: listX =", listX)
+
+        console.log("POPUP: listX =", listX, "listY =", listY,
+                    "iconRect:", iconRect.width, iconRect.height,
+                    "popup:", iconListRect.width, iconListRect.height)
     }
+
 }

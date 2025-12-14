@@ -8,21 +8,23 @@ import QtQuick.Controls 2.15
 import WaterFall 1.0
 import KoggerCommon 1.0
 import QtGraphicalEffects 1.15
-
-
+import Echo.UI 1.0
 
 ApplicationWindow  {
     id:            mainview
     visible:       true
-    width:         1024
+    width:         1280
     minimumWidth:  512
-    height:        512
+    height:        800
     minimumHeight: 256
     color:         "black"
     title:         qsTr("Pulse, TechAdVision")
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
     function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
     // Safe accessors (0 on non-Android or when Insets missing)
     function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top    : 0; }
@@ -268,6 +270,8 @@ ApplicationWindow  {
     }
 
     Component.onCompleted: {
+        Ui.windowWidth = width
+        Ui.windowHeight = height
         pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
         pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
         var code     = pulseSettings.keyCode
@@ -1428,8 +1432,10 @@ ApplicationWindow  {
     // echosounder selector Screen
     Rectangle {
         id: echoSounderSelectorRect
-        width: 1000
-        height: 350
+        width: Math.round(1000 * s)
+        height: Math.round(350 * s)
+        //width: 1000
+        //height: 350
         anchors.centerIn: parent
         color: "transparent"
 
@@ -1696,18 +1702,21 @@ ApplicationWindow  {
 
         Item {
             id: freeContainer
-            width: 1000; height: 800
+            //width: 1000; height: 800
+            width: Math.round(1000 * s)
+            height: Math.round(800 * s)
             anchors.centerIn: parent
-            property int spacing: 100
-            property int center: 550
+            property int spacing: Math.round(100 * s) //100
+            property int center: Math.round(550 * s) //550
 
             EchoSounderSelector {
                 id: pulseRedSelector
-                width: 450
+                //width: 450
+                width: Math.round(450 * s)
                 height: parent.height
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
-                backgroundColor: "#ffe0e0"   // light red background
+                backgroundColor: "transparent"   // light red background
                 title: "PULSEred"
                 titleColor: "red"
                 description: "High-performance 2D echo sounder"
@@ -1730,11 +1739,12 @@ ApplicationWindow  {
 
             EchoSounderSelector {
                 id: pulseBlueSelector
-                width: 450
+                //width: 450
+                width: Math.round(450 * s)
                 height: parent.height
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
-                backgroundColor: "#e0e0ff"   // light blue background
+                backgroundColor: "transparent"   // light blue background
                 title: "PULSEblue"
                 titleColor: "blue"
                 description: "High-performance side-scan echo sounder"

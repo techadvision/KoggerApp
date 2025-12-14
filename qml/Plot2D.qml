@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.1
+import Echo.UI 1.0
 
 import WaterFall 1.0
 
@@ -53,6 +54,24 @@ WaterFall {
         function onMavlinkWasDetected () {
             pulseRuntimeSettings.mavlinkDetected = deviceManagerWrapper.mavlinkDetected
             console.log("AddWaypoint: deviceManagerWrapper.mavlinkDetected", deviceManagerWrapper.mavlinkDetected)
+        }
+    }
+
+    Connections {
+        target: pulseRuntimeSettings
+
+        function onDevManualSelectedChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            if(pulseRuntimeSettings.devName === "...")
+                return
+            if (pulseRuntimeSettings.is2DTransducer) {
+                plot.plotEchogramCompensation(0)
+                pulseRuntimeSettings.echogramCompensationFile = 0
+            } else {
+                plot.plotEchogramCompensation(1)
+                pulseRuntimeSettings.echogramCompensationFile = 1
+            }
         }
     }
 
@@ -441,7 +460,7 @@ WaterFall {
 
             //Pulse additions, replacing the logic
             else if  (zoomX) {
-                if (pulseRuntimeSettings.is2DTransducer) {
+                if (pulseRuntimeSettings.is2DTransducer && !pulseRuntimeSettings.echogramPause) {
                     // 1) compute horizontal “ratio”
                     var hRatio = (pinch.scale - pinch.previousScale) * 50;
                     // 2) fraction of the 4-unit speed range
@@ -768,6 +787,10 @@ WaterFall {
 
         // Platform helpers
         readonly property bool _isAndroid: Qt.platform.os === "android"
+        readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+        readonly property real s: Ui.scale * platformScale
+
+
         function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
         // Safe accessors (0 on non-Android or when Insets missing)
         function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top    : 0; }
@@ -776,7 +799,8 @@ WaterFall {
         function insetRight()  { return _hasInsets() ? Insets.right  : 0; }
         function insetsIme()   { return _hasInsets() ? Insets.ime  : 0; }
 
-        width: _isAndroid ? 710 : 480
+        //width: _isAndroid ? 710 : 480
+        width: Math.round(580 * s)
         //width: 710
         clip: true
         columns: 2
@@ -1056,10 +1080,12 @@ WaterFall {
         DepthAndTemperature {
             id: thisDepthAndTemperature
             visible: !pulseRuntimeSettings.echogramPause
+            //visible: false
             GridLayout.row: 0
             GridLayout.column: 0
             Layout.rowSpan: 2
-            Layout.preferredWidth: _isAndroid ? 370 : 260
+            //Layout.preferredWidth: _isAndroid ? 370 : 260
+            Layout.preferredWidth: Math.round(320 * s)
             //Layout.preferredWidth: 370
             opacity: (quickChangeObjects.isDeviceDetected) ? 1 : 1
             enabled: (quickChangeObjects.isDeviceDetected)
@@ -1069,9 +1095,10 @@ WaterFall {
             id: selectorMaxDepth
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
 
-            GridLayout.row: 0
+            GridLayout.row: 2
             GridLayout.column: 1
-            Layout.preferredWidth: _isAndroid ? 330 : 220
+            //Layout.preferredWidth: _isAndroid ? 330 : 220
+            Layout.preferredWidth: Math.round (260 * s)
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorMaxDepth"
             minValue: {
@@ -1245,9 +1272,10 @@ WaterFall {
         HorizontalController {
             id: selectorIntensity
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
-            GridLayout.row: 1
+            GridLayout.row: 3
             GridLayout.column: 1
-            Layout.preferredWidth: _isAndroid ? 330 : 220
+            //Layout.preferredWidth: _isAndroid ? 330 : 220
+            Layout.preferredWidth: Math.round (260 * s)
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorIntensity"
             minValue: 0
@@ -1302,9 +1330,10 @@ WaterFall {
             id: selectorFiltering
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
             controleName: "selectorFiltering"
-            GridLayout.row: 2
+            GridLayout.row: 4
             GridLayout.column: 1
-            Layout.preferredWidth: _isAndroid ? 330 : 220
+            //Layout.preferredWidth: _isAndroid ? 330 : 220
+            Layout.preferredWidth: Math.round (260 * s)
             Layout.alignment: Qt.AlignBottom
             minValue: 0
             maxValue: 20
@@ -1384,11 +1413,12 @@ WaterFall {
         RowLayout {
             id: quickChangeMedia
             spacing: 2
-            Layout.topMargin: 10
+            //Layout.topMargin: 10
 
-            GridLayout.row: 3
-            GridLayout.column: 1
-            Layout.preferredWidth: _isAndroid ? 350 : 220
+            GridLayout.row: 4
+            GridLayout.column: 0
+            //Layout.preferredWidth: _isAndroid ? 350 : 220
+            Layout.preferredWidth: Math.round (260 * s)
 
             HorizontalCheckController {
                 id: echogramPlayPause
@@ -1427,12 +1457,13 @@ WaterFall {
         RowLayout {
             id: quickChangeTheme
             spacing: 2
-            Layout.topMargin: 10
+            //Layout.topMargin: 10
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
 
             GridLayout.row: 2
             GridLayout.column: 0
-            Layout.preferredWidth: _isAndroid ? 350 : 220
+            //Layout.preferredWidth: _isAndroid ? 350 : 220
+            Layout.preferredWidth: Math.round (260 * s)
 
 
             HorizontalPopUpController {
@@ -1576,7 +1607,7 @@ WaterFall {
                 hostWindow: plot ? plot : undefined
                 //allowExpertModeByMultiTap: false
                 onIconSelected: {
-                    plot.plotEchogramCompensation(selectedIndex);
+                    //plot.plotEchogramCompensation(selectedIndex);
                     pulseSettings.ecoViewIndex = selectedIndex
                     //Downscan 460
                     if (selectedIndex === 0) {
@@ -1654,6 +1685,12 @@ WaterFall {
                             setPulseBlueEcoViewOnAppStart.start()
                         }
                     }
+                    function onEchogramCompensationFileChanged () {
+                        let newCompensation = pulseRuntimeSettings.echogramCompensationFile
+                        console.log("FileOpening plotEchogramCompensation(newCompensation) using value", newCompensation)
+                        plot.plotEchogramCompensation(newCompensation)
+                    }
+
                 }
 
                 Connections {
@@ -1770,11 +1807,12 @@ WaterFall {
         RowLayout {
             id: quickChangeUserOptions
             spacing: 2
-            Layout.topMargin: 10
+            //Layout.topMargin: 10
 
             GridLayout.row: 3
             GridLayout.column: 0
-            Layout.preferredWidth: _isAndroid ? 350 : 220
+            //Layout.preferredWidth: _isAndroid ? 350 : 220
+            Layout.preferredWidth: Math.round (260 * s)
 
 
             HorizontalCheckController {
@@ -1850,13 +1888,15 @@ WaterFall {
         source: "./image/logo_techadvision_gray.png"
         anchors.bottom: parent.bottom
         //anchors.bottomMargin: 40 + Math.max(Insets.bottom, Insets.ime)
-        anchors.bottomMargin: 40 + Math.max(insetBottom(), insetsIme())
+        anchors.bottomMargin: insetBottom() + 20
         anchors.left: quickChangeObjects.right
         anchors.leftMargin: 40
-        width: 360
-        height: 43
+        //width: 360
+        //height: 43
+        width: Math.round(360 * s)
+        height: Math.round(43 * s)
         opacity: 60
-        visible: pulseRuntimeSettings.devManualSelected
+        visible: pulseRuntimeSettings.devManualSelected && !pulseRuntimeSettings.echogramPause
     }
 
     Rectangle {

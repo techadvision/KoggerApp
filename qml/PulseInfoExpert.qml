@@ -321,7 +321,7 @@ Flickable {
         SettingRow {
             toggle: false
             text: "Experimental USB baud rate"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.uuidSuccessfullyOpened === pulseRuntimeSettings.uuidUsbSerial
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: baudSelection
                 values: [115200, 921600]

@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Dialogs 1.2
+import Echo.UI 1.0
 //Pulse Plot not installed, but do we need it? Not needed!
 //import Pulse.Plot 1.0
 
@@ -11,7 +12,26 @@ Flickable {
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
     // Platform related sizes
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(64 * s)
+    property int selectCheckSize: Math.round(48 * s)
+
+    // Base “design” size for this control on your 10" tablet
+    readonly property int baseWidth: 900
+    implicitWidth:  Math.round(baseWidth  * s)
+    width:  implicitWidth
+
+    /*
     property int controlIconSize: _isAndroid ? 34 : 20
     property int pressButtonSize: _isAndroid ? 80 : 40
     property int displayPixels:   _isAndroid ? 100 : 40
@@ -21,9 +41,10 @@ Flickable {
     property int autoPixels:      _isAndroid ? 32 : 24
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
+    */
 
     focus: true
-    width: _isAndroid ? 900 : 600
+    //width: _isAndroid ? 900 : 600
 
     anchors.fill: parent
     flickableDirection: Flickable.VerticalFlick
@@ -31,7 +52,8 @@ Flickable {
     // Scrollbar always visible
     ScrollBar.vertical: ScrollBar {
         policy: ScrollBar.AlwaysOn
-        width: _isAndroid? 16 : 12
+        width: Math.round(16 * s)
+        //width: _isAndroid? 16 : 12
     }
 
     contentWidth: width
@@ -40,7 +62,8 @@ Flickable {
     Rectangle {
         id: colorsPopup
         focus: true
-        width: _isAndroid ? 900 : 600
+        //width: _isAndroid ? 900 : 600
+        width: Math.round(900 * s)
         implicitHeight: childrenRect.height   // auto-grow to fit all the children
         clip: true                            // hide overflow if you want
         //height: 400
@@ -64,19 +87,23 @@ Flickable {
 
         Rectangle {
             id: colorBarLegend2D
-            width: _isAndroid ? 700 : 470
+            //width: _isAndroid ? 700 : 470
+            width: Math.round(700 * s)
             height: settingsPopup.selectIconSize
             anchors.left: parent.left
             anchors.top: parent.top
-            anchors.leftMargin: 10
-            anchors.topMargin: 10
+            anchors.leftMargin: Math.round(10 * s)
+            //anchors.leftMargin: 10
+            anchors.topMargin: Math.round(10 * s)
+            //anchors.topMargin: 10
             color: "transparent"
             visible: pulseRuntimeSettings.is2DTransducer
 
             Row {
                 anchors.top: parent.top
                 anchors.left: parent.left
-                spacing: 12
+                //spacing: 12
+                spacing: Math.round(12 * s)
                 //anchors.margins: 8
 
                 Image {
@@ -92,9 +119,11 @@ Flickable {
                     text: (pulseRuntimeSettings.themeModelRed[pulseSettings.colorMapIndex2D] || {}).title
                     //text: colorBarLegend2D.getSelected2DTheme().title
                     //text: colorBarLegend2D.selected2DTheme.title
-                    anchors.leftMargin: 10
+                    anchors.leftMargin: Math.round(12 * s)
+                    //anchors.leftMargin: 10
                     font {
-                            pixelSize: _isAndroid ? 40 : 26
+                            //pixelSize: _isAndroid ? 40 : 26
+                            pixelSize: Ui.fontXL
                             bold: true
                             italic: true
                         }
@@ -109,8 +138,10 @@ Flickable {
             height: settingsPopup.selectIconSize
             anchors.left: parent.left
             anchors.top: parent.top
-            anchors.leftMargin: 10
-            anchors.topMargin: 10
+            anchors.leftMargin: Math.round(10 * s)
+            //anchors.leftMargin: 10
+            anchors.topMargin: Math.round(10 * s)
+            //anchors.topMargin: 10
             color: "transparent"
             visible: !pulseRuntimeSettings.is2DTransducer
 
@@ -124,7 +155,8 @@ Flickable {
             Row {
                 anchors.top: parent.top
                 anchors.left: parent.left
-                spacing: 12
+                spacing: Math.round(12 * s)
+                //spacing: 12
                 //anchors.margins: 8
 
                 Image {
@@ -139,11 +171,12 @@ Flickable {
                 Text {
                     text: colorBarLegendSS.getSelectedSSTheme().title
                     font {
-                            pixelSize: _isAndroid ? 40 : 26
+                            //pixelSize: _isAndroid ? 40 : 26
+                            pixelSize: Ui.fontM
                             bold: true
                             italic: true
                         }
-                    anchors.leftMargin: 10
+                    anchors.leftMargin: Math.round(10 * s) //10
                     anchors.verticalCenter: colorImageSS.verticalCenter
                 }
             }
@@ -151,11 +184,13 @@ Flickable {
 
         Rectangle {
             id: colorBar
-            width: _isAndroid ? 850 : 560
-            height: _isAndroid ? 30 : 20
+            width: Math.round(850 * s)
+            height: Math.round(30 * s)
+            //width: _isAndroid ? 850 : 560
+            //height: _isAndroid ? 30 : 20
             anchors.left: parent.left
             anchors.topMargin: 5
-            anchors.leftMargin: 20
+            anchors.leftMargin: Math.round(20 * s) //20
             anchors.top: pulseRuntimeSettings.is2DTransducer ? colorBarLegend2D.bottom : colorBarLegendSS.bottom
             color: "transparent"
 
@@ -166,7 +201,7 @@ Flickable {
                 id: colorRow
                 anchors.fill: parent
                 spacing: 0
-                Layout.topMargin: 20
+                Layout.topMargin: Math.round(20 * s) //20
 
                 Repeater {
                     id: colorRepeater
@@ -185,18 +220,18 @@ Flickable {
 
         Rectangle {
             id: infoLeftContainer
-            width: _isAndroid ? 42 : 28
-            height: _isAndroid ? 42 : 28
+            width: Math.round(42 * s) //_isAndroid ? 42 : 28
+            height: Math.round(42 * s) //_isAndroid ? 42 : 28
             color:  "transparent"
 
             anchors.left: colorBar.left
             anchors.top: colorBar.bottom
-            anchors.topMargin: 10
+            anchors.topMargin: Math.round(10 * s) //10
 
             Image {
                 anchors.centerIn: infoLeftContainer
-                width: _isAndroid ? 42 : 28
-                height: _isAndroid ? 42 : 28
+                width: Math.round(42 * s) //_isAndroid ? 42 : 28
+                height: Math.round(42 * s) //_isAndroid ? 42 : 28
                 source: "./icons/ui/pulse_return_signal_weak.svg"
                 fillMode: Image.PreserveAspectFit
             }
@@ -204,8 +239,8 @@ Flickable {
 
         Rectangle {
             id: infoRightContainer
-            width: _isAndroid ? 42 : 28
-            height: _isAndroid ? 42 : 28
+            width: Math.round(42 * s) //_isAndroid ? 42 : 28
+            height: Math.round(42 * s) //_isAndroid ? 42 : 28
             color:  "transparent"
 
             anchors.top: colorBar.bottom
@@ -214,8 +249,8 @@ Flickable {
 
             Image {
                 anchors.centerIn: infoRightContainer
-                width: _isAndroid ? 42 : 28
-                height: _isAndroid ? 42 : 28
+                width: Math.round(42 * s) //_isAndroid ? 42 : 28
+                height: Math.round(42 * s) //_isAndroid ? 42 : 28
                 source: "./icons/ui/pulse_return_signal_hard.svg"
                 fillMode: Image.PreserveAspectFit
             }
@@ -227,7 +262,7 @@ Flickable {
             text: "Use favorite themes only"
             anchors.top: infoLeftContainer.bottom
             //anchors.left: colorBar.left
-            anchors.topMargin: 20
+            anchors.topMargin: Math.round(20 * s) //20
             visible: pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
@@ -242,12 +277,16 @@ Flickable {
             anchors.top: favoriteColors.bottom
             anchors.left: favoriteColors.left
             clip: true
-            anchors.leftMargin: 15
-            anchors.topMargin: 10
-            width: _isAndroid? 900 : 600
-            height: _isAndroid ? 400 : 270
-            cellWidth: _isAndroid ? 150 : 100
-            cellHeight: _isAndroid ? 80 : 54
+            anchors.leftMargin: Math.round(15 * s) //15
+            anchors.topMargin: Math.round(10 * s) //10
+            width: Math.round(900 * s)
+            height: Math.round(400 * s)
+            //width: _isAndroid? 900 : 600
+            //height: _isAndroid ? 400 : 270
+            cellWidth: Math.round(150 * s)
+            cellHeight: Math.round(80 * s)
+            //cellWidth: _isAndroid ? 150 : 100
+            //cellHeight: _isAndroid ? 80 : 54
             model: pulseRuntimeSettings.themeModelRed
             delegate: Item {
                 width: grid.cellWidth; height: grid.cellHeight
@@ -259,7 +298,7 @@ Flickable {
                     clearAfter: false                // turn off auto-clear for favorites
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.leftMargin: 10
+                    anchors.leftMargin: Math.round(19 * s) //10
 
                     onCheckedChanged: {
                         if (!pulseRuntimeSettings.is2DTransducer)
@@ -281,8 +320,10 @@ Flickable {
 
                 Image {
                     source: modelData.icon
-                    width: _isAndroid ? 64 : 42
-                    height: _isAndroid ? 64 : 42
+                    width: Math.round(64 * s) //_isAndroid ? 42 : 28
+                    height: Math.round(64 * s) //_isAndroid ? 42 : 28
+                    //width: _isAndroid ? 64 : 42
+                    //height: _isAndroid ? 64 : 42
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: checkBox.right
                     anchors.leftMargin: 5

@@ -1,12 +1,30 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import Echo.UI 1.0
 
 Rectangle {
     id: container
-    width: 440
-    height: 350
-    radius: 10
-    color: backgroundColor   // background color configurable from outside
+    //width: 440
+    //height: 350
+    //radius: 10
+    //color: backgroundColor   // background color configurable from outside
+    // BASE design size (your tablet values)
+    readonly property int baseWidth: 440
+    readonly property int baseHeight: 350
+
+    // Global UI scale from UiMetrics
+    readonly property real s: Ui.scale
+
+    // Natural size for layouts
+    implicitWidth:  Math.round(baseWidth  * s)
+    implicitHeight: Math.round(baseHeight * s)
+
+    // Default actual size (can be overridden from parent, as you already do)
+    width: implicitWidth
+    height: implicitHeight
+
+    radius: Math.round(10 * s)
+    color: backgroundColor
 
     // Customizable properties
     property color backgroundColor: "white"
@@ -45,17 +63,17 @@ Rectangle {
         visible: !isSelected
         text: "My device is a ..."
         color: "white"
-        font.pointSize: 20
+        font.pointSize: Math.round(20 * s)
 
         // Make the Text as wide as its parent (or inset by margins), so AlignHCenter takes effect
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
+        anchors.leftMargin: Math.round(10 * s)
+        anchors.rightMargin: Math.round(10 * s)
 
         // Stick to the top with a margin
         anchors.top: parent.top
-        anchors.topMargin: 20
+        anchors.topMargin: Math.round(20 * s)
 
         // Center each line horizontally within this width
         horizontalAlignment: Text.AlignHCenter

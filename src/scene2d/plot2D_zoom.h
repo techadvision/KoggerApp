@@ -10,6 +10,8 @@
 #include <QPainter>
 #include <QFont>
 
+class UiMetrics;
+
 class Plot2DZoom
 {
 public:
@@ -29,13 +31,16 @@ public:
         int            dirSide = 0;         // Which side of the echogram
         bool           isDualSideScan = false;
         bool           isMetric = true;     // User may have a metric or an imperial preference
+        bool           captureTile = false; // User wants to  capture tile image
     };
 
     struct Output {
-        QRect panelRect;  // full panel (for outside-tap dismissal)
-        QRect addRect;    // Add WP button (if empty → hidden)
-        QRect abortRect;    // abort button
-        QRect tapDeadRect;    // dead area to avoid tapping
+        QRect   panelRect;      // full panel (for outside-tap dismissal)
+        QRect   addRect;        // Add WP button (if empty → hidden)
+        QRect   abortRect;      // abort button
+        QRect   tapDeadRect;    // dead area to avoid tapping
+        QPixmap zoomTile;       // image source to be shared
+        QRect   zoomSrcRect;
     };
 
     Plot2DZoom() = default;

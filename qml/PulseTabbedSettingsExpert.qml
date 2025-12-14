@@ -1,15 +1,30 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window   2.15
+import Echo.UI 1.0
 
 Item {
     id: root
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
+    width: Math.round(1000 * s)
+    height: Math.round(550 * s)
+
+    // Tab styling derived from UiMetrics
+    readonly property int tabFontSize: Ui.fontM      // try fontM; switch to fontS if it feels big
+    readonly property int headerHeight: Math.round(44 * s)
+
+    /*
+    // Platform helpers
+    readonly property bool _isAndroid: Qt.platform.os === "android"
 
     width: _isAndroid ? 1000 : 650
     height:_isAndroid ? 550 : 400
+
 
     //property real scaleFactor: Screen.width / 480
     property real scaleFactor: 1
@@ -24,6 +39,7 @@ Item {
         console.log("Font using SP for", x, "returning", dp(x))
         return dp(x);
     } // if you don't read user "font scale", use dp as sp
+    */
 
     signal closeRequested()
 
@@ -49,7 +65,8 @@ Item {
             anchors.top: mainPanel.top
             anchors.left: mainPanel.left
             anchors.right: mainPanel.right
-            height: 55
+            //height: 55
+            height: headerHeight
             color: "lightgray"
 
             // ─────────────────── TAB BAR (fills entire header height) ──────────────
@@ -75,7 +92,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Device"
-                    font.pixelSize: sp(14)
+                    //font.pixelSize: sp(14)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1
                     icon.source: "qrc:/icons/ui/pulse_info.svg"
                 }
@@ -83,7 +101,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Settings"
-                    font.pixelSize: sp(14)
+                    //font.pixelSize: sp(14)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1
                     icon.source: "qrc:/icons/ui/pulse_settings.svg"
                 }
@@ -91,7 +110,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Recording"
-                    font.pixelSize: sp(14)
+                    //font.pixelSize: sp(14)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1
                     icon.source: "qrc:/icons/ui/pulse_recording_inactive.svg"
                 }
@@ -99,7 +119,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Colors"
-                    font.pixelSize: sp(14)
+                    //font.pixelSize: sp(14)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1
                     icon.source: "qrc:/icons/ui/pulse_color_2d_e500_white.svg"
                 }
@@ -107,7 +128,8 @@ Item {
                     height: tabBar.height
                     display: AbstractButton.TextBesideIcon
                     text: "Expert"
-                    font.pixelSize: sp(14)
+                    //font.pixelSize: sp(14)
+                    font.pixelSize: tabFontSize
                     font.pointSize: -1
                     icon.source: "qrc:/icons/ui/pulse_settings.svg"
                 }

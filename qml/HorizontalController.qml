@@ -2,16 +2,48 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls.Material 2.15
+import Echo.UI 1.0
 
 Item {
     id: root
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
 
+    /*
     width: _isAndroid ? 280 : 200
     height: _isAndroid ? 80 : 60
+    */
 
     // Platform related sizes
+    /*
+    width: Math.round(260 * s)
+    height: Math.round(70 * s)
+    */
+
+    // Base “design” size for this control on your 10" tablet
+    readonly property int baseWidth: 260
+    readonly property int baseHeight: 70
+
+    // Natural size for layouts
+    implicitWidth:  Math.round(baseWidth  * s)
+    implicitHeight: Math.round(baseHeight * s)
+
+    // Good defaults when NOT inside a layout
+    width:  implicitWidth
+    height: implicitHeight
+
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(64 * s)
+    property int selectCheckSize: Math.round(48 * s)
+    /*
     property int controlIconSize: _isAndroid ? 34 : 20
     property int pressButtonSize: _isAndroid ? 80 : 40
     property int displayPixels:   _isAndroid ? 100 : 40
@@ -21,7 +53,7 @@ Item {
     property int autoPixels:      _isAndroid ? 32 : 24
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
-
+    */
 
     property alias value: valueField.text
     property int minValue: 0
@@ -50,7 +82,6 @@ Item {
     signal selectorValueChanged(int newValue)
 
     property real quickChangeMaxRangeValue: root.defaultValue  // Sync this with default value
-
 
     Timer {
         id: longPressControlTimer
@@ -193,7 +224,8 @@ Item {
         }
 
         RowLayout {
-            anchors.centerIn: parent
+            //anchors.centerIn: parent
+            anchors.fill: parent
             spacing: 5
 
             Image {
@@ -295,6 +327,7 @@ Item {
                         //height: 40
                         radius: 20
                         color: "transparent"
+                        anchors.centerIn: parent
 
                         Text {
                             id: valueField

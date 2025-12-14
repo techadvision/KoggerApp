@@ -115,6 +115,7 @@ QtObject {
     property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
     property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
+    property int    echogramCompensationFile:0      // EXPERIMENTAL: Should be either 0 (raw) or 1 (side scan)
 
     //APP DYNAMIC CONTROLS
     property int    dynamicResolutionMin:   50      // The minimum allowed resolution in mm, reduced from 90 to 50

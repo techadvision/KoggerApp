@@ -2,13 +2,34 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Dialogs 1.2
+import Echo.UI 1.0
 
 Rectangle {
     id: settingsPopup
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
     // Platform related sizes
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(64 * s)
+    property int selectCheckSize: Math.round(48 * s)
+
+    // Base “design” size for this control on your 10" tablet
+    readonly property int baseWidth: 900
+    readonly property int baseHeight: 400
+    implicitWidth:  Math.round(baseWidth  * s)
+    implicitHeight: Math.round(baseHeight * s)
+    width:  implicitWidth
+    height: implicitHeight
+    /*
     property int controlIconSize: _isAndroid ? 34 : 20
     property int pressButtonSize: _isAndroid ? 80 : 40
     property int displayPixels:   _isAndroid ? 100 : 40
@@ -19,13 +40,14 @@ Rectangle {
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
     property int infoPixelsSize:  _isAndroid ? 28 : 18
+    */
 
     focus: true
-    width: _isAndroid ? 900 : 600
-    height: _isAndroid ? 400 : 270
+    //width: _isAndroid ? 900 : 600
+    //height: _isAndroid ? 400 : 270
     anchors.centerIn: parent
     color: "white"
-    radius: 8
+    radius: Math.round(8 * s) //8
 
     signal pulsePreferenceClosed()
     signal pulsePreferenceValueChanged(double newValue)
@@ -54,33 +76,33 @@ Rectangle {
 
     GridLayout {
         id: layout
-        rowSpacing: 20
-        columnSpacing: 20
+        rowSpacing: Math.round(20 * s) //20
+        columnSpacing: Math.round(20 * s) //20
         columns: 3
 
         // --- Row 1
         Text {
             text: pulseRuntimeSettings.isRecordingKlf === true ? "Recording..." : "Record a file"
-            font.pixelSize: settingsPopup.infoPixelsSize
+            font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
 
-            height: _isAndroid ? 80: 54
+            height: Math.round(80 * s) //_isAndroid ? 80: 54
             GridLayout.row: 0
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-            Layout.leftMargin: 20
-            Layout.topMargin: 20
+            Layout.leftMargin: Math.round(20 * s) //20
+            Layout.topMargin: Math.round(20 * s) //20
         }
 
         // record
         Rectangle {
             id: recording
-            Layout.preferredWidth: _isAndroid ? 80: 54
-            Layout.preferredHeight: _isAndroid ? 80: 54
+            Layout.preferredWidth: Math.round(80 * s) //_isAndroid ? 80: 54
+            Layout.preferredHeight: Math.round(80 * s) //_isAndroid ? 80: 54
             radius: 5
             GridLayout.row: 0
             GridLayout.column: 1
             color: "transparent"
-            Layout.topMargin: 20
+            Layout.topMargin: Math.round(20 * s) //20
             Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
 
             Image {
@@ -116,22 +138,22 @@ Rectangle {
                 }
             }
 
-            font.pixelSize: settingsPopup.infoPixelsSize
+            font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
 
-            height: _isAndroid ? 80: 54
+            height: Math.round(80 * s) //_isAndroid ? 80: 54
             GridLayout.row: 1
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-            Layout.leftMargin: 20
+            Layout.leftMargin: Math.round(20 * s) //20
         }
 
         // view a file statement
         Rectangle {
             visible: !pulseRuntimeSettings.isRecordingKlf
-            width: _isAndroid ? 80: 54
-            height: _isAndroid ? 80: 54
-            Layout.preferredWidth: _isAndroid ? 80: 54
-            Layout.preferredHeight: _isAndroid ? 80: 54
+            width: Math.round(80 * s) //_isAndroid ? 80: 54
+            height: Math.round(80 * s) //_isAndroid ? 80: 54
+            Layout.preferredWidth: Math.round(80 * s) //_isAndroid ? 80: 54
+            Layout.preferredHeight: Math.round(80 * s) //_isAndroid ? 80: 54
             radius: 5
             GridLayout.row: 1
             GridLayout.column: 1
@@ -162,8 +184,8 @@ Rectangle {
             GridLayout.row: 1
             GridLayout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-            Layout.leftMargin: 20
-            Layout.minimumWidth: _isAndroid ? 400 : 270
+            Layout.leftMargin: Math.round(20 * s) //20
+            Layout.minimumWidth: Math.round(400 * s) //_isAndroid ? 400 : 270
             Layout.preferredWidth: Layout.minimumWidth
 
             RowLayout {
@@ -172,16 +194,16 @@ Rectangle {
 
                 Text {
                     text: qsTr("Wait - opening file ...")
-                    font.pixelSize: settingsPopup.infoPixelsSize
-                    height: _isAndroid ? 80: 54
-                    Layout.leftMargin: 20
+                    font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
+                    height: Math.round(80 * s) //_isAndroid ? 80: 54
+                    Layout.leftMargin: Math.round(20 * s) //20
                 }
 
                 Image {
                     id: iconToWait
                     source: "./icons/ui/pulse_waiting.svg"
-                    Layout.preferredWidth: _isAndroid ? 54 : 42
-                    Layout.preferredHeight: _isAndroid ? 54 : 42
+                    Layout.preferredWidth: Math.round(54 * s) //_isAndroid ? 54 : 42
+                    Layout.preferredHeight: Math.round(54 * s) //_isAndroid ? 54 : 42
                     fillMode: Image.PreserveAspectFit
                     //smooth: true
                 }
@@ -204,8 +226,8 @@ Rectangle {
             hoverEnabled: true
             GridLayout.row: 1
             GridLayout.column: 2
-            Layout.minimumWidth: _isAndroid ? 400: 270
-            Layout.preferredWidth: _isAndroid ? 400: 270
+            Layout.minimumWidth: Math.round(400 * s) //_isAndroid ? 400: 270
+            Layout.preferredWidth: Math.round(400 * s) //_isAndroid ? 400: 270
 
             text: pulseRuntimeSettings.klfFilePath
             placeholderText: qsTr("Enter path")
@@ -246,26 +268,27 @@ Rectangle {
         }
 
         Text {
-            //visible: pulseRuntimeSettings.wasKlfFileOpened
-            visible: false
-            text: "Reconnect"
+            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile
+            //visible: false
+            text: "Test format"
 
-            font.pixelSize: settingsPopup.infoPixelsSize
+            font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
 
-            height: _isAndroid ? 80: 54
+            height: Math.round(80 * s) //_isAndroid ? 80: 54
             GridLayout.row: 2
             GridLayout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-            Layout.leftMargin: 20
+            Layout.leftMargin: Math.round(20 * s) //20
         }
 
         Rectangle {
-            //visible: pulseRuntimeSettings.wasKlfFileOpened
-            visible: false
-            width: _isAndroid ? 80: 54
-            height: _isAndroid ? 80: 54
-            Layout.preferredWidth: _isAndroid ? 80: 54
-            Layout.preferredHeight: _isAndroid ? 80: 54
+            id: fileOpenedIcon
+            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile
+            //visible: false
+            width: Math.round(80 * s) //_isAndroid ? 80: 54
+            height: Math.round(80 * s) //_isAndroid ? 80: 54
+            Layout.preferredWidth: Math.round(80 * s) //_isAndroid ? 80: 54
+            Layout.preferredHeight: Math.round(80 * s) //_isAndroid ? 80: 54
             radius: 5
             GridLayout.row: 2
             GridLayout.column: 1
@@ -283,11 +306,87 @@ Rectangle {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    pulseRuntimeSettings.reconnectAfterLogView = true
+                    if (pulseRuntimeSettings.echogramCompensationFile === 0) {
+                        pulseRuntimeSettings.echogramCompensationFile = 1
+                        fileformatting.text = "(sidescan)"
+                    } else {
+                        pulseRuntimeSettings.echogramCompensationFile = 0
+                        fileformatting.text = "(raw)"
+                    }
+                    //pulseRuntimeSettings.reconnectAfterLogView = true
+                }
+            }
+
+        }
+
+        Text {
+            id: fileformatting
+            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile
+            //visible: false
+            text: "()"
+
+            font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
+
+            height: Math.round(80 * s) //_isAndroid ? 80: 54
+            GridLayout.row: 2
+            GridLayout.column: 0
+            anchors.left: fileOpenedIcon.right
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
+            Layout.leftMargin: Math.round(20 * s) //20
+        }
+
+        Connections {
+            target: pulseRuntimeSettings
+             function onEchogramCompensationFileChanged () {
+                if (pulseRuntimeSettings.echogramCompensationFile === 0) {
+                    fileformatting.text = "(raw)"
+                } else {
+                    fileformatting.text = "(sidescan)"
+                }
+             }
+        }
+
+        Component.onCompleted: {
+            if (pulseRuntimeSettings.echogramCompensationFile === 0) {
+                fileformatting.text = "(raw)"
+            } else {
+                fileformatting.text = "(sidescan)"
+            }
+        }
+
+        Connections {
+            target: core
+
+            function onSendIsFileOpening() {
+                if (core === null)
+                    return
+                let isFileOpening = core.getIsFileOpening()
+
+                if (isFileOpening) {
+                    console.log("FileOpening from recording, started")
+                } else {
+                    setCompenmsationTimer.start()
                 }
             }
         }
 
+        Timer {
+            id: setCompenmsationTimer
+            repeat: false
+            interval: 1000
+            onTriggered: {
+                console.log("FileOpening from recording completed, enforce compensation?")
+                if (pulseRuntimeSettings === null)
+                    return
+                if (pulseRuntimeSettings.is2DTransducer) {
+                    pulseRuntimeSettings.echogramCompensationFile = 0
+                    console.log("FileOpening from recording completed, enforce RAW")
+                } else {
+                    pulseRuntimeSettings.echogramCompensationFile = 1
+                    console.log("FileOpening from recording completed, enforce SIDE SCAN")
+                }
+            }
+        }
     }
 
 }
