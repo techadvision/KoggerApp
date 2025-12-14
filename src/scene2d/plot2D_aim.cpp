@@ -734,7 +734,9 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         // compute the world-space center under the crosshair
         const bool isSideScan  = cursor.channel1.isValid() && cursor.channel2.isValid();
         const bool isDualSS    = isSideScan && !isSideScan2DView_;
-        QPoint devPtForSolve = QPoint(cursor.mouseX, cursor.mouseY);
+
+        //QPoint devPtForSolve = QPoint(cursor.mouseX, cursor.mouseY);
+        QPoint devPtForSolve = cand_.crossDev;
 
         if (isDualSS) {
             devPtForSolve = devRotNeg90(devPtForSolve, canvas.width());
