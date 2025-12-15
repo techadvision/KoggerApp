@@ -1426,12 +1426,17 @@ WaterFall {
                 controleName: "echogramPlayPause"
                 checked: false
                 onStateChanged: {
-                    pulseRuntimeSettings.echogramPause = checked
                     if (checked) {
                         oldDataWarningRemovalTimer.stop()
                         oldDataIndicator.visible = false
                         pauseDataIndicator.visible = true
+                        if (pulseRuntimeSettings.is2DTransducer) {
+                            pulseRuntimeSettings.echogramSpeed = 1.0
+                        }
                     } else {
+                        if (pulseRuntimeSettings.is2DTransducer) {
+                            pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
+                        }
                         pauseDataIndicator.visible = false
                         let nowLive = plot.timelinePosition >= 0.999
                         if (!nowLive && !pulseRuntimeSettings.wasKlfFileOpened) {
@@ -1439,6 +1444,8 @@ WaterFall {
                             oldDataWarningRemovalTimer.start()
                         }
                     }
+                    // Let's pause AFTER we fix the settings
+                    pulseRuntimeSettings.echogramPause = checked
                 }
             }
             HorizontalCheckController {
