@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Echo.UI 1.0
 //import NMEASender 1.0
 
 
@@ -9,7 +10,21 @@ Flickable {
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
     // Platform related sizes
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(64 * s)
+    property int selectCheckSize: Math.round(48 * s)
+
+    /*
     property int controlIconSize: _isAndroid ? 34 : 20
     property int pressButtonSize: _isAndroid ? 80 : 40
     property int displayPixels:   _isAndroid ? 100 : 40
@@ -20,9 +35,10 @@ Flickable {
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
     property int infoPixelsSize:  _isAndroid ? 32 : 22
+    */
 
     focus: true
-    width: _isAndroid ? 900 : 600
+    width: Math.round(600 * s) //_isAndroid ? 900 : 600
 
     anchors.fill: parent
     flickableDirection: Flickable.VerticalFlick
@@ -30,7 +46,7 @@ Flickable {
     // Scrollbar always visible
     ScrollBar.vertical: ScrollBar {
         policy: ScrollBar.AlwaysOn
-        width: _isAndroid ? 16 : 12
+        width: Math.round(16 * s) //_isAndroid ? 16 : 12
     }
 
     //color: "white"
@@ -47,12 +63,12 @@ Flickable {
 
     Rectangle{
         id: spacer
-        width: settingsPopup._isAndroid ? 900 : 600
-        height: settingsPopup._isAndroid ? 20 : 13
+        width: Math.round(600 * s) //settingsPopup._isAndroid ? 900 : 600
+        height: Math.round(20 * s) //settingsPopup._isAndroid ? 20 : 13
     }
 
     ColumnLayout {
-        spacing: settingsPopup._isAndroid ? 20 : 13
+        spacing: Math.round(20 * s) //settingsPopup._isAndroid ? 20 : 13
         anchors.top: spacer.bottom
 
         //Category: Screen related settings
@@ -289,11 +305,11 @@ Flickable {
             show: pulseRuntimeSettings.showCatNmea
             Text {
                 text: "255.255.255.255 "
-                font.pixelSize: settingsPopup.infoPixelsSize
+                font.pixelSize: Ui.fontXL //settingsPopup.infoPixelsSize
                 color: "gray"
 
-                height: settingsPopup._isAndroid ? 80 : 54
-                Layout.preferredWidth: settingsPopup._isAndroid ? 280 : 190
+                height: Math.round(54 * s) //settingsPopup._isAndroid ? 80 : 54
+                Layout.preferredWidth: Math.round(280 * s) //settingsPopup._isAndroid ? 280 : 190
             }
         }
 
@@ -309,7 +325,7 @@ Flickable {
         }
 
         SettingRow {
-            text: "Supported autopilot position"
+            text: "Autopilot position"
             beta: true
             show: pulseRuntimeSettings.showCatPositionSource
             SettingsCheckBox {

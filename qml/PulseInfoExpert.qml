@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Echo.UI 1.0
 
 
 Flickable {
@@ -10,7 +11,20 @@ Flickable {
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
     // Platform related sizes
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Ui.fontXL//Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(64 * s)
+    property int selectCheckSize: Math.round(48 * s)
+    /*
     property int controlIconSize: _isAndroid ? 34 : 20
     property int pressButtonSize: _isAndroid ? 80 : 40
     property int displayPixels:   _isAndroid ? 100 : 40
@@ -20,6 +34,7 @@ Flickable {
     property int autoPixels:      _isAndroid ? 32 : 24
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
+    */
 
     focus: true
     width: _isAndroid ? 900 : 600
@@ -1262,7 +1277,7 @@ Flickable {
             text: "UUID serial"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: settingsPopup.valuePixels -14
+                font.pixelSize: Ui.fontM
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidUsbSerial)
                     return pulseRuntimeSettings.uuidUsbSerial
@@ -1275,7 +1290,7 @@ Flickable {
             text: "UUID wifi"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: settingsPopup.valuePixels -14
+                font.pixelSize: Ui.fontM
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidIpGateway)
                     return pulseRuntimeSettings.uuidIpGateway
@@ -1288,7 +1303,7 @@ Flickable {
             text: "UUID proxy"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
-                font.pixelSize: settingsPopup.valuePixels -14
+                font.pixelSize: Ui.fontM
                 text: {
                     console.log("pulseRuntimeSettings.uuidProxyLink", pulseRuntimeSettings.uuidProxyLink)
                     return pulseRuntimeSettings.uuidProxyLink

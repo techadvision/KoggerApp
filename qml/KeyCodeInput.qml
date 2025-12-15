@@ -1,13 +1,28 @@
 // KeyCodeInput.qml
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import Echo.UI 1.0
 
 Item {
     id: root
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
     // Platform related sizes
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(64 * s)
+    property int selectCheckSize: Math.round(48 * s)
+
+    /*
     property int controlIconSize: _isAndroid ? 34 : 20
     property int pressButtonSize: _isAndroid ? 80 : 40
     property int displayPixels:   _isAndroid ? 100 : 40
@@ -17,6 +32,7 @@ Item {
     property int autoPixels:      _isAndroid ? 32 : 24
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
+    */
 
 
     property bool editing: false
@@ -71,7 +87,7 @@ Item {
 
         TextField {
             id: textField
-            font.pixelSize: root.valuePixels
+            font.pixelSize: Ui.fontXL //root.valuePixels
 
             // Show the real key when editing; otherwise “not_set” masked
             text: editing
@@ -103,8 +119,8 @@ Item {
         Image {
             id: actionIcon
             source: editing ? "./icons/ui/pulse_save.svg" : "./icons/ui/pulse_edit.svg"
-            width: _isAndroid ? 64 : 28
-            height: _isAndroid ? 64 : 28
+            width: Math.round(64 * s) //_isAndroid ? 64 : 28
+            height: Math.round(64 * s) //_isAndroid ? 64 : 28
             fillMode: Image.PreserveAspectFit
 
             anchors.verticalCenter: textField.verticalCenter
@@ -131,8 +147,8 @@ Item {
         Image {
             id: betaUser
             source: "./icons/ui/pulse_beta_user.svg"
-            width: _isAndroid ? 64 : 28
-            height: _isAndroid ? 64 : 28
+            width: Ui.iconTouch //_isAndroid ? 64 : 28
+            height: Ui.iconTouch //_isAndroid ? 64 : 28
             fillMode: Image.PreserveAspectFit
             visible: pulseSettings.isBetaTester
 
@@ -145,8 +161,8 @@ Item {
         Image {
             id: expertUser
             source: "./icons/ui/pulse_guru_user.svg"
-            width: _isAndroid ? 64 : 28
-            height: _isAndroid ? 64 : 28
+            width: Ui.iconTouch //_isAndroid ? 64 : 28
+            height: Ui.iconTouch //_isAndroid ? 64 : 28
             fillMode: Image.PreserveAspectFit
             visible: pulseSettings.isExpert
 

@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import Echo.UI 1.0
 
 // Reusable CheckBox with custom indicator, background and optional auto-clear timer
 CheckBox {
@@ -7,9 +8,11 @@ CheckBox {
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
 
-    implicitWidth: _isAndroid ? 54 : 32
-    implicitHeight: _isAndroid ? 54 : 32
+    implicitWidth: Ui.iconTouch //Math.round(54 * s) //_isAndroid ? 54 : 32
+    implicitHeight: Ui.iconTouch //Math.round(54 * s) //_isAndroid ? 54 : 32
 
     // Bind this to your model or initial state
     property bool initialChecked: false
@@ -27,6 +30,7 @@ CheckBox {
     // Custom white background with subtle border
     background: Rectangle {
         anchors.fill: parent
+        anchors.left: parent.left
         color: "white"
         radius: 4
         border.width: 1
@@ -36,6 +40,7 @@ CheckBox {
     // Custom large check indicator
     indicator: Item {
         anchors.fill: parent
+        anchors.left: parent.left
         Canvas {
             id: indicatorCanvas
             anchors.fill: parent

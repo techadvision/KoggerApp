@@ -1,13 +1,29 @@
-    import QtQuick 2.15
+import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Echo.UI 1.0
 
 Flickable {
     id: root
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
+
     // Platform related sizes
+    property int controlIconSize: Math.round(24 * s)
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(60 * s)
+    property int valueTextHeigh:  Math.round(40 * s)
+    property int valuePixels:     Math.round(42 * s)
+    property int autoPixels:      Math.round(32 * s)
+    property int selectIconSize:  Math.round(64 * s)
+    property int selectCheckSize: Math.round(48 * s)
+
+    /*
     property int controlIconSize: _isAndroid ? 34 : 20
     property int pressButtonSize: _isAndroid ? 80 : 40
     property int displayPixels:   _isAndroid ? 100 : 40
@@ -18,9 +34,10 @@ Flickable {
     property int selectIconSize:  _isAndroid ? 80 : 60
     property int selectCheckSize: _isAndroid ? 56 : 40
     property int infoPixelsSize:  _isAndroid ? 32 : 22
+    */
 
     focus: true
-    width: _isAndroid ? 900 : 600
+    width: Math.round(900 * s) //_isAndroid ? 900 : 600
 
 
     // Make the Flickable scrollable vertically
@@ -66,18 +83,18 @@ Flickable {
     // ——————————————————————————————————————————————————————————
     Column {
         id: rightColumn
-        spacing: 20
+        spacing: Math.round(20 * s)//20
 
         // Anchor the top of this column to the top of appIcon,
         // and place it immediately to the right of appIcon.
         anchors.top: appIcon.top
         anchors.left: appIcon.right
-        anchors.leftMargin: 20
+        anchors.leftMargin: Math.round(20 * s)//20
 
         // Make the column take the rest of the Flickable’s width,
         // accounting for the 10px left margin of appIcon + 20px gap + 10px right margin.
         // (You can tweak these margins as needed.)
-        width: root.width - appIcon.width - 40
+        width: root.width - appIcon.width - Math.round(40 * s)//40
 
         // ——————————————————————————————
         // 0) App icon
@@ -85,7 +102,7 @@ Flickable {
         Rectangle {
             id: appIconRect
             width: parent.width
-            height: _isAndroid ? 135 : 90
+            height: Math.round(135 * s)//_isAndroid ? 135 : 90
             color: "transparent"
             radius: 4
             anchors.topMargin: 20
@@ -94,8 +111,8 @@ Flickable {
             Image {
                 id: appIconImage
                 source: "./image/logo_icon.png"
-                height: _isAndroid ? 125 : 80
-                width: _isAndroid ? 125 : 80
+                height: Math.round(125 * s)//_isAndroid ? 125 : 80
+                width: Math.round(125 * s)//_isAndroid ? 125 : 80
                 fillMode: Image.PreserveAspectFit
                 anchors.top: parent.top
                 anchors.left: parent.left
@@ -119,7 +136,7 @@ Flickable {
                 id: appNameText
                 text: loadVersion()           // still calls your loadVersion() function
                 font.bold: true
-                font.pixelSize: root.infoPixelsSize
+                font.pixelSize: Ui.fontXL// root.infoPixelsSize
                 anchors.top: appIconRect.bottom
                 anchors.left: parent.left
                 anchors.leftMargin: 5
@@ -139,7 +156,7 @@ Flickable {
                         deviceContent.visible ? deviceContent.implicitHeight : 0,
                         noDeviceText.visible ? noDeviceText.implicitHeight : 0
                     ) + 10
-            anchors.topMargin: 20
+            anchors.topMargin: Math.round(20 * s)//20
             color: "transparent"
             radius: 4
 
@@ -154,7 +171,7 @@ Flickable {
                         return "Showing content rendered as"
                     return "Connected to:"
                 }
-                font.pixelSize: root.infoPixelsSize
+                font.pixelSize: Ui.fontXL// root.infoPixelsSize
                 anchors.top: appNameRect.bottom
                 anchors.left: parent.left
                 anchors.leftMargin: 5
@@ -174,7 +191,7 @@ Flickable {
                     id: deviceLogo
                     source: pulseRuntimeSettings.is2DTransducer ? "./image/pulse_logo_red.png" : "./image/pulse_logo_blue.png"
                     fillMode: Image.PreserveAspectFit
-                    width: 245
+                    width: Math.round(245 * s)//245
 
                 }
 
@@ -184,7 +201,7 @@ Flickable {
                     source: "./image/pulse_logo_black.png"
                     anchors.verticalCenter: deviceLogo.verticalCenter
                     fillMode: Image.PreserveAspectFit
-                    width: 270
+                    width: Math.round(270 * s)//270
                 }
 
                 // Beta badge (only when beta)
@@ -234,9 +251,9 @@ Flickable {
                         }
                     }
                 }
-                font.pixelSize: root.infoPixelsSize
+                font.pixelSize: Ui.fontXL// root.infoPixelsSize
                 anchors.top: deviceNameRect.bottom
-                anchors.topMargin: 20
+                anchors.topMargin: Math.round(20 * s)//20
                 anchors.left: parent.left
                 anchors.leftMargin: 5
             }
@@ -252,19 +269,19 @@ Flickable {
             Text {
                 id: reconnectText
                 text: "Try reconnect?"
-                font.pixelSize: root.infoPixelsSize
+                font.pixelSize: Ui.fontXL// root.infoPixelsSize
                 anchors.left: parent.left
-                anchors.topMargin: 20
+                anchors.topMargin: Math.round(20 * s)//20
                 anchors.leftMargin: 5
             }
 
             Image {
                 id: iconReconnect
                 source: "./icons/ui/pulse_reconnect.svg"
-                width: _isAndroid ? 80: 54
-                height: _isAndroid ? 80: 54
+                width: Ui.iconTouch//_isAndroid ? 80: 54
+                height: Ui.iconTouch//_isAndroid ? 80: 54
                 anchors.left: reconnectText.right
-                anchors.leftMargin: 10
+                anchors.leftMargin: Math.round(10 * s)//10
                 anchors.top: reconnectText.top
                 anchors.bottom: reconnectText.bottom
                 fillMode: Image.PreserveAspectFit

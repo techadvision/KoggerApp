@@ -1,17 +1,28 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Echo.UI 1.0
 
 Item {
     id: root
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
     // Platform related sizes
+    property int pressButtonSize: Math.round(56 * s)
+    property int displayPixels:   Math.round(60 * s)
+    property int valueTextWidth:  Math.round(120 * s)
+    property int valuePixels:     Math.round(42 * s)
+
+    /*
     property int pressButtonSize: _isAndroid ? 54 : 32
     property int displayPixels:   _isAndroid ? 80 : 40
     property int valueTextWidth:  _isAndroid ? 120 : 80
     property int valuePixels:     _isAndroid ? 30 : 22
+    */
 
 
     property var values: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
@@ -19,8 +30,8 @@ Item {
 
     signal pulsePreferenceValueChanged(double newValue)
 
-    implicitWidth: _isAndroid ? 280 : 180
-    implicitHeight: _isAndroid ? 54 : 32
+    implicitWidth: Math.round(280 * s) //_isAndroid ? 280 : 180
+    implicitHeight: Math.round(54 * s) //_isAndroid ? 54 : 32
     //implicitHeight: _isAndroid ? 80 : 54
 
     onCurrentIndexChanged: {
@@ -114,7 +125,7 @@ Item {
             Text {
                 id: valueDisplay
                 text: root.values[root.currentIndex]
-                font.pixelSize: root.valuePixels
+                font.pixelSize: Ui.fontXL //root.valuePixels
                 anchors.centerIn: parent
             }
         }

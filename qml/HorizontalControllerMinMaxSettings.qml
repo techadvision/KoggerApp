@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Echo.UI 1.0
 
 Item {
     id: root
@@ -8,11 +9,20 @@ Item {
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
+    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
+    readonly property real s: Ui.scale * platformScale
+
     // Platform related sizes
+    property int pressButtonSize: Math.round(54 * s)
+    property int displayPixels:   Math.round(80 * s)
+    property int valueTextWidth:  Math.round(120 * s)
+    property int valuePixels:     Math.round(30 * s)
+    /*
     property int pressButtonSize: _isAndroid ? 54 : 32
     property int displayPixels:   _isAndroid ? 80 : 40
     property int valueTextWidth:  _isAndroid ? 120 : 80
     property int valuePixels:     _isAndroid ? 30 : 22
+    */
 
     // Range and step properties
     property double minimum: 0.0
@@ -24,8 +34,8 @@ Item {
 
     signal pulsePreferenceValueChanged(double newValue)
 
-    implicitWidth: _isAndroid ? 280 : 180
-    implicitHeight: _isAndroid? 54 : 32
+    implicitWidth: Math.round(280 * s) //_isAndroid ? 280 : 180
+    implicitHeight: Math.round(54 * s) //_isAndroid? 54 : 32
     //implicitHeight: _isAndroid? 80 : 54
 
     // Recompute precision if stepSize changes
@@ -35,9 +45,11 @@ Item {
     onCurrentValueChanged: pulsePreferenceValueChanged(currentValue)
 
     Row {
-        anchors.fill: parent
+        //anchors.fill: parent
+        anchors.left: parent.left
         width: parent.width
         height: parent.height
+
         //height: root._isAndroid ? 80 : 54
 
         // Minus button
