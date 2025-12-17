@@ -268,7 +268,7 @@ Rectangle {
         }
 
         Text {
-            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile
+            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile && pulseSettings.isExpert
             //visible: false
             text: "Test format"
 
@@ -283,7 +283,7 @@ Rectangle {
 
         Rectangle {
             id: fileOpenedIcon
-            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile
+            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile && pulseSettings.isExpert
             //visible: false
             width: Math.round(80 * s) //_isAndroid ? 80: 54
             height: Math.round(80 * s) //_isAndroid ? 80: 54
@@ -321,7 +321,7 @@ Rectangle {
 
         Text {
             id: fileformatting
-            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile
+            visible: pulseRuntimeSettings.wasKlfFileOpened && !pulseRuntimeSettings.isOpeningKlfFile && pulseSettings.isExpert
             //visible: false
             text: "()"
 
