@@ -852,6 +852,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         if (onAdd && cand_.haveTarget) {
             static UdpBroadcaster g_udp;
 
+            /*
             // Possibly also an image
             if (!cand_.zoomTile.isNull()) {
                 QByteArray pngBytes;
@@ -894,6 +895,41 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 std::isfinite(cand_.depth) ? cand_.depth : NAN,
                 cand_.model, "Pulse"
                 );
+            */
+            // Build data to be sent by UDP
+            QByteArray snapshotB64;
+
+            // Also send a tile?
+            if (!cand_.zoomTile.isNull()) {
+                QByteArray pngBytes;
+                QBuffer buffer(&pngBytes);
+                buffer.open(QIODevice::WriteOnly);
+
+                if (cand_.zoomTile.save(&buffer, "PNG")) {
+                    buffer.close();
+                    snapshotB64 = pngBytes.toBase64();   // may be ~10–20 KB; fine for UDP
+                    qDebug() << "AddWaypoint: encoded zoom PNG, size =" << pngBytes.size()
+                             << "bytes, b64 size =" << snapshotB64.size() << "bytes";
+                } else {
+                    buffer.close();
+                    qDebug() << "AddWaypoint: failed to encode zoom PNG";
+                }
+            } else {
+                qDebug() << "AddWaypoint: no zoom tile available; sending waypoint without snapshot";
+            }
+
+            // --- Single JSON send, with or without snapshot ---
+            g_udp.sendJsonPointWithSnapshot(
+                 cand_.lat,
+                 cand_.lon,
+                 std::isfinite(cand_.depth) ? cand_.depth : NAN,
+                 cand_.model,
+                 "Pulse",
+                 snapshotB64
+            );
+
+
+            // Clear candidate
             cand_.active = false;
             cand_.haveTarget = false;
             cand_.anchorDev = QPoint(-1, -1);
