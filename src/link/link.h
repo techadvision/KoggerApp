@@ -21,6 +21,7 @@
 #include "link_defs.h"
 #include "proto_binnary.h"
 
+#include <QMutex>
 #include <QVariantMap>
 class SettingsBus;
 
@@ -35,6 +36,7 @@ public:
     //PULSE
     void setSettingsBus(SettingsBus* bus);
     void applyRuntime(const QVariantMap& m);
+    bool mavlinkPeer(QHostAddress& addr, qint64& seenMs) const;
 
     void createAsSerial(const QString& portName, int baudrate, bool parity);
     void openAsSerial();
@@ -108,6 +110,8 @@ signals:
     void sendDoRequestAll(QUuid uuid);
     void upgradingFirmwareStateChanged(QUuid uuid);
     void dataReady(QByteArray data);
+    //Pulse
+    void mavlinkPeerChanged(const QHostAddress& addr, qint64 seenMs);
 
 private slots:
     void onCheckedTimerEnd();
@@ -118,6 +122,9 @@ private:
     void deleteDev();
     void toParser(const QByteArray data);
     void resetLastSearchIndx();
+    //Pulse
+    bool isMavlinkProxyLink() const;
+    void updateMavlinkPeer(const QHostAddress& addr);
 
     /*data*/
     QPointer<QIODevice> ioDevice_;
@@ -156,6 +163,10 @@ private:
     QString uuidIpGateway_   = "{2ad43efc-61d1-4321-a925-a8e0cd188ca2}";
     QString uuidUsbSerial_   = "{2ad43efc-0000-4321-a925-a8e0cd188cd0}";
     QString uuidOpenedLast_;
+    mutable QMutex mavPeerMx_;
+    QHostAddress mavPeerAddr_;
+    qint64 mavPeerSeenMs_ = 0;
+    qint64 mavPeerLastEmitMs_ = 0;
 
 private slots:
     void readyRead();

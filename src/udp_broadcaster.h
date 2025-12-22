@@ -13,11 +13,26 @@
 class UdpBroadcaster : public QObject {
     Q_OBJECT
 public:
-    explicit UdpBroadcaster(QObject* parent=nullptr)
-        : QObject(parent)
+    static UdpBroadcaster& instance() {
+        static UdpBroadcaster inst; // lives for the app lifetime
+        return inst;
+    }
+
+    UdpBroadcaster(const UdpBroadcaster&) = delete;
+    UdpBroadcaster& operator=(const UdpBroadcaster&) = delete;
+
+    void setMavlinkPeer(const QString& ip, qint64 seenMs)
     {
-        // TTL 1 keeps it on the LAN; harmless if the platform ignores it.
-        //socket_.setSocketOption(QAbstractSocket::BroadcastTtlOption, 1);
+        qDebug() << "AddWaypoint: setMavlinkPeer triggered with address" << ip << ", mavPeerAddr_ was before" << mavPeerAddr_;
+        QHostAddress a;
+        if (!ip.isEmpty() && a.setAddress(ip) && a.protocol() == QAbstractSocket::IPv4Protocol) {
+            mavPeerAddr_ = a;
+            mavPeerSeenMs_ = seenMs;
+        } else {
+            mavPeerAddr_.clear();
+            mavPeerSeenMs_ = 0;
+        }
+        qDebug() << "AddWaypoint: setMavlinkPeer: mavPeerAddr_ is now" << mavPeerAddr_;
     }
 
     bool sendJsonPointWithSnapshot(double lat, double lon, double depth_m,
@@ -53,7 +68,7 @@ public:
         }
 
         payload += "}";
-        return broadcast(payload, port);
+        return broadcastWaypoint(payload, port);
     }
 
 
@@ -85,7 +100,7 @@ public:
         payload += ",\"ts_unix_ms\":" + QByteArray::number(QDateTime::currentMSecsSinceEpoch());
         payload += "}";
         qDebug() << "AddWaypoint: udp_broadcaster sendJsonPoint completed";
-        return broadcast(payload, port);
+        return broadcastWaypoint(payload, port);
     }
 
 
@@ -134,14 +149,19 @@ public:
     }
 
 private:
+    explicit UdpBroadcaster(QObject* parent=nullptr) : QObject(parent) {}
+    //Data
     QUdpSocket socket_;
+    QHostAddress mavPeerAddr_;
+    qint64 mavPeerSeenMs_ = 0;
 
+    //Methods
     static void toNmeaLat(double lat, QByteArray& field, QByteArray& hem) {
         hem = (lat < 0) ? "S" : "N";
         double alat = std::abs(lat);
         int deg = int(alat);
         double minutes = (alat - deg) * 60.0;
-        field = QString::asprintf("%02d%06.3f", deg, minutes).toUtf8(); // ddmm.mmm
+        field = QString::asprintf("%03d%06.3f", deg, minutes).toUtf8();
     }
 
     static void toNmeaLon(double lon, QByteArray& field, QByteArray& hem) {
@@ -149,7 +169,7 @@ private:
         double alon = std::abs(lon);
         int deg = int(alon);
         double minutes = (alon - deg) * 60.0;
-        field = QString::asprintf("%02d%06.3f", deg, minutes).toUtf8(); // ddmm.mmm
+        field = QString::asprintf("%03d%06.3f", deg, minutes).toUtf8();
     }
 
     static void appendChecksum(QByteArray& sentence) {
@@ -172,6 +192,115 @@ private:
         }
         return out;
     }
+
+    static bool isUsableInterface(const QNetworkInterface& iface) {
+        const auto f = iface.flags();
+        if (!(f & QNetworkInterface::IsUp)) return false;
+        if (!(f & QNetworkInterface::IsRunning)) return false;
+        if (f & QNetworkInterface::IsLoopBack) return false;
+        return true;
+    }
+
+    // Pick a single target:
+    // 1) directed broadcast of a usable IPv4 interface (preferred)
+    // 2) 255.255.255.255 if we have IPv4 but no broadcast (fallback)
+    // 3) 127.0.0.1 if we have no usable IPv4 interface
+    static QHostAddress pickSingleTarget() {
+        bool sawUsableIpv4 = false;
+
+        const auto ifaces = QNetworkInterface::allInterfaces();
+        for (const auto& iface : ifaces) {
+            if (!isUsableInterface(iface)) continue;
+
+            for (const auto& entry : iface.addressEntries()) {
+                if (entry.ip().protocol() != QAbstractSocket::IPv4Protocol) continue;
+                // Skip link-local 169.254.x.x (usually not helpful here)
+                if (entry.ip().isInSubnet(QHostAddress("169.254.0.0"), 16)) continue;
+
+                sawUsableIpv4 = true;
+
+                // Prefer directed broadcast if available
+                const QHostAddress bc = entry.broadcast();
+                if (!bc.isNull() && bc.protocol() == QAbstractSocket::IPv4Protocol) {
+                    return bc;
+                }
+            }
+        }
+
+        if (sawUsableIpv4) {
+            // We have IPv4, but no directed broadcast found (rare, but happens).
+            return QHostAddress::Broadcast; // 255.255.255.255
+        }
+
+        // No usable IPv4 network -> same-device only
+        return QHostAddress::LocalHost; // 127.0.0.1
+    }
+
+    bool broadcastWaypoint(const QByteArray& payload, quint16 port)
+    {
+        if (payload.isEmpty()) return false;
+
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const bool peerFresh = !mavPeerAddr_.isNull() && (now - mavPeerSeenMs_) < 15000; // 15s
+        qDebug () << "AddWaypoint: broadcastWaypoint: mavPeerAddr_ is" << mavPeerAddr_ << "and mavPeerSeenMs_ is" << mavPeerSeenMs_ << "while now - mavPeerSeenMs_=" << now - mavPeerSeenMs_;
+
+        QHostAddress dst;
+
+        if (peerFresh) {
+            // If peer is this device, localhost is the most reliable path for split screen.
+            const auto selfIps = selfUnicastIPv4s();
+            const bool isSelf = selfIps.contains(mavPeerAddr_);
+            dst = isSelf ? QHostAddress::LocalHost : mavPeerAddr_;
+        } else {
+            // Fallback: one destination only.
+            const auto bcasts = collectBroadcasts();
+            if (!bcasts.isEmpty()) dst = bcasts.first();          // e.g. 192.168.x.255
+            else dst = QHostAddress::LocalHost;                   // no network -> same-device
+            // If you really prefer 255.255.255.255 when network exists, swap first() with QHostAddress::Broadcast.
+        }
+
+        const qint64 sent = socket_.writeDatagram(payload, dst, port);
+        const bool ok = (sent == payload.size());
+
+        if (!ok) {
+            qDebug() << "AddWaypoint: UDP send failed to" << dst.toString() << ":" << port
+                     << "sent=" << sent << "of" << payload.size()
+                     << "err=" << socket_.errorString();
+        } else {
+            qDebug() << "AddWaypoint: dst =" << dst.toString() << "peerFresh=" << peerFresh;
+        }
+
+        return ok;
+    }
+
+    /*
+    bool broadcastWaypoint(const QByteArray& payload, quint16 port) {
+        if (payload.isEmpty()) {
+            qDebug() << "AddWaypoint: broadcast - payload empty";
+            return false;
+        }
+
+        const QHostAddress target = pickSingleTarget();
+
+        const qint64 sent = socket_.writeDatagram(payload, target, port);
+        const bool ok = (sent == payload.size());
+
+        if (!ok) {
+            qDebug() << "AddWaypoint: UDP send failed"
+                     << "sent=" << sent
+                     << "of=" << payload.size()
+                     << "to" << target.toString() << ":" << port
+                     << "err=" << socket_.errorString();
+        } else {
+            qDebug() << "AddWaypoint: UDP send"
+                     << sent << "bytes to" << target.toString() << ":" << port;
+        }
+
+        return ok;
+    }
+    */
+
+
 
     // Broadcast the payload to all IPv4 broadcast addresses + 255.255.255.255.
     bool broadcast(const QByteArray& payload, quint16 port) {

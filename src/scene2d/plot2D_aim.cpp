@@ -803,7 +803,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
     //Handle the user taps on screen and on the zoom square and its buttons when box is shown
     if (cand_.active && hasTap_) {
-        qDebug() << "AddWaypoint: plot2D_aim: Some tap registered";
+        //qDebug() << "AddWaypoint: plot2D_aim: Some tap registered";
 
         // Always compute current tap in device space here (don’t trust earlier scope)
         QPoint tapDevLocal(cursor.mouseX, cursor.mouseY);
@@ -850,7 +850,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
         //Add a waypoint button
         if (onAdd && cand_.haveTarget) {
-            static UdpBroadcaster g_udp;
+            //static UdpBroadcaster g_udp;
 
             /*
             // Possibly also an image
@@ -918,7 +918,8 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 qDebug() << "AddWaypoint: no zoom tile available; sending waypoint without snapshot";
             }
 
-            // --- Single JSON send, with or without snapshot ---
+            // --- Single JSON send, with snapshot ---
+            /*
             g_udp.sendJsonPointWithSnapshot(
                  cand_.lat,
                  cand_.lon,
@@ -927,6 +928,26 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                  "Pulse",
                  snapshotB64
             );
+            */
+            // --- Single JSON send, with snapshot ---
+
+            UdpBroadcaster::instance().sendJsonPoint(
+                cand_.lat,
+                cand_.lon,
+                std::isfinite(cand_.depth) ? cand_.depth : NAN,
+                cand_.model,
+                "Pulse"
+            );
+
+            /*
+            g_udp.sendJsonPoint(
+                cand_.lat,
+                cand_.lon,
+                std::isfinite(cand_.depth) ? cand_.depth : NAN,
+                cand_.model,
+                "Pulse"
+            );
+            */
 
 
             // Clear candidate

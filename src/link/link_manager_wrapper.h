@@ -31,6 +31,12 @@ public:
     QHash<QUuid, QString> getLinkNames() const;
     void openClosedLinks();
     QVariant baudrateModel() const;
+    //Pulse
+    Q_PROPERTY(QString mavlinkPeerIp READ mavlinkPeerIp NOTIFY mavlinkPeerChanged)
+    Q_PROPERTY(qint64 mavlinkPeerSeenMs READ mavlinkPeerSeenMs NOTIFY mavlinkPeerChanged)
+    QString mavlinkPeerIp() const { return mavlinkPeerIp_; }
+    qint64 mavlinkPeerSeenMs() const { return mavlinkPeerSeenMs_; }
+
 
 public slots:
     void openAsSerial(QUuid uuid, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
@@ -82,6 +88,8 @@ signals:
     void sendOpenFLinks();
     void sendCreateAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort);
     void sendCloseUdpProxy();
+    //Pulse
+    void mavlinkPeerChanged();
 
 private:
     /*data*/
@@ -89,4 +97,7 @@ private:
     std::unique_ptr<LinkManager> workerObject_;
     LinkListModel model_;
     QList<QPair<QUuid, LinkType>> forceClosedLinks_;
+    //Pulse
+    QString mavlinkPeerIp_;
+    qint64 mavlinkPeerSeenMs_ = 0;
 };

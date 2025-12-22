@@ -47,6 +47,14 @@ LinkManagerWrapper::LinkManagerWrapper(QObject* parent) : QObject(parent)
                 }
         }, Qt::QueuedConnection);
     }, connectionType);
+    //Pulse
+    QObject::connect(workerObject_.get(), &LinkManager::mavlinkPeerUpdated,
+                     this, [this](const QString& ip, qint64 seenMs) {
+                         const bool changed = (ip != mavlinkPeerIp_) || (seenMs != mavlinkPeerSeenMs_);
+                         mavlinkPeerIp_ = ip;
+                         mavlinkPeerSeenMs_ = seenMs;
+                         if (changed) emit mavlinkPeerChanged();
+                     }, connectionType);
 
     workerObject_->moveToThread(workerThread_.get());
     workerThread_->setObjectName("LinkThread");

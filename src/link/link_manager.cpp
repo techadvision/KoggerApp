@@ -373,7 +373,7 @@ void LinkManager::handleLinkOpened(QUuid uuid, Link* link)
         uuidUsbSerial_ = uuid.toString(QUuid::WithBraces);
         qDebug() << "LinkManager::handleLinkOpened - serial opened, keep track of serial uuid" << uuidUsbSerial_;
     }
-    if (link->getLinkType() == LinkType::kLinkIPUDP) {
+    if (link->getLinkType() == LinkType::kLinkIPUDP && !link->getIsProxy()) {
         uuidIpGateway_ = uuid.toString(QUuid::WithBraces);
         qDebug() << "LinkManager::handleLinkOpened - UDP opened, keep track of UDP uuid" << uuidIpGateway_;
     }
@@ -432,12 +432,17 @@ QString LinkManager::getAndroidGatewayIP()
     if (isBetaTester_) {
         allowed = ip.startsWith("192.168.10.") ||
                   ip.startsWith("192.168.2.");
-    }
+    } else
     if (isExpert_) {
         allowed = ip.startsWith("192.168.10.")  ||
                   ip.startsWith("192.168.2.")   ||
                   ip.startsWith("192.168.144.") ||
                   ip.startsWith("10.0.0.");
+        if (ip.startsWith("192.168.144."))
+            ip = "192.168.144.31";
+    } else {
+        allowed = ip.startsWith("192.168.10.")  ||
+                  ip.startsWith("192.168.144.");
         if (ip.startsWith("192.168.144."))
             ip = "192.168.144.31";
     }
@@ -1094,6 +1099,17 @@ void LinkManager::createAndOpenAsUdpProxy(QString address, int sourcePort, int d
                               Qt::QueuedConnection,
                               Q_ARG(QVariantMap, m));
 
+    QObject::connect(newLinkPtr, &Link::mavlinkPeerChanged,
+                     this, [this](const QHostAddress& addr, qint64 seenMs) {
+                         const QString ip = addr.toString();
+                         if (seenMs != mavlinkPeerSeenMs_) {
+                         //if (ip != mavlinkPeerIp_ || seenMs != mavlinkPeerSeenMs_) {
+                             mavlinkPeerIp_ = ip;
+                             mavlinkPeerSeenMs_ = seenMs;
+                             emit mavlinkPeerUpdated(mavlinkPeerIp_, mavlinkPeerSeenMs_);
+                         }
+                     }, Qt::UniqueConnection);
+
     newLinkPtr->openAsUdp();
 }
 
@@ -1106,6 +1122,10 @@ void LinkManager::closeUdpProxy()
     deleteLink(proxyLinkUuid_);
     proxyLinkUuid_ = QUuid();
     uuidProxyLink_ = proxyLinkUuid_.toString();
+
+    mavlinkPeerIp_.clear();
+    mavlinkPeerSeenMs_ = 0;
+    emit mavlinkPeerUpdated(mavlinkPeerIp_, mavlinkPeerSeenMs_);
 
     QVariantMap m;
     if (!uuidProxyLink_.isEmpty())  m.insert("uuidProxyLink",  uuidProxyLink_);

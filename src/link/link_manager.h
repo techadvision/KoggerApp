@@ -79,6 +79,8 @@ signals:
     void linkOpened(QUuid uuid, Link* link);
     void linkDeleted(QUuid uuid, Link* link);
     void sendDoRequestAll(QUuid uuid);
+    //Pulse
+    void mavlinkPeerUpdated(const QString& ip, qint64 seenMs);
 
 private:
     /*structures*/
@@ -119,4 +121,6 @@ private:
     QString uuidProxyLink_ = "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}";
     QString uuidSuccessfullyOpened_ = "";
     int     usbSerialBaud_ = 921600;
+    QString mavlinkPeerIp_;
+    qint64 mavlinkPeerSeenMs_ = 0;
 };

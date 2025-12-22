@@ -4,6 +4,7 @@
 #include "SettingsBus.h"
 #include <QVariantMap>
 #include <QDebug>
+#include <QDateTime>
 
 Link::Link()
     : ioDevice_(nullptr),
@@ -716,6 +717,52 @@ void Link::resetLastSearchIndx()
     lastSearchIndx_ = 0;
 }
 
+// Pulse
+bool Link::isMavlinkProxyLink() const
+{
+    return linkType_ == LinkType::kLinkIPUDP
+           && isProxy_
+           && sourcePort_ == 14569
+           && destinationPort_ == 14568;
+}
+
+bool Link::mavlinkPeer(QHostAddress& addr, qint64& seenMs) const
+{
+    QMutexLocker lk(&mavPeerMx_);
+    if (mavPeerAddr_.isNull()) return false;
+    addr = mavPeerAddr_;
+    seenMs = mavPeerSeenMs_;
+    return true;
+}
+
+void Link::updateMavlinkPeer(const QHostAddress& addr)
+{
+    if (addr.isNull()) return;
+    if (addr.protocol() != QAbstractSocket::IPv4Protocol) return;
+
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    bool shouldEmit = false;
+
+    {
+        QMutexLocker lk(&mavPeerMx_);
+
+        const bool addrChanged = (addr != mavPeerAddr_);
+        mavPeerAddr_ = addr;
+        mavPeerSeenMs_ = now;
+
+        // Emit on change OR periodically to refresh downstream timestamp
+        if (addrChanged || (now - mavPeerLastEmitMs_ >= 1000)) {
+            mavPeerLastEmitMs_ = now;
+            shouldEmit = true;
+        }
+    }
+
+    if (shouldEmit) {
+        emit mavlinkPeerChanged(addr, now);
+    }
+}
+// Pulse above
+
 void Link::readyRead()
 {
     auto dev = ioDevice_;
@@ -735,6 +782,11 @@ void Link::readyRead()
             qint64 slen = socsUdp->readDatagram(datagram.data(), datagram.size(), &sender, &senderPort);
             if (slen == -1)
                 break;
+
+            if (isMavlinkProxyLink()) {
+                updateMavlinkPeer(sender);
+            }
+
             if(attribute_ == LinkAttribute::kLinkAttributeNone) {
                 toParser(datagram);
             } else {

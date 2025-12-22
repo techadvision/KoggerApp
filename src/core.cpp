@@ -4,6 +4,7 @@
 #include <ctime>
 #include "bottom_track.h"
 #include "hotkeys_manager.h"
+#include "udp_broadcaster.h"
 #ifdef Q_OS_WINDOWS
 #include <Windows.h>
 #endif
@@ -1649,6 +1650,17 @@ void Core::createLinkManagerConnections()
                                                                                                                                  }, linkManagerConnection));
 
     linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::sendDoRequestAll, deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onSendRequestAll, linkManagerConnection));
+
+    auto& udp = UdpBroadcaster::instance();
+
+    linkManagerWrapperConnections_.append(QObject::connect(
+        linkManagerWrapperPtr_->getWorker(), &LinkManager::mavlinkPeerUpdated,
+        &udp,
+        [&udp](const QString& ip, qint64 seenMs) {
+            udp.setMavlinkPeer(ip, seenMs);
+        },
+        Qt::QueuedConnection
+        ));
 }
 
 void Core::removeLinkManagerConnections()
