@@ -1692,6 +1692,7 @@ WaterFall {
                             setPulseBlueEcoViewOnAppStart.start()
                         }
                     }
+
                     function onEchogramCompensationFileChanged () {
                         let newCompensation = pulseRuntimeSettings.echogramCompensationFile
                         console.log("FileOpening plotEchogramCompensation(newCompensation) using value", newCompensation)
