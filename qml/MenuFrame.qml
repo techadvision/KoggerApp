@@ -20,7 +20,29 @@ Item {
     property bool isDraggable: false
     property bool isOpacityControlled: false
     property real offOpacity: 0.5
-    property bool isHovered: false
+    property bool isHovered: hoverHandler.hovered
+    property bool anchorsReleasedForDrag: false
+
+    function releaseAnchorsForDrag() {
+        if (anchorsReleasedForDrag || !control.parent) {
+            return
+        }
+
+        var p = control.mapToItem(control.parent, 0, 0)
+
+        control.anchors.left = undefined
+        control.anchors.right = undefined
+        control.anchors.top = undefined
+        control.anchors.bottom = undefined
+        control.anchors.horizontalCenter = undefined
+        control.anchors.verticalCenter = undefined
+        control.anchors.fill = undefined
+        control.anchors.centerIn = undefined
+
+        control.x = p.x
+        control.y = p.y
+        anchorsReleasedForDrag = true
+    }
 
     Rectangle {
         id: backgroundRect
@@ -37,12 +59,17 @@ Item {
     MouseArea {
         id: mouseDragArea
         propagateComposedEvents: true
-        anchors.fill: columnItem
-        onPressed: mouse.accepted = true
-        onReleased: mouse.accepted = true
-        onClicked: mouse.accepted = true
+        anchors.fill: backgroundRect
+        onPressed:  function(mouse) {
+            if (isDraggable) {
+                control.releaseAnchorsForDrag()
+            }
+            mouse.accepted = true
+        }
+        onReleased: function(mouse) { mouse.accepted = true }
+        onClicked:  function(mouse) { mouse.accepted = true }
 
-        drag.target: isDraggable ? columnItem : undefined
+        drag.target: isDraggable ? control : undefined
         drag.axis: Drag.XandYAxis
     }
 
@@ -52,26 +79,15 @@ Item {
         y: verticalMargins
         implicitWidth: childrenRect.width
         implicitHeight: childrenRect.height
+        opacity: (!control.isOpacityControlled || hoverHandler.hovered) ? 1 : control.offOpacity
     }
 
-    MouseArea {
-        id: mouseOpacityArea
-        // enabled: control.visible
-        propagateComposedEvents: true
-        anchors.fill: columnItem
-        anchors.margins: -10 - control.offsetOpacityArea
-        hoverEnabled: true
-        onPressed: mouse.accepted = false
-        onReleased: mouse.accepted = false
-        onClicked: mouse.accepted = false
-
-        onContainsMouseChanged: {
-            containsMouse ? isHovered = true : isHovered = false
-            columnItem.opacity = !isOpacityControlled || containsMouse ? 1 : offOpacity
-        }
-
-        Component.onCompleted: {
-            columnItem.opacity = !isOpacityControlled || containsMouse ? 1 : offOpacity
+    Item {
+        id: hoverArea
+        anchors.fill: backgroundRect
+        anchors.margins: -control.offsetOpacityArea
+        HoverHandler {
+            id: hoverHandler
         }
     }
 }

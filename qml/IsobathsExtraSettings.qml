@@ -1,8 +1,8 @@
 import QtQuick 2.12
 import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.12
-import Qt.labs.settings 1.1
-import QtQuick.Dialogs 1.2
+import QtQuick.Dialogs
+import QtCore
 
 
 // isobaths extra settings
@@ -10,6 +10,7 @@ MenuFrame {
     id: isobathsSettings
 
     property CheckButton isobathsCheckButton
+    property var exportSurfaceFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
 
     visible: Qt.platform.os === "android"
              ? (isobathsCheckButton.isobathsLongPressTriggered || isobathsTheme.activeFocus)
@@ -36,7 +37,11 @@ MenuFrame {
 
     onFocusChanged: {
         if (Qt.platform.os === "android" && !focus) {
-            isobathsCheckButton.isobathsLongPressTriggered = false
+            Qt.callLater(function() {
+                if (!isobathsSettings.focus) {
+                    isobathsCheckButton.isobathsLongPressTriggered = false
+                }
+            })
         }
     }
 
@@ -71,7 +76,7 @@ MenuFrame {
             CCombo  {
                 id: isobathsTheme
                 Layout.preferredWidth: 200
-                model: [qsTr("Midnight"), qsTr("Default"), qsTr("Blue"), qsTr("Sepia"), qsTr("WRGBD"), qsTr("WhiteBlack"), qsTr("Standard")]
+                model: [qsTr("Midnight"), qsTr("Default"), qsTr("Blue"), qsTr("Sepia"), qsTr("Sepia New"), qsTr("WRGBD"), qsTr("WhiteBlack"), qsTr("Standard"), qsTr("DeepBlue"), qsTr("Ice"), qsTr("Green")]
                 currentIndex: 0
                 onCurrentIndexChanged: {
                     IsobathsViewControlMenuController.onThemeChanged(currentIndex)
@@ -104,7 +109,7 @@ MenuFrame {
                 from: 10
                 to: 1000
                 stepSize: 5
-                value: 20
+                value: 70
                 editable: false
 
                 property int decimals: 1
@@ -138,9 +143,9 @@ MenuFrame {
             SpinBoxCustom {
                 id: isobathsSurfaceLineStepSizeSpinBox
                 implicitWidth: 200
-                from: 10
+                from: 1
                 to: 200
-                stepSize: 5
+                stepSize: 1
                 value: 10
                 editable: false
 
@@ -191,7 +196,7 @@ MenuFrame {
                 from: 5
                 to: 100
                 stepSize: 5
-                value: 5
+                value: 10
                 editable: false
 
                 onFocusChanged: {
@@ -225,21 +230,35 @@ MenuFrame {
                 Layout.fillWidth: false
 
                 onClicked: {
+                    exportSurfaceFileDialog.currentFolder = isobathsSettings.exportSurfaceFolder
                     exportSurfaceFileDialog.open()
                 }
             }
 
-            FileDialog {
+            FileDialog  {
                 id: exportSurfaceFileDialog
-                folder: shortcuts.home
-                selectFolder: false
-                selectExisting: false
-                selectMultiple: false
-                defaultSuffix: "csv"
+                title: qsTr("Select folder and set .csv file name")
+
+                currentFolder: isobathsSettings.exportSurfaceFolder
+
+                fileMode: FileDialog.SaveFile
+
                 nameFilters: ["CSV Files (*.csv)", "All Files (*)"]
+                defaultSuffix: "csv"
+
+                onCurrentFolderChanged: {
+                    isobathsSettings.exportSurfaceFolder = currentFolder
+                }
 
                 onAccepted: {
-                    exportSurfacePathText.text = exportSurfaceFileDialog.fileUrl
+                    isobathsSettings.exportSurfaceFolder = exportSurfaceFileDialog.currentFolder
+                    var url = selectedFile.toString()
+
+                    if (!url.toLowerCase().endsWith(".csv")) {
+                        url += ".csv"
+                    }
+
+                    exportSurfacePathText.text = url
                 }
             }
 
@@ -251,7 +270,7 @@ MenuFrame {
 
 
             Settings {
-                property alias exportSurfaceFolder: exportSurfaceFileDialog.folder
+                property alias exportSurfaceFolder: isobathsSettings.exportSurfaceFolder
             }
 
             Settings {

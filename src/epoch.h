@@ -3,10 +3,13 @@
 #include <math.h>
 #include <stdint.h>
 #include <time.h>
+#include <QMap>
 #include <QPixmap>
 #include <QRectF>
+#include <QSet>
 #include <QVector>
 
+#include "data_processor_defs.h"
 #include "dataset_defs.h"
 #include "id_binnary.h"
 
@@ -24,7 +27,8 @@ public:
             info.clear();
             lat      = 0.0f;
             lon      = 0.0f;
-            distance = 0.0f;
+            echogramDistance = 0.0f;
+            depth    = 0.0f;
             nedX     = 0.0f;
             nedY     = 0.0f;
             cursorX  = -1;
@@ -35,7 +39,8 @@ public:
         QString info;
         float   lat = 0.0f;
         float   lon = 0.0f;
-        float   distance = 0.0f;
+        float   echogramDistance = 0.0f;
+        float   depth = 0.0f;
         float   nedX = 0.0f;
         float   nedY = 0.0f;
         int     cursorX = -1;
@@ -43,36 +48,36 @@ public:
         QRectF  rectEcho;
     };
 
-    typedef struct {
-        typedef enum {
+    struct DistProcessing {
+        enum class DistanceSource {
             DistanceSourceNone = 0,
             DistanceSourceProcessing,
             DistanceSourceLoad,
             DistanceSourceConstrainHand,
             DistanceSourceDirectHand,
-        } DistanceSource;
+        };
 
         float distance = NAN;
         float min = NAN;
         float max = NAN;
-        DistanceSource source = DistanceSourceNone;
+        DistanceSource source = DistanceSource::DistanceSourceNone;
 
         Position bottomPoint;
 
         bool isDist() const { return isfinite(distance); }
-        void setDistance(float dist, DistanceSource src = DistanceSourceNone) { distance = dist; source = src; }
-        void clearDistance(DistanceSource src = DistanceSourceNone) { distance = NAN; source = src; }
-        void resetDistance() { distance = NAN; source = DistanceSourceNone; }
+        void setDistance(float dist, DistanceSource src = DistanceSource::DistanceSourceNone) { distance = dist; source = src; }
+        void clearDistance(DistanceSource src = DistanceSource::DistanceSourceNone) { distance = NAN; source = src; }
+        void resetDistance() { distance = NAN; source = DistanceSource::DistanceSourceNone; }
         float getDistance() const { return distance; }
 
-        void setMin(float val, DistanceSource src = DistanceSourceNone) {
+        void setMin(float val, DistanceSource src = DistanceSource::DistanceSourceNone) {
             min = val;
             if(max != NAN && val + 0.05 > max) {
                 max = val + 0.05;
             }
             source = src;
         }
-        void setMax(float val, DistanceSource src = DistanceSourceNone) {
+        void setMax(float val, DistanceSource src = DistanceSource::DistanceSourceNone) {
             max = val;
             if(min != NAN && val - 0.05 < min) {
                 min = val - 0.05;
@@ -82,7 +87,7 @@ public:
 
         float getMax() const { return max; }
         float getMin() const { return min; }
-    } DistProcessing;
+    };
 
     struct Echogram {
         QVector<uint8_t> amplitude;
@@ -165,6 +170,7 @@ public:
     void setDVLSolution(IDBinDVL::DVLSolution dvlSolution);
     void setPositionLLA(double lat, double lon, LLARef* ref = NULL, uint32_t unix_time = 0, int32_t nanosec = 0);
     void setPositionLLA(Position position);
+    void setSonarPosition(Position val);
     void setPositionLLA(const LLA& lla);
     void setPositionNED(const NED& ned);
     void setExternalPosition(Position position);
@@ -178,6 +184,8 @@ public:
     void setPositionDataType(DataType dataType);
     DataType getPositionDataType() const { return _positionGNSS.dataType; };
 
+    void setSonarPositionDataType(DataType dataType);
+    DataType getSonarPositionDataType() const { return sonarPosition_.dataType; };
     void setComplexF(const ChannelId& channelId, int group, QVector<ComplexSignal> signal);
     ComplexSignals& complexSignals() { return _complex; }
     //ComplexSignal complexSignal(const ChannelId& channelId) { return _complex[channelId]; }
@@ -191,8 +199,10 @@ public:
     void setTime(int year, int month, int day, int hour, int min, int sec, int nanosec = 0);
 
     void setTemp(float temp_c);
+    void setArtificalAtt(float yaw, float pitch, float roll, DataType dataType = DataType::kRaw);
     void setAtt(float yaw, float pitch, float roll, DataType dataType = DataType::kRaw);
     DataType getAttDataType() const { return _attitude.dataType; };
+    DataType getArtificalAttDataType() const { return artificalAttitude_.dataType; };
 
     void setEncoders(float enc1, float enc2, float enc3);
     bool isEncodersSeted() { return _encoder.isSeted();}
@@ -204,7 +214,7 @@ public:
         if (charts_.contains(channelId)) {
             auto& charts = charts_[channelId];
             for (auto& iEchogram : charts) {
-                iEchogram.bottomProcessing.setDistance(dist, DistProcessing::DistanceSourceDirectHand);
+                iEchogram.bottomProcessing.setDistance(dist, DistProcessing::DistanceSource::DistanceSourceDirectHand);
             }
         }
     }
@@ -213,7 +223,7 @@ public:
         if (charts_.contains(channelId)) {
             auto& charts = charts_[channelId];
             for (auto& iEchogram : charts) {
-                iEchogram.bottomProcessing.clearDistance(DistProcessing::DistanceSourceDirectHand);
+                iEchogram.bottomProcessing.clearDistance(DistProcessing::DistanceSource::DistanceSourceDirectHand);
             }
         }
     }
@@ -222,7 +232,7 @@ public:
         if (charts_.contains(channelId)) {
             auto& charts = charts_[channelId];
             for (auto& iEchogram : charts) {
-                iEchogram.bottomProcessing.setMin(dist, DistProcessing::DistanceSourceConstrainHand);
+                iEchogram.bottomProcessing.setMin(dist, DistProcessing::DistanceSource::DistanceSourceConstrainHand);
             }
         }
     }
@@ -231,7 +241,7 @@ public:
         if (charts_.contains(channelId)) {
             auto& charts = charts_[channelId];
             for (auto& iEchogram : charts) {
-                iEchogram.bottomProcessing.setMax(dist, DistProcessing::DistanceSourceConstrainHand);
+                iEchogram.bottomProcessing.setMax(dist, DistProcessing::DistanceSource::DistanceSourceConstrainHand);
             }
         }
     }
@@ -388,6 +398,21 @@ public:
     bool temperatureAvail() { return flags.tempAvail; }
 
     bool isAttAvail() { return _attitude.isAvail(); }
+
+    float tryRetValidYaw() const {
+        if (std::isfinite(_attitude.yaw)) {
+            return _attitude.yaw;
+        }
+        if (std::isfinite(artificalAttitude_.yaw)) {
+            return artificalAttitude_.yaw;
+        }
+        return NAN;
+    }
+
+    float artificalYaw() const { return artificalAttitude_.yaw; }
+    float artificalPitch() const { return artificalAttitude_.pitch; }
+    float artificalRoll() const { return artificalAttitude_.roll; }
+
     float yaw() { return _attitude.yaw; }
     float pitch() { return _attitude.pitch; }
     float roll() { return _attitude.roll; }
@@ -413,6 +438,7 @@ public:
 
     Position getPositionGNSS() { return _positionGNSS; }
     Position getExternalPosition() { return _positionExternal; }
+    Position getSonarPosition() { return sonarPosition_; }
 
     uint32_t positionTimeUnix() { return _positionGNSS.time.sec; }
     uint32_t positionTimeNano() { return _positionGNSS.time.nanoSec; }
@@ -436,59 +462,72 @@ public:
 
     bool chartTo(const ChannelId& channelId, uint8_t subChannelId, float start, float end, int16_t* dst, int len, int imageType, bool reverse = false)
     {
-        if (dst == nullptr) {
+        if (!dst || len <= 0) {
             return false;
         }
 
-        ChannelId localChannelId = channelId;
-
-        //if (localChannelId == CHANNEL_NONE && charts_.size() > 0) {
-        //    localChannelId = charts_.firstKey();
-        //}
-        /*else*/ if (!charts_.contains(localChannelId)) {
-            memset(dst, 0, len * 2);
+        auto zeroOut = [&]{
+            std::fill(dst, dst + len, int16_t(0));
             return false;
+        };
+
+        auto it = charts_.find(channelId);
+        if (it == charts_.end()) {
+            return zeroOut();
         }
 
-        if (charts_[localChannelId][subChannelId].resolution == 0) {
-            memset(dst, 0, len * 2);
-            return false;
+        QVector<Echogram>& subs = it.value();
+        const int sub = int(subChannelId);
+        if (sub < 0 || sub >= subs.size()) {
+            return zeroOut();
         }
 
-        int rawSize = charts_[localChannelId][subChannelId].amplitude.size();
+        Echogram& eg = subs[sub];
 
-        if (rawSize == 0) {
-            memset(dst, 0, len * 2);
-            return false;
+        if (eg.resolution == 0) {
+            return zeroOut();
         }
 
-        uint8_t* src = charts_[localChannelId][subChannelId].amplitude.data();
+        const int rawSize = eg.amplitude.size();
+        if (rawSize <= 0) {
+            return zeroOut();
+        }
+
+        const float rawRangeF = eg.range();
+        if (!(rawRangeF > 0.0f)) {
+            return zeroOut();
+        }
+
+        const uint8_t* src = eg.amplitude.constData();
 
         if (imageType == 1) {
-            if (charts_[localChannelId][subChannelId].compensated.size() == 0) {
-                charts_[localChannelId][subChannelId].updateCompesated();
+            if (eg.compensated.isEmpty()) {
+                eg.updateCompesated();
             }
-            src = charts_[localChannelId][subChannelId].compensated.data();
+            if (eg.compensated.isEmpty()) {
+                return zeroOut();
+            }
+            src = eg.compensated.constData();
         }
 
-        if (rawSize == 0) {
-            for (int iTo = 0; iTo < len; iTo++) {
-                dst[iTo] = 0;
-            }
+        start -= eg.offset;
+        end   -= eg.offset;
+
+        const float targetRangeF = float(end - start);
+        if (!(targetRangeF > 0.0f)) {
+            return zeroOut();
         }
 
-        start -= charts_[localChannelId][subChannelId].offset;
-        end -= charts_[localChannelId][subChannelId].offset;
+        const float scaleFactor = (float(rawSize) / float(len)) * (targetRangeF / rawRangeF);
 
-        float rawRangeF = charts_[localChannelId][subChannelId].range();
-        float targetRangeF = static_cast<float>(end - start);
-        float scaleFactor = (static_cast<float>(rawSize) / static_cast<float>(len)) * (targetRangeF / rawRangeF);
-        int offset = start / charts_[localChannelId][subChannelId].resolution;
+        const int offset = int(start / eg.resolution);
 
-        int srcStart = offset;
         int dir = reverse ? -1 : 1;
         int off = reverse ? (len-1) : 0;
+
         if (scaleFactor >= 0.8f) {
+            int srcStart = offset;
+
             for (int iTo = 0; iTo < len; iTo++) {
                 int srcEnd = static_cast<float>(iTo + 1) * scaleFactor + offset;
 
@@ -557,6 +596,11 @@ public:
         }
         return 0;
     }
+
+    void setTraceTileIndxs(const QMap<int, QSet<TileKey>>& val);
+    QMap<int, QSet<TileKey>>& getTraceTileIndxsPtr();
+    QMap<int, QSet<TileKey>> traceTileIndxs() const;
+
 protected:
     QMap<ChannelId, QVector<Echogram>> charts_; // key - channelId, value - echograms for all addresses
     QMap<ChannelId, float> rangefinders_; // ???
@@ -567,7 +611,7 @@ protected:
 
     DateTime _time;
 
-    struct {
+    struct Attitude {
         float yaw = NAN, pitch = NAN, roll = NAN;
 
         DataType dataType;
@@ -575,7 +619,10 @@ protected:
         bool isAvail() {
             return isfinite(yaw) && isfinite(pitch) && isfinite(roll);
         }
-    } _attitude;
+    };
+
+    Attitude _attitude;
+    Attitude artificalAttitude_;
 
     ComplexSignals _complex;
 
@@ -589,6 +636,7 @@ protected:
 
     Position _positionGNSS;
     Position _positionExternal;
+    Position sonarPosition_;
 
     struct {
         double hspeed = NAN;
@@ -620,6 +668,7 @@ protected:
         bool distAvail = false;
 
         bool posAvail = false;
+        bool sonarPosAvail = false;
 
         bool tempAvail = false;
         bool isDVLSolutionAvail = false;
@@ -628,4 +677,6 @@ protected:
 
     float depth_ = NAN;
 
+private:
+    QMap<int, QSet<TileKey>> tileKeysToNextEpochByZoom_;
 };

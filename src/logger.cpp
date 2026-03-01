@@ -7,6 +7,24 @@
 #include "core.h"
 extern Core core;
 
+#ifdef Q_OS_ANDROID
+#include "platform/android/src/android_interface.h"
+#endif
+
+namespace
+{
+
+QString resolveLogDirectoryPath()
+{
+#ifdef Q_OS_ANDROID
+    return "/storage/emulated/0/Documents/KoggerApp";
+#else
+    return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp/logs";
+#endif
+}
+
+} // namespace
+
 
 Logger::Logger() :
     klfLogFile_(std::make_unique<QFile>(this)),
@@ -32,13 +50,19 @@ bool Logger::startNewKlfLog()
 
     bool isOpen = false;
     QDir dir;
+    const QString logPath = resolveLogDirectoryPath();
 
 #ifdef Q_OS_ANDROID
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
-    qDebug() << "Logger::startNewKlfLog at path " << logPath;
+    if (!AndroidInterface::checkStoragePermissions()) {
+        core.consoleWarning("Logger can't access Documents: permission denied");
+        return false;
+    }
     //QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
+    //qDebug() << "Logger::startNewKlfLog at path " << logPath;
+
 #else
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
+
 #endif
 
     if (dir.mkpath(logPath)) {
@@ -76,7 +100,7 @@ bool Logger::startNewKlfLog()
     }
 
     if (isOpen) {
-        emit loggingKlfStarted();
+        emit loggingKlfStarted(true);
     }
 
     return isOpen;
@@ -90,6 +114,8 @@ bool Logger::stopKlfLogging()
 
     klfLogFile_->close();
     klfCurrentIteration_ = 0;
+
+    emit loggingKlfStarted(false);
 
     return true;
 }
@@ -135,14 +161,21 @@ bool Logger::startNewCsvLog()
     // open file
     bool isOpen = false;
     QDir dir;
+    const QString logPath = resolveLogDirectoryPath();
 
 #ifdef Q_OS_ANDROID
+    if (!AndroidInterface::checkStoragePermissions()) {
+        core.consoleWarning("Logger csv can't access Documents: permission denied");
+        return false;
+    }
+
     // Use an app-specific directory that does not require external storage permissions.
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
-    qDebug() << "Logger::startNewCsvLog at path " << logPath;
     //QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
+    //qDebug() << "Logger::startNewCsvLog at path " << logPath;
+
 #else
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
+
 #endif
 
     if (dir.mkpath(logPath)) {
@@ -157,9 +190,6 @@ bool Logger::startNewCsvLog()
         if (isOpen) {
             core.consoleInfo("Logger csv dir: " + dir.path());
             core.consoleInfo("Logger csv make file: " + csvLogFile_->fileName());
-
-            // connects
-            csvData_.csvConnections.append(QObject::connect(datasetPtr_, &Dataset::dataUpdate, this, &Logger::loggingCsvStream, Qt::AutoConnection));
         }
         else {
             core.consoleInfo("Logger csv can't make file: " + csvLogFile_->fileName());
@@ -167,6 +197,11 @@ bool Logger::startNewCsvLog()
     }
     else {
         core.consoleInfo("Logger csv can't make dir");
+    }
+
+    if (isOpen) {
+        // connects
+        csvData_.csvConnections.append(QObject::connect(datasetPtr_, &Dataset::dataUpdate, this, &Logger::loggingCsvStream, Qt::AutoConnection));
     }
 
     return isOpen;
@@ -201,10 +236,10 @@ void Logger::loggingCsvStream()
     if (!csvData_.csvHatWrited)
         writeCsvHat();
 
-    Position epPos = epoch->getPositionGNSS();
+    Position boatPos = epoch->getPositionGNSS();
 
-    if (epPos.lla.isCoordinatesValid()) {
-        csvData_.lastCsvPos = epPos;
+    if (boatPos.lla.isCoordinatesValid()) {
+        csvData_.lastCsvPos = boatPos;
     }
 
     if (epoch->rangeFinder()) {

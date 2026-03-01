@@ -1,16 +1,145 @@
 #include "plot2D.h"
 #include "epoch_event.h"
+
 //PULSE
 #include <QObject>
 #include <QVariant>
 #include <QDebug>
 
+#include "qmath.h"
+#include <cmath>
+
+MiniPreviewPlot2D::MiniPreviewPlot2D()
+{
+    setHorizontal(true);
+    setPlotEnabled(true);
+    echogram_.setVisible(true);
+    bottomProcessing_.setVisible(true);
+    bottomProcessing_.setDepthTextVisible(false);
+    rangefinder_.setVisible(true);
+    rangefinder_.setTheme(1);
+    rangefinder_.setDepthTextVisible(false);
+}
+
+void MiniPreviewPlot2D::updateEchogramSettings(int themeId, float lowLevel, float highLevel, int compensationId)
+{
+    if (cachedThemeId_ != themeId) {
+        echogram_.setThemeId(themeId);
+        cachedThemeId_ = themeId;
+    }
+
+    const bool levelsChanged = !std::isfinite(cachedLowLevel_)
+        || !std::isfinite(cachedHighLevel_)
+        || std::abs(cachedLowLevel_ - lowLevel) > 1e-6f
+        || std::abs(cachedHighLevel_ - highLevel) > 1e-6f;
+    if (levelsChanged) {
+        echogram_.setLevels(lowLevel, highLevel);
+        cachedLowLevel_ = lowLevel;
+        cachedHighLevel_ = highLevel;
+    }
+
+    if (cachedCompensationId_ != compensationId) {
+        echogram_.setCompensation(compensationId);
+        cachedCompensationId_ = compensationId;
+    }
+}
+
+bool MiniPreviewPlot2D::render(QPainter* painter,
+                               Dataset* dataset,
+                               const DatasetCursor& parentCursor,
+                               int parentCanvasWidth,
+                               int sourceLeft,
+                               int sourceWidth,
+                               int previewWidth,
+                               int previewHeight,
+                               float zoomFrom,
+                               float zoomTo,
+                               int themeId,
+                               float lowLevel,
+                               float highLevel,
+                               int compensationId)
+{
+    if (!painter || !dataset || previewWidth <= 0 || previewHeight <= 0 || parentCanvasWidth <= 0) {
+        return false;
+    }
+
+    if (datasetPtr_ != dataset) {
+        setDataset(dataset);
+    }
+    canvas_.setSize(previewWidth, previewHeight, painter);
+
+    cursor_.channel1 = parentCursor.channel1;
+    cursor_.subChannel1 = parentCursor.subChannel1;
+    cursor_.channel2 = parentCursor.channel2;
+    cursor_.subChannel2 = parentCursor.subChannel2;
+
+    cursor_.distance.mode = AutoRangeNone;
+    cursor_.distance.from = zoomFrom;
+    cursor_.distance.to = zoomTo;
+    cursor_.setMouse(-1, -1);
+    cursor_.setContactPos(-1, -1);
+    cursor_.selectEpochIndx = -1;
+    cursor_.currentEpochIndx = -1;
+    cursor_.lastEpochIndx = -1;
+
+    const int fallbackX = qBound(0, parentCanvasWidth / 2, parentCanvasWidth - 1);
+    int fallbackEpoch = parentCursor.getIndex(fallbackX);
+    if (dataset->validIndex(fallbackEpoch) < 0) {
+        fallbackEpoch = -1;
+    }
+
+    int lastValidEpoch = fallbackEpoch;
+    int zeroEpochCount = 0;
+    const int maxParentX = parentCanvasWidth - 1;
+    const float stepX = static_cast<float>(sourceWidth) / static_cast<float>(previewWidth);
+    float srcXFloat = static_cast<float>(sourceLeft) + stepX * 0.5f;
+
+    cursor_.indexes.resize(previewWidth);
+    for (int column = 0; column < previewWidth; ++column) {
+        const int sourceX = qBound(0, qRound(srcXFloat), maxParentX);
+        srcXFloat += stepX;
+
+        int epochIndex = parentCursor.getIndex(sourceX);
+        bool validEpoch = dataset->validIndex(epochIndex) >= 0;
+        if (!validEpoch) {
+            epochIndex = lastValidEpoch;
+            validEpoch = dataset->validIndex(epochIndex) >= 0;
+        }
+        else {
+            lastValidEpoch = epochIndex;
+        }
+
+        if (!validEpoch) {
+            ++zeroEpochCount;
+        }
+
+        cursor_.indexes[column] = epochIndex;
+    }
+
+    cursor_.numZeroEpoch = zeroEpochCount;
+
+    updateEchogramSettings(themeId, lowLevel, highLevel, compensationId);
+
+    const bool rendered = echogram_.draw(this, dataset);
+    if (!rendered) {
+        return false;
+    }
+
+    bottomProcessing_.draw(this, dataset);
+    rangefinder_.draw(this, dataset);
+    return true;
+}
 
 Plot2D::Plot2D()
     : datasetPtr_(nullptr)
     , pendingBtpLambda_(nullptr)
     , isHorizontal_(true)
     , isEnabled_(true)
+    , isLoupeVisible_(false)
+    , loupeSize_(1)
+    , loupeZoom_(1)
+    , lAngleOffsetDeg_(0.0f)
+    , rAngleOffsetDeg_(0.0f)
 {
     qRegisterMetaType<ChannelId>("ChannelId");
 
@@ -24,6 +153,7 @@ Plot2D::Plot2D()
     rangefinder_.setVisible(true);
     depth_.setVisible(true);
     grid_.setVisible(true);
+    temperature_.setVisible(true);
     aim_.setVisible(true);
     quadrature_.setVisible(false);
     setDataChannel(false, CHANNEL_NONE, 0, {});
@@ -81,42 +211,10 @@ std::tuple<ChannelId, uint8_t, QString> Plot2D::getSelectedChannelId(float curso
     return useChannel1 ? std::make_tuple(cursor_.channel1, cursor_.subChannel1, cursor_.firstChannelPortName) : std::make_tuple(cursor_.channel2, cursor_.subChannel2, cursor_.secondChannelPortName);
 }
 
+
 void Plot2D::setDataset(Dataset *dataset)
 {
     datasetPtr_ = dataset;
-    //Low mem fix for 32 bit devices
-    if (!datasetPtr_) return;
-    // grab a QObject context
-    QObject* ctx = qobjectContext_;
-    // (optional) guard: if no context, use the raw 3-arg connect w/o context *and* remember to disconnect on dtor
-    //Q_ASSERT(ctx && "Call setQObjectContext() with a valid QObject before setDataset().");
-
-    QObject::connect(datasetPtr_, &Dataset::epochsDroppedFront,
-                     ctx,
-                     [this](int /*n*/) {
-                         // 1) force a cursor rebuild next frame
-                         cursor_.last_dataset_size = 0;  // invalidate “sticky head”
-
-                         // 2) clear index map so no stale absolute indices linger
-                         if (!cursor_.indexes.empty())
-                             std::fill(cursor_.indexes.begin(), cursor_.indexes.end(), -1);
-
-                         // 3) drop column caches (echogram side)
-                         echogram_.resetCash();
-
-                         // 4) schedule a repaint
-                         plotUpdate();
-                     });
-
-    // Keep your redraw plumbing, but also bind it to a QObject context:
-    QObject::connect(datasetPtr_, &Dataset::redrawEpochs,
-                     ctx,
-                     [this](const QSet<int>&) {
-                         echogram_.resetCash();
-                         plotUpdate();
-                     });
-
-
     if (pendingBtpLambda_) {
         pendingBtpLambda_();
         pendingBtpLambda_ = nullptr;
@@ -192,6 +290,11 @@ void Plot2D::addReRenderPlotIndxs(const QSet<int> &indxs)
     echogram_.addReRenderPlotIndxs(indxs);
 }
 
+bool Plot2D::getPlotEnabled() const
+{
+    return isEnabled_;
+}
+
 void Plot2D::setPlotEnabled(bool state)
 {
     isEnabled_ = state;
@@ -200,6 +303,53 @@ void Plot2D::setPlotEnabled(bool state)
 bool Plot2D::plotEnabled() const
 {
     return isEnabled_;
+}
+
+bool Plot2D::getLoupeVisible() const
+{
+    return isLoupeVisible_;
+}
+
+void Plot2D::setLoupeVisible(bool state)
+{
+    if (isLoupeVisible_ == state) {
+        return;
+    }
+
+    isLoupeVisible_ = state;
+    plotUpdate();
+}
+
+int Plot2D::getLoupeSize() const
+{
+    return loupeSize_;
+}
+
+void Plot2D::setLoupeSize(int size)
+{
+    const int boundedSize = qBound(1, size, 3);
+    if (loupeSize_ == boundedSize) {
+        return;
+    }
+
+    loupeSize_ = boundedSize;
+    plotUpdate();
+}
+
+int Plot2D::getLoupeZoom() const
+{
+    return loupeZoom_;
+}
+
+void Plot2D::setLoupeZoom(int zoom)
+{
+    const int boundedZoom = qBound(1, zoom, 3);
+    if (loupeZoom_ == boundedZoom) {
+        return;
+    }
+
+    loupeZoom_ = boundedZoom;
+    plotUpdate();
 }
 
 bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizontal)
@@ -277,9 +427,20 @@ void Plot2D::draw(QPainter *painterPtr)
 
     //painterPtr->setCompositionMode(QPainter::CompositionMode_Exclusion);
     grid_.draw(this, datasetPtr_);
+    temperature_.draw(this, datasetPtr_);
     aim_.draw(this, datasetPtr_);
 
     contacts_.draw(this, datasetPtr_);
+}
+
+bool Plot2D::drawEchogramZoomPreview(QPainter* painter, const QRect& targetRect, const QPoint& sourceCenter, int sourceSize, QPointF* focusPoint)
+{
+    return drawEchogramZoomPreview(painter, targetRect, sourceCenter, sourceSize, sourceSize, focusPoint);
+}
+
+bool Plot2D::drawEchogramZoomPreview(QPainter* painter, const QRect& targetRect, const QPoint& sourceCenter, int sourceWidth, int sourceHeight, QPointF* focusPoint)
+{
+    return echogram_.drawZoomPreview(this, datasetPtr_, painter, targetRect, sourceCenter, sourceWidth, sourceHeight, focusPoint);
 }
 
 bool Plot2D::isHorizontal()
@@ -375,7 +536,7 @@ void Plot2D::setDataChannel(bool fromGui, const ChannelId& channel, uint8_t subC
     }
 
     resetCash();
-    plotUpdate(); // TODO: this calls from ctr
+    //plotUpdate(); // TODO: this calls from ctr
 }
 
 bool Plot2D::getIsContactChanged()
@@ -448,6 +609,11 @@ int Plot2D::getThemeId() const
     return echogram_.getThemeId();
 }
 
+int Plot2D::getEchogramCompensation() const
+{
+    return echogram_.getCompensation();
+}
+
 void Plot2D::setEchogramLowLevel(float low) {
     echogram_.setLowLevel(low);
     plotUpdate();
@@ -484,9 +650,14 @@ void Plot2D::setBottomTrackTheme(int theme_id) {
     Q_UNUSED(theme_id);
 }
 
+void Plot2D::setBottomTrackDepthTextVisible(bool visible)
+{
+    bottomProcessing_.setDepthTextVisible(visible);
+    plotUpdate();
+}
+
 void Plot2D::setRangefinderVisible(bool visible) {
     rangefinder_.setVisible(visible);
-    grid_.setRangeFinderVisible(visible);
     plotUpdate();
 }
 
@@ -495,9 +666,53 @@ void Plot2D::setRangefinderTheme(int theme_id) {
     plotUpdate();
 }
 
+void Plot2D::setRangefinderDepthTextVisible(bool visible)
+{
+    rangefinder_.setDepthTextVisible(visible);
+    plotUpdate();
+}
+
 void Plot2D::setAttitudeVisible(bool visible) {
     attitude_.setVisible(visible);
     plotUpdate();
+}
+
+void Plot2D::setTemperatureVisible(bool visible) {
+    temperature_.setVisible(visible);
+    plotUpdate();
+}
+
+bool Plot2D::hasTemperatureValue() const
+{
+    if (!datasetPtr_ || !temperature_.isVisible()) {
+        return false;
+    }
+
+    float temp = datasetPtr_->getLastTemp();
+    if (std::isfinite(temp)) {
+        return true;
+    }
+
+    Epoch* lastEpoch = datasetPtr_->last();
+    Epoch* preLastEpoch = datasetPtr_->lastlast();
+
+    if (lastEpoch && lastEpoch->temperatureAvail()) {
+        return true;
+    }
+    if (preLastEpoch && preLastEpoch->temperatureAvail()) {
+        return true;
+    }
+
+    return false;
+}
+
+bool Plot2D::hasRangefinderDepthTextValue() const
+{
+    if (!datasetPtr_ || !rangefinder_.isVisible() || !rangefinder_.isDepthTextVisible()) {
+        return false;
+    }
+
+    return std::isfinite(datasetPtr_->getLastRangefinderDepth());
 }
 
 void Plot2D::setDopplerBeamVisible(bool visible, int beam_filter) {
@@ -532,6 +747,12 @@ void Plot2D::setGridVetricalNumber(int grids) {
 void Plot2D::setGridFillWidth(bool state)
 {
     grid_.setFillWidth(state);
+    plotUpdate();
+}
+
+void Plot2D::setGridInvert(bool state)
+{
+    grid_.setInvert(state);
     plotUpdate();
 }
 
@@ -745,8 +966,7 @@ void Plot2D::setMousePosition(int x, int y, bool isSync) {
 //    _mouse.x = x;
 //    _mouse.y = y;
 
-    //qDebug() << "Cursor epoch" << cursor_.getIndex(x_start);
-    int epoch_index = cursor_.getIndex(x_start);
+    int epoch_index = cursor_.getIndex(x);
     cursor_.currentEpochIndx = epoch_index;
     cursor_.lastEpochIndx = cursor_.currentEpochIndx;
     sendSyncEvent(epoch_index, EpochSelected2d);
@@ -785,17 +1005,17 @@ void Plot2D::setMousePosition(int x, int y, bool isSync) {
             if (auto btp = datasetPtr_->getBottomTrackParamPtr(); btp) {
                 btp->indexFrom = cursor_.getIndex(x_start);
                 btp->indexTo = cursor_.getIndex(x_start + x_length);
-
                 QMetaObject::invokeMethod(dataProcessorPtr_, "bottomTrackProcessing", Qt::QueuedConnection,
                                           Q_ARG(DatasetChannel, DatasetChannel(cursor_.channel1, cursor_.subChannel1)),
                                           Q_ARG(DatasetChannel, DatasetChannel(cursor_.channel2, cursor_.subChannel2)),
                                           Q_ARG(BottomTrackParam, *btp),
-                                          Q_ARG(bool, true)/*manual*/);
+                                          Q_ARG(bool, true),/*manual*/
+                                          Q_ARG(bool, false)/*redraw all*/);
             }
         }
 
-        if(cursor_.tool() == MouseToolDistance || cursor_.tool() == MouseToolDistanceErase) {
-            emit datasetPtr_->bottomTrackUpdated(cursor_.channel1, cursor_.getIndex(x_start), cursor_.getIndex(x_start + x_length), true);
+        if (cursor_.tool() == MouseToolDistance || cursor_.tool() == MouseToolDistanceErase) {
+            emit datasetPtr_->bottomTrackUpdated(cursor_.channel1, cursor_.getIndex(x_start), cursor_.getIndex(x_start + x_length), true, false);
         }
     }
 
@@ -886,8 +1106,6 @@ bool Plot2D::setContact(int indx, const QString& text)
     }
 
     ep->contact_.info = text;
-    //qDebug() << "Plot2D::setContact: setted to epoch:" <<  currIndx << text;
-
 
     if (primary) {
         ep->contact_.cursorX = cursor_.contactX;
@@ -898,15 +1116,54 @@ bool Plot2D::setContact(int indx, const QString& text)
         float value_scale = float(cursor_.contactY) / canvas_height;
         float cursor_distance = value_scale * value_range + cursor_.distance.from;
 
-        ep->contact_.distance = cursor_distance;
+        const auto [channelId, subIndx, name] = getSelectedChannelId(cursor_distance); // *
+        const float bottomTrack = ep->distProccesing(channelId);
+        const auto  sonarNed         = ep->getSonarPosition().ned;
+        const auto  sonarLla         = ep->getSonarPosition().lla;
+        const auto  epochPos         = ep->getPositionGNSS();
 
-        auto pos = ep->getPositionGNSS();
+        ep->contact_.nedX             = std::isfinite(sonarNed.n) ? sonarNed.n : epochPos.ned.n;
+        ep->contact_.nedY             = std::isfinite(sonarNed.e) ? sonarNed.e : epochPos.ned.e;
+        ep->contact_.lat              = std::isfinite(sonarLla.latitude)  ? sonarLla.latitude  : epochPos.lla.latitude;
+        ep->contact_.lon              = std::isfinite(sonarLla.longitude) ? sonarLla.longitude : epochPos.lla.longitude;
+        ep->contact_.echogramDistance = cursor_distance;
 
-        ep->contact_.nedX = pos.ned.n;
-        ep->contact_.nedY = pos.ned.e;
+        if (!cursor_.isChannelDoubled()) { // basic
+            ep->contact_.depth            = cursor_distance;
+        }
+        else { // side scan
+            if (!std::isfinite(bottomTrack)) {
+                ep->contact_.depth            = 0;
+            }
+            else  if (std::fabs(cursor_distance) < std::fabs(bottomTrack)) {
+                ep->contact_.depth            = bottomTrack;
+            }
+            else {
+                const float  calcRange        = std::sqrt(std::max(0.0, std::pow(cursor_distance, 2) - std::pow(bottomTrack, 2)));
+                const bool   goRight          = cursor_distance > 0; // *
+                const float  lAngleOffsetDeg  = lAngleOffsetDeg_;
+                const float  rAngleOffsetDeg  = rAngleOffsetDeg_;
+                const double yawRad           = qDegreesToRadians(ep->yaw());
+                const double leftAzRad        = yawRad - M_PI_2 + qDegreesToRadians(lAngleOffsetDeg);
+                const double rightAzRad       = yawRad + M_PI_2 - qDegreesToRadians(rAngleOffsetDeg);
+                const double beamAz           = goRight ? rightAzRad : leftAzRad;
+                const double dN               = calcRange * std::cos(beamAz);
+                const double dE               = calcRange * std::sin(beamAz);
+                const double R                = 6378137.0;
+                const double lat0_deg         = sonarLla.latitude;
+                const double lon0_deg         = sonarLla.longitude;
+                const double lat0_rad         = qDegreesToRadians(lat0_deg);
+                const double dLat_deg         = (dN / R) * (180.0 / M_PI);
+                const double dLon_deg         = (dE / (R * std::cos(lat0_rad))) * (180.0 / M_PI);
 
-        ep->contact_.lat = pos.lla.latitude;
-        ep->contact_.lon = pos.lla.longitude;
+                ep->contact_.nedX             = sonarNed.n + dN;
+                ep->contact_.nedY             = sonarNed.e + dE;
+                ep->contact_.echogramDistance = cursor_distance;
+                ep->contact_.depth            = bottomTrack;
+                ep->contact_.lat              = lat0_deg + dLat_deg;
+                ep->contact_.lon              = lon0_deg + dLon_deg;
+            }
+        }
     }
     else {
         // update rect
@@ -916,6 +1173,33 @@ bool Plot2D::setContact(int indx, const QString& text)
 
     plotUpdate();
 
+    return true;
+}
+
+bool Plot2D::setActiveContact(int indx)
+{
+    if (!datasetPtr_) {
+        qDebug() << "Plot2D::setActiveContact returned: !_dataset";
+        return false;
+    }
+
+    auto* ep = datasetPtr_->fromIndex(indx);
+    if (!ep) {
+        qDebug() << "Plot2D::setActiveContact returned: !ep";
+        return false;
+    }
+
+    auto currActiveIndx = datasetPtr_->getActiveContactIndx();
+    if (currActiveIndx == indx) {
+        datasetPtr_->setActiveContactIndx(-1);
+        sendSyncEvent(-1, ContactActiveChanged);
+    }
+    else {
+        datasetPtr_->setActiveContactIndx(indx);
+        sendSyncEvent(indx, ContactActiveChanged);
+    }
+
+    plotUpdate();
     return true;
 }
 
@@ -935,6 +1219,10 @@ bool Plot2D::deleteContact(int indx)
     }
 
     ep->contact_.clear();
+
+    if (datasetPtr_->getActiveContactIndx() == indx) {
+        datasetPtr_->setActiveContactIndx(-1);
+    }
 
     sendSyncEvent(indx, ContactDeleted);
 
@@ -984,7 +1272,15 @@ void Plot2D::sendSyncEvent(int epoch_index, QEvent::Type eventType) {
     Q_UNUSED(eventType);
 }
 
-// Pulse
+void Plot2D::setMosaicLOffset(float val)
+{
+    lAngleOffsetDeg_ = val;
+}
+
+void Plot2D::setMosaicROffset(float val)
+{
+    rAngleOffsetDeg_ = val;
+}
 
 void Plot2D::clearPauseFreeze() {
     frozenValid_ = false;
@@ -992,6 +1288,7 @@ void Plot2D::clearPauseFreeze() {
     frozenH_     = 0;
 }
 
+//Pulse
 void Plot2D::freezePauseWindow() {
     if (frozenValid_) return;
 
@@ -1065,11 +1362,6 @@ void Plot2D::reindexingCursor() {
     int zeros = 0;
     for (int x = 0; x < image_width; ++x) {
         int data_index = head + round((x - image_width)/hor_ratio) - 1;
-        /*
-        const int dx    = x - (image_width - 1);
-        const int dcols = int(std::floor(double(dx) / hor_ratio));
-        const int idx   = head + dcols - 1;
-        */
 
         if (data_index >= 0 && data_index < data_width) {
             cursor_.indexes[x] = data_index;
@@ -1081,8 +1373,13 @@ void Plot2D::reindexingCursor() {
 
     cursor_.numZeroEpoch = zeros;
 
-    if (!echogramPause_) {
-        rightmostEpochOnScreen_ = std::clamp(head - 1, 0, data_width - 1);
+    if (cursor_.mouseX >= 0 && !cursor_.indexes.empty()) {
+        const int clampedX = std::clamp(cursor_.mouseX, 0, image_width - 1);
+        const int epochIndex = cursor_.getIndex(clampedX);
+        cursor_.currentEpochIndx = datasetPtr_->validIndex(epochIndex);
+        if (cursor_.currentEpochIndx >= 0) {
+            cursor_.lastEpochIndx = cursor_.currentEpochIndx;
+        }
     }
 }
 

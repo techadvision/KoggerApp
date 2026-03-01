@@ -18,6 +18,8 @@ TileSet::TileSet(std::weak_ptr<TileProvider> provider, std::weak_ptr<TileDB> db,
     maxLon_(0.0),
     currZoom_(-1),
     diffLevels_(std::numeric_limits<int32_t>::max()),
+    networkAvailable_(false),
+    mapEnabled_(true),
     moveUp_(false),
     defaultSize_(256, 256),
     defaultImageFormat_(QImage::Format_RGB32)
@@ -29,6 +31,10 @@ TileSet::TileSet(std::weak_ptr<TileProvider> provider, std::weak_ptr<TileDB> db,
 void TileSet::onNewRequest(const QSet<TileIndex>& request, ZoomState zoomState, LLARef viewLlaRef,
                            bool isPerspective, double minLon, double maxLon, bool moveUp)
 {
+    if (!mapEnabled_) {
+        return;
+    }
+
     if (request.isEmpty()) {
         return;
     }
@@ -103,7 +109,96 @@ void TileSet::setTextureIdByTileIndx(const TileIndex &tileIndx, GLuint textureId
     }
 }
 
-void TileSet::onTileLoaded(const TileIndex &tileIndx, const QImage &image)
+void TileSet::resetForProviderSwitch()
+{
+    emit mvClearAppendTasks();
+
+    for (auto& lTile : tileList_) {
+        if (lTile.getInUse()) {
+            emit mvDeleteTile(lTile.getIndex());
+        }
+    }
+
+    if (auto sharedDownloader = tileDownloader_.lock(); sharedDownloader) {
+        sharedDownloader->stopAndClearRequests();
+    }
+
+    emit dbStopAndClearTasks();
+
+    tileList_.clear();
+    tileHash_.clear();
+    request_.clear();
+    dbReq_.clear();
+    dwReq_.clear();
+    dbSvd_.clear();
+
+    zoomState_ = ZoomState::kUndefined;
+    currZoom_ = -1;
+    diffLevels_ = std::numeric_limits<int32_t>::max();
+    minLon_ = 0.0;
+    maxLon_ = 0.0;
+    moveUp_ = false;
+}
+
+void TileSet::setResources(std::weak_ptr<TileProvider> provider, std::weak_ptr<TileDB> db, std::weak_ptr<TileDownloader> downloader)
+{
+    tileProvider_ = provider;
+    tileDB_ = db;
+    tileDownloader_ = downloader;
+
+    if (auto sharedDownloader = tileDownloader_.lock(); sharedDownloader) {
+        sharedDownloader->setNetworkAvailable(networkAvailable_);
+    }
+}
+
+void TileSet::setNetworkAvailable(bool available)
+{
+    if (networkAvailable_ == available) {
+        return;
+    }
+
+    networkAvailable_ = available;
+
+    if (auto sharedDownloader = tileDownloader_.lock(); sharedDownloader) {
+        sharedDownloader->setNetworkAvailable(networkAvailable_);
+
+        if (networkAvailable_) {
+            if (mapEnabled_) {
+                for (auto it = dwReq_.cbegin(); it != dwReq_.cend(); ++it) {
+                    sharedDownloader->downloadTile(*it);
+                }
+            }
+        }
+    }
+}
+
+void TileSet::setMapEnabled(bool enabled)
+{
+    if (mapEnabled_ == enabled) {
+        return;
+    }
+
+    mapEnabled_ = enabled;
+
+    if (!mapEnabled_) {
+        request_.clear();
+        dbReq_.clear();
+        dwReq_.clear();
+
+        if (auto sharedDownloader = tileDownloader_.lock(); sharedDownloader) {
+            sharedDownloader->stopAndClearRequests();
+        }
+
+        emit dbStopAndClearTasks();
+    }
+}
+
+bool TileSet::isMapEnabled() const
+{
+    return mapEnabled_;
+}
+
+void TileSet::onTileLoaded(const map::TileIndex &tileIndx, const QImage &image)
 {
     dbReq_.remove(tileIndx);
 
@@ -130,31 +225,37 @@ void TileSet::onTileLoaded(const TileIndex &tileIndx, const QImage &image)
     }
 }
 
-void TileSet::onTileLoadFailed(const TileIndex &tileIndx, const QString &errorString)
+void TileSet::onTileLoadFailed(const map::TileIndex &tileIndx, const QString &errorString)
 {
     dbReq_.remove(tileIndx);
 
     Q_UNUSED(errorString);
 
+    if (!mapEnabled_) {
+        return;
+    }
+
     if (auto sharedDownloader = tileDownloader_.lock(); sharedDownloader) {
         if (!dwReq_.contains(tileIndx) && !dbSvd_.contains(tileIndx)) {
             dwReq_.insert(tileIndx);
-            sharedDownloader->downloadTile(tileIndx);
+            if (networkAvailable_ && mapEnabled_) {
+                sharedDownloader->downloadTile(tileIndx);
+            }
         }
     }
 }
 
-void TileSet::onTileLoadStopped(const TileIndex &tileIndx)
+void TileSet::onTileLoadStopped(const map::TileIndex &tileIndx)
 {
     dbReq_.remove(tileIndx);
 }
 
-void TileSet::onTileSaved(const TileIndex &tileIndx)
+void TileSet::onTileSaved(const map::TileIndex &tileIndx)
 {
     dbSvd_.remove(tileIndx);
 }
 
-void TileSet::onTileDownloaded(const TileIndex &tileIndx, const QImage &image)
+void TileSet::onTileDownloaded(const map::TileIndex &tileIndx, const QImage &image)
 {
     dwReq_.remove(tileIndx);
 
@@ -184,9 +285,11 @@ void TileSet::onTileDownloaded(const TileIndex &tileIndx, const QImage &image)
     }
 }
 
-void TileSet::onTileDownloadFailed(const TileIndex &tileIndx, const QString &errorString)
+void TileSet::onTileDownloadFailed(const map::TileIndex &tileIndx, const QString &errorString)
 {
-    dwReq_.remove(tileIndx);
+    if (networkAvailable_) {
+        dwReq_.remove(tileIndx);
+    }
 
     Q_UNUSED(tileIndx);
     Q_UNUSED(errorString);
@@ -194,12 +297,14 @@ void TileSet::onTileDownloadFailed(const TileIndex &tileIndx, const QString &err
     //qWarning() << "Failed to download tile" << tileIndx << "from:" << tileProvider_.lock()->createURL(tileIndx) << "Error:" << errorString;
 }
 
-void TileSet::onTileDownloadStopped(const TileIndex &tileIndx)
+void TileSet::onTileDownloadStopped(const map::TileIndex &tileIndx)
 {
-    dwReq_.remove(tileIndx);
+    if (networkAvailable_) {
+        dwReq_.remove(tileIndx);
+    }
 }
 
-void TileSet::onDeletedFromAppend(const TileIndex &tileIndx)
+void TileSet::onDeletedFromAppend(const map::TileIndex &tileIndx)
 {
     if (auto* tile = getTileByIndx(tileIndx); tile) {
         tile->setInUse(false);
@@ -564,6 +669,5 @@ bool TileSet::updateVertices(Tile* tile) const
     }
     return false;
 }
-
 
 } // namespace map

@@ -1,11 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
-import QtGraphicalEffects 1.15
+//import QtGraphicalEffects 1.15
 import Echo.UI 1.0
-
-//import org.techadvision.settings 1.0
-//import org.techadvision.runtime 1.0
 
 
 Item {
@@ -143,17 +140,6 @@ Item {
     }
 
     function calculateDynamicResolution(depth) {
-        /*
-        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
-                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
-            if (!pulseRuntimeSettings.pulseBlueResSetOnce) {
-                pulseRuntimeSettings.pulseBlueResSetOnce = true;
-                pulseRuntimeSettings.dynamicResolution = pulseRuntimeSettings.chartResolution;
-                console.log("TAV: set pulseRuntimeSettings.dynamicResolution just once to", pulseRuntimeSettings.dynamicResolution, "for", pulseRuntimeSettings.userManualSetName);
-            }
-            return;
-        }
-        */
         if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
                 && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto) {
             return;
@@ -302,25 +288,6 @@ Item {
 
     Connections {
         target: dataset ? dataset : undefined
-        /*
-        function onIsBottomTrackActiveUpdated () {
-            if (!dataset)
-                return
-            pulseRuntimeSettings.isBottomTrackActive = dataset.isBottomTrackActive()
-            console.log("distProcessing: Depth received onIsBottomTrackActiveUpdated, dataset.isBottomTrackActive", dataset.isBottomTrackActive())
-        }
-
-        function onBottomTrackUpdated () {
-            if (!dataset)
-                return
-            console.log("distProcessing: Depth available signalled onBottomTrackUpdated, dataset.bottomTrackDepth = ", dataset.bottomTrackDepth)
-        }
-        function onBottomTrackDepthChanged () {
-            if (!dataset)
-                return
-            console.log("distProcessing: Depth available signalled onBottomTrackDepthChanged, dataset.bottomTrackDepth = ", dataset.bottomTrackDepth)
-        }
-        */
     }
 
     Timer {
@@ -350,18 +317,6 @@ Item {
               : "32.0 °F";
         }
 
-        /*
-        if (dataset) {
-            if (dataset.temp) {
-                if (dataset.temp !== 0) {
-                    if (userShowTemperature) {
-                        enableTemperature = true
-                    }
-                }
-            }
-        }
-        */
-
         let tempC = dataset.temp;
 
         const tempF = tempC * (9/5) + 32;
@@ -376,15 +331,6 @@ Item {
         id: displayDepthTimer
         interval: {
             return 250
-            /*
-            if (!pulseRuntimeSettings)
-                return 250
-            if (pulseRuntimeSettings.isBottomTrackActive) {
-                return 1
-            } else {
-                return 250
-            }
-            */
         }
         repeat: true
         running: true
@@ -427,15 +373,7 @@ Item {
 
         // Property to count the taps
         property int tapCount: 0
-        // Timer to reset the tap count after 5 seconds
-        /*
-        Timer {
-            id: tapResetTimer
-            interval: 5000  // 5 seconds
-            repeat: false
-            onTriggered: depthTempRect.tapCount = 0
-        }
-        */
+
 
         // Depth Value (Whole Number Part)
         Rectangle {

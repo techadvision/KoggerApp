@@ -100,9 +100,9 @@ public:
 #endif
 
 signals:
-    void updateContent(Type type, Version ver, Resp resp, uint8_t address);
+    void updateContent(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp, uint8_t address);
     void dataSend(QByteArray data);
-    void binFrameOut(ProtoBinOut &proto_out);
+    void binFrameOut(Parsers::ProtoBinOut &proto_out);
     void notifyDevDriver(bool state);
 
 protected:
@@ -327,7 +327,24 @@ protected:
     float m_temp;
 };
 
+class IDBinEncoder : public IDBin
+{
+    Q_OBJECT
+public:
+    explicit IDBinEncoder() : IDBin() {
+    }
 
+    struct Encoder {
+        float e1 = NAN, e2 = NAN, e3 = NAN;
+    };
+
+    ID id() override { return Parsers::ID_ENCODER; }
+    Resp  parsePayload(FrameParser &proto) override;
+
+    Encoder get() { return data; }
+protected:
+    Encoder data;
+};
 
 class IDBinDataset : public IDBin
 {
@@ -339,11 +356,12 @@ public:
     ID id() override { return ID_DATASET; }
     Resp  parsePayload(FrameParser &proto) override;
     void startColdStartTimer() override;
-    typedef struct {
+    struct Channel
+    {
         uint8_t id = 0;
         uint32_t period = 0;
         uint32_t mask = 0;
-    } Channel;
+    };
 
     typedef enum {
         MASK_DIST_V0 = 1,
@@ -619,11 +637,12 @@ public:
     Resp  parsePayload(FrameParser &proto) override;
     void startColdStartTimer() override;
 
-    typedef struct {
+    struct UART
+    {
         U1 id = 0;
         U4 baudrate = 115200;
         U1 dev_address = 0;
-    } UART;
+    };
 
     void setBaudrate(U4 baudrate);
     int getBaudrate(int id = 1) { return m_uart[id].baudrate; }
@@ -756,12 +775,13 @@ class IDBinUpdate : public IDBin
 {
     Q_OBJECT
 public:
-    typedef struct __attribute__((packed)){
+    struct __attribute__((packed)) ID_UPGRADE_V0
+    {
        uint16_t lastNumMsg = 0;
        uint32_t lastOffset = 0;
        uint8_t type = 0;
        uint8_t rcvNumMsg = 0;
-    } ID_UPGRADE_V0;
+    };
 
     explicit IDBinUpdate() : IDBin() {
     }
@@ -835,7 +855,7 @@ public:
     Resp  parsePayload(FrameParser &proto) override;
 
     struct SimpleNav {
-        static constexpr ID getId() { return ID_USBL_CONTROL; }
+        static constexpr ID getId() { return ID_NAV; }
         static constexpr Version getVer() { return v1; }
 
         float yaw = NAN;
@@ -844,6 +864,23 @@ public:
         double latitude = NAN;
         double longitude = NAN;
         float depth  = NAN;
+    } __attribute__((packed));
+
+    struct SimpleNavV2 {
+        static constexpr ID getId() { return ID_NAV; }
+        static constexpr Version getVer() { return v2; }
+
+        uint8_t gnss_fix_type = 0;
+        uint8_t numSats = 0;
+        uint32_t unix_time = 0;
+        int16_t unix_offset_ms = 0;
+        int32_t latitude = 0;               // deg * 1e7
+        int32_t longitude = 0;              // deg * 1e7
+        int16_t ground_course_deg = 0;      // deg * 1e2
+        int16_t ground_velocity_mps = 0;    // meters/s * 1e3
+        int16_t yaw_deg = 0;                // deg * 1e2
+        int16_t pitch_deg = 0;              // deg * 1e2
+        int16_t roll_deg = 0;               // deg * 1e2
     } __attribute__((packed));
 
     double latitude() { return _nav.latitude; }
@@ -855,8 +892,50 @@ public:
 
     float depth() { return _nav.depth; }
 
+    uint8_t gnssFixTypeV2() const { return _navV2.gnss_fix_type; }
+    uint8_t numSatsV2() const { return _navV2.numSats; }
+    uint32_t unixTimeV2() const { return _navV2.unix_time; }
+    int16_t unixOffsetMsV2() const { return _navV2.unix_offset_ms; }
+    double latitudeV2() const { return static_cast<double>(_navV2.latitude) * 1e-7; }
+    double longitudeV2() const { return static_cast<double>(_navV2.longitude) * 1e-7; }
+    double groundCourseDegV2() const { return static_cast<double>(_navV2.ground_course_deg) * 0.01; }
+    double groundVelocityMpsV2() const { return static_cast<double>(_navV2.ground_velocity_mps) * 0.001; }
+    float yawV2() const { return static_cast<float>(static_cast<double>(_navV2.yaw_deg) * 0.01); }
+    float pitchV2() const { return static_cast<float>(static_cast<double>(_navV2.pitch_deg) * 0.01); }
+    float rollV2() const { return static_cast<float>(static_cast<double>(_navV2.roll_deg) * 0.01); }
+
 protected:
     SimpleNav _nav;
+    SimpleNavV2 _navV2;
+};
+
+class IDBinBoatStatus : public IDBin
+{
+    Q_OBJECT
+public:
+    explicit IDBinBoatStatus() : IDBin() {
+    }
+
+    ID id() override { return ID_BOAT_STATUS; }
+    Resp parsePayload(FrameParser& proto) override;
+
+    struct BoatStatus {
+        static constexpr ID getId() { return ID_BOAT_STATUS; }
+        static constexpr Version getVer() { return v0; }
+
+        uint8_t batteryBoat_percent = 0;
+        uint8_t batteryBridge_percent = 0;
+        uint8_t signal_quality_boat_percent = 0;
+        uint8_t signal_quality_bridge_percent = 0;
+    } __attribute__((packed));
+
+    uint8_t batteryBoatPercent() const { return data_.batteryBoat_percent; }
+    uint8_t batteryBridgePercent() const { return data_.batteryBridge_percent; }
+    uint8_t signalQualityBoatPercent() const { return data_.signal_quality_boat_percent; }
+    uint8_t signalQualityBridgePercent() const { return data_.signal_quality_bridge_percent; }
+
+protected:
+    BoatStatus data_{};
 };
 
 class IDBinDVL : public IDBin
@@ -869,7 +948,8 @@ public:
     ID id() override { return ID_DVL_VEL; }
     Resp  parsePayload(FrameParser &proto) override;
 
-    typedef struct   __attribute__((packed)) {
+    struct __attribute__((packed)) BeamSolution
+    {
         uint8_t num;
         uint8_t flags;
         float velocity = NAN;
@@ -880,7 +960,7 @@ public:
         uint8_t mode;
         uint8_t coherence[4];
         int8_t difference[4];
-    } BeamSolution;
+    };
 
     typedef struct  __attribute__((packed)) {
         union {
@@ -964,14 +1044,15 @@ public:
     ID id() override { return ID_DVL_MODE; }
     Resp  parsePayload(FrameParser &proto) override;
 
-    typedef struct  __attribute__((packed)) {
+    struct __attribute__((packed)) DVLModeSetup
+    {
         uint8_t id = 0;
         uint8_t selection = 1; // 0 - not select, 1 - always
         int8_t gain = 0;
         int8_t curve = 0;
         uint16_t reserved = 0;
         float start = 0, stop = 0; // 0 - ignore
-    } DVLModeSetup;
+    };
 
     void setModes(bool ismode1, bool ismode2, bool ismode3, bool ismode4, float range_mode4);
 
@@ -1071,7 +1152,7 @@ public:
     }
 
     ID id() override { return ID_USBL_CONTROL; }
-    Resp  parsePayload(FrameParser &proto) override;
+    Resp parsePayload(FrameParser& proto) override;
 
     // Fire SIGNAL_SYNC_MASTER and SIGNAL_ADDRESS_MASTER (if enabled by "address") in a sequence
     // If (timeout_us > 0) then it will fire the signal sequence by trigger event,

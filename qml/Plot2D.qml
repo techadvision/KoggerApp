@@ -1,9 +1,12 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Dialogs 1.2
-import Qt.labs.settings 1.1
-import Echo.UI 1.0
+//import QtQuick.Dialogs 1.2
+//import Qt.labs.settings 1.1
+//import Echo.UI 1.0
+import QtQuick.Dialogs
+import QtCore
+
 
 import WaterFall 1.0
 
@@ -13,6 +16,8 @@ WaterFall {
     property bool is3dVisible: false
     property int indx: 0
     property int instruments: instrumentsGradeList.currentIndex
+    property bool settingsOpen: plotCheckButton.checked
+    property bool hasTransientUi: menuBlock.visible || contactDialog.visible
 
     horizontal: horisontalVertical.checked
 
@@ -27,7 +32,27 @@ WaterFall {
     }
 
     function closeSettings() {
+        if (!plotCheckButton.checked) {
+            return false
+        }
         plotCheckButton.checked = false
+        return true
+    }
+
+    function closeTransientUi() {
+        let handled = false
+
+        if (menuBlock.visible) {
+            menuBlock.visible = false
+            handled = true
+        }
+
+        if (contactDialog.visible) {
+            contactDialog.visible = false
+            handled = true
+        }
+
+        return handled
     }
 
     function setAim(mouseX, mouseY) {
@@ -80,6 +105,7 @@ WaterFall {
     signal plotPressed(int indx, int mousex, int mousey)
     signal plotReleased(int indx)
     signal settingsClicked()
+    signal echogramThemeChanged(int themeId)
 
     //Pulse additiona - Properties
     //****************************
@@ -569,8 +595,27 @@ WaterFall {
                     }
                 }
             }
+            
+            onClicked: function(mouse) {
+                lastMouseX = mouse.x
+                plot.focus = true
+
+                if (mouse.button === Qt.RightButton) {
+                    contactMouseX = mouse.x
+                    contactMouseY = mouse.y
+
+                    plot.simplePlotMousePosition(mouse.x, mouse.y)
+
+                    if (theme.instrumentsGrade !== 0) {
+                        menuBlock.position(mouse.x, mouse.y)
+                    }
+                }
+
+                wasMoved = false
+            }
 
             onPressed: {
+
                 lastMouseX = mouse.x
                 //Pulse addition
                 lastMouseY = mouse.y
@@ -619,7 +664,7 @@ WaterFall {
                 wasMoved = false
             }
 
-            onReleased: {
+            onReleased: function(mouse) {
                 lastMouseX = -1
                 //Pulse addition
                 lastMouseY = -1
@@ -705,7 +750,7 @@ WaterFall {
                 plotReleased(indx)
             }
 
-            onPositionChanged: {
+            onPositionChanged: function(mouse) {
                 plot.onCursorMoved(mouse.x, mouse.y)
 
                 // 1) detect movement
@@ -755,10 +800,32 @@ WaterFall {
                     dragCommitX = mouse.x
                     dragCommitY = mouse.y
                     plot.plotMousePosition(mouse.x, mouse.y)
-                    //plot.simplePlotMousePosition(mouse.x, mouse.y)
-                    //plotPressed(indx, mouse.x, mouse.y)
-                    //plotReleased(indx)
-                    //wasMoved = false
+                    plotPressed(indx, mouse.x, mouse.y)
+                }
+
+                if (mouse.button === Qt.RightButton) {
+                    contactMouseX = mouse.x
+                    contactMouseY = mouse.y
+
+                    plot.simplePlotMousePosition(mouse.x, mouse.y)
+                }
+            }
+
+            onWheel: function(wheel) {
+                if (wheel.modifiers & Qt.ControlModifier) {
+                    let val = -wheel.angleDelta.y
+                    plot.verZoomEvent(val)
+                    plotCursorChanged(indx, cursorFrom(), cursorTo())
+                }
+                else if (wheel.modifiers & Qt.ShiftModifier) {
+                    let val = -wheel.angleDelta.y
+                    plot.verScrollEvent(val)
+                    plotCursorChanged(indx, cursorFrom(), cursorTo())
+                }
+                else {
+                    let val = wheel.angleDelta.y
+                    plot.horScrollEvent(val)
+                    updateOtherPlot(indx)
                 }
             }
         }
@@ -2063,6 +2130,7 @@ WaterFall {
 
                     RowLayout {
                         id: rowDataset
+                        Layout.fillWidth: true
                         visible: instruments > 1
                         property var channel1List: []
                         property var channel2List: []
@@ -2102,7 +2170,6 @@ WaterFall {
                             property bool suppressTextSignal: false
 
                             Layout.fillWidth: true
-                            Layout.preferredWidth: rowDataset.width / 3
                             visible: true
 
                             onCurrentTextChanged: {
@@ -2153,7 +2220,6 @@ WaterFall {
                             property bool suppressTextSignal: false
 
                             Layout.fillWidth: true
-                            Layout.preferredWidth: rowDataset.width / 3
                             visible: true
 
                             onCurrentTextChanged: {
@@ -2323,11 +2389,17 @@ WaterFall {
                             id: echoTheme
                             //                        Layout.fillWidth: true
                             Layout.preferredWidth: 150
-                            model: [qsTr("Blue"), qsTr("Sepia"), qsTr("WRGBD"), qsTr("WhiteBlack"), qsTr("BlackWhite")]
+                            model: [qsTr("Blue"), qsTr("Sepia"), qsTr("Sepia New"), qsTr("WRGBD"), qsTr("WhiteBlack"), qsTr("BlackWhite"), qsTr("DeepBlue"), qsTr("Ice"), qsTr("Green"), qsTr("Midnight")]
                             currentIndex: 0
 
-                            onCurrentIndexChanged: plotEchogramTheme(currentIndex)
-                            Component.onCompleted: plotEchogramTheme(currentIndex)
+                            onCurrentIndexChanged: {
+                                plotEchogramTheme(currentIndex)
+                                echogramThemeChanged(currentIndex)
+                            }
+                            Component.onCompleted: {
+                                plotEchogramTheme(currentIndex)
+                                echogramThemeChanged(currentIndex)
+                            }
 
                             Settings {
                                 category: "Plot2D_" + plot.indx
@@ -2374,9 +2446,19 @@ WaterFall {
                         CCheck {
                             id: bottomTrackVisible
                             Layout.fillWidth: true
+                            checked: true
                             text: qsTr("Bottom-Track")
                             onCheckedChanged: plotBottomTrackVisible(checked)
                             Component.onCompleted: plotBottomTrackVisible(checked)
+                        }
+
+                        CCheck {
+                            id: bottomTrackValueVisible
+                            text: qsTr("Value")
+                            checked: true
+
+                            onCheckedChanged: plotBottomTrackDepthTextVisible(checked)
+                            Component.onCompleted: plotBottomTrackDepthTextVisible(checked)
                         }
 
                         CCombo  {
@@ -2434,6 +2516,15 @@ WaterFall {
                             Component.onCompleted: plotRangefinderVisible(checked)
                         }
 
+                        CCheck {
+                            id: rangefinderValueVisible
+                            text: qsTr("Value")
+                            checked: true
+
+                            onCheckedChanged: plotRangefinderDepthTextVisible(checked)
+                            Component.onCompleted: plotRangefinderDepthTextVisible(checked)
+                        }
+
                         CCombo  {
                             id: rangefinderThemeList
                             model: [qsTr("Text"), qsTr("Line"), qsTr("Dot")]
@@ -2458,6 +2549,14 @@ WaterFall {
                         checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.ahrsVisible : false
                         onCheckedChanged: plotAttitudeVisible(checked)
                         Component.onCompleted: plotAttitudeVisible(checked)
+                    }
+
+                    CCheck {
+                        visible: instruments > 1
+                        id: temperatureVisible
+                        text: qsTr("Temperature")
+                        onCheckedChanged: plotTemperatureVisible(checked)
+                        Component.onCompleted: plotTemperatureVisible(checked)
                     }
 
                     RowLayout {
@@ -2652,6 +2751,21 @@ WaterFall {
                                         return
                                     gridVisible.checked = true
                                 }
+                                    
+                            CCheck {
+                                id: invertGrid
+                                Layout.fillWidth: true
+                                text: qsTr("invert")
+                                onCheckedChanged: plotGridInvert(checked)
+                                visible: gridVisible.checked
+
+                                Component.onCompleted: {
+                                    plotGridInvert(checked)
+                                }
+                                Settings {
+                                    category: "Plot2D_" + plot.indx
+                                    property alias invertGrid: invertGrid.checked
+                                }
                             }
                         }
 
@@ -2825,17 +2939,68 @@ WaterFall {
                         text: qsTr("Horizontal")
                     }
 
+                    RowLayout {
+                        CCheck {
+                            id: loupeVisible
+                            Layout.fillWidth: true
+                            checked: false
+                            text: qsTr("Loupe")
+
+                            onCheckedChanged: plotLoupeVisible(checked)
+                            Component.onCompleted: plotLoupeVisible(checked)
+                        }
+
+                        RowLayout {
+                            CText {
+                                text: qsTr("size")
+                            }
+                            SpinBoxCustom {
+                                id: loupeSize
+                                from: 1
+                                to: 3
+                                stepSize: 1
+                                value: 1
+                                visible: loupeVisible.checked
+
+                                onValueChanged: plotLoupeSize(value)
+                                Component.onCompleted: plotLoupeSize(value)
+                            }
+                        }
+                        RowLayout {
+                            CText {
+                                text: qsTr("zoom")
+                            }
+                            SpinBoxCustom {
+                                id: loupeZoom
+                                from: 1
+                                to: 3
+                                stepSize: 1
+                                value: 1
+                                visible: loupeVisible.checked
+
+                                onValueChanged: plotLoupeZoom(value)
+                                Component.onCompleted: plotLoupeZoom(value)
+                            }
+                        }
+                    }
+
                     Settings {
                         category: "Plot2D_" + plot.indx
 
                         property alias echogramVisible: echogramVisible.checked
                         property alias rangefinderVisible: rangefinderVisible.checked
+                        property alias rangefinderValueVisible: rangefinderValueVisible.checked
                         property alias postProcVisible: bottomTrackVisible.checked
+                        property alias bottomTrackValueVisible: bottomTrackValueVisible.checked
                         property alias ahrsVisible: ahrsVisible.checked
+                        property alias temperatureVisible: temperatureVisible.checked
                         property alias gridVisible: gridVisible.checked
                         property alias dopplerBeamVisible: dopplerBeamVisible.checked
                         property alias dopplerInstrumentVisible: dopplerInstrumentVisible.checked
                         property alias horisontalVertical: horisontalVertical.checked
+                        property alias loupeVisible: loupeVisible.checked
+                        property alias loupeSize: loupeSize.value
+                        property alias loupeZoom: loupeZoom.value
                     }
                 }
             } // menu frame
@@ -2866,6 +3031,10 @@ WaterFall {
 
         onCopyButtonClicked: {
             plot.updateContact()
+        }
+
+        onSetActiveButtonClicked: {
+            plot.setActiveContact(contactDialog.indx)
         }
 
         onInputAccepted: {
@@ -3033,4 +3202,5 @@ WaterFall {
             ButtonGroup.group: pencilbuttonGroup
         }
     }
+}
 }

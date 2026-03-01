@@ -12,7 +12,10 @@
 #include <limits>
 #include <algorithm>
 #include "math_defs.h"
+
 #include "UiMetrics.h"
+
+#include <QFontMetrics>
 
 
 Plot2DGrid::Plot2DGrid() : angleVisibility_(false), isMetric_(true), isHorizontalGrid_(true), isSideScanOnLeftHandSide_(true)
@@ -37,8 +40,38 @@ void Plot2DGrid::updateDpScale() {
     dpScale_ = dpi / 160.0;
 }
 
+void Plot2DGrid::drawTextWithBackdrop(QPainter* painter, int x, int baselineY, const QString& text) const
+{
+    if (!painter || text.isEmpty()) {
+        return;
+    }
+
+    const QFontMetrics fm(painter->font());
+    const int padX = 8;
+    const int padY = 4;
+    const int radius = 5;
+    const QRect bgRect(x - padX,
+                       baselineY - fm.ascent() - padY,
+                       fm.horizontalAdvance(text) + padX * 2,
+                       fm.height() + padY * 2);
+
+    const auto prevMode = painter->compositionMode();
+    const auto prevPen = painter->pen();
+    painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(0, 0, 0, 115));
+    painter->drawRoundedRect(bgRect, radius, radius);
+
+    painter->setPen(prevPen);
+    painter->drawText(x, baselineY, text);
+    painter->setPen(prevPen);
+    painter->setCompositionMode(prevMode);
+}
+
 bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 {
+    Q_UNUSED(dataset);
     auto &canvas = parent->canvas();
     auto &cursor = parent->cursor();
 
@@ -94,6 +127,14 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     const int imageHeight{ canvas.height() }, imageWidth{ canvas.width() },
         linesCount{ _lines }, textXOffset{ 30 }, textYOffset{ 10 };
 
+
+    /* TODO - erronous placement of this part
+    // линии
+    for (int i = 1; i < linesCount; ++i) {
+        const int posY = i * imageHeight / linesCount;
+    */
+
+
     //SDK35 EDGE to EGDE SAFE MARGINS
 
 #ifdef Q_OS_ANDROID
@@ -105,11 +146,51 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                      InsetsHelper::instance()->ime()); // lift above IME if visible
     const bool isDex      = InsetsHelper::instance()->dexEnabled();
 
+
     // Define the drawable/safe rect in device coords
     const int safeLeftEdge = insetLeft;
     int tempTopEdge        = insetTop;
     if (isDex) {
         tempTopEdge        = 0;
+
+        /*
+        tempTopEdge        = 0;
+        if (_velocityVisible && cursor.velocity.isValid()) { // velocity
+            const float velFrom{ cursor.velocity.from }, velTo{ cursor.velocity.to },
+                velRange{ velTo - velFrom }, attVal{ velRange * i / linesCount + velFrom };
+            lineText.append({ QString::number(attVal , 'f', 2) + QObject::tr(" m/s    ")});
+        }
+        if (angleVisibility_ && cursor.attitude.isValid()) { // angle
+            const float attFrom{ cursor.attitude.from }, attTo{ cursor.attitude.to },
+                attRange{ attTo - attFrom }, attVal{ attRange * i / linesCount + attFrom };
+            QString text{ QString::number(attVal, 'f', 0) + QStringLiteral("°    ") };
+            lineText.append(text);
+        }
+        if (cursor.distance.isValid()) { // depth
+            const float distFrom{ cursor.distance.from }, distTo{ cursor.distance.to },
+                distRange{ distTo - distFrom }, rangeVal{ distRange * i / linesCount + distFrom };
+            lineText.append( { QString::number(rangeVal, 'f', 2) + QObject::tr(" m") } );
+        }
+
+        const int textW = fm.horizontalAdvance(lineText);
+
+        if (isFillWidth()) {
+            p->drawLine(0, posY, imageWidth, posY);
+        }
+        else {
+            if (invert_) {
+                p->drawLine(0, posY, textW + textXOffset, posY);
+            }
+            else {
+                p->drawLine(imageWidth - textW - textXOffset, posY, imageWidth, posY);
+            }
+        }
+
+        if (!lineText.isEmpty()) {
+            const int textX = invert_ ? textXOffset : (imageWidth - textW - textXOffset);
+            drawTextWithBackdrop(p, textX, posY - textYOffset, lineText);
+        }
+        */
     }
     const int safeTopEdge    = tempTopEdge;
     const int safeRightEdge  = imageWidth  - insetRight;
@@ -204,7 +285,6 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         if (!lineText.isEmpty()) {
             if (isHorizontalGrid_) {
                 //HORIZONTAL GRID
-//#ifdef Q_OS_ANDROID
                 withDeviceSafe([&]{
                     const int desiredX = safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset;
                     const QPoint textPos(desiredX, posYflipped - textYOffset);
@@ -215,12 +295,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                          safeRightEdge,   // forceRightEdge
                                          5);              // verticalOffset
                 });
-//#endif
-/*
-#ifdef Q_OS_WINDOWS
-                p->drawText(safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset, posYflipped - textYOffset, lineText);
-#endif
-*/
+
             } else {      
                 //VERTICAL GRID
                 withTopWide([&](const QRect& band){
@@ -279,71 +354,6 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
     }
 
-    // LAST DEPTH TEXT AT THE VERY BOTTOM, ONLY IN 2D VIEW
-    //We also disable this in 2D view as the "with safe" and full screen puts this measure at the wrong position
-    /*
-    if (cursor.distance.isValid() && !flipImage && is2DTransducer_) {
-        QFont f("Asap");
-        f.setPixelSize(sp(18));
-        f.setBold(true);
-        p->setFont(f);
-        //p->setFont(QFont("Asap", 20, QFont::Bold));
-
-        float val{ cursor.distance.to * conversionFactor };
-
-        QString range_text = QString::number(val, 'f', (isMetric_ ? 0 : 1)) + (isMetric_ ? QObject::tr(" m") : QObject::tr(" ft"));
-
-        if (isHorizontalGrid_) {
-            withDeviceSafe([&]{
-                const int desiredX = safeRightEdge - textXOffset/2 - fm.horizontalAdvance(range_text);
-                const int baseY    = safeBottomEdge - 10;   // inside the safe area
-                drawTextWithBackdrop(p, range_text, QPoint(desiredX, baseY),
-                                     TextAnchor::BaselineLeft,
-                                     5,            // margin
-                                     safeRightEdge,// forceRightEdge inside safeRect
-                                     5);           // vertical offset
-            });
-        }
-
-    }
-    */
-
-    //PULSE DOES NOT USE THE ON SCREEN DEPTH VALUE FROM THE GRID CLASS
-    /*
-
-    if (cursor.distance.isValid()) {
-        p->setFont(QFont("Asap", 26, QFont::Normal));
-        float val{ cursor.distance.to };
-        bool isInteger = std::abs(val - std::round(val)) < kmath::fltEps;
-        QString rangeText = QString::number(val, 'f', isInteger ? 0 : 2) + QObject::tr(" m");
-        p->drawText(imageWidth - textXOffset / 2 - rangeText.count() * 25, imageHeight - 10, rangeText);
-    }
-
-    if (_rangeFinderLastVisible && cursor.distance.isValid()) {
-        Epoch* lastEpoch = dataset->last();
-        Epoch* preLastEpoch = dataset->lastlast();
-        float distance = NAN;
-
-        if (lastEpoch != NULL && isfinite(lastEpoch->rangeFinder())) {
-            distance = lastEpoch->rangeFinder();
-        }
-        else if (preLastEpoch != NULL && isfinite(preLastEpoch->rangeFinder())) {
-            distance = preLastEpoch->rangeFinder();
-        }
-
-        if (isfinite(distance)) {
-            pen.setColor(QColor(250, 100, 0));
-            p->setPen(pen);
-            p->setFont(QFont("Asap", 40, QFont::Normal));
-            float val{ round(distance * 100.f) / 100.f };
-            bool isInteger = std::abs(val - std::round(val)) < kmath::fltEps;
-            QString rangeText = QString::number(val, 'f', isInteger ? 0 : 2) + QObject::tr(" m");
-            p->drawText(imageWidth / 2 - rangeText.count() * 32, imageHeight - 15, rangeText);
-        }
-
-    }
-    */
-
     // TEMPERATURE, NOT USED BY PULSE
     if(false) {
         Epoch* lastEpoch = dataset->last();
@@ -355,17 +365,12 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         float temp = NAN;
         temp = dataset->getLastTemp();
 
-        /* Pulse already has the temperature
-        if (isfinite(temp)) {
-            pen.setColor(QColor(80, 200, 0));
-            p->setPen(pen);
-            p->setFont(QFont("Asap", 40, QFont::Normal));
-            float val{ round(temp * 100.f) / 100.f };
-            bool isInteger = std::abs(val - std::round(val)) < kmath::fltEps;
-            QString rangeText = QString::number(val, 'f', isInteger ? 0 : 1) + QObject::tr("°");
-            p->drawText(imageWidth / 2 - 300, imageHeight - 15, rangeText);
-        }
+        /*
+        const int w = fm2.horizontalAdvance(rangeText);
+        const int x = invert_ ? (textXOffset * 2) : (imageWidth - textXOffset / 2 - w);
+        drawTextWithBackdrop(p, x, imageHeight - 10, rangeText);
         */
+
     }
 
     return true;

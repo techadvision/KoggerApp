@@ -1,10 +1,11 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
-import QtQuick.Dialogs 1.2
-import Qt.labs.settings 1.1
-//import org.techadvision.settings 1.0
-//import org.techadvision.runtime 1.0
+
+//import Qt.labs.settings 1.1
+import QtQuick.Dialogs
+
+
 
 ColumnLayout {
     id: columnItem
@@ -378,24 +379,6 @@ ColumnLayout {
 
     }
 
-    /*
-    onDevListChanged: {
-        if (devList.length > 0) {
-            myDev = devList[0]
-            //myDev = devList[ devList.length - 1 ]
-            if (myDev !== null) {
-                //console.log("DEV_PARAM: onDevListChanged")
-                //console.log("DEV_PARAM: onDevListChanged - myDev.devName = ", myDev.devName)
-                //console.log("DEV_PARAM: onDevListChanged - dev === null?", dev === null)
-                if (dev !== null) {
-                  //console.log("DEV_PARAM: onDevListChanged - dev.devName = ", dev.devName)
-                }
-            }
-        } else {
-            //console.log("DEV_PARAM: onDevListChanged when list length is 0")
-        }
-    }
-    */
 
     property bool settingsNotNull: false
     property bool settingsCompleted: false
@@ -412,7 +395,13 @@ ColumnLayout {
 
     signal transducerDetected(string transducer)
 
+    function safeNum(val, fallback) {
+        return (val === undefined || val === null) ? fallback : val
+    }
 
+    function safeBool(val) {
+        return val === true
+    }
 
     ParamGroup {
         groupName: qsTr("Echogram")
@@ -425,6 +414,7 @@ ColumnLayout {
                 to: 100
                 stepSize: 10
                 value: 0
+
                 devValue: {
                     if (dev !== null && pulseRuntimeSettings !== null) {
                         if (pulseRuntimeSettings.doDynamicResolution) {
@@ -440,7 +430,10 @@ ColumnLayout {
                     }
                 }
 
-                isValid: dev !== null ? dev.chartSetupState : false
+                //isValid: dev !== null ? dev.chartSetupState : false
+
+                //devValue: safeNum(dev && dev.chartResolution, 0)
+                isValid: safeBool(dev && dev.chartSetupState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -536,9 +529,11 @@ ColumnLayout {
                 to: 15000
                 stepSize: 100
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartSamples : 0
-                //devValue: dev !== null ? dev.chartSamples : 0
-                isValid: dev !== null ? dev.chartSetupState : false
+                //isValid: dev !== null ? dev.chartSetupState : false
+                //devValue: safeNum(dev && dev.chartSamples, 0)
+                isValid: safeBool(dev && dev.chartSetupState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -579,6 +574,7 @@ ColumnLayout {
                 to: 10000
                 stepSize: 100
                 value:0
+
                 devValue: {
                     if (dev !== null && pulseRuntimeSettings !== null) {
                         console.log("DEV_PARAM: chartOffset as devValue set to ", pulseRuntimeSettings.chartOffset);
@@ -589,8 +585,9 @@ ColumnLayout {
                     }
                 }
 
-                //devValue: dev !== null ? dev.chartOffset : 0
-                isValid: dev !== null ? dev.chartSetupState : false
+                //isValid: dev !== null ? dev.chartSetupState : false
+                //devValue: safeNum(dev && dev.chartOffset, 0)
+                isValid: safeBool(dev && dev.chartSetupState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -636,9 +633,12 @@ ColumnLayout {
                 to: 50000;
                 stepSize: 1000
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distMax : 0
-                //devValue: dev !== null ? dev.distMax : 0
-                isValid: dev !== null ? dev.distSetupState : false
+
+                //isValid: dev !== null ? dev.distSetupState : false
+                //devValue: safeNum(dev && dev.distMax, 0)
+                isValid: safeBool(dev && dev.distSetupState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -672,9 +672,13 @@ ColumnLayout {
                 to: 50000
                 stepSize: 100
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distDeadZone : 0
-                //devValue: dev !== null ? dev.distDeadZone : 0
-                isValid: dev !== null ? dev.distSetupState : false
+
+                //isValid: dev !== null ? dev.distSetupState : false
+
+                //devValue: safeNum(dev && dev.distDeadZone, 0)
+                isValid: safeBool(dev && dev.distSetupState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -709,9 +713,11 @@ ColumnLayout {
                 to: 100
                 stepSize: 1
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distConfidence : 0
-                //devValue: dev !== null ? dev.distConfidence : 0
-                isValid: dev !== null ? dev.distSetupState : false
+                //isValid: dev !== null ? dev.distSetupState : false
+                //devValue: safeNum(dev && dev.distConfidence, 0)
+                isValid: safeBool(dev && dev.distSetupState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -750,8 +756,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transPulse : 0
-                //devValue: dev !== null ? dev.transPulse : 0
-                isValid: dev !== null ? dev.transcState : false
+                //isValid: dev !== null ? dev.transcState : false
+                //devValue: safeNum(dev && dev.transPulse, 0)
+                isValid: safeBool(dev && dev.transcState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -786,9 +793,10 @@ ColumnLayout {
                 stepSize: 5
                 value: pulseRuntimeSettings.transFreq
                 devValue: pulseRuntimeSettings.transFreq
-                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transFreq : 0
-                //devValue: dev !== null ? dev.transFreq : 0
-                isValid: dev !== null ? dev.transcState : false
+                //isValid: dev !== null ? dev.transcState : false
+                //value: 0
+                //devValue: safeNum(dev && dev.transFreq, 0)
+                isValid: safeBool(dev && dev.transcState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -824,9 +832,11 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transBoost : 0
-                //devValue: dev !== null ? dev.transBoost : 0
-                isValid: dev !== null ? dev.transcState : false
+                //isValid: dev !== null ? dev.transcState : false
+                //devValue: safeNum(dev && dev.transBoost, 0)
+                isValid: safeBool(dev && dev.transcState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -841,8 +851,8 @@ ColumnLayout {
                 property var items: [qsTr("Off"), qsTr("On")]
                 property string regExpPattern: "(" + items.join("|") + ")"
 
-                validator: RegExpValidator {
-                    regExp: new RegExp(spinBoxBooster ? spinBoxBooster.regExpPattern : "(Off|On)", "i")
+                validator: RegularExpressionValidator {
+                    regularExpression: new RegExp(spinBoxBooster ? spinBoxBooster.regExpPattern : "(Off|On)", "i")
                 }
 
                 textFromValue: function(value) {
@@ -884,9 +894,13 @@ ColumnLayout {
                 to: 4
                 stepSize: 1
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.dspHorSmooth : 0
-                //devValue: dev !== null ? dev.dspHorSmooth : 0
-                isValid: dev !== null ? dev.dspState : false
+                //isValid: dev !== null ? dev.dspState : false
+
+                //devValue: safeNum(dev && dev.dspHorSmooth, 0)
+                isValid: safeBool(dev && dev.dspState)
+
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -920,9 +934,13 @@ ColumnLayout {
                 to: 6000
                 stepSize: 5
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.soundSpeed / 1000 : 0
-                //devValue: dev !== null ? dev.soundSpeed / 1000 : 0
-                isValid: dev !== null ? dev.soundState : false
+                //isValid: dev !== null ? dev.soundState : false
+
+                //devValue: safeNum(dev && dev.soundSpeed !== undefined ? dev.soundSpeed / 1000 : undefined, 0)
+                isValid: safeBool(dev && dev.soundState)
+
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -960,9 +978,12 @@ ColumnLayout {
                 to: 2000
                 stepSize: 50
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.ch1Period : 0
-                //devValue: dev !== null ? dev.ch1Period : 0
-                isValid: dev !== null ? dev.datasetState : false
+                //isValid: dev !== null ? dev.datasetState : false
+
+                //devValue: safeNum(dev && dev.ch1Period, 0)
+                isValid: safeBool(dev && dev.datasetState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
@@ -1000,19 +1021,33 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetChart : 0
-                //devValue: dev !== null ? dev.datasetChart === 1 : 0
-                isValid: dev !== null ? dev.datasetState : false
+
+                //isValid: dev !== null ? dev.datasetState : false
+
+                //devValue: dev ? (dev.datasetChart === 1 ? 1 : 0) : 0
+                isValid: safeBool(dev && dev.datasetState)
+
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+
                         if (dev === null)
                             return
                         if (value == 1) {
                             //pulseRuntimeSettings.datasetChart = 1
                         } else {
                             //pulseRuntimeSettings.datasetChart = 0
+                        }
+
+                        if (value === 1) {
+                            //dev.datasetChart = 1
+                        }
+                        else {
+                            //dev.datasetChart = 0
+
                         }
                         //dev.datasetChart = pulseRuntimeSettings.datasetChart
                     }
@@ -1046,13 +1081,19 @@ ColumnLayout {
                 to: 2
                 stepSize: 1
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? (pulseRuntimeSettings.datasetDist === 1 ? 1 : pulseRuntimeSettings.datasetSDDBT === 1 ? 2 : 0) : 0
-                //devValue: dev !== null ? (dev.datasetDist === 1 ? 1 : dev.datasetSDDBT === 1 ? 2 : 0) : 0
-                isValid: dev !== null ? dev.datasetState : false
+
+                //isValid: dev !== null ? dev.datasetState : false
+
+                //devValue: dev ? (dev.datasetDist === 1 ? 1 : dev.datasetSDDBT === 1 ? 2 : 0) : 0
+                isValid: safeBool(dev && dev.datasetState)
+
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+
                         if (dev === null)
                             return
                         if (value === 1) {
@@ -1060,6 +1101,14 @@ ColumnLayout {
                         }
                         else if (value === 2) {
                             //pulseRuntimeSettings.currentDepthSolution = 2
+                        }
+
+                        if (value === 1) {
+                            //dev.datasetDist = 1
+                        }
+                        else if (value === 2) {
+                            //dev.datasetSDDBT = 1
+
                         }
                         else {
                             //pulseRuntimeSettings.currentDepthSolution = 0
@@ -1113,17 +1162,20 @@ ColumnLayout {
                 stepSize: 1
                 editable: false
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetEuler : 0
-                //devValue: dev !== null ? ((dev.datasetEuler & 1) === 1) : 0
-                isValid: dev !== null ? dev.datasetState : false
+
+                //isValid: dev !== null ? dev.datasetState : false
+
+
+                //devValue: dev ? ((dev.datasetEuler & 1) === 1 ? 1 : 0) : 0
+                isValid: safeBool(dev && dev.datasetState)
 
                 onValueChanged: {
                     if (!isDriverChanged) {
-                        if (dev === null)
-                            return
-                        if (value == 1) {
-                            //pulseRuntimeSettings.datasetEuler = 1
-                            //dev.datasetEuler = pulseRuntimeSettings.datasetEuler
+                        if (value === 1) {
+                            //dev.datasetEuler = 1
+
                         }
                         else if (dev.datasetEuler & 1) {
                             //pulseRuntimeSettings.datasetEuler = 0
@@ -1160,13 +1212,18 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTemp : 0
-                //devValue: dev !== null ? ((dev.datasetTemp & 1) === 1) : 0
-                isValid: dev !== null ? dev.datasetState : false
+                //isValid: dev !== null ? dev.datasetState : false
+
+                //devValue: dev ? ((dev.datasetTemp & 1) === 1 ? 1 : 0) : 0
+                isValid: safeBool(dev && dev.datasetState)
+
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+
                         if (dev === null)
                             return
                         //console.log("Dev_value: datasetTemp isDriverChanged, new value ", value)
@@ -1174,6 +1231,14 @@ ColumnLayout {
                             //pulseRuntimeSettings.datasetTemp = 1
                         } else if (dev.datasetTemp & 1) {
                             //pulseRuntimeSettings.datasetTemp = 0
+                        }
+
+                        if(value === 1) {
+                            //dev.datasetTemp = 1
+                        }
+                        else if (dev.datasetTemp & 1) {
+                            //dev.datasetTemp = 0
+
                         }
                         //dev.datasetTemp = pulseRuntimeSettings.datasetTemp
                     }
@@ -1208,19 +1273,32 @@ ColumnLayout {
                 to: 1
                 stepSize: 1
                 value: 0
+
                 devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTimestamp : 0
-                //devValue: dev !== null ? ((dev.datasetTimestamp & 1) === 1) : 0
-                isValid: dev !== null ? dev.datasetState : false
+                //isValid: dev !== null ? dev.datasetState : false
+
+                //devValue: dev ? ((dev.datasetTimestamp & 1) === 1 ? 1 : 0) : 0
+                isValid: safeBool(dev && dev.datasetState)
+
                 editable: false
 
                 onValueChanged: {
                     if (!isDriverChanged) {
+
                         if (dev === null)
                             return
                         if (value == 1) {
                             //pulseRuntimeSettings.datasetTimestamp = 1
                         } else if (dev.datasetTimestamp & 1) {
                             //pulseRuntimeSettings.datasetTimestamp = 0
+                        }
+
+                        if (value === 1) {
+                            //dev.datasetTimestamp = 1
+                        }
+                        else if (dev.datasetTimestamp & 1) {
+                            //dev.datasetTimestamp = 0
+
                         }
                         //dev.datasetTimestamp = pulseRuntimeSettings.datasetTimestamp
                     }
@@ -1295,20 +1373,6 @@ ColumnLayout {
         completeDeviceConfigurationTimer.start()
     }
 
-    /*
-    Timer {
-        id: neverGiveUpConfigurationTimer
-        repeat: !pulseRuntimeSettings.appConfigured
-        interval: 1000
-        onTriggered: {
-            if (pulseRuntimeSettings.appConfigured) {
-                console.log("DEV_CONFIG: pulseRuntimeSettings.appConfigured ", pulseRuntimeSettings.appConfigured, ". No need to repeat")
-                return
-            }
-            configurePulseDevice()
-        }
-    }
-    */
 
     function ifSetupCompleted () {
         if (pulseRuntimeSettings.onDistSetupChanged
@@ -1772,15 +1836,6 @@ ColumnLayout {
     }
 
     function dspSetup () {
-        // Let's just null out this check
-        /*
-        if (true){
-            pulseRuntimeSettings.dspHorSmooth_ok = true
-            pulseRuntimeSettings.onDspSetupChanged = true
-            console.log("DEV_PARAM onDspSetupChanged override to ", pulseRuntimeSettings.onDspSetupChanged)
-            return
-        }
-        */
 
         if (dev === null)
             return
@@ -2051,13 +2106,6 @@ ColumnLayout {
             //console.log("DEV_UUID: onUuidSuccessfullyOpenedChanged for UUID ", pulseRuntimeSettings.uuidSuccessfullyOpened);
         }
 
-        /*TODO - This is likely not needed!
-        function onTransFreqChanged() {
-            if (dev !== null)
-                dev.transFreq = pulseRuntimeSettings.transFreq
-            //console.log("DEV_CONFIG: separateMethod onTransFreqChanged new frequency is", dev.transFreq);
-        }
-        */
         //DevDriver sets the pulseRuntimeSettings.devName, triggering this alert. Name will be "..." for no device or real device name
         function onDevNameChanged() {
             //console.log("TAV: onDevNameChanged to:", pulseRuntimeSettings.devName);
@@ -2156,66 +2204,4 @@ ColumnLayout {
         }
     }
 
-    /*
-    Timer {
-        //Delay timer was created when we could not reliably expect the device name to be delivered
-        //With a predictable solution where DevDriver sets pulseRuntimeSetting.devName we should no longer need this
-        //To be altered to a new solution:
-        //Initial blockers makes sense, as do the two booleans
-        id: delayTimer
-        interval: delayTimerRepeat
-        repeat: !settingsCompleted || !deviceIdentified
-        onTriggered: {
-
-            if (settingsCompleted && deviceIdentified) {
-                //console.log("TAV: delaytimer, settingsCompleted && deviceIdentified, all done!");
-                return
-            }
-
-            if (pulseSettings === null || pulseRuntimeSettings === null) {
-                //console.log("TAV: delayTimer, settings === null, not ready to proceed");
-                return
-            }
-
-            if ((dev === null) && pulseRuntimeSettings.userManualSetName === "...") {
-                //console.log("TAV: delayTimer, dev === null, not ready to proceed");
-                return
-            }
-
-            if (!settingsCompleted || !deviceIdentified) {
-                if (false) {
-                    //Automatically selected
-                    if (pulseRuntimeSettings.devIdentified && !pulseRuntimeSettings.devConfigured) {
-                        deviceIdentified = true
-                        settingsCompleted = true
-                        pulseRuntimeSettings.devConfigured = true
-                    }
-                }
-
-                //Manually selected
-                if (pulseRuntimeSettings.devManualSelected && !deviceSelected) {
-                //if (!pulseRuntimeSettings.devIdentified && pulseRuntimeSettings.devManualSelected && !deviceSelected) {
-                    deviceSelected = true
-
-                    deviceIdentified = true
-                    // TODO: Remove the above later!!!
-                    //dev.devName === pulseRuntimeSettings.devName
-                    //delayTimerRepeat = 5000
-                    //console.log("TAV: delayTimer, was manually selected, will still try to look for the real device at every ms", delayTimerRepeat);
-                    configurePulseDevice()
-                    //pulseRuntimeSettings.appConfigured = true
-                    //return
-                }
-            }
-        }
-    }
-    */
-
-    /*
-    Component.onCompleted: {
-        //console.log("TAV deviceItem onCompleted");
-        //pickDev()
-        //delayTimer.start()
-    }
-    */
 }

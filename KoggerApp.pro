@@ -1,8 +1,8 @@
-QT += quick widgets network qml sql concurrent
+QT += core gui quick widgets network qml sql concurrent positioning quickcontrols2
+
+CONFIG += c++23
 
 #CONFIG += FLASHER
-#CONFIG += SEPARATE_READING # data reception in a separate thread
-#CONFIG += FAKE_COORDS # for measurements at single location
 
 CONFIG += c++17 qmltypes
 QML_IMPORT_NAME = SceneGraphRendering
@@ -12,6 +12,8 @@ TEMPLATE = app
 TARGET   = Pulse
 
 DEFINES += QT_DEPRECATED_WARNINGS
+#DEFINES += SEPARATE_READING # data reception in a separate thread
+#DEFINES += SCENE_TESTING # testing 3d scene
 
 ### HEADERS
 HEADERS += \
@@ -23,6 +25,7 @@ HEADERS += \
     src/console_list_model.h \
     src/converter_xtf.h \
     src/core.h \
+    src/internet_manager.h \
     src/dataset.h \
     src/dataset_defs.h \
     src/data_interpolator.h \
@@ -46,7 +49,11 @@ HEADERS += \
     src/udp_broadcaster.h \
     src/xtf_conf.h \
     src/NMEASender.h \
-    src/SlidingWindowMedian.h
+    src/SlidingWindowMedian.h \
+    src/xtf_conf.h \
+    src/location_reader.h \
+    src/mosaic_index_provider.h
+
 
 ### SOURCES
 SOURCES += \
@@ -56,6 +63,7 @@ SOURCES += \
     src/console.cpp \
     src/console_list_model.cpp \
     src/core.cpp \
+    src/internet_manager.cpp \
     src/dataset.cpp \
     src/data_interpolator.cpp \
     src/data_horizon.cpp \
@@ -66,25 +74,20 @@ SOURCES += \
     src/logger.cpp \
     src/main.cpp \
     src/map_defs.cpp \
-    src/proto_binnary.cpp \
     src/stream_list.cpp \
     src/stream_list_model.cpp \
-    src/NMEASender.cpp
-
+    src/NMEASender.cpp \
+    src/location_reader.cpp \
+    src/mosaic_index_provider.cpp
 
 FLASHER {
     DEFINES += FLASHER
-    SOURCES += src/flasher/deviceflasher.cpp
-    HEADERS += src/flasher/deviceflasher.h
-    SOURCES += src/flasher/flasher.cpp
-    HEADERS += src/flasher/flasher.h
-}
-
-SEPARATE_READING {
-    DEFINES += SEPARATE_READING
-}
-FAKE_COORDS {
-    DEFINES += FAKE_COORDS
+    HEADERS += \
+        src/flasher/flasher.h \
+        src/flasher/deviceflasher.h
+    SOURCES += \
+        src/flasher/flasher.cpp \
+        src/flasher/deviceflasher.cpp
 }
 
 TRANSLATIONS += \
@@ -148,7 +151,6 @@ DISTFILES += \
     qml/AdjBox.qml \
     qml/AdjBoxBack.qml \
     qml/BackStyle.qml \
-    qml/ButtonBackStyle.qml \
     qml/CButton.qml \
     qml/CCombo.qml \
     qml/CComboBox.qml \
@@ -185,28 +187,33 @@ win32:CONFIG(release, debug|release): LIBS += -L$$PWD/third_party/freetype/lib/m
 else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/third_party/freetype/lib/mingw-x64/ -lfreetype
 
 # --- macOS (arm64/x64) ---
-macx {
-    # Use pkg-config: best way to resolve headers + transitive libs (libpng, brotli, zlib)
-    #CONFIG += link_pkgconfig
-    #PKGCONFIG += freetype2
-    # Manual include+link with Homebrew paths
-    INCLUDEPATH += /opt/homebrew/include/freetype2
-    LIBS += -L/opt/homebrew/lib -lfreetype
-    QMAKE_RPATHDIR += /opt/homebrew/lib
-}
+# Let us remove the mac for now
+#macx {
+#
+#    INCLUDEPATH += /opt/homebrew/include/freetype2
+#    LIBS += -L/opt/homebrew/lib -lfreetype
+#    QMAKE_RPATHDIR += /opt/homebrew/lib
+#}
 
-INCLUDEPATH += $$PWD/src
+#INCLUDEPATH += $$PWD/src
 
 # If you still vendor headers for non-mac:
-!macx {
-    INCLUDEPATH += $$PWD/third_party/freetype/include
-    DEPENDPATH  += $$PWD/third_party/freetype/include
-}
+#!macx {
+#    INCLUDEPATH += $$PWD/third_party/freetype/include
+#    DEPENDPATH  += $$PWD/third_party/freetype/include
+#}
 
+INCLUDEPATH += $$PWD/third_party/freetype/include
+DEPENDPATH += $$PWD/third_party/freetype/include
+
+#win32:CONFIG(release, debug|release): LIBS += -L$$PWD/third_party/freetype/lib/llvm-mingw-x64/ -lfreetype
+#else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/third_party/freetype/lib/llvm-mingw-x64/ -lfreetype
 #INCLUDEPATH += $$PWD/third_party/freetype/include
 #DEPENDPATH += $$PWD/third_party/freetype/include
 
+
 # Module includes
+INCLUDEPATH += $$PWD/src
 include($$PWD/src/data_processor/data_processor.pri)
 include($$PWD/src/scene2d/scene2d.pri)
 include($$PWD/src/scene3d/scene3d.pri)
@@ -214,42 +221,36 @@ include($$PWD/src/device/device.pri)
 include($$PWD/src/link/link.pri)
 include($$PWD/src/tile_engine/tile_engine.pri)
 
-!android {
-    QT += serialport
-}
-
 android {
-    # 16 KB page size - Pulse
-    # QMAKE_LFLAGS += -Wl,--max-page-size=0x4000
-    QMAKE_LFLAGS += -Wl,-z,max-page-size=16384
-    QMAKE_LFLAGS += -Wl,-z,common-page-size=16384
-    ANDROID_EXTRA_LIBS += \
-        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++_shared.so \
-        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++abi.so \
-        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libunwind.so \
-        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libcrypto_1_1.so \
-        $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libssl_1_1.so
+    # 16 KB page size - Pulse: We MAY need to revert back to this should we not be able to build ith 16 KB page support
+    # Commented out for now
+    #QMAKE_LFLAGS += -Wl,-z,max-page-size=16384
+    #QMAKE_LFLAGS += -Wl,-z,common-page-size=16384
+    #ANDROID_EXTRA_LIBS += \
+    #    $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++_shared.so \
+    #    $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libc++abi.so \
+    #    $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libunwind.so \
+    #    $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libcrypto_1_1.so \
+    #    $$PWD/third_party/android-libs/$${ANDROID_TARGET_ARCH}/libssl_1_1.so
     # -------
-    ANDROID_TARGET_SDK_VERSION = 35
+    #ANDROID_TARGET_SDK_VERSION = 35
     ANDROID_MIN_SDK_VERSION = 23
+    include($$PWD/platform/android/src/android.pri) # activity, serialport
     QT -= widgets
-    QT += androidextras svg
-    QTPLUGIN += qsqlite qandroidbearer
-    ANDROID_ABIS = armeabi-v7a arm64-v8a
-    #ANDROID_ABIS = arm64-v8a
+    QT += svg
+    QTPLUGIN += qsqlite
+    # Commented out multi ABI, but we MUST revert here and fix it
+    #ANDROID_ABIS = armeabi-v7a arm64-v8a
+    ANDROID_ABIS = arm64-v8a
+
     ANDROID_PACKAGE_SOURCE_DIR = $$PWD/platform/android
     ANDROID_EXTRA_PLUGINS += \
-        $$[QT_INSTALL_PLUGINS]/sqldrivers \
-        $$[QT_INSTALL_PLUGINS]/bearer
-
+        $$[QT_INSTALL_PLUGINS]/sqldrivers
     CONFIG += mobility
 
     QMAKE_CXXFLAGS_DEBUG -= -O2
     QMAKE_CXXFLAGS_DEBUG -= -O3
     QMAKE_CXXFLAGS_DEBUG += -O0
-
-    HEADERS += platform/android/src/android.h
-    SOURCES += platform/android/src/android.cpp
 
     DISTFILES += \
         platform/android/AndroidManifest.xml \
@@ -260,8 +261,6 @@ android {
         platform/android/gradlew.bat \
         platform/android/res/values/libs.xml
 
-    include($$PWD/platform/android/src/qtandroidserialport/src/qtandroidserialport.pri)
-
     equals(ANDROID_TARGET_ARCH, arm64-v8a) {
         message("Adding FreeType Lib for arm64-v8a arch")
         LIBS += -L$$PWD/third_party/freetype/lib/arm64-v8a -lfreetype
@@ -271,14 +270,21 @@ android {
     }
 
     #OPENSSL_PATH = $$ANDROID_SDK_ROOT/android_openssl/openssl.pri
+    OPENSSL_PATH = third_party/android_openssl/openssl.pri
+    include($$OPENSSL_PATH)
+
+    #OPENSSL_PATH = $$ANDROID_SDK_ROOT/android_openssl/openssl.pri
     #OPENSSL_PATH = $$PWD/third_party/android_openssl/openssl.pri
     #ENABLE_OPENSSL_BUNDLING = no
     #include($$OPENSSL_PATH)
     #message(Final ANDROID_EXTRA_LIBS = $$ANDROID_EXTRA_LIBS)
 
-    ANDROID_EXTRA_LIBS = $$unique(ANDROID_EXTRA_LIBS)
+    # Commented out
+    # ANDROID_EXTRA_LIBS = $$unique(ANDROID_EXTRA_LIBS)
 
     message("Building for Android (ARM) with OpenGL ES")
     RESOURCES += platform/android/shaders.qrc
 }
-#android: include(/Users/olavaamaas/Documents/GitHub/KoggerApp/third_party/android-libs/openssl.pri)
+else {
+    QT += serialport
+}

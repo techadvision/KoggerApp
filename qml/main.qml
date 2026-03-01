@@ -2,21 +2,23 @@ import QtQuick 2.15
 import SceneGraphRendering 1.0
 import QtQuick.Window 2.15
 import QtQuick.Layouts 1.15
-import Qt.labs.settings 1.1
-import QtQuick.Dialogs 1.2
+import QtQuick.Dialogs
 import QtQuick.Controls 2.15
 import WaterFall 1.0
-import KoggerCommon 1.0
-import QtGraphicalEffects 1.15
-import Echo.UI 1.0
+//import KoggerCommon 1.0
+//import QtGraphicalEffects 1.15
+//import Echo.UI 1.0
+import BottomTrack 1.0
+import QtCore
+
 
 ApplicationWindow  {
     id:            mainview
     visible:       true
-    width:         1280
-    minimumWidth:  512
-    height:        800
-    minimumHeight: 256
+    width:         1280 // 21:9
+    minimumWidth:  640
+    height:        540
+    minimumHeight: 272
     color:         "black"
     title:         qsTr("Pulse, TechAdVision")
 
@@ -53,10 +55,14 @@ ApplicationWindow  {
             //property int savedY: 100
     }
 
-    Loader {
-        id: stateGroupLoader
-        active: (Qt.platform.os === "windows")
-        sourceComponent: stateGroupComp
+    function setFullScreenMode(enabled) {
+        appSettings.isFullScreen = enabled
+        if (enabled) {
+            mainview.showFullScreen()
+        }
+        else {
+            mainview.showNormal()
+        }
     }
 
     Connections {
@@ -193,63 +199,8 @@ ApplicationWindow  {
         }
     }
 
-    //Logging helpers
-    function toStr(v) {
-        if (v === null) return "null"
-        if (v === undefined) return "undefined"
-        try { return v.toString ? v.toString() : String(v) }
-        catch (e) { return String(v) }
-    }
-
-    function dumpMap(tag, map) {
-        for (var k in map) {
-            var v = map[k]
-            console.log(tag + ":", k, "=", toStr(v), "(type:", typeof v + ")")
-        }
-    }
-    //---------------
-
-
-    Component {
-        id: stateGroupComp
-        StateGroup {
-            state: appSettings.isFullScreen ? "FullScreen" : "Windowed"
-
-            states: [
-                State {
-                    name: "FullScreen"
-                    StateChangeScript {
-                        script: { // empty
-                        }
-                    }
-                    PropertyChanges {
-                        target: mainview ? mainview : undefined
-                        visibility: "FullScreen"
-
-                        flags: Qt.FramelessWindowHint
-                        x: 0
-                        y: - 1
-                        width: Screen.width
-                        height: Screen.height + 1
-                    }
-                },
-                State {
-                    name: "Windowed"
-                    StateChangeScript {
-                        script: {
-                            mainview.flags = Qt.Window
-                            if (Qt.platform.os !== "android") {
-                                mainview.flags = Qt.Window
-                            }
-                        }
-                    }
-                    PropertyChanges {
-                        target: mainview ? mainview : undefined
-                        visibility: "Windowed"
-                    }
-                }
-            ]
-        }
+    function toggleFullScreenMode() {
+        setFullScreenMode(mainview.visibility !== Window.FullScreen)
     }
 
     Connections {
@@ -267,6 +218,153 @@ ApplicationWindow  {
 
     function handleUpdateBottomTrack() {
         menuBar.updateBottomTrack()
+    }
+
+    function refreshAllGraphicsAfterResume() {
+        if (renderer) {
+            renderer.update()
+            renderer.onCameraMoved()
+        }
+
+        if (waterViewFirst) {
+            waterViewFirst.update()
+        }
+
+        if (waterViewSecond && waterViewSecond.visible) {
+            waterViewSecond.update()
+        }
+
+        if (syncLoupePlot3D) {
+            syncLoupePlot3D.update()
+        }
+
+        if (syncLoupeOverlay && syncLoupeOverlay.visible) {
+            syncLoupeOverlay.refreshLoupePlot()
+        }
+
+        mainview.update()
+    }
+
+    function scheduleResumeRefreshIfNeeded() {
+        if (Qt.platform.os !== "android") {
+            return
+        }
+
+        if (Qt.application.state !== Qt.ApplicationActive) {
+            return
+        }
+
+        // Defer refresh until window/surface is active again.
+        Qt.callLater(refreshAllGraphicsAfterResume)
+    }
+
+    function handleAndroidBack() {
+        if (Qt.platform.os !== "android") {
+            return false
+        }
+
+        // Step 1: close modal/popup/menu overlays.
+        if (profilePickDialog.visible) {
+            profilePickDialog.close()
+            return true
+        }
+
+        if (profilesDialog.visible) {
+            profilesDialog.close()
+            return true
+        }
+
+        if (showBanner) {
+            showBanner = false
+            return true
+        }
+
+        if (typeof contactDialog !== "undefined" && contactDialog.visible) {
+            contactDialog.visible = false
+            return true
+        }
+
+        if (menuBlock.visible) {
+            menuBlock.visible = false
+            return true
+        }
+
+        if (geoMenuBlock.visible) {
+            geoMenuBlock.visible = false
+            return true
+        }
+
+        if (rulerMenuBlock.visible) {
+            rulerMenuBlock.visible = false
+            return true
+        }
+
+        if (waterViewFirst.closeTransientUi && waterViewFirst.closeTransientUi()) {
+            return true
+        }
+
+        if (waterViewSecond.visible && waterViewSecond.closeTransientUi && waterViewSecond.closeTransientUi()) {
+            return true
+        }
+
+        // Step 2: cancel active editing modes.
+        if (renderer.geoJsonEnabled) {
+            const geo = renderer.geoJsonController
+            if (geo && geo.drawing) {
+                renderer.geojsonCancelDrawing()
+                return true
+            }
+        }
+
+        if (renderer.rulerDrawing) {
+            renderer.rulerCancelDrawing()
+            return true
+        }
+
+        if (renderer.rulerEnabled || renderer.rulerSelected || renderer.rulerHasGeometry) {
+            renderer.clearRuler()
+            return true
+        }
+
+        // Step 3: close settings panels.
+        let settingsClosed = false
+
+        if (waterViewFirst.settingsOpen) {
+            waterViewFirst.closeSettings()
+            settingsClosed = true
+        }
+
+        if (waterViewSecond.visible && waterViewSecond.settingsOpen) {
+            waterViewSecond.closeSettings()
+            settingsClosed = true
+        }
+
+        if (menuBar.hasOpenMenus) {
+            menuBar.closeMenus()
+            settingsClosed = true
+        }
+
+        if (settingsClosed) {
+            return true
+        }
+
+        // Step 4: root screen -> send app to background.
+        core.moveAppToBackground()
+        return true
+    }
+
+    onVisibilityChanged: function(windowVisibility) {
+        if (windowVisibility === Window.FullScreen) {
+            scheduleResumeRefreshIfNeeded()
+        }
+    }
+
+    Connections {
+        target: Qt.application
+
+        function onStateChanged() {
+            scheduleResumeRefreshIfNeeded()
+        }
     }
 
     Component.onCompleted: {
@@ -346,10 +444,11 @@ ApplicationWindow  {
         waterViewSecond.settingsClicked.connect(onPlotSettingsClicked)
         menuBar.menuBarSettingOpened.connect(onMenuBarSettingsOpened)
 
-        if (Qt.platform.os !== "windows") {
-            if (appSettings.isFullScreen) {
-                mainview.showFullScreen();
-            }
+        scene3DToolbar.mosaicLAngleOffsetChanged.connect(handleMosaicLOffsetChanged)
+        scene3DToolbar.mosaicRAngleOffsetChanged.connect(handleMosaicROffsetChanged)
+
+        if (appSettings.isFullScreen) {
+            mainview.showFullScreen()
         }
 
         // contacts
@@ -453,7 +552,7 @@ ApplicationWindow  {
         anchors.fill: parent
         //Do we need this?
 
-        onEntered: {
+        onEntered: function(drag) {
             if (!showBanner) {
                 draggedFilePath = ""
                 if (drag.hasUrls) {
@@ -509,8 +608,15 @@ ApplicationWindow  {
         anchors.fill:      parent
         orientation:       Qt.Vertical
 
-        Keys.onReleased: {
-            /*
+        Keys.onReleased: function(event) {
+             /*
+            if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+                if (handleAndroidBack()) {
+                    event.accepted = true
+                    return
+                }
+            }
+
             let sc = event.nativeScanCode.toString()
             let hotkeyData = hotkeysMapScan[sc];
             if (hotkeyData === undefined) {
@@ -522,19 +628,7 @@ ApplicationWindow  {
 
             // high priority
             if (fn === "toggleFullScreen") {
-                if (Qt.platform.os === "windows") {
-                    appSettings.isFullScreen = !appSettings.isFullScreen
-                }
-                else if (Qt.platform.os === "linux") {
-                    if (mainview.visibility === Window.FullScreen) {
-                        mainview.showNormal();
-                        appSettings.isFullScreen = false;
-                    }
-                    else {
-                        appSettings.isFullScreen = true;
-                        mainview.showFullScreen();
-                    }
-                }
+                toggleFullScreenMode()
                 return;
             }
             if (fn === "openFile") {
@@ -681,10 +775,10 @@ ApplicationWindow  {
                 }
                 case "nextTheme": {
                     let themeId = waterViewFirst.getThemeId()
-                    if (themeId < 4) waterViewFirst.plotEchogramTheme(themeId + 1)
+                    if (themeId < 9) waterViewFirst.plotEchogramTheme(themeId + 1)
                     if (waterViewSecond.enabled) {
                         let themeSId = waterViewSecond.getThemeId()
-                        if (themeSId < 4) waterViewSecond.plotEchogramTheme(themeSId + 1)
+                        if (themeSId < 9) waterViewSecond.plotEchogramTheme(themeSId + 1)
                     }
                     break
                 }
@@ -744,7 +838,7 @@ ApplicationWindow  {
 
             property int lastKeyPressed: Qt.Key_unknown
 
-            Keys.onPressed: {
+            Keys.onPressed: function(event) {
                 visualisationLayout.lastKeyPressed = event.key;
             }
 
@@ -762,11 +856,25 @@ ApplicationWindow  {
                 focus:             true
 
                 property bool longPressTriggered: false
+                property int currentZoom: -1
+                property bool syncLoupeUiAllowed: (menuBar !== null) ? (menuBar.is3DVisible && !menuBar.is2DVisible) : false
+
+                onSyncLoupeUiAllowedChanged: {
+                    setSyncLoupeUiAllowed(syncLoupeUiAllowed)
+                }
+
+                Component.onCompleted: {
+                    setSyncLoupeUiAllowed(syncLoupeUiAllowed)
+                }
+
+                onSendDataZoom: function(zoom) {
+                    currentZoom = zoom;
+                }
 
                 PinchArea {
                     id:           pinch3D
                     anchors.fill: parent
-                    enabled:      true
+                    enabled:      !extraInfoPanel.touchInteractionActive
 
                     onPinchStarted: {
                         menuBlock.visible = false
@@ -791,7 +899,22 @@ ApplicationWindow  {
                         focus:                true
                         hoverEnabled:         true
                         Keys.enabled:         true
-                        Keys.onDeletePressed: renderer.keyPressTrigger(event.key)
+                        Keys.onDeletePressed: function(event) { renderer.keyPressTrigger(event.key) }
+                        Keys.onReturnPressed: function(event) { renderer.keyPressTrigger(event.key) }
+                        Keys.onEnterPressed:  function(event) { renderer.keyPressTrigger(event.key) }
+                        Keys.onEscapePressed: function(event) {
+                            if (Qt.platform.os === "android") {
+                                if (mainview.handleAndroidBack()) {
+                                    event.accepted = true
+                                    return
+                                }
+                            }
+                            if (renderer.geoJsonEnabled) {
+                                renderer.geojsonCancelDrawing()
+                            } else {
+                                renderer.clearRuler()
+                            }
+                        }
 
                         property int lastMouseKeyPressed: Qt.NoButton // TODO: maybe this mouseArea should be outside pinchArea
                         property point startMousePos: Qt.point(-1, -1)
@@ -803,11 +926,11 @@ ApplicationWindow  {
                             mousearea3D.forceActiveFocus();
                         }
 
-                        onWheel: {
+                        onWheel: function(wheel) {
                             renderer.mouseWheelTrigger(wheel.buttons, wheel.x, wheel.y, wheel.angleDelta, visualisationLayout.lastKeyPressed)
                         }
 
-                        onPositionChanged: {
+                        onPositionChanged: function(mouse) {
                             if (Qt.platform.os === "android") {
                                 if (!wasMoved) {
                                     var delta = Math.sqrt(Math.pow((mouse.x - startMousePos.x), 2) + Math.pow((mouse.y - startMousePos.y), 2));
@@ -816,18 +939,27 @@ ApplicationWindow  {
                                     }
                                 }
                                 if (renderer.longPressTriggered && !wasMoved) {
-                                    if (!vertexMode) {
-                                        renderer.switchToBottomTrackVertexComboSelectionMode(mouse.x, mouse.y)
+                                    if (renderer.geoJsonEnabled || renderer.rulerEnabled || renderer.rulerHasGeometry) {
+                                        vertexMode = true
+                                    } else {
+                                        if (!vertexMode) {
+                                            renderer.switchToBottomTrackVertexComboSelectionMode(mouse.x, mouse.y)
+                                        }
+                                        vertexMode = true
                                     }
-                                    vertexMode = true
                                 }
                             }
 
-                            renderer.mouseMoveTrigger(mouse.buttons, mouse.x, mouse.y, visualisationLayout.lastKeyPressed)
+                            const activeButtons = (Qt.platform.os === "android" && lastMouseKeyPressed !== Qt.NoButton)
+                                    ? lastMouseKeyPressed
+                                    : mouse.buttons
+                            renderer.mouseMoveTrigger(activeButtons, mouse.x, mouse.y, visualisationLayout.lastKeyPressed)
                         }
 
-                        onPressed: {
+                        onPressed: function(mouse) {
                             menuBlock.visible = false
+                            geoMenuBlock.visible = false
+                            rulerMenuBlock.visible = false
                             startMousePos = Qt.point(mouse.x, mouse.y)
                             wasMoved = false
                             vertexMode = false
@@ -838,7 +970,7 @@ ApplicationWindow  {
                             renderer.mousePressTrigger(mouse.buttons, mouse.x, mouse.y, visualisationLayout.lastKeyPressed)
                         }
 
-                        onReleased: {
+                        onReleased: function(mouse) {
                             startMousePos = Qt.point(-1, -1)
                             wasMoved = false
                             longPressTimer.stop()
@@ -846,7 +978,13 @@ ApplicationWindow  {
                             renderer.mouseReleaseTrigger(lastMouseKeyPressed, mouse.x, mouse.y, visualisationLayout.lastKeyPressed)
 
                             if (mouse.button === Qt.RightButton || (Qt.platform.os === "android" && vertexMode)) {
-                                menuBlock.position(mouse.x, mouse.y)
+                                if (renderer.geoJsonEnabled) {
+                                    geoMenuBlock.position(mouse.x, mouse.y)
+                                } else if (renderer.rulerEnabled || renderer.rulerSelected) {
+                                    rulerMenuBlock.position(mouse.x, mouse.y)
+                                } else {
+                                    menuBlock.position(mouse.x, mouse.y)
+                                }
                             }
 
                             vertexMode = false
@@ -877,18 +1015,240 @@ ApplicationWindow  {
                     id:                       scene3DToolbar
                     // anchors.bottom:              parent.bottom
                     y:renderer.height - height - 2
+                    view: renderer
                     //anchors.horizontalCenter: parent.horizontalCenter
                     // anchors.rightMargin:      20
                     Keys.forwardTo:           [mousearea3D]
                 }
 
-                CContact {
+                Scene3DRightToolbar {
+                    id: scene3DRightToolbar
+                    anchors.right: renderer.right
+                    anchors.top: renderer.top
+                    anchors.bottom: renderer.bottom
+                    geo: renderer.geoJsonController
+                    view: renderer
+                    z: 3
+                }
+
+                Item {
+                    id: syncLoupeOverlay
+                    visible: renderer.visible
+                             && menuBar.is3DVisible
+                             && !menuBar.is2DVisible
+                             && renderer.syncLoupeOverlayVisible
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.rightMargin: Math.round(12 * theme.resCoeff)
+                    anchors.bottomMargin: Math.round(12 * theme.resCoeff)
+                    z: 1002
+
+                    property real sizeMultiplier: renderer.syncLoupeSize === 2 ? 1.5 : (renderer.syncLoupeSize === 3 ? 2.25 : 1.0)
+                    property int baseSide: Math.round(180 * theme.resCoeff * sizeMultiplier)
+                    property int maxSide: Math.max(64, Math.min(renderer.width, renderer.height) - 2 * anchors.rightMargin)
+                    property int side: Math.max(64, Math.min(baseSide, maxSide))
+                    property int sourceDepthReferencePx: 0
+
+                    width: side
+                    height: side
+
+                    function refreshLoupePlot() {
+                        if (!visible || renderer.syncLoupeEpochIndex < 0) {
+                            return
+                        }
+
+                        const zoomMultiplier = renderer.syncLoupeZoom === 2 ? 1.5 : (renderer.syncLoupeZoom === 3 ? 2.25 : 1.0)
+                        const previewSourceBaseSize = Math.max(8, Math.floor(syncLoupeOverlay.side / 4))
+                        const previewSourceSize = Math.max(4, Math.floor(previewSourceBaseSize / zoomMultiplier))
+                        const ch1Name = waterViewFirst.plotDatasetChannelName()
+                        const ch2Name = waterViewFirst.plotDatasetChannel2Name()
+                        let mainDepthPxCandidate = waterViewFirst.horizontal ? Math.floor(waterViewFirst.height) : Math.floor(waterViewFirst.width)
+                        if (mainDepthPxCandidate <= 0) {
+                            const outerRows = Math.max(1, visualisationLayout.rows)
+                            const outerCols = Math.max(1, visualisationLayout.columns)
+                            const twoDCellHeight = Math.max(1, Math.floor(visualisationLayout.height / outerRows))
+                            const twoDCellWidth = Math.max(1, Math.floor(visualisationLayout.width / outerCols))
+                            const sliderHeight = Math.max(1, Math.floor(theme.controlHeight))
+                            const plotsCount = menuBar.numPlots === 2 ? 2 : 1
+                            const syntheticPlotHeight = Math.max(1, Math.floor((twoDCellHeight - sliderHeight) / plotsCount))
+                            const syntheticPlotWidth = Math.max(1, twoDCellWidth)
+                            mainDepthPxCandidate = waterViewFirst.horizontal ? syntheticPlotHeight : syntheticPlotWidth
+                        }
+                        if (mainDepthPxCandidate > 0) {
+                            sourceDepthReferencePx = mainDepthPxCandidate
+                        }
+                        if (sourceDepthReferencePx <= 0) {
+                            sourceDepthReferencePx = Math.max(1, Math.floor(syncLoupePlot3D.height))
+                        }
+
+                        const from2D = waterViewFirst.cursorFrom()
+                        const to2D = waterViewFirst.cursorTo()
+                        const has2DRange = isFinite(from2D) && isFinite(to2D) && Math.abs(to2D - from2D) > 0.0001
+                        const cursorFrom = has2DRange ? from2D : renderer.syncLoupeDepthFrom
+                        const cursorTo = has2DRange ? to2D : renderer.syncLoupeDepthTo
+                        const centerDepth = waterViewFirst.getLoupeDepthForEpoch(renderer.syncLoupeEpochIndex)
+
+                        syncLoupePlot3D.horizontal = waterViewFirst.horizontal
+                        syncLoupePlot3D.plotDatasetChannelFromStrings(ch1Name, ch2Name)
+                        syncLoupePlot3D.plotEchogramTheme(waterViewFirst.getThemeId())
+                        syncLoupePlot3D.plotEchogramSetLevels(waterViewFirst.getLowEchogramLevel(), waterViewFirst.getHighEchogramLevel())
+                        syncLoupePlot3D.plotEchogramCompensation(waterViewFirst.getEchogramCompensation())
+
+                        syncLoupePlot3D.setCursorFromTo(cursorFrom, cursorTo)
+                        syncLoupePlot3D.setTimelinePositionByEpochCentered(renderer.syncLoupeEpochIndex)
+                        syncLoupePlot3D.setZoomPreviewSourceSize(previewSourceSize)
+                        syncLoupePlot3D.setZoomPreviewReferenceDepthPixels(sourceDepthReferencePx)
+                        syncLoupePlot3D.setZoomPreviewFlipY(renderer.syncLoupeFlipY)
+                        syncLoupePlot3D.setZoomPreviewSourceByEpochDepth(renderer.syncLoupeEpochIndex, centerDepth)
+                        syncLoupePlot3D.update()
+                    }
+
+                    onVisibleChanged: {
+                        if (visible) {
+                            refreshLoupePlot()
+                        }
+                    }
+
+                    onWidthChanged: {
+                        if (visible) {
+                            refreshLoupePlot()
+                        }
+                    }
+
+                    Connections {
+                        target: renderer
+                        function onSyncLoupeStateChanged() {
+                            syncLoupeOverlay.refreshLoupePlot()
+                        }
+                    }
+
+                    Connections {
+                        target: waterViewFirst
+                        function onTimelinePositionChanged() {
+                            syncLoupeOverlay.refreshLoupePlot()
+                        }
+                        function onEchogramThemeChanged(themeId) {
+                            syncLoupeOverlay.refreshLoupePlot()
+                        }
+                    }
+
+                    Rectangle {
+                        id: syncLoupeFrame
+                        anchors.fill: parent
+                        color: "black"
+                        border.color: "#545E84"
+                        border.width: Math.max(1, Math.round(2 * theme.resCoeff))
+                        radius: Math.max(1, Math.round(2 * theme.resCoeff))
+                        clip: true
+
+                        WaterFall {
+                            id: syncLoupePlot3D
+                            objectName: "syncLoupe3DPlot"
+                            anchors.fill: parent
+                            anchors.margins: syncLoupeFrame.border.width
+                            horizontal: true
+                            enabled: false
+
+                            Component.onCompleted: {
+                                core.registerSyncLoupePlot(syncLoupePlot3D)
+                                setZoomPreviewMode(true)
+                                plotBottomTrackVisible(false)
+                                plotRangefinderVisible(false)
+                                plotAttitudeVisible(false)
+                                plotTemperatureVisible(false)
+                                plotDopplerBeamVisible(false, 0)
+                                plotDopplerInstrumentVisible(false)
+                                plotGNSSVisible(false, 0)
+                                plotAcousticAngleVisible(false)
+                                plotVelocityVisible(false)
+                                plotAngleVisibility(false)
+                                plotGridVerticalNumber(0)
+                                plotGridFillWidth(false)
+                                plotGridInvert(false)
+                                plotDistanceAutoRange(-1)
+                                plotEchogramCompensation(0)
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: mosaicQualityBadge
+                    visible: renderer.cameraPerspective
+                             && (dataset.spatialPreparing
+                                 || (scene3DToolbar.showMosaicQualityLabel
+                                     && renderer.currentZoom > 0
+                                     && (scene3DToolbar.mosaicEnabled || renderer.updateSurface)))
+                    readonly property int tileSidePx: 256
+                    readonly property int heightMatrixRatio: 8
+                    readonly property int mosaicCmPerPix: renderer.currentZoom > 0
+                                                           ? Math.pow(2, renderer.currentZoom - 1)
+                                                           : 0
+                    readonly property int surfaceCmPerCell: mosaicCmPerPix > 0
+                                                             ? Math.round(mosaicCmPerPix * tileSidePx / heightMatrixRatio)
+                                                             : 0
+                    color: "#00000080"
+                    radius: 4
+                    anchors.left: scene3DToolbar.right
+                    anchors.verticalCenter: scene3DToolbar.verticalCenter
+                    anchors.leftMargin: 8
+                    z: 1000
+                    implicitWidth: mosaicQualityText.implicitWidth + 12
+                    implicitHeight: mosaicQualityText.implicitHeight + 8
+                    opacity: 1.0
+
+                    SequentialAnimation {
+                        id: mosaicQualityPreparingAnimation
+                        running: dataset.spatialPreparing
+                        loops: Animation.Infinite
+                        NumberAnimation { target: mosaicQualityBadge; property: "opacity"; to: 0.35; duration: 500 }
+                        NumberAnimation { target: mosaicQualityBadge; property: "opacity"; to: 1.0; duration: 500 }
+                    }
+
+                    onVisibleChanged: {
+                        if (!visible) {
+                            opacity = 1.0
+                        }
+                    }
+
+                    Connections {
+                        target: dataset
+                        function onSpatialPreparingChanged() {
+                            if (!dataset.spatialPreparing) {
+                                mosaicQualityBadge.opacity = 1.0
+                            }
+                        }
+                    }
+
+                    Text {
+                        id: mosaicQualityText
+                        text: {
+                            if (dataset.spatialPreparing) {
+                                return qsTr("Data prepairing...")
+                            }
+                            var parts = [];
+                            if (renderer.currentZoom > 0 && scene3DToolbar.mosaicEnabled) {
+                                parts.push(qsTr("Mosaic: ") + mosaicQualityBadge.mosaicCmPerPix + qsTr(" cm/pix"));
+                            }
+                            if (renderer.currentZoom > 0 && renderer.updateSurface) {
+                                parts.push(qsTr("Surface: ") + mosaicQualityBadge.surfaceCmPerCell + qsTr(" cm/cell"));
+                            }
+                            return parts.join("\n");
+                        }
+                        color: "#ffffff"
+                        font: theme.textFont
+                        anchors.centerIn: parent
+                    }
+                }                CContact {
                     id: contactDialog
                     visible: false
                     offsetOpacityArea: 20 // increase in 3D
 
                     onInputAccepted: {
                         contacts.setContact(contactDialog.indx, contactDialog.inputFieldText)
+                    }
+                    onSetActiveButtonClicked: {
+                        contacts.setActiveContact(contactDialog.indx)
                     }
                     onSetButtonClicked: {
                         contacts.setContact(contactDialog.indx, contactDialog.inputFieldText)
@@ -1002,6 +1362,155 @@ ApplicationWindow  {
                         ButtonGroup.group: pencilbuttonGroup
                     }
                 }
+
+                RowLayout {
+                    id: geoMenuBlock
+                    Layout.alignment: Qt.AlignHCenter
+                    spacing: 1
+                    visible: false
+                    Layout.margins: 0
+
+                    property var geo: renderer.geoJsonController
+
+                    onGeoChanged: {
+                        //console.log("GeoJson menu updated, drawing: " + geo.drawing + ", selectedFeatureId: " + geo.selectedFeatureId)
+                    }
+
+                    function position(mx, my) {
+                        var oy = renderer.height - (my + implicitHeight)
+                        if (oy < 0) {
+                            my = my + oy
+                        }
+                        if (my < 0) {
+                            my = 0
+                        }
+                        var ox = renderer.width - (mx - implicitWidth)
+                        if (ox < 0) {
+                            mx = mx + ox
+                        }
+                        x = mx
+                        y = my
+                        visible = true
+                    }
+
+                    CheckButton {
+                        icon.source: "qrc:/icons/ui/plus.svg"
+                        backColor: theme.controlBackColor
+                        checkable: false
+                        implicitWidth: theme.controlHeight
+                        visible: geoMenuBlock.geo && geoMenuBlock.geo.drawing
+
+                        onClicked: {
+                            renderer.geojsonFinishDrawing()
+                            geoMenuBlock.visible = false
+                        }
+                    }
+
+                    CheckButton {
+                        icon.source: "qrc:/icons/ui/stack_backward.svg"
+                        backColor: theme.controlBackColor
+                        checkable: false
+                        implicitWidth: theme.controlHeight
+                        visible: geoMenuBlock.geo && geoMenuBlock.geo.drawing
+
+                        onClicked: {
+                            renderer.geojsonUndoLastVertex()
+                            geoMenuBlock.visible = false
+                        }
+                    }
+
+                    CheckButton {
+                        icon.source: "qrc:/icons/ui/x.svg"
+                        backColor: theme.controlBackColor
+                        checkable: false
+                        implicitWidth: theme.controlHeight
+                        visible: geoMenuBlock.geo && geoMenuBlock.geo.drawing
+
+                        onClicked: {
+                            renderer.geojsonCancelDrawing()
+                            geoMenuBlock.visible = false
+                        }
+                    }
+
+                    CheckButton {
+                        icon.source: "qrc:/icons/ui/timeline_event_x.svg"
+                        backColor: theme.controlBackColor
+                        checkable: false
+                        implicitWidth: theme.controlHeight
+                        visible: geoMenuBlock.geo && !geoMenuBlock.geo.drawing && geoMenuBlock.geo.selectedFeatureId !== ""
+
+                        onClicked: {
+                            renderer.geojsonDeleteSelectedFeature()
+                            geoMenuBlock.visible = false
+                        }
+                    }
+                }
+
+                RowLayout {
+                    id: rulerMenuBlock
+                    Layout.alignment: Qt.AlignHCenter
+                    spacing: 1
+                    visible: false
+                    Layout.margins: 0
+
+                    function position(mx, my) {
+                        var oy = renderer.height - (my + implicitHeight)
+                        if (oy < 0) {
+                            my = my + oy
+                        }
+                        if (my < 0) {
+                            my = 0
+                        }
+                        var ox = renderer.width - (mx - implicitWidth)
+                        if (ox < 0) {
+                            mx = mx + ox
+                        }
+                        x = mx
+                        y = my
+                        visible = true
+                    }
+
+                    CheckButton {
+                        icon.source: "qrc:/icons/ui/file-check.svg"
+                        backColor: theme.controlBackColor
+                        checkable: false
+                        implicitWidth: theme.controlHeight
+                        visible: renderer.rulerEnabled && renderer.rulerDrawing
+
+                        onClicked: {
+                            renderer.rulerFinishDrawing()
+                            rulerMenuBlock.visible = false
+                        }
+                    }
+
+                    CheckButton {
+                        icon.source: "qrc:/icons/ui/x.svg"
+                        backColor: theme.controlBackColor
+                        checkable: false
+                        implicitWidth: theme.controlHeight
+                        visible: renderer.rulerEnabled || renderer.rulerSelected
+
+                        onClicked: {
+                            if (renderer.rulerDrawing) {
+                                renderer.rulerCancelDrawing()
+                            }
+                            rulerMenuBlock.visible = false
+                        }
+                    }
+
+                    CheckButton {
+                        icon.source: "qrc:/icons/ui/timeline_event_x.svg"
+                        backColor: theme.controlBackColor
+                        checkable: false
+                        implicitWidth: theme.controlHeight
+                        visible: !renderer.rulerDrawing && renderer.rulerSelected
+
+                        onClicked: {
+                            renderer.rulerDeleteSelected()
+                            rulerMenuBlock.visible = false
+                        }
+                    }
+                }
             }
 
             Item {
@@ -1053,7 +1562,9 @@ ApplicationWindow  {
                         instruments: menuBar.instruments
                         indx: 2
 
-                        isEnabled: enabled
+                        onEnabledChanged: {
+                            waterViewSecond.setPlotEnabled(enabled)
+                        }
 
                         onVisibleChanged: {
                             if (visible && menuBar.syncPlots) {
@@ -1086,7 +1597,7 @@ ApplicationWindow  {
                         stepSize: 0.0001
                         from: 0
                         to: 1
-
+                        barWidth: 50 * theme.resCoeff
                         onValueChanged: {
                             core.setTimelinePosition(value);
                         }
@@ -1105,9 +1616,7 @@ ApplicationWindow  {
             SplitView.maximumHeight: mainview.height - theme.controlHeight/2 - theme.controlHeight
         }
     }
-
-
-
+    
     TimeLineShifter {
         id: historyTimeLineScroll
         visibleWhenPaused: pulseRuntimeSettings.echogramPause
@@ -1121,13 +1630,283 @@ ApplicationWindow  {
         //onMoved: core.resetAim()
     }
 
+    Item {
+        id: profilesFloatBtn
+        z: 9999
+        visible: menuBar.profilesBtnVis
 
+        property int  margin: 12
+        property real idleOpacity: 0.45
+        property real buttonWidth: theme.controlHeight * 4
+        property real buttonHeight: theme.controlHeight
+
+        opacity: idleOpacity
+        width: profilesContainer.implicitWidth
+        height: profilesContainer.implicitHeight
+
+        function clampToWindow() {
+            x = Math.max(margin, Math.min(x, mainview.width  - width  - margin))
+            y = Math.max(margin, Math.min(y, mainview.height - height - margin))
+        }
+
+        Component.onCompleted: {
+            x = mainview.width - width - margin
+            y = margin
+            clampToWindow()
+        }
+
+        Connections {
+            target: mainview
+            function onWidthChanged()  { profilesFloatBtn.clampToWindow() }
+            function onHeightChanged() { profilesFloatBtn.clampToWindow() }
+        }
+
+        Behavior on opacity { NumberAnimation { duration: 120 } }
+
+        Column {
+            id: profilesContainer
+            spacing: 6
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            CheckButton {
+                id: profilesBtn
+                width: profilesFloatBtn.buttonWidth
+                height: profilesFloatBtn.buttonHeight
+                text: qsTr("Profiles...")
+                backColor: theme.controlBackColor
+                borderColor: "transparent"
+                onClicked: profilesDialog.open()
+            }
+
+            Repeater {
+                id: quickButtonsRepeater
+                model: profilesModel
+
+                delegate: CButton {
+                    text: (index + 1).toString()
+                    enabled: path && path.length > 0
+                    width: profilesBtn.width
+                    height: profilesBtn.height
+                    onClicked: {
+                        if (path && path.length > 0) {
+                            menuBar.applyProfileToAllDevices(path)
+                        }
+                    }
+                }
+            }
+        }
+
+        DragHandler {
+            id: profilesDrag
+            target: profilesFloatBtn
+            xAxis.minimum: profilesFloatBtn.margin
+            xAxis.maximum: Math.max(profilesFloatBtn.margin, mainview.width - profilesFloatBtn.width - profilesFloatBtn.margin)
+            yAxis.minimum: profilesFloatBtn.margin
+            yAxis.maximum: Math.max(profilesFloatBtn.margin, mainview.height - profilesFloatBtn.height - profilesFloatBtn.margin)
+            onActiveChanged: {
+                if (!active) {
+                    profilesFloatBtn.clampToWindow()
+                }
+            }
+        }
+
+        HoverHandler {
+            id: profilesHover
+            target: profilesContainer
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onHoveredChanged: {
+                if (hovered) {
+                    profilesFloatBtn.opacity = 1.0
+                }
+                else {
+                    profilesFloatBtn.opacity = profilesFloatBtn.idleOpacity
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: profilesDialog
+        title: qsTr("Profiles")
+        modal: true
+        focus: true
+        width: Math.min(parent ? parent.width * 0.9 : 700, 700)
+        standardButtons: Dialog.Close
+
+        property int browseRow: -1
+
+        Settings {
+            id: profilesStorage
+            property var savedProfiles: []
+            property var lastProfileFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
+        }
+
+        function loadSavedProfiles() {
+            profilesModel.clear()
+            var stored = profilesStorage.savedProfiles
+            if (!stored || stored.length === 0) {
+                return
+            }
+            for (var i = 0; i < stored.length; ++i) {
+                profilesModel.append({ path: stored[i] })
+            }
+        }
+
+        function saveProfiles() {
+            var stored = []
+            for (var i = 0; i < profilesModel.count; ++i) {
+                var data = profilesModel.get(i)
+                stored.push(data.path ? data.path : "")
+            }
+            profilesStorage.savedProfiles = stored
+        }
+
+        Component.onCompleted: {
+            loadSavedProfiles()
+            standardButton(Dialog.Close).text = qsTr("Close")
+        }
+
+        function urlToPath(u) {
+            if (!u) return ""
+            if (u.toLocalFile) return u.toLocalFile()
+            var s = u.toString()
+            if (s.startsWith("file:///")) s = s.slice(8)
+            else if (s.startsWith("file://")) s = s.slice(7)
+            return s
+        }
+
+        ListModel {
+            id: profilesModel
+            //profilesModel.append({ path: "" })
+        }
+
+        FileDialog {
+            id: profilePickDialog
+            title: qsTr("Select profile XML")
+            fileMode: FileDialog.OpenFile
+            currentFolder: profilesStorage.lastProfileFolder
+            nameFilters: Qt.platform.os === "android" ? ["*/*"] : ["XML files (*.xml)"]
+
+            onCurrentFolderChanged: {
+                profilesStorage.lastProfileFolder = currentFolder
+            }
+
+            onAccepted: {
+                if (profilesDialog.browseRow < 0) return
+                profilesStorage.lastProfileFolder = profilePickDialog.currentFolder
+                const p = profilesDialog.urlToPath(profilePickDialog.selectedFile)
+                profilesModel.setProperty(profilesDialog.browseRow, "path", p)
+                profilesDialog.browseRow = -1
+                profilesDialog.saveProfiles()
+            }
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                Label {
+                    text: qsTr("Add profiles and apply them")
+                    Layout.fillWidth: true
+                    color: "white"
+                }
+
+                CButton {
+                    text: "+"
+                    onClicked: {
+                        profilesModel.append({ path: "" })
+                        profilesDialog.saveProfiles()
+                    }
+                }
+            }
+
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 320
+                clip: true
+
+                ListView {
+                    id: profilesList
+                    model: profilesModel
+                    spacing: 8
+
+                    delegate: Rectangle {
+                        width: ListView.view.width
+                        height: 52
+                        radius: 8
+                        color: "#202020"
+                        border.color: "#909090"
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 8
+
+                            CTextField {
+                                id: pathField
+                                Layout.fillWidth: true
+                                placeholderText: qsTr("Path to profile .xml")
+                                text: path
+                                color: "white"
+                                onEditingFinished: {
+                                    profilesModel.setProperty(index, "path", text)
+                                    profilesDialog.saveProfiles()
+                                }
+                            }
+
+                            CButton {
+                                text: qsTr("Browse")
+                                onClicked: {
+                                    profilesDialog.browseRow = index
+                                    profilePickDialog.currentFolder = profilesStorage.lastProfileFolder
+                                    profilePickDialog.open()
+                                }
+                            }
+
+                            CButton {
+                                text: qsTr("Apply")
+                                enabled: (pathField.text && pathField.text.length > 0)
+                                onClicked: {
+                                    menuBar.applyProfileToAllDevices(pathField.text)
+                                }
+                            }
+
+                            CButton {
+                                text: "✕"
+                                onClicked: {
+                                    profilesModel.remove(index)
+                                    profilesDialog.saveProfiles()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        background: Rectangle {
+            color: theme.controlBackColor
+            radius: 8
+        }
+    }
+
+    ExtraInfoPanel {
+        id: extraInfoPanel
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.margins: 12
+        menuBarState: menuBar
+        datasetState: dataset
+        showBanner: mainview.showBanner
+    }
+    
+    // бровь
     MenuFrame {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
-        //Pulse: hide
-        //visible: (deviceManagerWrapper.pilotArmState >= 0) && !showBanner
-        visible: false
+        visible: !showBanner && (deviceManagerWrapper.pilotArmState >= 0) && menuBar.autopilotInfofVis
         isDraggable: true
         isOpacityControlled: true
         Keys.forwardTo: [splitLayer]
@@ -1138,7 +1917,7 @@ ApplicationWindow  {
                 CheckButton {
                     // text: checked ? "Armed" : "Disarmed"
                     icon.source: checked ? "qrc:/icons/ui/propeller.svg" : "qrc:/icons/ui/propeller_off.svg"
-                    checked: deviceManagerWrapper.pilotArmState == 1
+                    checked: deviceManagerWrapper.pilotArmState === 1
                     color: "white"
                     backColor: "red"
                     // checkedColor: "white"
@@ -1153,7 +1932,7 @@ ApplicationWindow  {
                 CheckButton {
                     // Layout.fillWidth: true
                     icon.source: "qrc:/icons/ui/direction_arrows.svg"
-                    checked: deviceManagerWrapper.pilotModeState == 0 // "Manual"
+                    checked: deviceManagerWrapper.pilotModeState === 0 // "Manual"
                     onCheckedChanged: {
                     }
                     ButtonGroup.group: autopilotModeGroup
@@ -1163,7 +1942,7 @@ ApplicationWindow  {
                 CheckButton {
                     // Layout.fillWidth: true
                     icon.source: "qrc:/icons/ui/route.svg"
-                    checked: deviceManagerWrapper.pilotModeState == 10 // "Auto"
+                    checked: deviceManagerWrapper.pilotModeState === 10 // "Auto"
                     onCheckedChanged: {
                     }
                     ButtonGroup.group: autopilotModeGroup
@@ -1173,7 +1952,7 @@ ApplicationWindow  {
                 CheckButton {
                     // Layout.fillWidth: true
                     icon.source: "qrc:/icons/ui/anchor.svg"
-                    checked: deviceManagerWrapper.pilotModeState == 5 // "Loiter"
+                    checked: deviceManagerWrapper.pilotModeState === 5 // "Loiter"
                     onCheckedChanged: {
                     }
                     ButtonGroup.group: autopilotModeGroup
@@ -1183,7 +1962,7 @@ ApplicationWindow  {
                 CheckButton {
                     // Layout.fillWidth: true
                     icon.source: "qrc:/icons/ui/map_pin.svg"
-                    checked: deviceManagerWrapper.pilotModeState == 15 // "Guided"
+                    checked: deviceManagerWrapper.pilotModeState === 15 // "Guided"
                     onCheckedChanged: {
                     }
                     ButtonGroup.group: autopilotModeGroup
@@ -1193,40 +1972,13 @@ ApplicationWindow  {
                 CheckButton {
                     // Layout.fillWidth: true
                     icon.source: "qrc:/icons/ui/home.svg"
-                    checked: deviceManagerWrapper.pilotModeState == 11 || deviceManagerWrapper.pilotModeState == 12  // "RTL" || "SmartRTL"
+                    checked: deviceManagerWrapper.pilotModeState === 11 || deviceManagerWrapper.pilotModeState === 12  // "RTL" || "SmartRTL"
                     onCheckedChanged: {
                     }
                     ButtonGroup.group: autopilotModeGroup
                     implicitWidth: theme.controlHeight
                 }
 
-                // CCombo  {
-                //     id: pilotModeState
-                //     visible: deviceManagerWrapper.pilotModeState >= 0
-                //     model: [
-                //         "Manual",
-                //         "Acro",
-                //         "Steering",
-                //         "Hold",
-                //         "Loiter",
-                //         "Follow",
-                //         "Simple",
-                //         "Dock",
-                //         "Circle",
-                //         "Auto",
-                //         "RTL",
-                //         "SmartRTL",
-                //         "Guided",
-                //         "Mode16",
-                //         "Mode17"
-                //     ]
-                //     currentIndex: deviceManagerWrapper.pilotModeState
-
-                //     onCurrentIndexChanged: {
-                //         if(currentIndex != deviceManagerWrapper.pilotModeState) {
-                //             currentIndex = deviceManagerWrapper.pilotModeState
-                //         }
-                //     }
             }
 
             RowLayout {
@@ -1249,7 +2001,7 @@ ApplicationWindow  {
         }
     }
 
-    MenuBar {
+    MainMenuBar {
         id:                menuBar
         objectName:        "menuBar"
         Layout.fillHeight: true
@@ -1278,6 +2030,9 @@ ApplicationWindow  {
 
     function handlePlotCursorChanged(indx, from, to) {
         if (!menuBar.syncPlots) {
+            if (renderer.syncLoupeOverlayVisible) {
+                syncLoupeOverlay.refreshLoupePlot()
+            }
             return;
         }
 
@@ -1288,6 +2043,10 @@ ApplicationWindow  {
         if (indx === 2) {
             waterViewFirst.setCursorFromTo(from, to)
             waterViewFirst.update()
+        }
+
+        if (renderer.syncLoupeOverlayVisible) {
+            syncLoupeOverlay.refreshLoupePlot()
         }
     }
 
@@ -1323,6 +2082,14 @@ ApplicationWindow  {
     function onMenuBarSettingsOpened() {
         waterViewFirst.closeSettings()
         waterViewSecond.closeSettings()
+    }
+    function handleMosaicLOffsetChanged(val) {
+        waterViewFirst.mosaicLOffsetChanged(val)
+        waterViewSecond.mosaicLOffsetChanged(val)
+    }
+    function handleMosaicROffsetChanged(val) {
+        waterViewFirst.mosaicROffsetChanged(val)
+        waterViewSecond.mosaicROffsetChanged(val)
     }
 
 
@@ -1427,8 +2194,6 @@ ApplicationWindow  {
     }
 
 
-
-
     // echosounder selector Screen
     Rectangle {
         id: echoSounderSelectorRect
@@ -1485,31 +2250,6 @@ ApplicationWindow  {
                     pulseRuntimeSettings.devManualSelected = false
                     pulseRuntimeSettings.swapDeviceNow = false
                     mainview.windowShadow = true
-
-                    /*
-
-                    // 1) Bring the container back
-                    echoSounderSelectorRect.visible = true
-                    echoSounderSelectorRect.opacity = 1
-
-                    // 2) Reset your “selected” state so you go back to the default layout
-                    echoSounderSelectorRect.selectionMade   = false
-                    echoSounderSelectorRect.selectedDevice  = ""
-
-                    // 3) Make sure both choices are shown again
-                    pulseRedSelector.visible  = true
-                    pulseBlueSelector.visible = true
-
-                    // 4) (Optional) Clear any lingering state assignment
-                    echoSounderSelectorRect.state = ""
-
-                    // 5) If you only fire on the transition to ‘true’, turn it back off
-                    //pulseRuntimeSettings.swapDeviceNow = false
-
-                    // and put back your shadow, etc.
-                    pulseRuntimeSettings.devManualSelected = false
-                    mainview.windowShadow = true
-                    */
 
                     console.log("DEV_RESELECT now we want to re-select the device in main")
                 }
@@ -1847,3 +2587,4 @@ ApplicationWindow  {
     }
 
 }
+

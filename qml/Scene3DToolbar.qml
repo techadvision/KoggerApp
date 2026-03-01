@@ -1,8 +1,8 @@
 import QtQuick 2.12
 import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.12
-import Qt.labs.settings 1.1
-import QtQuick.Dialogs 1.2
+import QtQuick.Dialogs
+import QtCore
 
 
 Item  {
@@ -16,15 +16,25 @@ Item  {
 
     signal updateBottomTrack()
 
+    signal mosaicLAngleOffsetChanged(int val)
+    signal mosaicRAngleOffsetChanged(int val)
+
     function updateMosaic() {
         mosaicViewSettings.updateMosaic()
+    }
+
+    Component.onCompleted: {
+        mosaicViewSettings.mosaicLAngleOffsetChanged.connect(mosaicLAngleOffsetChanged)
+        mosaicViewSettings.mosaicRAngleOffsetChanged.connect(mosaicRAngleOffsetChanged)
     }
 
     // opacity
     property bool isFitViewCheckButtonHovered: false
     property bool isBoatTrackCheckButtonHovered: false
     property bool isBottomTrackCheckButtonHovered: false
-
+    property var view: null
+    property alias mosaicEnabled: mosaicViewCheckButton.checked
+    property alias showMosaicQualityLabel: settings3DSettings.showQualityLabel
     property bool toolbarHovered:
         Qt.platform.os === "android" ?
     (   setCameraIsometricView.down
@@ -36,6 +46,7 @@ Item  {
 
     property bool menuOpened:
         settings3DSettings.visible
+    || locationSettings.visible
     || isobathsSettings.visible
     || mosaicViewSettings.visible
 
@@ -74,6 +85,130 @@ Item  {
 
                 onClicked: {
                     Scene3dToolBarController.onSetCameraMapViewButtonClicked()
+                }
+            }
+
+            CheckButton {
+                id: geoJsonToolButton
+                iconSource: "qrc:/icons/ui/map_pin_cog.svg"
+                backColor: theme.controlBackColor
+                borderColor: theme.controlBackColor
+                checkedBorderColor: theme.controlBorderColor
+                checked: false
+                implicitHeight: theme.controlHeight * 1.3
+                implicitWidth: theme.controlHeight * 1.3
+                visible: false
+
+                CMouseOpacityArea {
+                    toolTipText: qsTr("GeoJSON")
+                    popupPosition: "topRight"
+                }
+
+                onToggled: {
+                    if (!visible && checked) {
+                        // GeoJSON button is hidden; never allow persisted "true" state to activate mode.
+                        checked = false
+                        return
+                    }
+                    Scene3dToolBarController.onGeoJsonModeChanged(checked)
+                }
+
+                Component.onCompleted: {
+                    if (!visible && checked) {
+                        checked = false
+                    }
+                    Scene3dToolBarController.onGeoJsonModeChanged(checked)
+                }
+
+                onVisibleChanged: {
+                    if (!visible && checked) {
+                        checked = false
+                    } else if (!visible) {
+                        Scene3dToolBarController.onGeoJsonModeChanged(false)
+                    }
+                }
+
+                Settings {
+                    property alias geoJsonToolButton: geoJsonToolButton.checked
+                }
+            }
+
+            Item {
+                //visible: false
+                id:     locationWrapper
+                width : locationCheckButton.implicitWidth
+                height: locationCheckButton.implicitHeight
+
+                CheckButton {
+                    id: locationCheckButton
+                    iconSource: "qrc:/icons/ui/location.svg"
+                    backColor:          theme.controlBackColor
+                    borderColor:        theme.controlBackColor
+                    checkedBorderColor: theme.controlBorderColor
+                    checked:            false
+                    implicitHeight:     theme.controlHeight * 1.3
+                    implicitWidth:      theme.controlHeight * 1.3
+
+                    onCheckedChanged: {
+                        Scene3dToolBarController.onTrackLastDataCheckButtonCheckedChanged(checked)
+                    }
+
+                    Component.onCompleted: {
+                        Scene3dToolBarController.onTrackLastDataCheckButtonCheckedChanged(checked)
+                    }
+
+                    property bool locationLongPressTriggered: false
+
+                    MouseArea {
+                        id: locationTouchArea
+                        anchors.fill: parent
+                        enabled: Qt.platform.os === "android"
+
+                        onPressed: {
+                            if (enabled) {
+                                locationLongPressTimer.start()
+                                locationCheckButton.locationLongPressTriggered = false
+                            }
+                        }
+
+                        onReleased: {
+                            if (enabled) {
+                                if (!locationCheckButton.locationLongPressTriggered) {
+                                    locationCheckButton.checked = !locationCheckButton.checked
+                                }
+                                locationLongPressTimer.stop()
+                            }
+                        }
+
+                        onCanceled: {
+                            if (enabled) {
+                                locationLongPressTimer.stop()
+                            }
+                        }
+                    }
+
+                    Timer {
+                        id: locationLongPressTimer
+                        interval: 100 // ms
+                        repeat: false
+                        running : false
+                        onTriggered: {
+                            locationCheckButton.locationLongPressTriggered = true;
+                        }
+                    }
+
+                    Settings {
+                        property alias locationCheckButton: locationCheckButton.checked
+                    }
+                }
+
+                LocationExtraSettings {
+                    id: locationSettings
+                    locationCheckButton:      locationCheckButton
+
+                    anchors.bottom:           locationCheckButton.top
+                    anchors.horizontalCenter: locationCheckButton.horizontalCenter
+                    z: 2
                 }
             }
 
@@ -262,6 +397,10 @@ Item  {
                     }
 
                     onCheckedChanged: {
+                        if (checked) {
+                            toolbarRoot.updateBottomTrack()
+                        }
+
                         IsobathsViewControlMenuController.onProcessStateChanged(checked); // calc state/calc
                         IsobathsViewControlMenuController.onIsobathsVisibilityCheckBoxCheckedChanged(checked)
                     }
@@ -358,6 +497,10 @@ Item  {
                     }
 
                     onCheckedChanged: {
+                        if (checked) {
+                            toolbarRoot.updateBottomTrack()
+                        }
+
                         MosaicViewControlMenuController.onUpdateStateChanged(checked) // calc state/calc
                         MosaicViewControlMenuController.onVisibilityChanged(checked)
                     }

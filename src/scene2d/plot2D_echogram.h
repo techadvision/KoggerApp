@@ -4,6 +4,9 @@
 #include "plot2D_defs.h"
 class SettingsBus;
 
+class QPainter;
+class QPointF;
+class MiniPreviewPlot2D;
 
 class Plot2DEchogram : public QObject, public PlotLayer {
     Q_OBJECT
@@ -34,16 +37,24 @@ public:
         Ek80WhiteTheme,
         PulseTheme_bluered,
         PulseTheme_rainbow,
-        SepiaTemeExtra
+        SepiaTemeExtra,
+        BWTheme,
+        DeepBlueTheme,
+        IceTheme,
+        //GreenTheme,
+        MidnightTheme
     };
 
-    Plot2DEchogram();
     //PULSE
     Q_INVOKABLE QVariantList getThemeColors() const;
     void applyPersistent(const QVariantMap& m);
     void setSettingsBus(SettingsBus* bus);
     static inline bool kIs32BitProcess() { return sizeof(void*) == 4; }
     const QPixmap& pixmap() const { return _pixmap; }
+
+
+    Plot2DEchogram();
+    ~Plot2DEchogram();
 
     bool draw(Plot2D* parent, Dataset* dataset);
 
@@ -56,6 +67,7 @@ public:
     void setColorScheme(QVector<QColor> coloros, QVector<int> levels);
     int getThemeId() const;
     void setThemeId(int theme_id);
+    int getCompensation() const;
     void setCompensation(int compensation_id);
 
     void updateColors();
@@ -64,29 +76,33 @@ public:
     void resetCash();
 
     void addReRenderPlotIndxs(const QSet<int>& indxs);
+    bool drawZoomPreview(Plot2D* parent, Dataset* dataset, QPainter* painter, const QRect& targetRect, const QPoint& sourceCenter, int sourceSize, QPointF* focusPoint = nullptr);
+    bool drawZoomPreview(Plot2D* parent, Dataset* dataset, QPainter* painter, const QRect& targetRect, const QPoint& sourceCenter, int sourceWidth, int sourceHeight, QPointF* focusPoint = nullptr);
 
 signals:
     void themeColorsChanged();
     //void themeIdChanged();
 
 protected:
-    typedef struct {
-        typedef enum {
-            CashStateNotValid,
+    struct CashLine
+    {
+        enum class CashState
+        {
+            CashStateNotValid = 0,
             CashStateValid,
             CashStateEraced
-        } CashState;
+        };
 
 
         int poolIndex = -1;
-        CashState state = CashStateNotValid;
+        CashState state = CashState::CashStateNotValid;
         bool isNeedUpdate = true;
 
         QVector<int16_t> data;
 
-//        CashState stateColor = CashStateNotValid;
+//        CashState stateColor = CashState::CashStateNotValid;
 //        QVector<uint16_t> color;
-    } CashLine;
+    };
 
     uint16_t _colorHashMap[256];
     QVector<CashLine> _cash;
@@ -130,4 +146,5 @@ private:
     //Pulse
     void publishThemeColors();
     SettingsBus* bus_ = nullptr;
+    MiniPreviewPlot2D* miniPreviewPlot_ = nullptr;
 };

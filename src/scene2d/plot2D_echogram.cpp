@@ -40,6 +40,11 @@ void Plot2DEchogram::applyPersistent(const QVariantMap& m)
     if (themeChanged)  setThemeId(theme_);
 }
 
+Plot2DEchogram::~Plot2DEchogram()
+{
+    delete miniPreviewPlot_;
+}
+
 void Plot2DEchogram::setLowLevel(float low)
 {
     setLevels(low, _levels.high);
@@ -123,6 +128,7 @@ int Plot2DEchogram::getThemeId() const
 void Plot2DEchogram::setThemeId(int theme_id) {
 
     if (theme_id >= ClassicTheme && theme_id <= PulseTheme_rainbow) {
+    //if (theme_id >= ClassicTheme && theme_id <= MidnightTheme) {
         themeId_ = static_cast<ThemeId>(theme_id);
     }
     else {
@@ -134,7 +140,31 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     // ID 0
     if(theme_id == ClassicTheme) {
+        coloros = { QColor::fromRgb(0, 0, 0), QColor::fromRgb(20, 5, 80), QColor::fromRgb(50, 180, 230), QColor::fromRgb(190, 240, 250), QColor::fromRgb(255, 255, 255)};
+        levels = {0, 30, 130, 220, 255};
+    } else if(theme_id == SepiaTheme) {
+        coloros = { QColor::fromRgb(0,   0,   0),
+                    QColor::fromRgb(50,  50,  10),
+                    QColor::fromRgb(230, 200, 100),
+                    QColor::fromRgb(255, 255, 220) };
+        levels = {0, 30, 130, 255};
+    }
+    /*
+    else if(theme_id == SepiaNewTheme) {
+        coloros = {
+            QColor::fromRgb(  0,   0,   0),
+            QColor::fromRgb( 28,  10,   0),
+            QColor::fromRgb( 55,  18,   0),
+            QColor::fromRgb( 95,  35,   0),
+            QColor::fromRgb(150,  70,  10),
+            QColor::fromRgb(210, 105,  15),
+            QColor::fromRgb(245, 175,  70),
+            QColor::fromRgb(255, 232, 160)
+        };
+        levels = { 0, 12, 26, 52, 92, 140, 200, 255 };
+    }
 
+    else if(theme_id == WRGBDTheme) {
         coloros = {
            QColor("#000000"),
            QColor("#140551"),
@@ -160,7 +190,10 @@ void Plot2DEchogram::setThemeId(int theme_id) {
         //levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
 
 
-    } else if(theme_id == SepiaTheme) {
+    }
+    */
+
+    else if(theme_id == SepiaTheme) {
         coloros = {
            QColor("#000000"),
            QColor("#33320a"),
@@ -239,10 +272,7 @@ void Plot2DEchogram::setThemeId(int theme_id) {
            QColor("#e16237"),
            QColor("#fd9e81")};
 
-
         levels = { 0, 23, 46, 70, 93, 116, 139, 162, 185, 209, 232, 255 };
-
-
 
     } else if(theme_id == GreenTheme) {
 
@@ -289,6 +319,71 @@ void Plot2DEchogram::setThemeId(int theme_id) {
             128, 149, 170, 191, 213, 234, 255
         };
 
+    } else if(theme_id == BWTheme) {
+        coloros = {QColor::fromRgb(230, 255, 255), QColor::fromRgb(70, 70, 70), QColor::fromRgb(0, 0, 0)};
+        
+        levels = {0, 150, 255};
+        
+    } else if(theme_id == DeepBlueTheme) {
+        
+        coloros = { QColor::fromRgb(0,   0,   40),
+                    QColor::fromRgb(20,  0,   120),
+                    QColor::fromRgb(40,  0,   200),
+                    QColor::fromRgb(0,   90,  255),
+                    QColor::fromRgb(0,   200, 255),
+                    QColor::fromRgb(0,   255, 200),
+                    QColor::fromRgb(0,   255, 80),
+                    QColor::fromRgb(220, 255, 0),
+                    QColor::fromRgb(255, 120, 0),
+                    QColor::fromRgb(255, 40,  40),
+                    QColor::fromRgb(255, 255, 255) };
+        
+        levels = {0, 18, 36, 60, 90, 120, 150, 185, 210, 235, 255};
+        
+    } else if(theme_id == IceTheme) {
+        
+        coloros = { QColor::fromRgb(0,   0,   70),
+                    QColor::fromRgb(0,   40,  150),
+                    QColor::fromRgb(0,   100, 230),
+                    QColor::fromRgb(0,   180, 255),
+                    QColor::fromRgb(0,   240, 255),
+                    QColor::fromRgb(80,  255, 230),
+                    QColor::fromRgb(170, 255, 255),
+                    QColor::fromRgb(230, 255, 255),
+                    QColor::fromRgb(255, 255, 255) };
+        
+        levels = {0, 30, 60, 95, 130, 170, 210, 235, 255};
+        
+    } else if(theme_id == GreenTheme) {
+        
+        coloros = { QColor::fromRgb(0,   0,   0),
+                    QColor::fromRgb(0,   50,  0),
+                    QColor::fromRgb(0,   100, 0),
+                    QColor::fromRgb(0,   160, 0),
+                    QColor::fromRgb(0,   220, 0),
+                    QColor::fromRgb(0,   255, 0),
+                    QColor::fromRgb(120, 255, 0),
+                    QColor::fromRgb(200, 255, 0),
+                    QColor::fromRgb(255, 255, 80),
+                    QColor::fromRgb(255, 255, 255) };
+        
+        levels = {0, 20, 45, 70, 100, 130, 160, 190, 220, 255};
+        
+    } else if(theme_id == MidnightTheme) {
+        
+        coloros = { QColor::fromRgb(51,  128, 255),
+                    QColor::fromRgb(51,  102, 230),
+                    QColor::fromRgb(77,  77,  204),
+                    QColor::fromRgb(102, 51,  179),
+                    QColor::fromRgb(128, 51,  153),
+                    QColor::fromRgb(153, 77,  128),
+                    QColor::fromRgb(179, 102, 102),
+                    QColor::fromRgb(204, 128, 77),
+                    QColor::fromRgb(230, 153, 51),
+                    QColor::fromRgb(255, 179, 26) };
+        
+        levels = {0, 28, 56, 84, 112, 140, 168, 196, 224, 255};
+        
     }
 
     if (theme_id == Ek500WhiteTheme) {
@@ -1246,7 +1341,10 @@ void Plot2DEchogram::setCompensation(int compensation_id)
     _compensation_id = compensation_id;
 }
 
-
+int Plot2DEchogram::getCompensation() const
+{
+    return _compensation_id;
+}
 
 void Plot2DEchogram::updateColors() {
     // 1) compute your user-range → [0..255]
@@ -1338,27 +1436,16 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
         to1 = -from;
     }
 
-    /*
-    int wrap_start_pos = qAbs(cursor.getIndex(0) % width);
-
-    for (unsigned int i = 0; i < cursor.indexes.size(); i++) {
-        if (cursor.indexes[i] > 0) {
-            wrap_start_pos = qAbs((cursor.indexes[i] + (width - i)) % width);
-            break;
-        }
-    }
-    */
-
 
 //    _cashPosition = wrap_start_pos;
     for(int column = 0; column < width; column++) {
         if(_cash[column].data.size() != height) {
-//            _cash[column].stateColor = CashLine::CashStateNotValid;
-            _cash[column].state = CashLine::CashStateNotValid;
+//            _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
+            _cash[column].state = CashLine::CashState::CashStateNotValid;
             _cash[column].data.resize(height);
             _cash[column].data.fill(0); //TODO: Does this help remove the side scan remaining artifact?
             _cash[column].poolIndex = -1;
-            _cash[column].state = CashLine::CashStateEraced;
+            _cash[column].state = CashLine::CashState::CashStateEraced;
             _cash[column].isNeedUpdate = true;
 
             int16_t cash_data_size = _cash[column].data.size();
@@ -1375,14 +1462,6 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                                    ? cursor.indexes[column]
                                    : -1;
         const int pool_index_safe = dataset->validIndex(pool_index);
-
-
-        /*
-        int cursor_pos = column - wrap_start_pos;
-        if(column < wrap_start_pos) {
-            cursor_pos += width;
-        }
-        */
 
         //int pool_index = cursor.getIndex(cursor_pos);
         //int pool_index_safe = dataset->validIndex(pool_index);
@@ -1401,7 +1480,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                 _cash[column].poolIndex = pool_index_safe;
 
                 if(datasource != NULL) {
-                    _cash[column].state = CashLine::CashStateNotValid;
+                    _cash[column].state = CashLine::CashState::CashStateNotValid;
                     int16_t* cash_data = _cash[column].data.data();
                     int16_t cash_data_size = _cash[column].data.size();
 
@@ -1425,7 +1504,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                         }
                     }
 
-                    _cash[column].state = CashLine::CashStateValid;
+                    _cash[column].state = CashLine::CashState::CashStateValid;
                     _cash[column].isNeedUpdate = true;
                     uint8_t * img_data = image_data + column;
                     for (int image_row = 0; image_row < cash_data_size; image_row++) {
@@ -1433,14 +1512,14 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                         img_data += b_scanline;
                         cash_data++;
                     }
-//                    _cash[column].stateColor = CashLine::CashStateNotValid;
+//                    _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
                 } else {
-                    if(_cash[column].state != CashLine::CashStateEraced) {
-//                        _cash[column].stateColor = CashLine::CashStateNotValid;
-                        _cash[column].state = CashLine::CashStateNotValid;
+                    if(_cash[column].state != CashLine::CashState::CashStateEraced) {
+//                        _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
+                        _cash[column].state = CashLine::CashState::CashStateNotValid;
                         _cash[column].data.fill(0);
                         _cash[column].poolIndex = -1;
-                        _cash[column].state = CashLine::CashStateEraced;
+                        _cash[column].state = CashLine::CashState::CashStateEraced;
                         _cash[column].isNeedUpdate = true;
 
                         int16_t cash_data_size = _cash[column].data.size();
@@ -1456,12 +1535,12 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
 
             }
         } else {
-            if(_cash[column].state != CashLine::CashStateEraced) {
-//                _cash[column].stateColor = CashLine::CashStateNotValid;
-                _cash[column].state = CashLine::CashStateNotValid;
+            if(_cash[column].state != CashLine::CashState::CashStateEraced) {
+//                _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
+                _cash[column].state = CashLine::CashState::CashStateNotValid;
                 _cash[column].data.fill(0);
                 _cash[column].poolIndex = -1;
-                _cash[column].state = CashLine::CashStateEraced;
+                _cash[column].state = CashLine::CashState::CashStateEraced;
                 _cash[column].isNeedUpdate = true;
 
                 int16_t* cash_data = _cash[column].data.data();
@@ -1539,6 +1618,135 @@ bool Plot2DEchogram::draw(Plot2D* parent, Dataset* dataset)
     return true;
 }
 
+bool Plot2DEchogram::drawZoomPreview(Plot2D* parent,
+                                     Dataset* dataset,
+                                     QPainter* painter,
+                                     const QRect& targetRect,
+                                     const QPoint& sourceCenter,
+                                     int sourceSize,
+                                     QPointF* focusPoint)
+{
+    return drawZoomPreview(parent, dataset, painter, targetRect, sourceCenter, sourceSize, sourceSize, focusPoint);
+}
+
+bool Plot2DEchogram::drawZoomPreview(Plot2D* parent,
+                                     Dataset* dataset,
+                                     QPainter* painter,
+                                     const QRect& targetRect,
+                                     const QPoint& sourceCenter,
+                                     int sourceWidth,
+                                     int sourceHeight,
+                                     QPointF* focusPoint)
+{
+    if (focusPoint) {
+        *focusPoint = QPointF(0.5, 0.5);
+    }
+
+    if (!parent || !dataset || !painter || targetRect.width() <= 0 || targetRect.height() <= 0) {
+        return false;
+    }
+
+    auto& cursor = parent->cursor();
+    auto& canvas = parent->canvas();
+
+    if (!cursor.distance.isValid() || canvas.width() <= 0 || canvas.height() <= 0) {
+        return false;
+    }
+
+    const int previewWidth = targetRect.width();
+    const int previewHeight = targetRect.height();
+    if (previewWidth <= 0 || previewHeight <= 0) {
+        return false;
+    }
+
+    const int srcWidth = qBound(4, sourceWidth, canvas.width());
+    const int srcHeight = qBound(4, sourceHeight, canvas.height());
+
+    const int clampedCenterX = qBound(0, sourceCenter.x(), canvas.width() - 1);
+    const int clampedCenterY = qBound(0, sourceCenter.y(), canvas.height() - 1);
+
+    const float cursorFrom = cursor.distance.from;
+    const float cursorTo = cursor.distance.to;
+    const float cursorRange = cursorTo - cursorFrom;
+    if (qFuzzyIsNull(cursorRange)) {
+        return false;
+    }
+
+    const float centerScale = static_cast<float>(clampedCenterY) / static_cast<float>(canvas.height());
+    const float centerDistance = cursorFrom + centerScale * cursorRange;
+    float distanceSpan = std::abs(cursorRange) * (static_cast<float>(srcHeight) / static_cast<float>(canvas.height()));
+    if (distanceSpan < 0.01f) {
+        distanceSpan = 0.01f;
+    }
+
+    const float minDistance = qMin(cursorFrom, cursorTo);
+    const float maxDistance = qMax(cursorFrom, cursorTo);
+
+    float low = centerDistance - distanceSpan * 0.5f;
+    float high = centerDistance + distanceSpan * 0.5f;
+
+    if (low < minDistance) {
+        const float delta = minDistance - low;
+        low += delta;
+        high += delta;
+    }
+    if (high > maxDistance) {
+        const float delta = high - maxDistance;
+        low -= delta;
+        high -= delta;
+    }
+
+    low = qBound(minDistance, low, maxDistance);
+    high = qBound(minDistance, high, maxDistance);
+    if (high <= low) {
+        high = qMin(maxDistance, low + 0.01f);
+    }
+
+    const bool isAscending = cursorTo >= cursorFrom;
+    const float zoomFrom = isAscending ? low : high;
+    const float zoomTo = isAscending ? high : low;
+    if (focusPoint) {
+        const float zoomSpan = zoomTo - zoomFrom;
+        float focusY = 0.5f;
+        if (std::isfinite(zoomSpan) && std::abs(zoomSpan) > 1e-6f) {
+            focusY = (centerDistance - zoomFrom) / zoomSpan;
+        }
+        focusY = qBound(0.0f, focusY, 1.0f);
+        focusPoint->setX(0.5);
+        focusPoint->setY(focusY);
+    }
+
+    const int sourceLeft = clampedCenterX - srcWidth / 2;
+    if (miniPreviewPlot_ == nullptr) {
+        miniPreviewPlot_ = new MiniPreviewPlot2D();
+    }
+
+    painter->save();
+    painter->setClipRect(targetRect);
+    painter->translate(targetRect.left(), targetRect.top());
+
+    const bool rendered = miniPreviewPlot_->render(painter,
+                                                   dataset,
+                                                   cursor,
+                                                   canvas.width(),
+                                                   sourceLeft,
+                                                   srcWidth,
+                                                   previewWidth,
+                                                   previewHeight,
+                                                   zoomFrom,
+                                                   zoomTo,
+                                                   getThemeId(),
+                                                   getLowLevel(),
+                                                   getHighLevel(),
+                                                   _compensation_id);
+    painter->restore();
+
+    if (!rendered) {
+        return false;
+    }
+
+    return true;
+}
 
 float Plot2DEchogram::getLowLevel() const
 {

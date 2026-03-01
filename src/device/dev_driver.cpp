@@ -36,6 +36,7 @@ DevDriver::DevDriver(QObject *parent)
     connect(idChart, &IDBinChart::rawDataRecieved, this, &DevDriver::receivedRaw);
     regID(idAtt = new IDBinAttitude(), &DevDriver::receivedAtt);
     regID(idTemp = new IDBinTemp(), &DevDriver::receivedTemp);
+    regID(idEncoder = new IDBinEncoder(), &DevDriver::receivedEncoder);
 
     regID(idDataset = new IDBinDataset(), &DevDriver::receivedDataset, true);
     regID(idDistSetup = new IDBinDistSetup(), &DevDriver::receivedDistSetup, true);
@@ -52,6 +53,7 @@ DevDriver::DevDriver(QObject *parent)
     regID(idUpdate = new IDBinUpdate(), &DevDriver::receivedUpdate);
 
     regID(idNav = new IDBinNav(), &DevDriver::receivedNav);
+    regID(idBoatStatus = new IDBinBoatStatus(), &DevDriver::receivedBoatStatus);
     regID(idDVL = new IDBinDVL(), &DevDriver::receivedDVL);
     regID(idDVLMode = new IDBinDVLMode(), &DevDriver::receivedDVLMode);
 
@@ -201,6 +203,10 @@ QList<QTimer *> DevDriver::getChildTimers()
     if (idNav) {
         timers.append(idNav->getSetTimer());
         timers.append(idNav->getColdStartTimer());
+    }
+    if (idBoatStatus) {
+        timers.append(idBoatStatus->getSetTimer());
+        timers.append(idBoatStatus->getColdStartTimer());
     }
     if (idDVL) {
         timers.append(idDVL->getSetTimer());
@@ -423,7 +429,7 @@ void DevDriver::exportSettingsToXML(const QString& filePath) {
     const U1 channelId = 1;
     const auto channel = idDataset->getChannel(channelId);
     xmlWriter.writeTextElement("period_ms", QString::number(channel.period));
-    xmlWriter.writeTextElement("echogram", QVariant(idDataset->getChart_v0(channelId)).toString());    
+    xmlWriter.writeTextElement("echogram", QVariant(idDataset->getChart_v0(channelId)).toString());
     {
         int state = 0;
         if (idDataset->getDist_v0(channelId) == 1) state = 1;
@@ -515,14 +521,25 @@ QUuid DevDriver::getLinkUuid() const
     return linkUuid_;
 }
 
-void DevDriver::askBeaconPosition(IDBinUsblSolution::USBLRequestBeacon ask) {
-    if(!m_state.connect) return;
+void DevDriver::askBeaconPosition(IDBinUsblSolution::USBLRequestBeacon ask)
+{
+    Q_UNUSED(ask)
+
+    if (!m_state.connect) {
+        return;
+    }
+
     idUSBLControl->pingRequest(0xFFFFFFFF, 0xFF);
 }
 
-void DevDriver::enableBeaconOnce(float timeout) {
-    if(!m_state.connect) return;
-    // idUSBL->enableBeaconOnce(timeout);
+void DevDriver::enableBeaconOnce(float timeout)
+{
+    Q_UNUSED(timeout)
+
+    if (!m_state.connect) {
+        return;
+        // idUSBL->enableBeaconOnce(timeout);
+    }
 }
 
 void DevDriver::acousticPingRequest(uint8_t address, uint32_t timeout_us) {
@@ -610,6 +627,9 @@ void DevDriver::initChildsTimersConnects()
     if (idNav) {
         idNav->initTimersConnects();
     }
+    if (idBoatStatus) {
+        idBoatStatus->initTimersConnects();
+    }
     if (idDVL) {
         idDVL->initTimersConnects();
     }
@@ -637,7 +657,7 @@ void DevDriver::setFirmware(const QByteArray &data)
     sendUpdateFW(data);
 }
 
-void DevDriver::protoComplete(FrameParser& proto)
+void DevDriver::protoComplete(Parsers::FrameParser& proto)
 {
     if (!proto.isComplete()) {
         return;
@@ -1107,14 +1127,14 @@ void DevDriver::setCh2Period(int period) {
     if(is_changed) {  emit datasetChanged();  }
 }
 
-void DevDriver::receivedTimestamp(Type type, Version ver, Resp resp)
+void DevDriver::receivedTimestamp(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
 {
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
 }
 
-void DevDriver::receivedDist(Type type, Version ver, Resp resp) {
+void DevDriver::receivedDist(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
@@ -1122,7 +1142,7 @@ void DevDriver::receivedDist(Type type, Version ver, Resp resp) {
     emit distComplete(getChannelId(), idDist->dist_mm());
 }
 
-void DevDriver::receivedChart(Type type, Version ver, Resp resp)
+void DevDriver::receivedChart(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
 {
     Q_UNUSED(type);
     Q_UNUSED(resp);
@@ -1170,7 +1190,7 @@ void DevDriver::receivedRaw(RawData raw_data) {
     emit rawDataRecieved(ChannelId(linkUuid_, lastAddress_), raw_data);
 }
 
-void DevDriver::receivedAtt(Type type, Version ver, Resp resp) {
+void DevDriver::receivedAtt(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
@@ -1184,29 +1204,40 @@ void DevDriver::receivedAtt(Type type, Version ver, Resp resp) {
     }
 }
 
-void DevDriver::receivedTemp(Type type, Version ver, Resp resp) {
-    //qDebug() << "DevDriver check: receivedTemp ";
+//void DevDriver::receivedTemp(Type type, Version ver, Resp resp) {
+void DevDriver::receivedTemp(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
-    core.getDatasetPtr()->addTemp(idTemp->temp());
+
+    emit tempComplete(idTemp->temp());
+    //core.getDatasetPtr()->addTemp(idTemp->temp());
 }
 
-void DevDriver::receivedDataset(Type type, Version ver, Resp resp) {
+void DevDriver::receivedEncoder(Type type, Version ver, Resp resp) {
+    Q_UNUSED(type);
+    Q_UNUSED(ver);
+    Q_UNUSED(resp);
+    IDBinEncoder::Encoder data = idEncoder->get();
+    qDebug() << "encoder: " << data.e1 << data.e2 << data.e3;
+    emit encoderComplete(data.e1, data.e2, data.e3);
+}
+
+void DevDriver::receivedDataset(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
     if(resp == respNone) { emit datasetChanged(); } else {  }
 }
 
-void DevDriver::receivedDistSetup(Type type, Version ver, Resp resp) {
+void DevDriver::receivedDistSetup(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
     if(resp == respNone) {   emit distSetupChanged();  }
 }
 
-void DevDriver::receivedChartSetup(Type type, Version ver, Resp resp) {
+void DevDriver::receivedChartSetup(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
@@ -1216,14 +1247,14 @@ void DevDriver::receivedChartSetup(Type type, Version ver, Resp resp) {
     }
 }
 
-void DevDriver::receivedDSPSetup(Type type, Version ver, Resp resp) {
+void DevDriver::receivedDSPSetup(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
     if(resp == respNone) {  emit dspSetupChanged();  }
 }
 
-void DevDriver::receivedTransc(Type type, Version ver, Resp resp) {
+void DevDriver::receivedTransc(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
@@ -1233,7 +1264,7 @@ void DevDriver::receivedTransc(Type type, Version ver, Resp resp) {
     }
 }
 
-void DevDriver::receivedSoundSpeed(Type type, Version ver, Resp resp) {
+void DevDriver::receivedSoundSpeed(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
@@ -1243,14 +1274,14 @@ void DevDriver::receivedSoundSpeed(Type type, Version ver, Resp resp) {
     }
 }
 
-void DevDriver::receivedUART(Type type, Version ver, Resp resp) {
+void DevDriver::receivedUART(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
     Q_UNUSED(ver);
 
     if(resp == respNone) { emit UARTChanged(); }
 }
 
-void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
+void DevDriver::receivedVersion(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp) {
     Q_UNUSED(type);
 
     //qDebug() << "Dev_value DevDriver::receivedVersion type " << type << " version " << ver << " resp " << resp;
@@ -1344,19 +1375,22 @@ void DevDriver::receivedVersion(Type type, Version ver, Resp resp) {
     pushRuntimeKV("rawDev_firmwareVersion", m_fwVer);
 }
 
-void DevDriver::receivedMark(Type type, Version ver, Resp resp) {
+void DevDriver::receivedMark(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
 }
 
-void DevDriver::receivedFlash(Type type, Version ver, Resp resp) {
+void DevDriver::receivedFlash(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
 }
 
-void DevDriver::receivedBoot(Type type, Version ver, Resp resp) {
+void DevDriver::receivedBoot(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
@@ -1376,12 +1410,15 @@ void DevDriver::fwUpgradeProcess() {
         emit upgradingFirmwareDone();
         emit upgradingFirmwareDoneDM();
 
+#ifndef SEPARATE_READING
         core.consoleInfo("Upgrade: done");
+#endif
         restartState();
     }
 }
 
-void DevDriver::receivedUpdate(Type type, Version ver, Resp resp) {
+void DevDriver::receivedUpdate(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
 
     if(resp == respNone) {
@@ -1394,17 +1431,24 @@ void DevDriver::receivedUpdate(Type type, Version ver, Resp resp) {
                 _lastUpgradeAnswerTime = QDateTime::currentMSecsSinceEpoch();
 
                 if(prog.type == 1) {
+#ifndef SEPARATE_READING
                     core.consoleInfo(QString("Upgrade: back offset condition error with device msg/offset %1 %2, host msg/offset %3 %4").arg(prog.lastNumMsg).arg(prog.lastOffset).arg(idUpdate->currentNumPacket()).arg(idUpdate->currentFwOffset()));
-                } else if(prog.type == 2) {
+#endif
+                }
+                else if(prog.type == 2) {
+#ifndef SEPARATE_READING
                     core.consoleInfo(QString("Upgrade: forward offset condition error with device msg/offset %1 %2, host msg/offset %3 %4").arg(prog.lastNumMsg).arg(prog.lastOffset).arg(idUpdate->currentNumPacket()).arg(idUpdate->currentFwOffset()));
+#endif
                     idUpdate->setUpgradeNewPoint(prog.lastNumMsg, prog.lastOffset);
                 }
 
                 fwUpgradeProcess();
             } else {
                 // if( m_state.in_boot) {
+#ifndef SEPARATE_READING
                     core.consoleInfo("Upgrade: critical error!");
-                    m_upgrade_status = failUpgrade;
+#endif
+                m_upgrade_status = failUpgrade;
 
                     emit upgradingFirmwareDone();
                     emit upgradingFirmwareDoneDM();
@@ -1422,7 +1466,9 @@ void DevDriver::receivedUpdate(Type type, Version ver, Resp resp) {
             }
         } else {
             if( m_state.in_update && m_bootloaderLagacyMode) {
+#ifndef SEPARATE_READING
                 core.consoleInfo("Upgrade: lagacy mode error");
+#endif
                 m_upgrade_status = failUpgrade;
 
                 emit upgradingFirmwareDone();
@@ -1440,26 +1486,109 @@ void DevDriver::receivedUpdate(Type type, Version ver, Resp resp) {
     emit upgradeChanged();
 }
 
-void DevDriver::receivedNav(Type type, Version ver, Resp resp) {
+void DevDriver::receivedNav(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
-    Q_UNUSED(ver);
-    Q_UNUSED(resp);
 
-    if(resp == respNone) {
-        if(ver == v1) {
-            core.consoleInfo(QString("ROV: yaw: %1, pitch: %2, roll: %3, lat: %4, lon: %5, depth: %6")
-                                .arg(idNav->yaw()).arg(idNav->pitch()).arg(idNav->roll())
-                                .arg(idNav->latitude()).arg(idNav->longitude())
-                                .arg(idNav->depth())
-                             );
-            emit positionComplete(idNav->latitude(), idNav->longitude(), 0, 0);
-            emit attitudeComplete(idNav->yaw(), idNav->pitch(), idNav->roll());
-            emit depthComplete(idNav->depth());
+    if (resp == respNone && ver == v2) {
+        const uint8_t gnssFixType = idNav->gnssFixTypeV2();
+        const uint8_t numSats = idNav->numSatsV2();
+        const uint32_t unixTime = idNav->unixTimeV2();
+        const int16_t unixOffsetMs = idNav->unixOffsetMsV2();
+
+        int32_t unixOffsetNs = static_cast<int32_t>(idNav->unixOffsetMsV2()) * 1000000;
+        if (unixOffsetNs < 0) {
+            unixOffsetNs = 0;
         }
+
+        const double latitude = idNav->latitudeV2();
+        const double longitude = idNav->longitudeV2();
+        const double courseDeg = idNav->groundCourseDegV2();
+        const double velocityMps = idNav->groundVelocityMpsV2();
+        const float yawDeg = idNav->yawV2();
+        const float pitchDeg = idNav->pitchV2();
+        const float rollDeg = idNav->rollV2();
+
+#ifndef SEPARATE_READING
+        core.consoleInfo(QString("SimpleNavV2: fix %1 sats %2 lat %3 lon %4 course %5 speed %6 yaw %7 pitch %8 roll %9")
+                             .arg(gnssFixType)
+                             .arg(numSats)
+                             .arg(latitude, 0, 'f', 7)
+                             .arg(longitude, 0, 'f', 7)
+                             .arg(courseDeg, 0, 'f', 2)
+                             .arg(velocityMps, 0, 'f', 3)
+                             .arg(yawDeg, 0, 'f', 2)
+                             .arg(pitchDeg, 0, 'f', 2)
+                             .arg(rollDeg, 0, 'f', 2));
+#endif
+
+        emit simpleNavV2Complete(gnssFixType, numSats, unixTime, unixOffsetMs,
+                                 latitude, longitude, courseDeg, velocityMps,
+                                 yawDeg, pitchDeg, rollDeg);
+        emit positionComplete(latitude, longitude, unixTime, static_cast<uint32_t>(unixOffsetNs));
+        emit gnssVelocityComplete(velocityMps, courseDeg);
+        emit attitudeComplete(yawDeg, pitchDeg, rollDeg);
+
+        //qDebug() << "SimpleNavV2 parsed (driver):"
+        //         << "fix=" << idNav->gnssFixTypeV2()
+        //         << "sats=" << idNav->numSatsV2()
+        //         << "unixTime=" << idNav->unixTimeV2()
+        //         << "unixOffsetMs=" << idNav->unixOffsetMsV2()
+        //         << "lat=" << latitude
+        //         << "lon=" << longitude
+        //         << "courseDeg=" << courseDeg
+        //         << "velocityMps=" << velocityMps
+        //         << "yaw=" << yawDeg
+        //         << "pitch=" << pitchDeg
+        //         << "roll=" << rollDeg;
+    }
+
+    if (resp == respNone && ver == v1) {
+        const double latitude = idNav->latitude();
+        const double longitude = idNav->longitude();
+        const float yawDeg = idNav->yaw();
+        const float pitchDeg = idNav->pitch();
+        const float rollDeg = idNav->roll();
+        const float depthM = idNav->depth();
+
+#ifndef SEPARATE_READING
+        core.consoleInfo(QString("ROV: yaw: %1, pitch: %2, roll: %3, lat: %4, lon: %5, depth: %6")
+                             .arg(yawDeg)
+                             .arg(pitchDeg)
+                             .arg(rollDeg)
+                             .arg(latitude)
+                             .arg(longitude)
+                             .arg(depthM));
+#endif
+
+        emit positionComplete(latitude, longitude, 0, 0);
+        emit attitudeComplete(yawDeg, pitchDeg, rollDeg);
+        emit depthComplete(depthM);
     }
 }
 
-void DevDriver::receivedDVL(Type type, Version ver, Resp resp) {
+void DevDriver::receivedBoatStatus(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
+    Q_UNUSED(type);
+
+    if (resp == respNone && ver == v0) {
+        const uint8_t batteryBoat = idBoatStatus->batteryBoatPercent();
+        const uint8_t batteryBridge = idBoatStatus->batteryBridgePercent();
+        const uint8_t signalBoat = idBoatStatus->signalQualityBoatPercent();
+        const uint8_t signalBridge = idBoatStatus->signalQualityBridgePercent();
+
+        emit boatStatusComplete(batteryBoat, batteryBridge, signalBoat, signalBridge);
+
+        //qDebug() << "BoatStatusV0 parsed (driver):"
+        //         << "batteryBoat=" << batteryBoat
+        //         << "batteryBridge=" << batteryBridge
+        //         << "signalBoat=" << signalBoat
+        //         << "signalBridge=" << signalBridge;
+    }
+}
+
+void DevDriver::receivedDVL(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
 
     if(resp == respNone) {
@@ -1473,16 +1602,16 @@ void DevDriver::receivedDVL(Type type, Version ver, Resp resp) {
     }
 }
 
-void DevDriver::receivedDVLMode(Type type, Version ver, Resp resp) {
+void DevDriver::receivedDVLMode(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
     Q_UNUSED(ver);
     Q_UNUSED(resp);
 }
 
-void DevDriver::receivedUSBL(Type type, Version ver, Resp resp) {
+void DevDriver::receivedUSBL(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
     Q_UNUSED(type);
-
-
 
     if(resp == respNone) {
         if(ver == Parsers::v0) {
@@ -1495,8 +1624,11 @@ void DevDriver::receivedUSBL(Type type, Version ver, Resp resp) {
 
 }
 
-void DevDriver::receivedUSBLControl(Type type, Version ver, Resp resp) {
-
+void DevDriver::receivedUSBLControl(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp)
+{
+    Q_UNUSED(type)
+    Q_UNUSED(ver)
+    Q_UNUSED(resp)
 }
 
 void DevDriver::process() {
@@ -1530,7 +1662,9 @@ void DevDriver::process() {
 
                 if(m_state.in_update && !m_bootloaderLagacyMode) {
                     if(curr_time - _lastUpgradeAnswerTime > _timeoutUpgradeAnswerTime && _timeoutUpgradeAnswerTime > 0) {
+#ifndef SEPARATE_READING
                         core.consoleInfo("Upgrade: timeout error!");
+#endif
                         idUpdate->putUpdate(false);
                     }
                 }
@@ -1542,7 +1676,6 @@ void DevDriver::process() {
             restartState();
             idMark->setMark();
             idVersion->requestAll();
-            //qDebug() << "dev_driver: process - Reset state";
         }
     }
 }

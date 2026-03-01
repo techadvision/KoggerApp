@@ -5,7 +5,6 @@
 #include <QFont>
 #include <QColor>
 #include <QScreen>
-#include <QApplication>
 #include <QDebug>
 
 
@@ -17,18 +16,12 @@ public:
 
     Themes() :
         instrumentsGrade_(-1),
-        resolutionCoeff_(1.0),
-        isFakeCoords_(false)
+        resolutionCoeff_(1.0)
     {
-#if defined (FAKE_COORDS)
-        isFakeCoords_ = true;
-#endif
-
         setTheme();
         _isConsoleVisible = false;
     }
 
-    Q_PROPERTY(bool isFakeCoords READ getIsFakeCoords NOTIFY changed)
     Q_PROPERTY(qreal resCoeff READ getResolutionCoeff NOTIFY changed)
 
     Q_PROPERTY(QColor disabledTextColor READ disabledTextColor NOTIFY changed)
@@ -65,7 +58,6 @@ public:
         }
     };
 
-    bool getIsFakeCoords() const { return isFakeCoords_; };
     qreal getResolutionCoeff() const { return resolutionCoeff_; };
     QColor textColor() { return *_textColor; }
     QColor textErrorColor() { return *_textErrorColor; }
@@ -90,9 +82,9 @@ public:
         _id = theme_id;
 
 #if defined(Q_OS_ANDROID)
-        _textFont = new QFont("Times", 30);
+        _textFont = new QFont("Times", 14);
         _textFont->setPixelSize(30);
-        _textFontS = new QFont("Times", 24);
+        _textFontS = new QFont("Times", 12);
         _textFontS->setPixelSize(24);
 #else
         _textFont = new QFont("PT Sans Caption", 14);
@@ -128,6 +120,7 @@ public:
 
             _disabledTextColor = new QColor(150, 150, 150);
             _disabledBackColor = new QColor(50, 50, 50);
+            _hoveredBackColor = new QColor(80, 80, 80);
 
         } else if(theme_id == 2) {
             _textColor = new QColor(25, 25, 25);
@@ -140,6 +133,7 @@ public:
 
             _disabledTextColor = new QColor(150, 150, 150);
             _disabledBackColor = new QColor(50, 50, 50);
+            _hoveredBackColor = new QColor(230, 230, 230);
 
         } else if(theme_id == 3) {
             _textColor = new QColor(0, 0, 0);
@@ -152,6 +146,7 @@ public:
 
             _disabledTextColor = new QColor(150, 150, 150);
             _disabledBackColor = new QColor(50, 50, 50);
+            _hoveredBackColor = new QColor(235, 235, 235);
         }
 #if defined(Q_OS_ANDROID)
         _controlHeight = 48;
@@ -217,7 +212,6 @@ protected:
 private:
     qreal checkResolutionCoeff() const;
     qreal resolutionCoeff_;
-    bool isFakeCoords_;
 };
 
 inline qreal Themes::checkResolutionCoeff() const

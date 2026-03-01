@@ -6,7 +6,11 @@
 
 class UiMetrics;
 
+class QPainter;
+class QString;
 class Plot2DGrid : public QObject, public PlotLayer
+//class Plot2DGrid : public PlotLayer
+
 {
 //Pulse
 Q_OBJECT
@@ -22,7 +26,11 @@ public:
     void setAngleVisibility(bool state);
     void setVetricalNumber(int grids) { _lines = grids; }
     void setVelocityVisible(bool visible) { _velocityVisible = visible; }
-    void setRangeFinderVisible(bool visible) { _rangeFinderLastVisible = visible; }
+    bool isFillWidth() const { return fillWidth_; }
+    void setFillWidth(bool state) { fillWidth_ = state; }
+    bool isInvert() const { return invert_; }
+    void setInvert(bool state) { invert_ = state; }
+    //void setRangeFinderVisible(bool visible) { _rangeFinderLastVisible = visible; }
     //Pulse
     Q_INVOKABLE void applyRuntime(const QVariantMap& m);
     Q_INVOKABLE void setMeasuresMetric( bool isMetric );
@@ -33,16 +41,11 @@ public:
     Q_INVOKABLE int getAssessedMaxDepth();
     std::vector<int> calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand);
 
-private:
-    // ---- DPI / font scaling state & helpers ----
-    qreal dpScale_ = 1.0;          // dpi / 160
-    int   sp(qreal v) const;       // convert "sp" to pixels (implemented in .cpp)
-    void  updateDpScale();         // recompute dpScale_ from QScreen (implemented in .cpp)
-
 protected:
+    void drawTextWithBackdrop(QPainter* painter, int x, int baselineY, const QString& text) const;
+
     bool angleVisibility_;
     bool _velocityVisible = true;
-    bool _rangeFinderLastVisible = true;
     int _lines = 20;
     int _lineWidth = 1;
     //Pulse
@@ -53,6 +56,7 @@ protected:
     bool is2DTransducer_   = true;
     int assessedMaxDepth_ = 0;
     QColor _lineColor = QColor(255, 255, 255, 255);
+
     void drawTextWithBackdrop(QPainter* p,
                               const QString &text,
                               const QPoint &devicePos, // reference coordinate in device space
@@ -63,5 +67,15 @@ protected:
                               const QColor &textColor = QColor(255,255,255),
                               const QColor &backdropColor = QColor(0,0,0,0x80));
 
+
+
+    bool fillWidth_ = false;
+    bool invert_ = false;
+    
+private:
+    // ---- DPI / font scaling state & helpers ----
+    qreal dpScale_ = 1.0;          // dpi / 160
+    int   sp(qreal v) const;       // convert "sp" to pixels (implemented in .cpp)
+    void  updateDpScale();         // recompute dpScale_ from QScreen (implemented in .cpp)
 
 };

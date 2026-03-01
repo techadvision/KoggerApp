@@ -55,7 +55,7 @@ typedef enum ID {
     ID_IMU = 0x06,
     ID_MAG = 0x07,
     ID_BARO = 0x08,
-    ID_ENCODER = 0x08,
+    ID_ENCODER = 0x09,
 
     ID_DATASET = 0x10,
     ID_DIST_SETUP = 0x11,
@@ -98,6 +98,7 @@ typedef enum ID {
     ID_USBL_CONTROL = 0x68, // 104
 
     ID_GFW = 200,
+    ID_BOAT_STATUS = 0xC9,
 
     sizer = 0xFFFF
 } ID;
@@ -1162,7 +1163,7 @@ public:
         _frame[0] = 0xbb;
         _frame[1] = 0x55;
         setRoute(route);
-        setMode(type, ver, true);
+        setMode(type, ver, type != CONTENT ? true : false); // TODO: check
         setId(id);
 
         _frameLen = 6;

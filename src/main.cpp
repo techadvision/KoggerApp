@@ -1,6 +1,5 @@
 #include <QGuiApplication>
 #include <QQmlContext>
-#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QTranslator>
 #include <QLocale>
@@ -13,21 +12,29 @@
 #include <QFile>
 #include <QByteArray>
 #include <QQuickWindow>
+
 #include "NMEASender.h"
+
+#include <QPointer>
+
 #include <QSql>
 #include <QSqlDatabase>
+#include <QQuickStyle>
+#include <QWindow>
+#if defined(Q_OS_WIN)
+#include <windows.h>
+#endif
 #include "qPlot2D.h"
-#include "dataset.h"
-#include "console.h"
 #include "core.h"
 #include "themes.h"
 #include "scene_object.h"
-#include "plot2D.h"
 #include "bottom_track.h"
+
 #if defined(Q_OS_ANDROID)
-#include "platform/android/src/android.h"
-#include <QtAndroidExtras/QAndroidJniObject>
-#include <QtAndroid>
+#include <QCoreApplication>          // brings in QNativeInterface::QAndroidApplication
+#include <QtCore/qnativeinterface.h> // robust include (works even if <QNativeInterface> is missing)
+#include <QtCore/qjniobject.h>       // QJniObject (Qt 6)
+#include <QVariant>
 #include "InsetsHelper.h"
 #endif
 #include "installtoken.h"
@@ -40,7 +47,38 @@ QVector<QString> availableLanguages{"en", "ru", "pl"};
 //QObject* g_pulseRuntimeSettings = nullptr;
 //QObject* g_pulseSettings = nullptr;
 
+constexpr int FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS = 0x80000000;
+constexpr int FLAG_TRANSLUCENT_STATUS           = 0x04000000;
 
+
+static void makeStatusBarTransparent()
+{
+#if defined(Q_OS_ANDROID)
+    QNativeInterface::QAndroidApplication::runOnAndroidMainThread([]() -> QVariant {
+        constexpr int FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS = 0x80000000;
+        constexpr int FLAG_TRANSLUCENT_STATUS           = 0x04000000;
+
+        QJniObject activity = QNativeInterface::QAndroidApplication::context();
+        if (!activity.isValid())
+            return {};
+
+        QJniObject window = activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
+        if (!window.isValid())
+            return {};
+
+        window.callMethod<void>("addFlags",   "(I)V", FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.callMethod<void>("clearFlags", "(I)V", FLAG_TRANSLUCENT_STATUS);
+
+        const jint transparent = QJniObject::getStaticField<jint>(
+            "android/graphics/Color", "TRANSPARENT");
+        window.callMethod<void>("setStatusBarColor", "(I)V", transparent);
+
+        return {};
+    });
+#endif
+}
+
+/*
 static void makeStatusBarTransparent()
 {
     #if defined(Q_OS_ANDROID)
@@ -66,6 +104,7 @@ static void makeStatusBarTransparent()
     });
     #endif
 }
+*/
 
 void loadLanguage(QGuiApplication &app)
 {
@@ -131,11 +170,47 @@ void registerQmlMetaTypes()
     qRegisterMetaType<LinkAttribute>("LinkAttribute");
 }
 
+#if defined(Q_OS_WIN)
+void applyWindowsFullscreenBorderWorkaround(QWindow* window)
+{
+    if (!window) {
+        return;
+    }
+
+    auto applyBorder = [window]() {
+        HWND handle = reinterpret_cast<HWND>(window->winId());
+        if (!handle) {
+            return;
+        }
+
+        const LONG_PTR style = GetWindowLongPtr(handle, GWL_STYLE);
+        if ((style & WS_BORDER) == 0) {
+            SetWindowLongPtr(handle, GWL_STYLE, style | WS_BORDER);
+            SetWindowPos(handle, nullptr, 0, 0, 0, 0,
+                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+    };
+
+    QObject::connect(window, &QWindow::visibilityChanged, window, [applyBorder](QWindow::Visibility visibility) {
+        if (visibility == QWindow::FullScreen) {
+            applyBorder();
+        }
+    });
+
+    applyBorder();
+}
+#endif
+
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_ANDROID
+    qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");  // TODO: use qt scaling!
+    qputenv("QT_SCALE_FACTOR", "0.5");            //
+#endif
+
 #if defined(Q_OS_LINUX)
-    QApplication::setAttribute(Qt::AA_ForceRasterWidgets, false);
+    QCoreApplication::setAttribute(Qt::AA_ForceRasterWidgets, false);
     ::qputenv("QT_SUPPORT_GL_CHILD_WIDGETS", "1");
 #ifdef LINUX_ES
     ::qputenv("QT_OPENGL", "es2");
@@ -148,11 +223,11 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion("1-1-1");
 
 #if defined(Q_OS_WIN)
-    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    //QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Round);
 #endif
 
-    QQuickWindow::setSceneGraphBackend(QSGRendererInterface::OpenGLRhi);
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGLRhi);
 
     QSurfaceFormat format;
 #if defined(Q_OS_ANDROID) || defined(LINUX_ES)
@@ -174,6 +249,9 @@ int main(int argc, char *argv[])
     //qputenv("QT_DEBUG_PLUGINS", "1");
     //qDebug() << "libraryPaths =" << QCoreApplication::libraryPaths();
     loadLanguage(app);
+    core.initStreamList();
+
+    QQuickStyle::setStyle("Basic");
 
     setApplicationDisplayName(app);
     QQmlApplicationEngine engine;
@@ -209,7 +287,8 @@ int main(int argc, char *argv[])
 
     //Pulse additions
     auto grid = new Plot2DGrid();
-    engine.rootContext()->setContextProperty("plot2DGrid", grid);
+    //TODO: Attempt to use a deleted function, may impact my settings as now I do not have the context. Commented out below
+    //engine.rootContext()->setContextProperty("plot2DGrid", grid);
     auto* bus = new SettingsBus(&engine);
 
     engine.rootContext()->setContextProperty("settingsBus", bus);
@@ -284,10 +363,16 @@ int main(int argc, char *argv[])
 
     engine.rootContext()->setContextProperty("logViewer", core.getConsolePtr());
 
+    QObject::connect(&theme, &Themes::interfaceChanged, &core, []() {
+        core.setConsoleOutputEnabled(theme.consoleVisible());
+    });
+    core.setConsoleOutputEnabled(theme.consoleVisible());
+
     core.consoleInfo("Run...");
     core.setEngine(&engine);
     //qDebug() << "SQL drivers =" << QSqlDatabase::drivers(); // тут должен появиться QSQLITE
     const QUrl url(QStringLiteral("qrc:/main.qml"));
+    QPointer<QQuickWindow> mainWindow;
     QObject::connect(&engine,   &QQmlApplicationEngine::objectCreated,
                      &app,      [url](QObject *obj, const QUrl &objUrl) {
                                     if (!obj && url == objUrl)
@@ -296,10 +381,12 @@ int main(int argc, char *argv[])
 
 // file opening on startup
 #ifdef Q_OS_ANDROID
-    checkAndroidWritePermission();
-    tryOpenFileAndroid(engine);
+    //checkAndroidWritePermission();
+    //tryOpenFileAndroid(engine);
     makeStatusBarTransparent();
-#else
+#endif
+
+#ifndef Q_OS_ANDROID
     if (argc > 1) {
         QObject::connect(&engine,   &QQmlApplicationEngine::objectCreated,
                          &core,     [&argv]() {
@@ -310,6 +397,7 @@ int main(int argc, char *argv[])
 
     QObject::connect(&app,  &QGuiApplication::aboutToQuit,
                      &core, [&]() {
+                                core.shutdownDataProcessor();
                                 core.saveLLARefToSettings();
                                 core.removeLinkManagerConnections();
                                 core.stopLinkManagerTimer();
@@ -320,6 +408,16 @@ int main(int argc, char *argv[])
                             });
 
     engine.load(url);
+    const auto rootObjects = engine.rootObjects();
+    if (!rootObjects.isEmpty()) {
+        QObject* rootObject = rootObjects.constFirst();
+        mainWindow = qobject_cast<QQuickWindow*>(rootObject);
+#if defined(Q_OS_WIN)
+        if (auto* window = qobject_cast<QWindow*>(rootObject)) {
+            applyWindowsFullscreenBorderWorkaround(window);
+        }
+#endif
+    }
     qCritical() << "App is created";
 
     return app.exec();

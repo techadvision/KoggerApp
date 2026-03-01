@@ -1,7 +1,8 @@
 #include "boat_track.h"
 
-//#include <QtOpenGLExtensions/QOpenGLExtensions>
 #include <QOpenGLFunctions>
+#include <QOpenGLExtraFunctions>
+
 #include <QHash>
 #include "scene3d_view.h"
 #include "epoch_event.h"
@@ -9,7 +10,8 @@
 
 BoatTrack::BoatTrack(GraphicsScene3dView* view, QObject* parent) :
     SceneObject(new BoatTrackRenderImplementation, view, parent),
-    datasetPtr_(nullptr)
+    datasetPtr_(nullptr),
+    lastIndx_(0)
 {
     setPrimitiveType(GL_LINE_STRIP);
 }
@@ -35,7 +37,6 @@ bool BoatTrack::eventFilter(QObject *watched, QEvent *event)
         clearSelectedEpoch();
         m_view->m_mode = GraphicsScene3dView::ActiveMode::BottomTrackVertexSelectionMode;
         selectEpoch(epochEvent->epochIndex());
-        m_view->update();
     }
     return false;
 }
@@ -52,25 +53,25 @@ void BoatTrack::onPositionAdded(uint64_t indx)
     }
 
     const int toIndx = indx;
-    const int fromIndx = 0; //lastEpoch_;
-    if (fromIndx > toIndx) {
+    const int fromIndx = lastIndx_;
+    if (fromIndx >= toIndx) {
         return;
     }
 
-    QVector<QVector3D> prepData(toIndx, QVector3D());
-    selectedIndices_.clear();
-    uint64_t validPosCounter = 0;
+    const int need = toIndx - fromIndx;
+    QVector<QVector3D> prepData;
+    prepData.reserve(need);
 
-    for (int i = fromIndx; i < toIndx; ++i) {
+    for (int i = fromIndx + 1; i <= toIndx; ++i) {
         if (auto* ep = datasetPtr_->fromIndex(i); ep) {
             if (auto posNed = ep->getPositionGNSS().ned; posNed.isCoordinatesValid()) {
-                prepData[i] = QVector3D(posNed.n, posNed.e, 0);
-                selectedIndices_.insert(validPosCounter++, i);
+                prepData.push_back(QVector3D(posNed.n, posNed.e, 0));
             }
         }
     }
+    lastIndx_ = toIndx;
 
-    SceneObject::setData(prepData, GL_LINE_STRIP);
+    SceneObject::appendData(prepData);
 }
 
 void BoatTrack::clearData()
@@ -78,23 +79,32 @@ void BoatTrack::clearData()
     auto r = RENDER_IMPL(BoatTrack);
     r->boatTrackVertice_ = QVector3D();
     r->bottomTrackVertice_ = QVector3D();
-
-    selectedIndices_.clear();
+    lastIndx_ = 0;
+    if (m_view) {
+        m_view->setSyncEpochIndex(-1);
+    }
 
     SceneObject::clearData();
 }
 
 void BoatTrack::selectEpoch(int epochIndex)
 {
-    if (epochIndex < 0 || epochIndex >= datasetPtr_->size())
+    if (!datasetPtr_ || epochIndex < 0 || epochIndex >= datasetPtr_->size()) {
+        if (m_view) {
+            m_view->setSyncEpochIndex(-1);
+        }
         return;
+    }
+
+    bool selected = false;
 
     if (auto* epoch = datasetPtr_->fromIndex(epochIndex); epoch) {
-        NED epNed = epoch->getPositionGNSS().ned;
+        NED boatPosNed = epoch->getPositionGNSS().ned;
+        NED sonarPosNed = epoch->getSonarPosition().ned;
 
-        if (epNed.isCoordinatesValid()) {
+        if (boatPosNed.isCoordinatesValid()) {
             auto* r = RENDER_IMPL(BoatTrack);
-            r->boatTrackVertice_ = QVector3D(epNed.n, epNed.e, 0.0f);
+            r->boatTrackVertice_ = QVector3D(boatPosNed.n, boatPosNed.e, 0.0f);
 
             // channel select logic from bottomTrack
             bool beenBottomSelected{ false };
@@ -102,7 +112,7 @@ void BoatTrack::selectEpoch(int epochIndex)
             if (datasetPtr_) {
                 if (auto datasetChannels = datasetPtr_->channelsList(); !datasetChannels.isEmpty()) {
                     if (float distance = -1.f * static_cast<float>(epoch->distProccesing(datasetChannels.first().channelId_)); isfinite(distance)) {
-                        r->bottomTrackVertice_ = QVector3D(epNed.n, epNed.e, distance);
+                        r->bottomTrackVertice_ = QVector3D(sonarPosNed.n, sonarPosNed.e, distance); //
                         beenBottomSelected = true;
                     }
                 }
@@ -110,10 +120,15 @@ void BoatTrack::selectEpoch(int epochIndex)
             if (!beenBottomSelected) {
                 r->bottomTrackVertice_ = QVector3D();
             }
+            selected = true;
         }
         else {
             //qDebug() << "invalid pos on boat track" << epochIndex;
         }
+    }
+
+    if (m_view) {
+        m_view->setSyncEpochIndex(selected ? epochIndex : -1);
     }
 
     Q_EMIT changed();
@@ -130,6 +145,9 @@ void BoatTrack::clearSelectedEpoch()
     auto* r = RENDER_IMPL(BoatTrack);
     r->boatTrackVertice_ = QVector3D();
     r->bottomTrackVertice_ = QVector3D();
+    if (m_view) {
+        m_view->setSyncEpochIndex(-1);
+    }
 }
 
 void BoatTrack::mousePressEvent(Qt::MouseButtons buttons, qreal x, qreal y)
@@ -147,18 +165,15 @@ void BoatTrack::mousePressEvent(Qt::MouseButtons buttons, qreal x, qreal y)
                 auto hits = m_view->m_ray.hitObject(shared_from_this(), Ray::HittingMode::Vertex);
                 if (!hits.isEmpty()) {
                     auto indice = hits.first().indices().first;
-                    if (selectedIndices_.size() > (indice + 1)) {
-                        auto epochIndx = selectedIndices_[indice];
-                        if (auto* epoch = datasetPtr_->fromIndex(epochIndx); epoch) {
-                            NED epNed = epoch->getPositionGNSS().ned;
+                    if (auto* epoch = datasetPtr_->fromIndex(indice); epoch) {
+                        NED epNed = epoch->getPositionGNSS().ned;
 
-                            QVector3D pos(epNed.n, epNed.e, 0.0f);
-                            RENDER_IMPL(BoatTrack)->boatTrackVertice_ = pos;
-
-                            if (auto datasetChannels = datasetPtr_->channelsList(); !datasetChannels.isEmpty()) {
-                                auto epochEvent = new EpochEvent(EpochSelected3d, epoch, epochIndx, datasetChannels.first());
-                                QCoreApplication::postEvent(this, epochEvent);
-                            }
+                        QVector3D pos(epNed.n, epNed.e, 0.0f);
+                        RENDER_IMPL(BoatTrack)->boatTrackVertice_ = pos;
+                        m_view->setSyncEpochIndex(indice);
+                        if (auto datasetChannels = datasetPtr_->channelsList(); !datasetChannels.isEmpty()) {
+                            auto epochEvent = new EpochEvent(EpochSelected3d, epoch, indice, datasetChannels.first());
+                            QCoreApplication::postEvent(this, epochEvent);
                         }
                     }
                 }
@@ -205,45 +220,82 @@ void BoatTrack::BoatTrackRenderImplementation::render(QOpenGLFunctions *ctx,
         return;
     }
 
-    auto shaderProgram = shaderProgramMap["static"].get();
-    shaderProgram->bind();
+    {
+        auto shaderProgram = shaderProgramMap["static"].get();
+        shaderProgram->bind();
 
-    auto colorLoc  = shaderProgram->uniformLocation("color");
-    auto matrixLoc = shaderProgram->uniformLocation("matrix");
-    auto posLoc    = shaderProgram->attributeLocation("position");
-    int widthLoc   = shaderProgram->uniformLocation("width");
+        int  isPointLoc    = shaderProgram->uniformLocation("isPoint");
+        int  isTriangleLoc = shaderProgram->uniformLocation("isTriangle");
+        shaderProgram->setUniformValue(isPointLoc,    true);
+        shaderProgram->setUniformValue(isTriangleLoc, false);
+        auto colorLoc  = shaderProgram->uniformLocation("color");
+        auto matrixLoc = shaderProgram->uniformLocation("matrix");
+        auto posLoc    = shaderProgram->attributeLocation("position");
+        int widthLoc   = shaderProgram->uniformLocation("width");
 
-    //QVector4D vertexColor(0.03f, 0.69f, 0.98f, 1.0f);
-    QVector4D vertexColor(0.91f, 0.25f, 0.2f, 1.0f);
+        //QVector4D vertexColor(0.03f, 0.69f, 0.98f, 1.0f);
+        QVector4D vertexColor(0.91f, 0.25f, 0.2f, 1.0f);
 
-    shaderProgram->setUniformValue(colorLoc,vertexColor);
-    shaderProgram->setUniformValue(matrixLoc, projection * view * model);
-    shaderProgram->setUniformValue(widthLoc, 12.0f);
-    shaderProgram->enableAttributeArray(posLoc);
-    shaderProgram->setAttributeArray(posLoc, &boatTrackVertice_);
+        shaderProgram->setUniformValue(colorLoc,vertexColor);
+        shaderProgram->setUniformValue(matrixLoc, projection * view * model);
+        shaderProgram->setUniformValue(widthLoc, 17.0f);
 
-    ctx->glEnable(34370);
-    ctx->glDrawArrays(GL_POINTS, 0, 1);
-    ctx->glDisable(34370);
+        ctx->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    shaderProgram->disableAttributeArray(posLoc);
+        shaderProgram->enableAttributeArray(posLoc);
+        shaderProgram->setAttributeArray(posLoc, &boatTrackVertice_);
 
-    //------------->Drawing line boatTrack -> bottomTrack<<---------------//
-    if (bottomTrackVertice_.isNull() || !bottomTrackVisibleState_) {
-        return;
+        ctx->glEnable(34370);
+        ctx->glEnable(34913);
+
+        //qDebug() << "draw" << boatTrackVertice_;
+        ctx->glDrawArrays(GL_POINTS, 0, 1);
+        ctx->glDisable(34370);
+        ctx->glDisable(34913);
+
+
+        shaderProgram->setUniformValue(isPointLoc,    false);
+        shaderProgram->setUniformValue(isTriangleLoc, false);
+
+        shaderProgram->disableAttributeArray(posLoc);
+        shaderProgram->release();
     }
 
-    QVector4D lineColor(0.91f, 0.25f, 0.2f, 1.0f);
-    shaderProgram->setUniformValue(colorLoc, lineColor);
+    { // line
+        //------------->Drawing line boatTrack -> bottomTrack<<---------------//
+        if (bottomTrackVertice_.isNull() || !bottomTrackVisibleState_) {
+            return;
+        }
 
-    QVector<QVector3D> vertices{ boatTrackVertice_, bottomTrackVertice_ };
+        auto shaderProgram = shaderProgramMap["static"].get();
+        shaderProgram->bind();
 
-    ctx->glLineWidth(2);
-    shaderProgram->enableAttributeArray(posLoc);
-    shaderProgram->setAttributeArray(posLoc, vertices.constData(), sizeof(QVector3D));
+        int  isPointLoc    = shaderProgram->uniformLocation("isPoint");
+        int  isTriangleLoc = shaderProgram->uniformLocation("isTriangle");
+        shaderProgram->setUniformValue(isPointLoc,    false);
+        shaderProgram->setUniformValue(isTriangleLoc, false);
+        auto colorLoc  = shaderProgram->uniformLocation("color");
+        auto matrixLoc = shaderProgram->uniformLocation("matrix");
+        auto posLoc    = shaderProgram->attributeLocation("position");
+        int widthLoc   = shaderProgram->uniformLocation("width");
 
-    ctx->glDrawArrays(GL_LINES, 0, 2);
+        QVector4D lineColor(0.91f, 0.25f, 0.2f, 1.0f);
 
-    shaderProgram->disableAttributeArray(posLoc);
-    shaderProgram->release();
+        shaderProgram->setUniformValue(colorLoc, lineColor);
+        shaderProgram->setUniformValue(matrixLoc, projection * view * model);
+        shaderProgram->setUniformValue(widthLoc, 12.0f);
+
+        QVector<QVector3D> vertices{ boatTrackVertice_, bottomTrackVertice_ };
+
+        ctx->glLineWidth(2);
+        shaderProgram->enableAttributeArray(posLoc);
+        shaderProgram->setAttributeArray(posLoc, vertices.constData());
+        ctx->glDrawArrays(GL_LINES, 0, 2);
+        ctx->glLineWidth(1);
+
+        shaderProgram->setUniformValue(isPointLoc,    false);
+        shaderProgram->setUniformValue(isTriangleLoc, false);
+        shaderProgram->disableAttributeArray(posLoc);
+        shaderProgram->release();
+    }
 }

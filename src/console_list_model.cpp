@@ -19,13 +19,16 @@ QVariant ConsoleListModel::data(const QModelIndex &index, int role) const{
     }
     //qDebug() << "ConsoleListModel check 2";
     const int indexRow = index.row();
-    //qDebug() << "ConsoleListModel check 3";
-    QVector<QVariant> vectorRole = _vectors[role];
-    //qDebug() << "ConsoleListModel check 4";
-    if (indexRow < 0 || vectorRole.size() <= indexRow) {
+    if (indexRow < 0 || indexRow >= _size) {
         return {"No data"};
     }
-    return _vectors[role][indexRow];
+
+    const auto it = _vectors.constFind(role);
+    if (it == _vectors.cend() || it.value().size() <= indexRow) {
+        return {"No data"};
+    }
+
+    return it.value().at(indexRow);
 }
 
 QHash<int, QByteArray> ConsoleListModel::roleNames() const {
@@ -34,6 +37,8 @@ QHash<int, QByteArray> ConsoleListModel::roleNames() const {
 
 void ConsoleListModel::doAppend(const QString& time, int category, const QString& data)
 {
+    trimHeadIfNeeded();
+
     bool visible = category & _categories;
     const int line = rowCount();
     beginInsertRows(QModelIndex(), line, line);
@@ -45,4 +50,28 @@ void ConsoleListModel::doAppend(const QString& time, int category, const QString
 
     _size++;
     endInsertRows();
+}
+
+void ConsoleListModel::trimHeadIfNeeded(int incomingCount)
+{
+    const int overflow = (_size + incomingCount) - kMaxRows;
+    if (overflow <= 0) {
+        return;
+    }
+
+    const int removeCount = qMin(_size, qMax(overflow, kTrimBatch));
+    if (removeCount <= 0) {
+        return;
+    }
+
+    beginRemoveRows(QModelIndex(), 0, removeCount - 1);
+
+    _vectors[ConsoleListModel::Visibility].remove(0, removeCount);
+    _vectors[ConsoleListModel::Time].remove(0, removeCount);
+    _vectors[ConsoleListModel::Category].remove(0, removeCount);
+    _vectors[ConsoleListModel::Payload].remove(0, removeCount);
+
+    _size -= removeCount;
+
+    endRemoveRows();
 }

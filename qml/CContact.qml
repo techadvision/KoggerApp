@@ -5,13 +5,14 @@ import QtQuick.Layouts 1.15
 
 MenuFrame {
     signal inputAccepted
+    signal setActiveButtonClicked
     signal setButtonClicked
     signal deleteButtonClicked
     signal copyButtonClicked
 
     id: inputDialog
     visible: false
-    width: 185
+    width: implicitWidth
 
     property alias inputFieldText: inputField.text
     property bool accepted: false
@@ -48,12 +49,16 @@ MenuFrame {
 
         RowLayout {
             CheckButton {
+                id: setActiveButton
                 icon.source: "qrc:/icons/ui/tag.svg"
                 backColor: theme.menuBackColor
                 borderColor: theme.menuBackColor
                 implicitWidth: theme.controlHeight
                 checkable: false
-                enabled: false
+                onClicked: {
+                    inputDialog.visible = false
+                    contactDialog.setActiveButtonClicked()
+                }
             }
             CTextField {
                 id: inputField
@@ -93,7 +98,7 @@ MenuFrame {
         }
 
         RowLayout {
-            visible: info.length != 0
+            visible: info.length !== 0
             CheckButton {
                 icon.source: "qrc:/icons/ui/gps.svg"
                 backColor: theme.menuBackColor
@@ -123,13 +128,13 @@ MenuFrame {
                     textEdit.selectAll()
                     textEdit.copy()
                     inputDialog.visible = false
-                    contactDialog.copyButtonClicked()
+                    //contactDialog.copyButtonClicked()
                 }
             }
         }
 
         RowLayout {
-            visible: info.length != 0
+            visible: info.length !== 0
             CheckButton {
                 icon.source: "qrc:/icons/ui/arrow_bar_down.svg"
                 backColor: theme.menuBackColor

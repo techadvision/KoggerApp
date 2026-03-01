@@ -1,5 +1,6 @@
 #include "scene_object.h"
 #include "draw_utils.h"
+#include <cmath>
 
 
 SceneObject::SceneObject(QObject *parent)
@@ -361,6 +362,53 @@ void SceneObject::RenderImplementation::removeVertex(int index)
     updateBounds();
 }
 
+void SceneObject::RenderImplementation::setShadowSettings(bool enabled,
+                                                          const QVector3D& lightDir,
+                                                          float ambient,
+                                                          float intensity,
+                                                          float highlightIntensity)
+{
+    shadowEnabled_ = enabled;
+    shadowLightDir_ = lightDir;
+    shadowAmbient_ = qBound(0.0f, ambient, 1.0f);
+    shadowIntensity_ = qBound(0.0f, intensity, 1.0f);
+    shadowHighlightIntensity_ = qBound(0.0f, highlightIntensity, 1.0f);
+}
+
+SceneObject::RenderImplementation::EffectiveShadowParams SceneObject::RenderImplementation::effectiveShadowParams() const
+{
+    EffectiveShadowParams params;
+    if (shadowEnabled_) {
+        params.lightDir = normalizedShadowDir(shadowLightDir_);
+        params.ambient = qBound(0.0f, shadowAmbient_, 1.0f);
+        params.intensity = qBound(0.0f, shadowIntensity_, 1.0f);
+        params.highlightIntensity = qBound(0.0f, shadowHighlightIntensity_, 1.0f);
+    } 
+    else {
+        params.lightDir = QVector3D(0.0f, 0.0f, 1.0f);
+        params.ambient = 1.0f;
+        params.intensity = 0.0f;
+        params.highlightIntensity = 0.0f;
+    }
+
+    return params;
+}
+
+QVector3D SceneObject::RenderImplementation::normalizedShadowDir(const QVector3D& dir)
+{
+    if (!std::isfinite(dir.x()) || !std::isfinite(dir.y()) || !std::isfinite(dir.z())) {
+        return QVector3D(0.40f, 0.40f, 0.40f);
+    }
+
+    QVector3D n = dir;
+    const float lenSq = n.lengthSquared();
+    if (lenSq <= 1e-8f) {
+        return QVector3D(0.40f, 0.40f, 0.40f);
+    }
+    n /= std::sqrt(lenSq);
+    return n;
+}
+
 void SceneObject::RenderImplementation::updateBounds()
 {
     if (m_data.isEmpty()) {
@@ -375,13 +423,13 @@ void SceneObject::RenderImplementation::updateBounds()
     float y_max{ !std::isfinite(m_data.first().y()) ? 0.f : m_data.first().y() };
     float y_min{ y_max };
 
-    for (const auto& itm: qAsConst(m_data)){
-        z_min = std::min(z_min, !std::isfinite(itm.z()) ? 0.f : itm.z());
-        z_max = std::max(z_max, !std::isfinite(itm.z()) ? 0.f : itm.z());
-        x_min = std::min(x_min, !std::isfinite(itm.x()) ? 0.f : itm.x());
-        x_max = std::max(x_max, !std::isfinite(itm.x()) ? 0.f : itm.x());
-        y_min = std::min(y_min, !std::isfinite(itm.y()) ? 0.f : itm.y());
-        y_max = std::max(y_max, !std::isfinite(itm.y()) ? 0.f : itm.y());
+    for (auto it = m_data.cbegin(); it != m_data.cend(); ++it) {
+        z_min = std::min(z_min, !std::isfinite(it->z()) ? 0.f : it->z());
+        z_max = std::max(z_max, !std::isfinite(it->z()) ? 0.f : it->z());
+        x_min = std::min(x_min, !std::isfinite(it->x()) ? 0.f : it->x());
+        x_max = std::max(x_max, !std::isfinite(it->x()) ? 0.f : it->x());
+        y_min = std::min(y_min, !std::isfinite(it->y()) ? 0.f : it->y());
+        y_max = std::max(y_max, !std::isfinite(it->y()) ? 0.f : it->y());
     }
 
     m_bounds = Cube(x_min, x_max, y_min, y_max, z_min, z_max);

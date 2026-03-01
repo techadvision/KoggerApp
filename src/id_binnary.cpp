@@ -423,15 +423,57 @@ Resp IDBinTemp::parsePayload(FrameParser &proto) {
     return respOk;
 }
 
-
-Resp IDBinNav::parsePayload(FrameParser &proto) {
-    if(SimpleNav::getVer()) {
-        SimpleNav nav = proto.read<SimpleNav>();
-        _nav = nav;
+Resp IDBinEncoder::parsePayload(FrameParser &proto) {
+    if(proto.ver() == v0) {
+        Encoder tmp;
+        if(proto.readAvailable() >= 4) {
+            tmp.e1 = proto.read<F4>();
+        }
+        if(proto.readAvailable() >= 4) {
+            tmp.e2 = proto.read<F4>();
+        }
+        if(proto.readAvailable() >= 4) {
+            tmp.e3 = proto.read<F4>();
+        }
+        data = tmp;
     } else {
         return respErrorVersion;
     }
 
+    return respOk;
+}
+
+Resp IDBinNav::parsePayload(FrameParser &proto) {
+    if(proto.ver() == SimpleNav::getVer()) {
+        if (proto.readAvailable() < static_cast<int16_t>(sizeof(SimpleNav))) {
+            return respErrorPayload;
+        }
+        SimpleNav nav = proto.read<SimpleNav>();
+        _nav = nav;
+    } else if (proto.ver() == SimpleNavV2::getVer()) {
+        if (proto.readAvailable() < static_cast<int16_t>(sizeof(SimpleNavV2))) {
+            return respErrorPayload;
+        }
+        SimpleNavV2 nav = proto.read<SimpleNavV2>();
+        _navV2 = nav;
+    } else {
+        return respErrorVersion;
+    }
+
+    return respOk;
+}
+
+Resp IDBinBoatStatus::parsePayload(FrameParser& proto)
+{
+    if (proto.ver() != BoatStatus::getVer()) {
+        return respErrorVersion;
+    }
+
+    if (proto.readAvailable() < static_cast<int16_t>(sizeof(BoatStatus))) {
+        return respErrorPayload;
+    }
+
+    data_ = proto.read<BoatStatus>();
     return respOk;
 }
 
@@ -1082,7 +1124,9 @@ void IDBinUsblSolution::enableBeaconOnce(float timeout) {
 
 
 
-Resp IDBinUsblControl::parsePayload(FrameParser &proto) {
+Resp IDBinUsblControl::parsePayload(FrameParser& proto)
+{
+    Q_UNUSED(proto)
 
     return respOk;
 }

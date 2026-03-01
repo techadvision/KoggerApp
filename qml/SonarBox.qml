@@ -1,12 +1,20 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
-import QtQuick.Dialogs 1.2
-import Qt.labs.settings 1.1
+import QtQuick.Dialogs
+import QtCore
+
 
 DevSettingsBox {
     id: control
-    isActive: dev !== null ? dev.isChartSupport : false
+    isActive: !!(dev && dev.isChartSupport)
+    property var importFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
+    property var exportFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
+
+    Settings {
+        property alias importFolder: control.importFolder
+        property alias exportFolder: control.exportFolder
+    }
 
     ColumnLayout {
         id: columnItem
@@ -83,34 +91,51 @@ DevSettingsBox {
             FileDialog {
                 id: importFileDialog
                 title: qsTr("Open file")
-                selectExisting: true
+                fileMode: FileDialog.OpenFile
+                currentFolder: control.importFolder
                 nameFilters: ["XML files (*.xml)"]
 
+                onCurrentFolderChanged: {
+                    control.importFolder = currentFolder
+                }
+
                 onAccepted: {
-                    var selectedFile = importFileDialog.fileUrl
-                    if (selectedFile !== "") {
-                        var filePath = selectedFile.toString();
-                        if (Qt.platform.os === "windows")
-                            filePath = filePath.substring(8)
-                        dev.importSettingsFromXML(filePath)
-                    }
+                    const url = importFileDialog.selectedFile
+                    if (!url) return
+                    control.importFolder = importFileDialog.currentFolder
+
+                    let filePath = url.toString()
+
+                    if (filePath.startsWith("file:///"))
+                        filePath = filePath.slice(8)
+
+                    dev.importSettingsFromXML(filePath)
                 }
             }
 
             FileDialog {
                 id: exportFileDialog
                 title: qsTr("Save as file")
-                selectExisting: false
+                fileMode: FileDialog.SaveFile
+                currentFolder: control.exportFolder
                 nameFilters: ["XML files (*.xml)"]
 
+                onCurrentFolderChanged: {
+                    control.exportFolder = currentFolder
+                }
+
                 onAccepted: {
-                    var selectedFile = exportFileDialog.fileUrl
-                    if (selectedFile !== "") {
-                        var filePath = selectedFile.toString();
-                        if (Qt.platform.os === "windows")
-                            filePath = filePath.substring(8)
-                        dev.exportSettingsToXML(filePath)
-                    }
+                    const url = exportFileDialog.selectedFile
+                    if (!url || url.toString() === "")
+                        return
+                    control.exportFolder = exportFileDialog.currentFolder
+
+                    let filePath = url.toString()
+
+                    if (filePath.startsWith("file:///"))
+                        filePath = filePath.slice(8)
+
+                    dev.exportSettingsToXML(filePath)
                 }
             }
 
@@ -120,6 +145,7 @@ DevSettingsBox {
                         text: qsTr("Import")
                         Layout.fillWidth: true
                         onClicked: {
+                            importFileDialog.currentFolder = control.importFolder
                             importFileDialog.open()
                         }
                     }
@@ -127,6 +153,7 @@ DevSettingsBox {
                         text: qsTr("Export")
                         Layout.fillWidth: true
                         onClicked: {
+                            exportFileDialog.currentFolder = control.exportFolder
                             exportFileDialog.open()
                         }
                     }

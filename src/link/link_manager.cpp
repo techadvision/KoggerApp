@@ -7,8 +7,11 @@
 #include <QDir>
 #include <QThread>
 #if defined(Q_OS_ANDROID)
-#include <QAndroidJniObject>
-#include <QtAndroid>
+#include <QCoreApplication>
+#include <QtCore/qnativeinterface.h>
+#include <QtCore/qjniobject.h>
+#include <QFuture>
+#include <QVariant>
 #endif
 #include <QDebug>
 #include "SettingsBus.h"
@@ -98,14 +101,20 @@ void LinkManager::applyPersistent(const QVariantMap& m)
         int newUsbBaudRate = m.value("usbSerialBaud").toInt();
         if (newUsbBaudRate != usbSerialBaud_) {
             usbSerialBaud_ = newUsbBaudRate;
-            updateBaudrate(uuidUsbSerial_, usbSerialBaud_);
-            qDebug() << "LinkManager::applyPersistent usbSerialBaud" << usbSerialBaud_;
+            const QUuid uuid = QUuid::fromString(uuidUsbSerial_);
+            if (uuid.isNull()) {
+                qWarning() << "Invalid USB serial uuid string:" << uuidUsbSerial_;
+            } else {
+                updateBaudrate(uuid, usbSerialBaud_);
+                qDebug() << "LinkManager::applyPersistent usbSerialBaud" << usbSerialBaud_;
+            }
+            //updateBaudrate(uuidUsbSerial_, usbSerialBaud_);
         }
     }
     qDebug() << "QA_ver_0.96: LinkManager persistent values: udpGateway" << udpGateway_ << "isBetaTester" << isBetaTester_ << "isExpert" << isExpert_ << "udpPort" << udpPort_;
 }
 
-
+/*
 QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
 {
     //return QSerialPortInfo::availablePorts();
@@ -124,10 +133,15 @@ QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
 
     return ports;
 }
+*/
+QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
+{
+    return QSerialPortInfo::availablePorts();
+}
+
 
 Link* LinkManager::createSerialPort(const QSerialPortInfo &serialInfo) const
 {
-    //qDebug() << "LinkManager::createSerialPort";
     Link* newLinkPtr = nullptr;
 
     if (serialInfo.isNull())
@@ -398,42 +412,54 @@ void LinkManager::printLinkDebugInfo(Link* link) const
 QString LinkManager::getAndroidGatewayIP()
 {
 #ifdef Q_OS_ANDROID
-    QString ip = udpGateway_; // start from last known/persisted
-    // 1) pull gateway via Android APIs
-    QAndroidJniObject activity = QtAndroid::androidActivity();
-    if (!activity.isValid()) {
-        qWarning() << "Android activity not valid";
-        return ip;
-    }
-    QAndroidJniObject wifiService = activity.callObjectMethod(
-        "getSystemService",
-        "(Ljava/lang/String;)Ljava/lang/Object;",
-        QAndroidJniObject::fromString("wifi").object<jstring>());
-    if (!wifiService.isValid()) {
-        qWarning() << "Wifi service not available";
-        return ip;
-    }
-    QAndroidJniObject dhcpInfo = wifiService.callObjectMethod("getDhcpInfo", "()Landroid/net/DhcpInfo;");
-    if (!dhcpInfo.isValid()) {
-        qWarning() << "Could not get DhcpInfo";
-        return ip;
-    }
-    jint gateway = dhcpInfo.getField<jint>("gateway");
-    ip = QString("%1.%2.%3.%4")
-             .arg(gateway        & 0xFF)
-             .arg((gateway >> 8) & 0xFF)
-             .arg((gateway >> 16)& 0xFF)
-             .arg((gateway >> 24)& 0xFF);
+    QString ip = udpGateway_; // fallback / last known
+
+    auto fut = QNativeInterface::QAndroidApplication::runOnAndroidMainThread([fallback = ip]() -> QVariant {
+        QJniObject context = QNativeInterface::QAndroidApplication::context();
+        if (!context.isValid())
+            return fallback;
+
+        // Use Context.WIFI_SERVICE (safer than hardcoding "wifi")
+        QJniObject wifiServiceName = QJniObject::getStaticObjectField(
+            "android/content/Context", "WIFI_SERVICE", "Ljava/lang/String;");
+
+        QJniObject wifiService = context.callObjectMethod(
+            "getSystemService",
+            "(Ljava/lang/String;)Ljava/lang/Object;",
+            wifiServiceName.object<jstring>());
+
+        if (!wifiService.isValid())
+            return fallback;
+
+        QJniObject dhcpInfo = wifiService.callObjectMethod("getDhcpInfo", "()Landroid/net/DhcpInfo;");
+        if (!dhcpInfo.isValid())
+            return fallback;
+
+        const jint gateway = dhcpInfo.getField<jint>("gateway");
+        if (gateway == 0)
+            return fallback;
+
+        const quint32 gw = static_cast<quint32>(gateway);
+        const QString detected = QString("%1.%2.%3.%4")
+                                     .arg(gw & 0xFF)
+                                     .arg((gw >> 8) & 0xFF)
+                                     .arg((gw >> 16) & 0xFF)
+                                     .arg((gw >> 24) & 0xFF);
+
+        return detected;
+    });
+
+    fut.waitForFinished();
+    ip = fut.result().toString();
 
     qDebug() << "Detected gateway IP:" << ip;
 
-    // 2) allow/override based on tester/expert flags
+    // --- your allow/override logic unchanged below ---
     bool allowed = ip.startsWith("192.168.10");
     if (isBetaTester_) {
         allowed = ip.startsWith("192.168.10.") ||
                   ip.startsWith("192.168.2.");
-    } else
-    if (isExpert_) {
+    } else if (isExpert_) {
         allowed = ip.startsWith("192.168.10.")  ||
                   ip.startsWith("192.168.2.")   ||
                   ip.startsWith("192.168.144.") ||
@@ -451,12 +477,10 @@ QString LinkManager::getAndroidGatewayIP()
         qWarning() << "Gateway IP" << ip << "not allowed, using default:" << udpGateway_;
         ip = udpGateway_;
     } else {
-        // publish back to persistent settings (so QML + disk get updated)
         if (bus_) bus_->updatePersistent({ { "udpGateway", ip } });
         qDebug() << "Gateway IP accepted; updated persistent udpGateway to" << ip;
     }
-    qDebug() << "QA_ver_0.96: values at verifying IP: udpGateway" << udpGateway_ << "isBetaTester" << isBetaTester_ << "isExpert" << isExpert_ << "udpPort" << udpPort_;
-    qDebug() << "QA_ver_0.96: resulting IP"<< ip;
+
     return ip;
 #else
     return udpGateway_;
@@ -609,6 +633,10 @@ void LinkManager::onLinkConnectionStatusChanged(QUuid uuid)
 
     if (const auto linkPtr = getLinkPtr(uuid); linkPtr) {
         doEmitAppendModifyModel(linkPtr);
+
+        if (linkPtr->getIsPinned() && linkPtr->getConnectionStatus()) {
+            exportPinnedLinksToXML();
+        }
     }
 }
 
@@ -823,6 +851,10 @@ void LinkManager::closeLink(QUuid uuid)
             linkPtr->setIsForceStopped(true);
         linkPtr->close();
         doEmitAppendModifyModel(linkPtr); //
+
+        if (linkPtr->getIsPinned()) {
+            exportPinnedLinksToXML();
+        }
     }
 }
 
@@ -1011,7 +1043,7 @@ void LinkManager::updateControlType(QUuid uuid, ControlType controlType)
     }
 }
 
-void LinkManager::frameInput(Link *link, FrameParser frame)
+void LinkManager::frameInput(Link *link, Parsers::FrameParser frame)
 {
     Q_UNUSED(link);
     Q_UNUSED(frame);

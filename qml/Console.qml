@@ -2,7 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQml.Models 2.15
-import Qt.labs.settings 1.1
+import QtCore
+
 
 Rectangle {
     id: consoleOut
@@ -41,8 +42,8 @@ Rectangle {
                     text: qsTr("Binnary")
                     Layout.alignment: Qt.AlignRight
 
-                    onCheckedChanged: deviceManagerWrapper.protoBinConsoled = protoBinConsoled.checked
-                    Component.onCompleted: deviceManagerWrapper.protoBinConsoled = protoBinConsoled.checked
+                    onCheckedChanged: deviceManagerWrapper.setProtoBinConsoled(protoBinConsoled.checked)
+                    Component.onCompleted: deviceManagerWrapper.setProtoBinConsoled(protoBinConsoled.checked)
 
                     Settings {
                         property alias protoBinConsoled: protoBinConsoled.checked

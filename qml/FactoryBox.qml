@@ -1,27 +1,35 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Dialogs 1.2
-import Qt.labs.settings 1.1
+import QtQuick.Dialogs
+import QtCore
+
 
 DevSettingsBox {
     id: control
     isActive: true
+    property var upgradeFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
 
         FileDialog {
             id: fileDialog
             title: qsTr("Please choose a file")
-            folder: shortcuts.home
+            currentFolder: control.upgradeFolder
             nameFilters: ["Upgrade files (*.bin)"]
+
+            onCurrentFolderChanged: {
+                control.upgradeFolder = currentFolder
+            }
+
             onAccepted: {
-                pathText.text = fileDialog.fileUrl.toString()
+                control.upgradeFolder = fileDialog.currentFolder
+                pathText.text = fileDialog.selectedFile.toString()
             }
             onRejected: {
             }
         }
 
         Settings {
-            property alias upgradeFolder: fileDialog.folder
+            property alias upgradeFolder: control.upgradeFolder
         }
 
     //MenuBlock {
@@ -130,7 +138,7 @@ DevSettingsBox {
             //                folder: shortcuts.home
             //                nameFilters: ["Factory file (*.kff)"]
             //                onAccepted: {
-            //                    pathFactory.text = factoryDialog.fileUrl.toString()
+            //                    pathFactory.text = factoryDialog.selectedFile.toString()
             //                }
             //                onRejected: {
             //                }
@@ -288,7 +296,7 @@ DevSettingsBox {
                     Layout.fillHeight: true
                     from: -1
                     to: 101
-                    value: dev ? dev.upgradeFWStatus : 0
+                    value: dev && dev.upgradeFWStatus !== undefined ? dev.upgradeFWStatus : 0
                 }
             }
 
@@ -317,7 +325,7 @@ DevSettingsBox {
                     Layout.fillWidth: true
                     implicitHeight: 30
                     onClicked: {
-                        core.simpleFlash(fileDialog.fileUrl.toString())
+                        core.simpleFlash(fileDialog.selectedFile.toString())
                     }
                 }
 
@@ -326,6 +334,7 @@ DevSettingsBox {
 //                    Layout.fillWidth: true
                     implicitHeight: 30
                     onClicked: {
+                        fileDialog.currentFolder = control.upgradeFolder
                         fileDialog.open()
                     }
                 }

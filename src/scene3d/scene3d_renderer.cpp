@@ -7,11 +7,12 @@
 
 #include <QThread>
 #include <QDebug>
+#include <QOpenGLContext>
 
 #include "text_renderer.h"
-#include "ft2build.h"
+//#include "ft2build.h"
 
-#include FT_FREETYPE_H
+//#include FT_FREETYPE_H
 
 
 GraphicsScene3dRenderer::GraphicsScene3dRenderer() :
@@ -23,6 +24,8 @@ GraphicsScene3dRenderer::GraphicsScene3dRenderer() :
     m_shaderProgramMap["height"]     = std::make_shared<QOpenGLShaderProgram>();
     m_shaderProgramMap["static"]     = std::make_shared<QOpenGLShaderProgram>();
     m_shaderProgramMap["static_sec"] = std::make_shared<QOpenGLShaderProgram>();
+    m_shaderProgramMap["usbl_arrow"] = std::make_shared<QOpenGLShaderProgram>();
+    m_shaderProgramMap["directional_lit"]  = std::make_shared<QOpenGLShaderProgram>();
     m_shaderProgramMap["text"]       = std::make_shared<QOpenGLShaderProgram>();
     m_shaderProgramMap["text_back"]  = std::make_shared<QOpenGLShaderProgram>();
     m_shaderProgramMap["mosaic"]     = std::make_shared<QOpenGLShaderProgram>();
@@ -32,7 +35,10 @@ GraphicsScene3dRenderer::GraphicsScene3dRenderer() :
 
 GraphicsScene3dRenderer::~GraphicsScene3dRenderer()
 {
-    TextRenderer::instance().cleanup(); // using working ctx
+    if (QOpenGLContext::currentContext()) {
+        TextRenderer::instance().cleanup();
+        m_shaderProgramMap.clear();
+    }
 }
 
 void GraphicsScene3dRenderer::initialize()
@@ -40,6 +46,15 @@ void GraphicsScene3dRenderer::initialize()
     initializeOpenGLFunctions();
 
     m_isInitialized = true;
+
+    // check OpenGL version
+    //if (auto* glContext = QOpenGLContext::currentContext()) {
+    //    const QSurfaceFormat fmt = glContext->format();
+    //    qInfo() << "GL context:"
+    //            << (fmt.renderableType() == QSurfaceFormat::OpenGLES ? "OpenGLES" : "OpenGL")
+    //            << "version" << fmt.majorVersion() << "." << fmt.minorVersion()
+    //            << "profile" << fmt.profile();
+    //}
 
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.3f, 0.3f, 0.3f, 0.0f);
@@ -58,6 +73,28 @@ void GraphicsScene3dRenderer::initialize()
         qCritical() << "Error adding fragment shader from source file.";
     if (!m_shaderProgramMap["static_sec"]->link())
         qCritical() << "Error linking shaders in shader program.";
+    // usbl arrow
+    const char* usblArrowVertexPath = ":/shaders/base.vsh";
+    const char* usblArrowFragmentPath = ":/shaders/usbl_arrow.fsh";
+    if (!m_shaderProgramMap["usbl_arrow"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, usblArrowVertexPath))
+        qCritical() << "Error adding usbl_arrow vertex shader from source file.";
+    if (!m_shaderProgramMap["usbl_arrow"]->addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, usblArrowFragmentPath))
+        qCritical() << "Error adding usbl_arrow fragment shader from source file.";
+    if (!m_shaderProgramMap["usbl_arrow"]->link())
+        qCritical() << "Error linking usbl_arrow shaders in shader program.";
+    // directional-lit color shader (used by arrow/compass/axes)
+    if (!m_shaderProgramMap["directional_lit"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/directional_lit.vsh")) {
+        qCritical() << "Error adding directional_lit vertex shader from source file.";
+        qCritical().noquote() << m_shaderProgramMap["directional_lit"]->log();
+    }
+    if (!m_shaderProgramMap["directional_lit"]->addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, ":/shaders/directional_lit.fsh")) {
+        qCritical() << "Error adding directional_lit fragment shader from source file.";
+        qCritical().noquote() << m_shaderProgramMap["directional_lit"]->log();
+    }
+    if (!m_shaderProgramMap["directional_lit"]->link()) {
+        qCritical() << "Error linking directional_lit shaders in shader program.";
+        qCritical().noquote() << m_shaderProgramMap["directional_lit"]->log();
+    }
     // height
     if (!m_shaderProgramMap["height"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/base.vsh"))
         qCritical() << "Error adding vertex shader from source file.";
@@ -67,12 +104,18 @@ void GraphicsScene3dRenderer::initialize()
         qCritical() << "Error linking shaders in shader program.";
 
     // mosaic
-    if (!m_shaderProgramMap["mosaic"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/mosaic.vsh"))
+    if (!m_shaderProgramMap["mosaic"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/mosaic.vsh")) {
         qCritical() << "Error adding mosaic vertex shader from source file.";
-    if (!m_shaderProgramMap["mosaic"]->addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, ":/shaders/mosaic.fsh"))
+        qCritical().noquote() << m_shaderProgramMap["mosaic"]->log();
+    }
+    if (!m_shaderProgramMap["mosaic"]->addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, ":/shaders/mosaic.fsh")) {
         qCritical() << "Error adding mosaic fragment shader from source file.";
-    if (!m_shaderProgramMap["mosaic"]->link())
+        qCritical().noquote() << m_shaderProgramMap["mosaic"]->log();
+    }
+    if (!m_shaderProgramMap["mosaic"]->link()) {
         qCritical() << "Error linking mosaic shaders in shader program.";
+        qCritical().noquote() << m_shaderProgramMap["mosaic"]->log();
+    }
 
     // image
     if (!m_shaderProgramMap["image"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/image.vsh"))
@@ -99,12 +142,18 @@ void GraphicsScene3dRenderer::initialize()
         qCritical() << "Error linking text_back shaders in shader program.";
 
     // isobaths
-    if (!m_shaderProgramMap["isobaths"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/isobaths_colored.vsh"))
+    if (!m_shaderProgramMap["isobaths"]->addCacheableShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/isobaths_colored.vsh")) {
         qCritical() << "Error adding isobaths vertex shader from source file.";
-    if (!m_shaderProgramMap["isobaths"]->addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, ":/shaders/isobaths_colored.fsh"))
+        qCritical().noquote() << m_shaderProgramMap["isobaths"]->log();
+    }
+    if (!m_shaderProgramMap["isobaths"]->addCacheableShaderFromSourceFile(QOpenGLShader::Fragment, ":/shaders/isobaths_colored.fsh")) {
         qCritical() << "Error adding isobaths fragment shader from source file.";
-    if (!m_shaderProgramMap["isobaths"]->link())
+        qCritical().noquote() << m_shaderProgramMap["isobaths"]->log();
+    }
+    if (!m_shaderProgramMap["isobaths"]->link()) {
         qCritical() << "Error linking isobaths shaders in shader program.";
+        qCritical().noquote() << m_shaderProgramMap["isobaths"]->log();
+    }
 }
 
 void GraphicsScene3dRenderer::render()
@@ -122,6 +171,9 @@ void GraphicsScene3dRenderer::render()
 
 void GraphicsScene3dRenderer::drawObjects()
 {
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
     QMatrix4x4 model, view, projection;
 
     const float perspectiveEdge     { 5000.0f };
@@ -154,9 +206,6 @@ void GraphicsScene3dRenderer::drawObjects()
 
     glEnable(GL_DEPTH_TEST);
     if (!isOut) {
-        if (gridVisibility_) {
-            m_planeGridRenderImpl.render(this, m_model, view, m_projection, m_shaderProgramMap);
-        }
         imageViewRenderImpl_.render(this, m_projection * view * m_model, m_shaderProgramMap);
         m_pointGroupRenderImpl.render(this, m_projection * view * m_model, m_shaderProgramMap);
         m_polygonGroupRenderImpl.render(this, m_projection * view * m_model, m_shaderProgramMap);
@@ -170,50 +219,21 @@ void GraphicsScene3dRenderer::drawObjects()
 
     glEnable(GL_DEPTH_TEST);
     surfaceViewRenderImpl_.render(this,      m_projection * view * m_model, m_shaderProgramMap);
-    isobathsViewRenderImpl_.render(this,     m_model, view, m_projection, m_shaderProgramMap);
+    //isobathsViewRenderImpl_.render(this,     m_model, view, m_projection, m_shaderProgramMap);
     m_bottomTrackRenderImpl.render(this,     m_model, view, m_projection, m_shaderProgramMap);
     m_boatTrackRenderImpl.render(this,       m_model, view, m_projection, m_shaderProgramMap);
-
-    // navigation arrow
-    {
-        QMatrix4x4 nModel;
-        nModel.setToIdentity();
-        nModel.translate(navigationArrowRenderImpl_.getPosition());
-        nModel.rotate(navigationArrowRenderImpl_.getAngle(), 0.f, 0.f, 1.f);
-        float distance =  m_camera.distToFocusPoint();
-        float perspFixFovRad = qDegreesToRadians(perspFixFov);
-        float factor = 2.0f * distance * std::tan(perspFixFovRad * 0.5f) / m_viewSize.height();
-        float worldScale = factor * 7.f * scaleFactor_;
-        nModel.scale(worldScale);
-        navigationArrowRenderImpl_.render(this, projection * view * nModel, m_shaderProgramMap);
-    }
     glDisable(GL_DEPTH_TEST);
 
+    //-----------Contacts-------------
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     contactsRenderImpl_.render(this, m_model, view, m_projection, m_shaderProgramMap);
     glDisable(GL_BLEND);
 
-    //-----------Draw axes-------------
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    glViewport(viewport[2]-100,0,100,100);
-
-    QMatrix4x4 axesView;
-    QMatrix4x4 axesProjection;
-    QMatrix4x4 axesModel;
-
-    // m_axesThumbnailCamera.setDistance(35);
-    axesView = m_axesThumbnailCamera.m_view;
-    axesProjection.perspective(m_camera.fov(), 100/100, 1.0f, 11000.0f);
-
-    m_coordAxesRenderImpl.render(this, axesModel, axesView, axesProjection, m_shaderProgramMap);
-
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-
     //-----------Draw selection rect-------------
-    if(!m_shaderProgramMap.contains("static_sec"))
+    if (!m_shaderProgramMap.contains("static_sec")) {
         return;
+    }
 
     auto shaderProgram = m_shaderProgramMap["static_sec"];
     if (!shaderProgram->bind()) {
@@ -240,14 +260,14 @@ void GraphicsScene3dRenderer::drawObjects()
     glDrawArrays(GL_LINE_LOOP, 0, rectVert.size());
     shaderProgram->release();
 
-    //-----------Draw scene bounding box-------------
-    if (gridVisibility_) {
-        if(!m_shaderProgramMap.contains("static"))
+    //-----------Grid & Draw scene bounding box-------------
+    if (gridVisibility_ && planeGridType_) {
+        if (!m_shaderProgramMap.contains("static")) {
             return;
+        }
 
         auto shaderProgram = m_shaderProgramMap["static"];
-
-        if (!shaderProgram->bind()){
+        if (!shaderProgram->bind()) {
             qCritical() << "Error binding shader program.";
             return;
         }
@@ -301,5 +321,110 @@ void GraphicsScene3dRenderer::drawObjects()
 
         shaderProgram->disableAttributeArray(posLoc);
         shaderProgram->release();
+
+        m_planeGridRenderImpl.render(this, m_model, view, m_projection, m_shaderProgramMap);
+    }
+    if (gridVisibility_ && !planeGridType_) {
+        m_planeGridRenderImpl.render(this, m_model, view, m_projection, m_shaderProgramMap);
+    }
+
+    //-----------Navigation arrow-------------
+    {
+        glEnable(GL_DEPTH_TEST);
+
+        QMatrix4x4 nModel;
+        nModel.setToIdentity();
+        nModel.translate(navigationArrowRenderImpl_.getPosition());
+        nModel.rotate(navigationArrowRenderImpl_.getAngle(), 0.f, 0.f, 1.f);
+        float distance =  m_camera.distToFocusPoint();
+        float perspFixFovRad = qDegreesToRadians(perspFixFov);
+        float factor = 2.0f * distance * std::tan(perspFixFovRad * 0.5f) / m_viewSize.height();
+        float worldScale = factor * 7.f * scaleFactor_;
+        float navigationArrowSizeFactor = 1.0f;
+        switch (qBound(1, navigationArrowRenderImpl_.getSize(), 5)) {
+        case 1: navigationArrowSizeFactor = 1.0f; break;
+        case 2: navigationArrowSizeFactor = 2.0f; break;
+        case 3: navigationArrowSizeFactor = 3.0f; break;
+        case 4: navigationArrowSizeFactor = 4.0f; break;
+        case 5: navigationArrowSizeFactor = 5.0f; break;
+        default: break;
+        }
+        nModel.scale(worldScale * navigationArrowSizeFactor);
+        navigationArrowRenderImpl_.render(this, projection * view * nModel, m_shaderProgramMap);
+
+        glDisable(GL_DEPTH_TEST);
+    }
+
+    //-----------Overlays that should work in any camera/reference state-------------
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    geoJsonLayerRenderImpl_.render(this, m_model, view, m_projection, m_shaderProgramMap);
+    rulerToolRenderImpl_.render(this, m_model, view, m_projection, m_shaderProgramMap);
+    glDisable(GL_BLEND);
+
+    //-----------Compass-------------
+    if (compass_) {
+        GLint oldVP[4]; glGetIntegerv(GL_VIEWPORT, oldVP);
+        GLboolean oldScissor = glIsEnabled(GL_SCISSOR_TEST);
+        GLint oldScBox[4]; glGetIntegerv(GL_SCISSOR_BOX, oldScBox);
+
+        int size = 0;
+        switch (compassSize_) {
+        case 1: size = 150;  break;
+        case 2: size = 250;  break;
+        case 3: size = 350;  break;
+        case 4: size = 450;  break;
+        case 5: size = 550;  break;
+        default: size = 250; break;
+        }
+
+        int x = 0;
+        int y = 0;
+        switch (compassPos_) {
+        case 1: {
+            x = viewport[0] + viewport[2] - size;
+            y = viewport[1];
+            break;
+        }
+        case 2: {
+            x = viewport[0];
+            y = viewport[1];
+            break;
+        }
+        case 3: {
+            x = viewport[0] + viewport[2] - size;
+            y = viewport[1] + viewport[3] - size;
+            break;
+        }
+        default: {
+            x = viewport[0];
+            y = viewport[1];
+            break;
+        }
+        }
+
+        glViewport(x, y, size, size);
+
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(x, y, size, size);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LEQUAL);
+
+        QMatrix4x4 axesView, axesProjection, axesModel;
+        m_axesThumbnailCamera.setDistance(55);
+        axesView = m_axesThumbnailCamera.m_view;
+        axesProjection.perspective(m_camera.fov(), 1.0f, 1.0f, 11000.0f);
+
+        compassRenderImpl_.render(this, axesModel, axesView, axesProjection, m_shaderProgramMap);
+
+        glViewport(oldVP[0], oldVP[1], oldVP[2], oldVP[3]);
+        glScissor(oldScBox[0], oldScBox[1], oldScBox[2], oldScBox[3]);
+        if (!oldScissor) {
+            glDisable(GL_SCISSOR_TEST);
+        }
     }
 }

@@ -9,10 +9,6 @@
 #include <QQueue>
 #include <QPair>
 #include <QSet>
-#ifdef Q_OS_WINDOWS
-#include <QHostInfo>
-#endif
-#include <QTimer>
 
 #include "map_defs.h"
 #include "tile_provider.h"
@@ -28,21 +24,20 @@ public:
     explicit TileDownloader(std::weak_ptr<TileProvider> provider, int maxConcurrentDownloads = 5);
     ~TileDownloader();
 
-    void downloadTile(const TileIndex& tile);
+    bool downloadTile(const TileIndex& tile);
     void stopAndClearRequests();
     void deleteRequest(const TileIndex& tileIndx);
+    void setProvider(std::weak_ptr<TileProvider> provider);
+    void setNetworkAvailable(bool available);
+    bool isNetworkAvailable() const;
 
 signals:
-    void tileDownloaded(const TileIndex& tileIndx, const QImage& image);
-    void downloadFailed(const TileIndex& tileIndx, const QString& errorString);
-    void downloadStopped(const TileIndex& tileIndx);
+    void tileDownloaded(const map::TileIndex& tileIndx, const QImage& image);
+    void downloadFailed(const map::TileIndex& tileIndx, const QString& errorString);
+    void downloadStopped(const map::TileIndex& tileIndx);
 
 private slots:
     void onTileDownloaded(QNetworkReply *reply);
-    void checkNetworkAvailabilityAsync();
-//#ifdef Q_OS_WINDOWS
-//    void onHostLookupFinished(QHostInfo hostInfo);
-//#endif
 
 private:
     void startNextDownload();
@@ -55,8 +50,6 @@ private:
     int activeDownloads_;
     int maxConcurrentDownloads_;
     bool networkAvailable_;
-    QTimer* networkCheckTimer_;
-    int hostLookupId_;
 };
 
 

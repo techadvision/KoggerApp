@@ -1,9 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
-import QtQuick.Dialogs 1.2
-import Qt.labs.settings 1.1
-
+import QtQuick.Dialogs
 
 DevSettingsBox {
     id: control
@@ -30,9 +28,9 @@ DevSettingsBox {
                     text: qsTr("On")
                     checked: dev.datasetChart > 0
                     onCheckedChanged: {
-                        if(checked == true && dev.datasetChart === 0) {
+                        if(checked === true && dev.datasetChart === 0) {
                             dev.datasetChart = switchDatasetChart.lastChannel
-                        } else if(checked == false && dev.datasetChart > 0) {
+                        } else if(checked === false && dev.datasetChart > 0) {
                             switchDatasetChart.lastChannel = dev.datasetChart
                             dev.datasetChart = 0
                         }

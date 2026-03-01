@@ -124,6 +124,12 @@ void Epoch::setPositionLLA(Position position) {
     flags.posAvail = true;
 }
 
+void Epoch::setSonarPosition(Position val)
+{
+    sonarPosition_ = val;
+    flags.sonarPosAvail = true;
+}
+
 void Epoch::setPositionLLA(const LLA &lla)
 {
     _positionGNSS.lla = lla;
@@ -159,6 +165,11 @@ void Epoch::setPositionDataType(DataType dataType)
     _positionGNSS.dataType = dataType;
 }
 
+void Epoch::setSonarPositionDataType(DataType dataType)
+{
+    sonarPosition_.dataType = dataType;
+}
+
 void Epoch::setGnssVelocity(double h_speed, double course) {
     _GnssData.hspeed = h_speed;
     _GnssData.course = course;
@@ -182,6 +193,15 @@ void Epoch::setTime(int year, int month, int day, int hour, int min, int sec, in
 void Epoch::setTemp(float temp_c) {
     m_temp_c = temp_c;
     flags.tempAvail = true;
+}
+
+void Epoch::setArtificalAtt(float yaw, float pitch, float roll, DataType dataType)
+{
+    artificalAttitude_.yaw = yaw;
+    artificalAttitude_.pitch = pitch;
+    artificalAttitude_.roll = roll;
+
+    artificalAttitude_.dataType = dataType;
 }
 
 void Epoch::setEncoders(float enc1, float enc2, float enc3) {
@@ -271,6 +291,12 @@ void Epoch::doBottomTrackSideScan(Echogram &chart, bool is_update_dist) {
 }
 
 void Epoch::moveComplexToEchogram(ChannelId channel_id, int group_id, float offset_m, float levels_offset_db) {
+    if(!_complex.contains(channel_id)) {
+        return;
+    }
+    if(!_complex[channel_id].contains(group_id)) {
+        return;
+    }
     QVector<ComplexSignal> chls = _complex[channel_id][group_id];
     float sample_rate = chls[0].sampleRate;
 
@@ -377,11 +403,15 @@ void Epoch::setSoundSpeed(const ChannelId& channelId, uint32_t soundSpeed)
 // get from first
 uint16_t Epoch::getResolution(const ChannelId& channelId) const
 {
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.recordParameters_.resol;
-        }
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return 0;
+    }
+
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.recordParameters_.resol;
     }
 
     return 0;
@@ -389,23 +419,31 @@ uint16_t Epoch::getResolution(const ChannelId& channelId) const
 
 uint16_t Epoch::getChartCount(const ChannelId& channelId) const
 {
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.recordParameters_.count;
-        }
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return 0;
+    }
+
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.recordParameters_.count;
     }
 
     return 0;
 }
 
 uint16_t Epoch::getOffset(const ChannelId& channelId) const
-{
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.recordParameters_.offset;
-        }
+{    
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return 0;
+    }
+
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.recordParameters_.offset ;
     }
 
     return 0;
@@ -413,11 +451,15 @@ uint16_t Epoch::getOffset(const ChannelId& channelId) const
 
 uint16_t Epoch::getFrequency(const ChannelId& channelId) const
 {
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.recordParameters_.freq;
-        }
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return 0;
+    }
+
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.recordParameters_.freq ;
     }
 
     return 0;
@@ -425,11 +467,15 @@ uint16_t Epoch::getFrequency(const ChannelId& channelId) const
 
 uint8_t Epoch::getPulse(const ChannelId& channelId) const
 {
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.recordParameters_.pulse;
-        }
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return 0;
+    }
+
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.recordParameters_.pulse ;
     }
 
     return 0;
@@ -437,22 +483,31 @@ uint8_t Epoch::getPulse(const ChannelId& channelId) const
 
 uint8_t Epoch::getBoost(const ChannelId& channelId) const
 {
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.recordParameters_.boost;
-        }
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return 0;
     }
 
-    return 0;}
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.recordParameters_.boost ;
+    }
+
+    return 0;
+}
 
 uint32_t Epoch::getSoundSpeed(const ChannelId& channelId) const
 {
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.recordParameters_.soundSpeed;
-        }
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return 0;
+    }
+
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.recordParameters_.soundSpeed ;
     }
 
     return 0;
@@ -460,12 +515,31 @@ uint32_t Epoch::getSoundSpeed(const ChannelId& channelId) const
 
 ChartParameters Epoch::getChartParameters(const ChannelId& channelId) const
 {
-    if (charts_.contains(channelId)) {
-        auto& echograms = charts_[channelId];
-        for (auto& iEchogram : echograms) {
-            return iEchogram.chartParameters_;
-        }
+    auto it = charts_.constFind(channelId);
+    if (it == charts_.cend()) {
+        return {};
+    }
+
+    const auto& echograms = it.value();
+
+    for (const auto& iEchogram : echograms) {
+        return iEchogram.chartParameters_;
     }
 
     return {};
+}
+
+void Epoch::setTraceTileIndxs(const QMap<int, QSet<TileKey>>& val)
+{
+    tileKeysToNextEpochByZoom_ = val;
+}
+
+QMap<int, QSet<TileKey>>& Epoch::getTraceTileIndxsPtr()
+{
+    return tileKeysToNextEpochByZoom_;
+}
+
+QMap<int, QSet<TileKey>> Epoch::traceTileIndxs() const
+{
+    return tileKeysToNextEpochByZoom_;
 }

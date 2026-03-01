@@ -178,7 +178,7 @@ public:
 
 signals:
     void averageChartLossesChanged();
-    void binFrameOut(ProtoBinOut proto_out);
+    void binFrameOut(Parsers::ProtoBinOut proto_out);
 
     // link
     void startUpgradingFirmware();
@@ -197,12 +197,28 @@ signals:
 
     void iqComplete(QByteArray data, uint8_t type);
     void attitudeComplete(float yaw, float pitch, float roll);
-    Q_INVOKABLE void distComplete(const ChannelId& channelId, int dist);
+
+    void tempComplete(float val);
+    void distComplete(const ChannelId& channelId, int dist);
+    void encoderComplete(float e1, float e2, float e3);
 
     void usblSolutionComplete(IDBinUsblSolution::UsblSolution data);
     void beaconActivationComplete(uint8_t id);
 
     void positionComplete(double lat, double lon, uint32_t date, uint32_t time);
+    void gnssVelocityComplete(double hSpeed, double course);
+    void simpleNavV2Complete(uint8_t gnssFixType,
+                             uint8_t numSats,
+                             uint32_t unixTime,
+                             int16_t unixOffsetMs,
+                             double latitude,
+                             double longitude,
+                             double groundCourseDeg,
+                             double groundVelocityMps,
+                             float yawDeg,
+                             float pitchDeg,
+                             float rollDeg);
+    void boatStatusComplete(uint8_t batteryBoatPercent, uint8_t batteryBridgePercent, uint8_t signalQualityBoatPercent, uint8_t signalQualityBridgePercent);
     void depthComplete(float depth);
     void chartSetupChanged();
     void dspSetupChanged();
@@ -226,7 +242,7 @@ signals:
     void pulseSerialNumberChanged();
 
 public slots:
-    void protoComplete(FrameParser& proto);
+    void protoComplete(Parsers::FrameParser& proto);
     void startConnection(bool duplex);
     void stopConnection();
     void restartState();
@@ -288,6 +304,7 @@ protected:
     IDBinChart* idChart = NULL;
     IDBinAttitude* idAtt = NULL;
     IDBinTemp* idTemp = NULL;
+    IDBinEncoder* idEncoder = NULL;
 
     IDBinDataset* idDataset = NULL;
     IDBinDistSetup* idDistSetup = NULL;
@@ -304,6 +321,7 @@ protected:
     IDBinUpdate* idUpdate = NULL;
 
     IDBinNav* idNav = NULL;
+    IDBinBoatStatus* idBoatStatus = NULL;
     IDBinDVL* idDVL = NULL;
     IDBinDVLMode* idDVLMode = NULL;
 
@@ -397,33 +415,35 @@ protected:
     void fwUpgradeProcess();
 
 protected slots:
-    void receivedTimestamp(Type type, Version ver, Resp resp);
-    void receivedDist(Type type, Version ver, Resp resp);
-    void receivedChart(Type type, Version ver, Resp resp);
-    void receivedRaw(RawData raw_data);
-    void receivedAtt(Type type, Version ver, Resp resp);
-    void receivedTemp(Type type, Version ver, Resp resp);
+    void receivedTimestamp  (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedDist       (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedChart      (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedRaw        (RawData raw_data);
+    void receivedAtt        (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedTemp       (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedEncoder(Type type, Version ver, Resp resp);
 
-    void receivedDataset(Type type, Version ver, Resp resp);
-    void receivedDistSetup(Type type, Version ver, Resp resp);
-    void receivedChartSetup(Type type, Version ver, Resp resp);
-    void receivedDSPSetup(Type type, Version ver, Resp resp);
-    void receivedTransc(Type type, Version ver, Resp resp);
-    void receivedSoundSpeed(Type type, Version ver, Resp resp);
-    void receivedUART(Type type, Version ver, Resp resp);
+    void receivedDataset    (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedDistSetup  (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedChartSetup (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedDSPSetup   (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedTransc     (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedSoundSpeed (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedUART       (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
 
-    void receivedVersion(Type type, Version ver, Resp resp);
-    void receivedMark(Type type, Version ver, Resp resp);
-    void receivedFlash(Type type, Version ver, Resp resp);
-    void receivedBoot(Type type, Version ver, Resp resp);
-    void receivedUpdate(Type type, Version ver, Resp resp);
+    void receivedVersion    (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedMark       (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedFlash      (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedBoot       (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedUpdate     (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
 
-    void receivedNav(Type type, Version ver, Resp resp);
-    void receivedDVL(Type type, Version ver, Resp resp);
-    void receivedDVLMode(Type type, Version ver, Resp resp);
+    void receivedNav        (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedBoatStatus (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedDVL        (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedDVLMode    (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
 
-    void receivedUSBL(Type type, Version ver, Resp resp);
-    void receivedUSBLControl(Type type, Version ver, Resp resp);
+    void receivedUSBL       (Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
+    void receivedUSBLControl(Parsers::Type type, Parsers::Version ver, Parsers::Resp resp);
 
 
     //void setPulseDevice(Type type, Version ver, Resp resp);
@@ -432,9 +452,11 @@ private:
     void pushRuntime(const QVariantMap& m);  // NEW
     template<typename T>
     void pushRuntimeKV(const char* key, const T& v) { // NEW
+        /* Problem with this method - TODO
         QVariantMap m; m.insert(QString::fromLatin1(key), QVariant::fromValue(v));
         //qDebug() << "SettingsBus::updateRuntime: pushRuntimeKV, m is" << m;
         pushRuntime(m);
+        */
     }
     SettingsBus* bus_ = nullptr;
 
