@@ -406,6 +406,8 @@ int main(int argc, char *argv[])
 #endif
                             });
 
+    qputenv("QML_XHR_ALLOW_FILE_READ", QByteArray("1")); //Read the version.txt
+
     engine.load(url);
     const auto rootObjects = engine.rootObjects();
     if (!rootObjects.isEmpty()) {

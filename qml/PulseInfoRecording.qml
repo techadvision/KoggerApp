@@ -4,9 +4,14 @@ import QtQuick.Layouts 1.15
 import QtQuick.Dialogs
 import Echo.UI 1.0
 import QtQuick.Window
+import QtCore
 
 Rectangle {
     id: settingsPopup
+
+    property string filePath: pathText.text
+    property var lastLogFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
+    //property var lastImportTrackFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
@@ -57,10 +62,15 @@ Rectangle {
 
     FileDialog {
         id: newFileDialog
-        title: qsTr("Please choose a file")
-        currentFolder: shortcuts.home
+        title: "Choose file to render"
+        //currentFolder: shortcuts.home
+        currentFolder: lastLogFolder
 
         nameFilters: ["Logs (*.plog *.PLOG *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.plog *.PLOG)", "U-blox (*.ubx *.UBX)"]
+
+        onCurrentFolderChanged: {
+            settingsPopup.lastLogFolder = currentFolder
+        }
 
         onAccepted: {
             const file = newFileDialog.selectedFile
@@ -69,22 +79,14 @@ Rectangle {
                 return
             }
 
+            settingsPopup.lastLogFolder = newFileDialog.currentFolder
+
             const fileStr = file.toString()
             pathText.text = fileStr.replace("file:///", Qt.platform.os === "windows" ? "" : "/")
 
             var name_parts = fileStr.split('.')
-
             core.openLogFile(pathText.text, false, false)
-            /*
 
-            pathText.text = newFileDialog.fileUrl.toString().replace("file:///", Qt.platform.os === "windows" ? "" : "/")
-
-            var name_parts = newFileDialog.fileUrl.toString().split('.')
-
-            core.openLogFile(pathText.text, false, false);
-            */
-            //TODO: Make it async
-            //core.openLogFileAsync(pathText.text, false, false)
             pulseRuntimeSettings.klfFilePath = pathText.text
         }
         onRejected: {
@@ -248,8 +250,8 @@ Rectangle {
             Layout.preferredWidth: Math.round(400 * s) //_isAndroid ? 400: 270
 
             text: pulseRuntimeSettings.klfFilePath
-            placeholderText: qsTr("Enter path")
-            inputMethodHints: Qt.ImhActionDone
+            placeholderText: "Enter path"
+            //inputMethodHints: Qt.ImhActionDone
 
             Keys.onReturnPressed: {
                 //console.log("log viewer: Keys.onReturnPressed")
@@ -347,8 +349,8 @@ Rectangle {
 
             height: Math.round(80 * s) //_isAndroid ? 80: 54
             Layout.row: 2
-            Layout.column: 0
-            anchors.left: fileOpenedIcon.right
+            Layout.column: 2
+            //anchors.left: fileOpenedIcon.right
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: Math.round(20 * s) //20
         }

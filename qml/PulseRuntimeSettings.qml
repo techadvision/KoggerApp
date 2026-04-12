@@ -209,7 +209,7 @@ QtObject {
         { id: 2,        icon: "./icons/ui/pulse_color_ss_gray.svg",        title: "Gray"   },
         { id: 3,        icon: "./icons/ui/pulse_color_ss_red.svg",         title: "Red"   },
         { id: 4,        icon: "./icons/ui/pulse_color_ss_green.svg",       title: "Green" },
-        { id: 26,       icon: "./icons/ui/pulse_color_hq_orange.svg",      title: "HQ" }
+        { id: 26,       icon: "./icons/ui/pulse_color_hq_orange.svg",      title: "High Quality" }
     ]
 
     property var    themeModelRed: [

@@ -42,6 +42,7 @@ Flickable {
     focus: true
     width: Math.round(900 * s) //_isAndroid ? 900 : 600
 
+    property string appVersion: "unknown"
 
     // Make the Flickable scrollable vertically
     flickableDirection: Flickable.VerticalFlick
@@ -75,9 +76,8 @@ Flickable {
         height: width * implicitHeight / implicitWidth
 
         // 10 px margin from top and left of the Flickable
-        //anchors.top: parent.top
         anchors.left: parent.left
-        anchors.verticalCenter: deviceLogo.verticalCenter
+        //anchors.verticalCenter: deviceLogo.verticalCenter
     }
 
     // ——————————————————————————————————————————————————————————
@@ -137,10 +137,11 @@ Flickable {
             // Center the text vertically/horizontally within its Rectangle
             Text {
                 id: appNameText
-                text: loadVersion()           // still calls your loadVersion() function
+                text: root.appVersion
                 font.bold: true
                 font.pixelSize: Ui.fontXL// root.infoPixelsSize
-                anchors.top: appIconRect.bottom
+                //anchors.top: appIconRect.bottom
+                anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.leftMargin: 5
             }
@@ -175,7 +176,8 @@ Flickable {
                     return "Connected to:"
                 }
                 font.pixelSize: Ui.fontXL// root.infoPixelsSize
-                anchors.top: appNameRect.bottom
+                //anchors.top: appNameRect.bottom
+                anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.leftMargin: 5
             }
@@ -255,7 +257,8 @@ Flickable {
                     }
                 }
                 font.pixelSize: Ui.fontXL// root.infoPixelsSize
-                anchors.top: deviceNameRect.bottom
+                //anchors.top: deviceNameRect.bottom
+                anchors.top: parent.top
                 anchors.topMargin: Math.round(20 * s)//20
                 anchors.left: parent.left
                 anchors.leftMargin: 5
@@ -304,6 +307,8 @@ Flickable {
     // ——————————————————————————————————————————————————————————
     // Your existing function to load version.txt can stay here
     // ——————————————————————————————————————————————————————————
+
+    /*
     function loadVersion() {
         var xhr = new XMLHttpRequest();
         xhr.open("GET", "./version.txt", false);
@@ -316,9 +321,37 @@ Flickable {
             return "unknown";
         }
     }
+    */
+
+    function loadVersion() {
+        var xhr = new XMLHttpRequest();
+
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== XMLHttpRequest.DONE){
+                console.log("loadVersion: xhr.readyState !== XMLHttpRequest.DONE")
+                return;
+            }
+
+            if (xhr.status === 200) {
+                root.appVersion = xhr.responseText.trim().split(/\r?\n/)[0];
+                console.log("loadVersion: xhr.status === 200")
+
+            } else {
+                console.error("loadVersion: Failed to load version.txt, status:", xhr.status, "url:", xhr.responseURL);
+                root.appVersion = "unknown";
+            }
+        }
+
+        // Pick ONE of these depending on where version.txt is in the qrc:
+        //xhr.open("GET", Qt.resolvedUrl("version.txt"));              // only if beside PulseInfo.qml
+        //xhr.open("GET", "qrc:/resources/version.txt");                 // likely correct if it is under /resources
+        xhr.open("GET", "./version.txt");
+        xhr.send();
+    }
+
 
     Component.onCompleted: {
-        var versionString = loadVersion();
+        loadVersion();
         root.gatewayIp = pulseSettings.udpGateway;
     }
 }

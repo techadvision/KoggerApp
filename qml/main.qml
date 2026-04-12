@@ -70,7 +70,7 @@ ApplicationWindow  {
 
     Connections {
         target: pulseRuntimeSettings
-        //User interface automated control and optionl settings
+        //User interface automated control and optional settings
         function onIsSideScanLeftHandChanged()      { settingsBus.updateRuntime({ isSideScanLeftHand:       pulseRuntimeSettings.isSideScanLeftHand         }) }
         function onIsSideScan2DViewChanged()        { settingsBus.updateRuntime({ isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView           }) }
         function onEchogramSpeedChanged()           { settingsBus.updateRuntime({ echogramSpeed:            pulseRuntimeSettings.echogramSpeed              }) }
@@ -80,14 +80,10 @@ ApplicationWindow  {
         function onMaximumDepthChanged()            { settingsBus.updateRuntime({ maximumDepth:             pulseRuntimeSettings.maximumDepth               }) }
         function onIsHorizontalGridChanged()        { settingsBus.updateRuntime({ isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid           }) }
         function onUseMetricDepthChanged()          { settingsBus.updateRuntime({ useMetricDepth:           pulseRuntimeSettings.useMetricDepth             }) }
-        function onautoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoRange:                pulseRuntimeSettings.autoDepthMaxLevel          }) }
-        //UUID for transducer
-        //function onUuidIpGatewayChanged()           { settingsBus.updateRuntime({ uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway              }) }
-        //function onUuidUsbSerialChanged()           { settingsBus.updateRuntime({ uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial              }) }
-        //usb baud Rate
-        //function onUsbSerialBaudChanged()           { settingsBus.updateRuntime({ usbSerialBaud:            pulseRuntimeSettings.usbSerialBaud              }) }
+        //function onAutoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoRange:                pulseRuntimeSettings.autoDepthMaxLevel          }) }
+        //Note: The onAutoDepthMaxLevelChanged above was initialluy onautoDepthMaxLevelChanged (ona..., non existing. May influence some missing behavior
         //Bottom track
-        function onUpdateBottomTrackChanged()       { settingsBus.updateRuntime({ updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack          }) }
+        //function onUpdateBottomTrackChanged()       { settingsBus.updateRuntime({ updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack          }) }
         function onIsBottomTrackInitiatedChanged()  { settingsBus.updateRuntime({ isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated     }) }
         //Play/Pause echogram
         function onEchogramPauseChanged()           { settingsBus.updateRuntime({ echogramPause:            pulseRuntimeSettings.echogramPause              }) }

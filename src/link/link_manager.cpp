@@ -459,7 +459,10 @@ QString LinkManager::getAndroidGatewayIP()
     bool allowed = ip.startsWith("192.168.10");
     if (isBetaTester_) {
         allowed = ip.startsWith("192.168.10.") ||
-                  ip.startsWith("192.168.2.");
+                  ip.startsWith("192.168.2.")   ||
+                  ip.startsWith("192.168.144.") ;
+        if (ip.startsWith("192.168.144."))
+            ip = "192.168.144.31";
     } else if (isExpert_) {
         allowed = ip.startsWith("192.168.10.")  ||
                   ip.startsWith("192.168.2.")   ||

@@ -8,8 +8,6 @@ import QtQuick.Window
 Flickable {
     id: settingsPopup
 
-
-
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
@@ -27,17 +25,6 @@ Flickable {
     property int autoPixels:      Math.round(32 * s)
     property int selectIconSize:  Math.round(64 * s)
     property int selectCheckSize: Math.round(48 * s)
-    /*
-    property int controlIconSize: _isAndroid ? 34 : 20
-    property int pressButtonSize: _isAndroid ? 80 : 40
-    property int displayPixels:   _isAndroid ? 100 : 40
-    property int valueTextWidth:  _isAndroid ? 120 : 80
-    property int valueTextHeigh:  _isAndroid ? 40 : 30
-    property int valuePixels:     _isAndroid ? 30 : 22
-    property int autoPixels:      _isAndroid ? 32 : 24
-    property int selectIconSize:  _isAndroid ? 80 : 60
-    property int selectCheckSize: _isAndroid ? 56 : 40
-    */
 
     focus: true
     width: _isAndroid ? 900 : 600
@@ -51,17 +38,13 @@ Flickable {
         width: 16
     }
 
-    //color: "white"
-    //radius: 8
-    //implicitWidth:  layout.implicitWidth
-    //implicitHeight: layout.implicitHeight + spacer.height
-
     contentWidth: width
-    contentHeight: contentItem.childrenRect.height
+    //contentHeight: contentItem.childrenRect.height
+    contentHeight: settingsColumn.y + settingsColumn.implicitHeight
 
     signal pulsePreferenceClosed()
     signal pulsePreferenceValueChanged(double newValue)
-    signal stateChanged(bool checked)
+    //signal stateChanged(bool checked)
 
     Rectangle{
         id: spacer
@@ -70,6 +53,7 @@ Flickable {
     }
 
     ColumnLayout {
+        id: settingsColumn
         spacing: 20
         anchors.top: spacer.bottom
 
@@ -106,7 +90,10 @@ Flickable {
                 id: transBoostSelection
                 values: [0, 1]
 
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.transBoost = newValue
+                //onPulsePreferenceValueChanged: pulseRuntimeSettings.transBoost = newValue
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.transBoost = newValue
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -172,7 +159,10 @@ Flickable {
                 800, 810, 820, 830, 840, 850, 860, 870, 880, 890,
                 900, 910, 920, 930, 940, 950, 960, 970, 980, 990]
 
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.transFreq = newValue
+                //onPulsePreferenceValueChanged: pulseRuntimeSettings.transFreq = newValue
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.transFreq = newValue
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -201,7 +191,10 @@ Flickable {
                 id: periodSelection
                 values: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.ch1Period = newValue
+                //onPulsePreferenceValueChanged: pulseRuntimeSettings.ch1Period = newValue
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.ch1Period = newValue
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -233,7 +226,10 @@ Flickable {
                     1358, 1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750,
                     1800, 1850, 1900, 1950, 2000]
 
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.chartSamples = newValue
+                //onPulsePreferenceValueChanged: pulseRuntimeSettings.chartSamples = newValue
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.chartSamples = newValue
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -266,7 +262,10 @@ Flickable {
                     31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
                     41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
 
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.chartResolution = newValue
+                //onPulsePreferenceValueChanged: pulseRuntimeSettings.chartResolution = newValue
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.chartResolution = newValue
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -333,7 +332,10 @@ Flickable {
                 id: baudSelection
                 values: [115200, 921600]
 
-                onPulsePreferenceValueChanged: pulseSettings.usbSerialBaud = newValue
+                //onPulsePreferenceValueChanged: pulseSettings.usbSerialBaud = newValue
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseSettings.usbSerialBaud = newValue
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -500,34 +502,6 @@ Flickable {
             }
         }
 
-        /*
-        SettingRow {
-            toggle: false
-            text: "Minimum depth before activating track"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
-            HorizontalControllerDoubleSettings {
-                id: bottomTrackMinimumValue
-                values: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50,
-                    0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00]
-
-                onPulsePreferenceValueChanged: {
-                    pulseRuntimeSettings.bottomTrackMinDepth = newValue
-                    if (dataset) {
-                        dataset.setBottomTrackMinDepth(newValue)
-                    }
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.bottomTrackMinDepth)
-                    currentIndex = idx >= 0 ? idx : 0
-                }
-            }
-        }
-        */
-
         SettingRow {
             toggle: false
             text: "Bottom track gain slope"
@@ -537,7 +511,7 @@ Flickable {
                 values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
                         2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     if (pulseRuntimeSettings.distProcessing[5] !== newValue) {
                         pulseRuntimeSettings.distProcessing[5] = newValue
                         pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
@@ -554,19 +528,6 @@ Flickable {
             }
         }
 
-        /*
-        SettingRow {
-            toggle: false
-            text: "Bottom track window"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
-            Text {
-                font.pixelSize: settingsPopup.valuePixels
-                text: pulseRuntimeSettings.distProcessing[1]
-            }
-        }
-        */
-
-
         SettingRow {
             toggle: false
             text: "Bottom track window"
@@ -577,7 +538,7 @@ Flickable {
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                     21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     if (pulseRuntimeSettings.distProcessing[1] !== newValue) {
                         pulseRuntimeSettings.distProcessing[1] = newValue
                         pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
@@ -604,7 +565,7 @@ Flickable {
                 values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     if (pulseRuntimeSettings.distProcessing[2] !== newValue) {
                         pulseRuntimeSettings.distProcessing[2] = newValue
                         pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
@@ -656,7 +617,7 @@ Flickable {
                         31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
                         41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     if (pulseRuntimeSettings.distProcessing[4] !== newValue) {
                         pulseRuntimeSettings.distProcessing[4] = newValue
                         pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
@@ -684,19 +645,6 @@ Flickable {
             }
         }
 
-        /*
-        SettingRow {
-            toggle: false
-            text: "Enable black stripes removal"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBlackStripes
-            SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "fixBlackStripesState"
-                initialChecked: pulseRuntimeSettings.fixBlackStripesState
-            }
-        }
-        */
-
         SettingRow {
             toggle: false
             text: "Black stripes removal size"
@@ -715,7 +663,7 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     pulseRuntimeSettings.fixBlackStripesForwardSteps  = newValue
                     pulseRuntimeSettings.fixBlackStripesBackwardSteps = newValue
                     core.fixBlackStripesForwardSteps  = newValue
@@ -795,7 +743,7 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     //console.log("WOW changed kSmallAgreeMargin to ", newValue)
                     pulseRuntimeSettings.kSmallAgreeMargin = newValue
                     if (dataset) {
@@ -822,7 +770,7 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     //console.log("WOW changed kLargeJumpThreshold to ", newValue)
                     pulseRuntimeSettings.kLargeJumpThreshold = newValue
                     if (dataset) {
@@ -849,7 +797,7 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     //console.log("WOW changed kConsistNeeded to ", newValue)
                     pulseRuntimeSettings.kConsistNeeded = newValue
                     if (dataset) {
@@ -1420,7 +1368,7 @@ Flickable {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 horizontalAlignment: Text.AlignLeft
-                font.pixelSize: settingsPopup.valuePixels -14
+                font.pixelSize: Ui.fontS
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidSuccessfullyOpened)
                     return pulseRuntimeSettings.uuidSuccessfullyOpened
@@ -1438,7 +1386,7 @@ Flickable {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 horizontalAlignment: Text.AlignLeft
-                font.pixelSize: Ui.fontM
+                font.pixelSize: Ui.fontS
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidUsbSerial)
                     return pulseRuntimeSettings.uuidUsbSerial
@@ -1456,7 +1404,7 @@ Flickable {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 horizontalAlignment: Text.AlignLeft
-                font.pixelSize: Ui.fontM
+                font.pixelSize: Ui.fontS
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidIpGateway)
                     return pulseRuntimeSettings.uuidIpGateway
@@ -1474,7 +1422,7 @@ Flickable {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 horizontalAlignment: Text.AlignLeft
-                font.pixelSize: Ui.fontM
+                font.pixelSize: Ui.fontS
                 text: {
                     console.log("pulseRuntimeSettings.uuidProxyLink", pulseRuntimeSettings.uuidProxyLink)
                     return pulseRuntimeSettings.uuidProxyLink

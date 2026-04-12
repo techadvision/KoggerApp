@@ -332,7 +332,8 @@ Item {
                         //height: 40
                         radius: 20
                         color: "transparent"
-                        anchors.centerIn: parent
+                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                        //anchors.centerIn: parent
 
                         Text {
                             id: valueField

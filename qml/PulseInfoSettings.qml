@@ -153,9 +153,14 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
+                /*
                 onPulsePreferenceValueChanged: {
                     //console.log("pulseSettingsValue speedSelector changed to", newValue)
                     pulseSettings.echogramSpeed = newValue
+                }
+                */
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.echogramSpeed = newValue
                 }
 
                 Connections {
@@ -303,7 +308,7 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     pulseSettings.nmeaPort = newValue
                 }
             }
@@ -445,7 +450,10 @@ Flickable {
             HorizontalControllerDoubleSettings {
                 id: udpPortSelection
                 values: [14550, 14560]
-                onPulsePreferenceValueChanged: pulseSettings.udpPort = newValue
+                //onPulsePreferenceValueChanged: pulseSettings.udpPort = newValue
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseSettings.udpPort = newValue
+                }
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -477,8 +485,8 @@ Flickable {
                 height: settingsPopup._isAndroid ? 80 : 54
                 Layout.preferredWidth: settingsPopup._isAndroid ? 280 : 180
                 Layout.alignment: Qt.AlignRight
-                anchors.bottom: betaTesters.bottom
-                anchors.top: betaTesters.top
+                //anchors.bottom: betaTesters.bottom
+                //anchors.top: betaTesters.top
             }
         }
 
