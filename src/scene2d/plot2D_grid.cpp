@@ -110,11 +110,11 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     */
     if (UiMetrics* ui = UiMetrics::instance()) {
         // Option A: use one of your standard UI font sizes
-        // f.setPixelSize(ui->fontL());       // or fontM(), fontXL(), tweak to taste
+        f.setPixelSize(ui->fontM());
 
         // Option B: recreate your QML-style Math.round(18 * Ui.scale)
-        const qreal scale = ui->scale();
-        f.setPixelSize(qRound(18.0 * scale)); // 18 = your reference size on the tablet
+        //const qreal scale = ui->scale();
+        //f.setPixelSize(qRound(18.0 * scale)); // 18 = your reference size on the tablet
     } else {
         // Fallback to previous behavior (pure DPI-based sp)
         f.setPixelSize(sp(18));
@@ -127,6 +127,9 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     const int imageHeight{ canvas.height() }, imageWidth{ canvas.width() },
         linesCount{ _lines }, textXOffset{ 30 }, textYOffset{ 10 };
 
+    // Device-space size: this is the coordinate system used after resetTransform()
+    const int devW = p->device()->width();
+    const int devH = p->device()->height();
 
     /* TODO - erronous placement of this part
     // линии
@@ -152,54 +155,19 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     int tempTopEdge        = insetTop;
     if (isDex) {
         tempTopEdge        = 0;
-
-        /*
-        tempTopEdge        = 0;
-        if (_velocityVisible && cursor.velocity.isValid()) { // velocity
-            const float velFrom{ cursor.velocity.from }, velTo{ cursor.velocity.to },
-                velRange{ velTo - velFrom }, attVal{ velRange * i / linesCount + velFrom };
-            lineText.append({ QString::number(attVal , 'f', 2) + QObject::tr(" m/s    ")});
-        }
-        if (angleVisibility_ && cursor.attitude.isValid()) { // angle
-            const float attFrom{ cursor.attitude.from }, attTo{ cursor.attitude.to },
-                attRange{ attTo - attFrom }, attVal{ attRange * i / linesCount + attFrom };
-            QString text{ QString::number(attVal, 'f', 0) + QStringLiteral("°    ") };
-            lineText.append(text);
-        }
-        if (cursor.distance.isValid()) { // depth
-            const float distFrom{ cursor.distance.from }, distTo{ cursor.distance.to },
-                distRange{ distTo - distFrom }, rangeVal{ distRange * i / linesCount + distFrom };
-            lineText.append( { QString::number(rangeVal, 'f', 2) + QObject::tr(" m") } );
-        }
-
-        const int textW = fm.horizontalAdvance(lineText);
-
-        if (isFillWidth()) {
-            p->drawLine(0, posY, imageWidth, posY);
-        }
-        else {
-            if (invert_) {
-                p->drawLine(0, posY, textW + textXOffset, posY);
-            }
-            else {
-                p->drawLine(imageWidth - textW - textXOffset, posY, imageWidth, posY);
-            }
-        }
-
-        if (!lineText.isEmpty()) {
-            const int textX = invert_ ? textXOffset : (imageWidth - textW - textXOffset);
-            drawTextWithBackdrop(p, textX, posY - textYOffset, lineText);
-        }
-        */
     }
     const int safeTopEdge    = tempTopEdge;
-    const int safeRightEdge  = imageWidth  - insetRight;
-    const int safeBottomEdge = imageHeight - insetBottom;
+    const int safeRightEdge  = devW  - insetRight;
+    const int safeBottomEdge = devH - insetBottom;
+    //const int safeRightEdge  = imageWidth  - insetRight;
+    //const int safeBottomEdge = imageHeight - insetBottom;
 #else
     const int safeLeftEdge   = 0;
     const int safeTopEdge    = 0;
-    const int safeRightEdge  = imageWidth;
-    const int safeBottomEdge = imageHeight;
+    const int safeRightEdge  = devW  - insetRight;
+    const int safeBottomEdge = devH - insetBottom;
+    //const int safeRightEdge  = imageWidth;
+    //const int safeBottomEdge = imageHeight;
 #endif
 
     const QRect safeRect(safeLeftEdge,
@@ -266,11 +234,28 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         float relativeY  = (tickMeters - d0) / ySpan;     // 0..1
         relativeY        = std::clamp(relativeY, 0.0f, 1.0f);
 
-        int posY         = int(relativeY * imageHeight);
-        int posYflipped  = flipImage ? (imageHeight - posY) : posY;
+        const int yPx = int(std::lround(relativeY * std::max(1, safeH - 1)));
+        const int posYDevice = safeTopEdge + yPx;
+        const int posYflipped = flipImage
+                                    ? (safeBottomEdge - 1 - yPx)
+                                    : posYDevice;
+        //int posY         = int(relativeY * imageHeight);
+        //int posYflipped  = flipImage ? (imageHeight - posY) : posY;
+
+        const bool suppressSurfaceTick =
+            isHorizontalGrid_ &&
+            !is2DTransducer_ &&
+            (
+                tickValue == 0 ||
+                posYflipped <= safeTopEdge + 1
+                );
+
+        if (suppressSurfaceTick)
+            continue;
 
         //BUILD DEPTH LABELS
-        QString lineText = " ";
+        QString lineText;
+        //QString lineText = " ";
         if (cursor.distance.isValid()) {
 
             float displayValue = std::abs(tickValue);  // always positive in text
@@ -286,6 +271,19 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             if (isHorizontalGrid_) {
                 //HORIZONTAL GRID
                 withDeviceSafe([&]{
+                    const int labelMargin = 5;
+                    const int desiredX =
+                        safeRightEdge - labelMargin - fm.horizontalAdvance(lineText);
+
+                    drawTextWithBackdrop(p, lineText,
+                                         QPoint(desiredX, posYflipped - textYOffset),
+                                         TextAnchor::BaselineLeft,
+                                         labelMargin,
+                                         -1,   // do not force right edge
+                                         5);
+                });
+                /*
+                withDeviceSafe([&]{
                     const int desiredX = safeRightEdge - fm.horizontalAdvance(lineText) - textXOffset;
                     const QPoint textPos(desiredX, posYflipped - textYOffset);
                     // Force the backdrop’s right edge to the safe edge (not imageWidth)
@@ -295,6 +293,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                          safeRightEdge,   // forceRightEdge
                                          5);              // verticalOffset
                 });
+                */
 
             } else {      
                 //VERTICAL GRID

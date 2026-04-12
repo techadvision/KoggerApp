@@ -32,7 +32,7 @@ public class KoggerUsbSerialManager {
     private static native void nativeDeviceHasDisconnected(final long classPtr);
     public static native void nativeDeviceException(final long classPtr, final String message);
     public static native void nativeDeviceNewData(final long classPtr, final byte[] data);
-    private static native void nativeUpdateAvailableJoysticks();
+    //private static native void nativeUpdateAvailableJoysticks();
 
     /**
      * Encapsulates all resources associated with a USB device.
@@ -150,11 +150,13 @@ public class KoggerUsbSerialManager {
 
             updateCurrentDrivers();
 
+            /*
             try {
                 nativeUpdateAvailableJoysticks();
             } catch (final Exception ex) {
                 KoggerLogger.e(TAG, "Exception nativeUpdateAvailableJoysticks()", ex);
             }
+            */
         }
     };
 

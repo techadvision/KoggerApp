@@ -53,7 +53,7 @@ qreal UiMetrics::computeScale() const
 {
     // Reference: your main dev tablet in landscape.
     // Example: 1280x800 -> short side = 800
-    const int refShortSide = 800;
+    const int refShortSide = 1200;
 
     int shortSide = qMin(m_windowWidth, m_windowHeight);
     if (shortSide <= 0)
@@ -102,27 +102,27 @@ int UiMetrics::marginL() const
 
 int UiMetrics::fontXS() const
 {
-    return qRound(11 * computeScale());
+    return qRound(12 * computeScale());
 }
 
 int UiMetrics::fontS() const
 {
-    return qRound(13 * computeScale());
+    return qRound(18 * computeScale());
 }
 
 int UiMetrics::fontM() const
 {
-    return qRound(16 * computeScale());
+    return qRound(24 * computeScale());
 }
 
 int UiMetrics::fontL() const
 {
-    return qRound(20 * computeScale());
+    return qRound(30 * computeScale());
 }
 
 int UiMetrics::fontXL() const
 {
-    return qRound(26 * computeScale());
+    return qRound(36 * computeScale());
 }
 
 // --- Icons --------------------------------------------------------------
@@ -130,8 +130,21 @@ int UiMetrics::fontXL() const
 int UiMetrics::iconTouch() const
 {
     // Design target 48×48 on reference window, but we allow some shrink
-    qreal v = 48 * computeScale();
-    const qreal min = 42;   // don't go smaller than this
+    qreal v = 64 * computeScale();
+    const qreal min = 56;   // don't go smaller than this
+    const qreal max = 72;
+
+    if (v < min) v = min;
+    if (v > max) v = max;
+
+    return qRound(v);
+}
+
+int UiMetrics::iconTouchSmall() const
+{
+    // Design target 48×48 on reference window, but we allow some shrink
+    qreal v = 52 * computeScale();
+    const qreal min = 48;   // don't go smaller than this
     const qreal max = 72;
 
     if (v < min) v = min;

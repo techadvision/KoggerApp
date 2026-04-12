@@ -6,13 +6,13 @@
 
 class InsetsHelper : public QObject {
     Q_OBJECT
-    Q_PROPERTY(int left   READ left   NOTIFY insetsChanged)
-    Q_PROPERTY(int top    READ top    NOTIFY insetsChanged)
-    Q_PROPERTY(int right  READ right  NOTIFY insetsChanged)
-    Q_PROPERTY(int bottom READ bottom NOTIFY insetsChanged)
-    Q_PROPERTY(int ime    READ ime    NOTIFY insetsChanged)
-    Q_PROPERTY(bool dexEnabled    READ dexEnabled    NOTIFY insetsChanged)
-    Q_PROPERTY(bool dexFullscreen READ dexFullscreen NOTIFY insetsChanged)
+    Q_PROPERTY(int  left            READ left           NOTIFY insetsChanged)
+    Q_PROPERTY(int  top             READ top            NOTIFY insetsChanged)
+    Q_PROPERTY(int  right           READ right          NOTIFY insetsChanged)
+    Q_PROPERTY(int  bottom          READ bottom         NOTIFY insetsChanged)
+    Q_PROPERTY(int  ime             READ ime            NOTIFY insetsChanged)
+    Q_PROPERTY(bool dexEnabled      READ dexEnabled     NOTIFY insetsChanged)
+    Q_PROPERTY(bool dexFullscreen   READ dexFullscreen  NOTIFY insetsChanged)
 public:
     static InsetsHelper* instance() { static InsetsHelper h; return &h; }
     int left() const { return L; }

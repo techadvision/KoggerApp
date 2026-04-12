@@ -68,6 +68,7 @@ public slots:
     QUuid getFirstOpend();
     //PULSE
     void handleLinkOpened(QUuid uuid, Link* link);
+    void onProxyMavlinkPeerChanged(const QHostAddress& addr, qint64 seenMs);
 
 signals:
     void appendModifyModel(QUuid uuid, bool connectionStatus, bool receivesData, ControlType controlType, QString portName, int baudrate, bool parity,

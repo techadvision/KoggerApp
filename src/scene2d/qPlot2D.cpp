@@ -26,6 +26,32 @@ void qPlot2D::componentComplete() {
 
     wireBus(bus);
 }
+
+void qPlot2D::wireBus(SettingsBus* bus) {
+    if (bus_ == bus) return;
+
+    if (bus_) QObject::disconnect(bus_, nullptr, this, nullptr);
+    bus_ = bus;
+    if (!bus_) return;
+
+    QObject::connect(bus_, &SettingsBus::runtimeChanged, this,
+                     [this](const QVariantMap& m){
+                         applyRuntime(m);
+                         update();
+                     },
+                     Qt::QueuedConnection);
+
+    QObject::connect(bus_, &SettingsBus::persistentChanged, this,
+                     [this](const QVariantMap& m){
+                         applyPersistent(m);
+                         update();
+                     },
+                     Qt::QueuedConnection);
+
+    echogram_.setSettingsBus(bus_);
+}
+
+/*
 void qPlot2D::wireBus(SettingsBus* bus) {
     if (bus_ == bus) return;
 
@@ -51,6 +77,7 @@ void qPlot2D::wireBus(SettingsBus* bus) {
     echogram_.setSettingsBus(bus_);
 
 }
+*/
 
 
 qPlot2D::qPlot2D(QQuickItem* parent)

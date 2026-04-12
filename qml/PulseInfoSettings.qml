@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Echo.UI 1.0
 //import NMEASender 1.0
+import QtQuick.Window
 
 
 Flickable {
@@ -11,7 +12,9 @@ Flickable {
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
 
     // Platform related sizes
     property int controlIconSize: Math.round(24 * s)
@@ -59,7 +62,7 @@ Flickable {
 
     signal pulsePreferenceClosed()
     signal pulsePreferenceValueChanged(double newValue)
-    signal stateChanged(bool checked)
+    //signal stateChanged(bool checked)
 
     Rectangle{
         id: spacer
@@ -85,6 +88,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             text: pulseSettings.useMetricDepth ? "Metric depth (checked)" : "Imperial depth (unchecked)"
             show: pulseRuntimeSettings.showCatScreen
             SettingsCheckBox {
@@ -97,6 +101,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             text: "Display temperature on screen"
             show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.useTemperature
             SettingsCheckBox {
@@ -108,6 +113,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             text: pulseSettings.useMetricTemperature ? "Metric temperature (checked)" : "Imperial temperature (unchecked)"
             show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.useTemperature && pulseSettings.showTemperatureInUi
             SettingsCheckBox {
@@ -119,8 +125,9 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             text: "Optimize to include second echo"
-            show: pulseRuntimeSettings.showCatScreen
+            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "doubleEchoOptimize"
@@ -131,7 +138,7 @@ Flickable {
         SettingRow {
             toggle: false
             text: "2D echogram screen speed (1-5)"
-            show: pulseRuntimeSettings.showCatScreen
+            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: speedSelector
                 values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
@@ -237,6 +244,7 @@ Flickable {
         }
 
         SettingRow {
+            checkbox: true
             text: "Enable UDP NMEA server"
             show: pulseRuntimeSettings.showCatNmea
             SettingsCheckBox {
@@ -248,6 +256,7 @@ Flickable {
         }
 
         SettingRow {
+            checkbox: true
             text: "Include MTW (temperature) message"
             show: pulseRuntimeSettings.showCatNmea
             SettingsCheckBox {
@@ -304,12 +313,17 @@ Flickable {
             text: "NMEA send to IP"
             show: pulseRuntimeSettings.showCatNmea
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 text: "255.255.255.255 "
-                font.pixelSize: Ui.fontXL //settingsPopup.infoPixelsSize
+                font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
                 color: "gray"
 
-                height: Math.round(54 * s) //settingsPopup._isAndroid ? 80 : 54
-                Layout.preferredWidth: Math.round(280 * s) //settingsPopup._isAndroid ? 280 : 190
+                //height: Math.round(54 * s) //settingsPopup._isAndroid ? 80 : 54
+                //Layout.preferredWidth: Math.round(280 * s) //settingsPopup._isAndroid ? 280 : 190
             }
         }
 
@@ -327,6 +341,7 @@ Flickable {
         SettingRow {
             text: "Autopilot position"
             beta: true
+            checkbox: true
             show: pulseRuntimeSettings.showCatPositionSource
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
@@ -394,6 +409,7 @@ Flickable {
         SettingRow {
             text: "PULSEblue: Left-hand side mount"
             toggle: false
+            checkbox: true
             show: pulseRuntimeSettings.showCatInstallation && !pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
@@ -413,6 +429,7 @@ Flickable {
         SettingRow {
             text: "PULSEblue: Cable facing front"
             toggle: false
+            checkbox: true
             show: pulseRuntimeSettings.showCatInstallation && !pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
@@ -479,6 +496,7 @@ Flickable {
 
         SettingRow {
             text: "Restart the echo sounder"
+            checkbox: true
             show: pulseRuntimeSettings.showCatTroubleShoot
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined

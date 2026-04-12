@@ -32,6 +32,7 @@ class UiMetrics : public QObject
     // - iconTouch: tap targets (buttons)
     // - iconIllustration: small icons that don't need to be tappable
     Q_PROPERTY(int iconTouch        READ iconTouch        NOTIFY metricsChanged)
+    Q_PROPERTY(int iconTouchSmall   READ iconTouchSmall   NOTIFY metricsChanged)
     Q_PROPERTY(int iconIllustration READ iconIllustration NOTIFY metricsChanged)
 
     // Scale factor you can apply to PNGs if you like
@@ -63,6 +64,7 @@ public:
     int fontXL() const;
 
     int iconTouch()        const;
+    int iconTouchSmall()  const;
     int iconIllustration() const;
 
     qreal imageScale() const;

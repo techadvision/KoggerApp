@@ -287,8 +287,7 @@ int main(int argc, char *argv[])
 
     //Pulse additions
     auto grid = new Plot2DGrid();
-    //TODO: Attempt to use a deleted function, may impact my settings as now I do not have the context. Commented out below
-    //engine.rootContext()->setContextProperty("plot2DGrid", grid);
+    engine.rootContext()->setContextProperty("plot2DGrid", grid);
     auto* bus = new SettingsBus(&engine);
 
     engine.rootContext()->setContextProperty("settingsBus", bus);

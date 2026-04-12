@@ -71,6 +71,8 @@ public:
     Q_PROPERTY(bool  isBoatCoordinateValid    READ isValidBoatCoordinate    NOTIFY lastPositionChanged)
     Q_PROPERTY(float isLastDepthValid         READ isValidLastDepth         NOTIFY lastDepthChanged)
     Q_PROPERTY(float depth                    READ getLastDepth             NOTIFY lastDepthChanged)
+    Q_PROPERTY(float isLastTrackDepthValid    READ isValidLastTrackDepth    NOTIFY lastDepthChanged)
+    Q_PROPERTY(float trackDepth               READ getLastTrackDepth        NOTIFY lastDepthChanged)
     Q_PROPERTY(float isSpeedValid             READ isValidSpeed             NOTIFY speedChanged)
     Q_PROPERTY(float speed                    READ getSpeed                 NOTIFY speedChanged)
     Q_PROPERTY(bool isSimpleNavV2Valid                  READ isValidSimpleNavV2                   NOTIFY simpleNavV2Changed)
@@ -291,6 +293,7 @@ public slots:
     bool  isValidActiveContactIndx() const { return activeContactIndx_ != -1;  };
     bool  isValidBoatCoordinate() const    { return !qFuzzyIsNull(boatLatitute_) || !qFuzzyIsNull(boatLongitude_); };
     bool  isValidLastDepth() const         { return !qFuzzyIsNull(lastDepth_); };
+    bool  isValidLastTrackDepth() const    { return !qFuzzyIsNull(lastTrackDepth_); }; //pulse
     bool isValidSpeed() const              { return isfinite(speed_) /*&& !qFuzzyIsNull(speed_)*/; };
     bool isValidSimpleNavV2() const        { return simpleNavV2Valid_; };
     int simpleNavV2GnssFixType() const     { return static_cast<int>(simpleNavV2GnssFixType_); };
@@ -315,6 +318,7 @@ public slots:
     float getDistToContact() const         { return distToActiveContact_;      };
     float getAngleToContact() const        { return angleToActiveContact_;     };
     float getLastDepth() const             { return lastDepth_;                };
+    float getLastTrackDepth() const        { return lastTrackDepth_;           }; //pulse
     float getSpeed() const                 { return speed_;                    };
     void addEvent(int timestamp, int id, int unixt = 0);
     void addEncoder(float angle1_deg, float angle2_deg = NAN, float angle3_deg = NAN);
@@ -505,6 +509,7 @@ private:
     float distToActiveContact_  = 0.0f;
     float angleToActiveContact_ = 0.0f;
     float lastDepth_            = 0.0f;
+    float lastTrackDepth_       = 0.0f;
     float lastRangefinderDepth_ = NAN;
     float lastBottomTrackDepth_ = NAN;
     float speed_                = 0.0f;

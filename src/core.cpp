@@ -413,13 +413,16 @@ void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEven
     QString testFilePath = filePath;
     QStringList splitTestname = testFilePath.split(QLatin1Char('.'), Qt::SkipEmptyParts);
     QString testFormat = splitTestname.last();
+    qDebug() << "openLogFile: " << testFilePath << " with extension " << testFormat;
     if (testFormat.size() >1) {
         if (testFormat.contains("klf", Qt::CaseInsensitive)) {
+            qDebug() << "openLogFile: we do not want this";
             return;
         }
-    } else {
-        return;
     }
+    //else {
+    //    return;
+    //}
 
 
     isFileOpening_ = true;

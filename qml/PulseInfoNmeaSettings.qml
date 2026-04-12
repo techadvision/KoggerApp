@@ -33,8 +33,8 @@ Rectangle {
             text: "UDP NMEA server"
             font.pixelSize: 30
             height: 80
-            GridLayout.row: 0
-            GridLayout.column: 0
+            Layout.row: 0
+            Layout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
             Layout.topMargin: 20
@@ -44,8 +44,8 @@ Rectangle {
             id: checkBoxNmea
             implicitWidth: 48
             implicitHeight: 48
-            GridLayout.row: 0
-            GridLayout.column: 2
+            Layout.row: 0
+            Layout.column: 2
             Layout.alignment: Qt.AlignVCenter
             anchors.horizontalCenter: depthSelector.horizontalCenter
             // Bind the initial state to pulseSettings.enableNmeaDbt
@@ -110,8 +110,8 @@ Rectangle {
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 1
-            GridLayout.column: 0
+            Layout.row: 1
+            Layout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
         }
@@ -134,8 +134,8 @@ Rectangle {
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 1
-            GridLayout.column: 2
+            Layout.row: 1
+            Layout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
@@ -143,8 +143,8 @@ Rectangle {
         Text {
             text: "NMEA UDP port"
             font.pixelSize: 30
-            GridLayout.row: 2
-            GridLayout.column: 0
+            Layout.row: 2
+            Layout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
         }
@@ -167,8 +167,8 @@ Rectangle {
 
             height: 80
             Layout.preferredWidth: 280
-            GridLayout.row: 2
-            GridLayout.column: 2
+            Layout.row: 2
+            Layout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 
@@ -179,8 +179,8 @@ Rectangle {
             font.pixelSize: 30
 
             height: 80
-            GridLayout.row: 3
-            GridLayout.column: 0
+            Layout.row: 3
+            Layout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: 20
         }
@@ -192,8 +192,8 @@ Rectangle {
             anchors.horizontalCenter: depthSelector.horizontalCenter
 
             height: 80
-            GridLayout.row: 3
-            GridLayout.column: 2
+            Layout.row: 3
+            Layout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
 

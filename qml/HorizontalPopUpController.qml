@@ -2,9 +2,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Controls.Material 2.15
-import QtQuick.Window 2.2   // for mapToItem(null, …)
+//import QtQuick.Controls.Material 2.15
 import Echo.UI 1.0
+import QtQuick.Window
 
 
 Item {
@@ -13,9 +13,11 @@ Item {
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
     readonly property int buttonIconSizeRef: Ui.iconTouch
     readonly property int controlIconSizeRef: Ui.iconIllustration
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
 
     // Platform related sizes
     /*

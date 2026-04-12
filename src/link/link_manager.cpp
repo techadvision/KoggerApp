@@ -15,6 +15,7 @@
 #endif
 #include <QDebug>
 #include "SettingsBus.h"
+#include <QPointer>
 
 
 LinkManager::LinkManager(QObject *parent) :
@@ -1114,6 +1115,54 @@ void LinkManager::openFLinks()
 void LinkManager::createAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort)
 {
     TimerController(timer_.get());
+
+    Link* newLinkPtr = createNewLink();
+    newLinkPtr->createAsUdp(address, sourcePort, destinationPort);
+    newLinkPtr->setIsProxy(true);
+    newLinkPtr->setIsHided(true);
+    proxyLinkUuid_ = newLinkPtr->getUuid();
+    uuidProxyLink_ = proxyLinkUuid_.toString();
+    list_.append(newLinkPtr);
+
+    if (bus_ && !uuidProxyLink_.isEmpty()) {
+        QVariantMap m;
+        m.insert("uuidProxyLink", uuidProxyLink_);
+
+        QPointer<SettingsBus> safeBus(bus_);
+        const QVariantMap mm = m;
+
+        QMetaObject::invokeMethod(bus_, [safeBus, mm]() {
+            if (safeBus)
+                safeBus->updateRuntime(mm);
+        }, Qt::QueuedConnection);
+    }
+
+    const auto connType =
+        static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection);
+
+    QObject::connect(newLinkPtr, &Link::mavlinkPeerChanged,
+                     this, &LinkManager::onProxyMavlinkPeerChanged,
+                     connType);
+
+
+    newLinkPtr->openAsUdp();
+}
+
+void LinkManager::onProxyMavlinkPeerChanged(const QHostAddress& addr, qint64 seenMs)
+{
+    const QString ip = addr.toString();
+    if (seenMs != mavlinkPeerSeenMs_) {
+        mavlinkPeerIp_ = ip;
+        mavlinkPeerSeenMs_ = seenMs;
+        emit mavlinkPeerUpdated(mavlinkPeerIp_, mavlinkPeerSeenMs_);
+    }
+}
+
+/* These methods crash, but I may need some stuff from them
+
+void LinkManager::createAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort)
+{
+    TimerController(timer_.get());
     qDebug() << "LinkManager::createAndOpenAsUdpProxy" << "address" << address << "sourcePort" << sourcePort << "destinationPort" << destinationPort;
 
     Link* newLinkPtr = createNewLink();
@@ -1165,6 +1214,35 @@ void LinkManager::closeUdpProxy()
     QMetaObject::invokeMethod(bus_, "updateRuntime",
                               Qt::QueuedConnection,
                               Q_ARG(QVariantMap, m));
+}
+*/
+
+void LinkManager::closeUdpProxy()
+{
+    if (proxyLinkUuid_ == QUuid())
+        return;
+
+    deleteLink(proxyLinkUuid_);
+    proxyLinkUuid_ = QUuid();
+    uuidProxyLink_ = proxyLinkUuid_.toString();
+
+    mavlinkPeerIp_.clear();
+    mavlinkPeerSeenMs_ = 0;
+    emit mavlinkPeerUpdated(mavlinkPeerIp_, mavlinkPeerSeenMs_);
+
+    if (bus_) {
+        QVariantMap m;
+        m.insert("uuidProxyLink", uuidProxyLink_);
+
+        QPointer<SettingsBus> safeBus(bus_);
+        const QVariantMap mm = m;
+
+        QMetaObject::invokeMethod(bus_, [safeBus, mm]() {
+            if (safeBus)
+                safeBus->updateRuntime(mm);
+        }, Qt::QueuedConnection);
+    }
+
 }
 
 QUuid LinkManager::getFirstOpend() {

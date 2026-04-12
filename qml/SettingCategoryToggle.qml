@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import Echo.UI 1.0
+import QtQuick.Window
 
 
 Item {
@@ -9,7 +10,9 @@ Item {
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
 
     property var    target
     property string targetPropertyName: ""
@@ -17,8 +20,8 @@ Item {
     property string showIconSource:     "./icons/ui/pulse_setting_show.svg"
     property bool   expanded:           initialValue
 
-    width: Math.round(64 * s) //_isAndroid ? 64 : 32
-    height: Math.round(64 * s) //_isAndroid ? 64 : 32
+    implicitWidth:  Math.round(64 * s)
+    implicitHeight: Math.round(64 * s)
 
     Image {
         id: icon

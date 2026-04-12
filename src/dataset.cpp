@@ -537,8 +537,9 @@ void Dataset::addDist(const ChannelId& channelId, int dist)
     pool_[pool_index].setDist(channelId, dist);
 
     const float distMeters = static_cast<float>(dist) * 0.001f;
+    //TODO: Distinguish between bottom track and no bottom track
     setLastRangefinderDepth(distMeters);
-    setLastDepth(distMeters);
+    //setLastDepth(distMeters);
 
     emit dataUpdate();
 
@@ -572,7 +573,7 @@ void Dataset::setFakeDepthAddition(double addedDepth) {
 }
 void Dataset::processBottomTrack(bool processTracks) {
     _processBottomTrack = processTracks;
-    qDebug() << "_processBottomTrack was set to" << _processBottomTrack;
+    qDebug() << "DistProcessing: _processBottomTrack was set to" << _processBottomTrack;
 }
 void Dataset::initiateProcessBottomTrack(bool initiateProcessing) {
     _isBottomTrackInitiated = initiateProcessing;
@@ -600,10 +601,10 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
         emit didReceiveData();
     }
 
-    if (_isBottomTrackInitiated)
+    if (_processBottomTrack)
         return;
 
-    //qDebug() << "addRangefinder triggered";
+    qDebug() << "addRangefinder triggered";
 
     Epoch* epoch = last();
     if (!epoch) {
@@ -617,7 +618,7 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     float corrDistance = distance - _transducerOffsetMount + _fakeDepthAddition;
     float filteredMeters = 0;
 
-    setLastRangefinderDepth(distance);
+    //setLastRangefinderDepth(distance);
     setLastDepth(distance);
 
     epoch->setDist(channelId, distance * 1000);
@@ -628,7 +629,7 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
         filteredMeters = corrDistance;
     }
 
-    if (!_isBottomTrackInitiated) {
+    if (!_processBottomTrack) {
         _dist = filteredMeters;
         emit distChanged();
         epoch->setDist(channelId, filteredMeters * 1000);
@@ -1879,6 +1880,7 @@ void Dataset::setLastBottomTrackDepth(float val)
 void Dataset::calcDimensionRects(uint64_t indx)
 {
     //qDebug() << "void Dataset::calcDimensionRects()";
+    if (true) return;
 
     auto* mip = core.getMosaicIndexProviderPtr();
     if (!mip) {

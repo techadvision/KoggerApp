@@ -72,9 +72,7 @@ public class PulseActivity extends QtActivity {
         public native void koggerLogDebug(final String message);
         public native void koggerLogWarning(final String message);
         private static native void notifyInsets(int left, int top, int right, int bottom, int imeBottom);
-		private static native void notifyDexState(boolean enabled, boolean fullscreen);
-        //public native void notifyInsets(int left, int top, int right, int bottom, int imeBottom);
-		//public native void notifyDexState(boolean enabled, boolean fullscreen);
+        private static native void notifyDexState(boolean enabled, boolean fullscreen);
 
 
         public PulseActivity() {

@@ -1,141 +1,103 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window
 import Echo.UI 1.0
 
-
-GridLayout {
+RowLayout {
     id: root
 
-    // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
-    readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100)
 
-    // Platform related sizes
-    property int controlIconSize: Math.round(24 * s)
-    property int pressButtonSize: Math.round(56 * s)
-    property int displayPixels:   Math.round(60 * s)
-    property int valueTextWidth:  Math.round(60 * s)
-    property int valueTextHeigh:  Math.round(40 * s)
-    property int valuePixels:     Math.round(42 * s)
-    property int autoPixels:      Math.round(32 * s)
-    property int selectIconSize:  Math.round(64 * s)
-    property int selectCheckSize: Math.round(48 * s)
-
-    /*
-    property int controlIconSize: _isAndroid ? 34 : 20
-    property int pressButtonSize: _isAndroid ? 80 : 40
-    property int displayPixels:   _isAndroid ? 100 : 40
-    property int valueTextWidth:  _isAndroid ? 60 : 40
-    property int valueTextHeigh:  _isAndroid ? 40 : 30
-    property int valuePixels:     _isAndroid ? 42 : 32
-    property int autoPixels:      _isAndroid ? 32 : 24
-    property int selectIconSize:  _isAndroid ? 80 : 60
-    property int selectCheckSize: _isAndroid ? 56 : 40
-    property int infoPixelsSize:  _isAndroid ? 28 : 18
-    */
-
-    // caller can tweak the width of the label column in one place:
-    property int labelWidth: Math.round(450 * s) //_isAndroid ? 560 : 320
-    property bool toggle:    false
-    property bool beta:      false
-
+    property int  labelWidth: Math.round(550 * s)
+    property bool toggle: false
+    property bool checkbox: false
+    property bool beta: false
     property bool show: true
     property bool _fadingOut: false
+
+    // IMPORTANT when used inside ColumnLayout / ScrollView / etc.
+    Layout.fillWidth: true
+
+    spacing: Math.round(20 * s)
 
     visible: toggle || show || _fadingOut
     opacity: (toggle || show) ? 1 : 0
 
-    columns: 3
-    rowSpacing: 0
-    columnSpacing: Math.round(20 * s) //_isAndroid ? 20 : 13
-
-
-    // animate opacity changes over 150 ms
     Behavior on opacity {
-        NumberAnimation { duration: 1000; easing.type: Easing.InOutQuad }
+        NumberAnimation { duration: 150; easing.type: Easing.InOutQuad }
     }
 
-    // when 'show' flips to false for a non-toggle row, keep it alive to fade out
     onShowChanged: {
         if (!show && !toggle) {
-            _fadingOut = true;
-            fadeTimer.restart();
+            _fadingOut = true
+            fadeTimer.restart()
         }
     }
 
     Timer {
-            id: fadeTimer
-            interval: 150
-            repeat: false
-            onTriggered: {
-                _fadingOut = false;
-            }
-        }
+        id: fadeTimer
+        interval: 150
+        repeat: false
+        onTriggered: _fadingOut = false
+    }
 
-    // ——— label ———
+    // --- label area (icon + text) ---
     RowLayout {
         id: labelRow
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0              // allow shrinking
         Layout.preferredWidth: root.labelWidth
-        Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-        Layout.leftMargin: toggle ? Math.round(20 * s) : Math.round(40 * s) // //20 : 40
+        Layout.maximumWidth: root.labelWidth
         spacing: 8
 
+        // indentation (don’t use Layout.leftMargin; it increases size hints)
+        Item { Layout.preferredWidth: toggle ? Math.round(10*s) : Math.round(20*s) }
+
         Image {
-            id: betaIcon
             visible: root.beta
             source: "./icons/ui/pulse_beta_feature.svg"
-            width: Ui.iconTouch //48
-            height: Ui.iconTouch //48
             fillMode: Image.PreserveAspectFit
-            Layout.leftMargin: toggle ? Math.round(20 * s): Math.round(40 * s) //20 : 40
-            sourceSize.width: Math.round(52 * s) //64
-            sourceSize.height: Math.round(52 * s) //64
+            Layout.preferredWidth: Ui.iconTouch
+            Layout.preferredHeight: Ui.iconTouch
+            sourceSize.width: Math.round(52 * s)
+            sourceSize.height: Math.round(52 * s)
         }
 
         Text {
             id: label
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0          // allow shrinking
             text: ""
-            font.pixelSize: Ui.fontL //root.infoPixelsSize
-            wrapMode: Text.Wrap
-            Layout.preferredWidth: root.labelWidth
-            Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-            Layout.leftMargin: toggle ? Math.round(10 * s): Math.round(40 * s) //20 : 40
+            font.pixelSize: Ui.fontL
+            wrapMode: Text.NoWrap
+            elide: Text.ElideRight
+            maximumLineCount: 1
+            verticalAlignment: Text.AlignVCenter
             color: toggle ? "black" : "#464646"
         }
-
     }
 
-
-    /*
-    Text {
-        id: label
-        text: ""
-        font.pixelSize: root.infoPixelsSize
-        wrapMode: Text.Wrap
-        Layout.preferredWidth: root.labelWidth
-        Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-        Layout.leftMargin: toggle ? 20 : 40
-        color: toggle ? "black" : "#464646"
-    }
-    */
-
-    // ——— spacer ———
+    // optional gap before control
     Item {
-        id: controlSpacer
-        visible: !toggle
-        width: toggle ? 0 : Math.round(20 * s) //root._isAndroid ? 20 : 12
+        Layout.preferredWidth: Math.round(10 * s)
+        Layout.fillWidth: !root.toggle && !root.checkbox
+        //Layout.preferredWidth: toggle ? 0 : Math.round(10 * s)
     }
 
-    // ——— control ———
-    Item {
-        id: controlHolder
+    // --- control slot ---
+    RowLayout {
+        id: controlSlot
+        spacing: 0
+        Layout.fillWidth: !root.toggle && !root.checkbox
+        // This makes the control keep its own implicit/preferred size,
+        // and the label will shrink/elide instead.
         Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
-        default property alias control: controlHolder.data
+
+        default property alias control: controlSlot.data
     }
 
-    // expose “text” to parent
     property alias text: label.text
-
 }

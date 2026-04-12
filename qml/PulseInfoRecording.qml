@@ -1,8 +1,9 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Dialogs 1.2
+import QtQuick.Dialogs
 import Echo.UI 1.0
+import QtQuick.Window
 
 Rectangle {
     id: settingsPopup
@@ -10,7 +11,9 @@ Rectangle {
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
     // Platform related sizes
     property int controlIconSize: Math.round(24 * s)
     property int pressButtonSize: Math.round(56 * s)
@@ -55,16 +58,31 @@ Rectangle {
     FileDialog {
         id: newFileDialog
         title: qsTr("Please choose a file")
-        folder: shortcuts.home
+        currentFolder: shortcuts.home
 
         nameFilters: ["Logs (*.plog *.PLOG *.ubx *.UBX *.xtf *.XTF)", "Kogger log files (*.plog *.PLOG)", "U-blox (*.ubx *.UBX)"]
 
         onAccepted: {
+            const file = newFileDialog.selectedFile
+            if (!file) {
+                console.log("lonAccepted: File was null, abort")
+                return
+            }
+
+            const fileStr = file.toString()
+            pathText.text = fileStr.replace("file:///", Qt.platform.os === "windows" ? "" : "/")
+
+            var name_parts = fileStr.split('.')
+
+            core.openLogFile(pathText.text, false, false)
+            /*
+
             pathText.text = newFileDialog.fileUrl.toString().replace("file:///", Qt.platform.os === "windows" ? "" : "/")
 
             var name_parts = newFileDialog.fileUrl.toString().split('.')
 
             core.openLogFile(pathText.text, false, false);
+            */
             //TODO: Make it async
             //core.openLogFileAsync(pathText.text, false, false)
             pulseRuntimeSettings.klfFilePath = pathText.text
@@ -86,8 +104,8 @@ Rectangle {
             font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
 
             height: Math.round(80 * s) //_isAndroid ? 80: 54
-            GridLayout.row: 0
-            GridLayout.column: 0
+            Layout.row: 0
+            Layout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: Math.round(20 * s) //20
             Layout.topMargin: Math.round(20 * s) //20
@@ -99,8 +117,8 @@ Rectangle {
             Layout.preferredWidth: Math.round(80 * s) //_isAndroid ? 80: 54
             Layout.preferredHeight: Math.round(80 * s) //_isAndroid ? 80: 54
             radius: 5
-            GridLayout.row: 0
-            GridLayout.column: 1
+            Layout.row: 0
+            Layout.column: 1
             color: "transparent"
             Layout.topMargin: Math.round(20 * s) //20
             Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
@@ -141,8 +159,8 @@ Rectangle {
             font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
 
             height: Math.round(80 * s) //_isAndroid ? 80: 54
-            GridLayout.row: 1
-            GridLayout.column: 0
+            Layout.row: 1
+            Layout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: Math.round(20 * s) //20
         }
@@ -155,8 +173,8 @@ Rectangle {
             Layout.preferredWidth: Math.round(80 * s) //_isAndroid ? 80: 54
             Layout.preferredHeight: Math.round(80 * s) //_isAndroid ? 80: 54
             radius: 5
-            GridLayout.row: 1
-            GridLayout.column: 1
+            Layout.row: 1
+            Layout.column: 1
             color: "transparent"
             Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
 
@@ -181,8 +199,8 @@ Rectangle {
         Item {
             id: openingIndicator
             visible: !pulseRuntimeSettings.isRecordingKlf && core.isFileOpening
-            GridLayout.row: 1
-            GridLayout.column: 2
+            Layout.row: 1
+            Layout.column: 2
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: Math.round(20 * s) //20
             Layout.minimumWidth: Math.round(400 * s) //_isAndroid ? 400 : 270
@@ -224,8 +242,8 @@ Rectangle {
             id: pathText
             visible: !pulseRuntimeSettings.isRecordingKlf && !core.isFileOpening
             hoverEnabled: true
-            GridLayout.row: 1
-            GridLayout.column: 2
+            Layout.row: 1
+            Layout.column: 2
             Layout.minimumWidth: Math.round(400 * s) //_isAndroid ? 400: 270
             Layout.preferredWidth: Math.round(400 * s) //_isAndroid ? 400: 270
 
@@ -275,8 +293,8 @@ Rectangle {
             font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
 
             height: Math.round(80 * s) //_isAndroid ? 80: 54
-            GridLayout.row: 2
-            GridLayout.column: 0
+            Layout.row: 2
+            Layout.column: 0
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: Math.round(20 * s) //20
         }
@@ -290,8 +308,8 @@ Rectangle {
             Layout.preferredWidth: Math.round(80 * s) //_isAndroid ? 80: 54
             Layout.preferredHeight: Math.round(80 * s) //_isAndroid ? 80: 54
             radius: 5
-            GridLayout.row: 2
-            GridLayout.column: 1
+            Layout.row: 2
+            Layout.column: 1
             color: "transparent"
             Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
 
@@ -328,8 +346,8 @@ Rectangle {
             font.pixelSize: Ui.fontL //settingsPopup.infoPixelsSize
 
             height: Math.round(80 * s) //_isAndroid ? 80: 54
-            GridLayout.row: 2
-            GridLayout.column: 0
+            Layout.row: 2
+            Layout.column: 0
             anchors.left: fileOpenedIcon.right
             Layout.alignment: Qt.AlignVCenter | Qt.AlignLeft
             Layout.leftMargin: Math.round(20 * s) //20

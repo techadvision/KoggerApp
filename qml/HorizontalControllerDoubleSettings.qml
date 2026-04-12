@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Echo.UI 1.0
+import QtQuick.Window
 
 Item {
     id: root
@@ -9,12 +10,14 @@ Item {
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1200) // tune 800 to your “10-inch baseline”
 
     // Platform related sizes
     property int pressButtonSize: Math.round(56 * s)
-    property int displayPixels:   Math.round(60 * s)
-    property int valueTextWidth:  Math.round(120 * s)
+    property int displayPixels:   Math.round(50 * s)
+    property int valueTextWidth:  Math.round(150 * s)
     property int valuePixels:     Math.round(42 * s)
 
     /*
@@ -30,7 +33,7 @@ Item {
 
     signal pulsePreferenceValueChanged(double newValue)
 
-    implicitWidth: Math.round(280 * s) //_isAndroid ? 280 : 180
+    implicitWidth: Math.round(100 * s) //_isAndroid ? 280 : 180
     implicitHeight: Math.round(54 * s) //_isAndroid ? 54 : 32
     //implicitHeight: _isAndroid ? 80 : 54
 

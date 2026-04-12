@@ -6,6 +6,8 @@ import QtQuick.Layouts 1.15
 //import Echo.UI 1.0
 import QtQuick.Dialogs
 import QtCore
+import Echo.UI 1.0
+import QtQuick.Window
 
 
 import WaterFall 1.0
@@ -504,21 +506,6 @@ WaterFall {
                     }
                 }
             }
-
-            /*
-            else {
-                if (Math.abs(pinchStartPos.x - pinch.center.x) > thresholdXAxis) {
-                    movementX = true
-                }
-                else if (Math.abs(pinchStartPos.y - pinch.center.y) > thresholdYAxis) {
-                    movementY = true
-                }
-                else if (pinch.scale > (1.0 + zoomThreshold) || pinch.scale < (1.0 - zoomThreshold)) {
-                    zoomY = true
-                }
-            }
-            */
-            //***************
         }
 
         onPinchFinished: {
@@ -614,7 +601,7 @@ WaterFall {
                 wasMoved = false
             }
 
-            onPressed: {
+            onPressed: function(mouse) {
 
                 lastMouseX = mouse.x
                 //Pulse addition
@@ -855,7 +842,9 @@ WaterFall {
         // Platform helpers
         readonly property bool _isAndroid: Qt.platform.os === "android"
         readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-        readonly property real s: Ui.scale * platformScale
+        //readonly property real s: Ui.scale * platformScale
+        readonly property real shortSide: Math.min(Screen.width, Screen.height)
+        readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
 
 
         function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
@@ -1148,8 +1137,10 @@ WaterFall {
             id: thisDepthAndTemperature
             visible: !pulseRuntimeSettings.echogramPause
             //visible: false
-            GridLayout.row: 0
-            GridLayout.column: 0
+            //GridLayout.row: 0
+            //GridLayout.column: 0
+            Layout.row: 0
+            Layout.column: 0
             Layout.rowSpan: 2
             //Layout.preferredWidth: _isAndroid ? 370 : 260
             Layout.preferredWidth: Math.round(320 * s)
@@ -1162,8 +1153,8 @@ WaterFall {
             id: selectorMaxDepth
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
 
-            GridLayout.row: 2
-            GridLayout.column: 1
+            Layout.row: 2
+            Layout.column: 1
             //Layout.preferredWidth: _isAndroid ? 330 : 220
             Layout.preferredWidth: Math.round (260 * s)
             Layout.alignment: Qt.AlignBottom
@@ -1339,8 +1330,8 @@ WaterFall {
         HorizontalController {
             id: selectorIntensity
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
-            GridLayout.row: 3
-            GridLayout.column: 1
+            Layout.row: 3
+            Layout.column: 1
             //Layout.preferredWidth: _isAndroid ? 330 : 220
             Layout.preferredWidth: Math.round (260 * s)
             Layout.alignment: Qt.AlignBottom
@@ -1358,7 +1349,7 @@ WaterFall {
                 pulseSettings.intensityDisplayValue = value;
                 quickChangeObjects.quickChangeStopValue = actualValue;
                 plot.setIntensityValue(actualValue * 1.0)
-                //console.log("TAV: selectorIntensity changed intensity (presented):", value, " (actual):", actualValue);
+                console.log("TAV: selectorIntensity changed intensity (presented):", value, " (actual):", actualValue);
             }
 
             Component.onCompleted: {
@@ -1377,7 +1368,7 @@ WaterFall {
                         return
                     }
                     //The device was set up, let's enforce the default intensity
-                    console.log("DEVICE CONFIGURED: Device configuration completed, set proper value for intensity")
+                    console.log("selectorIntensity, DEVICE CONFIGURED: Device configuration completed, set proper value for intensity")
                     updateIntensityTimer.start()
                 }
             }
@@ -1397,8 +1388,8 @@ WaterFall {
             id: selectorFiltering
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
             controleName: "selectorFiltering"
-            GridLayout.row: 4
-            GridLayout.column: 1
+            Layout.row: 4
+            Layout.column: 1
             //Layout.preferredWidth: _isAndroid ? 330 : 220
             Layout.preferredWidth: Math.round (260 * s)
             Layout.alignment: Qt.AlignBottom
@@ -1414,7 +1405,7 @@ WaterFall {
                 pulseSettings.filterDisplayValue = value
                 quickChangeObjects.quickChangeStartValue = actualValue;
                 plot.setFilteringValue(actualValue)
-                //console.log("TAV: selectorFiltering changed filter (presented):", value, " (actual):", actualValue);
+                console.log("TAV: selectorFiltering changed filter (presented):", value, " (actual):", actualValue);
             }
 
             Component.onCompleted: {
@@ -1482,8 +1473,8 @@ WaterFall {
             spacing: 2
             //Layout.topMargin: 10
 
-            GridLayout.row: 4
-            GridLayout.column: 0
+            Layout.row: 4
+            Layout.column: 0
             //Layout.preferredWidth: _isAndroid ? 350 : 220
             Layout.preferredWidth: Math.round (260 * s)
 
@@ -1492,7 +1483,31 @@ WaterFall {
                 iconSource: "./icons/ui/pulse_crosshair.svg"
                 controleName: "echogramPlayPause"
                 checked: false
-                onStateChanged: {
+
+                onControllerStateChanged: function(isChecked) {
+                    if (isChecked) {
+                        oldDataWarningRemovalTimer.stop()
+                        oldDataIndicator.visible = false
+                        pauseDataIndicator.visible = true
+                        if (pulseRuntimeSettings.is2DTransducer) {
+                            pulseRuntimeSettings.echogramSpeed = 1.0
+                        }
+                    } else {
+                        if (pulseRuntimeSettings.is2DTransducer) {
+                            pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
+                        }
+                        pauseDataIndicator.visible = false
+                        let nowLive = plot.timelinePosition >= 0.999
+                        if (!nowLive && !pulseRuntimeSettings.wasKlfFileOpened) {
+                            oldDataIndicator.visible = true
+                            oldDataWarningRemovalTimer.start()
+                        }
+                    }
+                    // Let's pause AFTER we fix the settings
+                    pulseRuntimeSettings.echogramPause = isChecked
+                }
+                /*
+                onControllerStateChanged: {
                     if (checked) {
                         oldDataWarningRemovalTimer.stop()
                         oldDataIndicator.visible = false
@@ -1514,6 +1529,7 @@ WaterFall {
                     // Let's pause AFTER we fix the settings
                     pulseRuntimeSettings.echogramPause = checked
                 }
+                */
             }
             HorizontalCheckController {
                 id: recordingStartStop
@@ -1521,10 +1537,16 @@ WaterFall {
                 controleName: "RecordKlf"
                 checked: false
                 visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause && !pulseRuntimeSettings.wasKlfFileOpened
-                onStateChanged: {
+                onControllerStateChanged: function(isChecked) {
+                    pulseRuntimeSettings.isRecordingKlf = isChecked
+                    core.loggingKlf = pulseRuntimeSettings.isRecordingKlf
+                }
+                /*
+                onControllerStateChanged: {
                     pulseRuntimeSettings.isRecordingKlf = checked
                     core.loggingKlf = pulseRuntimeSettings.isRecordingKlf
                 }
+                */
             }
         }
 
@@ -1534,8 +1556,8 @@ WaterFall {
             //Layout.topMargin: 10
             visible: pulseSettings.areUiControlsVisible && !pulseRuntimeSettings.echogramPause
 
-            GridLayout.row: 2
-            GridLayout.column: 0
+            Layout.row: 2
+            Layout.column: 0
             //Layout.preferredWidth: _isAndroid ? 350 : 220
             Layout.preferredWidth: Math.round (260 * s)
 
@@ -1670,16 +1692,29 @@ WaterFall {
             HorizontalPopUpController {
                 id: themeSelector2
                 visible: !pulseRuntimeSettings.is2DTransducer
+                /* Change: No longer offer the 820 option
                 model: [
                     "./icons/ui/pulse_view_down_scan_460.svg",
                     "./icons/ui/pulse_view_down_scan_820.svg",
                     "./icons/ui/pulse_view_side_scan_460.svg",
                     "./icons/ui/pulse_view_side_scan_820.svg"
                 ]
+                */
+                model: [
+                    "./icons/ui/pulse_view_down_scan.svg",
+                    "./icons/ui/pulse_view_side_scan.svg"
+                ]
                 iconSource: "./icons/ui/pulse_glasses.svg"
-                selectedIndex: pulseSettings.ecoViewIndex
+                /* Change: No longer offer the 820 option */
+                //selectedIndex: pulseSettings.ecoViewIndex
+                selectedIndex: {
+                    if (pulseSettings.ecoViewIndex > 1)
+                        return 1
+                    return pulseSettings.ecoViewIndex
+                }
+
                 hostWindow: plot ? plot : undefined
-                //allowExpertModeByMultiTap: false
+                /* Change: No longer offer the 820 option
                 onIconSelected: {
                     //plot.plotEchogramCompensation(selectedIndex);
                     pulseSettings.ecoViewIndex = selectedIndex
@@ -1703,6 +1738,22 @@ WaterFall {
                     quickChangeObjects.reArrangeQuickChangeObject()
 
                 }
+                */
+                onIconSelected: {
+                    //plot.plotEchogramCompensation(selectedIndex);
+                    pulseSettings.ecoViewIndex = selectedIndex
+                    //Downscan 460
+                    if (selectedIndex === 0) {
+                        setDownScan(460)
+                    }
+                    //Sidescan 460
+                    if (selectedIndex === 1) {
+                        setSideScan(460)
+                    }
+                    plot.updatePlot()
+                    quickChangeObjects.reArrangeQuickChangeObject()
+
+                }
 
                 function setDownScan (frequency) {
                     pulseRuntimeSettings.isSideScan2DView = true
@@ -1718,17 +1769,11 @@ WaterFall {
                     pulseRuntimeSettings.isHorizontalGrid = false
                     plot.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
                     plotDistanceRangeTimer.start()
-                    //Set the offset TODO: DIABLED FOR NOW
-                    /*
-                    if (pulseSettings === null)
-                        return
-                    let sideScanOffet = pulseSettings.pulseBlueOffset
-                    pulseRuntimeSettings.chartOffset = sideScanOffet
-                    */
-                    //Set the frequency
+
                     pulseRuntimeSettings.transFreq = frequency
                 }
 
+                /* Change: No longer offer the 820 option
                 Timer {
                     id: setPulseBlueEcoViewOnAppStart
                     repeat: false
@@ -1745,6 +1790,21 @@ WaterFall {
                         }
                         if (pulseSettings.ecoViewIndex === 3) {
                             themeSelector2.setSideScan(820)
+                        }
+                    }
+
+                }
+                */
+                Timer {
+                    id: setPulseBlueEcoViewOnAppStart
+                    repeat: false
+                    interval: 1000
+                    onTriggered: {
+                        if (pulseSettings.ecoViewIndex === 0) {
+                            themeSelector2.setDownScan(460)
+                        }
+                        if (pulseSettings.ecoViewIndex === 1) {
+                            themeSelector2.setSideScan(460)
                         }
                     }
 
@@ -1773,7 +1833,11 @@ WaterFall {
                     function onColorMapIndexSideScanChanged () {
                         if (pulseSettings === null)
                             return
-                        themeSelectorColor2D.selectedIndex = pulseSettings.colorMapIndexSideScan
+                        let useIndex = pulseSettings.colorMapIndexSideScan
+                        if (useIndex > 1)
+                            useIndex = 1
+                        themeSelectorColor2D.selectedIndex = useIndex
+                        //themeSelectorColor2D.selectedIndex = pulseSettings.colorMapIndexSideScan
                         //console.log("TAV: colormap updated to index:", pulseSettings.colorMapIndexSideScan);
                     }
                     function onPulseBlueOffsetChanged () {
@@ -1783,15 +1847,6 @@ WaterFall {
                             return
                         if (pulseRuntimeSettings.is2DTransducer)
                                 return
-                        //TODO DISABLED FOR NOW
-                        /*
-                        let sideScanOffet = pulseSettings.pulseBlueOffset
-                        if (pulseRuntimeSettings.isSideScan2DView) {
-                            pulseRuntimeSettings.chartOffset = 0
-                        } else {
-                            pulseRuntimeSettings.chartOffset = sideScanOffet
-                        }
-                        */
 
                     }
                 }
@@ -1884,8 +1939,8 @@ WaterFall {
             spacing: 2
             //Layout.topMargin: 10
 
-            GridLayout.row: 3
-            GridLayout.column: 0
+            Layout.row: 3
+            Layout.column: 0
             //Layout.preferredWidth: _isAndroid ? 350 : 220
             Layout.preferredWidth: Math.round (260 * s)
 
@@ -1896,13 +1951,22 @@ WaterFall {
                 checked: pulseSettings.areUiControlsVisible
                 visible: !pulseRuntimeSettings.echogramPause
 
-                onStateChanged: {
+                onControllerStateChanged: function(isChecked) {
+                    pulseSettings.areUiControlsVisible = isChecked
+                    if (!pulseSettings.areUiControlsVisible) {
+                        pulseRuntimeSettings.echogramVisible = true
+                    }
+                }
+
+                /*
+                onControllerStateChanged: {
                     //console.log("Checkbox state changed:", checked)
                     pulseSettings.areUiControlsVisible = checked
                     if (!pulseSettings.areUiControlsVisible) {
                         pulseRuntimeSettings.echogramVisible = true
                     }
                 }
+                */
 
             }
 
@@ -1912,11 +1976,17 @@ WaterFall {
                 checked: false
                 visible: pulseSettings.areUiControlsVisible  && !pulseRuntimeSettings.echogramPause
 
-                onStateChanged: {
+                onControllerStateChanged: function(isChecked) {
+                    pulseInfoLoader.active = isChecked
+                }
+
+                /*
+                onControllerStateChanged: {
                     //console.log("Checkbox state changed:", checked)
                     pulseInfoLoader.active = checked
 
                 }
+                */
 
                 onVisibleChanged: {
                     if (!visible) {
@@ -2751,6 +2821,7 @@ WaterFall {
                                         return
                                     gridVisible.checked = true
                                 }
+                            }
                                     
                             CCheck {
                                 id: invertGrid
@@ -3048,6 +3119,7 @@ WaterFall {
         }
     }
 
+
     onContactVisibleChanged: {
         contactDialog.visible = plot.contactVisible;
 
@@ -3067,6 +3139,7 @@ WaterFall {
         contactDialog.lon = plot.contactLon
         contactDialog.depth = plot.contactDepth
     }
+
 
     RowLayout {
         id: menuBlock
@@ -3203,4 +3276,4 @@ WaterFall {
         }
     }
 }
-}
+

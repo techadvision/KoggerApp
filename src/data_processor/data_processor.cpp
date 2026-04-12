@@ -174,6 +174,7 @@ void DataProcessor::setSettingsBus(SettingsBus* bus)
                              qDebug () << "Observed a updateBottomTrack change";
                          }
                          // isBottomTrackInitiated
+                         /*
                          if (auto it = m.constFind("isBottomTrackInitiated"); it != m.constEnd()) {
                              QMetaObject::invokeMethod(
                                  this, "setIsBottomTrackInitiated",
@@ -181,6 +182,8 @@ void DataProcessor::setSettingsBus(SettingsBus* bus)
                                  Q_ARG(bool, it.value().toBool()));
                              qDebug () << "Observed a setIsBottomTrackInitiated change";
                          }
+                        */
+
                      },
                      Qt::QueuedConnection);
 }
@@ -346,10 +349,13 @@ void DataProcessor::setUpdateBottomTrack(bool state)
     //PULSE
     //updateBottomTrack_ = isBottomTrackInitiated_;
     setUpdateBottomTrackSourceState(state, false);
+    datasetPtr_->processBottomTrack(state);
+    qDebug() << "DistProcessing: DataProcessor::setUpdateBottomTrack with value" << state;
 }
 
 void DataProcessor::setUpdateBottomTrackFromSettings(bool state)
 {
+    qDebug() << "DistProcessing: DataProcessor::setUpdateBottomTrackFromSettings with value" << state;
     setUpdateBottomTrackSourceState(state, true);
 }
 

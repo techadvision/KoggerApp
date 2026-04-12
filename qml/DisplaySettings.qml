@@ -458,6 +458,9 @@ GridLayout {
                         //Turned on
                         console.log("DistProcessing: onProcessBottomTrackChanged - let us initiate tracking")
                         bottomTrackProcessingGroup.prepareDistProcessing()
+                    } else {
+                        //Turned off
+                        dataset.processBottomTrack(false)
                     }
                 }
 
@@ -514,7 +517,9 @@ GridLayout {
                 onTriggered: {
                     //pulseRuntimeSettings.processBottomTrack = true
                     pulseRuntimeSettings.isBottomTrackInitiated = true
-                    dataset.initiateProcessBottomTrack(pulseRuntimeSettings.isBottomTrackInitiated)
+                    //dataset.initiateProcessBottomTrack(pulseRuntimeSettings.isBottomTrackInitiated)
+                    core.setBottomTrackRealtimeFromSettings(true)
+                    dataset.processBottomTrack(true)
                     /*
                     if (dataset) {
                         dataset.setProcessBottomTrack(pulseRuntimeSettings.processBottomTrack)

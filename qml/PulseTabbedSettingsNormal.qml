@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Window 2.15
 import Echo.UI 1.0
+import QtQuick.Window
 
 Item {
     id: root
@@ -9,7 +10,9 @@ Item {
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
 
     width: Math.round(1000 * s)
     height: Math.round(550 * s)
@@ -17,29 +20,6 @@ Item {
     // Tab styling derived from UiMetrics
     readonly property int tabFontSize: Ui.fontM      // try fontM; switch to fontS if it feels big
     readonly property int headerHeight: Math.round(44 * s)
-
-    /*
-    // Platform helpers
-    readonly property bool _isAndroid: Qt.platform.os === "android"
-
-    width: _isAndroid ? 1000 : 650
-    height:_isAndroid ? 550 : 400
-
-
-    //property real scaleFactor: Qt.application.primaryScreen.width / 480
-    property real scaleFactor: 1
-    property real _dpi: Screen.pixelDensity * 25.4
-    property real dpScale: _dpi / 160.0
-
-    function dp(x)   {
-        return Math.round(x * dpScale);
-    } // density-independent pixels
-
-    function sp(x)   {
-        console.log("Font using SP for", x, "returning", dp(x))
-        return dp(x);
-    } // if you don't read user "font scale", use dp as sp
-    */
 
     signal closeRequested()
 

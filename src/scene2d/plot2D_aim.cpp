@@ -310,7 +310,6 @@ void Plot2DAim::setPause(Plot2D* parent, Dataset* dataset, bool on) {
     }
 }
 
-
 double Plot2DAim::rangeTFromDeviceTap(const QPoint& dev, int /*W*/, int H) const
 {
     // Pure Y→t mapping in device space. No mirroring here.
@@ -356,637 +355,65 @@ bool Plot2DAim::isTapInsideZoom(Plot2D* parent, int devX, int devY) const
     return false;
 }
 
-//Draw the aim (adapted for Pulse)
+// Draw the aim (upstream cursor correctness + your Plot2DZoom panel/buttons), sync-fixed
 bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 {
     setPause(parent, dataset, echogramPause_);
+
     auto& canvas = parent->canvas();
     auto& cursor = parent->cursor();
 
     if (needClearUi_) {
+        cand_.active     = false;
+        cand_.haveTarget = false;
+        cursor.setMouse(-1, -1);
+        cand_.anchorDev  = QPoint(-1, -1);   // OVERLAY coords
+        cand_.crossDev   = QPoint(-1, -1);   // LOGICAL/PIXMAP coords
+        needClearUi_     = false;
+    }
+
+    if (!dataset)
+        return false;
+
+    // Ability ONLY active when paused
+    const bool loupeEnabled = echogramPause_;
+    if (!loupeEnabled) {
         cand_.active = false;
-        cand_.haveTarget = false;           // if you have this field
-        cursor.setMouse(-1, -1);            // hide crosshair
-        cand_.anchorDev = QPoint(-1, -1);
-        cand_.crossDev  = QPoint(-1, -1);
-        needClearUi_ = false;               // done
-    }
-
-    if(!dataset)
-        return false;
-
-    if (cursor.mouseX < 0 || cursor.mouseY < 0) {
+        cand_.haveTarget = false;
+        beenEpochEvent_ = false;
         return false;
     }
+
+    if ((cursor.mouseX < 0 || cursor.mouseY < 0) && (cursor.selectEpochIndx == -1))
+        return false;
 
     QPainter* p = canvas.painter();
 
-    const QTransform W = p->worldTransform();
-    const QTransform Winv = W.inverted();
-    const int visibleCols = visibleColsFromTransform(p->worldTransform(), canvas.width());
+    // Pen/font like upstream
+    {
+        QPen pen;
+        pen.setWidth(lineWidth_);
+        pen.setColor(lineColor_);
+        p->setPen(pen);
 
-    hasTap_ = false;
-    if (beenEpochEvent_ && echogramPause_) {
-        hasTap_ = true;
-    }
-    if (beenEpochEvent_ && !echogramPause_) {
-        beenEpochEvent_ = false; // ignore
-    }
-
-    if (cursor.selectEpochIndx != -1 && !cand_.active && !hasTap_) {
-        const bool isPaused = echogramPause_;
-        const int dsSizeForMap  = isPaused ? (lastAtPause() + 1) : dataset->size();
-        const int visColsForMap = (isPaused && visibleColsAtPause() > 0)
-                                      ? visibleColsAtPause()
-                                      : visibleCols;
-
-        const int x = epochToLogicalXScaled(cursor.selectEpochIndx, dsSizeForMap, canvas.width(), visColsForMap);
-        if (x >= 0 && x < canvas.width()) {
-            if (auto* ep = dataset->fromIndex(cursor.selectEpochIndx)) {
-                if (const auto datasetChannels = dataset->channelsList(); !datasetChannels.empty()) {
-                    auto& first = datasetChannels.at(0);
-                    if (auto* chart = ep->chart(first.channelId_, first.subChannelId_)) {
-                        const int y = (datasetChannels.size() == 2)
-                        ? canvas.height()/2 - int(canvas.height() * (chart->bottomProcessing.distance / cursor.distance.range()))
-                        : int(canvas.height() * (chart->bottomProcessing.distance / cursor.distance.range()));
-                        cursor.setMouse(x, y);
-                    }
-                }
-            }
-        }
+        QFont font("Asap", 14 * scaleFactor_, QFont::Normal);
+        font.setPixelSize(18 * scaleFactor_);
+        p->setFont(font);
     }
 
-    const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
-    const bool isDualSS   = isSideScan && !isSideScan2DView_;
-
-    // DID WE TAP THE PANEL?
-    bool tapOnPanel = false;
-    QPoint tapDev;
-    if (hasTap_ && cand_.active) {
-        tapDev = QPoint(cursor.mouseX, cursor.mouseY);     // device space
-        if (isDualSS) {
-            tapDev = devRotNeg90(tapDev, canvas.width());
-        }
-        tapOnPanel = cand_.infoRect.contains(tapDev);      // infoRect is device space
-    }
-
-    // EARLY CONSUME: if popup is visible and the tap is inside it (not on buttons), swallow now
-    if (cand_.active && hasTap_) {
-        QPoint tapDevNow = QPoint(cursor.mouseX, cursor.mouseY);
-        if (isDualSS) tapDevNow = devRotNeg90(tapDevNow, canvas.width());
-
-        const int pad = 20 * scaleFactor_;
-        const QRect abortHit = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
-        const QRect addHit   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
-
-        if (cand_.infoRect.contains(tapDevNow) &&
-            !abortHit.contains(tapDevNow) &&
-            !addHit.contains(tapDevNow))
-        {
-            // Important: clear the tap so it never reaches the arming block below.
-            beenEpochEvent_ = false;
-            debounce_.restart();
-            qDebug() << "[AIM] early consume: tap inside zoom";
-            return true;
-        }
-    }
-
-    // CREATE CROSS HAIR FROM THE TAP
-    QPen pen;
-    pen.setWidth(lineWidth_);
-    pen.setColor(lineColor_);
-    p->setPen(pen);
-
-    QFont font("Asap", 14 * scaleFactor_, QFont::Normal);
-    font.setPixelSize(18 * scaleFactor_);
-    p->setFont(font);
-
-
-    // --- unified distance from device tap ---
-    QPoint devPtForRange = (cand_.active ? cand_.crossDev
-                                         : QPoint(cursor.mouseX, cursor.mouseY));
-
-
-    // Dual-side SS view is drawn rotated -90°. Map tap back to unrotated device axes
-    // before deriving the vertical fraction used by rangeTFromDeviceTap().
-    if (isSideScan && !isSideScan2DView_) {
-        //devPtForRange = devRotNeg90(devPtForRange, canvas.width());
-    }
-
-    double t = rangeTFromDeviceTap(devPtForRange, canvas.width(), canvas.height());
-
-    // Single-side SS, left-hand hardware installed → axis is mirrored vertically
-    if (isSideScan2DView_ && isSideScanLeftHand_)
-        t = 1.0 - t;
-
-    const double axisRange = std::abs(cursor.distance.to - cursor.distance.from);
-
-    double cursor_distance = 0.0;
-    if (isSideScan && isSideScan2DView_) {
-        // single-side SS: distance from centerline (0..R), independent of from/to signs
-        cursor_distance = std::abs(t * axisRange);
-    } else {
-        // 2D or dual-side SS: keep existing “map to axis then abs”
-        const double val = cursor.distance.from + t * (cursor.distance.to - cursor.distance.from);
-        cursor_distance = std::abs(val);
-    }
-
-    p->setCompositionMode(QPainter::CompositionMode_SourceOver);
-
-    auto [channelId, subIndx, name] = parent->getSelectedChannelId();
-
-    // --- Capture data for the tapped point (works even if cursor.currentEpochIndx == -1) ---
-    if (echogramPause_) {
-
-        const int xTap = cursor.mouseX;
-        const int yTap = cursor.mouseY;
-
-        const int data_width = dataset ? dataset->size() : 0;
-        int epochIdxForTap   = -1;
-        int calculatedEpochIdx = -1;
-
-        // For logging / sanity
-        const int originalEpochIdxForTap = cursor.currentEpochIndx;
-
-        const bool isSideScan     = cursor.channel1.isValid() && cursor.channel2.isValid();
-        const bool isDualSS       = isSideScan && !isSideScan2DView_;
-        const bool isHorizontal   = parent->isHorizontal();
-        const bool is2DMode       = isHorizontal && !isSideScan;
-
-        if (is2DMode && data_width > 0 && xTap >= 0 && xTap < canvas.width()) {
-            // Current window info (updated by Plot2D::reindexingCursor)
-            const int rightmost = parent->rightmostEpochOnScreen();
-            const int visCols   = parent->visibleColsOnScreen();
-
-            // Device-space tap; undo rotation if dual SS (defensive – for 2D this is no-op)
-            QPoint devTap(xTap, yTap);
-            if (isDualSS) {
-                devTap = devRotNeg90(devTap, canvas.width());
-            }
-
-            if (echogramSpeed_ > 1.0) {
-                double factor    = std::pow(0.9, echogramSpeed_ - 1.0);
-                double someValue = originalEpochIdxForTap / factor;
-                calculatedEpochIdx = static_cast<int>(std::round(someValue));
-            }
-
-            // Device -> world (undo stretch/rotation/mirror)
-            const QPointF tapWorld = Winv.map(QPointF(devTap));
-            double lx              = tapWorld.x();
-            const int Wlog         = canvas.width();    // logical width before stretch
-
-            if (Wlog > 0) {
-                // Clamp to [0 .. Wlog-1]
-                if (lx < 0.0)            lx = 0.0;
-                if (lx > double(Wlog-1)) lx = double(Wlog-1);
-
-                epochIdxForTap = logicalXToEpochInWindow(lx,
-                                                         Wlog,
-                                                         rightmost,
-                                                         visCols,
-                                                         data_width);
-            }
-        }
-
-        // Fallback: if mapping failed or we’re in SS, use the cursor’s current epoch
-        if (epochIdxForTap < 0 || epochIdxForTap >= data_width) {
-            epochIdxForTap = originalEpochIdxForTap;
-        }
-
-        if (hasTap_) {
-            const int head = parent->rightmostEpochOnScreen();
-            qDebug() << "AIM tap 2D: origEpoch=" << originalEpochIdxForTap
-                     << "xTap=" << xTap
-                     << "head=" << head
-                     << "speed=" << echogramSpeed_
-                     << " -> epochIdxForTap=" << epochIdxForTap
-                     << "and calculatedEpochIdx=" << calculatedEpochIdx;
-        }
-
-        if (epochIdxForTap >= 0 && epochIdxForTap < data_width) {
-            const bool pausedNow       = isPaused();
-            const bool isSideScanLocal = isSideScan;
-
-            // Which side (for SS)
-            int side = 0;
-            if (isSideScanLocal) {
-                if (isSideScan2DView_) {
-                    side = isSideScanLeftHand_ ? -1 : +1;
-                } else {
-                    const int midY = canvas.height() / 2;
-                    const int tapY = cursor.mouseY;
-                    side = (tapY < midY) ? -1 : +1;
-                }
-            }
-
-            // Depth from the *tapped* epoch (not from cursor.currentEpochIndx)
-            double depth = NAN;
-            if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
-                if (isSideScanLocal) {
-                    auto [channelId, subIndx, name] = parent->getSelectedChannelId();
-                    if (auto* eg = epTap->chart(channelId, subIndx)) {
-                        depth = eg->bottomProcessing.getDistance();
-                    }
-                } else {
-                    depth = epTap->rangeFinder();
-                }
-                if (!std::isfinite(depth) || depth < 0) {
-                    depth = epTap->rangeFinder();
-                }
-            }
-
-            const int maxLookEpochs = 12;
-            const int lastCap       = pausedNow
-                                    ? lastIndexAtPause_
-                                    : (data_width - 1);
-
-            auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
-                                                           maxLookEpochs, 0, lastCap);
-            auto nearestYaw = findNearestYawByIndexRanged( dataset, epochIdxForTap,
-                                                          maxLookEpochs, 0, lastCap);
-
-            /* debug result of the found position
-            if (nearestPos.found) {
-                qDebug () << "AIM: Looked at epoch" << epochIdxForTap << "and found position at" << nearestPos.epochIdx << "positions away" << nearestPos.dIdx
-                         << "nearest lat" << nearestPos.pos.lla.latitude
-                         << "nearest lon" << nearestPos.pos.lla.longitude;
-            }
-            */
-
-            /* debug result of the found yaw
-            if (nearestYaw.found) {
-                qDebug () << "AIM: Looked at epoch" << epochIdxForTap << "and found yaw at" << nearestYaw.epochIdx << "positions away" << nearestYaw.dIdx;
-            }
-            */
-
-            // Fallback once across the full dataset if the frozen cap was too tight (first pause edge case)
-            if (!nearestPos.found)
-                nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
-                                                          maxLookEpochs, 0, dataset->size()-1);
-            if (!nearestYaw.found)
-                nearestYaw = findNearestYawByIndexRanged( dataset, epochIdxForTap,
-                                                         maxLookEpochs, 0, dataset->size()-1);
-
-            // Unified slant range already computed above
-            const double r_slant   = cursor_distance;
-            const double depthAbs  = std::isfinite(depth)   ? std::abs(depth)   : NAN;
-            const double rSlantAbs = std::isfinite(r_slant) ? std::abs(r_slant) : NAN;
-
-            // Solve target
-            double txLat=NAN, txLon=NAN;
-            bool haveTarget=false;
-            if (nearestPos.found && nearestYaw.found) {
-                const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
-                const double yaw_rad = deg2rad(nearestYaw.yawDeg);
-
-                // Only permit lateral offsets for *dual-side* SS view.
-                // Single-side SS shown as downscan (isSideScan2DView_ == true) is treated as water-column.
-                const bool isDualSS = isSideScan && !isSideScan2DView_;
-                const bool forceWaterColumn = !isDualSS;
-
-                // Water column when depth unknown OR slant ≤ bottom depth, or in forced mode
-                const bool waterColumn = forceWaterColumn
-                                         || !std::isfinite(depthAbs)
-                                         || (rSlantAbs <= depthAbs + kWaterMargin);
-
-                if (waterColumn) {
-                    // beneath the boat
-                    txLat = boat.lat;
-                    txLon = boat.lon;
-                    haveTarget = true;
-                } else {
-                    // valid lateral hit → offset using yaw ± 90°
-                    const auto sol = solveSidescanTap(boat, yaw_rad, rSlantAbs, depthAbs, side);
-                    if (sol.ok && !sol.wasWaterColumn) {
-                        txLat = sol.point.lat;
-                        txLon = sol.point.lon;
-                        haveTarget = true;
-                    }
-                }
-            }
-
-
-            // Arm candidate on a real tap (outside the panel)
-            if (beenEpochEvent_ && echogramPause_ && (!cand_.active || !tapOnPanel)) {
-                const bool wasActive = cand_.active;
-                cand_.active     = true;
-                cand_.anchorDev  = QPoint(cursor.mouseX, cursor.mouseY);
-                cand_.crossDev   = cand_.anchorDev;
-                cand_.lat        = txLat;
-                cand_.lon        = txLon;
-                cand_.depth      = std::isfinite(depthAbs) ? depthAbs : NAN;
-                cand_.yawDeg     = nearestYaw.found ? nearestYaw.yawDeg : NAN;
-                cand_.model      = isSideScan ? "SS" : "2D";
-                cand_.tapEpochIdx= epochIdxForTap;
-                cand_.tapRangeM  = rSlantAbs;
-                cand_.tapIsSS    = isSideScan;
-                cand_.tapSide    = side;
-                cand_.haveTarget = haveTarget;
-                popupJustOpened_ = !wasActive;
-                beenEpochEvent_  = false;
-                /* debug the concluded data extract for the zoom
-                qDebug().noquote().nospace()
-                    << qSetRealNumberPrecision(8)
-                    << "[AIM] tap=" << epochIdxForTap
-                    << " yaw=" << (nearestYaw.found ? nearestYaw.yawDeg : NAN)
-                    << " lat=" << (nearestPos.found ? nearestPos.pos.lla.latitude  : NAN)
-                    << " lon=" << (nearestPos.found ? nearestPos.pos.lla.longitude : NAN)
-                    << " crossDepth=" << cursor_distance
-                    << " r_slant=" << rSlantAbs
-                    << " depth=" << depthAbs
-                    << " side=" << side;
-
-                const QPointF worldPt = p->worldTransform().inverted().map(QPointF(cursor.mouseX, cursor.mouseY));
-                qDebug() << "[AIM] worldX=" << worldPt.x() << "worldY=" << worldPt.y()
-                         << "W=" << parent->canvas().width() << "H=" << parent->canvas().height();
-                */
-            }
-
-            // --- crosshair ---
-            auto drawCrosshairAtWorld = [&](double lx, double ly){
-                const int Wlog = canvas.width();
-                const int Hlog = canvas.height();
-
-                // Horizontal line at ly across full world width
-                p->drawLine(QPointF(0,    ly), QPointF(Wlog, ly));
-                // Vertical line at lx across full world height
-                p->drawLine(QPointF(lx, 0),     QPointF(lx,  Hlog));
-            };
-            if (cand_.active && echogramPause_) {
-                if (cand_.crossDev.x() >= 0 && cand_.crossDev.y() >= 0) {
-
-                    QPoint devPt = cand_.active ? cand_.crossDev : QPoint(cursor.mouseX, cursor.mouseY);
-
-                    // dual-side SS is drawn rotated -90° → rotate the tap to match
-                    if (isDualSS) {
-                        // canvas.width() is the device width for this view
-                        devPt = devRotNeg90(devPt, canvas.width());
-                    }
-
-                    const QPointF crossWorld = Winv.map(QPointF(devPt));
-                    drawCrosshairAtWorld(crossWorld.x(), crossWorld.y());
-                }
-            }
-        }
-    }
-
-
-    //Paint the zoom box
-
-    if (cand_.active) {
-        // compute the world-space center under the crosshair
-        const bool isSideScan  = cursor.channel1.isValid() && cursor.channel2.isValid();
-        const bool isDualSS    = isSideScan && !isSideScan2DView_;
-
-        //QPoint devPtForSolve = QPoint(cursor.mouseX, cursor.mouseY);
-        QPoint devPtForSolve = cand_.crossDev;
-
-        if (isDualSS) {
-            devPtForSolve = devRotNeg90(devPtForSolve, canvas.width());
-        }
-
-        const QPointF crossWorld = Winv.map(QPointF(devPtForSolve)); // world/pixmap coords
-
-        // device-space anchor (using your existing placement convention)
-        QPoint popupAnchor = cand_.anchorDev;
-
-        if (isDualSS) {
-            popupAnchor = devRotNeg90(popupAnchor, canvas.width());
-        }
-
-        // zoombox input
-        Plot2DZoom::Input zin;
-        zin.echPixmap      = &parent->echogramPixmap(); // forwarder getter
-        zin.anchorPx       = popupAnchor;
-        zin.centerWorld    = crossWorld;
-        zin.viewport       = p->viewport();
-        zin.scale          = scaleFactor_;
-        zin.depthMeters    = std::isfinite(cand_.depth) ? std::abs(cand_.depth) : NAN;
-        zin.crossMeters    = std::isfinite(cursor_distance) ? std::abs(cursor_distance) : NAN;
-        zin.showAddBtn     = cand_.haveTarget;
-        zin.rotateForView  = !parent->isHorizontal();         // you rotate(-90) when vertical (:contentReference[oaicite:7]{index=7})
-        zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);
-        zin.boxSizePx      = 250;                             // your current size
-        zin.zoomFactor     = 3;
-        zin.dirSide        = cand_.tapSide;  // -1 left, +1 right (computed earlier)
-        zin.isDualSideScan = (cursor.channel1.isValid() && cursor.channel2.isValid()) && !isSideScan2DView_;
-        zin.isMetric       = isMetric_;
-        zin.captureTile    = cand_.haveTarget; // No need to capture a tile if there is no position
-
-        p->save();
-        p->resetTransform(); // draw in device space
-        const auto out = zoom_.draw(p, zin);
-        p->restore();
-
-        // zoom box objects that eventually will be touched
-        cand_.infoRect     = out.panelRect;
-        cand_.tapDeadRect  = out.tapDeadRect;
-        cand_.btnAbortRect = out.abortRect;
-        cand_.btnAddRect   = out.addRect;
-        cand_.zoomTile     = out.zoomTile;
-        if (cand_.active && hasTap_) {
-            QPoint tapDevNow(cursor.mouseX, cursor.mouseY);
-            if (isDualSS) tapDevNow = devRotNeg90(tapDevNow, canvas.width());
-
-            const int pad = 20 * scaleFactor_;
-            const QRect abortHit = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
-            const QRect addHit   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
-
-            if (cand_.infoRect.contains(tapDevNow) &&
-                !abortHit.contains(tapDevNow) &&
-                !addHit.contains(tapDevNow))
-            {
-                beenEpochEvent_ = false;     // swallow
-                debounce_.restart();         // avoid double-fire on some touch stacks
-                qDebug() << "[AIM] tap inside zoom consumed";
-                return true;
-            }
-        }
-    }
-
-    //Handle the user taps on screen and on the zoom square and its buttons when box is shown
-    if (cand_.active && hasTap_) {
-        //qDebug() << "AddWaypoint: plot2D_aim: Some tap registered";
-
-        // Always compute current tap in device space here (don’t trust earlier scope)
-        QPoint tapDevLocal(cursor.mouseX, cursor.mouseY);
-        if (isDualSS) tapDevLocal = devRotNeg90(tapDevLocal, canvas.width());
-
-        // Build padded hit rects first
-        const int pad = 20 * scaleFactor_;
-        const QRect abortRect = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
-        const QRect addRect   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
-        const QRect infoRect  = cand_.infoRect    .adjusted(-pad, -pad, +pad, +pad);
-
-        const bool onAbort = abortRect.contains(tapDevLocal);
-        const bool onAdd   = (!cand_.btnAddRect.isEmpty() && addRect.contains(tapDevLocal));
-        const bool onPanel = (!onAbort && !onAdd && infoRect.contains(tapDevLocal));
-
-        // --- Debounce & “skip opening tap” — but NEVER for button presses ---
-        if (!onAbort && !onAdd) {
-            if (debounce_.elapsed() < 120) {
-                beenEpochEvent_ = false;
-                return true; // consume non-button tap
-            }
-            debounce_.restart();
-
-            if (popupJustOpened_) {
-                popupJustOpened_ = false;
-                beenEpochEvent_  = false;
-                return true;    // consume the first non-button tap after opening
-            }
-        }
-
-        // From here we’ll handle the tap exactly once
+    const bool hasTap = beenEpochEvent_ && loupeEnabled;
+    if (beenEpochEvent_ && !loupeEnabled)
         beenEpochEvent_ = false;
 
-        //Abort button
-        if (onAbort) {
-            cand_.active = false;
-            cand_.haveTarget = false;
-            cand_.anchorDev = QPoint(-1, -1);
-            cand_.crossDev  = QPoint(-1, -1);
-            cursor.setMouse(-1, -1);
-            qDebug() << "AddWaypoint: plot2D_aim: Abort pressed";
-            return true;
-        }
+    const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
+    const bool isHorizontal = parent->isHorizontal();
 
-        //Add a waypoint button
-        if (onAdd && cand_.haveTarget) {
-            //static UdpBroadcaster g_udp;
+    // SAME condition as Plot2D::getImage() (plus side-scan guard)
+    const bool flipImage = isHorizontal && isSideScan && isSideScan2DView_ && isSideScanLeftHand_;
 
-            /*
-            // Possibly also an image
-            if (!cand_.zoomTile.isNull()) {
-                QByteArray pngBytes;
-                QBuffer buffer(&pngBytes);
-                buffer.open(QIODevice::WriteOnly);
-                cand_.zoomTile.save(&buffer, "PNG");
-                buffer.close();
-
-                // Option A: save to file (e.g. Pictures/PulseEcho/)
-                {
-                    QString baseDir =
-                        QStandardPaths::writableLocation(QStandardPaths::PicturesLocation)
-                        + "/PulseEcho/";
-                    QDir().mkpath(baseDir);
-
-                    QString fileName = baseDir
-                                       + QDateTime::currentDateTimeUtc().toString("'echo_'yyyyMMdd_hhmmsszzz'.png'");
-                    QFile f(fileName);
-                    if (f.open(QIODevice::WriteOnly)) {
-                        f.write(pngBytes);
-                        f.close();
-                        qDebug() << "AddWaypoint: saved zoom PNG to" << fileName;
-                    } else {
-                        qDebug() << "AddWaypoint: failed to save zoom PNG to" << fileName;
-                    }
-                }
-
-                // Option B (optional): include base64 PNG in JSON via a new UDP method
-                // QByteArray b64 = pngBytes.toBase64();
-                // g_udp.sendJsonPointWithSnapshot(
-                //     cand_.lat, cand_.lon,
-                //     std::isfinite(cand_.depth) ? cand_.depth : NAN,
-                //     cand_.model, "Pulse",
-                //     b64
-                // );
-            }
-
-            g_udp.sendJsonPoint(
-                cand_.lat, cand_.lon,
-                std::isfinite(cand_.depth) ? cand_.depth : NAN,
-                cand_.model, "Pulse"
-                );
-            */
-            // Build data to be sent by UDP
-            QByteArray snapshotB64;
-
-            // Also send a tile?
-            if (!cand_.zoomTile.isNull()) {
-                QByteArray pngBytes;
-                QBuffer buffer(&pngBytes);
-                buffer.open(QIODevice::WriteOnly);
-
-                if (cand_.zoomTile.save(&buffer, "PNG")) {
-                    buffer.close();
-                    snapshotB64 = pngBytes.toBase64();   // may be ~10–20 KB; fine for UDP
-                    qDebug() << "AddWaypoint: encoded zoom PNG, size =" << pngBytes.size()
-                             << "bytes, b64 size =" << snapshotB64.size() << "bytes";
-                } else {
-                    buffer.close();
-                    qDebug() << "AddWaypoint: failed to encode zoom PNG";
-                }
-            } else {
-                qDebug() << "AddWaypoint: no zoom tile available; sending waypoint without snapshot";
-            }
-
-            // --- Single JSON send, with snapshot ---
-            /*
-            g_udp.sendJsonPointWithSnapshot(
-                 cand_.lat,
-                 cand_.lon,
-                 std::isfinite(cand_.depth) ? cand_.depth : NAN,
-                 cand_.model,
-                 "Pulse",
-                 snapshotB64
-            );
-            */
-            // --- Single JSON send, with snapshot ---
-
-            UdpBroadcaster::instance().sendJsonPoint(
-                cand_.lat,
-                cand_.lon,
-                std::isfinite(cand_.depth) ? cand_.depth : NAN,
-                cand_.model,
-                "Pulse"
-                );
-
-            /*
-            g_udp.sendJsonPoint(
-                cand_.lat,
-                cand_.lon,
-                std::isfinite(cand_.depth) ? cand_.depth : NAN,
-                cand_.model,
-                "Pulse"
-            );
-            */
-
-
-            // Clear candidate
-            cand_.active = false;
-            cand_.haveTarget = false;
-            cand_.anchorDev = QPoint(-1, -1);
-            cand_.crossDev  = QPoint(-1, -1);
-            cursor.setMouse(-1, -1);
-            qDebug() << "AddWaypoint: plot2D_aim: Add WP pressed";
-            return true;
-        }
-
-        //Tapped inside the panel (not a button) → consume
-        if (onPanel) {
-            qDebug() << "AddWaypoint: plot2D_aim: panel pressed";
-            return true;
-        }
-    }
-    return true;
-}
-
-
-// Updated method provided by Eugeniy
-
-/*
-
-bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
-{
-    auto& canvas = parent->canvas();
-    auto& cursor = parent->cursor();
-
-    if (!dataset ||
-        ((cursor.mouseX < 0 || cursor.mouseY < 0) && (cursor.selectEpochIndx == -1))) {
-        return false;
-    }
-
+    // -----------------------------
+    // Upstream: if epoch is selected, reposition cursor.mouseX/Y
+    // -----------------------------
     if (cursor.selectEpochIndx != -1) {
         auto* ep = dataset->fromIndex(cursor.selectEpochIndx);
         int offsetX = 0;
@@ -1009,24 +436,24 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
             auto* chartPtr = ep->chart(channelId, subChannelId);
             if (!chartPtr && !datasetChannels.empty()) {
-                // Fallback to legacy behavior if selected channel has no chart in this epoch.
                 chartPtr = ep->chart(datasetChannels.at(0).channelId_, datasetChannels.at(0).subChannelId_);
             }
 
             if (chartPtr) {
                 const int x = canvas.width() / 2 + offsetX;
+
                 float bottomDistance = chartPtr->bottomProcessing.distance;
-                if (!std::isfinite(bottomDistance)) {
+                if (!std::isfinite(bottomDistance))
                     bottomDistance = 0.0f;
-                }
 
                 const float distanceRange = cursor.distance.range();
-                int y = (cursor.channel2 != CHANNEL_NONE) ? canvas.height() / 2 : 0;
+                int y = (cursor.channel2.isValid()) ? canvas.height() / 2 : 0;
+
                 if (std::isfinite(distanceRange) && std::abs(distanceRange) > 1e-6f) {
-                    const float yFloat = (cursor.channel2 != CHANNEL_NONE)
-                        ? static_cast<float>(canvas.height()) * 0.5f
+                    const float yFloat = (cursor.channel2.isValid())
+                    ? static_cast<float>(canvas.height()) * 0.5f
                             - static_cast<float>(canvas.height()) * (bottomDistance / distanceRange)
-                        : static_cast<float>(canvas.height()) * (bottomDistance / distanceRange);
+                    : static_cast<float>(canvas.height()) * (bottomDistance / distanceRange);
                     y = qRound(yFloat);
                 }
 
@@ -1036,185 +463,640 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         }
     }
 
-    QPainter* p = canvas.painter();
+    const int H = qMax(1, canvas.height());
+    const int W = qMax(1, canvas.width());
 
-    QPen pen;
-    pen.setWidth(lineWidth_);
-    pen.setColor(lineColor_);
-    p->setPen(pen);
+    // rawPt: what cursor currently reports (matches finger/display Y for the flip case)
+    QPointF rawPt(cursor.mouseX, cursor.mouseY);
+    rawPt.setX(qBound(0.0, rawPt.x(), double(W - 1)));
+    rawPt.setY(qBound(0.0, rawPt.y(), double(H - 1)));
 
-    QFont font("Asap", 14 * scaleFactor_, QFont::Normal);
-    font.setPixelSize(18 * scaleFactor_);
-    p->setFont(font);
-
-    if (cursor._tool == MouseToolNothing || beenEpochEvent_) {
-        p->drawLine(0,             cursor.mouseY, canvas.width(),  cursor.mouseY);
-        p->drawLine(cursor.mouseX, 0,             cursor.mouseX, canvas.height());
+    // crossLogical: the logical/pixmap coordinate we MUST use for crosshair + zoom crop
+    QPointF crossLogical = rawPt;
+    if (flipImage) {
+        crossLogical.setY(double(H - 1) - crossLogical.y());
     }
 
-    float canvas_height  = static_cast<float>(canvas.height());
-    float value_range    = cursor.distance.to - cursor.distance.from;
-    float value_scale    = float(cursor.mouseY) / canvas_height;
-    float cursor_distance = value_scale * value_range + cursor.distance.from;
+    // Mapping logical -> overlay/device for UI placement & hit testing
+    const QRect deviceVp = p->viewport();
+    const QTransform L2D = p->combinedTransform();
+    auto logicalToOverlay = [&](const QPointF& pt) -> QPoint {
+        return (L2D.map(pt).toPoint() - deviceVp.topLeft());
+    };
 
-    p->setCompositionMode(QPainter::CompositionMode_SourceOver);
+    bool eventConsumed = false;
 
-    QString distanceText = QString(QObject::tr("%1 m")).arg(cursor_distance, 0, 'g', 4);
-    QString text = distanceText;
+    // ---------------------------------------------------------
+    // 1) If popup is active and we got an event: PANEL/BUTTONS WIN FIRST.
+    // ---------------------------------------------------------
+    if (cand_.active && hasTap) {
+        const QPoint tapOverlay = logicalToOverlay(crossLogical);
 
-    auto [channelId, subIndx, name] = parent->getSelectedChannelId();
+        const int pad = 20 * scaleFactor_;
+        const QRect panelHit = cand_.infoRect.adjusted(-pad, -pad, +pad, +pad);
+        const QRect abortHit = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
+        const QRect addHit   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
 
-    if (channelId != CHANNEL_NONE) {
-        text += "\n" + QObject::tr("Channel: ") + QString("%1").arg(name);
+        if (panelHit.contains(tapOverlay)) {
+            const bool onAbort = abortHit.contains(tapOverlay);
+            const bool onAdd   = (!cand_.btnAddRect.isEmpty() && addHit.contains(tapOverlay));
+
+            beenEpochEvent_ = false;
+            eventConsumed = true;
+
+            if (onAbort) {
+                cand_.active = false;
+                cand_.haveTarget = false;
+                cand_.anchorDev = QPoint(-1, -1);
+                cand_.crossDev  = QPoint(-1, -1);
+                cursor.setMouse(-1, -1);
+                return true;
+            }
+
+            if (onAdd && cand_.haveTarget) {
+                UdpBroadcaster::instance().sendJsonPoint(
+                    cand_.lat,
+                    cand_.lon,
+                    std::isfinite(cand_.depth) ? cand_.depth : NAN,
+                    cand_.model,
+                    "Pulse"
+                    );
+
+                cand_.active = false;
+                cand_.haveTarget = false;
+                cand_.anchorDev = QPoint(-1, -1);
+                cand_.crossDev  = QPoint(-1, -1);
+                cursor.setMouse(-1, -1);
+                return true;
+            }
+
+            // Tap on panel (not buttons): swallow, do not re-aim behind
+        }
     }
 
-    if (cursor.currentEpochIndx != -1) {
-        text += "\n" + QObject::tr("Epoch: ")   + QString::number(cursor.currentEpochIndx);
+    // ---------------------------------------------------------
+    // 2) If we got an event and it wasn’t consumed: aim update (tap/drag on echogram)
+    // ---------------------------------------------------------
+    if (hasTap && !eventConsumed) {
+        const int data_width = dataset->size();
 
-        if (auto* ep = dataset->fromIndex(cursor.currentEpochIndx); ep) {
-            if (auto* echogram = ep->chart(channelId, subIndx); echogram) {
-                //qDebug() << "errs[" << cursor.currentEpochIndx << "]:"<< echogram->chartParameters_.errList;
-                //qDebug() << "size[" << cursor.currentEpochIndx << "]:"<< echogram->amplitude.size();
-                //qDebug() << "RES[" << cursor.currentEpochIndx << "]:" << echogram->resolution;
+        int epochIdxForTap = -1;
+        if (cursor.selectEpochIndx != -1)
+            epochIdxForTap = cursor.selectEpochIndx;
+        else
+            epochIdxForTap = cursor.currentEpochIndx;
 
-                if (!echogram->recordParameters_.isNull()) {
-                    auto& recParams = echogram->recordParameters_;
-                    QString boostStr = recParams.boost ? QObject::tr("ON") : QObject::tr("OFF");
-                    text += "\n" + QObject::tr("Resolution, mm: ")      + QString::number(recParams.resol);
-                    //text += "\n" + QObject::tr("Number of Samples: ") + QString::number(recParams.count);
-                    //text += "\n" + QObject::tr("Offset of samples: ")     + QString::number(recParams.offset);
-                    text += "\n" + QObject::tr("Frequency, kHz: ")      + QString::number(recParams.freq);
-                    text += "\n" + QObject::tr("Pulse count: ")         + QString::number(recParams.pulse);
-                    text += "\n" + QObject::tr("Booster: ")             + boostStr;
-                    text += "\n" + QObject::tr("Speed of sound, m/s: ") + QString::number(recParams.soundSpeed / 1000);
+        if (epochIdxForTap < 0 || epochIdxForTap >= data_width)
+            epochIdxForTap = qBound(0, cursor.currentEpochIndx, data_width - 1);
+
+        // Which side (for SS)
+        int side = 0;
+        if (isSideScan) {
+            if (isSideScan2DView_) {
+                side = isSideScanLeftHand_ ? -1 : +1;
+            } else {
+                const int midY = H / 2;
+                // NOTE: in non-2D SS, use LOGICAL y (crossLogical) for side split
+                side = (int(crossLogical.y()) < midY) ? -1 : +1;
+            }
+        }
+
+        // Depth from tapped epoch
+        double depth = NAN;
+        if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
+            if (isSideScan) {
+                auto [selCh, selSub, selName] = parent->getSelectedChannelId();
+                if (auto* eg = epTap->chart(selCh, selSub)) {
+                    depth = eg->bottomProcessing.getDistance();
+                }
+            } else {
+                depth = epTap->rangeFinder();
+            }
+            if (!std::isfinite(depth) || depth < 0) {
+                depth = epTap->rangeFinder();
+            }
+        }
+
+        // ---- crossMeters/slant range: compute from DISPLAY Y (finger expectation) ----
+        // displayY for the tap frame is rawPt.y()
+        const double axisRange = std::abs(double(cursor.distance.to - cursor.distance.from));
+        double tDisp = (H > 0) ? (double(rawPt.y()) / double(H)) : 0.0;
+        tDisp = qBound(0.0, tDisp, 1.0);
+
+        double cursor_distance = 0.0;
+        if (isSideScan && isSideScan2DView_) {
+            cursor_distance = std::abs(tDisp * axisRange);
+        } else {
+            const double val = double(cursor.distance.from) + tDisp * double(cursor.distance.to - cursor.distance.from);
+            cursor_distance = std::abs(val);
+        }
+
+        const double depthAbs  = std::isfinite(depth) ? std::abs(depth) : NAN;
+        const double rSlantAbs = std::isfinite(cursor_distance) ? std::abs(cursor_distance) : NAN;
+
+        // Nearest GNSS + yaw
+        const int maxLookEpochs = 12;
+        const int lastCap = isPaused() ? lastIndexAtPause_ : (data_width - 1);
+
+        auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
+                                                       maxLookEpochs, 0, lastCap);
+        auto nearestYaw = findNearestYawByIndexRanged(dataset, epochIdxForTap,
+                                                      maxLookEpochs, 0, lastCap);
+
+        if (!nearestPos.found)
+            nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
+                                                      maxLookEpochs, 0, data_width - 1);
+        if (!nearestYaw.found)
+            nearestYaw = findNearestYawByIndexRanged(dataset, epochIdxForTap,
+                                                     maxLookEpochs, 0, data_width - 1);
+
+        // Solve target
+        double txLat = NAN, txLon = NAN;
+        bool haveTarget = false;
+
+        if (nearestPos.found && nearestYaw.found) {
+            const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
+            const double yaw_rad = deg2rad(nearestYaw.yawDeg);
+
+            const bool isDualSS = isSideScan && !isSideScan2DView_;
+            const bool forceWaterColumn = !isDualSS;
+
+            const bool waterColumn = forceWaterColumn
+                                     || !std::isfinite(depthAbs)
+                                     || (std::isfinite(rSlantAbs) && (rSlantAbs <= depthAbs + kWaterMargin));
+
+            if (waterColumn) {
+                txLat = boat.lat;
+                txLon = boat.lon;
+                haveTarget = true;
+            } else {
+                const auto sol = solveSidescanTap(boat, yaw_rad, rSlantAbs, depthAbs, side);
+                if (sol.ok && !sol.wasWaterColumn) {
+                    txLat = sol.point.lat;
+                    txLon = sol.point.lon;
+                    haveTarget = true;
                 }
             }
         }
+
+        // Store candidate:
+        cand_.active      = true;
+        cand_.crossDev    = crossLogical.toPoint();          // LOGICAL/PIXMAP (flipped when needed)
+        cand_.anchorDev   = logicalToOverlay(crossLogical);  // OVERLAY/DEVICE
+        cand_.lat         = txLat;
+        cand_.lon         = txLon;
+        cand_.depth       = depthAbs;
+        cand_.yawDeg      = nearestYaw.found ? nearestYaw.yawDeg : NAN;
+        cand_.model       = isSideScan ? "SS" : "2D";
+        cand_.tapEpochIdx = epochIdxForTap;
+        cand_.tapRangeM   = rSlantAbs;
+        cand_.tapIsSS     = isSideScan;
+        cand_.tapSide     = side;
+        cand_.haveTarget  = haveTarget;
+
+        beenEpochEvent_ = false; // consume
     }
 
-    QRect textRect = p->fontMetrics().boundingRect(QRect(0, 0, 9999, 9999), Qt::AlignLeft | Qt::AlignTop, text);
-
-    const int xShift = 50 * scaleFactor_;
-    const int yShift = 40 * scaleFactor_;
-    const int textMargin = 5 * scaleFactor_;
-    const QRect textBackgroundLocal = textRect.adjusted(-textMargin, -textMargin, textMargin, textMargin);
-    const int textBoxWidth = textBackgroundLocal.width();
-    const int textBoxHeight = textBackgroundLocal.height();
-
-    const bool loupeEnabled = parent->getLoupeVisible();
-    const int loupeSize = qBound(1, parent->getLoupeSize(), 3);
-    const int loupeZoom = qBound(1, parent->getLoupeZoom(), 3);
-    const float loupeSizeMultiplier = (loupeSize == 1) ? 1.0f : ((loupeSize == 2) ? 1.5f : 2.25f);
-    const float loupeZoomMultiplier = (loupeZoom == 1) ? 1.0f : ((loupeZoom == 2) ? 1.5f : 2.25f);
-    const int previewFrameMargin = 10 * scaleFactor_;
-    const int maxPreviewSize = qMin(canvas.width() - previewFrameMargin * 2, canvas.height() - previewFrameMargin * 2);
-    const bool hasPreview = loupeEnabled && maxPreviewSize > 30 * scaleFactor_;
-    const int previewSize = hasPreview ? qMin(static_cast<int>(180.0f * scaleFactor_ * loupeSizeMultiplier), maxPreviewSize) : 0;
-    const int previewSourceBaseSize = hasPreview ? qMax(8, previewSize / 4) : 0;
-    const int previewSourceSize = hasPreview
-        ? qMax(4, static_cast<int>(static_cast<float>(previewSourceBaseSize) / loupeZoomMultiplier))
-        : 0;
-    const int previewGap = hasPreview ? 14 * scaleFactor_ : 0;
-
-    const int layoutWidth = textBoxWidth + (hasPreview ? previewGap + previewSize : 0);
-    const int layoutHeight = qMax(textBoxHeight, hasPreview ? previewSize : 0);
-    const int layoutMargin = previewFrameMargin;
-
-    const int rightStartX = cursor.mouseX + xShift;
-    const int leftEndX = cursor.mouseX - xShift;
-    const int availableRight = canvas.width() - layoutMargin - rightStartX;
-    const int availableLeft = leftEndX - layoutMargin;
-
-    bool placeToRight = true;
-    if (availableRight < layoutWidth && availableLeft >= layoutWidth) {
-        placeToRight = false;
-    }
-    else if (availableRight < layoutWidth && availableLeft < layoutWidth) {
-        placeToRight = availableRight >= availableLeft;
+    // Let it follow cursor movement when no discrete event
+    if (cand_.active && !hasTap) {
+        cand_.crossDev  = crossLogical.toPoint();
+        cand_.anchorDev = logicalToOverlay(crossLogical);
     }
 
-    const int aboveY = cursor.mouseY - yShift - layoutHeight;
-    const int belowY = cursor.mouseY + yShift;
-    const bool canPlaceAbove = aboveY >= layoutMargin;
-    const bool canPlaceBelow = belowY + layoutHeight <= canvas.height() - layoutMargin;
+    // Final aim point for draw + zoom + telemetry
+    const QPointF aimLogical = cand_.active ? QPointF(cand_.crossDev) : crossLogical;
 
-    bool placeBelow = false;
-    if (!canPlaceAbove && canPlaceBelow) {
-        placeBelow = true;
+    // ---- Telemetry crossMeters: compute from DISPLAY Y (inverse-flip if needed) ----
+    double displayY = aimLogical.y();
+    if (flipImage) {
+        displayY = double(H - 1) - displayY;
     }
-    else if (!canPlaceAbove && !canPlaceBelow) {
-        const int visibleAbove = qMax(0, cursor.mouseY - yShift - layoutMargin);
-        const int visibleBelow = qMax(0, canvas.height() - layoutMargin - (cursor.mouseY + yShift));
-        placeBelow = visibleBelow > visibleAbove;
-    }
+    displayY = qBound(0.0, displayY, double(H - 1));
 
-    int layoutX = placeToRight ? rightStartX : cursor.mouseX - xShift - layoutWidth;
-    int layoutY = placeBelow ? belowY : aboveY;
-    layoutX = qBound(layoutMargin, layoutX, qMax(layoutMargin, canvas.width() - layoutMargin - layoutWidth));
-    layoutY = qBound(layoutMargin, layoutY, qMax(layoutMargin, canvas.height() - layoutMargin - layoutHeight));
+    const double axisRange = std::abs(double(cursor.distance.to - cursor.distance.from));
+    double tDisp = (H > 0) ? (displayY / double(H)) : 0.0;
+    tDisp = qBound(0.0, tDisp, 1.0);
 
-    int textBoxX = layoutX;
-    int previewX = layoutX;
-    if (hasPreview) {
-        if (placeToRight) {
-            textBoxX = layoutX;
-            previewX = textBoxX + textBoxWidth + previewGap;
-        }
-        else {
-            previewX = layoutX;
-            textBoxX = previewX + previewSize + previewGap;
-        }
+    double cursor_distance = 0.0;
+    if (isSideScan && isSideScan2DView_) {
+        cursor_distance = std::abs(tDisp * axisRange);
+    } else {
+        const double val = double(cursor.distance.from) + tDisp * double(cursor.distance.to - cursor.distance.from);
+        cursor_distance = std::abs(val);
     }
 
-    const int textBoxY = layoutY + (layoutHeight - textBoxHeight) / 2;
-    const QRect textBackgroundRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
-    textRect = textBackgroundRect.adjusted(textMargin, textMargin, -textMargin, -textMargin);
+    // Draw outer crosshair LAST (synced with zoom center)
+    {
+        const QPoint drawPt = aimLogical.toPoint();
+        p->drawLine(0,          drawPt.y(), canvas.width(),  drawPt.y());
+        p->drawLine(drawPt.x(), 0,          drawPt.x(),      canvas.height());
+    }
 
-    p->setPen(Qt::NoPen);
-    p->setBrush(QColor(45, 45, 45));
-    p->drawRect(textBackgroundRect);
+    // Draw your zoom panel when active
+    if (cand_.active) {
+        Plot2DZoom::Input zin;
+        zin.echPixmap      = &parent->echogramPixmap();
+        zin.centerWorld    = QPointF(cand_.crossDev); // pixmap crop space (logical)
+        zin.anchorPx       = cand_.anchorDev;         // overlay UI space
+        zin.viewport       = QRect(0, 0, deviceVp.width(), deviceVp.height());
+        zin.scale          = scaleFactor_;
+        zin.depthMeters    = std::isfinite(cand_.depth) ? cand_.depth : NAN;
+        zin.crossMeters    = std::isfinite(cursor_distance) ? cursor_distance : NAN;
+        zin.showAddBtn     = cand_.haveTarget;
+        zin.rotateForView  = !parent->isHorizontal();
+        zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);
+        zin.boxSizePx      = 250;
+        zin.zoomFactor     = 3;
+        zin.dirSide        = cand_.tapSide;
+        zin.isDualSideScan = (isSideScan && !isSideScan2DView_);
+        zin.isMetric       = isMetric_;
+        zin.captureTile    = cand_.haveTarget;
 
-    p->setPen(QColor(255, 255, 255));
-    p->drawText(textRect, Qt::AlignLeft | Qt::AlignTop, text);
+        p->save();
+        p->resetTransform();
+        p->setViewport(QRect(0, 0, deviceVp.width(), deviceVp.height()));
+        p->setWindow  (QRect(0, 0, deviceVp.width(), deviceVp.height()));
 
-    if (hasPreview) {
-        const int previewY = layoutY + (layoutHeight - previewSize) / 2;
-        QRect previewRect(previewX, previewY, previewSize, previewSize);
-        QRect previewInnerRect = previewRect.adjusted(3, 3, -3, -3);
-        QPoint sourceCenter(qBound(0, cursor.mouseX, canvas.width() - 1),
-                            qBound(0, cursor.mouseY, canvas.height() - 1));
+        const auto out = zoom_.draw(p, zin);
+        p->restore();
 
-        p->setPen(Qt::NoPen);
-        p->setBrush(QColor(30, 30, 30, 220));
-        p->drawRect(previewRect);
-        QPointF previewFocus(0.5, 0.5);
-        parent->drawEchogramZoomPreview(p, previewInnerRect, sourceCenter, previewSourceSize, &previewFocus);
-
-        p->setPen(QPen(QColor(94, 101, 132, 255), 2));
-        p->setBrush(Qt::NoBrush);
-        p->drawRect(previewRect.adjusted(1, 1, -1, -1));
-
-        const qreal focusX = qBound<qreal>(0.0, previewFocus.x(), 1.0);
-        const qreal focusY = qBound<qreal>(0.0, previewFocus.y(), 1.0);
-        const int zoomCenterX = previewInnerRect.left()
-            + qRound(focusX * static_cast<qreal>(qMax(0, previewInnerRect.width() - 1)));
-        const int zoomCenterY = previewInnerRect.top()
-            + qRound(focusY * static_cast<qreal>(qMax(0, previewInnerRect.height() - 1)));
-        const int crossHalf = qMax(6 * scaleFactor_, previewInnerRect.width() / 10);
-        const int leftArm = qMin(crossHalf, qMax(0, zoomCenterX - previewInnerRect.left()));
-        const int rightArm = qMin(crossHalf, qMax(0, previewInnerRect.right() - zoomCenterX));
-        const int topArm = qMin(crossHalf, qMax(0, zoomCenterY - previewInnerRect.top()));
-        const int bottomArm = qMin(crossHalf, qMax(0, previewInnerRect.bottom() - zoomCenterY));
-        p->setPen(QPen(QColor(255, 255, 255, 220), 2));
-        p->drawLine(zoomCenterX - leftArm, zoomCenterY, zoomCenterX + rightArm, zoomCenterY);
-        p->drawLine(zoomCenterX, zoomCenterY - topArm, zoomCenterX, zoomCenterY + bottomArm);
+        cand_.infoRect     = out.panelRect;
+        cand_.tapDeadRect  = out.tapDeadRect;
+        cand_.btnAbortRect = out.abortRect;
+        cand_.btnAddRect   = out.addRect;
+        cand_.zoomTile     = out.zoomTile;
     }
 
     return true;
 }
 
- */
 
+// THIS VERSION: Perfect for everything but 2D view left hand side
+/*
+bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
+{
+    setPause(parent, dataset, echogramPause_);
+
+    auto& canvas = parent->canvas();
+    auto& cursor = parent->cursor();
+
+    if (needClearUi_) {
+        cand_.active     = false;
+        cand_.haveTarget = false;
+        cursor.setMouse(-1, -1);
+        cand_.anchorDev  = QPoint(-1, -1);   // OVERLAY coords in this method
+        cand_.crossDev   = QPoint(-1, -1);   // LOGICAL/PIXMAP coords in this method
+        needClearUi_     = false;
+    }
+
+    if (!dataset)
+        return false;
+
+    // Ability ONLY active when paused
+    const bool loupeEnabled = echogramPause_;
+    if (!loupeEnabled) {
+        cand_.active = false;
+        cand_.haveTarget = false;
+        beenEpochEvent_ = false;
+        return false;
+    }
+
+    if ((cursor.mouseX < 0 || cursor.mouseY < 0) && (cursor.selectEpochIndx == -1))
+        return false;
+
+    QPainter* p = canvas.painter();
+
+    // Pen/font like upstream
+    {
+        QPen pen;
+        pen.setWidth(lineWidth_);
+        pen.setColor(lineColor_);
+        p->setPen(pen);
+
+        QFont font("Asap", 14 * scaleFactor_, QFont::Normal);
+        font.setPixelSize(18 * scaleFactor_);
+        p->setFont(font);
+    }
+
+    const bool hasTap = beenEpochEvent_ && loupeEnabled;
+    if (beenEpochEvent_ && !loupeEnabled)
+        beenEpochEvent_ = false;
+
+    // -----------------------------
+    // Upstream: if epoch is selected, reposition cursor.mouseX/Y
+    // -----------------------------
+    if (cursor.selectEpochIndx != -1) {
+        auto* ep = dataset->fromIndex(cursor.selectEpochIndx);
+        int offsetX = 0;
+        int halfCanvas = canvas.width() / 2;
+        int withoutHalf = dataset->size() - halfCanvas;
+
+        if (cursor.selectEpochIndx >= withoutHalf) {
+            offsetX = cursor.selectEpochIndx - withoutHalf;
+        }
+
+        if (ep) {
+            ChannelId channelId = cursor.channel1;
+            uint8_t subChannelId = cursor.subChannel1;
+
+            const auto datasetChannels = dataset->channelsList();
+            if (!channelId.isValid() && !datasetChannels.empty()) {
+                channelId = datasetChannels.at(0).channelId_;
+                subChannelId = datasetChannels.at(0).subChannelId_;
+            }
+
+            auto* chartPtr = ep->chart(channelId, subChannelId);
+            if (!chartPtr && !datasetChannels.empty()) {
+                chartPtr = ep->chart(datasetChannels.at(0).channelId_, datasetChannels.at(0).subChannelId_);
+            }
+
+            if (chartPtr) {
+                const int x = canvas.width() / 2 + offsetX;
+
+                float bottomDistance = chartPtr->bottomProcessing.distance;
+                if (!std::isfinite(bottomDistance))
+                    bottomDistance = 0.0f;
+
+                const float distanceRange = cursor.distance.range();
+                int y = (cursor.channel2.isValid()) ? canvas.height() / 2 : 0;
+
+                if (std::isfinite(distanceRange) && std::abs(distanceRange) > 1e-6f) {
+                    const float yFloat = (cursor.channel2.isValid())
+                    ? static_cast<float>(canvas.height()) * 0.5f
+                            - static_cast<float>(canvas.height()) * (bottomDistance / distanceRange)
+                    : static_cast<float>(canvas.height()) * (bottomDistance / distanceRange);
+                    y = qRound(yFloat);
+                }
+
+                y = qBound(0, y, qMax(0, canvas.height() - 1));
+                cursor.setMouse(x, y);
+            }
+        }
+    }
+
+    // Crosshair point in *logical/pixmap* space (correct crop space)
+    QPointF crossLogical(cursor.mouseX, cursor.mouseY);
+    crossLogical.setX(qBound(0.0, crossLogical.x(), double(qMax(0, canvas.width() - 1))));
+    crossLogical.setY(qBound(0.0, crossLogical.y(), double(qMax(0, canvas.height() - 1))));
+
+    // Mapping logical -> overlay/device for UI placement & hit testing
+    const QRect deviceVp = p->viewport();
+    const QTransform L2D = p->combinedTransform();
+    auto logicalToOverlay = [&](const QPointF& pt) -> QPoint {
+        return (L2D.map(pt).toPoint() - deviceVp.topLeft());
+    };
+
+    const bool isSideScan = cursor.channel1.isValid() && cursor.channel2.isValid();
+
+    bool eventConsumed = false;
+
+    // ---------------------------------------------------------
+    // 1) If popup is active and we got an event: PANEL/BUTTONS MUST WIN FIRST.
+    //    This is what re-enables tapping the buttons.
+    // ---------------------------------------------------------
+    if (cand_.active && hasTap) {
+        const QPoint tapOverlay = logicalToOverlay(crossLogical);
+
+        const int pad = 20 * scaleFactor_;
+        const QRect panelHit = cand_.infoRect.adjusted(-pad, -pad, +pad, +pad);
+        const QRect abortHit = cand_.btnAbortRect.adjusted(-pad, -pad, +pad, +pad);
+        const QRect addHit   = cand_.btnAddRect  .adjusted(-pad, -pad, +pad, +pad);
+
+        if (panelHit.contains(tapOverlay)) {
+            const bool onAbort = abortHit.contains(tapOverlay);
+            const bool onAdd   = (!cand_.btnAddRect.isEmpty() && addHit.contains(tapOverlay));
+
+            beenEpochEvent_ = false;
+            eventConsumed = true;
+
+            if (onAbort) {
+                cand_.active = false;
+                cand_.haveTarget = false;
+                cand_.anchorDev = QPoint(-1, -1);
+                cand_.crossDev  = QPoint(-1, -1);
+                cursor.setMouse(-1, -1);
+                return true;
+            }
+
+            if (onAdd && cand_.haveTarget) {
+                UdpBroadcaster::instance().sendJsonPoint(
+                    cand_.lat,
+                    cand_.lon,
+                    std::isfinite(cand_.depth) ? cand_.depth : NAN,
+                    cand_.model,
+                    "Pulse"
+                    );
+
+                cand_.active = false;
+                cand_.haveTarget = false;
+                cand_.anchorDev = QPoint(-1, -1);
+                cand_.crossDev  = QPoint(-1, -1);
+                cursor.setMouse(-1, -1);
+                return true;
+            }
+
+            // Tap on panel but not on buttons => swallow it (do NOT re-aim behind).
+            // IMPORTANT: do NOT return; we still draw the panel this frame (no flicker).
+        }
+    }
+
+    // ---------------------------------------------------------
+    // 2) If we got an event and it wasn’t consumed by panel/buttons:
+    //    treat it as “aim update” (works for both tap and drag on the echogram).
+    // ---------------------------------------------------------
+    if (hasTap && !eventConsumed) {
+        const int data_width = dataset->size();
+
+        int epochIdxForTap = -1;
+        if (cursor.selectEpochIndx != -1)
+            epochIdxForTap = cursor.selectEpochIndx;
+        else
+            epochIdxForTap = cursor.currentEpochIndx;
+
+        if (epochIdxForTap < 0 || epochIdxForTap >= data_width)
+            epochIdxForTap = qBound(0, cursor.currentEpochIndx, data_width - 1);
+
+        // Which side (for SS)
+        int side = 0;
+        if (isSideScan) {
+            if (isSideScan2DView_) {
+                side = isSideScanLeftHand_ ? -1 : +1;
+            } else {
+                const int midY = canvas.height() / 2;
+                side = (int(crossLogical.y()) < midY) ? -1 : +1;
+            }
+        }
+
+        // Depth from tapped epoch
+        double depth = NAN;
+        if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
+            if (isSideScan) {
+                auto [selCh, selSub, selName] = parent->getSelectedChannelId();
+                if (auto* eg = epTap->chart(selCh, selSub)) {
+                    depth = eg->bottomProcessing.getDistance();
+                }
+            } else {
+                depth = epTap->rangeFinder();
+            }
+            if (!std::isfinite(depth) || depth < 0) {
+                depth = epTap->rangeFinder();
+            }
+        }
+
+        // crossMeters from crossLogical
+        const double axisRange = std::abs(double(cursor.distance.to - cursor.distance.from));
+        double t = (canvas.height() > 0) ? (double(crossLogical.y()) / double(canvas.height())) : 0.0;
+        t = qBound(0.0, t, 1.0);
+
+        if (isSideScan2DView_ && isSideScanLeftHand_)
+            t = 1.0 - t;
+
+        double cursor_distance = 0.0;
+        if (isSideScan && isSideScan2DView_) {
+            cursor_distance = std::abs(t * axisRange);
+        } else {
+            const double val = double(cursor.distance.from) + t * double(cursor.distance.to - cursor.distance.from);
+            cursor_distance = std::abs(val);
+        }
+
+        const double depthAbs  = std::isfinite(depth) ? std::abs(depth) : NAN;
+        const double rSlantAbs = std::isfinite(cursor_distance) ? std::abs(cursor_distance) : NAN;
+
+        // Nearest GNSS + yaw
+        const int maxLookEpochs = 12;
+        const int lastCap = isPaused() ? lastIndexAtPause_ : (data_width - 1);
+
+        auto nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
+                                                       maxLookEpochs, 0, lastCap);
+        auto nearestYaw = findNearestYawByIndexRanged(dataset, epochIdxForTap,
+                                                      maxLookEpochs, 0, lastCap);
+
+        if (!nearestPos.found)
+            nearestPos = findNearestGNSSByIndexRanged(dataset, epochIdxForTap,
+                                                      maxLookEpochs, 0, data_width - 1);
+        if (!nearestYaw.found)
+            nearestYaw = findNearestYawByIndexRanged(dataset, epochIdxForTap,
+                                                     maxLookEpochs, 0, data_width - 1);
+
+        // Solve target
+        double txLat = NAN, txLon = NAN;
+        bool haveTarget = false;
+
+        if (nearestPos.found && nearestYaw.found) {
+            const GeoPoint boat{ nearestPos.pos.lla.latitude, nearestPos.pos.lla.longitude };
+            const double yaw_rad = deg2rad(nearestYaw.yawDeg);
+
+            const bool isDualSS = isSideScan && !isSideScan2DView_;
+            const bool forceWaterColumn = !isDualSS;
+
+            const bool waterColumn = forceWaterColumn
+                                     || !std::isfinite(depthAbs)
+                                     || (std::isfinite(rSlantAbs) && (rSlantAbs <= depthAbs + kWaterMargin));
+
+            if (waterColumn) {
+                txLat = boat.lat;
+                txLon = boat.lon;
+                haveTarget = true;
+            } else {
+                const auto sol = solveSidescanTap(boat, yaw_rad, rSlantAbs, depthAbs, side);
+                if (sol.ok && !sol.wasWaterColumn) {
+                    txLat = sol.point.lat;
+                    txLon = sol.point.lon;
+                    haveTarget = true;
+                }
+            }
+        }
+
+        // Store candidate:
+        cand_.active      = true;
+        cand_.crossDev    = crossLogical.toPoint();          // logical/pixmap
+        cand_.anchorDev   = logicalToOverlay(crossLogical);  // overlay/device
+        cursor.setMouse(cand_.crossDev.x(), cand_.crossDev.y());
+
+        cand_.lat         = txLat;
+        cand_.lon         = txLon;
+        cand_.depth       = depthAbs;
+        cand_.yawDeg      = nearestYaw.found ? nearestYaw.yawDeg : NAN;
+        cand_.model       = isSideScan ? "SS" : "2D";
+        cand_.tapEpochIdx = epochIdxForTap;
+        cand_.tapRangeM   = rSlantAbs;
+        cand_.tapIsSS     = isSideScan;
+        cand_.tapSide     = side;
+        cand_.haveTarget  = haveTarget;
+
+        beenEpochEvent_ = false; // consume
+    }
+
+    // Let it follow cursor movement when no discrete event (hover-like)
+    if (cand_.active && !hasTap) {
+        cand_.crossDev  = crossLogical.toPoint();
+        cand_.anchorDev = logicalToOverlay(crossLogical);
+    }
+
+    // Final aim point for draw + zoom + telemetry
+    const QPointF aimLogical = cand_.active ? QPointF(cand_.crossDev) : crossLogical;
+
+    // Telemetry: crossMeters from aimLogical
+    const double axisRange = std::abs(double(cursor.distance.to - cursor.distance.from));
+    double t = (canvas.height() > 0) ? (double(aimLogical.y()) / double(canvas.height())) : 0.0;
+    t = qBound(0.0, t, 1.0);
+
+    if (isSideScan2DView_ && isSideScanLeftHand_)
+        t = 1.0 - t;
+
+    double cursor_distance = 0.0;
+    if (isSideScan && isSideScan2DView_) {
+        cursor_distance = std::abs(t * axisRange);
+    } else {
+        const double val = double(cursor.distance.from) + t * double(cursor.distance.to - cursor.distance.from);
+        cursor_distance = std::abs(val);
+    }
+
+    // Draw outer crosshair LAST (synced with zoom center)
+    {
+        const QPoint drawPt = aimLogical.toPoint();
+        p->drawLine(0,          drawPt.y(), canvas.width(),  drawPt.y());
+        p->drawLine(drawPt.x(), 0,          drawPt.x(),      canvas.height());
+    }
+
+    // Draw your zoom panel when active
+    if (cand_.active) {
+        Plot2DZoom::Input zin;
+        zin.echPixmap      = &parent->echogramPixmap();
+        zin.centerWorld    = QPointF(cand_.crossDev); // pixmap crop space
+        zin.anchorPx       = cand_.anchorDev;         // overlay UI space
+        zin.viewport       = QRect(0, 0, deviceVp.width(), deviceVp.height());
+        zin.scale          = scaleFactor_;
+        zin.depthMeters    = std::isfinite(cand_.depth) ? cand_.depth : NAN;
+        zin.crossMeters    = std::isfinite(cursor_distance) ? cursor_distance : NAN;
+        zin.showAddBtn     = cand_.haveTarget;
+        zin.rotateForView  = !parent->isHorizontal();
+        zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);
+        zin.boxSizePx      = 250;
+        zin.zoomFactor     = 3;
+        zin.dirSide        = cand_.tapSide;
+        zin.isDualSideScan = (isSideScan && !isSideScan2DView_);
+        zin.isMetric       = isMetric_;
+        zin.captureTile    = cand_.haveTarget;
+
+        p->save();
+        p->resetTransform();
+        p->setViewport(QRect(0, 0, deviceVp.width(), deviceVp.height()));
+        p->setWindow  (QRect(0, 0, deviceVp.width(), deviceVp.height()));
+
+        const auto out = zoom_.draw(p, zin);
+        p->restore();
+
+        cand_.infoRect     = out.panelRect;
+        cand_.tapDeadRect  = out.tapDeadRect;
+        cand_.btnAbortRect = out.abortRect;
+        cand_.btnAddRect   = out.addRect;
+        cand_.zoomTile     = out.zoomTile;
+    }
+
+    return true;
+}
+*/
 
 
 void Plot2DAim::setEpochEventState(bool state)

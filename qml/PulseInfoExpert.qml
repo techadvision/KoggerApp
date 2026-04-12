@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Echo.UI 1.0
+import QtQuick.Window
 
 
 Flickable {
@@ -12,7 +13,9 @@ Flickable {
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
 
     // Platform related sizes
     property int controlIconSize: Math.round(24 * s)
@@ -20,7 +23,7 @@ Flickable {
     property int displayPixels:   Math.round(60 * s)
     property int valueTextWidth:  Math.round(60 * s)
     property int valueTextHeigh:  Math.round(40 * s)
-    property int valuePixels:     Ui.fontXL//Math.round(42 * s)
+    property int valuePixels:     Ui.fontL//Math.round(42 * s)
     property int autoPixels:      Math.round(32 * s)
     property int selectIconSize:  Math.round(64 * s)
     property int selectCheckSize: Math.round(48 * s)
@@ -74,6 +77,7 @@ Flickable {
 
         SettingRow {
             toggle: true
+            checkbox: true
             text: "Expert mode enabled"
             visible: pulseRuntimeSettings.expertMode
             SettingsCheckBox {
@@ -154,18 +158,6 @@ Flickable {
             }
         }
 
-        /*
-        SettingRow {
-            toggle: false
-            text: "Kill current connection"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
-            SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "forceBreakConnection"
-                initialChecked: pulseRuntimeSettings.forceBreakConnection
-            }
-        }
-        */
 
         SettingRow {
             toggle: false
@@ -409,6 +401,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             id: fakeDepthPushToggle
             text: "Push fake depth to KLF view"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthTricks
@@ -434,6 +427,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             id: resetFakeDepthPushToggle
             text: "Reset false depth"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthTricks
@@ -469,6 +463,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             id: bottomTrackToggle
             text: "Use bottom track depth"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.is2DTransducer
@@ -482,8 +477,10 @@ Flickable {
                 function onProcessBottomTrackChanged () {
                     if (pulseRuntimeSettings.processBottomTrack) {
                         pulseRuntimeSettings.isBottomTrackInitiated = true
+                        core.setBottomTrackRealtimeFromSettings(true)
                     } else {
                         pulseRuntimeSettings.isBottomTrackInitiated = false
+                        core.setBottomTrackRealtimeFromSettings(false)
                     }
                     console.log("DEV_PARAM: Measure by bottom track (instead of range finder)?", pulseRuntimeSettings.processBottomTrack, ", initiated?", pulseRuntimeSettings.isBottomTrackInitiated)
                 }
@@ -492,6 +489,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             id: bottomTrackToggleShowLines
             text: "Show visible bottom tracks"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.is2DTransducer
@@ -739,6 +737,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             id: activateDepthFilterToggle
             text: "Use depth filter"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.is2DTransducer
@@ -760,6 +759,7 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
             id: activateDepthFilterBottomTrackToggle
             text: "Use depth filter w/bottom track"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && !pulseRuntimeSettings.is2DTransducer
@@ -877,6 +877,11 @@ Flickable {
             text: "Device: Device name"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devName
             }
@@ -887,6 +892,11 @@ Flickable {
             text: "Device: Device type"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devType
             }
@@ -897,6 +907,11 @@ Flickable {
             text: "Device: Baud rate"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devBaudRate
             }
@@ -907,6 +922,11 @@ Flickable {
             text: "Device: Serial number"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devSerialNumber
             }
@@ -917,6 +937,11 @@ Flickable {
             text: "Device: Firmware version"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_firmwareVersion
             }
@@ -927,6 +952,11 @@ Flickable {
             text: "Device: Is a sonar?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isSonar
             }
@@ -937,6 +967,11 @@ Flickable {
             text: "Device: Supports chart?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isChartSupport
             }
@@ -947,6 +982,11 @@ Flickable {
             text: "Device: Is a transducer?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isTransducerSupport
             }
@@ -957,6 +997,11 @@ Flickable {
             text: "Device: Supports distance?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isDistSupport
             }
@@ -967,6 +1012,11 @@ Flickable {
             text: "Device: Supports dataset?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isDatasetSupport
             }
@@ -977,6 +1027,11 @@ Flickable {
             text: "Device: Supports sound of speed?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isSoundSpeedSupport
             }
@@ -987,6 +1042,11 @@ Flickable {
             text: "Device: Can be upgraded?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_isUpgradeSupport
             }
@@ -1007,6 +1067,7 @@ Flickable {
 
         SettingRow {
             text: "Force reselection of device"
+            checkbox: true
             show: pulseRuntimeSettings.showCatSwapDevice
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
@@ -1035,6 +1096,11 @@ Flickable {
             text: "Chart: Resolution"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.chartResolution_Copy
                 //text: dev.chartResolution
@@ -1047,6 +1113,11 @@ Flickable {
             text: "Chart: Samples"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.chartSamples_Copy
                 //text: dev.chartSamples
@@ -1059,6 +1130,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.chartOffset_Copy
                 //text: dev.chartOffset
@@ -1071,6 +1147,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.distMax_Copy
                 //text: dev.distMax
@@ -1083,6 +1164,11 @@ Flickable {
             text: "Distance: Dead Zone"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.distDeadZone_Copy
                 //text: dev.distDeadZone
@@ -1095,6 +1181,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.distConfidence_Copy
                 //text: dev.distConfidence
@@ -1107,6 +1198,11 @@ Flickable {
             text: "Transducer: Pulse"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transPulse_Copy
                 //text: dev.transPulse
@@ -1119,6 +1215,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreq_Copy
                 //text: dev.transFreq
@@ -1131,6 +1232,11 @@ Flickable {
             text: "Transducer: Boost"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transBoost_Copy
                 //text: dev.transBoost
@@ -1143,6 +1249,11 @@ Flickable {
             text: "Horizontal Smoothing"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.dspHorSmooth_Copy
                 //text: dev.dspHorSmooth
@@ -1155,6 +1266,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.soundSpeed_Copy
                 //text: dev.soundSpeed
@@ -1167,6 +1283,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.ch1Period_Copy
                 //text: dev.ch1Period
@@ -1180,6 +1301,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetChart_Copy ? "On" : "Off"
                 //text: dev.datasetChart ? "On" : "Off"
@@ -1192,6 +1318,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetDist_Copy ? "On" : "Off"
                 //text: dev.datasetDist ? "On" : "Off"
@@ -1204,6 +1335,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetSDDBT_Copy ? "On" : "Off"
                 //text: dev.datasetSDDBT ? "On" : "Off"
@@ -1216,6 +1352,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetEuler_Copy ? "On" : "Off"
                 //text: dev.datasetEuler ? "On" : "Off"
@@ -1228,6 +1369,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetTemp_Copy ? "On" : "Off"
                 //text: dev.datasetTemp ? "On" : "Off"
@@ -1240,6 +1386,11 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatParameterInfo
 
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetTimestamp_Copy ? "On" : "Off"
                 //text: dev.datasetTimestamp ? "On" : "Off"
@@ -1264,6 +1415,11 @@ Flickable {
             text: "UUID opened"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels -14
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidSuccessfullyOpened)
@@ -1277,6 +1433,11 @@ Flickable {
             text: "UUID serial"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: Ui.fontM
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidUsbSerial)
@@ -1290,6 +1451,11 @@ Flickable {
             text: "UUID wifi"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: Ui.fontM
                 text: {
                     console.log("pulseRuntimeSettings.uuidSuccessfullyOpened", pulseRuntimeSettings.uuidIpGateway)
@@ -1303,6 +1469,11 @@ Flickable {
             text: "UUID proxy"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: Ui.fontM
                 text: {
                     console.log("pulseRuntimeSettings.uuidProxyLink", pulseRuntimeSettings.uuidProxyLink)
@@ -1316,6 +1487,11 @@ Flickable {
             text: "Is a 2D device?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.is2DTransducer
             }
@@ -1326,6 +1502,11 @@ Flickable {
             text: "Should use temperature?"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.useTemperature
             }
@@ -1336,6 +1517,11 @@ Flickable {
             text: "Temperature correction"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo && pulseRuntimeSettings.useTemperature
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.temperatureCorrection
             }
@@ -1346,6 +1532,11 @@ Flickable {
             text: "Frequency: wide"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreqWide
             }
@@ -1356,6 +1547,11 @@ Flickable {
             text: "Frequency: medium"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreqMedium
             }
@@ -1366,6 +1562,11 @@ Flickable {
             text: "Frequency: narrow"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.transFreqNarrow
             }
@@ -1376,6 +1577,11 @@ Flickable {
             text: "Maximum depth for App"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatAppConfigInfo
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.maximumDepth
             }
@@ -1400,6 +1606,11 @@ Flickable {
             text: "Distance config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onDistSetupChanged === true ?
                           "OK" :
@@ -1412,6 +1623,11 @@ Flickable {
             text: "Transducer echogram config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onChartSetupChanged === true ?
                           "OK" :
@@ -1424,6 +1640,11 @@ Flickable {
             text: "Dataset config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onDatasetChanged === true ?
                           "OK" :
@@ -1436,6 +1657,11 @@ Flickable {
             text: "Transducer config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.onTransChanged === true ?
                           "OK" :
@@ -1448,10 +1674,13 @@ Flickable {
             text: "Sound speed config"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
-                text: pulseRuntimeSettings.onSoundChanged === true ?
-                          "OK" :
-                          "Not verified (struggle?)"
+                text: pulseRuntimeSettings.onSoundChanged ? "OK" : "Not verified (struggle?)"
             }
         }
 
@@ -1460,6 +1689,11 @@ Flickable {
             text: "Echogram enabled"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDebug
             Text {
+                wrapMode: Text.NoWrap
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.datasetChart_ok === true ?
                           "OK" :

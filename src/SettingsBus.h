@@ -45,23 +45,5 @@ private:
     void flushPersistent();
 };
 
-/*
-#pragma once
-#include <QObject>
-#include <QVariantMap>
-
-class SettingsBus : public QObject {
-    Q_OBJECT
-public:
-    explicit SettingsBus(QObject* parent=nullptr) : QObject(parent) {}
-
-    Q_INVOKABLE void updateRuntime(const QVariantMap& m)    { emit runtimeChanged(m); }
-    Q_INVOKABLE void updatePersistent(const QVariantMap& m) { emit persistentChanged(m); }
-
-signals:
-    void runtimeChanged(const QVariantMap& m);
-    void persistentChanged(const QVariantMap& m);
-};
-*/
 
 #endif // SETTINGSBUS_H

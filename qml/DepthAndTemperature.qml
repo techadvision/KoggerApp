@@ -3,15 +3,22 @@ import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 //import QtGraphicalEffects 1.15
 import Echo.UI 1.0
+import QtQuick.Window
 
 
 Item {
     id: depthAndTemperature
 
+    // Values for the depth
+    property double rangeFinderDepth: 0.0
+    property double bottomTrackDepth: 0.0
+
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
-    readonly property real s: Ui.scale * platformScale
+    //readonly property real s: Ui.scale * platformScale
+    readonly property real shortSide: Math.min(Screen.width, Screen.height)
+    readonly property real s: Math.max(1.0, shortSide / 1100)
 
     // Base “design” size for this control on your 10" tablet
     readonly property int baseWidth: 350
@@ -236,16 +243,14 @@ Item {
         if (pulseRuntimeSettings === null)
             return 0
 
-        if (!pulseRuntimeSettings.isBottomTrackInitiated) {
-            //console.log("Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.processBottomTrack is", pulseRuntimeSettings.processBottomTrack)
-            return dataset.dist
-        }
         if (pulseRuntimeSettings.isBottomTrackInitiated) {
-            //console.log("Depth in UI from dataset.bottomTrackDepth as", dataset.bottomTrackDepth, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
-            return dataset.bottomTrackDepth
+            //console.log("DistProcessing: Depth in UI from dataset.bottomTrackDepth as", dataset.bottomTrackDepth, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
+            //return dataset.bottomTrackDepth
+            return bottomTrackDepth
         } else {
-            //console.log("Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
-            return dataset.dist
+            //console.log("DistProcessing: Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
+            // return dataset.dist
+            return rangeFinderDepth
         }
     }
 
@@ -288,6 +293,16 @@ Item {
 
     Connections {
         target: dataset ? dataset : undefined
+
+        function onDistChanged () {
+            //console.log("DistProcessing: onDistChanged observed: Distance =", dataset.dist);
+            rangeFinderDepth = dataset.dist
+        }
+
+        function onLastDepthChanged () {
+            //console.log("DistProcessing: onLastDepthChanged observed: Distance =", dataset.getLastDepth());
+            bottomTrackDepth = dataset.getLastDepth()
+        }
     }
 
     Timer {

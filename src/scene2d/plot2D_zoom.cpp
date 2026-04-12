@@ -90,7 +90,7 @@ Plot2DZoom::Output Plot2DZoom::draw(QPainter* p, const Input& in) const
     const int titlePad = qMax(2, int(8 * s));   // (still here if you ever use it)
 
     // Button & icon sizing
-    const int iconPx = ui ? ui->iconTouch()
+    const int iconPx = ui ? ui->iconTouchSmall()
                           : qMax(16, int(24 * s));  // svg icon size inside buttons
 
     // button height: icon + vertical padding, with a reasonable minimum
@@ -172,10 +172,10 @@ Plot2DZoom::Output Plot2DZoom::draw(QPainter* p, const Input& in) const
     {
         const int cx  = zoomRect.center().x();
         const int cy  = zoomRect.center().y();
-        const int arm = qMax(5, int(10 * s));
+        const int arm = qMax(5, int(15 * s));
 
-        QPen crossPen(QColor(255,255,255,180));
-        crossPen.setWidthF(qMax(2.0, double(qMax(1, int(2 * s)))));
+        QPen crossPen(QColor(255,255,255,255));
+        crossPen.setWidthF(qMax(2.0, double(qMax(1, int(3 * s)))));
         p->setPen(crossPen);
 
         p->drawLine(cx - arm, cy, cx + arm, cy);
@@ -205,7 +205,7 @@ Plot2DZoom::Output Plot2DZoom::draw(QPainter* p, const Input& in) const
         // Prepare text using UiMetrics
         QFont f("Asap");
         if (ui)
-            f.setPixelSize(ui->fontXL());  // consistent with other medium labels
+            f.setPixelSize(ui->fontM());  // consistent with other medium labels
         else
             f.setPixelSize(qMax(10, int(18 * s)));
         f.setWeight(QFont::DemiBold);
