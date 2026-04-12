@@ -42,7 +42,8 @@ public:
         DeepBlueTheme,
         IceTheme,
         //GreenTheme,
-        MidnightTheme
+        MidnightTheme,
+        HQtheme
     };
 
     //PULSE
