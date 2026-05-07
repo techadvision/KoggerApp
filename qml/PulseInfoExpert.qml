@@ -116,6 +116,47 @@ Flickable {
 
         SettingRow {
             toggle: false
+            text: "Pulse blue High/Low Frequenzy"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+            HorizontalControllerDoubleSettings {
+                id: blueHiLoFrequency
+                values: [460, 820]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.transFreq = newValue
+                    console.log("Expert changed frequency for Pulse Blue to", newValue)
+                    if (newValue === 820) {
+                        pulseRuntimeSettings.useBlueHighFrequency = true
+                    } else {
+                        pulseRuntimeSettings.useBlueHighFrequency = false
+                    }
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.transFreq)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                /*
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onTransFreqChanged () {
+                        console.log("Detected pulseRuntimeSettings.transFreq got new value ", pulseRuntimeSettings.transFreq)
+                        var idx = frequencySelection.values.indexOf(pulseRuntimeSettings.transFreq)
+                        frequencySelection.currentIndex = idx >= 0 ? idx : 0
+                    }
+                }
+                */
+            }
+        }
+
+        //SUSPECTED TO INTRODUCE AN OFFSET WHEN WE REBOOT
+        /*
+        SettingRow {
+            toggle: false
             text: "Offset adjust"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
@@ -144,6 +185,7 @@ Flickable {
                 }
             }
         }
+        */
 
 
         SettingRow {
