@@ -263,7 +263,7 @@ Flickable {
         SettingRow {
             checkbox: true
             text: "Include MTW (temperature) message"
-            show: pulseRuntimeSettings.showCatNmea
+            show: pulseRuntimeSettings.showCatNmea && pulseRuntimeSettings.is2DTransducer
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "enableNmeaMtw"
