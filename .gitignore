@@ -13,3 +13,51 @@ flasher
 .git
 .qtcreator
 .vscode
+
+# Qt Creator user/session files
+*.user
+*.user.*
+CMakeLists.txt.user
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Ninja generated files
+build.ninja
+.ninja_deps
+.ninja_log
+rules.ninja
+
+# Qt Creator package manager/generated setup
+.qtc/
+
+# Android/Gradle generated files
+.gradle/
+local.properties
+android-build*/
+**/android-build*/
+**/build/
+
+# Android build artifacts
+*.apk
+*.aab
+*.apks
+*.idsig
+
+# Local Qt/CMake build directories inside this repo
+/build*/
+Android_Qt_*/
+Android_Qt_*Debug*/
+Android_Qt_*Release*/
+build-cmake-*/
+build-cmake-multiabi-release-16k/
+Android_Qt_6_8_3_Clang_arm64_v8a-Debug16k/
+
+# macOS
+.DS_Store
