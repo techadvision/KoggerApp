@@ -17,9 +17,9 @@ namespace
 QString resolveLogDirectoryPath()
 {
 #ifdef Q_OS_ANDROID
-    return "/storage/emulated/0/Documents/KoggerApp";
+    return "/storage/emulated/0/Documents/Pulse";
 #else
-    return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/KoggerApp/logs";
+    return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
 #endif
 }
 
