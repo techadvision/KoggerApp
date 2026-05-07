@@ -415,7 +415,12 @@ GridLayout {
                     .filter(Boolean)
                     .map(String)
                     .filter(v => v !== "None");
-                const isBlue = values.some(v => /UDP\([^)]+\)\|\d+\|1\b/.test(v));
+                console.log("DistProcessing: looking at channels before starting distProcessing and found", values)
+
+                //const isBlue = values.some(v => /UDP\([^)]+\)\|\d+\|1\b/.test(v));
+                const isBlue = values.some(v =>
+                        /^(?:UDP\([^)]+\)|bus\/usb\/\d+\/\d+)\|\d+\|1$/.test(v)
+                    );
 
                 if (!isBlue) {
                     console.log("DistProcessing: bottomTrackProcessingGroup - only support blue - abort")

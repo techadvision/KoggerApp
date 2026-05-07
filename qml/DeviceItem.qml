@@ -45,7 +45,7 @@ ColumnLayout {
             }
 
             if (pulseRuntimeSettings.wasKlfFileOpened) {
-                console.log("DEV_PARAM onDeviceVersionChanged, we do not want to reconfigure the device if we just opened a file")
+                //console.log("DEV_PARAM onDeviceVersionChanged, we do not want to reconfigure the device if we just opened a file")
                 return
             }
 
@@ -84,6 +84,11 @@ ColumnLayout {
             if (pulseRuntimeSettings.onDistSetupChanged)
                 return
 
+            // TODO: Safe to disable this?
+            /*
+            if (true)
+                return
+
             //Check if settings are OK
             if (!pulseRuntimeSettings.distMax_ok) {
                 if (dev.distMax !== pulseRuntimeSettings.distMax) {
@@ -114,6 +119,7 @@ ColumnLayout {
                     pulseRuntimeSettings.distConfidence_ok = true
                 }
             }
+            */
 
             //Redo settings if needed
             /*
@@ -135,6 +141,12 @@ ColumnLayout {
 
             //Abort if already OK
             if (pulseRuntimeSettings.onChartSetupChanged)
+                return
+
+            // TODO: Safe to disable this?
+            /*
+
+            if (true)
                 return
 
             //Check if settings are OK
@@ -170,6 +182,7 @@ ColumnLayout {
                     pulseRuntimeSettings.chartOffset_ok = true
                 }
             }
+            */
 
 
             //Redo settings if needed
@@ -196,6 +209,12 @@ ColumnLayout {
 
             //Abort if already OK
             if (pulseRuntimeSettings.onDatasetChanged)
+                return
+
+            // TODO: Safe to disable this?
+            /*
+
+            if (true)
                 return
 
             //Check if settings are OK
@@ -269,7 +288,7 @@ ColumnLayout {
                 }
             }
 
-
+            */
 
             //Redo settings if needed
             /*
@@ -292,6 +311,12 @@ ColumnLayout {
 
             //Abort if already OK
             if (pulseRuntimeSettings.onTransChanged)
+                return
+
+            // TODO: Safe to disable this?
+            /*
+
+            if (true)
                 return
 
             //Check if settings are OK
@@ -325,8 +350,7 @@ ColumnLayout {
                 }
             }
 
-
-
+            */
             //Redo settings if needed
             /*
             if (!pulseRuntimeSettings.onTransChanged) {
@@ -355,6 +379,11 @@ ColumnLayout {
             if (pulseRuntimeSettings.onSoundChanged)
                 return
 
+            // TODO: Safe to disable this?
+            /*
+            if (true)
+                return
+
             //Check if settings are OK
             if (!pulseRuntimeSettings.soundSpeed_ok) {
                 if (dev.soundSpeed !== pulseRuntimeSettings.soundSpeed) {
@@ -366,7 +395,7 @@ ColumnLayout {
                 }
             }
 
-
+            */
 
             //Redo settings if needed
             /*
@@ -415,6 +444,9 @@ ColumnLayout {
                 stepSize: 10
                 value: 0
 
+                devValue: 0
+
+                /*
                 devValue: {
                     if (dev !== null && pulseRuntimeSettings !== null) {
                         if (pulseRuntimeSettings.doDynamicResolution) {
@@ -429,6 +461,7 @@ ColumnLayout {
                         return 0
                     }
                 }
+                */
 
                 //isValid: dev !== null ? dev.chartSetupState : false
 
@@ -529,10 +562,10 @@ ColumnLayout {
                 to: 15000
                 stepSize: 100
                 value: 0
+                devValue: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartSamples : 0
-                //isValid: dev !== null ? dev.chartSetupState : false
-                //devValue: safeNum(dev && dev.chartSamples, 0)
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.chartSamples : 0
+
                 isValid: safeBool(dev && dev.chartSetupState)
 
                 onValueChanged: {
@@ -575,6 +608,8 @@ ColumnLayout {
                 stepSize: 100
                 value:0
 
+                devValue: 0
+                /*
                 devValue: {
                     if (dev !== null && pulseRuntimeSettings !== null) {
                         console.log("DEV_PARAM: chartOffset as devValue set to ", pulseRuntimeSettings.chartOffset);
@@ -584,9 +619,8 @@ ColumnLayout {
                         return 0
                     }
                 }
+                */
 
-                //isValid: dev !== null ? dev.chartSetupState : false
-                //devValue: safeNum(dev && dev.chartOffset, 0)
                 isValid: safeBool(dev && dev.chartSetupState)
 
                 onValueChanged: {
@@ -634,10 +668,9 @@ ColumnLayout {
                 stepSize: 1000
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distMax : 0
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distMax : 0
 
-                //isValid: dev !== null ? dev.distSetupState : false
-                //devValue: safeNum(dev && dev.distMax, 0)
                 isValid: safeBool(dev && dev.distSetupState)
 
                 onValueChanged: {
@@ -673,7 +706,8 @@ ColumnLayout {
                 stepSize: 100
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distDeadZone : 0
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distDeadZone : 0
 
                 //isValid: dev !== null ? dev.distSetupState : false
 
@@ -714,9 +748,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distConfidence : 0
-                //isValid: dev !== null ? dev.distSetupState : false
-                //devValue: safeNum(dev && dev.distConfidence, 0)
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.distConfidence : 0
+
                 isValid: safeBool(dev && dev.distSetupState)
 
                 onValueChanged: {
@@ -755,9 +789,10 @@ ColumnLayout {
                 to: 5000
                 stepSize: 1
                 value: 0
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transPulse : 0
-                //isValid: dev !== null ? dev.transcState : false
-                //devValue: safeNum(dev && dev.transPulse, 0)
+
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transPulse : 0
+
                 isValid: safeBool(dev && dev.transcState)
 
                 onValueChanged: {
@@ -792,10 +827,10 @@ ColumnLayout {
                 to: pulseRuntimeSettings.transFreqNarrow
                 stepSize: 5
                 value: pulseRuntimeSettings.transFreq
-                devValue: pulseRuntimeSettings.transFreq
-                //isValid: dev !== null ? dev.transcState : false
-                //value: 0
-                //devValue: safeNum(dev && dev.transFreq, 0)
+
+                devValue: 0
+                //devValue: pulseRuntimeSettings.transFreq
+
                 isValid: safeBool(dev && dev.transcState)
 
                 onValueChanged: {
@@ -833,9 +868,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transBoost : 0
-                //isValid: dev !== null ? dev.transcState : false
-                //devValue: safeNum(dev && dev.transBoost, 0)
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.transBoost : 0
+
                 isValid: safeBool(dev && dev.transcState)
 
                 onValueChanged: {
@@ -895,10 +930,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.dspHorSmooth : 0
-                //isValid: dev !== null ? dev.dspState : false
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.dspHorSmooth : 0
 
-                //devValue: safeNum(dev && dev.dspHorSmooth, 0)
                 isValid: safeBool(dev && dev.dspState)
 
 
@@ -935,10 +969,9 @@ ColumnLayout {
                 stepSize: 5
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.soundSpeed / 1000 : 0
-                //isValid: dev !== null ? dev.soundState : false
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.soundSpeed / 1000 : 0
 
-                //devValue: safeNum(dev && dev.soundSpeed !== undefined ? dev.soundSpeed / 1000 : undefined, 0)
                 isValid: safeBool(dev && dev.soundState)
 
 
@@ -979,10 +1012,9 @@ ColumnLayout {
                 stepSize: 50
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.ch1Period : 0
-                //isValid: dev !== null ? dev.datasetState : false
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.ch1Period : 0
 
-                //devValue: safeNum(dev && dev.ch1Period, 0)
                 isValid: safeBool(dev && dev.datasetState)
 
                 onValueChanged: {
@@ -1022,11 +1054,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetChart : 0
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetChart : 0
 
-                //isValid: dev !== null ? dev.datasetState : false
-
-                //devValue: dev ? (dev.datasetChart === 1 ? 1 : 0) : 0
                 isValid: safeBool(dev && dev.datasetState)
 
                 editable: false
@@ -1082,11 +1112,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? (pulseRuntimeSettings.datasetDist === 1 ? 1 : pulseRuntimeSettings.datasetSDDBT === 1 ? 2 : 0) : 0
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? (pulseRuntimeSettings.datasetDist === 1 ? 1 : pulseRuntimeSettings.datasetSDDBT === 1 ? 2 : 0) : 0
 
-                //isValid: dev !== null ? dev.datasetState : false
-
-                //devValue: dev ? (dev.datasetDist === 1 ? 1 : dev.datasetSDDBT === 1 ? 2 : 0) : 0
                 isValid: safeBool(dev && dev.datasetState)
 
                 editable: false
@@ -1163,12 +1191,9 @@ ColumnLayout {
                 editable: false
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetEuler : 0
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetEuler : 0
 
-                //isValid: dev !== null ? dev.datasetState : false
-
-
-                //devValue: dev ? ((dev.datasetEuler & 1) === 1 ? 1 : 0) : 0
                 isValid: safeBool(dev && dev.datasetState)
 
                 onValueChanged: {
@@ -1213,10 +1238,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTemp : 0
-                //isValid: dev !== null ? dev.datasetState : false
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTemp : 0
 
-                //devValue: dev ? ((dev.datasetTemp & 1) === 1 ? 1 : 0) : 0
                 isValid: safeBool(dev && dev.datasetState)
 
                 editable: false
@@ -1274,10 +1298,9 @@ ColumnLayout {
                 stepSize: 1
                 value: 0
 
-                devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTimestamp : 0
-                //isValid: dev !== null ? dev.datasetState : false
+                devValue: 0
+                //devValue: (dev !== null && pulseRuntimeSettings !== null) ? pulseRuntimeSettings.datasetTimestamp : 0
 
-                //devValue: dev ? ((dev.datasetTimestamp & 1) === 1 ? 1 : 0) : 0
                 isValid: safeBool(dev && dev.datasetState)
 
                 editable: false
@@ -1331,6 +1354,10 @@ ColumnLayout {
             console.log("DEV_PARAM: We just opened a file and do not want to setup the app once more")
             return
         }
+
+        //Disable the echogram before any parameters are changed;
+        console.log("DEV_PARAM: disable echogram")
+        dev.datasetChart = 0
 
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
@@ -1421,13 +1448,31 @@ ColumnLayout {
 
             console.log("DEV_PARAM Repeating setup for", pulseRuntimeSettings.userManualSetName)
 
+            /*
             if (pulseRuntimeSettings.devConfigured) {
                 console.log("DEV_PARAM no need to repeat as devConfigured complete")
                 return
             }
+            */
+
             if (ifSetupCompleted()) {
                 return
             }
+            if (!pulseRuntimeSettings.echogramPausedForConfig) {
+                console.log("DEV_PARAM echogram not paused, let's do this first")
+                disableEchogram()
+                return
+            } else {
+                console.log("DEV_PARAM echogram is paused, let's move on")
+            }
+            if (dev.datasetChart === 1 && !pulseRuntimeSettings.echogramEnabledByConfig) {
+                console.log("DEV_PARAM something turned on the echogram before we were ready, let us pause it again")
+                disableEchogram()
+                return
+            }
+
+            //Speed up by detecting the actual difference between profile and the actual device
+            //preCheckParameters()
 
             if (!pulseRuntimeSettings.onDistSetupChanged) {
                 console.log("DEV_PARAM checking distSetup")
@@ -1437,8 +1482,10 @@ ColumnLayout {
                 } else {
                      console.log("DEV_PARAM onDistSetupChanged is OK, let's move on")
                 }
-
+            } else {
+                console.log("DEV_PARAM all OK distSetup")
             }
+
             if (!pulseRuntimeSettings.onChartSetupChanged) {
                 console.log("DEV_PARAM checking chartSetup")
                 chartSetup()
@@ -1447,6 +1494,8 @@ ColumnLayout {
                 } else {
                      console.log("DEV_PARAM onChartSetupChanged is OK, let's move on")
                 }
+            } else {
+                console.log("DEV_PARAM all OK chartSetup")
             }
             if (!pulseRuntimeSettings.onTransChanged) {
                 console.log("DEV_PARAM checking transSetup")
@@ -1456,6 +1505,8 @@ ColumnLayout {
                 } else {
                      console.log("DEV_PARAM onTransChanged is OK, let's move on")
                 }
+            } else {
+                console.log("DEV_PARAM all OK transSetup")
             }
             if (!pulseRuntimeSettings.onDspSetupChanged) {
                 console.log("DEV_PARAM checking dspSetup")
@@ -1465,6 +1516,8 @@ ColumnLayout {
                 } else {
                      console.log("DEV_PARAM onDspSetupChanged is OK, let's move on")
                 }
+            } else {
+                console.log("DEV_PARAM all OK dspSetup")
             }
             if (!pulseRuntimeSettings.onSoundChanged) {
                 console.log("DEV_PARAM checking soundSetup")
@@ -1474,11 +1527,15 @@ ColumnLayout {
                 } else {
                      console.log("DEV_PARAM onSoundChanged is OK as, let's move on")
                 }
+            } else {
+                console.log("DEV_PARAM all OK soundSetup")
             }
             if (!pulseRuntimeSettings.onDatasetChanged) {
                 console.log("DEV_PARAM checking datasetSetup")
                 datasetSetup()
                 return
+            } else {
+                console.log("DEV_PARAM all OK datasetSetup")
             }
 
         }
@@ -1487,33 +1544,39 @@ ColumnLayout {
     function resetAllSetupStates () {
         console.log("DEV_PARAM Lost connection, setup is suspicious, let's reset!")
         //Parameters
+        //DISTANCE
         pulseRuntimeSettings.distMax_ok = false
-        //pulseRuntimeSettings.distDeadZone_ok = false
-        //pulseRuntimeSettings.distConfidence_ok = false
+        pulseRuntimeSettings.distDeadZone_ok = false //Why was this disabled?
+        pulseRuntimeSettings.distConfidence_ok = false //Why was this disabled?
+        //CHART
         pulseRuntimeSettings.chartSamples_ok = false
         pulseRuntimeSettings.chartResolution_ok = false
         pulseRuntimeSettings.chartOffset_ok = false
+        //DATASET
         pulseRuntimeSettings.ch1Period_ok = false
-        //pulseRuntimeSettings.datasetTimestamp_ok = false
-        pulseRuntimeSettings.datasetChart_ok = false
-        pulseRuntimeSettings.datasetTemp_ok = false
-        //pulseRuntimeSettings.datasetEuler_ok = false
         pulseRuntimeSettings.datasetDist_ok = false
         pulseRuntimeSettings.datasetSDDBT_ok = false
+        pulseRuntimeSettings.datasetEuler_ok = false //Why was this disabled?
+        pulseRuntimeSettings.datasetTemp_ok = false
+        pulseRuntimeSettings.datasetTimestamp_ok = false //Why was this disabled?
+        pulseRuntimeSettings.datasetChart_ok = false
+        //TRANSDUCER
         pulseRuntimeSettings.transFreq_ok = false
         pulseRuntimeSettings.transPulse_ok = false
         pulseRuntimeSettings.transBoost_ok = false
-        //pulseRuntimeSettings.dspHorSmooth = false
-        //pulseRuntimeSettings.soundSpeed_ok = false
+        //DISABLED
+        //pulseRuntimeSettings.dspHorSmooth = false //Why was this disabled?
+        //pulseRuntimeSettings.soundSpeed_ok = false //Why was this disabled?
         //Categories
         pulseRuntimeSettings.onDistSetupChanged = false
         pulseRuntimeSettings.onChartSetupChanged = false
         pulseRuntimeSettings.onDatasetChanged = false
         pulseRuntimeSettings.onTransChanged = false
         //pulseRuntimeSettings.onDspSetupChanged = false
-        //pulseRuntimeSettings.onSoundChanged = false
+        //pulseRuntimeSettings.onSoundChanged = false //Why was this disabled?
         //Overall
-        //pulseRuntimeSettings.echogramPausedForConfig = false
+        pulseRuntimeSettings.echogramPausedForConfig = false
+        pulseRuntimeSettings.echogramEnabledByConfig = false
         pulseRuntimeSettings.devConfigured = false
         pulseRuntimeSettings.dynamicResolutionInit = false
         pulseRuntimeSettings.dynamicResolution = 0
@@ -1540,7 +1603,7 @@ ColumnLayout {
                 return
             }
         } else {
-            console.log("DEV_PARAM distMax_ok accepted as", dev.distMax_ok)
+            console.log("DEV_PARAM distMax_ok accepted as", dev.distMax)
         }
 
         // distDeadZone
@@ -1652,6 +1715,19 @@ ColumnLayout {
         }
     }
 
+    function disableEchogram () {
+        if (dev === null)
+            return
+
+        if (dev.datasetChart === 1) {
+            pulseRuntimeSettings.echogramPausedForConfig = false
+            dev.datasetChart = 0
+        } else {
+            pulseRuntimeSettings.echogramPausedForConfig = true
+        }
+
+    }
+
     function datasetSetup () {
         if (dev === null)
             return
@@ -1669,21 +1745,6 @@ ColumnLayout {
             }
         } else {
             console.log("DEV_PARAM ch1Period_ok accepted as", dev.ch1Period)
-        }
-
-        // datasetChart
-        if (!pulseRuntimeSettings.datasetChart_ok) {
-            if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
-                pulseRuntimeSettings.datasetChart_Copy = dev.datasetChart
-                pulseRuntimeSettings.datasetChart_ok = true
-                console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
-            } else {
-                console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
-                dev.datasetChart = pulseRuntimeSettings.datasetChart
-                return
-            }
-        } else {
-            console.log("DEV_PARAM datasetChart_ok accepted as", dev.datasetChart)
         }
 
         // datasetDist
@@ -1761,16 +1822,68 @@ ColumnLayout {
             console.log("DEV_PARAM datasetTimestamp_ok accepted as", dev.datasetTimestamp)
         }
 
+        // datasetChart (let us do this as the very last parameter)
+        if (!pulseRuntimeSettings.datasetChart_ok) {
+            if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
+                pulseRuntimeSettings.datasetChart_Copy = dev.datasetChart
+                pulseRuntimeSettings.datasetChart_ok = true
+                console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
+            } else {
+                console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
+                pulseRuntimeSettings.echogramEnabledByConfig = true
+                dev.datasetChart = pulseRuntimeSettings.datasetChart
+                return
+            }
+        } else {
+            console.log("DEV_PARAM datasetChart_ok accepted as", dev.datasetChart)
+        }
+
         // Verify all
-        if (pulseRuntimeSettings.datasetTimestamp_ok
-                && pulseRuntimeSettings.ch1Period_ok
-                && pulseRuntimeSettings.datasetTemp_ok
-                && pulseRuntimeSettings.datasetEuler_ok
+        if (
+                pulseRuntimeSettings.ch1Period_ok
                 && pulseRuntimeSettings.datasetDist_ok
-                && pulseRuntimeSettings.datasetSDDBT_ok) {
+                && pulseRuntimeSettings.datasetSDDBT_ok
+                && pulseRuntimeSettings.datasetEuler_ok
+                && pulseRuntimeSettings.datasetTemp_ok
+                && pulseRuntimeSettings.datasetTimestamp_ok
+                && pulseRuntimeSettings.datasetChart_ok
+                ) {
             pulseRuntimeSettings.onDatasetChanged = true
             console.log("DEV_PARAM onDatasetChanged complete, happy with everything")
         }
+    }
+
+    function preCheckParameters () {
+        // transducer
+        if (dev.transFreq === pulseRuntimeSettings.transFreq)               pulseRuntimeSettings.transFreq_ok = true
+        if (dev.transPulse === pulseRuntimeSettings.transPulse)             pulseRuntimeSettings.transPulse_ok = true
+        if (dev.transBoost === pulseRuntimeSettings.transBoost)             pulseRuntimeSettings.transBoost_ok = true
+        if (pulseRuntimeSettings.transFreq_ok
+            && pulseRuntimeSettings.transPulse_ok
+            && pulseRuntimeSettings.transBoost_ok)
+            pulseRuntimeSettings.onTransChanged = true
+        // DSPsmooth
+        // sound
+        if (dev.soundSpeed === pulseRuntimeSettings.soundSpeed)             pulseRuntimeSettings.soundSpeed_ok = true
+        if (pulseRuntimeSettings.soundSpeed_ok)
+            pulseRuntimeSettings.onSoundChanged = true
+        // distance
+        if (dev.distMax === pulseRuntimeSettings.distMax)                   pulseRuntimeSettings.distMax_ok = true
+        if (dev.distDeadZone === pulseRuntimeSettings.distDeadZone)         pulseRuntimeSettings.distDeadZone_ok = true
+        if (dev.distConfidence === pulseRuntimeSettings.distConfidence)     pulseRuntimeSettings.distConfidence_ok = true
+        if (pulseRuntimeSettings.distMax_ok
+            && pulseRuntimeSettings.distDeadZone_ok
+            && pulseRuntimeSettings.distConfidence_ok)
+            pulseRuntimeSettings.onDistSetupChanged = true
+        // chart
+        if (dev.chartSamples === pulseRuntimeSettings.chartSamples)         pulseRuntimeSettings.chartSamples_ok = true
+        if (dev.chartOffset === pulseRuntimeSettings.chartOffset)           pulseRuntimeSettings.chartOffset_ok = true
+        // dataset
+        if (dev.datasetDist === pulseRuntimeSettings.datasetDist)           pulseRuntimeSettings.datasetDist_ok = true
+        if (dev.datasetSDDBT === pulseRuntimeSettings.datasetSDDBT)         pulseRuntimeSettings.datasetSDDBT_ok = true
+        if (dev.datasetEuler === pulseRuntimeSettings.datasetEuler)         pulseRuntimeSettings.datasetEuler_ok = true
+        if (dev.datasetTemp === pulseRuntimeSettings.datasetTemp)           pulseRuntimeSettings.datasetTemp_ok = true
+        if (dev.datasetTimestamp === pulseRuntimeSettings.datasetTimestamp) pulseRuntimeSettings.datasetTimestamp_ok = true
     }
 
 
@@ -2006,10 +2119,16 @@ ColumnLayout {
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
 
-        /* Was never properly working
-        function onEchogramPausedForConfigChanged () {
-            if (pulseRuntimeSettings.echogramPausedForConfig) {
-                turnOffConfiguringEchosounderMessageTimer.start()
+        /*
+        function onDataUpdateActiveChanged () {
+            if (pulseRuntimeSettings.dataUpdateActive && !pulseRuntimeSettings.devConfigured) {
+                console.log("DEV_PARAM: Observed data from a device, devices not yet configured")
+                if (dev !== null) {
+                    console.log("DEV_PARAM: Turn off the echogram before we configure anything")
+                    dev.datasetChart = 0
+                } else {
+                    console.log("DEV_PARAM: dev null, no way to turn echogram off")
+                }
             }
         }
         */

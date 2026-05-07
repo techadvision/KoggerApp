@@ -132,6 +132,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 ### DISTFILES
 DISTFILES += \
+    CMakeLists.txt \
     platform/android/res/drawable-hdpi/icon.png \
     platform/android/res/drawable-mdpi/icon.png \
     platform/android/res/drawable-xhdpi/icon.png \
@@ -240,8 +241,10 @@ android {
     QT += svg
     QTPLUGIN += qsqlite
     # Commented out multi ABI, but we MUST revert here and fix it
+    isEmpty(ANDROID_ABIS): ANDROID_ABIS = arm64-v8a
     #ANDROID_ABIS = armeabi-v7a arm64-v8a
-    ANDROID_ABIS = arm64-v8a
+    #ANDROID_ABIS = arm64-v8a
+    #ANDROID_ABIS = armeabi-v7a
 
     ANDROID_PACKAGE_SOURCE_DIR = $$PWD/platform/android
     ANDROID_EXTRA_PLUGINS += \

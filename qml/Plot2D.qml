@@ -93,12 +93,15 @@ WaterFall {
             if(pulseRuntimeSettings.devName === "...")
                 return
             if (pulseRuntimeSettings.is2DTransducer) {
+                console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, is2D")
                 plot.plotEchogramCompensation(0)
                 pulseRuntimeSettings.echogramCompensationFile = 0
             } else {
+                console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, isSideScan")
                 plot.plotEchogramCompensation(1)
                 pulseRuntimeSettings.echogramCompensationFile = 1
             }
+            console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, value now", plot.getEchogramCompensation())
         }
     }
 
@@ -353,7 +356,7 @@ WaterFall {
     Timer {
         id: breakAndReconnectLinkTimer
         repeat: false
-        interval: 5000
+        interval: 10000
         onTriggered: {
             pulseRuntimeSettings.unableToConfigure = true
         }
@@ -1824,6 +1827,7 @@ WaterFall {
                         let newCompensation = pulseRuntimeSettings.echogramCompensationFile
                         console.log("FileOpening plotEchogramCompensation(newCompensation) using value", newCompensation)
                         plot.plotEchogramCompensation(newCompensation)
+                        console.log("EchogramCompensation: Plot2D onEchogramCompensationFileChanged, value now", plot.getEchogramCompensation(), "from newCompensation", newCompensation)
                     }
 
                 }
@@ -2485,8 +2489,8 @@ WaterFall {
                             model: [qsTr("Raw"), qsTr("Side-Scan")]
                             currentIndex: 0
 
-                            onCurrentIndexChanged: plotEchogramCompensation(currentIndex) // TODO
-                            Component.onCompleted: plotEchogramCompensation(currentIndex) // TODO
+                            //onCurrentIndexChanged: plotEchogramCompensation(currentIndex) // TODO
+                            //Component.onCompleted: plotEchogramCompensation(currentIndex) // TODO
 
                             Settings {
                                 category: "Plot2D_" + plot.indx
@@ -2501,11 +2505,15 @@ WaterFall {
                                     if (pulseRuntimeSettings.userManualSetName === "...") {
                                         return
                                     }
-                                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                                    if (pulseRuntimeSettings.is2DTransducer) {
+                                    //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                                        console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, is2D")
                                         echogramTypesList.currentIndex = 0
                                     } else {
+                                        console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, isSideScan")
                                         echogramTypesList.currentIndex = 1
                                     }
+                                    console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, value now", plot.getEchogramCompensation())
                                 }
                             }
                         }

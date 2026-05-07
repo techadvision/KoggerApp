@@ -27,6 +27,7 @@ DevSettingsBox {
                     id:switch_ch1
                     text: qsTr("On")
                     checked: dev.datasetChart > 0
+                    /*
                     onCheckedChanged: {
                         if(checked === true && dev.datasetChart === 0) {
                             dev.datasetChart = switchDatasetChart.lastChannel
@@ -35,6 +36,7 @@ DevSettingsBox {
                             dev.datasetChart = 0
                         }
                     }
+                    */
                 }
 
                 CButton {

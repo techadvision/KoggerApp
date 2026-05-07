@@ -92,13 +92,14 @@ ApplicationWindow  {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
             pulseSettings.nmeaBroadcastAddress = pulseRuntimeSettings.nmeaBroadcastAddress
+            let shouldBroadcastMtw = pulseSettings.enableNmeaMtw && pulseRuntimeSettings.is2DTransducer
             settingsBus.updatePersistent({
                     filterRealValue:         pulseSettings.filterRealValue,
                     intensityRealValue:      pulseSettings.intensityRealValue,
                     colorMapIndexReal:       pulseSettings.colorMapIndexReal,
                     // NMEA
                     enableNmeaDbt:           pulseSettings.enableNmeaDbt,
-                    enableNmeaMtw:           pulseSettings.enableNmeaMtw,
+                    enableNmeaMtw:           shouldBroadcastMtw,
                     nmeaPort:                pulseSettings.nmeaPort,
                     nmeaSendPerMilliSec:     pulseSettings.nmeaSendPerMilliSec,
                     nmeaTempPeriodMs:        pulseSettings.nmeaTempPeriodMs,
@@ -2300,6 +2301,7 @@ ApplicationWindow  {
                 if (pulseRuntimeSettings.devName === "PULSEblue") {
                     detectedModel = pulseRuntimeSettings.modelPulseBlue
                 }
+                //TODO: Auto select does not work for Basic2D
                 if (pulseRuntimeSettings.devName === "Basic2D") {
                     const channelsList = dataset.channelsNameList();
                     const values = channelsList
@@ -2317,6 +2319,7 @@ ApplicationWindow  {
                     pulseRuntimeSettings.devManualSelected = true
                     console.log("DEV_PARAM: observed this channel list and will use it to auto select for Basic2D", channelsList)
                 }
+
                 if (detectedModel !== "") {
                     pulseRuntimeSettings.userManualSetName = detectedModel
                     echoSounderSelectorRect.selectedDevice = detectedModel
@@ -2390,7 +2393,7 @@ ApplicationWindow  {
                 if (pulseRuntimeSettings.firstDataTs === 0) {
                     pulseRuntimeSettings.firstDataTs = Date.now()
                     pulseRuntimeSettings.guardActive = true
-                    guardTimer.restart()
+                    //guardTimer.restart()
                     console.log("DATAFLOW: First data observed @ " + pulseRuntimeSettings.firstDataTs + ", guard window started")
                 }
 
@@ -2406,10 +2409,11 @@ ApplicationWindow  {
             interval: pulseRuntimeSettings.dataIsStaleElapseTime
             repeat: false
             onTriggered: {
-                pulseRuntimeSettings.dataUpdateActive = false
+                //pulseRuntimeSettings.dataUpdateActive = false
                 // If we’re still inside our initial window, reboot:
-                if (pulseRuntimeSettings.guardActive) {
+                if (pulseRuntimeSettings.guardActive && !pulseRuntimeSettings.echogramPausedForConfig) {
                     console.log("DATAFLOW: Auto-reboot (data became stale within guard window)")
+                    pulseRuntimeSettings.dataUpdateActive = false
                     pulseRuntimeSettings.echoSounderReboot = true
                     pulseRuntimeSettings.guardActive = false
                     pulseRuntimeSettings.firstDataTs = 0

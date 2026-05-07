@@ -11,6 +11,7 @@ ColumnLayout {
             id:switchDatasetChart1
             checked: dev.datasetChart === channelNumber
             text: qsTr("Chart")
+            /*
 
             onCheckStateChanged: {
                 if(checked === true && dev.datasetChart !== channelNumber) {
@@ -19,6 +20,7 @@ ColumnLayout {
                     dev.datasetChart = 0
                 }
             }
+            */
         }
 
         CCheck {

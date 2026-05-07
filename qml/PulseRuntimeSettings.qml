@@ -54,11 +54,12 @@ QtObject {
     property bool   devConfigured:          false   // when all of the below is true we have set everything up
     // safe configuration
     property bool   echogramPausedForConfig:false   // If desired, the echogram is now paused to reduce traffic during parameter config
+    property bool   echogramEnabledByConfig:false   // Programmatically reneable from paused state
     // dist
     property bool   onDistSetupChanged:     false   // Dist is complete
     property bool   distMax_ok:             false   // distMax parameter is OK
-    property bool   distDeadZone_ok:        true    // distDeadZone parameter is OK. Let's not configure this
-    property bool   distConfidence_ok:      true    // distConfidence parameter is OK. Let's not configure this
+    property bool   distDeadZone_ok:        false   // distDeadZone parameter is OK. Let's not configure this
+    property bool   distConfidence_ok:      false   // distConfidence parameter is OK. Let's not configure this
     // chart
     property bool   onChartSetupChanged:    false   // Chart is complete
     property bool   chartSamples_ok:        false   // chartSamples parameter is OK
@@ -67,10 +68,10 @@ QtObject {
     // dataset
     property bool   onDatasetChanged:       false   // Dataset is complete
     property bool   ch1Period_ok:           false   // ch1Period parameter is OK
-    property bool   datasetTimestamp_ok:    true    // datasetTimestamp parameter is OK. Let's not configure this
+    property bool   datasetTimestamp_ok:    false   // datasetTimestamp parameter is OK. Let's not configure this
     property bool   datasetChart_ok:        false   // datasetChart parameter is OK.
     property bool   datasetTemp_ok:         false   // datasetTemp parameter is OK.
-    property bool   datasetEuler_ok:        true    // datasetEuler parameter is OK. Let's not configure this
+    property bool   datasetEuler_ok:        false   // datasetEuler parameter is OK. Let's not configure this
     property bool   datasetDist_ok:         false   // datasetDist parameter is OK.
     property bool   datasetSDDBT_ok:        false   // datasetSDDBT parameter is OK.
     // trans
@@ -101,7 +102,7 @@ QtObject {
     property int    firstDataTs:            0       // Date.now() when we first saw data this session
     property bool   guardActive:            false   // true until rebootWindowMs elapses
     property bool   echoSounderReboot:      false
-    property int    dataIsStaleElapseTime:  3500
+    property int    dataIsStaleElapseTime:  3500    // was 3500, change to 10000
 
     //UI AUTO CONTROL
     property double autoDepthMaxLevel:      49      // The current max level displayed, used for automatic change of display based on depth measure
@@ -137,6 +138,8 @@ QtObject {
     //property bool   isSideScanLeftHand:true    // Workaround already present
     property bool   isHorizontalGrid:       true    // Workaround for missing ability to sync the c++ and qml settings
     property string nmeaBroadcastAddress:   "255.255.255.255"
+    //Temporary UDP preference (shall use persistent settings for this purpose
+    property bool   enableNmeaDbt:              true
 
     //RECORDING KLF
     property bool   isRecordingKlf:         false   // If a KLF recording is started or not
@@ -179,10 +182,6 @@ QtObject {
     property bool   rawDev_isSoundSpeedSupport: false
     property bool   rawDev_isUpgradeSupport:    false
 
-
-    //Temporary UDP preference (shall use persistent settings for this purpose
-    property bool   enableNmeaDbt:              true
-
     //FALSE DEPTH READING ALGORITHM TUNING
     property double kSmallAgreeMargin:          0.5    // Fluctuations allowed in filtering
     property double kLargeJumpThreshold:        5.0    // A jump from one value to the next before considered a likely false reading
@@ -191,15 +190,16 @@ QtObject {
     property bool   useFilterWithBottomTrack:   true   // Ability to turn off/on for expert testers
 
     //TESTING PROPERTIES
-    property double fakeDepthAddition:      0.0
-    property bool   pushFakeDepth:          false
-    property bool   resetFakeDepth:         false
-    property bool   resetBottomTrackActive: false
+    property double fakeDepthAddition:          0.0
+    property bool   pushFakeDepth:              false
+    property bool   resetFakeDepth:             false
+    property bool   resetBottomTrackActive:     false
+    property bool   useBlueHighFrequency:       false
 
     //PROPERTY CONTROLLING BOTTOM TRACK
-    property bool   isBottomTrackInitiated: false   //Setup for bottom track is prepared
-    property bool   isBottomTrackActive:    false   //If bottom track is to be used and is active, this is true: MMAY BE REDUNDANT
-    property double bottomTrackMinDepth:    0.5     //Below this depth, the rangefinder shall always be used
+    property bool   isBottomTrackInitiated:     false   //Setup for bottom track is prepared
+    property bool   isBottomTrackActive:        false   //If bottom track is to be used and is active, this is true: MMAY BE REDUNDANT
+    property double bottomTrackMinDepth:        0.5     //Below this depth, the rangefinder shall always be used
     
     //COLOR MAP
 
@@ -231,7 +231,8 @@ QtObject {
         { id: 1,        icon: "./icons/ui/pulse_color_ss_sepia.svg",       title: "Yellow"   },
         { id: 2,        icon: "./icons/ui/pulse_color_ss_gray.svg",        title: "Gray"   },
         { id: 3,        icon: "./icons/ui/pulse_color_ss_red.svg",         title: "Red"   },
-        { id: 4,        icon: "./icons/ui/pulse_color_ss_green.svg",       title: "Green" }
+        { id: 4,        icon: "./icons/ui/pulse_color_ss_green.svg",       title: "Green" },
+        { id: 26,       icon: "./icons/ui/pulse_color_hq_orange.svg",      title: "High Quality" }
     ]
 
     property var    currentThemeColors: []
