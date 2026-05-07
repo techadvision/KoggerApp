@@ -30,6 +30,7 @@ Item {
 
     property var values: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
     property int currentIndex: 0
+    property bool thisControllerWasTapped: false
 
     signal pulsePreferenceValueChanged(double newValue)
 
@@ -40,6 +41,17 @@ Item {
     onCurrentIndexChanged: {
         pulsePreferenceValueChanged(values[currentIndex])
     }
+
+    Timer {
+        id: resetTappedStatusTimer
+        interval: 200
+        repeat: false
+        running: false
+        onTriggered: {
+            thisControllerWasTapped = false
+        }
+    }
+
 
     Row {
         anchors.fill: parent
@@ -98,6 +110,9 @@ Item {
             }
 
             onPressed: {
+                // set tapped state
+                thisControllerWasTapped = true
+                resetTappedStatusTimer.start()
                 // step immediately
                 if (currentIndex > 0) {
                     currentIndex--
