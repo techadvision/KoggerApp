@@ -14,6 +14,10 @@
 
 #include <cmath>
 
+namespace {
+constexpr qint64 kWaypointButtonGuardMs = 2000;
+constexpr qint64 kTouchStreamFallbackReleaseMs = 2500;
+}
 
 Plot2DAim::Plot2DAim()
     : beenEpochEvent_(false),
@@ -27,6 +31,7 @@ Plot2DAim::Plot2DAim()
 #endif
     //Pulse
     debounce_.start();
+    touchStreamTimer_.start();
 }
 
 //Pulse helper for echogram stretch
@@ -485,9 +490,13 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     };
 
     bool eventConsumed = false;
+    const bool freshPressForThisEvent = touchJustPressed_;
 
     // ---------------------------------------------------------
     // 1) If popup is active and we got an event: PANEL/BUTTONS WIN FIRST.
+    //    Save Waypoint is allowed only on a fresh press that started on that button.
+    //    A drag/long-press stream that started on the echogram may pass over the
+    //    button visually, but must never fire a waypoint.
     // ---------------------------------------------------------
     if (cand_.active && hasTap) {
         const QPoint tapOverlay = logicalToOverlay(crossLogical);
@@ -510,10 +519,17 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 cand_.anchorDev = QPoint(-1, -1);
                 cand_.crossDev  = QPoint(-1, -1);
                 cursor.setMouse(-1, -1);
+                touchJustPressed_ = false;
                 return true;
             }
 
-            if (onAdd && cand_.haveTarget) {
+            const bool cleanWaypointTap = freshPressForThisEvent
+                                          && !touchStartedOnEchogram_
+                                          && !touchMovedDuringPress_;
+
+            if (onAdd && cand_.haveTarget
+                && cleanWaypointTap
+                && debounce_.elapsed() >= kWaypointButtonGuardMs) {
                 UdpBroadcaster::instance().sendJsonPoint(
                     cand_.lat,
                     cand_.lon,
@@ -527,10 +543,13 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 cand_.anchorDev = QPoint(-1, -1);
                 cand_.crossDev  = QPoint(-1, -1);
                 cursor.setMouse(-1, -1);
+                debounce_.restart();
+                touchJustPressed_ = false;
                 return true;
             }
 
-            // Tap on panel (not buttons): swallow, do not re-aim behind
+            // Tap on panel (not buttons), or a dragged touch reaching Add:
+            // swallow, do not re-aim behind, and do not save a waypoint.
         }
     }
 
@@ -538,6 +557,13 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     // 2) If we got an event and it wasn’t consumed: aim update (tap/drag on echogram)
     // ---------------------------------------------------------
     if (hasTap && !eventConsumed) {
+        // This input stream touched the echogram, so it is an aim/drag stream.
+        // Even if the finger later slides into the zoom button area, it must not
+        // be treated as a Save Waypoint button tap.
+        touchStartedOnEchogram_ = true;
+        if (!freshPressForThisEvent || cand_.active)
+            touchMovedDuringPress_ = true;
+
         const int data_width = dataset->size();
 
         int epochIdxForTap = -1;
@@ -640,6 +666,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         }
 
         // Store candidate:
+        const bool wasActive = cand_.active;
         cand_.active      = true;
         cand_.crossDev    = crossLogical.toPoint();          // LOGICAL/PIXMAP (flipped when needed)
         cand_.anchorDev   = logicalToOverlay(crossLogical);  // OVERLAY/DEVICE
@@ -653,9 +680,14 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         cand_.tapIsSS     = isSideScan;
         cand_.tapSide     = side;
         cand_.haveTarget  = haveTarget;
+        if (!wasActive)
+            debounce_.restart(); // Save Waypoint is ignored for the first 2 seconds only.
 
         beenEpochEvent_ = false; // consume
     }
+
+    if (hasTap)
+        touchJustPressed_ = false;
 
     // Let it follow cursor movement when no discrete event
     if (cand_.active && !hasTap) {
@@ -1101,6 +1133,28 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 
 void Plot2DAim::setEpochEventState(bool state)
 {
+    const bool staleStream = touchStreamTimer_.isValid()
+    && touchStreamTimer_.elapsed() > kTouchStreamFallbackReleaseMs;
+
+    if (state) {
+        // A fresh press can start either after an explicit release, or after a
+        // long quiet gap. The quiet-gap fallback keeps this robust if upstream
+        // only sends "true" events and never sends a matching release.
+        if (!touchDown_ || staleStream) {
+            touchJustPressed_ = true;
+            touchStartedOnEchogram_ = false;
+            touchMovedDuringPress_ = false;
+        }
+        touchDown_ = true;
+        touchStreamTimer_.restart();
+    } else {
+        touchDown_ = false;
+        touchJustPressed_ = false;
+        touchStartedOnEchogram_ = false;
+        touchMovedDuringPress_ = false;
+        touchStreamTimer_.restart();
+    }
+
     beenEpochEvent_ = state;
 }
 

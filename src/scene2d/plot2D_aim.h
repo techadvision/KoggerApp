@@ -49,6 +49,11 @@ private:
     double lastSentLat_   = std::numeric_limits<double>::quiet_NaN();
     double lastSentLon_   = std::numeric_limits<double>::quiet_NaN();
     QElapsedTimer debounce_;
+    QElapsedTimer touchStreamTimer_;
+    bool  touchDown_ = false;
+    bool  touchJustPressed_ = false;
+    bool  touchStartedOnEchogram_ = false;
+    bool  touchMovedDuringPress_ = false;
     bool  onlySendIfArmed_ = true;
     bool  isMetric_ = true;
 
