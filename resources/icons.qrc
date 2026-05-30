@@ -245,5 +245,6 @@
         <file>icons/ui/current-location.svg</file>
         <file>icons/ui/navigation-north.svg</file>
         <file>icons/ui/pulse_color_hq_orange.svg</file>
+        <file>icons/ui/pulse_color_hq_purple.svg</file>
     </qresource>
 </RCC>

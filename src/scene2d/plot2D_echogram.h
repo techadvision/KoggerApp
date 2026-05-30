@@ -43,7 +43,8 @@ public:
         IceTheme,
         //GreenTheme,
         MidnightTheme,
-        HQtheme
+        HQthemeOrange,
+        HQthemePurple
     };
 
     //PULSE
