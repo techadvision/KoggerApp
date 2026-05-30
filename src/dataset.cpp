@@ -604,7 +604,7 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     if (_processBottomTrack)
         return;
 
-    qDebug() << "addRangefinder triggered";
+    //qDebug() << "addRangefinder triggered";
 
     Epoch* epoch = last();
     if (!epoch) {
@@ -1614,6 +1614,7 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
             filteredMeters = corrDistance;
         }
         _bottomTrackDepth = filteredMeters;
+        qDebug() << "NMEA bottomTrackDepthChanged" << filteredMeters;
         emit bottomTrackDepthChanged();
         /*
         if (_bottomTrackDepth != dist) {
@@ -1823,6 +1824,7 @@ bool Dataset::shouldAddNewEpoch(const ChannelId &channelId, uint8_t numSubChanne
 
 void Dataset::updateEpochWithChart(const ChannelId &channelId, const ChartParameters &chartParams, const QVector<QVector<uint8_t> > &data, float resolution, float offset)
 {
+    QWriteLocker wl(&poolMtx_);
     const int indx = endIndex();
     auto& epoch = pool_[indx];
 

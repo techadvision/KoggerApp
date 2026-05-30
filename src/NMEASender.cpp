@@ -135,7 +135,7 @@ void NMEASender::onDepthTick()
 
     const qint64 n = udpSocket->writeDatagram(sentence, target, port);
     if (n == -1) {
-        qWarning() << "NMEA DBT write failed:" << udpSocket->errorString();
+        //qWarning() << "NMEA DBT write failed:" << udpSocket->errorString();
     }
 }
 
@@ -153,7 +153,7 @@ void NMEASender::onTempTick()
 
     const qint64 n = udpSocket->writeDatagram(sentence, target, port);
     if (n == -1) {
-        qWarning() << "NMEA MTW write failed:" << udpSocket->errorString();
+        //qWarning() << "NMEA MTW write failed:" << udpSocket->errorString();
     }
 }
 
