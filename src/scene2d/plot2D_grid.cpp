@@ -149,12 +149,14 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                      InsetsHelper::instance()->ime()); // lift above IME if visible
     const bool isDex      = InsetsHelper::instance()->dexEnabled();
 
+    //qDebug() << "INSETS: plot2D_grid - isDex" << isDex << "with insetTop as" << insetTop;
+
 
     // Define the drawable/safe rect in device coords
     const int safeLeftEdge = insetLeft;
     int tempTopEdge        = insetTop;
     if (isDex) {
-        tempTopEdge        = 0;
+        tempTopEdge        = 48;
     }
     const int safeTopEdge    = tempTopEdge;
     const int safeRightEdge  = devW  - insetRight;
@@ -177,6 +179,19 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
     const int safeW = safeRightEdge - safeLeftEdge;
     const int safeH = safeBottomEdge - safeTopEdge;
+
+    // Echogram's actual device-Y extent.  Must mirror qPlot2D::paint()'s
+    // painter->translate(0, imageTopInset) so horizontal-grid tick positions
+    // align with the echogram pixels behind them.  Labels are still clipped
+    // to safeRect by withDeviceSafe(), so this only fixes positions, not the
+    // status-bar overlap protection.
+#ifdef Q_OS_ANDROID
+    const int echoTopEdge = isDex ? std::min(insetTop, 36) : 0;
+#else
+    const int echoTopEdge = 0;
+#endif
+    const int echoBottomEdge = devH;
+    const int echoH          = std::max(1, echoBottomEdge - echoTopEdge);
 
     auto withDeviceSafe = [&](auto drawFn){
         p->save();
@@ -234,13 +249,17 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         float relativeY  = (tickMeters - d0) / ySpan;     // 0..1
         relativeY        = std::clamp(relativeY, 0.0f, 1.0f);
 
-        const int yPx = int(std::lround(relativeY * std::max(1, safeH - 1)));
-        const int posYDevice = safeTopEdge + yPx;
+        // Map depth ticks into the *echogram* Y range, not the safe rect.  The
+        // safe rect excludes insetTop; the echogram does not (in non-DeX it
+        // fills 0..devH).  Using safe* here offset every tick by ~insetTop
+        // pixels relative to the echogram pixels behind it — so a ruler "5 m"
+        // label landed at the device-Y where the actual depth was ~5 m + the
+        // inset fraction of full scale.  See plot2D_grid.cpp commit notes.
+        const int yPx = int(std::lround(relativeY * std::max(1, echoH - 1)));
+        const int posYDevice = echoTopEdge + yPx;
         const int posYflipped = flipImage
-                                    ? (safeBottomEdge - 1 - yPx)
+                                    ? (echoBottomEdge - 1 - yPx)
                                     : posYDevice;
-        //int posY         = int(relativeY * imageHeight);
-        //int posYflipped  = flipImage ? (imageHeight - posY) : posY;
 
         const bool suppressSurfaceTick =
             isHorizontalGrid_ &&

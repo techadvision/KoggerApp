@@ -615,23 +615,6 @@ WaterFall {
                 if (pulseRuntimeSettings.echogramPause) {
                     startMousePos = Qt.point(mouse.x, mouse.y)
                 }
-                plot.draggingInPaused = false
-
-                if (pulseRuntimeSettings.echogramPause &&
-                    mouse.button === Qt.LeftButton &&
-                    plot.isTapInsideZoomForQml(mouse.x, mouse.y)) {
-
-                    // Forward to C++ so Plot2DAim can handle buttons/panel,
-                    // but do NOT treat this as an echogram tap.
-                    plot.plotMousePosition(mouse.x, mouse.y)
-
-                    longPressTimer.stop()
-                    mousearea.wasMoved = false
-                    mousearea.draggingInPaused = false
-                    mousearea.longPressFired = false
-
-                    return
-                }
 
                 if (pulseRuntimeSettings.echogramPause && !wasMoved) {
                     mousearea.longPressFired = false
@@ -655,30 +638,15 @@ WaterFall {
             }
 
             onReleased: function(mouse) {
+                // Always wipe the aim touch-state machine on finger-up so the
+                // next press is recognised as a fresh press.  Must run before
+                // any early returns below.
+                plot.notifyAimTouchEnd()
+
                 lastMouseX = -1
                 //Pulse addition
                 lastMouseY = -1
                 //**************
-
-                var insideZoom = pulseRuntimeSettings.echogramPause &&
-                                     plot.isTapInsideZoomForQml(mouse.x, mouse.y)
-
-                if (insideZoom && mouse.button === Qt.LeftButton) {
-                    // Popup tap/drag release:
-                    //  - C++ already processed the press for buttons/panel
-                    //  - We just clean up gesture state and go home.
-                    if (Qt.platform.os === "android") {
-                        longPressTimer.stop()
-                    }
-
-                    draggingInPaused = false
-                    wasMoved = false
-                    startMousePos = Qt.point(-1, -1)
-                    dragCommitX = -1
-                    dragCommitY = -1
-
-                    return
-                }
 
                 if (mouse.button === Qt.LeftButton) {
                     if (pulseRuntimeSettings.echogramPause && wasMoved) {
@@ -721,6 +689,9 @@ WaterFall {
             }
 
             onCanceled: {
+                // Same reset path as onReleased — see comment there.
+                plot.notifyAimTouchEnd()
+
                 lastMouseX = -1
                 //Pulse addition
                 lastMouseY = -1
@@ -729,7 +700,6 @@ WaterFall {
                     //plot.setDragActive(false)
                 }
                 draggingInPaused = false
-                plot.draggingInPaused = false
 
                 if (Qt.platform.os === "android") {
                     longPressTimer.stop()
@@ -753,7 +723,6 @@ WaterFall {
 
                         if (pulseRuntimeSettings.echogramPause && !mousearea.longPressFired) {
                             draggingInPaused = true
-                            plot.draggingInPaused = true
                             //plot.setDragActive(true)
                         }
                     }
@@ -790,7 +759,7 @@ WaterFall {
                     dragCommitX = mouse.x
                     dragCommitY = mouse.y
                     plot.plotMousePosition(mouse.x, mouse.y)
-                    plotPressed(indx, mouse.x, mouse.y)
+                    //plotPressed(indx, mouse.x, mouse.y)
                 }
 
                 if (mouse.button === Qt.RightButton) {

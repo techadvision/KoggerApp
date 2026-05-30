@@ -10,6 +10,7 @@
 #include <limits>
 #include "epoch_event.h"
 #include "SettingsBus.h"
+#include "InsetsHelper.h"
 
 
 void qPlot2D::setSettingsBus(SettingsBus* bus) {
@@ -123,6 +124,169 @@ void qPlot2D::paint(QPainter *painter)
             cursor_.selectEpochIndx = zoomPreviewEpochIndx_;
         }
 
+        //Solution for the Dex mode
+        int imageTopInset = 0;
+
+#ifdef Q_OS_ANDROID
+        {
+            const bool isDex = InsetsHelper::instance()->dexEnabled();
+
+            if (isDex) {
+                /*
+         * DeX title/caption bar hides real echogram pixels.
+         * Use the reported top inset if useful, otherwise your measured fallback.
+         */
+                const int reportedTop = InsetsHelper::instance()->top();
+                const int dexFallbackTop = 36;   // your measured safe value
+
+                imageTopInset = qMin(reportedTop, dexFallbackTop);
+            }
+        }
+#endif
+
+        imageTopInset = qBound(0, imageTopInset, h - 1);
+
+        const int paintW = w;
+        const int paintH = h - imageTopInset;
+
+        const QRect imageViewport(0, imageTopInset, paintW, paintH);
+
+        painter->save();
+
+        /*
+ * Clip in normal item/device coordinates.
+ * This prevents echogram pixels from being painted under the DeX bar.
+ */
+        painter->setClipRect(imageViewport);
+
+        /*
+ * Move the whole Plot2D coordinate system down.
+ * Now Plot2D still thinks its local top is y=0,
+ * but that local y=0 appears below the DeX bar.
+ */
+        painter->translate(0, imageTopInset);
+
+        Plot2D::getImage(paintW, paintH, painter, _isHorizontal);
+
+        if (zoomPreviewMode_) {
+            int centerX = qBound(0, canvas().width() / 2, canvas().width() - 1);
+
+            if (zoomPreviewEpochIndx_ >= 0) {
+                const int idxSize = static_cast<int>(cursor_.indexes.size());
+                for (int i = 0; i < idxSize; ++i) {
+                    if (cursor_.indexes[i] == zoomPreviewEpochIndx_) {
+                        centerX = i;
+                        break;
+                    }
+                }
+            }
+
+            int centerY = qBound(0, canvas().height() / 2, canvas().height() - 1);
+            const float distRange = cursor_.distance.to - cursor_.distance.from;
+            const bool twoChannelView = cursor_.channel2 != CHANNEL_NONE;
+
+            if (std::isfinite(distRange) && std::abs(distRange) > 1e-6f) {
+                if (twoChannelView) {
+                    if (!std::isfinite(zoomPreviewDepth_)) {
+                        centerY = 0;
+                    }
+                    else {
+                        const float aimY = static_cast<float>(canvas().height()) * 0.5f
+                                           - static_cast<float>(canvas().height()) * (zoomPreviewDepth_ / distRange);
+                        centerY = qBound(0, qRound(aimY), canvas().height() - 1);
+                    }
+                }
+                else {
+                    const float previewDepth = std::isfinite(zoomPreviewDepth_)
+                    ? zoomPreviewDepth_
+                    : cursor_.distance.from;
+
+                    const float norm = (previewDepth - cursor_.distance.from) / distRange;
+                    centerY = qBound(
+                        0,
+                        qRound(norm * static_cast<float>(canvas().height() - 1)),
+                        canvas().height() - 1
+                        );
+                }
+            }
+
+            const int sourceWidth = qBound(4, zoomPreviewSourceSize_, qMax(4, canvas().width()));
+
+            int sourceHeight = qBound(4, zoomPreviewSourceSize_, qMax(4, canvas().height()));
+
+            if (zoomPreviewReferenceDepthPixels_ > 0 && canvas().height() > 0) {
+                const float scaledSource = static_cast<float>(sourceHeight)
+                * static_cast<float>(canvas().height())
+                    / static_cast<float>(zoomPreviewReferenceDepthPixels_);
+
+                sourceHeight = qBound(4, qRound(scaledSource), qMax(4, canvas().height()));
+            }
+
+            const QRect previewRect(0, 0, paintW, paintH);
+
+            painter->fillRect(previewRect, QColor(30, 30, 30, 220));
+
+            QImage previewImage(paintW, paintH, QImage::Format_ARGB32_Premultiplied);
+            previewImage.fill(Qt::transparent);
+
+            QPainter previewPainter(&previewImage);
+            QPointF previewFocus(0.5, 0.5);
+
+            const bool rendered = Plot2D::drawEchogramZoomPreview(
+                &previewPainter,
+                QRect(0, 0, paintW, paintH),
+                QPoint(centerX, centerY),
+                sourceWidth,
+                sourceHeight,
+                &previewFocus
+                );
+
+            previewPainter.end();
+
+            if (rendered) {
+                if (zoomPreviewFlipY_) {
+                    previewImage = previewImage.mirrored(false, true);
+                    previewFocus.setY(1.0 - previewFocus.y());
+                }
+
+                painter->drawImage(previewRect, previewImage);
+
+                const qreal focusX = qBound<qreal>(0.0, previewFocus.x(), 1.0);
+                const qreal focusY = qBound<qreal>(0.0, previewFocus.y(), 1.0);
+
+                const int zoomCenterX = previewRect.left()
+                                        + qRound(focusX * static_cast<qreal>(qMax(0, previewRect.width() - 1)));
+
+                const int zoomCenterY = previewRect.top()
+                                        + qRound(focusY * static_cast<qreal>(qMax(0, previewRect.height() - 1)));
+
+                const int crossHalf = qMax(6, qMin(previewRect.width(), previewRect.height()) / 10);
+
+                const int leftArm = qMin(crossHalf, qMax(0, zoomCenterX - previewRect.left()));
+                const int rightArm = qMin(crossHalf, qMax(0, previewRect.right() - zoomCenterX));
+                const int topArm = qMin(crossHalf, qMax(0, zoomCenterY - previewRect.top()));
+                const int bottomArm = qMin(crossHalf, qMax(0, previewRect.bottom() - zoomCenterY));
+
+                painter->setPen(QPen(QColor(255, 255, 255, 220), 2));
+                painter->drawLine(zoomCenterX - leftArm, zoomCenterY, zoomCenterX + rightArm, zoomCenterY);
+                painter->drawLine(zoomCenterX, zoomCenterY - topArm, zoomCenterX, zoomCenterY + bottomArm);
+            }
+            else {
+                Plot2D::draw(painter);
+            }
+        }
+        else {
+            Plot2D::draw(painter);
+
+            if (Plot2D::getIsContactChanged()) {
+                emit contactChanged();
+            }
+        }
+
+        painter->restore();
+
+
+        /*
         Plot2D::getImage(w, h, painter, _isHorizontal);
 
         if (zoomPreviewMode_) {
@@ -214,6 +378,7 @@ void qPlot2D::paint(QPainter *painter)
                 emit contactChanged();
             }
         }
+        */
     }
 
     clock_t end = clock();
@@ -557,40 +722,10 @@ void qPlot2D::setOffsetZ(float value)
     }
 }
 
-bool qPlot2D::isTapInsideZoomForQml(int x, int y) const
-{
-    if (!isEchogramPaused())
-        return false;
-
-    return isTapInsideZoom(x, y);
-}
-
 void qPlot2D::plotMousePosition(int x, int y, bool isSync)
 {
-    const bool paused     = isEchogramPaused();
-    const bool insideZoom = paused && isTapInsideZoom(x, y);
-
-    // Only treat the zoom as a "dead" hit area when we're *not* dragging in pause.
-    const bool zoomHitWithoutDrag = insideZoom && !m_draggingInPaused;
-
     setAimEpochEventState(true);
 
-    if (zoomHitWithoutDrag) {
-        // Hit-test only; don't move crosshair or scroll map
-        if (_isHorizontal) {
-            Plot2D::simpleSetMousePosition(x, y);
-        } else {
-            if (x >= 0 && y >= 0) {
-                Plot2D::simpleSetMousePosition(height() - y, x);
-            } else {
-                Plot2D::simpleSetMousePosition(-1, -1);
-            }
-        }
-        plotUpdate();
-        return;
-    }
-
-    // Normal mouse move / tap → update aim cursor
     if (_isHorizontal) {
         setMousePosition(x, y, isSync);
     } else {

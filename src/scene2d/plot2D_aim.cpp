@@ -493,12 +493,28 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     const bool freshPressForThisEvent = touchJustPressed_;
 
     // ---------------------------------------------------------
-    // 1) If popup is active and we got an event: PANEL/BUTTONS WIN FIRST.
+    // Early drag detection (must run BEFORE the panel hit-test).
+    //
+    // If this event is NOT a fresh press while the zoom box is already
+    // active, it is a drag continuation from the echogram.  Mark it now so
+    // the panel hit-test below can skip interception.
+    //
+    // Without this, an echogram drag that passes through the panel area sets
+    // eventConsumed = true, which prevents the crosshair from updating and
+    // causes the visible "freeze + jump" flicker.
+    // ---------------------------------------------------------
+    if (hasTap && cand_.active && !freshPressForThisEvent) {
+        touchMovedDuringPress_ = true;
+    }
+
+    // ---------------------------------------------------------
+    // 1) If popup is active and we got a NON-DRAG event: PANEL/BUTTONS WIN.
     //    Save Waypoint is allowed only on a fresh press that started on that button.
     //    A drag/long-press stream that started on the echogram may pass over the
-    //    button visually, but must never fire a waypoint.
+    //    button visually, but must never fire a waypoint – and must not freeze
+    //    the crosshair either (hence the !touchMovedDuringPress_ guard).
     // ---------------------------------------------------------
-    if (cand_.active && hasTap) {
+    if (cand_.active && hasTap && !touchMovedDuringPress_) {
         const QPoint tapOverlay = logicalToOverlay(crossLogical);
 
         const int pad = 20 * scaleFactor_;
@@ -514,6 +530,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             eventConsumed = true;
 
             if (onAbort) {
+                qDebug() << "AddWaypoint: Hit abort";
                 cand_.active = false;
                 cand_.haveTarget = false;
                 cand_.anchorDev = QPoint(-1, -1);
@@ -527,9 +544,23 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                                           && !touchStartedOnEchogram_
                                           && !touchMovedDuringPress_;
 
+
+            if (onAdd) {
+                bool isDebounceElapsed = debounce_.elapsed() >= kWaypointButtonGuardMs;
+                qDebug() << "AddWaypoint: Hit add"
+                         << "cand_.haveTarget?" << cand_.haveTarget
+                         << "cleanWaypointTap" << cleanWaypointTap
+                         << "freshPressForThisEvent" << freshPressForThisEvent
+                         << "!touchStartedOnEchogram_" << !touchStartedOnEchogram_
+                         << "!touchMovedDuringPress_" << !touchMovedDuringPress_
+                         << "debounce_.elapsed() >= kWaypointButtonGuardMs" << isDebounceElapsed;
+            }
+
             if (onAdd && cand_.haveTarget
                 && cleanWaypointTap
                 && debounce_.elapsed() >= kWaypointButtonGuardMs) {
+
+                qDebug() << "AddWaypoint: Hit add, and also triggered the addWaypoint";
                 UdpBroadcaster::instance().sendJsonPoint(
                     cand_.lat,
                     cand_.lon,
@@ -547,6 +578,8 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 touchJustPressed_ = false;
                 return true;
             }
+
+            qDebug() << "AddWaypoint: Hit the zoom, but not the buttons";
 
             // Tap on panel (not buttons), or a dragged touch reaching Add:
             // swallow, do not re-aim behind, and do not save a waypoint.
@@ -680,8 +713,10 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         cand_.tapIsSS     = isSideScan;
         cand_.tapSide     = side;
         cand_.haveTarget  = haveTarget;
-        if (!wasActive)
-            debounce_.restart(); // Save Waypoint is ignored for the first 2 seconds only.
+        // NOTE: do NOT restart debounce_ here.  debounce_ is restarted only
+        // after a successful Add (below), so the 2-second guard purely prevents
+        // accidental double-adds rather than delaying the very first Add after
+        // the zoom box appears.
 
         beenEpochEvent_ = false; // consume
     }
