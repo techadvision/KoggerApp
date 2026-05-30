@@ -9,19 +9,22 @@ extern Core core;
 
 #ifdef Q_OS_ANDROID
 #include "platform/android/src/android_interface.h"
+#include <QFileDevice>
 #endif
 
 namespace
 {
 
+
 QString resolveLogDirectoryPath()
 {
 #ifdef Q_OS_ANDROID
-    return "/storage/emulated/0/Documents/Pulse";
+    return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
 #else
     return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
 #endif
 }
+
 
 } // namespace
 
@@ -49,57 +52,86 @@ bool Logger::startNewKlfLog()
     stopKlfLogging();
 
     bool isOpen = false;
+
+    QString device = "pulse_log_";
+
+    auto channelsList = datasetPtr_->channelsNameList();
+    if (!channelsList.isEmpty()) {
+        int numberOfChannels = channelsList.size() - 1;
+        if (numberOfChannels == 1) {
+            device = "2D_" + device;
+        }
+        if (numberOfChannels > 1) {
+            device = "SS_" + device;
+        }
+    }
+
+    QString fileName = device + QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss") + ".plog";
+    fileName.replace(':', '.');
+
+#ifdef Q_OS_ANDROID
+
+    if (!AndroidInterface::hasPulseLogFolderAccess()) {
+        qDebug() << "PLOG Logger needs folder access. Please select Documents or Pulse.";
+        AndroidInterface::requestPulseLogFolderAccess();
+        return false;
+    }
+
+    int fd = AndroidInterface::openPulseLogFileDescriptor(
+        fileName,
+        "application/octet-stream",
+        false
+        );
+
+    if (fd < 0) {
+        qDebug() << "PLOG Logger can't create SAF log file:" << fileName;
+        return false;
+    }
+
+    isOpen = klfLogFile_->open(
+        fd,
+        QIODevice::WriteOnly,
+        QFileDevice::AutoCloseHandle
+        );
+
+    if (isOpen) {
+        qDebug() << "PLOG Logger SAF file open: Documents/Pulse/" << fileName;
+        core.consoleInfo("Logger make file: Documents/Pulse/" + fileName);
+    } else {
+        qDebug() << "PLOG Logger can't open SAF fd for:" << fileName;
+        core.consoleWarning("Logger can't open SAF fd for: " + fileName);
+    }
+
+#else
+
     QDir dir;
     const QString logPath = resolveLogDirectoryPath();
 
-#ifdef Q_OS_ANDROID
-    if (!AndroidInterface::checkStoragePermissions()) {
-        core.consoleWarning("Logger can't access Documents: permission denied");
-        return false;
-    }
-    //QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
-    //qDebug() << "Logger::startNewKlfLog at path " << logPath;
-
-#else
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
-
-#endif
+    qDebug() << "PLOG using path" << logPath;
 
     if (dir.mkpath(logPath)) {
         dir.setPath(logPath);
-
-        QString device = "pulse_log_";
-
-        auto channelsList = datasetPtr_->channelsNameList();
-        if (!channelsList.isEmpty()) {
-            int numberOfChannels = channelsList.size() - 1;
-            if (numberOfChannels == 1) {
-                device = "2D_" + device;
-            }
-            if (numberOfChannels > 1) {
-                device = "SS_" + device;
-            }
-        }
-
-        QString fileName = device + QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss") + ".plog";
-        fileName.replace(':', '.');
 
         klfLogFile_->setFileName(logPath + "/" + fileName);
         isOpen = klfLogFile_->open(QIODevice::WriteOnly);
 
         if (isOpen) {
+            qDebug() << "PLOG is open using path" << logPath;
             core.consoleInfo("Logger dir: " + dir.path());
             core.consoleInfo("Logger make file: " + klfLogFile_->fileName());
-        }
-        else {
+        } else {
+            qDebug() << "PLOG not able to create file:" << klfLogFile_->fileName();
             core.consoleInfo("Logger can't make file: " + klfLogFile_->fileName());
         }
-    }
-    else {
+    } else {
+        qDebug() << "PLOG not able to create directory" << logPath;
         core.consoleInfo("Logger can't make dir");
     }
 
+#endif
+
     if (isOpen) {
+        qDebug() << "PLOG good to go";
         emit loggingKlfStarted(true);
     }
 
@@ -154,35 +186,53 @@ void Logger::onFrameParserReceiveKlf(QUuid uuid, Link* linkPtr, FrameParser fram
 
 bool Logger::startNewCsvLog()
 {
-    //qDebug() << "Logger::startNewCsvLog";
-
     stopCsvLogging();
 
-    // open file
     bool isOpen = false;
-    QDir dir;
-    const QString logPath = resolveLogDirectoryPath();
+
+    QString fileName = QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss") + ".csv";
+    fileName.replace(':', '.');
 
 #ifdef Q_OS_ANDROID
-    if (!AndroidInterface::checkStoragePermissions()) {
-        core.consoleWarning("Logger csv can't access Documents: permission denied");
+
+    if (!AndroidInterface::hasPulseLogFolderAccess()) {
+        qDebug() << "PLOG Logger csv needs folder access. Please select Documents or Pulse.";
+        AndroidInterface::requestPulseLogFolderAccess();
         return false;
     }
 
-    // Use an app-specific directory that does not require external storage permissions.
-    //QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse";
-    //qDebug() << "Logger::startNewCsvLog at path " << logPath;
+    int fd = AndroidInterface::openPulseLogFileDescriptor(
+        fileName,
+        "text/csv",
+        false
+        );
+
+    if (fd < 0) {
+        qDebug() << "PLOG Logger csv can't create SAF log file:" << fileName;
+        return false;
+    }
+
+    isOpen = csvLogFile_->open(
+        fd,
+        QIODevice::WriteOnly,
+        QFileDevice::AutoCloseHandle
+        );
+
+    if (isOpen) {
+        qDebug() << "PLOG Logger csv SAF file open: Documents/Pulse/" << fileName;
+        core.consoleInfo("Logger csv make file: Documents/Pulse/" + fileName);
+    } else {
+        qDebug() << "PLOG Logger csv can't open SAF fd for:" << fileName;
+        core.consoleWarning("Logger csv can't open SAF fd for: " + fileName);
+    }
 
 #else
-    QString logPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Pulse/logs";
 
-#endif
+    QDir dir;
+    const QString logPath = resolveLogDirectoryPath();
 
     if (dir.mkpath(logPath)) {
         dir.setPath(logPath);
-
-        QString fileName = QDateTime::currentDateTime().toString("yyyy.MM.dd_hh:mm:ss") + ".csv";
-        fileName.replace(':', '.');
 
         csvLogFile_->setFileName(logPath + "/" + fileName);
         isOpen = csvLogFile_->open(QIODevice::WriteOnly);
@@ -190,18 +240,23 @@ bool Logger::startNewCsvLog()
         if (isOpen) {
             core.consoleInfo("Logger csv dir: " + dir.path());
             core.consoleInfo("Logger csv make file: " + csvLogFile_->fileName());
-        }
-        else {
+        } else {
             core.consoleInfo("Logger csv can't make file: " + csvLogFile_->fileName());
         }
-    }
-    else {
+    } else {
         core.consoleInfo("Logger csv can't make dir");
     }
 
+#endif
+
     if (isOpen) {
-        // connects
-        csvData_.csvConnections.append(QObject::connect(datasetPtr_, &Dataset::dataUpdate, this, &Logger::loggingCsvStream, Qt::AutoConnection));
+        csvData_.csvConnections.append(QObject::connect(
+            datasetPtr_,
+            &Dataset::dataUpdate,
+            this,
+            &Logger::loggingCsvStream,
+            Qt::AutoConnection
+            ));
     }
 
     return isOpen;

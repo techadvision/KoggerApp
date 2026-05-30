@@ -23,11 +23,20 @@ namespace AndroidInterface
     void setNativeMethods();
     void jniLogDebug(JNIEnv *envA, jobject thizA, jstring messageA);
     void jniLogWarning(JNIEnv *envA, jobject thizA, jstring messageA);
+
+    // Legacy storage helpers. Do not use for Google Play scoped-storage logging.
     bool checkStoragePermissions();
     QString getSDCardPath();
+
+    // Pulse SAF-based log folder helpers.
+    bool hasPulseLogFolderAccess();
+    void requestPulseLogFolderAccess();
+    int openPulseLogFileDescriptor(const QString &fileName,
+                                   const QString &mimeType,
+                                   bool append);
+
     void setKeepScreenOn(bool on);
     void moveTaskToBack();
 
     constexpr const char *kJniPulseActivityClassName = "org/techadvision/pulse/PulseActivity";
-    //constexpr const char *kJniKoggerActivityClassName = "org/kogger/koggerapp/KoggerActivity";
 };

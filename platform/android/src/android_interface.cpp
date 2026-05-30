@@ -143,6 +143,63 @@ QString getSDCardPath()
     return result.toString();
 }
 
+// MEDIA STORE based log folder helpers
+
+bool hasPulseLogFolderAccess()
+{
+    const bool result = QJniObject::callStaticMethod<jboolean>(
+        kJniPulseActivityClassName,
+        "hasPulseLogFolderAccess",
+        "()Z"
+        );
+
+    if (cleanJavaException()) {
+        qCWarning(AndroidInterfaceLog) << "Java exception in hasPulseLogFolderAccess";
+        return false;
+    }
+
+    return result;
+}
+
+void requestPulseLogFolderAccess()
+{
+    QJniObject::callStaticMethod<void>(
+        kJniPulseActivityClassName,
+        "requestPulseLogFolderAccess",
+        "()V"
+        );
+
+    if (cleanJavaException()) {
+        qCWarning(AndroidInterfaceLog) << "Java exception in requestPulseLogFolderAccess";
+    }
+}
+
+int openPulseLogFileDescriptor(const QString &fileName,
+                               const QString &mimeType,
+                               bool append)
+{
+    QJniObject jFileName = QJniObject::fromString(fileName);
+    QJniObject jMimeType = QJniObject::fromString(mimeType);
+
+    const int fd = QJniObject::callStaticMethod<jint>(
+        kJniPulseActivityClassName,
+        "openPulseLogFileDescriptor",
+        "(Ljava/lang/String;Ljava/lang/String;Z)I",
+        jFileName.object<jstring>(),
+        jMimeType.object<jstring>(),
+        append ? JNI_TRUE : JNI_FALSE
+        );
+
+    if (cleanJavaException()) {
+        qCWarning(AndroidInterfaceLog) << "Java exception in openPulseLogFileDescriptor";
+        return -1;
+    }
+
+    return fd;
+}
+
+//
+
 void setKeepScreenOn(bool on)
 {
     Q_UNUSED(on);
