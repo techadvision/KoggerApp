@@ -341,16 +341,48 @@ int main(int argc, char *argv[])
 
     NMEASender* nmeaSender = new NMEASender(&core);  // Use an appropriate parent
     nmeaSender->setSettingsBus(bus);
+    Dataset* dataset = core.getDatasetPtr();
 
+    //TODO: here 14.1 changed the emitted event to lastDepthChanged
+    //This is a trial, we need to properly test with all types of echo sounders
+    QObject::connect(dataset, &Dataset::lastDepthChanged,
+                     nmeaSender,
+                     [dataset, nmeaSender]() {
+                         const float depth = dataset->getLastDepth();
+
+                         if (!std::isfinite(depth) || qFuzzyIsNull(depth)) {
+                             return;
+                         }
+
+                         nmeaSender->setLatestDepth(depth);
+                     },
+                     Qt::QueuedConnection);
+
+    QObject::connect(dataset, &Dataset::tempChanged,
+                     nmeaSender,
+                     [dataset, nmeaSender]() {
+                         const float temp = dataset->temp();
+
+                         if (!std::isfinite(temp)) {
+                             return;
+                         }
+
+                         nmeaSender->setLatestTemp(temp);
+                     },
+                     Qt::QueuedConnection);
+    /*
     QObject::connect(core.getDatasetPtr(), &Dataset::distChanged, [=]() {
         nmeaSender->setLatestDepth(core.getDatasetPtr()->dist());
     });
     QObject::connect(core.getDatasetPtr(), &Dataset::bottomTrackDepthChanged, [=]() {
         nmeaSender->setLatestDepth(core.getDatasetPtr()->bottomTrackDepth());
     });
+    */
+    /* Recommended to be changed to the above solution
     QObject::connect(core.getDatasetPtr(), &Dataset::tempChanged, [=]() {
         nmeaSender->setLatestTemp(core.getDatasetPtr()->temp());
     });
+    */
 
 
     //************
