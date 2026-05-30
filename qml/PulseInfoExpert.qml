@@ -497,7 +497,7 @@ Flickable {
         SettingRow {
             toggle: true
             text: "Bottom track settings"
-            visible: pulseRuntimeSettings.expertMode && !pulseRuntimeSettings.is2DTransducer
+            visible: pulseRuntimeSettings.expertMode
             SettingCategoryToggle {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "showCatBottomTrack"
@@ -510,7 +510,7 @@ Flickable {
             checkbox: true
             id: bottomTrackToggle
             text: "Use bottom track depth"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "processBottomTrack"
@@ -536,7 +536,7 @@ Flickable {
             checkbox: true
             id: bottomTrackToggleShowLines
             text: "Show visible bottom tracks"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack && !pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "bottomTrackVisible"
@@ -689,10 +689,10 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Black stripes removal size"
+            text: "Black stripes remove: Forward"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBlackStripes
             HorizontalControllerDoubleSettings {
-                id: blackStripesSize
+                id: blackStripesSizeForward
                 values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                     21, 22, 23, 25, 25, 26, 27, 28, 29, 30]
@@ -707,8 +707,31 @@ Flickable {
 
                 onPulsePreferenceValueChanged: function(newValue) {
                     pulseRuntimeSettings.fixBlackStripesForwardSteps  = newValue
-                    pulseRuntimeSettings.fixBlackStripesBackwardSteps = newValue
                     core.fixBlackStripesForwardSteps  = newValue
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Black stripes remove: Backward"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBlackStripes
+            HorizontalControllerDoubleSettings {
+                id: blackStripesSizeBackward
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    21, 22, 23, 25, 25, 26, 27, 28, 29, 30]
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.fixBlackStripesBackwardSteps)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.fixBlackStripesBackwardSteps = newValue
                     core.fixBlackStripesBackwardSteps = newValue
                 }
             }

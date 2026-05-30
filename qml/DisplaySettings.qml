@@ -348,10 +348,16 @@ GridLayout {
 
             function prepareDistProcessing () {
                 let list = []
+                //TODO: Prepare bottom track also for the pulseRed and pulseBlack when user is an expert
                 list = dataset.channelsNameList()
                 if (list.length < 3) {
-                    console.log("DistProcessing: prepareDistProcessing, not enough channels:", list, ". Abort!")
-                    return
+                    if (pulseRuntimeSettings.expertMode) {
+                        console.log("DistProcessing: prepareDistProcessing, enable it for pulse red/black when expert")
+                    } else {
+                        console.log("DistProcessing: prepareDistProcessing, not enough channels:", list, ". Abort!")
+                        return
+                    }
+
                 }
                 if (pulseRuntimeSettings === null) {
                     console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings === null. Abort")
@@ -361,10 +367,13 @@ GridLayout {
                     console.log("DistProcessing: prepareDistProcessing, userManualSetName === .... Abort")
                     return
                 }
+                //TODO: BOTTOM TRACK TEST THIS - Enable bottom track for Pulse Red
+                /*
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                     console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings.userManualSetName", pulseRuntimeSettings.userManualSetName, ". Abort")
                     return
                 }
+                */
                 if (!pulseRuntimeSettings.processBottomTrack) {
                     console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings.processBottomTrack", pulseRuntimeSettings.processBottomTrack, ". Abort")
                     return
@@ -423,8 +432,12 @@ GridLayout {
                     );
 
                 if (!isBlue) {
-                    console.log("DistProcessing: bottomTrackProcessingGroup - only support blue - abort")
-                    return
+                    if (pulseRuntimeSettings.expertMode) {
+                        console.log("DistProcessing: bottomTrackProcessingGroup - also support red/black when expert - continue")
+                    } else {
+                        console.log("DistProcessing: bottomTrackProcessingGroup - only support blue - abort")
+                        return
+                    }
                 }
                 console.log("DistProcessing: bottomTrackProcessingGroup - channels list OK for isBlue",isBlue, ". Continue!")
 
@@ -455,10 +468,13 @@ GridLayout {
                         console.log("DistProcessing: onProcessBottomTrackChanged - userManualSetName === ..., abort")
                         return
                     }
+                    //TODO: BOTTOM TRACK TEST THIS - Enable bottom track for Pulse Red
+                    /*
                     if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         console.log("DistProcessing: onProcessBottomTrackChanged - userManualSetName ===", pulseRuntimeSettings.userManualSetName,", should not use bottom track")
                         return
                     }
+                    */
                     if (pulseRuntimeSettings.processBottomTrack) {
                         //Turned on
                         console.log("DistProcessing: onProcessBottomTrackChanged - let us initiate tracking")
@@ -482,10 +498,13 @@ GridLayout {
                         console.log("DistProcessing: onDistProcessingChanged - userManualSetName === ..., abort")
                         return
                     }
+                    //TODO: BOTTOM TRACK TEST THIS - Enable bottom track for Pulse Red
+                    /*
                     if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         console.log("DistProcessing: onDistProcessingChanged - userManualSetName ===", pulseRuntimeSettings.userManualSetName,", should not use bottom track")
                         return
                     }
+                    */
                     if (!pulseRuntimeSettings.processBottomTrack) {
                         console.log("DistProcessing: onDistProcessingChanged - use bottom track", pulseRuntimeSettings.processBottomTrack)
                         return

@@ -209,7 +209,7 @@ QtObject {
         { id: 2,        icon: "./icons/ui/pulse_color_ss_gray.svg",        title: "Gray"   },
         { id: 3,        icon: "./icons/ui/pulse_color_ss_red.svg",         title: "Red"   },
         { id: 4,        icon: "./icons/ui/pulse_color_ss_green.svg",       title: "Green" },
-        { id: 26,       icon: "./icons/ui/pulse_color_hq_orange.svg",      title: "High Quality" }
+        { id: 26,       icon: "./icons/ui/pulse_color_hq_orange.svg",      title: "High Quality Orange" },
     ]
 
     property var    themeModelRed: [
@@ -232,7 +232,7 @@ QtObject {
         { id: 2,        icon: "./icons/ui/pulse_color_ss_gray.svg",        title: "Gray"   },
         { id: 3,        icon: "./icons/ui/pulse_color_ss_red.svg",         title: "Red"   },
         { id: 4,        icon: "./icons/ui/pulse_color_ss_green.svg",       title: "Green" },
-        { id: 26,       icon: "./icons/ui/pulse_color_hq_orange.svg",      title: "High Quality" }
+        { id: 26,       icon: "./icons/ui/pulse_color_hq_orange.svg",      title: "High Quality Orange" },
     ]
 
     property var    currentThemeColors: []
@@ -343,8 +343,8 @@ QtObject {
         "maximumDepth":                 52,
         "processBottomTrack":           false,
         "doDynamicResolution":          true,
-        "fixBlackStripesBackwardSteps": 20,
-        "fixBlackStripesForwardSteps":  20,
+        "fixBlackStripesBackwardSteps": 5,
+        "fixBlackStripesForwardSteps":  3,
         "fixBlackStripesState":         true,
         "temperatureCorrection":        -1.5,
         "bottomTrackVisible":           false,
@@ -390,12 +390,12 @@ QtObject {
     }
 
     property var    distProcPulseRed: [
-        2,
-        22,
-        0,
-        0,
+        1,
+        5,
+        4,
+        0.25,
         50,
-        200,
+        2,
         0,
         0,
         0,
@@ -406,7 +406,7 @@ QtObject {
         2,
         5,
         4,
-        0.26,
+        0.25,
         35,
         2,
         0,
@@ -502,7 +502,12 @@ QtObject {
         "h5v-3k8-od9",
         "c4r-7t0-nj6",
         "bet-aus-ers",
-        "3dr-550-560"
+        "3dr-550-560",
+        "m6f-8q2-pa7",
+        "r1x-3n9-vc4",
+        "b9t-0k5-yw6",
+        "z4p-7d1-hm8",
+        "q2v-6s0-ln3"
     ]
 
     property var expertKeyCodes: [

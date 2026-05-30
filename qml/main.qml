@@ -93,6 +93,11 @@ ApplicationWindow  {
                 return
             pulseSettings.nmeaBroadcastAddress = pulseRuntimeSettings.nmeaBroadcastAddress
             let shouldBroadcastMtw = pulseSettings.enableNmeaMtw && pulseRuntimeSettings.is2DTransducer
+            //Enable bottomTrack for red/blue if the user is an expert
+            if (pulseRuntimeSettings.expertMode && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                pulseRuntimeSettings.processBottomTrack = true
+            }
+
             settingsBus.updatePersistent({
                     filterRealValue:         pulseSettings.filterRealValue,
                     intensityRealValue:      pulseSettings.intensityRealValue,
@@ -851,7 +856,7 @@ ApplicationWindow  {
 
             GraphicsScene3dView {
                 id:                renderer
-                //visible: menuBar.is3DVisible //- PULSE disable
+                //visible: menuBar.is3DVisible //- PULSE: hide
                 visible: false
                 objectName: "GraphicsScene3dView"
                 Layout.fillHeight: true
@@ -2016,7 +2021,7 @@ ApplicationWindow  {
             y = y + 40
         }
 
-        //Pulse: Hide
+        //Pulse: Hide. MenuBar is item holding the water view button
         visible: false
         //visible: !showBanner
     }
@@ -2301,14 +2306,17 @@ ApplicationWindow  {
                 if (pulseRuntimeSettings.devName === "PULSEblue") {
                     detectedModel = pulseRuntimeSettings.modelPulseBlue
                 }
-                //TODO: Auto select does not work for Basic2D
+                //TODO: Auto select does not work for Basic2D inb USB connection mode
                 if (pulseRuntimeSettings.devName === "Basic2D") {
                     const channelsList = dataset.channelsNameList();
                     const values = channelsList
                         .filter(Boolean)
                         .map(String)
                         .filter(v => v !== "None");
-                    const isBlue = values.some(v => /UDP\([^)]+\)\|\d+\|1\b/.test(v));
+                    //const isBlue = values.some(v => /UDP\([^)]+\)\|\d+\|1\b/.test(v));
+                    const isBlue = values.some(v =>
+                            /^(?:UDP\([^)]+\)|bus\/usb\/\d+\/\d+)\|\d+\|1$/.test(v)
+                        );
                     if (isBlue) {
                         detectedModel = pulseRuntimeSettings.modelPulseBlue
                         pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta

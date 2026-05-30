@@ -137,6 +137,36 @@ Flickable {
 
         SettingRow {
             toggle: false
+            text: "Speed of sound water"
+            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.expertMode
+            HorizontalControllerDoubleSettings {
+                id: soundSpeedSelector
+                values: [1400, 1405, 1410, 1415, 1420, 1425, 1430,
+                    1435, 1440, 1445, 1450, 1455, 1460, 1465, 1470,
+                    1475, 1480, 1485, 1490, 1495, 1500, 1505, 1510,
+                    1515, 1520, 1525, 1530, 1535, 1540, 1545, 1550]
+                height: 80
+                Layout.preferredWidth: 280
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.soundSpeed / 1000)
+                    //console.log("pulseSettingssValue speedSelector Component.onCompleted idx calculated to ", idx)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.soundSpeed = newValue * 1000
+                }
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSoundSpeedChanged () {
+                        var idx = soundSpeedSelector.values.indexOf(soundSpeedSelector.soundSpeed / 1000)
+                        if (idx >= 0) soundSpeedSelector.currentIndex = idx
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
             text: "2D echogram screen speed (1-5)"
             show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {

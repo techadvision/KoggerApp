@@ -1377,15 +1377,15 @@ ColumnLayout {
         console.log("DEV_PARAM: pulseRuntimeSettings - black stripes for", pulseRuntimeSettings.userManualSetName)
         if (core.fixBlackStripesForwardSteps       !== pulseRuntimeSettings.fixBlackStripesForwardSteps) {
             core.fixBlackStripesForwardSteps       = pulseRuntimeSettings.fixBlackStripesForwardSteps
-            //console.log("DEV_CONFIG: core.fixBlackStripesForwardSteps changed to ", core.fixBlackStripesForwardSteps)
+            console.log("DEV_CONFIG: core.fixBlackStripesForwardSteps changed to ", core.fixBlackStripesForwardSteps)
         } else {
             //console.log("DEV_CONFIG: core.fixBlackStripesForwardSteps OK as ", core.fixBlackStripesForwardSteps)
         }
         if (core.fixBlackStripesBackwardSteps        !== pulseRuntimeSettings.fixBlackStripesBackwardSteps) {
             core.fixBlackStripesBackwardSteps        = pulseRuntimeSettings.fixBlackStripesBackwardSteps
-            //console.log("DEV_CONFIG: core.fixBlackStripesBackwardSteps changed to ", core.fixBlackStripesBackwardSteps)
+            console.log("DEV_CONFIG: core.fixBlackStripesBackwardSteps changed to ", core.fixBlackStripesBackwardSteps)
         } else {
-            //console.log("DEV_CONFIG: core.fixBlackStripesBackwardSteps OK as ", core.fixBlackStripesBackwardSteps)
+            console.log("DEV_CONFIG: core.fixBlackStripesBackwardSteps OK as ", core.fixBlackStripesBackwardSteps)
         }
         if (core.fixBlackStripesState               !== pulseRuntimeSettings.fixBlackStripesState) {
             core.fixBlackStripesState               = pulseRuntimeSettings.fixBlackStripesState
@@ -1427,22 +1427,22 @@ ColumnLayout {
             if (pulseRuntimeSettings.wasKlfFileOpened)
                 return
             if (pulseRuntimeSettings.devConfigured) {
-                console.log("DEV_PARAM completeDeviceConfigurationTimer no need to repeat as devConfigured complete")
+                //console.log("DEV_PARAM completeDeviceConfigurationTimer no need to repeat as devConfigured complete")
                 return
             }
 
             if (dev === null){
-                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, dev === null")
+                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, dev === null")
                 return
             }
 
             if (pulseRuntimeSettings.userManualSetName === "...") {
-                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.userManualSetName === ...")
+                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.userManualSetName === ...")
                 return
             }
 
             if (pulseRuntimeSettings.devName === "...") {
-                console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.devName === ...")
+                //console.log("DEV_PARAM completeDeviceConfigurationTimer wait, pulseRuntimeSettings.devName === ...")
                 return
             }
 
