@@ -90,9 +90,6 @@ Item {
     // ---------------------------------------------------------------------
 
     function controlMinimum() {
-        if (root.controleName === "selectorMaxDepth")
-            return 1
-
         if (root.controleName === "selectorIntensity")
             return 0
 
