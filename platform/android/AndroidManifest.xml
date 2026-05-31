@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto" android:versionCode="122" android:versionName="Pulse Echo Sounder v. 1.22">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto" android:versionCode="123" android:versionName="Pulse Echo Sounder v. 1.23">
 
     <!-- %%INSERT_PERMISSIONS -->
     <uses-permission android:name="android.permission.INTERNET"/>
