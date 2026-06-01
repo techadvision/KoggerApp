@@ -8,6 +8,7 @@
 #include <QVector3D>
 #include <QLineF>
 #include <QDebug>
+#include <QtGlobal>
 #include "scene3d_renderer.h"
 #include "dataset.h"
 #include "map_defs.h"
@@ -62,6 +63,23 @@ static inline float clampShadowFactor(float value, float fallback)
         return fallback;
     }
     return qBound(0.0f, value, 1.0f);
+}
+
+constexpr qreal kWheelDeltaUnit = 120.0;
+constexpr qreal kWheelMaxSteps = 8.0;
+constexpr qreal kPinchScaleToSteps = 12.0;
+constexpr qreal kPinchMaxSteps = 2.0;
+constexpr qreal kPinchTiltSpeedBoost = 2.5;
+
+static bool resolvePerspectiveByGround(float distToGround, float edge, bool wasPerspective)
+{
+    const float hysteresis = std::max(10.0f, edge * 0.02f);
+    const float enterPerspective = edge - hysteresis;
+    const float exitPerspective = edge + hysteresis;
+    if (wasPerspective) {
+        return distToGround < exitPerspective;
+    }
+    return distToGround < enterPerspective;
 }
 
 } // namespace
@@ -391,6 +409,134 @@ QVector3D GraphicsScene3dView::calculateIntersectionPoint(const QVector3D &rayOr
     retVal = rayOrigin + rayDirection * t;
 
     return retVal;
+}
+
+bool GraphicsScene3dView::tryProjectScreenToPlane(qreal x, qreal y, float planeZ, QVector3D& outPoint) const
+{
+    outPoint = QVector3D();
+
+    if (!m_camera) {
+        return false;
+    }
+
+    const QRect viewport = QRect(0, 0, static_cast<int>(width()), static_cast<int>(height()));
+    if (viewport.isEmpty()) {
+        return false;
+    }
+
+    const qreal clampedX = qBound(0.0, x, static_cast<qreal>(width()));
+    const qreal clampedY = qBound(0.0, y, static_cast<qreal>(height()));
+    const float screenX = static_cast<float>(clampedX);
+    const float screenY = static_cast<float>(height() - clampedY);
+    QMatrix4x4 liveModel;
+    liveModel.scale(1.0f, 1.0f, m_verticalScale);
+    const QMatrix4x4 viewModel = m_camera->m_view * liveModel;
+
+    auto isFinitePoint = [](const QVector3D& point) {
+        return std::isfinite(point.x()) && std::isfinite(point.y()) && std::isfinite(point.z());
+    };
+
+    // Use the same ray->plane intersection for both perspective and ortho.
+    // In ortho, unproject(z=0) alone drifts with near/far changes during zoom.
+    const QVector3D rayOrigin = QVector3D(screenX, screenY, -1.0f).unproject(viewModel, m_projection, viewport);
+    const QVector3D rayEnd = QVector3D(screenX, screenY, 1.0f).unproject(viewModel, m_projection, viewport);
+    const QVector3D rayVector = rayEnd - rayOrigin;
+    const float rayLengthSq = QVector3D::dotProduct(rayVector, rayVector);
+    if (!std::isfinite(rayLengthSq) || rayLengthSq < 1e-12f) {
+        return false;
+    }
+
+    if (qAbs(rayVector.z()) < 1e-6f) {
+        return false;
+    }
+
+    // Use infinite line intersection, not forward ray only:
+    // during projection switches near/far unproject direction can flip.
+    const float t = (planeZ - rayOrigin.z()) / rayVector.z();
+    if (!std::isfinite(t) || std::fabs(t) > 1e8f) {
+        return false;
+    }
+
+    const QVector3D point = rayOrigin + rayVector * t;
+    if (!isFinitePoint(point)) {
+        return false;
+    }
+
+    outPoint = point;
+    return true;
+}
+
+void GraphicsScene3dView::zoomAroundScreenAnchor(qreal delta, const QPointF& anchorPos)
+{
+    if (!m_camera) {
+        return;
+    }
+
+    const qreal clampedX = qBound(0.0, anchorPos.x(), static_cast<qreal>(width()));
+    const qreal clampedY = qBound(0.0, anchorPos.y(), static_cast<qreal>(height()));
+    const QPointF clampedAnchor(clampedX, clampedY);
+
+    updateProjection();
+    QVector3D beforePoint;
+    const bool hasBeforePoint = tryProjectScreenToPlane(clampedAnchor.x(), clampedAnchor.y(), 0.0f, beforePoint);
+    const bool prePerspective = m_camera->getIsPerspective();
+    const LLARef preRef = m_camera->viewLlaRef_;
+
+    m_camera->zoom(delta);
+
+    if (!hasBeforePoint) {
+        return;
+    }
+
+    const bool postPerspective = m_camera->getIsPerspective();
+    const LLARef postRef = m_camera->viewLlaRef_;
+    // On projection transition keep legacy center-zoom to avoid jump.
+    if (prePerspective != postPerspective) {
+        return;
+    }
+
+    QVector3D afterPoint;
+    if (!tryProjectScreenToPlane(clampedAnchor.x(), clampedAnchor.y(), 0.0f, afterPoint)) {
+        return;
+    }
+
+    QVector2D lookAtDelta(0.0f, 0.0f);
+    bool hasLookAtDelta = false;
+    if ((preRef == postRef) && (prePerspective == postPerspective)) {
+        lookAtDelta = QVector2D(beforePoint.x() - afterPoint.x(),
+                                beforePoint.y() - afterPoint.y());
+        hasLookAtDelta = true;
+    }
+    else if (preRef.isInit && postRef.isInit) {
+        NED beforeNedPre(beforePoint.x(), beforePoint.y(), 0.0);
+        LLARef preRefCopy(preRef);
+        LLA beforeLla(&beforeNedPre, &preRefCopy, prePerspective);
+        if (beforeLla.isCoordinatesValid()) {
+            LLA beforeLlaCopy(beforeLla);
+            LLARef postRefCopy(postRef);
+            NED beforeNedPost(&beforeLlaCopy, &postRefCopy, postPerspective);
+            if (std::isfinite(beforeNedPost.n) && std::isfinite(beforeNedPost.e)) {
+                lookAtDelta = QVector2D(static_cast<float>(beforeNedPost.n) - afterPoint.x(),
+                                        static_cast<float>(beforeNedPost.e) - afterPoint.y());
+                hasLookAtDelta = true;
+            }
+        }
+    }
+
+    if (!hasLookAtDelta) {
+        return;
+    }
+
+    const float deltaLen = lookAtDelta.length();
+    const float maxDelta = std::max(5000.0f, m_camera->distForMapView() * 100.0f);
+    if (!std::isfinite(deltaLen) || deltaLen > maxDelta) {
+        return;
+    }
+
+    m_camera->m_lookAt.setX(m_camera->m_lookAt.x() + lookAtDelta.x());
+    m_camera->m_lookAt.setY(m_camera->m_lookAt.y() + lookAtDelta.y());
+    m_camera->updateViewMatrix();
+    updateProjection();
 }
 
 void GraphicsScene3dView::switchToBottomTrackVertexComboSelectionMode(qreal x, qreal y)
@@ -779,8 +925,6 @@ void GraphicsScene3dView::mouseWheelTrigger(Qt::MouseButtons mouseButton, qreal 
 {
     bool cameraWasMoved{ false };
     Q_UNUSED(mouseButton)
-    Q_UNUSED(x)
-    Q_UNUSED(y)
 
     if (needToResetStartPos_) {
         m_camera->m_lookAtSave = m_camera->m_lookAt;
@@ -800,8 +944,12 @@ void GraphicsScene3dView::mouseWheelTrigger(Qt::MouseButtons mouseButton, qreal 
         }
     }
     else {
-        m_camera->zoom(angleDelta.y());
-        cameraWasMoved = true;
+        const qreal wheelStepsRaw = angleDelta.y() / kWheelDeltaUnit;
+        const qreal wheelSteps = qBound(-kWheelMaxSteps, wheelStepsRaw, kWheelMaxSteps);
+        if (std::fabs(wheelSteps) > 1e-6) {
+            zoomAroundScreenAnchor(wheelSteps, QPointF(x, y));
+            cameraWasMoved = true;
+        }
     }
 
     updatePlaneGrid();
@@ -814,12 +962,104 @@ void GraphicsScene3dView::mouseWheelTrigger(Qt::MouseButtons mouseButton, qreal 
 
 void GraphicsScene3dView::pinchTrigger(const QPointF& prevCenter, const QPointF& currCenter, qreal scaleDelta, qreal angleDelta)
 {
-    m_camera->zoom(scaleDelta);
+    const qreal dx = currCenter.x() - prevCenter.x();
+    const qreal dy = currCenter.y() - prevCenter.y();
+    const qreal centerShiftLen = QLineF(prevCenter, currCenter).length();
+    const qreal absScale = std::fabs(scaleDelta);
+    const qreal absAngle = std::fabs(angleDelta);
 
-    if (!isNorth_) {
-        m_camera->rotate(prevCenter, currCenter, angleDelta, height());
+    const bool gestureRestart = !pinchGestureTimer_.isValid() || pinchGestureTimer_.elapsed() > 170;
+    if (gestureRestart) {
+        pinchPanZoomWeight_ = 1.0;
+        pinchTiltWeight_ = 0.0;
+        pinchRotateWeight_ = 0.0;
+    }
+
+    const bool canRotateOrTilt = !isNorth_ && m_camera->getIsPerspective();
+    const qreal absDx = std::fabs(dx);
+    const qreal absDy = std::fabs(dy);
+
+    const qreal normScale = qBound<qreal>(0.0, absScale / 0.10, 1.0);
+    const qreal normShift = qBound<qreal>(0.0, centerShiftLen / 12.0, 1.0);
+    const qreal normAngle = qBound<qreal>(0.0, absAngle / 2.8, 1.0);
+    const qreal normDy = qBound<qreal>(0.0, absDy / 8.0, 1.0);
+    const qreal verticalDominance = qBound<qreal>(0.0, (absDy - absDx * 0.8) / 7.0, 1.0);
+
+    qreal tiltEvidence = 0.0;
+    qreal rotateEvidence = 0.0;
+    if (canRotateOrTilt) {
+        tiltEvidence = normDy * verticalDominance * (1.0 - normScale) * (1.0 - normAngle);
+        rotateEvidence = normAngle * (1.0 - normScale * 0.5);
+    }
+
+    qreal panZoomEvidence = qMax(normScale, normShift);
+    panZoomEvidence *= (1.0 - qMax(tiltEvidence, rotateEvidence) * 0.55);
+    panZoomEvidence = qBound<qreal>(0.0, panZoomEvidence, 1.0);
+
+    const qreal blend = gestureRestart ? 1.0 : 0.35;
+    pinchPanZoomWeight_ = pinchPanZoomWeight_ * (1.0 - blend) + panZoomEvidence * blend;
+    pinchTiltWeight_ = pinchTiltWeight_ * (1.0 - blend) + tiltEvidence * blend;
+    pinchRotateWeight_ = pinchRotateWeight_ * (1.0 - blend) + rotateEvidence * blend;
+
+    if (!canRotateOrTilt) {
+        pinchPanZoomWeight_ = 1.0;
+        pinchTiltWeight_ = 0.0;
+        pinchRotateWeight_ = 0.0;
+    }
+
+    qreal sumWeights = pinchPanZoomWeight_ + pinchTiltWeight_ + pinchRotateWeight_;
+    if (sumWeights < 1e-6) {
+        pinchPanZoomWeight_ = 1.0;
+        pinchTiltWeight_ = 0.0;
+        pinchRotateWeight_ = 0.0;
+        sumWeights = 1.0;
+    }
+
+    qreal panWeight = pinchPanZoomWeight_ / sumWeights;
+    qreal tiltWeight = pinchTiltWeight_ / sumWeights;
+    qreal rotateWeight = pinchRotateWeight_ / sumWeights;
+
+    if (tiltWeight > 0.45 || rotateWeight > 0.45) {
+        panWeight *= 0.2;
+    }
+    panWeight = qBound<qreal>(0.0, panWeight, 1.0);
+
+    if (centerShiftLen > 0.25 && panWeight > 0.02) {
+        QVector3D fromPoint;
+        QVector3D toPoint;
+        const bool hasFrom = tryProjectScreenToPlane(prevCenter.x(), prevCenter.y(), 0.0f, fromPoint);
+        const bool hasTo = tryProjectScreenToPlane(currCenter.x(), currCenter.y(), 0.0f, toPoint);
+        if (hasFrom && hasTo) {
+            const QVector2D fromVec(fromPoint.x(), fromPoint.y());
+            const QVector2D toVec(toPoint.x(), toPoint.y());
+            const QVector2D blendedTo = fromVec + (toVec - fromVec) * static_cast<float>(panWeight);
+            m_camera->m_lookAtSave = m_camera->m_lookAt;
+            m_camera->move(fromVec, blendedTo);
+        }
+    }
+
+    const qreal zoomWeight = qBound<qreal>(0.0, 1.0 - tiltWeight * 0.65, 1.0);
+    const qreal pinchStepsRaw = scaleDelta * kPinchScaleToSteps * zoomWeight;
+    const qreal pinchSteps = qBound(-kPinchMaxSteps, pinchStepsRaw, kPinchMaxSteps);
+    if (std::fabs(pinchSteps) > 1e-6) {
+        zoomAroundScreenAnchor(pinchSteps, currCenter);
+    }
+
+    bool updateAxesRotation = false;
+    if (canRotateOrTilt && tiltWeight > 0.08 && absDy > 0.2) {
+        const QPointF tiltCenter(currCenter.x(), prevCenter.y() + dy * tiltWeight * kPinchTiltSpeedBoost);
+        m_camera->rotate(prevCenter, tiltCenter, 0.0, height());
+        updateAxesRotation = true;
+    }
+    if (canRotateOrTilt && rotateWeight > 0.08 && absAngle > 0.05) {
+        m_camera->rotate(currCenter, currCenter, angleDelta * rotateWeight, height());
+        updateAxesRotation = true;
+    }
+    if (updateAxesRotation) {
         m_axesThumbnailCamera->setRotAngle(m_camera->getRotAngle());
     }
+
+    pinchGestureTimer_.restart();
 
     updatePlaneGrid();
     QQuickFramebufferObject::update();
@@ -1297,12 +1537,24 @@ void GraphicsScene3dView::setSyncLoupeSize(int val)
 
 void GraphicsScene3dView::setSyncLoupeZoom(int val)
 {
-    const int bounded = qBound(1, val, 3);
+    const int bounded = qBound(0, val, 300);
     if (syncLoupeZoom_ == bounded) {
         return;
     }
 
     syncLoupeZoom_ = bounded;
+    refreshSyncLoupePreview();
+    emit syncLoupeStateChanged();
+    QQuickFramebufferObject::update();
+}
+
+void GraphicsScene3dView::setSyncLoupeZoomAdjusting(bool adjusting)
+{
+    if (syncLoupeZoomAdjusting_ == adjusting) {
+        return;
+    }
+
+    syncLoupeZoomAdjusting_ = adjusting;
     refreshSyncLoupePreview();
     emit syncLoupeStateChanged();
     QQuickFramebufferObject::update();
@@ -1316,7 +1568,7 @@ void GraphicsScene3dView::setSyncEpochIndex(int epochIndex)
 
     syncEpochIndex_ = epochIndex;
 
-    if (!syncLoupeUiAllowed_) {
+    if (!syncLoupeUiAllowed_ && !syncLoupeZoomAdjusting_) {
         return;
     }
 
@@ -1372,7 +1624,8 @@ void GraphicsScene3dView::refreshSyncLoupePreview()
     float centerDepth = 0.0f;
     bool flipY = false;
 
-    if (syncLoupeVisible_ && syncLoupeUiAllowed_ && datasetPtr_ && syncEpochIndex_ >= 0) {
+    const bool loupeUiEffective = syncLoupeUiAllowed_ || syncLoupeZoomAdjusting_;
+    if (syncLoupeVisible_ && loupeUiEffective && datasetPtr_ && syncEpochIndex_ >= 0) {
         const int datasetSize = datasetPtr_->size();
         if (syncEpochIndex_ < datasetSize) {
             if (auto* epoch = datasetPtr_->fromIndex(syncEpochIndex_); epoch) {
@@ -1529,16 +1782,6 @@ bool GraphicsScene3dView::syncLoupeOverlayVisible() const
     return syncLoupeOverlayVisible_;
 }
 
-bool GraphicsScene3dView::syncLoupeUiAllowed() const
-{
-    return syncLoupeUiAllowed_;
-}
-
-bool GraphicsScene3dView::shouldRenderSyncFrom2d() const
-{
-    return syncLoupeUiAllowed_ && isVisible();
-}
-
 int GraphicsScene3dView::syncLoupeEpochIndex() const
 {
     return syncEpochIndex_;
@@ -1574,13 +1817,20 @@ int GraphicsScene3dView::syncLoupeZoom() const
     return syncLoupeZoom_;
 }
 
+bool GraphicsScene3dView::syncLoupeZoomAdjusting() const
+{
+    return syncLoupeZoomAdjusting_;
+}
+
 void GraphicsScene3dView::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry)
 {
     QQuickFramebufferObject::geometryChange(newGeometry, oldGeometry);
 
     if (newGeometry.size() != oldGeometry.size()) {
-       updateProjection();
-       onCameraMoved();
+        QMetaObject::invokeMethod(this, [this]() {
+            updateProjection();
+            onCameraMoved();
+        }, Qt::QueuedConnection);
     }
 }
 
@@ -1626,9 +1876,7 @@ void GraphicsScene3dView::setIsometricView()
 
 void GraphicsScene3dView::setCancelZoomView()
 {
-    m_verticalScale = 1.0f;
-
-    QQuickFramebufferObject::update();
+    setVerticalScale(1.0f);
 }
 
 void GraphicsScene3dView::setMapView() {
@@ -1776,6 +2024,10 @@ void GraphicsScene3dView::setVerticalScale(float scale)
         m_verticalScale = 10.0f;
     else
         m_verticalScale = scale;
+
+    if (auto* impl = dynamic_cast<SurfaceView::SurfaceViewRenderImplementation*>(surfaceView_->m_renderImpl); impl) {
+        impl->setVerticalScale(m_verticalScale);
+    }
 
     QQuickFramebufferObject::update();
 }
@@ -3348,79 +3600,59 @@ void GraphicsScene3dView::Camera::moveZAxis(float z)
 
 void GraphicsScene3dView::Camera::zoom(qreal delta)
 {
-#if defined(Q_OS_ANDROID) || defined(LINUX_ES)
-    const float increaseCoeff{ 0.95f };
-    m_distToFocusPoint -= delta * m_distToFocusPoint * increaseCoeff;
+    const float zoomScalePerStep = 1.10f;
+    const float stepValue = static_cast<float>(delta);
+    if (std::isfinite(stepValue) && std::fabs(stepValue) > 1e-6f) {
+        const float stepFactor = std::pow(zoomScalePerStep, -stepValue);
+        if (std::isfinite(stepFactor) && stepFactor > 0.0f) {
+            m_distToFocusPoint *= stepFactor;
+        }
+    }
     distForMapView_ = m_distToFocusPoint;
-#else
-    m_distToFocusPoint = delta > 0.f ? m_distToFocusPoint / 1.15f : m_distToFocusPoint * 1.15f;
-    distForMapView_ = m_distToFocusPoint;
-#endif
 
     const float minFocusDist = 2.0f;
     const float maxFocusDist = 100000.0f * 100.0f;
-    if (m_distToFocusPoint < minFocusDist) {
-        m_distToFocusPoint = minFocusDist;
-        distForMapView_ = m_distToFocusPoint;
-    }
-    if (m_distToFocusPoint >= maxFocusDist) {
-        m_distToFocusPoint = maxFocusDist;
-        distForMapView_ = m_distToFocusPoint;
-    }
+    m_distToFocusPoint = std::clamp(m_distToFocusPoint, minFocusDist, maxFocusDist);
+    distForMapView_ = m_distToFocusPoint;
 
-    //
-    bool preIsPersp{ false };
     distToGround_ = std::max(0.0f, std::fabs(-cosf(m_rotAngle.y()) * m_distToFocusPoint));
-    float perspEdge = viewPtr_ ? viewPtr_->perspectiveEdge_ : 5000.0f;
-    preIsPersp = distToGround_ < perspEdge;
-    //bool changedToOrtho       =  isPerspective_ && !preIsPersp;
-    //bool changedToPerspective = !isPerspective_ &&  preIsPersp;
-    bool projectionChanged    =  isPerspective_ !=  preIsPersp;
+    const float perspEdge = viewPtr_ ? viewPtr_->perspectiveEdge_ : 5000.0f;
+    const bool nextPerspective = resolvePerspectiveByGround(distToGround_, perspEdge, isPerspective_);
+    const bool projectionChanged = isPerspective_ != nextPerspective;
 
-    //if (projectionChanged) qDebug() << "CHANGED!";
-    //if (changedToOrtho) qDebug() << "changed to ORTHO";
-    //if (changedToPerspective) qDebug() << "changed to PERSP";
+    if (projectionChanged) {
+        NED lookAtNed(m_lookAt.x(), m_lookAt.y(), 0.0f);
+        LLA lookAtLla(&lookAtNed, &viewLlaRef_, isPerspective_);
+        if (lookAtLla.isCoordinatesValid() && viewLlaRef_.isInit) {
+            LLA lookAtLlaCopy(lookAtLla);
+            LLARef viewRefCopy(viewLlaRef_);
+            NED rebasedNed(&lookAtLlaCopy, &viewRefCopy, nextPerspective);
+            if (std::isfinite(rebasedNed.n) && std::isfinite(rebasedNed.e)) {
+                m_lookAt.setX(static_cast<float>(rebasedNed.n));
+                m_lookAt.setY(static_cast<float>(rebasedNed.e));
+            }
+        }
 
-    NED lookAtNed(m_lookAt.x(), m_lookAt.y(), 0.0f);
-    LLA lookAtLla(&lookAtNed, &viewLlaRef_, isPerspective_);
-    LLARef lookAtLlaRef(lookAtLla);
-
-    float datasetDist = map::calculateDistance(lookAtLlaRef, datasetLlaRef_);
-
-
-    if (isPerspective_ && !projectionChanged) { // do nothing
-    }
-    //else if (isPerspective_ && !projectionChanged && datasetDist < lowDistThreshold_ && getIsFarAwayFromOriginLla()) {
-    //    qDebug() << "2";
-
-    //    viewPtr_->setNeedToResetStartPos(true);
-    //    LLA datasetLla(datasetLlaRef_.refLla.latitude, datasetLlaRef_.refLla.longitude, 0.0);
-    //    NED datasetNed(&datasetLla, &viewLlaRef_, isPerspective_);
-    //    m_lookAt -= QVector3D(datasetNed.n, datasetNed.e, 0.0f);
-    //    viewLlaRef_ = datasetLlaRef_;
-    //}
-    else if ( (!isPerspective_ && projectionChanged && datasetDist < lowDistThreshold_ && getIsFarAwayFromOriginLla())) { // catching when ortho->persp trans and near place
-
+        if (viewPtr_) {
+            viewPtr_->setNeedToResetStartPos(true);
+        }
+        m_rotAngle = { 0.0f, 0.0f };
         if (cameraListener_) {
             cameraListener_->resetRotationAngle();
         }
-
-        viewPtr_->setNeedToResetStartPos(true);
-        LLA datasetLla(datasetLlaRef_.refLla.latitude, datasetLlaRef_.refLla.longitude, 0.0);
-        NED datasetNed(&datasetLla, &viewLlaRef_, !isPerspective_);
-        m_lookAt -= QVector3D(datasetNed.n, datasetNed.e, 0.0f);
-        viewLlaRef_ = datasetLlaRef_;
-        m_rotAngle = { 0.0f, 0.0f };
-    }
-    else if ((isPerspective_ && projectionChanged) || (!isPerspective_ && !projectionChanged)) { // pers -> ortho OR ortho without transfer
-        viewPtr_->setNeedToResetStartPos(true);
-        viewLlaRef_ = lookAtLlaRef;
-        m_lookAt = QVector3D(0.0f, 0.0f, 0.0f);
-        m_rotAngle = { 0.0f, 0.0f };
     }
 
     updateCameraParams();
     updateViewMatrix();
+
+    if (isPerspective_) {
+        tryToChangeViewLlaRef();
+        updateViewMatrix();
+    }
+
+    if (viewPtr_) {
+        viewPtr_->updateProjection();
+    }
 }
 
 void GraphicsScene3dView::Camera::commitMovement()
@@ -3527,7 +3759,7 @@ void GraphicsScene3dView::Camera::updateCameraParams()
     }
 
     const bool prevPerspective = isPerspective_;
-    isPerspective_ = distToGround_ < perspEdge;
+    isPerspective_ = resolvePerspectiveByGround(distToGround_, perspEdge, prevPerspective);
     if (viewPtr_ && prevPerspective != isPerspective_) {
         emit viewPtr_->cameraPerspectiveChanged(isPerspective_);
     }
@@ -3596,7 +3828,7 @@ void GraphicsScene3dView::Camera::tryResetRotateAngle()
     bool preIsPersp{ false };
     distToGround_ = std::max(0.0f, std::fabs(-cosf(m_rotAngle.y()) * m_distToFocusPoint));
     float perspEdge = viewPtr_ ? viewPtr_->perspectiveEdge_ : 5000.0f;
-    preIsPersp = distToGround_ < perspEdge;
+    preIsPersp = resolvePerspectiveByGround(distToGround_, perspEdge, isPerspective_);
     bool projectionChanged = isPerspective_ != preIsPersp;
     if (projectionChanged && isPerspective_) {
         m_rotAngle = { 0.0f, 0.0f };

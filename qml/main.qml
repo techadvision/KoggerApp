@@ -54,6 +54,7 @@ ApplicationWindow  {
     Settings {
             id: appSettings
             property bool isFullScreen: false
+            property real sceneSplitRatio: 0.5
             //property int savedX: 100
             //property int savedY: 100
     }
@@ -833,18 +834,118 @@ ApplicationWindow  {
             }
         }
 
-        GridLayout {
+        Item {
             id:                   visualisationLayout
             SplitView.fillHeight: true
-            // anchors.fill: parent
+            SplitView.fillWidth:  true
             Layout.fillHeight: true
             Layout.fillWidth:  true
-            rowSpacing: 0
-            columnSpacing: 0
-            rows    : mainview.width > mainview.height ? 1 : 2
-            columns : mainview.width > mainview.height ? 2 : 1
+
+            readonly property bool landscapeMode: mainview.width > mainview.height
+            readonly property int rows: landscapeMode ? 1 : 2
+            readonly property int columns: landscapeMode ? 2 : 1
 
             property int lastKeyPressed: Qt.Key_unknown
+            property real splitRatio: 0.5
+            property real dragRatio: 0.5
+            property bool splitDragging: false
+            readonly property real splitDragMinRatio: 0.0
+            readonly property real splitDragMaxRatio: 1.0
+            readonly property real splitMidRatio: 0.5
+            readonly property var splitSnapRatios: [0.25, 0.375, 0.5, 0.625, 0.75]
+            readonly property int splitGripMainSize: Math.max(38, Math.round(48 * theme.resCoeff))
+            readonly property int splitGripCrossSize: Math.max(14, Math.round(16 * theme.resCoeff))
+            readonly property int splitGripRadius: Math.max(5, Math.round(7 * theme.resCoeff))
+            // ── PULSE: 3D view intentionally disabled for now ──────────────────────────────
+            // Upstream's split-view layout (movable divider between 2D echogram and 3D scene)
+            // is kept in place but NOT used by Pulse yet. We force has3DView=false so:
+            //   • splitActive becomes false  -> the divider/handle hides (sceneSplitHandle.visible)
+            //   • the 3D pane width collapses to 0
+            //   • plotsContainer (the 2D echogram) gets x=0 and full width -> fills the screen
+            // The GraphicsScene3dView object still EXISTS (see renderer below, visible:false), so
+            // Core::UILoad's findChild<GraphicsScene3dView*>() wiring stays intact — do not remove it.
+            //
+            // REVISIT LATER: to bring the 3D view back, two options —
+            //   (a) Full-screen 3D toggle: add a button in the Pulse UI that flips which pane is
+            //       shown, reusing this same has3DView / has2DView mechanism (mirror of how 2D is
+            //       full-screen today).
+            //   (b) Real split view: restore the original binding below to re-enable the divider.
+            // Original upstream binding was:
+            //   readonly property bool has3DView: (menuBar !== null) ? menuBar.is3DVisible : false
+            readonly property bool has3DView: false
+            readonly property bool has2DView: (menuBar !== null) ? menuBar.is2DVisible : false
+            readonly property bool splitActive: has3DView && has2DView
+            readonly property real primaryLength: landscapeMode ? width : height
+            readonly property real splitLength: Math.max(0, primaryLength)
+            readonly property real firstPaneLength: splitActive
+                                                    ? Math.round(splitLength * splitRatio)
+                                                    : (has3DView ? primaryLength : 0)
+            readonly property real handlePaneLength: splitActive
+                                                     ? Math.round(splitLength * (splitDragging ? dragRatio : splitRatio))
+                                                     : firstPaneLength
+            readonly property real previewSourceRatio: splitDragging ? dragRatio : splitRatio
+            readonly property real previewSnapRatio: nearestSplitRatio(previewSourceRatio)
+            readonly property real previewPaneLength: splitActive
+                                                      ? Math.round(splitLength * previewSnapRatio)
+                                                      : firstPaneLength
+            readonly property int previewBandThickness: Math.max(3, Math.round(4 * theme.resCoeff))
+
+            function clampSplitRatio(ratio) {
+                if (!isFinite(ratio)) {
+                    return splitMidRatio
+                }
+                return Math.max(splitDragMinRatio, Math.min(splitDragMaxRatio, ratio))
+            }
+
+            function nearestSplitRatio(ratio) {
+                const clamped = clampSplitRatio(ratio)
+                const targets = splitSnapRatios
+                if (!targets || targets.length === 0) {
+                    return splitMidRatio
+                }
+                let nearest = targets[0]
+                let minDiff = Math.abs(clamped - nearest)
+                for (let i = 1; i < targets.length; ++i) {
+                    const diff = Math.abs(clamped - targets[i])
+                    if (diff < minDiff) {
+                        minDiff = diff
+                        nearest = targets[i]
+                    }
+                }
+                return nearest
+            }
+
+            onSplitActiveChanged: {
+                splitDragging = false
+                if (splitActive) {
+                    splitRatio = nearestSplitRatio(splitRatio)
+                }
+                dragRatio = splitRatio
+            }
+
+            onLandscapeModeChanged: {
+                splitDragging = false
+                splitRatio = nearestSplitRatio(splitRatio)
+                dragRatio = splitRatio
+            }
+            onSplitRatioChanged: {
+                if (!splitDragging) {
+                    appSettings.sceneSplitRatio = clampSplitRatio(splitRatio)
+                }
+            }
+
+            Component.onCompleted: {
+                splitRatio = nearestSplitRatio(appSettings.sceneSplitRatio)
+                dragRatio = splitRatio
+            }
+
+            Behavior on splitRatio {
+                enabled: !visualisationLayout.splitDragging
+                NumberAnimation {
+                    duration: 120
+                    easing.type: Easing.OutCubic
+                }
+            }
 
             Keys.onPressed: function(event) {
                 visualisationLayout.lastKeyPressed = event.key;
@@ -856,11 +957,25 @@ ApplicationWindow  {
 
             GraphicsScene3dView {
                 id:                renderer
+                // PULSE: 3D view hidden for now. Kept instantiated (object must exist for
+                // Core::UILoad's findChild<GraphicsScene3dView*>()). Its width is also forced to 0
+                // via has3DView=false above. To re-enable a 3D view later, restore the original
+                // binding and see the "REVISIT LATER" note on has3DView in visualisationLayout.
                 //visible: menuBar.is3DVisible //- PULSE: hide
                 visible: false
                 objectName: "GraphicsScene3dView"
-                Layout.fillHeight: true
-                Layout.fillWidth:  true
+                x: 0
+                y: 0
+                width: visualisationLayout.landscapeMode
+                       ? (visualisationLayout.splitActive
+                          ? visualisationLayout.firstPaneLength
+                          : (visualisationLayout.has3DView ? visualisationLayout.width : 0))
+                       : visualisationLayout.width
+                height: visualisationLayout.landscapeMode
+                        ? visualisationLayout.height
+                        : (visualisationLayout.splitActive
+                           ? visualisationLayout.firstPaneLength
+                           : (visualisationLayout.has3DView ? visualisationLayout.height : 0))
                 focus:             true
 
                 property bool longPressTriggered: false
@@ -1041,10 +1156,10 @@ ApplicationWindow  {
 
                 Item {
                     id: syncLoupeOverlay
+                    property int previewEpochIndex: waterViewFirst.getPreferredLoupeEpochIndex(renderer.syncLoupeEpochIndex)
                     visible: renderer.visible
                              && menuBar.is3DVisible
-                             && !menuBar.is2DVisible
-                             && renderer.syncLoupeOverlayVisible
+                             && (renderer.syncLoupeOverlayVisible || (renderer.syncLoupeZoomAdjusting && previewEpochIndex >= 0))
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     anchors.rightMargin: Math.round(12 * theme.resCoeff)
@@ -1061,12 +1176,13 @@ ApplicationWindow  {
                     height: side
 
                     function refreshLoupePlot() {
-                        if (!visible || renderer.syncLoupeEpochIndex < 0) {
+                        const previewEpoch = previewEpochIndex
+                        if (!visible || previewEpoch < 0) {
                             return
                         }
 
-                        const zoomMultiplier = renderer.syncLoupeZoom === 2 ? 1.5 : (renderer.syncLoupeZoom === 3 ? 2.25 : 1.0)
-                        const previewSourceBaseSize = Math.max(8, Math.floor(syncLoupeOverlay.side / 4))
+                        const zoomMultiplier = 1.0 + Math.max(0, Math.min(renderer.syncLoupeZoom, 300)) * 0.01
+                        const previewSourceBaseSize = Math.max(8, Math.floor(syncLoupeOverlay.side))
                         const previewSourceSize = Math.max(4, Math.floor(previewSourceBaseSize / zoomMultiplier))
                         const ch1Name = waterViewFirst.plotDatasetChannelName()
                         const ch2Name = waterViewFirst.plotDatasetChannel2Name()
@@ -1094,20 +1210,24 @@ ApplicationWindow  {
                         const has2DRange = isFinite(from2D) && isFinite(to2D) && Math.abs(to2D - from2D) > 0.0001
                         const cursorFrom = has2DRange ? from2D : renderer.syncLoupeDepthFrom
                         const cursorTo = has2DRange ? to2D : renderer.syncLoupeDepthTo
-                        const centerDepth = waterViewFirst.getLoupeDepthForEpoch(renderer.syncLoupeEpochIndex)
+                        const centerDepth = waterViewFirst.getLoupeDepthForEpoch(previewEpoch)
 
                         syncLoupePlot3D.horizontal = waterViewFirst.horizontal
                         syncLoupePlot3D.plotDatasetChannelFromStrings(ch1Name, ch2Name)
                         syncLoupePlot3D.plotEchogramTheme(waterViewFirst.getThemeId())
                         syncLoupePlot3D.plotEchogramSetLevels(waterViewFirst.getLowEchogramLevel(), waterViewFirst.getHighEchogramLevel())
                         syncLoupePlot3D.plotEchogramCompensation(waterViewFirst.getEchogramCompensation())
+                        syncLoupePlot3D.plotBottomTrackVisible(waterViewFirst.getBottomTrackVisible())
+                        syncLoupePlot3D.plotBottomTrackTheme(waterViewFirst.getBottomTrackThemeId())
+                        syncLoupePlot3D.plotRangefinderVisible(waterViewFirst.getRangefinderVisible())
+                        syncLoupePlot3D.plotRangefinderTheme(waterViewFirst.getRangefinderThemeId())
 
                         syncLoupePlot3D.setCursorFromTo(cursorFrom, cursorTo)
-                        syncLoupePlot3D.setTimelinePositionByEpochCentered(renderer.syncLoupeEpochIndex)
+                        syncLoupePlot3D.setTimelinePositionByEpochCentered(previewEpoch)
                         syncLoupePlot3D.setZoomPreviewSourceSize(previewSourceSize)
                         syncLoupePlot3D.setZoomPreviewReferenceDepthPixels(sourceDepthReferencePx)
                         syncLoupePlot3D.setZoomPreviewFlipY(renderer.syncLoupeFlipY)
-                        syncLoupePlot3D.setZoomPreviewSourceByEpochDepth(renderer.syncLoupeEpochIndex, centerDepth)
+                        syncLoupePlot3D.setZoomPreviewSourceByEpochDepth(previewEpoch, centerDepth)
                         syncLoupePlot3D.update()
                     }
 
@@ -1160,8 +1280,6 @@ ApplicationWindow  {
                             Component.onCompleted: {
                                 core.registerSyncLoupePlot(syncLoupePlot3D)
                                 setZoomPreviewMode(true)
-                                plotBottomTrackVisible(false)
-                                plotRangefinderVisible(false)
                                 plotAttitudeVisible(false)
                                 plotTemperatureVisible(false)
                                 plotDopplerBeamVisible(false, 0)
@@ -1521,10 +1639,137 @@ ApplicationWindow  {
                 }
             }
 
+            Rectangle {
+                id: splitSnapPreview
+                visible: visualisationLayout.splitActive && visualisationLayout.splitDragging
+                x: visualisationLayout.landscapeMode
+                   ? Math.round(visualisationLayout.previewPaneLength - width / 2)
+                   : 0
+                y: visualisationLayout.landscapeMode
+                   ? 0
+                   : Math.round(visualisationLayout.previewPaneLength - height / 2)
+                width: visualisationLayout.landscapeMode
+                       ? visualisationLayout.previewBandThickness
+                       : visualisationLayout.width
+                height: visualisationLayout.landscapeMode
+                        ? visualisationLayout.height
+                        : visualisationLayout.previewBandThickness
+                color: "#558D8D8D"
+                border.color: "#B8D0D0D0"
+                border.width: 1
+                z: 9995
+            }
+
             Item {
-                Layout.fillHeight: true
-                Layout.fillWidth: true
+                id: sceneSplitHandle
+                visible: visualisationLayout.splitActive
+                x: visualisationLayout.landscapeMode
+                   ? Math.round(visualisationLayout.handlePaneLength - width / 2)
+                   : Math.round((visualisationLayout.width - width) / 2)
+                y: visualisationLayout.landscapeMode
+                   ? Math.round((visualisationLayout.height - height) / 2)
+                   : Math.round(visualisationLayout.handlePaneLength - height / 2)
+                width: visualisationLayout.landscapeMode ? visualisationLayout.splitGripCrossSize : visualisationLayout.splitGripMainSize
+                height: visualisationLayout.landscapeMode ? visualisationLayout.splitGripMainSize : visualisationLayout.splitGripCrossSize
+                z: 10000
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: visualisationLayout.splitGripRadius
+                    color: (sceneSplitHandleMouse.containsMouse || sceneSplitHandleMouse.pressed)
+                           ? "#8D8D8D"
+                           : "#237A7A7A"
+                    border.color: (sceneSplitHandleMouse.containsMouse || sceneSplitHandleMouse.pressed)
+                                  ? "#D0D0D0"
+                                  : "#4A969696"
+                    border.width: 1
+                }
+
+                Image {
+                    anchors.centerIn: parent
+                    source: "qrc:/icons/ui/direction_horizontal.svg"
+                    fillMode: Image.PreserveAspectFit
+                    width: Math.round(parent.width * 0.65)
+                    height: Math.round(parent.height * 0.65)
+                    transformOrigin: Item.Center
+                    rotation: visualisationLayout.landscapeMode ? 0 : 90
+                    opacity: sceneSplitHandleMouse.containsMouse || sceneSplitHandleMouse.pressed ? 1.0 : 0.42
+                }
+
+                MouseArea {
+                    id: sceneSplitHandleMouse
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    hoverEnabled: true
+                    preventStealing: true
+                    cursorShape: visualisationLayout.landscapeMode ? Qt.SplitHCursor : Qt.SplitVCursor
+                    property real dragStartGlobalPos: 0
+                    property real dragStartRatio: visualisationLayout.dragRatio
+
+                    onPressed: function(mouse) {
+                        visualisationLayout.splitDragging = true
+                        visualisationLayout.dragRatio = visualisationLayout.splitRatio
+                        dragStartRatio = visualisationLayout.dragRatio
+                        const mappedPos = sceneSplitHandleMouse.mapToItem(visualisationLayout, mouse.x, mouse.y)
+                        dragStartGlobalPos = visualisationLayout.landscapeMode ? mappedPos.x : mappedPos.y
+                    }
+
+                    onPositionChanged: function(mouse) {
+                        if (!pressed || !visualisationLayout.splitActive || visualisationLayout.splitLength <= 0) {
+                            return
+                        }
+
+                        const mappedPos = sceneSplitHandleMouse.mapToItem(visualisationLayout, mouse.x, mouse.y)
+                        const currentGlobalPos = visualisationLayout.landscapeMode ? mappedPos.x : mappedPos.y
+                        const delta = currentGlobalPos - dragStartGlobalPos
+                        const startLength = dragStartRatio * visualisationLayout.splitLength
+                        const newRatio = (startLength + delta) / visualisationLayout.splitLength
+                        visualisationLayout.dragRatio = visualisationLayout.clampSplitRatio(newRatio)
+                    }
+
+                    onReleased: {
+                        visualisationLayout.splitDragging = false
+                        visualisationLayout.splitRatio = visualisationLayout.nearestSplitRatio(visualisationLayout.dragRatio)
+                        visualisationLayout.dragRatio = visualisationLayout.splitRatio
+                    }
+
+                    onCanceled: {
+                        visualisationLayout.splitDragging = false
+                        visualisationLayout.splitRatio = visualisationLayout.nearestSplitRatio(visualisationLayout.dragRatio)
+                        visualisationLayout.dragRatio = visualisationLayout.splitRatio
+                    }
+
+                    onDoubleClicked: {
+                        visualisationLayout.splitDragging = false
+                        visualisationLayout.dragRatio = visualisationLayout.splitMidRatio
+                        visualisationLayout.splitRatio = visualisationLayout.splitMidRatio
+                    }
+                }
+            }
+
+            Item {
+                id: plotsContainer
                 visible: menuBar.is2DVisible
+                x: visualisationLayout.landscapeMode
+                   ? (visualisationLayout.splitActive
+                      ? visualisationLayout.firstPaneLength
+                      : 0)
+                   : 0
+                y: visualisationLayout.landscapeMode
+                   ? 0
+                   : (visualisationLayout.splitActive
+                      ? visualisationLayout.firstPaneLength
+                      : 0)
+                width: visualisationLayout.landscapeMode
+                       ? (visualisationLayout.splitActive
+                          ? Math.max(0, visualisationLayout.width - visualisationLayout.firstPaneLength)
+                          : visualisationLayout.width)
+                       : visualisationLayout.width
+                height: visualisationLayout.landscapeMode
+                        ? visualisationLayout.height
+                        : (visualisationLayout.splitActive
+                           ? Math.max(0, visualisationLayout.height - visualisationLayout.firstPaneLength)
+                           : visualisationLayout.height)
 
                 GridLayout {
                     anchors.fill: parent
@@ -2038,7 +2283,7 @@ ApplicationWindow  {
 
     function handlePlotCursorChanged(indx, from, to) {
         if (!menuBar.syncPlots) {
-            if (renderer.syncLoupeOverlayVisible) {
+            if (syncLoupeOverlay.visible) {
                 syncLoupeOverlay.refreshLoupePlot()
             }
             return;
@@ -2053,7 +2298,7 @@ ApplicationWindow  {
             waterViewFirst.update()
         }
 
-        if (renderer.syncLoupeOverlayVisible) {
+        if (syncLoupeOverlay.visible) {
             syncLoupeOverlay.refreshLoupePlot()
         }
     }
@@ -2601,4 +2846,3 @@ ApplicationWindow  {
     }
 
 }
-

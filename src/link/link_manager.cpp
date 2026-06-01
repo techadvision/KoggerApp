@@ -137,7 +137,24 @@ QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
 */
 QList<QSerialPortInfo> LinkManager::getCurrentSerialList() const
 {
-    return QSerialPortInfo::availablePorts();
+    const auto allPorts = QSerialPortInfo::availablePorts();
+
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    QList<QSerialPortInfo> filteredPorts;
+    for (const auto& portInfo : allPorts) {
+        const QString systemLocation = portInfo.systemLocation();
+        const bool hasUsbIdentifiers = portInfo.hasVendorIdentifier() || portInfo.hasProductIdentifier();
+        const bool hasUsbLikeName = systemLocation.startsWith("/dev/ttyUSB")
+                                 || systemLocation.startsWith("/dev/ttyACM");
+
+        if (hasUsbIdentifiers || hasUsbLikeName) {
+            filteredPorts.append(portInfo);
+        }
+    }
+    return filteredPorts;
+#else
+    return allPorts;
+#endif
 }
 
 
@@ -262,9 +279,7 @@ void LinkManager::update()
 
     addNewLinks(currSerialList);
 
-#if !defined(Q_OS_ANDROID)
     deleteMissingLinks(currSerialList);
-#endif
 
     openAutoConnections();
 }

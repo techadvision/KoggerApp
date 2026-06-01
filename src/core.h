@@ -234,6 +234,8 @@ private:
     void fixFilePathString(QString& filePath) const;
     void loadLLARefFromSettings();
     int loadSavedMapTileProviderId() const;
+    void resetRealtimeSessionState();
+    void restoreRealtimeProcessingFlags();
 
     //Pulse
     void doOpenLogFileHeavyWork(const QString &filePath,

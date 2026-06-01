@@ -1680,6 +1680,16 @@ int Plot2DEchogram::getCompensation() const
     return _compensation_id;
 }
 
+void Plot2DEchogram::setWrapEnabled(bool state)
+{
+    if (wrapEnabled_ == state) {
+        return;
+    }
+
+    wrapEnabled_ = state;
+    resetCash();
+}
+
 void Plot2DEchogram::updateColors() {
     // 1) compute your user-range → [0..255]
     float low    = _levels.low;
@@ -1730,7 +1740,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
         resetCash();
     }
 
-    uint8_t* image_data = (uint8_t*)_image.constBits();
+    uint8_t* image_data = _image.bits();
     const int b_scanline = _image.bytesPerLine();
 
     bool is_cash_notvalid = getTriggerCashReset();
@@ -1848,7 +1858,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                     }
 //                    _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
                 } else {
-                    if(_cash[column].state != CashLine::CashState::CashStateEraced) {
+                    if(is_cash_notvalid || _cash[column].state != CashLine::CashState::CashStateEraced) {
 //                        _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
                         _cash[column].state = CashLine::CashState::CashStateNotValid;
                         _cash[column].data.fill(0);
@@ -1869,7 +1879,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
 
             }
         } else {
-            if(_cash[column].state != CashLine::CashState::CashStateEraced) {
+            if(is_cash_notvalid || _cash[column].state != CashLine::CashState::CashStateEraced) {
 //                _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
                 _cash[column].state = CashLine::CashState::CashStateNotValid;
                 _cash[column].data.fill(0);
@@ -2073,7 +2083,11 @@ bool Plot2DEchogram::drawZoomPreview(Plot2D* parent,
                                                    getThemeId(),
                                                    getLowLevel(),
                                                    getHighLevel(),
-                                                   _compensation_id);
+                                                   _compensation_id,
+                                                   parent->getBottomTrackVisible(),
+                                                   parent->getBottomTrackTheme(),
+                                                   parent->getRangefinderVisible(),
+                                                   parent->getRangefinderTheme());
     painter->restore();
 
     if (!rendered) {

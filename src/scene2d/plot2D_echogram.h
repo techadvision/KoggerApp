@@ -71,6 +71,7 @@ public:
     void setThemeId(int theme_id);
     int getCompensation() const;
     void setCompensation(int compensation_id);
+    void setWrapEnabled(bool state);
 
     void updateColors();
 
@@ -149,4 +150,5 @@ private:
     void publishThemeColors();
     SettingsBus* bus_ = nullptr;
     MiniPreviewPlot2D* miniPreviewPlot_ = nullptr;
+    bool wrapEnabled_ = true;
 };
