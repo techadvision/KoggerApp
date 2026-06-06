@@ -23,6 +23,7 @@ WaterFall {
     property bool loupeZoomAdjusting: false
     property bool loupeZoomWasVisibleBeforeAdjust: false
     property int loupeZoomSavedAimEpoch: -1
+    property real settingsMenuSpacer: Math.max(4, Math.round(theme.controlHeight * 0.2))
 
     horizontal: horisontalVertical.checked
 
@@ -107,6 +108,14 @@ WaterFall {
         }
         plotCheckButton.checked = false
         return true
+    }
+
+    function toggleEchogramType() {
+        if (echogramTypesList.count <= 0) {
+            return
+        }
+
+        echogramTypesList.currentIndex = (echogramTypesList.currentIndex + 1) % echogramTypesList.count
     }
 
     function closeTransientUi() {
@@ -461,6 +470,11 @@ WaterFall {
             zoomX = false
             //oldSpeed = pulseRuntimeSettings.echogramSpeed
             oldSpeed = pulseSettings.echogramSpeed
+            // Reset the side-scan max-depth step accumulator at the start/end of every pinch.
+            // If left to carry over, the leftover positive fraction from a zoom-out gesture makes
+            // the next zoom-in need a much larger move before a step fires, so in practice only
+            // zoom-out (increase) ever registered. Resetting makes both directions symmetric.
+            depthStepAccum = 0.0
             //***************
         }
 
@@ -574,6 +588,24 @@ WaterFall {
                     if (rounded !== pulseSettings.echogramSpeed) {
                         pulseSettings.echogramSpeed = rounded;
                         //console.log("TAV: zoomX → echogramSpeed changed to", rounded);
+                    }
+                } else if (!pulseRuntimeSettings.is2DTransducer && plot.isViewHorizontal()) {
+                    // Pulse: side scan shows the cross-track range on the X axis, so the intuitive
+                    // range zoom is a horizontal (zoomX) pinch. Mirror the zoomY horizontal-view path:
+                    // fingers apart -> scale up -> smaller range (zoom in); fingers together ->
+                    // larger range (flatten). Bidirectional by construction.
+                    let pinchDelta = (pinch.previousScale - pinch.scale) * 10
+                    depthStepAccum += pinchDelta
+                    let steps = depthStepAccum > 0 ? Math.floor(depthStepAccum)
+                                                   : Math.ceil(depthStepAccum)
+                    if (steps !== 0) {
+                        depthStepAccum -= steps
+                        let newVal = plot.quickChangeMaxRangeValue + steps
+                        if (newVal < 1) newVal = 1
+                        if (newVal > pulseRuntimeSettings.maximumDepth)
+                            newVal = pulseRuntimeSettings.maximumDepth
+                        plot.quickChangeMaxRangeValue = newVal
+                        selectorMaxDepth.value = newVal
                     }
                 }
             }
@@ -1242,14 +1274,18 @@ WaterFall {
             iconSource: "./icons/ui/pulse_ruler.svg"
 
             onSelectorValueChanged: {
-                console.log("pinch: onSelectorValueChanged: ", value);
+                console.log("EchogramWidth: max depth onSelectorValueChanged: ", value);
                 plot.quickChangeMaxRangeValue = value;
+                if (pulseRuntimeSettings.userManualSetName === "...")
+                    return
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                     pulseSettings.maxDepthValue = value;
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
+                        console.log("EchogramWidth: max depth isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlue, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlue = value;
                     } else {
+                        console.log("EchogramWidth: max depth !isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlueFixed, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlueFixed = value
                     }
                 }
@@ -1288,24 +1324,31 @@ WaterFall {
             }
 
             Component.onCompleted: {
+                console.log("EchogramWidth: max depth Component.onComplete")
                 if (pulseSettings.autoRange) {
+                    console.log("EchogramWidth: max depth Component.onComplete autoRange")
                     if (pulseRuntimeSettings.is2DTransducer) {
+                        console.log("EchogramWidth: Component.onComplete autoRange for is2DTransducer")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         pulseRuntimeSettings.shouldDoAutoRange = true
                         plot.plotDistanceAutoRange(0);
                     }
                 } else {
+                    console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     pulseRuntimeSettings.shouldDoAutoRange = false
                     plot.plotDistanceAutoRange(-1);
                     if (pulseRuntimeSettings.is2DTransducer) {
+                        console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange(pulseSettings.maxDepthValue * 1.0)
                         pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValue * 1.0
                     } else {
                         if (pulseRuntimeSettings.isSideScan2DView) {
+                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlue * 1.0",pulseSettings.maxDepthValuePulseBlue * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlue * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlue * 1.0
                         } else {
+                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlueFixed * 1.0",pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlueFixed * 1.0
                         }
@@ -2142,11 +2185,12 @@ WaterFall {
         id: settingsRow
         anchors.left: parent.left
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: settingsMenuSpacer
 
         MenuFrame {
             id: leftPanel
             isOpacityControlled: true
-            Layout.alignment: Qt.AlignLeft
+            Layout.alignment: Qt.AlignLeft | Qt.AlignBottom
             Layout.leftMargin: (indx === 1 &&
                                 !is3dVisible &&
                                 height > plot.height - 130 * theme.resCoeff)
@@ -2575,7 +2619,7 @@ WaterFall {
                         CCheck {
                             id: bottomTrackValueVisible
                             text: qsTr("Value")
-                            checked: true
+                            checked: false // We do not want this additional value for pulse
 
                             onCheckedChanged: plot.updateBottomTrackPresentation()
                             Component.onCompleted: plot.updateBottomTrackPresentation()
@@ -2615,7 +2659,7 @@ WaterFall {
                                 if (pulseRuntimeSettings.userManualSetName === "...") {
                                     return
                                 }
-                                bottomTrackVisible.checked = pulseRuntimeSettings.bottomTrackVisible
+                                bottomTrackGraphicsVisible.checked = pulseRuntimeSettings.bottomTrackVisible
                                 console.log("DistProcessing: set bottomTrackVisible", pulseRuntimeSettings.bottomTrackVisible)
                             }
                             function onBottomTrackVisibleChanged () {
@@ -2624,13 +2668,15 @@ WaterFall {
                                 if (pulseRuntimeSettings.userManualSetName === "...") {
                                     return
                                 }
+                                /* We also want the visible bottom track shown for 2D echo sounders!
                                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                                    bottomTrackVisible.checked = false
+                                    bottomTrackGraphicsVisible.checked = false
                                     return
                                 }
+                                */
 
                                 console.log("DistProcessing: toggle bottomTrack visibility, show it?", pulseRuntimeSettings.bottomTrackVisible)
-                                bottomTrackVisible.checked = pulseRuntimeSettings.bottomTrackVisible
+                                bottomTrackGraphicsVisible.checked = pulseRuntimeSettings.bottomTrackVisible
                             }
                         }
                     }

@@ -15,7 +15,7 @@ public:
     Q_PROPERTY(QVariantList themeColors READ getThemeColors NOTIFY themeColorsChanged)
     //Q_PROPERTY(int themeId READ getThemeId WRITE setThemeId NOTIFY themeIdChanged)
 
-    enum ThemeId {
+    enum ThemeId : uint8_t {
         ClassicTheme,
         SepiaTheme,
         WBTheme,
@@ -56,9 +56,8 @@ public:
 
 
     Plot2DEchogram();
-    ~Plot2DEchogram();
-
-    bool draw(Plot2D* parent, Dataset* dataset);
+    ~Plot2DEchogram() override;
+    bool draw(Plot2D* parent, Dataset* dataset) override;
 
     float getLowLevel() const;
     float getHighLevel() const;
@@ -77,6 +76,7 @@ public:
 
     int updateCash(Plot2D* parent, Dataset* dataset, int width, int height);
     void resetCash();
+    void releaseCache();
 
     void addReRenderPlotIndxs(const QSet<int>& indxs);
     bool drawZoomPreview(Plot2D* parent, Dataset* dataset, QPainter* painter, const QRect& targetRect, const QPoint& sourceCenter, int sourceSize, QPointF* focusPoint = nullptr);
@@ -89,7 +89,7 @@ signals:
 protected:
     struct CashLine
     {
-        enum class CashState
+        enum class CashState : uint8_t
         {
             CashStateNotValid = 0,
             CashStateValid,

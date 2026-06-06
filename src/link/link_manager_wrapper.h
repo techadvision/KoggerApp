@@ -6,6 +6,7 @@
 #include <QThread>
 #include <QPair>
 #include <QUuid>
+#include <QByteArray>
 #include "link_manager.h"
 #include "link_list_model.h"
 class SettingsBus;
@@ -22,14 +23,20 @@ public:
 
     /*methods*/
     LinkManagerWrapper(QObject* parent);
-    ~LinkManagerWrapper();
+    ~LinkManagerWrapper() override;
 
     LinkListModel* getModelPtr();
     LinkManager* getWorker();
     //Pulse: Added Q_INVOKABLE FOR closeOpenedLinks(), allows us to break connection for any device we have no support for
     Q_INVOKABLE void closeOpenedLinks();
+    void startWorkerThread();
+    void shutdownWorkerThread();
     QHash<QUuid, QString> getLinkNames() const;
     void openClosedLinks();
+    bool reloadPinnedLinksFromXmlData(const QByteArray& xmlData,
+                                      bool allowSerialLinks = true,
+                                      int* skippedSerialLinks = nullptr,
+                                      QString* error = nullptr);
     QVariant baudrateModel() const;
     //Pulse
     Q_PROPERTY(QString mavlinkPeerIp READ mavlinkPeerIp NOTIFY mavlinkPeerChanged)
@@ -84,7 +91,6 @@ signals:
     void sendUpdateDestinationPort(QUuid uuid, int destinationPort);
     void sendUpdatePinnedState(QUuid uuid, bool state);
     void sendUpdateControlType(QUuid uuid, int controlType);
-    void sendStopTimer();
     void sendOpenFLinks();
     void sendCreateAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort);
     void sendCloseUdpProxy();

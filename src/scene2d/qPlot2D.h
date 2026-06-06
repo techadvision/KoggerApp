@@ -19,10 +19,9 @@ class qPlot2D : public QQuickPaintedItem, public Plot2D
     Q_OBJECT
     Q_INTERFACES(QQmlParserStatus)
 public:
-    //Q_PROPERTY(bool horizontal READ isHorizontal() WRITE setHorizontal)
-    Q_PROPERTY(bool horizontal READ isHorizontal WRITE setHorizontal)
+    Q_PROPERTY(bool horizontal READ isHorizontal WRITE setHorizontal NOTIFY plotHorizontalChanged)
     Q_PROPERTY(float timelinePosition READ timelinePosition WRITE setTimelinePosition NOTIFY timelinePositionChanged)
-    Q_PROPERTY(bool isEnabled READ getPlotEnabled WRITE setPlotEnabled)
+    Q_PROPERTY(bool isEnabled READ getPlotEnabled WRITE setPlotEnabled NOTIFY plotEnabledChanged)
     Q_PROPERTY(QString contactInfo      READ getContactInfo      WRITE setContactInfo     NOTIFY contactChanged)
     Q_PROPERTY(bool    contactVisible   READ getContactVisible   WRITE setContactVisible  NOTIFY contactChanged)
     Q_PROPERTY(int     contactPositionX READ getContactPositionX /*WRITE setContactPosition*/ NOTIFY contactChanged)
@@ -46,12 +45,20 @@ public:
     void setDataProcessor(DataProcessor* dataProcessorPtr);
 
     bool isHorizontal() { return _isHorizontal; }
-    void setHorizontal(bool is_horizontal) { _isHorizontal = is_horizontal; Plot2D::setHorizontal(_isHorizontal); update(); }
+    void setHorizontal(bool is_horizontal) {
+        if (_isHorizontal == is_horizontal) {
+            return;
+        }
+        _isHorizontal = is_horizontal;
+        Plot2D::setHorizontal(_isHorizontal);
+        Q_EMIT plotHorizontalChanged();
+        update();
+    }
 
     void plotUpdate() override;
 
-    bool eventFilter(QObject *watched, QEvent *event) override final;
-    void sendSyncEvent(int epoch_index, QEvent::Type eventType) override final;
+    bool eventFilter(QObject *watched, QEvent *event) final;
+    void sendSyncEvent(int epoch_index, QEvent::Type eventType) final;
 
     //Pulse app updates
     Q_INVOKABLE void updatePlot() { plotUpdate(); };
@@ -163,6 +170,7 @@ signals:
     void contactChanged();
 
     void plotHorizontalChanged();
+    void plotEnabledChanged();
 
 protected slots:
     void timerUpdater();

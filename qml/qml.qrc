@@ -110,6 +110,7 @@
         <file>TimelineSliderHorizontal.qml</file>
         <file>TimelineSliderVertical.qml</file>
         <file>PulseSpinner.qml</file>
+        <file>HotkeysDialog.qml</file>
     </qresource>
 </RCC>
 

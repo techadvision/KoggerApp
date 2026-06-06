@@ -6,6 +6,7 @@
 #include <QUuid>
 #include <QList>
 #include <QTimer>
+#include <QByteArray>
 #if defined(Q_OS_ANDROID)
 #include "qserialport.h"
 #include "qserialportinfo.h"
@@ -25,12 +26,18 @@ class LinkManager : public QObject
 
 public:
     explicit LinkManager(QObject *parent = nullptr);
+    ~LinkManager() override;
     Link *getLinkPtr(QUuid uuid);
     void setSettingsBus(SettingsBus* b);
     void applyRuntime(const QVariantMap& m);
     void applyPersistent(const QVariantMap& m);
+    bool reloadPinnedLinksFromXmlData(const QByteArray& xmlData,
+                                      bool allowSerialLinks = true,
+                                      int* skippedSerialLinks = nullptr,
+                                      QString* error = nullptr);
 
 public slots:
+    void shutdown();
     void onLinkConnectionStatusChanged(QUuid uuid);
     void onUpgradingFirmwareStateChanged(QUuid uuid);
     void onLinkBaudrateChanged(QUuid uuid);
@@ -93,6 +100,23 @@ private:
         QTimer* timer_;
     };
 
+    struct PinnedLinkRecord {
+        QUuid uuid;
+        bool connectionStatus = false;
+        ControlType controlType = ControlType::kManual;
+        QString portName;
+        int baudrate = 921600;
+        bool parity = false;
+        LinkType linkType = LinkType::kLinkNone;
+        QString address;
+        int sourcePort = 0;
+        int destinationPort = 0;
+        bool isPinned = true;
+        bool isHided = false;
+        bool isNotAvailable = false;
+        bool autoSpeedSelection = false;
+    };
+
     /*methods*/
     QList<QSerialPortInfo> getCurrentSerialList() const;
     Link* createSerialPort(const QSerialPortInfo& serialInfo) const;
@@ -102,6 +126,10 @@ private:
     void update();
     void doEmitAppendModifyModel(Link* linkPtr);
     void exportPinnedLinksToXML();
+    QString pinnedLinksFilePath() const;
+    bool parsePinnedLinksXmlData(const QByteArray& xmlData, QList<PinnedLinkRecord>* records, QString* error) const;
+    static bool looksLikeSerialPortName(const QString& portName);
+    void appendPinnedLinkRecords(const QList<PinnedLinkRecord>& records);
     Link* createNewLink() const;
     void printLinkDebugInfo(Link* link) const;
     QString  getAndroidGatewayIP();
