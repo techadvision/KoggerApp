@@ -540,7 +540,10 @@ Item  {
                     backColor: theme.controlBackColor
                     borderColor: theme.controlBackColor
                     checkedBorderColor: theme.controlBorderColor
-                    checked: false
+                    // PULSE TRIAL: auto-enable the side-scan mosaic at startup. There is no Pulse
+                    // button to press yet, so mosaic must compute by default. The toolbar row stays
+                    // visible for now as a manual crisis fallback if this auto-enable ever fails.
+                    checked: true
                     implicitHeight: theme.controlHeight * 1.3
                     implicitWidth: theme.controlHeight * 1.3
 

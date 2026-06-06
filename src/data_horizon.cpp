@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <QDebug>
+#ifdef PULSE_MOSAIC_DEBUG
+#include <QDateTime>
+#endif
 
 
 DataHorizon::DataHorizon() :
@@ -115,6 +118,9 @@ void DataHorizon::onAddedEpoch(uint64_t indx)
     if (canEmitHorizon(beenChanged)) {
         emit epochAdded(epochIndx_);
     }
+#ifdef PULSE_MOSAIC_DEBUG
+    dbgLogHorizon("epoch");
+#endif
 }
 
 void DataHorizon::onAddedPosition(uint64_t indx)
@@ -133,6 +139,9 @@ void DataHorizon::onAddedPosition(uint64_t indx)
         tryCalcAndEmitSonarPosIndx();
         tryCalcAndEmitMosaicIndx();
     }
+#ifdef PULSE_MOSAIC_DEBUG
+    dbgLogHorizon("position");
+#endif
 }
 
 void DataHorizon::onAddedChart(uint64_t indx)
@@ -150,6 +159,9 @@ void DataHorizon::onAddedChart(uint64_t indx)
         tryCalcAndEmitDimRectIndx();
         tryCalcAndEmitMosaicIndx();
     }
+#ifdef PULSE_MOSAIC_DEBUG
+    dbgLogHorizon("chart");
+#endif
 }
 
 void DataHorizon::onAddedAttitude(uint64_t indx)
@@ -168,6 +180,9 @@ void DataHorizon::onAddedAttitude(uint64_t indx)
         tryCalcAndEmitDimRectIndx();
         tryCalcAndEmitMosaicIndx();
     }
+#ifdef PULSE_MOSAIC_DEBUG
+    dbgLogHorizon("attitude");
+#endif
 }
 
 void DataHorizon::onAddedArtificalAttitude(uint64_t indx)
@@ -186,6 +201,9 @@ void DataHorizon::onAddedArtificalAttitude(uint64_t indx)
         tryCalcAndEmitDimRectIndx();
         tryCalcAndEmitMosaicIndx();
     }
+#ifdef PULSE_MOSAIC_DEBUG
+    dbgLogHorizon("artAttitude");
+#endif
 }
 
 void DataHorizon::onAddedBottomTrack(uint64_t indx)
@@ -204,6 +222,9 @@ void DataHorizon::onAddedBottomTrack(uint64_t indx)
         //emit bottomTrackAdded(bottomTrackIndx_);
         tryCalcAndEmitMosaicIndx();
     }
+#ifdef PULSE_MOSAIC_DEBUG
+    dbgLogHorizon("bottomTrack");
+#endif
 }
 
 void DataHorizon::onAddedBottomTrack3D(const QVector<int>& epIndxs, const QVector<int>& vertIndx, bool isManual)
@@ -300,3 +321,35 @@ void DataHorizon::tryCalcAndEmitDimRectIndx()
         emit dimRectsCanCalc(dimRectIndx_);
     }
 }
+
+#ifdef PULSE_MOSAIC_DEBUG
+void DataHorizon::dbgLogHorizon(const char* where)
+{
+    // PULSE TRIAL: throttled (~1 Hz) frontier dump. The mosaic frontier is
+    // min(bottomTrack, chart, max(att,artAtt), sonarPos); whichever column
+    // trails 'epoch' is the stream starving the side-scan mosaic. A growing
+    // (epoch - sonarPos) gap is the "Data prepairing..." that never clears.
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (nowMs - dbgLastLogMs_ < 1000) {
+        return;
+    }
+    dbgLastLogMs_ = nowMs;
+
+    const uint64_t attIndx = getActualAttitudeIndx();
+    qInfo().nospace()
+        << "[PULSE_MOSAIC] " << where
+        << " epoch=" << epochIndx_
+        << " chart=" << chartIndx_
+        << " pos=" << positionIndx_
+        << " att=" << attitudeIndx_
+        << " artAtt=" << artificalAttitudeIndx_
+        << " attUsed=" << attIndx
+        << " sonarPos=" << sonarPosIndx_
+        << " dimRect=" << dimRectIndx_
+        << " mosaic=" << mosaicIndx_
+        << " | gap(epoch-sonarPos)=" << (epochIndx_ >= sonarPosIndx_ ? epochIndx_ - sonarPosIndx_ : 0)
+        << " gap(epoch-mosaic)=" << (epochIndx_ >= mosaicIndx_ ? epochIndx_ - mosaicIndx_ : 0)
+        << " attExpected=" << isAttitudeExpected_
+        << " fileOpening=" << isFileOpening_;
+}
+#endif

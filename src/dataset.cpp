@@ -6,10 +6,14 @@
 #include <cmath>
 
 #include "data_processor_defs.h"
+#include "data_horizon.h" // PULSE TRIAL: pulls in PULSE_MOSAIC_DEBUG flag for the diagnostics below
 
 extern Core core;
 #include <algorithm>
 #include <QTimer>
+#ifdef PULSE_MOSAIC_DEBUG
+#include <QDateTime>
+#endif
 
 
 Dataset::Dataset() :
@@ -1915,7 +1919,12 @@ void Dataset::setLastBottomTrackDepth(float val)
 void Dataset::calcDimensionRects(uint64_t indx)
 {
     //qDebug() << "void Dataset::calcDimensionRects()";
-    if (true) return;
+    // PULSE TRIAL (feature/enable-3d-mosaic): the `if (true) return;` stub that
+    // lived here (added 2026-04-12 in 85d478e1 during the v14 lift, NOT present
+    // upstream) disabled all dim-rect/tile computation. That left lastDimRectindx_
+    // pinned at 0, so the spatial catch-up spun forever ("Data prepairing..."
+    // never cleared) and no swath tiles were ever published -> side-scan mosaic
+    // never rendered. Restored to upstream 0.14.3 behavior by removing the stub.
 
     auto* mip = core.getMosaicIndexProviderPtr();
     if (!mip) {
@@ -2303,6 +2312,29 @@ void Dataset::scheduleSpatialCatchup()
 
     setSpatialPreparing(canRun && hasPending);
 
+#ifdef PULSE_MOSAIC_DEBUG
+    {
+        // PULSE TRIAL: throttled (~1 Hz) view of the chunked catch-up. If
+        // sonarPos done stops advancing while pending keeps growing, position
+        // (GNSS) is the starving stream; if sonarPos reaches pending but dimRect
+        // lags, it's heading/channel. Interpolation never extrapolates, so a
+        // tail after the last MAVLink fix stays pending forever.
+        static qint64 dbgLastMs = 0;
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        if (nowMs - dbgLastMs >= 1000) {
+            dbgLastMs = nowMs;
+            qInfo().nospace()
+                << "[PULSE_MOSAIC] catchup sonarPos done=" << sonarPosIndx_
+                << " pending=" << pendingSonarPosIndx_
+                << " | dimRect done=" << lastDimRectindx_
+                << " pending=" << pendingDimRectIndx_
+                << " | sonarPending=" << sonarPending
+                << " dimPending=" << dimPending
+                << " canRun=" << canRun;
+        }
+    }
+#endif
+
     if (!canRun || spatialCatchupScheduled_ || !hasPending) {
         return;
     }
@@ -2335,6 +2367,18 @@ void Dataset::setSpatialPreparing(bool state)
     }
 
     spatialPreparing_ = state;
+#ifdef PULSE_MOSAIC_DEBUG
+    // PULSE TRIAL: logs each "Data prepairing..." on/off transition with the
+    // indices that gate it. If it flips ON and never OFF, watch which pending
+    // index stays ahead of its done index below.
+    qInfo().nospace()
+        << "[PULSE_MOSAIC] spatialPreparing=" << spatialPreparing_
+        << " sonarPos done=" << sonarPosIndx_ << " pending=" << pendingSonarPosIndx_
+        << " | dimRect done=" << lastDimRectindx_ << " pending=" << pendingDimRectIndx_
+        << " | sonarIdxEnabled=" << sonarIndexingEnabled_
+        << " dimRectIdxEnabled=" << dimRectIndexingEnabled_
+        << " chunked=" << chunkedSpatialCatchup_;
+#endif
     emit spatialPreparingChanged();
 }
 

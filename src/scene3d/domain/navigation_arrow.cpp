@@ -61,21 +61,21 @@ void NavigationArrow::setSize(int size)
 
 QVector<QVector3D> NavigationArrow::makeArrowVertices() const
 {
+    // PULSE TRIAL: replaced the tall pointy 3D arrowhead (with raised apex / inner
+    // triangle) with a flat location.svg-style navigation cursor. Forward = +Y
+    // (heading rotation is applied via the model matrix, so +Y at angle 0 is correct).
+    // T = bow/tip, L/R = stern corners, N = concave stern notch.
     QVector<QVector3D> verts;
-    verts.reserve(static_cast<size_t>(6) * static_cast<size_t>(3));
+    verts.reserve(static_cast<size_t>(2) * static_cast<size_t>(3));
 
-    QVector3D A( -2.0f, -1.0f,  0.0f );
-    QVector3D B(  0.0f,  0.0f,  0.0f );
-    QVector3D C(  2.0f, -1.0f,  0.0f );
-    QVector3D D(  0.0f,  5.0f,  0.0f );
-    QVector3D E(  0.0f,  1.0f,  1.0f );
+    QVector3D T(  0.0f,  4.0f, 0.0f ); // bow / tip
+    QVector3D L( -2.6f, -3.0f, 0.0f ); // port stern corner
+    QVector3D R(  2.6f, -3.0f, 0.0f ); // starboard stern corner
+    QVector3D N(  0.0f, -1.4f, 0.0f ); // concave stern notch
 
-    //verts << A << B << D
-    //      << B << C << D
-    verts << A << B << E
-          << B << C << E
-          << A << E << D
-          << E << C << D;
+    // Winding chosen so both faces' normals point +Z (up).
+    verts << T << L << N
+          << T << N << R;
 
     return verts;
 }
@@ -104,23 +104,20 @@ QVector<QVector3D> NavigationArrow::makeArrowNormals(const QVector<QVector3D>& t
 
 QVector<QVector3D> NavigationArrow::makeArrowRibs() const
 {
+    // PULSE TRIAL: dark-red outline tracing the navigation-cursor perimeter
+    // (matches makeArrowVertices). Slightly raised in Z to avoid z-fighting with the fill.
     QVector<QVector3D> ribs;
-    ribs.reserve(static_cast<size_t>(6) * static_cast<size_t>(3));
+    ribs.reserve(static_cast<size_t>(4) * static_cast<size_t>(2));
 
-    QVector3D A( -2.0f, -1.0f,  0.05f );
-    QVector3D B(  0.0f, -0.0f,  0.05f );
-    QVector3D C(  2.0f, -1.0f,  0.05f );
-    QVector3D D(  0.0f,  5.0f,  0.05f );
-    QVector3D E(  0.0f,  1.0f,  1.05f );
+    QVector3D T(  0.0f,  4.0f, 0.02f ); // bow / tip
+    QVector3D L( -2.6f, -3.0f, 0.02f ); // port stern corner
+    QVector3D R(  2.6f, -3.0f, 0.02f ); // starboard stern corner
+    QVector3D N(  0.0f, -1.4f, 0.02f ); // concave stern notch
 
-    ribs << A << B
-         << B << C
-         << C << D
-         << D << A
-         << D << E
-         << E << A
-         << E << C;
-//       << E << B;
+    ribs << T << L
+         << L << N
+         << N << R
+         << R << T;
 
     return ribs;
 }
@@ -174,7 +171,7 @@ void NavigationArrow::NavigationArrowRenderImplementation::render(QOpenGLFunctio
         const int highlightLoc = litShaderProgram->uniformLocation("highlightIntensity");
 
         litShaderProgram->setUniformValue(matrixLoc, mvp);
-        litShaderProgram->setUniformValue(colorLoc, DrawUtils::colorToVector4d(QColor(235, 52, 52)));
+        litShaderProgram->setUniformValue(colorLoc, DrawUtils::colorToVector4d(QColor(0, 128, 0)) /* PULSE TRIAL: boat body green (matches the toggle/position-available green) */);
         if (lightDirLoc >= 0) {
             litShaderProgram->setUniformValue(lightDirLoc, shadow.lightDir);
         }
@@ -208,7 +205,7 @@ void NavigationArrow::NavigationArrowRenderImplementation::render(QOpenGLFunctio
         const int matrixLoc = lineShaderProgram->uniformLocation("matrix");
 
         lineShaderProgram->setUniformValue(matrixLoc, mvp);
-        lineShaderProgram->setUniformValue(colorLoc, DrawUtils::colorToVector4d(QColor(235, 52, 52)));
+        lineShaderProgram->setUniformValue(colorLoc, DrawUtils::colorToVector4d(QColor(0, 128, 0)) /* PULSE TRIAL: boat body green (matches the toggle/position-available green) */);
         lineShaderProgram->enableAttributeArray(posLoc);
         lineShaderProgram->setAttributeArray(posLoc, arrowVertices_.constData());
         ctx->glDrawArrays(GL_TRIANGLES, 0, arrowVertices_.size());
@@ -222,7 +219,7 @@ void NavigationArrow::NavigationArrowRenderImplementation::render(QOpenGLFunctio
         const int matrixLoc = lineShaderProgram->uniformLocation("matrix");
 
         lineShaderProgram->setUniformValue(matrixLoc, mvp);
-        lineShaderProgram->setUniformValue(colorLoc, DrawUtils::colorToVector4d(QColor(99, 22, 22)));
+        lineShaderProgram->setUniformValue(colorLoc, DrawUtils::colorToVector4d(QColor(27, 94, 32))); /* PULSE TRIAL: dark-green outline (#1B5E20) to match the boat body green */
         lineShaderProgram->enableAttributeArray(posLoc);
         lineShaderProgram->setAttributeArray(posLoc, arrowRibs_.constData());
 

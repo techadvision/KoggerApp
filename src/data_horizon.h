@@ -3,6 +3,15 @@
 #include <QObject>
 #include <QHash>
 
+// ── PULSE TRIAL (feature/enable-3d-mosaic): mosaic/spatial-index diagnostics ──
+// Define PULSE_MOSAIC_DEBUG to log the DataHorizon frontiers (epoch / chart /
+// position / attitude / artificial-yaw / sonarPos / dimRect / mosaic) so we can
+// see WHICH frontier flatlines and starves the side-scan mosaic. Throttled to
+// ~1 Hz. Remove this block (and the matching ones in dataset.cpp) before any
+// merge to master. Comment out the next line to silence without code changes.
+#define PULSE_MOSAIC_DEBUG 1
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 class DataHorizon : public QObject
 {
@@ -53,6 +62,11 @@ private:
     void tryCalcAndEmitMosaicIndx();
     void tryCalcAndEmitSonarPosIndx();
     void tryCalcAndEmitDimRectIndx();
+#ifdef PULSE_MOSAIC_DEBUG
+    // PULSE TRIAL: throttled frontier dump (see PULSE_MOSAIC_DEBUG note at top).
+    void dbgLogHorizon(const char* where);
+    qint64 dbgLastLogMs_ = 0;
+#endif
 
 private:
     bool emitChanges_;

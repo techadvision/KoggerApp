@@ -142,16 +142,20 @@ MenuFrame {
                     id: mosaicLevelsSlider
                     Layout.alignment: Qt.AlignHCenter
 
+                    // PULSE TRIAL: this hidden slider no longer drives the mosaic levels. The
+                    // echogram light(=high)/filter(=low) controls (Plot2D selectorIntensity /
+                    // selectorFiltering) are the single master and push via onLevelChanged().
+                    // Re-enable these calls to let the manual slider control levels again.
                     onStartValueChanged: {
-                       MosaicViewControlMenuController.onLevelChanged(startValue, stopValue);
+                       //MosaicViewControlMenuController.onLevelChanged(startValue, stopValue);
                     }
 
                     onStopValueChanged: {
-                       MosaicViewControlMenuController.onLevelChanged(startValue, stopValue);
+                       //MosaicViewControlMenuController.onLevelChanged(startValue, stopValue);
                     }
 
                     Component.onCompleted: {
-                        MosaicViewControlMenuController.onLevelChanged(startValue, stopValue);
+                        //MosaicViewControlMenuController.onLevelChanged(startValue, stopValue);
                     }
 
                     Settings {
@@ -184,8 +188,12 @@ MenuFrame {
 
                         model: [qsTr("Blue"), qsTr("Sepia"), qsTr("Sepia New"), qsTr("WRGBD"), qsTr("WhiteBlack"), qsTr("BlackWhite"), qsTr("DeepBlue"), qsTr("Ice"), qsTr("Green"), qsTr("Midnight")]
                         currentIndex: 0
+                        // PULSE TRIAL: this hidden combo no longer drives the mosaic colour theme.
+                        // The echogram side-scan colour selector (Plot2D themeSelectorColorSS) is now
+                        // the single source of truth and calls MosaicViewControlMenuController.onThemeChanged().
+                        // Re-enable these two calls if the manual combo should control the theme again.
                         onCurrentIndexChanged: {
-                            MosaicViewControlMenuController.onThemeChanged(currentIndex)
+                            //MosaicViewControlMenuController.onThemeChanged(currentIndex)
                         }
 
                         onFocusChanged: {
@@ -195,7 +203,7 @@ MenuFrame {
                         }
 
                         Component.onCompleted: {
-                            MosaicViewControlMenuController.onThemeChanged(currentIndex)
+                            //MosaicViewControlMenuController.onThemeChanged(currentIndex)
                         }
 
                         Settings {
