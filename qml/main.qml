@@ -1021,9 +1021,11 @@ ApplicationWindow  {
             //       shown, reusing this same has3DView / has2DView mechanism (mirror of how 2D is
             //       full-screen today).
             //   (b) Real split view: restore the original binding below to re-enable the divider.
-            // Original upstream binding was:
-            //   readonly property bool has3DView: (menuBar !== null) ? menuBar.is3DVisible : false
-            readonly property bool has3DView: false
+            // PULSE TRIAL (feature/enable-3d-mosaic): split view re-enabled to trial the side-scan
+            // mosaic / 3D toolbar abilities. visible3DButton defaults checked:true and splitRatio
+            // defaults to 0.5, so this comes up as a 50/50 split. To hide 3D again, set this back
+            // to `false` (the previous Pulse override).
+            readonly property bool has3DView: (menuBar !== null) ? menuBar.is3DVisible : false
             readonly property bool has2DView: (menuBar !== null) ? menuBar.is2DVisible : false
             readonly property bool splitActive: has3DView && has2DView
             readonly property real primaryLength: landscapeMode ? width : height
@@ -1126,12 +1128,11 @@ ApplicationWindow  {
 
             GraphicsScene3dView {
                 id:                renderer
-                // PULSE: 3D view hidden for now. Kept instantiated (object must exist for
-                // Core::UILoad's findChild<GraphicsScene3dView*>()). Its width is also forced to 0
-                // via has3DView=false above. To re-enable a 3D view later, restore the original
-                // binding and see the "REVISIT LATER" note on has3DView in visualisationLayout.
-                //visible: menuBar.is3DVisible //- PULSE: hide
-                visible: false
+                // PULSE TRIAL (feature/enable-3d-mosaic): 3D pane re-enabled to trial the side-scan
+                // mosaic / 3D toolbar. Bound to the 3D toggle (visible3DButton, default checked) and
+                // paired with has3DView above. Object must remain instantiated for Core::UILoad's
+                // findChild<GraphicsScene3dView*>(). To hide 3D again, set this back to `false`.
+                visible: menuBar.is3DVisible //- PULSE: re-enabled for 3D/mosaic trial
                 objectName: "GraphicsScene3dView"
                 x: 0
                 y: 0
