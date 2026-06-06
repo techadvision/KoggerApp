@@ -19,7 +19,7 @@ protected:
     PlotPen _penLine = PlotPen(PlotColor(50, 255, 0), 2, PlotPen::LineStyleSolid);
     PlotPen _penLine2 = PlotPen(PlotColor(200, 200, 0), 2, PlotPen::LineStyleSolid);
     int themeId_ = 1;
-    bool drawDepthText_ = true;
+    bool drawDepthText_ = false;
 
 private:
     QString formatDepthText(float distance) const;

@@ -218,7 +218,7 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     //console.log("pulseSettingsValue speedSelector changed to", newValue)
                     pulseSettings.echogramWidth = newValue
                 }

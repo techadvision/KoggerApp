@@ -183,7 +183,7 @@ void qPlot2D::paint(QPainter *painter)
 
             int centerY = qBound(0, canvas().height() / 2, canvas().height() - 1);
             const float distRange = cursor_.distance.to - cursor_.distance.from;
-            const bool twoChannelView = cursor_.channel2 != CHANNEL_NONE;
+            const bool twoChannelView = cursor_.channel2 != channelNone();
 
             if (std::isfinite(distRange) && std::abs(distRange) > 1e-6f) {
                 if (twoChannelView) {

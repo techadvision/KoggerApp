@@ -123,7 +123,7 @@ public:
     Q_INVOKABLE void setFakeDepthAddition(double addedDepth);
     Q_INVOKABLE void processBottomTrack(bool processTracks);
     Q_INVOKABLE void initiateProcessBottomTrack(bool initiateProcessing);
-    Q_INVOKABLE void setTemperatureCorrection(bool temperatureCorrection);
+    Q_INVOKABLE void setTemperatureCorrection(double temperatureCorrection);
     Q_INVOKABLE void setDepthFilterActive(bool useDepthFilter);
     Q_INVOKABLE void setDepthFilterBottomTrackActive(bool useDepthFilterWithBottomTrack);
     float filterDepthRecords (float distance);
@@ -346,7 +346,7 @@ public:
     float getBoatLongitude() const         { return boatLongitude_;            };
     float getDistToContact() const         { return distToActiveContact_;      };
     float getAngleToContact() const        { return angleToActiveContact_;     };
-    float getLastDepth() const             { return lastDepth_;                };
+    Q_INVOKABLE float getLastDepth() const { return lastDepth_;                };
     float getLastTrackDepth() const        { return lastTrackDepth_;           }; //pulse
     float getSpeed() const                 { return speed_;                    };
 

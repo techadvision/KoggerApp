@@ -508,7 +508,7 @@ public class KoggerUsbSerialManager {
                  .append(device.getProductId()).append(":")
                  .append(device.getVendorId());
 
-        KoggerLogger.i(TAG, "Formatted Device Info: " + deviceInfo.toString());
+        //KoggerLogger.i(TAG, "Formatted Device Info: " + deviceInfo.toString());
 
         return deviceInfo.toString();
     }

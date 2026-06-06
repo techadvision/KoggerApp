@@ -2060,7 +2060,7 @@ ColumnLayout {
             } else {
                 //Pulse Blue
                 //pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
-                pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth
+                pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth //- This workaround will lower resolution but keep the data rate unchanged. Fits anglers, but not SAR
                 pulseRuntimeSettings.distMax = 1000 * pulseSettings.echogramWidth
                 pulseRuntimeSettings.maximumDepth = pulseSettings.echogramWidth
             }
@@ -2088,6 +2088,7 @@ ColumnLayout {
         target: pulseSettings ? pulseSettings : undefined
 
         function onEchogramWidthChanged () {
+            console.log("onEchogramWidthChanged observed")
             if (pulseSettings === null)
                 return
             if (dev === null)

@@ -346,7 +346,7 @@ QtObject {
         "fixBlackStripesBackwardSteps": 5,
         "fixBlackStripesForwardSteps":  3,
         "fixBlackStripesState":         true,
-        "temperatureCorrection":        -1.5,
+        "temperatureCorrection":        -2.0,
         "bottomTrackVisible":           false,
         "bottomTrackVisibleModel":      0
     }
@@ -381,8 +381,8 @@ QtObject {
         "maximumDepth":                 25,
         "processBottomTrack":           true,
         "doDynamicR esolution":          false,
-        "fixBlackStripesBackwardSteps": 3,
-        "fixBlackStripesForwardSteps":  3,
+        "fixBlackStripesBackwardSteps": 5,
+        "fixBlackStripesForwardSteps":  1,
         "fixBlackStripesState":         true,
         "temperatureCorrection":        0,
         "bottomTrackVisible":           false,
