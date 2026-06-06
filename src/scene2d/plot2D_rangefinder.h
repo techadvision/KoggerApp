@@ -10,8 +10,9 @@ class Plot2D;
 class Plot2DRangefinder : public Plot2DLine {
 public:
     Plot2DRangefinder();
-    bool draw(Plot2D* parent, Dataset* dataset);
+    bool draw(Plot2D* parent, Dataset* dataset) override;
     void setTheme(int theme_id);
+    int getThemeId() const { return themeId_; }
     void setDepthTextVisible(bool state) { drawDepthText_ = state; }
     bool isDepthTextVisible() const { return drawDepthText_; }
 
@@ -19,7 +20,7 @@ protected:
     PlotPen penPoint_ = PlotPen(PlotColor(250, 100, 0), 2, PlotPen::LineStylePoint);
     PlotPen penLine_ = PlotPen(PlotColor(250, 100, 0), 2, PlotPen::LineStyleSolid);
     int themeId_ = 0;
-    bool drawDepthText_ = true;
+    bool drawDepthText_ = false;
 
 private:
     QString formatDepthText(float distance) const;

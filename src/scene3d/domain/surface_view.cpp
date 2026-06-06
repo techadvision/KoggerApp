@@ -57,7 +57,9 @@ QVector<QVector3D> SurfaceView::SurfaceViewRenderImplementation::buildTileNormal
         const QVector3D& v0 = verts[i0];
         const QVector3D& v1 = verts[i1];
         const QVector3D& v2 = verts[i2];
-        const QVector3D face = QVector3D::crossProduct(v1 - v0, v2 - v0);
+        QVector3D face = QVector3D::crossProduct(v1 - v0, v2 - v0);
+        face.setX(face.x() * verticalScale_);
+        face.setY(face.y() * verticalScale_);
         if (face.lengthSquared() <= 1e-12f) {
             continue;
         }
@@ -127,7 +129,7 @@ void SurfaceView::SurfaceViewRenderImplementation::rebuildSeamlessTileNormals(co
             sharedNormalSums[makeVertexXYKey(verts[i])] += n;
         }
 
-        perTileNormalSums.insert(it.key(), std::move(normalSums));
+        perTileNormalSums.insert(it.key(), normalSums);
     }
 
     outNormals.reserve(perTileNormalSums.size());
@@ -163,7 +165,7 @@ void SurfaceView::SurfaceViewRenderImplementation::rebuildSeamlessTileNormals(co
             normals[i] = n;
         }
 
-        outNormals.insert(key, std::move(normals));
+        outNormals.insert(key, normals);
     }
 }
 
@@ -510,13 +512,13 @@ void SurfaceView::setTiles(const QHash<TileKey, SurfaceTile> &tiles, bool useTex
         auto& rTRef = r->tiles_;
 
         for (auto itT = tiles.cbegin(); itT != tiles.cend(); ++itT) {
-            auto& iKey   = itT.key();
-            auto& iValue = itT.value();
+            const auto& iKey   = itT.key();
+            const auto& iValue = itT.value();
 
             if (auto itRT = rTRef.find(iKey); itRT != rTRef.end()) { //refresh
                 auto& itRTVRef = itRT.value();
                 const auto savedTexId = itRTVRef.textureId_;
-                itRTVRef = std::move(iValue);
+                itRTVRef = iValue;
                 itRTVRef.textureId_ = savedTexId;
             }
             else {
@@ -822,7 +824,8 @@ void SurfaceView::rebuildIsobathLabels()
         }
 
         const int side = int(std::sqrt(double(verts.size())));
-        if (side < 2 || side * side != verts.size()) {
+        const size_t sideSquared = static_cast<size_t>(side) * static_cast<size_t>(side);
+        if (side < 2 || sideSquared != static_cast<size_t>(verts.size())) {
             continue;
         }
 
@@ -943,7 +946,8 @@ SurfaceView::SurfaceViewRenderImplementation::SurfaceViewRenderImplementation()
     labelStep_(100.0f),
     cameraDist_(10.0f),
     traceWidth_(2.0f),
-    traceVisible_(true)
+    traceVisible_(true),
+    verticalScale_(1.0f)
 {}
 
 void SurfaceView::SurfaceViewRenderImplementation::render(QOpenGLFunctions *ctx,
@@ -1321,6 +1325,27 @@ void SurfaceView::SurfaceViewRenderImplementation::setShadowSettings(bool enable
     }
 }
 
+void SurfaceView::SurfaceViewRenderImplementation::setVerticalScale(float scale)
+{
+    const float clampedScale = qBound(0.05f, scale, 10.0f);
+    if (qFuzzyCompare(verticalScale_ + 1.0f, clampedScale + 1.0f)) {
+        return;
+    }
+
+    verticalScale_ = clampedScale;
+
+    if (!shadowEnabled_) {
+        return;
+    }
+
+    if (tiles_.isEmpty()) {
+        tileNormals_.clear();
+        return;
+    }
+
+    rebuildSeamlessTileNormals(tiles_, tileNormals_);
+}
+
 void SurfaceView::SurfaceViewRenderImplementation::updateBounds()
 {
     if (tiles_.isEmpty()) {
@@ -1362,4 +1387,3 @@ void SurfaceView::SurfaceViewRenderImplementation::updateBounds()
 
     m_bounds = Cube(xMin, xMax, yMin, yMax, 0, 0);
 }
-

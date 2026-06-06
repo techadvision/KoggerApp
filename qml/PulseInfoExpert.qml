@@ -259,14 +259,18 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Experimental samples adjust (1358)"
+            text: "Experimental samples adjust (2000)"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: samplesSelection
                 values: [700, 750, 800, 850, 900, 950,
-                    1000 ,1050, 1100, 1150, 1200, 1250, 1300,
+                    1000 ,1050, 1100, 1150, 1200, 1250, 1300, 1350,
                     1358, 1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750,
-                    1800, 1850, 1900, 1950, 2000]
+                    1800, 1850, 1900, 1950, 2000, 2050, 2100, 2150, 2200,
+                    2250, 2300, 2350, 2400, 2450, 2500, 2550, 2600, 2650,
+                    2700, 2750, 2800, 2850, 2900, 2950, 3000, 3050, 3100,
+                    3150, 3200, 3250, 3300, 3350, 3400, 3450, 3500, 3550,
+                    3600, 3650, 3700, 3750, 3800, 3850, 3900, 3950, 4000]
 
                 //onPulsePreferenceValueChanged: pulseRuntimeSettings.chartSamples = newValue
                 onPulsePreferenceValueChanged: function(newValue) {
@@ -337,7 +341,7 @@ Flickable {
                 values: [25000, 27000, 29000, 31000, 33000, 35000, 37000, 39000,
                     41000, 43000, 45000, 47000, 49000]
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                 let newMaximumDepth = newValue / 1000
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ||
                     pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
@@ -632,7 +636,7 @@ Flickable {
                 id: bottomTrackMinDepthValue
                 values: [0.0, 0.5, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
 
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     if (pulseRuntimeSettings.distProcessing[3] !== newValue) {
                         pulseRuntimeSettings.distProcessing[3] = newValue
                         pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing

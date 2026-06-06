@@ -14,6 +14,7 @@ MiniPreviewPlot2D::MiniPreviewPlot2D()
     setHorizontal(true);
     setPlotEnabled(true);
     echogram_.setVisible(true);
+    echogram_.setWrapEnabled(false);
     bottomProcessing_.setVisible(true);
     bottomProcessing_.setDepthTextVisible(false);
     rangefinder_.setVisible(true);
@@ -57,7 +58,11 @@ bool MiniPreviewPlot2D::render(QPainter* painter,
                                int themeId,
                                float lowLevel,
                                float highLevel,
-                               int compensationId)
+                               int compensationId,
+                               bool bottomTrackVisible,
+                               int bottomTrackThemeId,
+                               bool rangefinderVisible,
+                               int rangefinderThemeId)
 {
     if (!painter || !dataset || previewWidth <= 0 || previewHeight <= 0 || parentCanvasWidth <= 0) {
         return false;
@@ -82,47 +87,62 @@ bool MiniPreviewPlot2D::render(QPainter* painter,
     cursor_.currentEpochIndx = -1;
     cursor_.lastEpochIndx = -1;
 
-    const int fallbackX = qBound(0, parentCanvasWidth / 2, parentCanvasWidth - 1);
-    int fallbackEpoch = parentCursor.getIndex(fallbackX);
-    if (dataset->validIndex(fallbackEpoch) < 0) {
-        fallbackEpoch = -1;
-    }
-
-    int lastValidEpoch = fallbackEpoch;
     int zeroEpochCount = 0;
     const int maxParentX = parentCanvasWidth - 1;
     const float stepX = static_cast<float>(sourceWidth) / static_cast<float>(previewWidth);
     float srcXFloat = static_cast<float>(sourceLeft) + stepX * 0.5f;
+    QVector<QPair<int, int>> noDataRanges;
+    int noDataStart = -1;
 
     cursor_.indexes.resize(previewWidth);
     for (int column = 0; column < previewWidth; ++column) {
-        const int sourceX = qBound(0, qRound(srcXFloat), maxParentX);
+        const int sourceX = qRound(srcXFloat);
         srcXFloat += stepX;
 
-        int epochIndex = parentCursor.getIndex(sourceX);
-        bool validEpoch = dataset->validIndex(epochIndex) >= 0;
-        if (!validEpoch) {
-            epochIndex = lastValidEpoch;
-            validEpoch = dataset->validIndex(epochIndex) >= 0;
-        }
-        else {
-            lastValidEpoch = epochIndex;
-        }
+        const bool sourceInBounds = sourceX >= 0 && sourceX <= maxParentX;
+        const int epochIndex = sourceInBounds ? parentCursor.getIndex(sourceX) : -1;
+        const bool validEpoch = sourceInBounds && dataset->validIndex(epochIndex) >= 0;
 
         if (!validEpoch) {
             ++zeroEpochCount;
+            cursor_.indexes[column] = -1;
+            if (noDataStart < 0) {
+                noDataStart = column;
+            }
         }
-
-        cursor_.indexes[column] = epochIndex;
+        else {
+            cursor_.indexes[column] = epochIndex;
+            if (noDataStart >= 0) {
+                noDataRanges.append(qMakePair(noDataStart, column));
+                noDataStart = -1;
+            }
+        }
+    }
+    if (noDataStart >= 0) {
+        noDataRanges.append(qMakePair(noDataStart, previewWidth));
     }
 
     cursor_.numZeroEpoch = zeroEpochCount;
 
     updateEchogramSettings(themeId, lowLevel, highLevel, compensationId);
+    bottomProcessing_.setVisible(bottomTrackVisible);
+    bottomProcessing_.setTheme(bottomTrackThemeId);
+    rangefinder_.setVisible(rangefinderVisible);
+    rangefinder_.setTheme(rangefinderThemeId);
 
     const bool rendered = echogram_.draw(this, dataset);
     if (!rendered) {
         return false;
+    }
+
+    if (QPainter* canvasPainter = canvas_.painter(); canvasPainter != nullptr) {
+        for (const auto& range : noDataRanges) {
+            const int xFrom = range.first;
+            const int xTo = range.second;
+            if (xTo > xFrom) {
+                canvasPainter->fillRect(xFrom, 0, xTo - xFrom, previewHeight, Qt::black);
+            }
+        }
     }
 
     bottomProcessing_.draw(this, dataset);
@@ -137,7 +157,7 @@ Plot2D::Plot2D()
     , isEnabled_(true)
     , isLoupeVisible_(false)
     , loupeSize_(1)
-    , loupeZoom_(1)
+    , loupeZoom_(0)
     , lAngleOffsetDeg_(0.0f)
     , rAngleOffsetDeg_(0.0f)
 {
@@ -156,7 +176,7 @@ Plot2D::Plot2D()
     temperature_.setVisible(true);
     aim_.setVisible(true);
     quadrature_.setVisible(false);
-    setDataChannel(false, CHANNEL_NONE, 0, {});
+    setDataChannel(false, channelNone(), 0, {});
     cursor_.attitude.from = -180;
     cursor_.attitude.to = 180;
     cursor_.distance.set(0, 20);
@@ -206,7 +226,7 @@ float Plot2D::getCursorDistance() const
 std::tuple<ChannelId, uint8_t, QString> Plot2D::getSelectedChannelId(float cursorDistance) const
 {
     const float dist = qFuzzyIsNull(cursorDistance) ? getCursorDistance() : cursorDistance;
-    const bool useChannel1 = qFuzzyIsNull(dist) || dist < 0.0f || cursor_.channel2 == CHANNEL_NONE;
+    const bool useChannel1 = qFuzzyIsNull(dist) || dist < 0.0f || cursor_.channel2 == channelNone();
 
     return useChannel1 ? std::make_tuple(cursor_.channel1, cursor_.subChannel1, cursor_.firstChannelPortName) : std::make_tuple(cursor_.channel2, cursor_.subChannel2, cursor_.secondChannelPortName);
 }
@@ -343,7 +363,7 @@ int Plot2D::getLoupeZoom() const
 
 void Plot2D::setLoupeZoom(int zoom)
 {
-    const int boundedZoom = qBound(1, zoom, 3);
+    const int boundedZoom = qBound(0, zoom, 300);
     if (loupeZoom_ == boundedZoom) {
         return;
     }
@@ -505,7 +525,10 @@ void Plot2D::setTimelinePositionByEpoch(int epochIndx)
     if (echogramPause_)
         return;
 
-    float pos = epochIndx == -1 ? cursor_.position : static_cast<float>(epochIndx + cursor_.indexes.size() / 2) / static_cast<float>(datasetPtr_->size());
+    const int halfWindow = static_cast<int>(cursor_.indexes.size() / 2);
+    float pos = epochIndx == -1
+        ? cursor_.position
+        : static_cast<float>(epochIndx + halfWindow) / static_cast<float>(datasetPtr_->size());
     cursor_.selectEpochIndx = epochIndx;
     setTimelinePositionSec(pos);
 }
@@ -649,12 +672,24 @@ void Plot2D::setBottomTrackVisible(bool visible) {
 }
 
 void Plot2D::setBottomTrackTheme(int theme_id) {
-    Q_UNUSED(theme_id);
+    bottomProcessing_.setTheme(theme_id);
+    plotUpdate();
+}
+
+bool Plot2D::getBottomTrackVisible() const
+{
+    return bottomProcessing_.isVisible();
+}
+
+int Plot2D::getBottomTrackTheme() const
+{
+    return bottomProcessing_.getThemeId();
 }
 
 void Plot2D::setBottomTrackDepthTextVisible(bool visible)
 {
-    bottomProcessing_.setDepthTextVisible(visible);
+    //bottomProcessing_.setDepthTextVisible(visible);
+    bottomProcessing_.setDepthTextVisible(false); //We do not want this for pulse
     plotUpdate();
 }
 
@@ -666,6 +701,16 @@ void Plot2D::setRangefinderVisible(bool visible) {
 void Plot2D::setRangefinderTheme(int theme_id) {
     rangefinder_.setTheme(theme_id);
     plotUpdate();
+}
+
+bool Plot2D::getRangefinderVisible() const
+{
+    return rangefinder_.isVisible();
+}
+
+int Plot2D::getRangefinderTheme() const
+{
+    return rangefinder_.getThemeId();
 }
 
 void Plot2D::setRangefinderDepthTextVisible(bool visible)
@@ -802,28 +847,24 @@ void Plot2D::zoomDistance(float ratio)
     //qDebug() << "Plot2D::zoomDistance with ratio" << ratio;
     cursor_.distance.mode = AutoRangeNone;
 
-    int  delta = ratio;
-    if(delta == 0) return;
+    const float delta = ratio;
+    if (qFuzzyIsNull(delta)) {
+        return;
+    }
 
     float from = cursor_.distance.from;
     float to = cursor_.distance.to;
-    float absrange = abs(to - from);
+    float absrange = std::abs(to - from);
 
-    float zoom = delta < 0 ? -delta*0.01f : delta*0.01f;
-    float delta_range = absrange*zoom;
-    float new_range = 0;
-
-    if(delta_range < 0.1) {
-        delta_range = 0.1;
-    } else if(delta_range > 5) {
-        delta_range = 5;
-    }
-
-    if(delta > 0) {
-        new_range = absrange + delta_range;
-    } else {
-        new_range = absrange - delta_range;
-    }
+    constexpr float kWheelStep = 120.0f;
+    constexpr float kMinZoomPerStep = 1.03f;
+    constexpr float kMaxZoomPerStep = 1.15f;
+    const float rangeNorm = qBound(0.0f,
+                                   std::log10(qMax(absrange, 1.0f)) / std::log10(500.0f),
+                                   1.0f);
+    const float zoomPerStep = kMinZoomPerStep + (kMaxZoomPerStep - kMinZoomPerStep) * rangeNorm;
+    const float steps = delta / kWheelStep;
+    float new_range = absrange * std::pow(zoomPerStep, steps);
 
     if(new_range < 1) {
         new_range = 1;
@@ -856,14 +897,21 @@ void Plot2D::zoomDistance(float ratio)
             }
 
         } else {
-            cursor_.distance.from = -ceil( new_range/2);
-            cursor_.distance.to = ceil( new_range/2);
+            // Pulse: direction-aware rounding so zoom-in actually shrinks the dual-channel range.
+            // Using ceil() in both directions made a small per-frame decrease (e.g. 32 -> 31.83)
+            // round back up to the same integer, so the range was re-derived identically every
+            // frame and zoom-in never reduced the depth. Grow (delta > 0) rounds up as before;
+            // shrink (delta < 0) rounds down so the integer range can decrease.
+            const float half = (delta > 0.0f) ? ceil( new_range/2)
+                                              : floor( new_range/2);
+            cursor_.distance.from = -half;
+            cursor_.distance.to = half;
             qDebug() << "zoomDistance dualChannel: delta" << delta << "absrange" << absrange << "new_range" << new_range << "cursor_.distance.to" << cursor_.distance.to;
         }
 
     }
     else {
-       cursor_.distance.to = ceil(cursor_.distance.from + new_range);
+       cursor_.distance.to = cursor_.distance.from + new_range;
     }
 
     plotUpdate();
@@ -983,7 +1031,7 @@ void Plot2D::setMousePosition(int x, int y, bool isSync) {
             const ChannelId channel1 = cursor_.channel1;
             const ChannelId channel2 = cursor_.channel2;
 
-            if(epoch != NULL) {
+            if(epoch != nullptr) {
                 float image_y_pos = ((float)y_start + (float)x_ind*y_scale);
                 float dist = abs(image_y_pos*image_distance_ratio + distance_from);
 
@@ -1057,20 +1105,9 @@ void Plot2D::simpleSetMousePosition(int x, int y)
 
     cursor_.setContactPos(x, y);
 
-    int x_start = 0;
-    if(mouseX != -1) {
-        if(mouseX < x) {
-            x_start = mouseX;
-        }
-        else if (mouseX > x) {
-            x_start = x;
-        }
-        else {
-            x_start = x;
-        }
-    }
-    else {
-        x_start = x;
+    int x_start = x;
+    if (mouseX != -1 && mouseX < x) {
+        x_start = mouseX;
     }
 
     cursor_.currentEpochIndx = cursor_.getIndex(x_start);
@@ -1267,6 +1304,11 @@ void Plot2D::resetCash() {
     echogram_.resetCash();
 }
 
+void Plot2D::releaseCache()
+{
+    echogram_.releaseCache();
+}
+
 void Plot2D::plotUpdate() {}
 
 void Plot2D::sendSyncEvent(int epoch_index, QEvent::Type eventType) {
@@ -1388,7 +1430,7 @@ void Plot2D::reindexingCursor() {
 
 void Plot2D::reRangeDistance()
 {
-    if (datasetPtr_ == NULL) {
+    if (datasetPtr_ == nullptr) {
         return;
     }
 
@@ -1401,7 +1443,7 @@ void Plot2D::reRangeDistance()
     if (cursor_.distance.mode == AutoRangeLastData) {
         for (int i = datasetPtr_->endIndex() - 3; i < datasetPtr_->endIndex(); i++) {
             Epoch* epoch = datasetPtr_->fromIndex(i);
-            if (epoch != NULL) {
+            if (epoch != nullptr) {
                 float epoch_range = epoch->getMaxRange(cursor_.channel1);
                 if (!isfinite(max_range) || max_range < epoch_range) {
                     max_range = epoch_range;
@@ -1413,7 +1455,7 @@ void Plot2D::reRangeDistance()
     if(cursor_.distance.mode == AutoRangeLastOnScreen) {
         for(unsigned int i = cursor_.indexes.size() - 3; i < cursor_.indexes.size(); i++) {
             Epoch* epoch = datasetPtr_->fromIndex(cursor_.getIndex(i));
-            if(epoch != NULL) {
+            if(epoch != nullptr) {
                 float epoch_range = epoch->getMaxRange(cursor_.channel1);
                 if(!isfinite(max_range) || max_range < epoch_range) {
                     max_range = epoch_range;
@@ -1425,7 +1467,7 @@ void Plot2D::reRangeDistance()
     if(cursor_.distance.mode == AutoRangeMaxOnScreen) {
         for(unsigned int i = 0; i < cursor_.indexes.size(); i++) {
             Epoch* epoch = datasetPtr_->fromIndex(cursor_.getIndex(i));
-            if(epoch != NULL) {
+            if(epoch != nullptr) {
                 float epoch_range = epoch->getMaxRange(cursor_.channel1);
                 if(!isfinite(max_range) || max_range < epoch_range) {
                     max_range = epoch_range;
@@ -1479,3 +1521,4 @@ float Plot2D::timelinePosition()
 {
     return cursor_.position;
 }
+

@@ -2,6 +2,7 @@
 #define GRAPHICSSCENE3DVIEW_H
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <QQuickFramebufferObject>
 #include <QtMath>
@@ -49,6 +50,7 @@ class GraphicsScene3dView : public QQuickFramebufferObject
     Q_PROPERTY(bool syncLoupeFlipY READ syncLoupeFlipY NOTIFY syncLoupeStateChanged)
     Q_PROPERTY(int syncLoupeSize READ syncLoupeSize NOTIFY syncLoupeStateChanged)
     Q_PROPERTY(int syncLoupeZoom READ syncLoupeZoom NOTIFY syncLoupeStateChanged)
+    Q_PROPERTY(bool syncLoupeZoomAdjusting READ syncLoupeZoomAdjusting NOTIFY syncLoupeStateChanged)
 
 public:
     //Camera
@@ -157,12 +159,12 @@ public:
     {
     public:
         InFboRenderer();
-        virtual ~InFboRenderer();
+        ~InFboRenderer() override;
 
     protected:
-        virtual void render() override;
-        virtual void synchronize(QQuickFramebufferObject * fbo) override;
-        virtual QOpenGLFramebufferObject *createFramebufferObject(const QSize &size) override;
+        void render() override;
+        void synchronize(QQuickFramebufferObject * fbo) override;
+        QOpenGLFramebufferObject *createFramebufferObject(const QSize &size) override;
 
     private:
         friend class GraphicsScene3dView;
@@ -182,7 +184,7 @@ public:
         std::unique_ptr <GraphicsScene3dRenderer> m_renderer;
     };
 
-    enum ActiveMode{
+    enum ActiveMode : uint8_t {
         Idle                                = 0, // not used
         BottomTrackVertexSelectionMode      = 1,
         BottomTrackVertexComboSelectionMode = 2,
@@ -202,7 +204,7 @@ public:
     /**
      * @brief Destructor
      */
-    virtual ~GraphicsScene3dView();
+    ~GraphicsScene3dView() override;
 
     /**
      * @brief Creates renderer
@@ -249,16 +251,20 @@ public:
     bool syncLoupeFlipY() const;
     int syncLoupeSize() const;
     int syncLoupeZoom() const;
-    bool syncLoupeUiAllowed() const;
-    bool shouldRenderSyncFrom2d() const;
+    bool syncLoupeZoomAdjusting() const;
 
     Q_INVOKABLE void switchToBottomTrackVertexComboSelectionMode(qreal x, qreal y);
     Q_INVOKABLE void mousePressTrigger(Qt::MouseButtons mouseButton, qreal x, qreal y, Qt::Key keyboardKey = Qt::Key::Key_unknown);
     Q_INVOKABLE void mouseMoveTrigger(Qt::MouseButtons mouseButton, qreal x, qreal y, Qt::Key keyboardKey = Qt::Key::Key_unknown);
     Q_INVOKABLE void mouseReleaseTrigger(Qt::MouseButtons mouseButton, qreal x, qreal y, Qt::Key keyboardKey = Qt::Key::Key_unknown);
+    Q_INVOKABLE void cancelPointerInteraction();
     Q_INVOKABLE void mouseWheelTrigger(Qt::MouseButtons mouseButton, qreal x, qreal y, QPointF angleDelta, Qt::Key keyboardKey = Qt::Key::Key_unknown);
     Q_INVOKABLE void pinchTrigger(const QPointF& prevCenter, const QPointF& currCenter, qreal scaleDelta, qreal angleDelta);
     Q_INVOKABLE void keyPressTrigger(Qt::Key key);
+    Q_INVOKABLE void zoomStepTrigger(qreal delta);
+    Q_INVOKABLE void panStepTrigger(qreal dx, qreal dy);
+    Q_INVOKABLE void zStepTrigger(qreal delta);
+    Q_INVOKABLE void resetCameraAngleTrigger();
     Q_INVOKABLE void bottomTrackActionEvent(BottomTrack::ActionEvent actionEvent);
     Q_INVOKABLE void rulerFinishDrawing();
     Q_INVOKABLE void rulerCancelDrawing();
@@ -299,12 +305,13 @@ public:
     void setSyncLoupeVisible(bool state);
     void setSyncLoupeSize(int val);
     void setSyncLoupeZoom(int val);
+    void setSyncLoupeZoomAdjusting(bool adjusting);
     void setSyncEpochIndex(int epochIndex);
 
     void setActiveZeroing(bool state);
 
 protected:
-    void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) override final;
+    void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) final;
 
 public Q_SLOTS:
     void setSceneBoundingBoxVisible(bool visible);
@@ -375,6 +382,8 @@ private:
     void applyShadowSettingsToSceneRenderObjects();
     void updateForceSingleZoomAutoState();
     void refreshSyncLoupePreview();
+    bool tryProjectScreenToPlane(qreal x, qreal y, float planeZ, QVector3D& outPoint) const;
+    void zoomAroundScreenAnchor(qreal delta, const QPointF& anchorPos);
 
 private:
     friend class BottomTrack;
@@ -493,7 +502,8 @@ private:
 
     bool syncLoupeVisible_ = false;
     int syncLoupeSize_ = 1;
-    int syncLoupeZoom_ = 1;
+    int syncLoupeZoom_ = 0;
+    bool syncLoupeZoomAdjusting_ = false;
     bool syncLoupeUiAllowed_ = true;
     int syncEpochIndex_ = -1;
     bool syncLoupeOverlayVisible_ = false;
@@ -501,6 +511,11 @@ private:
     float syncLoupeDepthTo_ = 0.0f;
     float syncLoupeCenterDepth_ = 0.0f;
     bool syncLoupeFlipY_ = false;
+
+    qreal pinchPanZoomWeight_ = 1.0;
+    qreal pinchTiltWeight_ = 0.0;
+    qreal pinchRotateWeight_ = 0.0;
+    QElapsedTimer pinchGestureTimer_;
 };
 
 #endif // GRAPHICSSCENE3DVIEW_H

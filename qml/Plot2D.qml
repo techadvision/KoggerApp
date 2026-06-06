@@ -20,6 +20,10 @@ WaterFall {
     property int instruments: instrumentsGradeList.currentIndex
     property bool settingsOpen: plotCheckButton.checked
     property bool hasTransientUi: menuBlock.visible || contactDialog.visible
+    property bool loupeZoomAdjusting: false
+    property bool loupeZoomWasVisibleBeforeAdjust: false
+    property int loupeZoomSavedAimEpoch: -1
+    property real settingsMenuSpacer: Math.max(4, Math.round(theme.controlHeight * 0.2))
 
     horizontal: horisontalVertical.checked
 
@@ -33,12 +37,85 @@ WaterFall {
         echogramLevelsSlider.update()
     }
 
+    function updateBottomTrackPresentation() {
+        const showValue = bottomTrackValueVisible.checked
+        const showLine = bottomTrackGraphicsVisible.checked
+
+        plotBottomTrackDepthTextVisible(showValue)
+        plotBottomTrackTheme(showLine ? (bottomTrackThemeList.currentIndex + 1) : 0)
+        plotBottomTrackVisible(showValue || showLine)
+    }
+
+    function updateRangefinderPresentation() {
+        const showValue = rangefinderValueVisible.checked
+        const showLine = rangefinderGraphicsVisible.checked
+
+        plotRangefinderDepthTextVisible(showValue)
+        plotRangefinderTheme(showLine ? (rangefinderThemeList.currentIndex + 1) : 0)
+        plotRangefinderVisible(showValue || showLine)
+    }
+
+    function beginLoupeZoomPreview() {
+        if (loupeZoomAdjusting) {
+            return
+        }
+
+        loupeZoomAdjusting = true
+        loupeZoomWasVisibleBeforeAdjust = loupeVisible.checked
+        loupeZoomSavedAimEpoch = getAimEpochIndex()
+
+        if (!loupeVisible.checked) {
+            loupeVisible.checked = true
+        }
+
+        const previewEpoch = getPreferredLoupeEpochIndex(loupeZoomSavedAimEpoch)
+        setAimEpochIndex(previewEpoch)
+    }
+
+    function updateLoupeZoomPreview() {
+        if (!loupeZoomAdjusting) {
+            return
+        }
+
+        const previewEpoch = getPreferredLoupeEpochIndex(getAimEpochIndex())
+        setAimEpochIndex(previewEpoch)
+    }
+
+    function endLoupeZoomPreview() {
+        if (!loupeZoomAdjusting) {
+            return
+        }
+
+        loupeZoomAdjusting = false
+        if (loupeZoomSavedAimEpoch >= 0) {
+            setAimEpochIndex(loupeZoomSavedAimEpoch)
+        }
+        else {
+            setAimEpochIndex(-1)
+            resetAim()
+        }
+
+        if (!loupeZoomWasVisibleBeforeAdjust) {
+            loupeVisible.checked = false
+        }
+
+        loupeZoomSavedAimEpoch = -1
+    }
+
     function closeSettings() {
         if (!plotCheckButton.checked) {
             return false
         }
         plotCheckButton.checked = false
         return true
+    }
+
+    function toggleEchogramType() {
+        if (echogramTypesList.count <= 0) {
+            return
+        }
+
+        echogramTypesList.currentIndex = (echogramTypesList.currentIndex + 1) % echogramTypesList.count
     }
 
     function closeTransientUi() {
@@ -393,6 +470,11 @@ WaterFall {
             zoomX = false
             //oldSpeed = pulseRuntimeSettings.echogramSpeed
             oldSpeed = pulseSettings.echogramSpeed
+            // Reset the side-scan max-depth step accumulator at the start/end of every pinch.
+            // If left to carry over, the leftover positive fraction from a zoom-out gesture makes
+            // the next zoom-in need a much larger move before a step fires, so in practice only
+            // zoom-out (increase) ever registered. Resetting makes both directions symmetric.
+            depthStepAccum = 0.0
             //***************
         }
 
@@ -506,6 +588,24 @@ WaterFall {
                     if (rounded !== pulseSettings.echogramSpeed) {
                         pulseSettings.echogramSpeed = rounded;
                         //console.log("TAV: zoomX → echogramSpeed changed to", rounded);
+                    }
+                } else if (!pulseRuntimeSettings.is2DTransducer && plot.isViewHorizontal()) {
+                    // Pulse: side scan shows the cross-track range on the X axis, so the intuitive
+                    // range zoom is a horizontal (zoomX) pinch. Mirror the zoomY horizontal-view path:
+                    // fingers apart -> scale up -> smaller range (zoom in); fingers together ->
+                    // larger range (flatten). Bidirectional by construction.
+                    let pinchDelta = (pinch.previousScale - pinch.scale) * 10
+                    depthStepAccum += pinchDelta
+                    let steps = depthStepAccum > 0 ? Math.floor(depthStepAccum)
+                                                   : Math.ceil(depthStepAccum)
+                    if (steps !== 0) {
+                        depthStepAccum -= steps
+                        let newVal = plot.quickChangeMaxRangeValue + steps
+                        if (newVal < 1) newVal = 1
+                        if (newVal > pulseRuntimeSettings.maximumDepth)
+                            newVal = pulseRuntimeSettings.maximumDepth
+                        plot.quickChangeMaxRangeValue = newVal
+                        selectorMaxDepth.value = newVal
                     }
                 }
             }
@@ -1174,14 +1274,18 @@ WaterFall {
             iconSource: "./icons/ui/pulse_ruler.svg"
 
             onSelectorValueChanged: {
-                console.log("pinch: onSelectorValueChanged: ", value);
+                console.log("EchogramWidth: max depth onSelectorValueChanged: ", value);
                 plot.quickChangeMaxRangeValue = value;
+                if (pulseRuntimeSettings.userManualSetName === "...")
+                    return
                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                     pulseSettings.maxDepthValue = value;
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
+                        console.log("EchogramWidth: max depth isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlue, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlue = value;
                     } else {
+                        console.log("EchogramWidth: max depth !isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlueFixed, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlueFixed = value
                     }
                 }
@@ -1220,24 +1324,31 @@ WaterFall {
             }
 
             Component.onCompleted: {
+                console.log("EchogramWidth: max depth Component.onComplete")
                 if (pulseSettings.autoRange) {
+                    console.log("EchogramWidth: max depth Component.onComplete autoRange")
                     if (pulseRuntimeSettings.is2DTransducer) {
+                        console.log("EchogramWidth: Component.onComplete autoRange for is2DTransducer")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         pulseRuntimeSettings.shouldDoAutoRange = true
                         plot.plotDistanceAutoRange(0);
                     }
                 } else {
+                    console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     pulseRuntimeSettings.shouldDoAutoRange = false
                     plot.plotDistanceAutoRange(-1);
                     if (pulseRuntimeSettings.is2DTransducer) {
+                        console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange(pulseSettings.maxDepthValue * 1.0)
                         pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValue * 1.0
                     } else {
                         if (pulseRuntimeSettings.isSideScan2DView) {
+                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlue * 1.0",pulseSettings.maxDepthValuePulseBlue * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlue * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlue * 1.0
                         } else {
+                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlueFixed * 1.0",pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlueFixed * 1.0
                         }
@@ -2074,11 +2185,12 @@ WaterFall {
         id: settingsRow
         anchors.left: parent.left
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: settingsMenuSpacer
 
         MenuFrame {
             id: leftPanel
             isOpacityControlled: true
-            Layout.alignment: Qt.AlignLeft
+            Layout.alignment: Qt.AlignLeft | Qt.AlignBottom
             Layout.leftMargin: (indx === 1 &&
                                 !is3dVisible &&
                                 height > plot.height - 130 * theme.resCoeff)
@@ -2102,6 +2214,9 @@ WaterFall {
                     onCheckedChanged: {
                         if (checked) {
                             settingsClicked()
+                        }
+                        else {
+                            plot.endLoupeZoomPreview()
                         }
                     }
                 }
@@ -2164,6 +2279,12 @@ WaterFall {
             visible: false
             //visible: plotCheckButton.checked
             Layout.preferredHeight: parent.height
+
+            onVisibleChanged: {
+                if (!visible) {
+                    plot.endLoupeZoomPreview()
+                }
+            }
 
             MenuFrame {
                 id: plotSettings
@@ -2490,22 +2611,27 @@ WaterFall {
 
                     RowLayout {
                         visible: instruments > 0
-                        CCheck {
-                            id: bottomTrackVisible
+                        CText {
                             Layout.fillWidth: true
-                            checked: true
                             text: qsTr("Bottom-Track")
-                            onCheckedChanged: plotBottomTrackVisible(checked)
-                            Component.onCompleted: plotBottomTrackVisible(checked)
                         }
 
                         CCheck {
                             id: bottomTrackValueVisible
                             text: qsTr("Value")
+                            checked: false // We do not want this additional value for pulse
+
+                            onCheckedChanged: plot.updateBottomTrackPresentation()
+                            Component.onCompleted: plot.updateBottomTrackPresentation()
+                        }
+
+                        CCheck {
+                            id: bottomTrackGraphicsVisible
+                            text: qsTr("Line")
                             checked: true
 
-                            onCheckedChanged: plotBottomTrackDepthTextVisible(checked)
-                            Component.onCompleted: plotBottomTrackDepthTextVisible(checked)
+                            onCheckedChanged: plot.updateBottomTrackPresentation()
+                            Component.onCompleted: plot.updateBottomTrackPresentation()
                         }
 
                         CCombo  {
@@ -2515,8 +2641,8 @@ WaterFall {
                             model: [qsTr("Line1"), qsTr("Line2"), qsTr("Dot1"), qsTr("Dot2"), qsTr("DotLine")]
                             currentIndex: pulseRuntimeSettings !== null ? pulseRuntimeSettings.bottomTrackVisibleModel : 0
 
-                            onCurrentIndexChanged: plotBottomTrackTheme(currentIndex)
-                            Component.onCompleted: plotBottomTrackTheme(currentIndex)
+                            onCurrentIndexChanged: plot.updateBottomTrackPresentation()
+                            Component.onCompleted: plot.updateBottomTrackPresentation()
 
                             Settings {
                                 category: "Plot2D_" + plot.indx
@@ -2533,7 +2659,7 @@ WaterFall {
                                 if (pulseRuntimeSettings.userManualSetName === "...") {
                                     return
                                 }
-                                bottomTrackVisible.checked = pulseRuntimeSettings.bottomTrackVisible
+                                bottomTrackGraphicsVisible.checked = pulseRuntimeSettings.bottomTrackVisible
                                 console.log("DistProcessing: set bottomTrackVisible", pulseRuntimeSettings.bottomTrackVisible)
                             }
                             function onBottomTrackVisibleChanged () {
@@ -2542,34 +2668,46 @@ WaterFall {
                                 if (pulseRuntimeSettings.userManualSetName === "...") {
                                     return
                                 }
+                                /* We also want the visible bottom track shown for 2D echo sounders!
                                 if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                                    bottomTrackVisible.checked = false
+                                    bottomTrackGraphicsVisible.checked = false
                                     return
                                 }
+                                */
 
                                 console.log("DistProcessing: toggle bottomTrack visibility, show it?", pulseRuntimeSettings.bottomTrackVisible)
-                                bottomTrackVisible.checked = pulseRuntimeSettings.bottomTrackVisible
+                                bottomTrackGraphicsVisible.checked = pulseRuntimeSettings.bottomTrackVisible
                             }
                         }
                     }
 
                     RowLayout {
-                        CCheck {
-                            id: rangefinderVisible
+                        CText {
                             Layout.fillWidth: true
                             text: qsTr("Rangefinder")
+                            /*
                             checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.rangefinderVisible : false
                             onCheckedChanged: plotRangefinderVisible(checked)
                             Component.onCompleted: plotRangefinderVisible(checked)
+                            */
                         }
 
                         CCheck {
                             id: rangefinderValueVisible
                             text: qsTr("Value")
-                            checked: true
+                            checked: false // I do not use this value, I have my own in DepthAndTemperature.qml
 
-                            onCheckedChanged: plotRangefinderDepthTextVisible(checked)
-                            Component.onCompleted: plotRangefinderDepthTextVisible(checked)
+                            onCheckedChanged: plot.updateRangefinderPresentation()
+                            Component.onCompleted: plot.updateRangefinderPresentation()
+                        }
+
+                        CCheck {
+                            id: rangefinderGraphicsVisible
+                            text: qsTr("Line")
+                            checked: false
+
+                            onCheckedChanged: plot.updateRangefinderPresentation()
+                            Component.onCompleted: plot.updateRangefinderPresentation()
                         }
 
                         CCombo  {
@@ -2577,8 +2715,8 @@ WaterFall {
                             model: [qsTr("Text"), qsTr("Line"), qsTr("Dot")]
                             currentIndex: pulseRuntimeSettings !== null ? pulseRuntimeSettings.rangefinderVisibleModel : 0
 
-                            onCurrentIndexChanged: plotRangefinderTheme(currentIndex)
-                            Component.onCompleted: plotRangefinderTheme(currentIndex)
+                            onCurrentIndexChanged: plot.updateRangefinderPresentation()
+                            Component.onCompleted: plot.updateRangefinderPresentation()
 
                             Settings {
                                 category: "Plot2D_" + plot.indx
@@ -2999,6 +3137,8 @@ WaterFall {
                         }
 
                         RowLayout {
+                            visible: loupeVisible.checked
+
                             CText {
                                 text: qsTr("size")
                             }
@@ -3008,26 +3148,51 @@ WaterFall {
                                 to: 3
                                 stepSize: 1
                                 value: 1
-                                visible: loupeVisible.checked
 
                                 onValueChanged: plotLoupeSize(value)
                                 Component.onCompleted: plotLoupeSize(value)
                             }
                         }
                         RowLayout {
+                            visible: loupeVisible.checked
+                            spacing: Math.max(6, Math.round(theme.controlHeight * 0.2))
+
                             CText {
                                 text: qsTr("zoom")
                             }
-                            SpinBoxCustom {
-                                id: loupeZoom
-                                from: 1
-                                to: 3
-                                stepSize: 1
-                                value: 1
-                                visible: loupeVisible.checked
 
-                                onValueChanged: plotLoupeZoom(value)
-                                Component.onCompleted: plotLoupeZoom(value)
+                            ChartLevelSingle {
+                                id: loupeZoom
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: theme.controlHeight * 5
+                                from: 0
+                                to: 300
+                                stepSize: 1
+                                value: 100
+
+                                onValueChanged: plotLoupeZoom(Math.round(value))
+
+                                onPressedChanged: {
+                                    if (pressed) {
+                                        plot.beginLoupeZoomPreview()
+                                    }
+                                    else {
+                                        plot.endLoupeZoomPreview()
+                                    }
+                                }
+
+                                onMoved: {
+                                    plot.updateLoupeZoomPreview()
+                                }
+
+                                Component.onCompleted: plotLoupeZoom(Math.round(value))
+                            }
+
+                            CText {
+                                text: Math.round(loupeZoom.value) + "%"
+                                small: true
+                                horizontalAlignment: Text.AlignRight
+                                Layout.preferredWidth: theme.controlHeight * 1.7
                             }
                         }
                     }
@@ -3036,10 +3201,12 @@ WaterFall {
                         category: "Plot2D_" + plot.indx
 
                         property alias echogramVisible: echogramVisible.checked
-                        property alias rangefinderVisible: rangefinderVisible.checked
+                        property alias rangefinderVisible: rangefinderGraphicsVisible.checked
                         property alias rangefinderValueVisible: rangefinderValueVisible.checked
-                        property alias postProcVisible: bottomTrackVisible.checked
+                        property alias postProcVisible: bottomTrackGraphicsVisible.checked
                         property alias bottomTrackValueVisible: bottomTrackValueVisible.checked
+                        property alias rangefinderGraphicsVisible: rangefinderGraphicsVisible.checked
+                        property alias bottomTrackGraphicsVisible: bottomTrackGraphicsVisible.checked
                         property alias ahrsVisible: ahrsVisible.checked
                         property alias temperatureVisible: temperatureVisible.checked
                         property alias gridVisible: gridVisible.checked

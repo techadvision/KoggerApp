@@ -16,6 +16,10 @@
 #endif
 */
 
+#if defined(GL_GLEXT_VERSION)
+#undef GL_GLEXT_VERSION
+#endif
+
 #include "scene_object.h"
 
 RayCaster::RayCaster(QObject *parent)

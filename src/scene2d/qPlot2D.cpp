@@ -183,7 +183,7 @@ void qPlot2D::paint(QPainter *painter)
 
             int centerY = qBound(0, canvas().height() / 2, canvas().height() - 1);
             const float distRange = cursor_.distance.to - cursor_.distance.from;
-            const bool twoChannelView = cursor_.channel2 != CHANNEL_NONE;
+            const bool twoChannelView = cursor_.channel2 != channelNone();
 
             if (std::isfinite(distRange) && std::abs(distRange) > 1e-6f) {
                 if (twoChannelView) {
@@ -303,7 +303,7 @@ void qPlot2D::paint(QPainter *painter)
 
             int centerY = qBound(0, canvas().height() / 2, canvas().height() - 1);
             const float distRange = cursor_.distance.to - cursor_.distance.from;
-            const bool twoChannelView = cursor_.channel2 != CHANNEL_NONE;
+            const bool twoChannelView = cursor_.channel2 != channelNone();
             if (std::isfinite(distRange) && std::abs(distRange) > 1e-6f) {
                 if (twoChannelView) {
                     // Keep the same Y mapping as Plot2DAim for 2-channel mode.
@@ -444,15 +444,60 @@ float qPlot2D::getLoupeDepthForEpoch(int epochIndx) const
     }
 
     // Match Plot2DAim behavior: for 2-channel view without depth, aim the top of preview.
-    return cursor_.channel2 == CHANNEL_NONE ? 0.0f : std::numeric_limits<float>::quiet_NaN();
+    return cursor_.channel2 == channelNone() ? 0.0f : std::numeric_limits<float>::quiet_NaN();
+}
+
+int qPlot2D::getPreferredLoupeEpochIndex(int preferredEpochIndx) const
+{
+    if (!datasetPtr_ || datasetPtr_->size() <= 0) {
+        return -1;
+    }
+
+    auto hasChartAtIndex = [this](int epochIndx) {
+        if (!datasetPtr_ || epochIndx < 0 || epochIndx >= datasetPtr_->size()) {
+            return false;
+        }
+
+        auto* epoch = datasetPtr_->fromIndex(epochIndx);
+        if (!epoch) {
+            return false;
+        }
+
+        if (cursor_.channel1.isValid() && epoch->chartAvail(cursor_.channel1, cursor_.subChannel1)) {
+            return true;
+        }
+
+        if (cursor_.channel2.isValid() && epoch->chartAvail(cursor_.channel2, cursor_.subChannel2)) {
+            return true;
+        }
+
+        return epoch->chartAvail();
+    };
+
+    if (hasChartAtIndex(preferredEpochIndx)) {
+        return preferredEpochIndx;
+    }
+
+    if (hasChartAtIndex(cursor_.lastEpochIndx)) {
+        return cursor_.lastEpochIndx;
+    }
+
+    const int datasetSize = datasetPtr_->size();
+    for (int i = 0; i < datasetSize; ++i) {
+        if (hasChartAtIndex(i)) {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 bool qPlot2D::eventFilter(QObject *watched, QEvent *event)
 {
     Q_UNUSED(watched);
 
-    if (event->type() == EpochSelected3d) {
-        auto epochEvent = static_cast<EpochEvent*>(event);
+    auto* epochEvent = dynamic_cast<EpochEvent*>(event);
+    if (epochEvent && epochEvent->eventTypeId() == static_cast<int>(EpochSelected3d)) {
         //qDebug() << QString("[Plot 2d]: catched event from 3d view (epoch index is %1)").arg(epochEvent->epochIndex());
         setAimEpochEventState(true);
         setTimelinePositionByEpoch(epochEvent->epochIndex());
@@ -519,7 +564,12 @@ void qPlot2D::updateContact()
 
 void qPlot2D::setPlotEnabled(bool state)
 {
+    if (Plot2D::getPlotEnabled() == state) {
+        return;
+    }
     Plot2D::setPlotEnabled(state);
+    Q_EMIT plotEnabledChanged();
+    update();
 }
 
 void qPlot2D::mosaicLOffsetChanged(float val)
@@ -545,6 +595,16 @@ float qPlot2D::getHighEchogramLevel() const
 int qPlot2D::getThemeId() const
 {
     return Plot2D::getThemeId();
+}
+
+int qPlot2D::getBottomTrackThemeId() const
+{
+    return Plot2D::getBottomTrackTheme();
+}
+
+int qPlot2D::getRangefinderThemeId() const
+{
+    return Plot2D::getRangefinderTheme();
 }
 
 void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz, bool manual) {

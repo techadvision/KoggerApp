@@ -46,6 +46,12 @@ Item {
         }
     }
 
+    function openFileDialog() {
+        if (devSettings && devSettings.openFileDialog) {
+            devSettings.openFileDialog()
+        }
+    }
+
     function clickConnections() {
         itemChangeActive(menuSettings)
     }
@@ -157,7 +163,7 @@ Item {
                 icon.source: "qrc:/icons/ui/map.svg"
                 backColor: theme.controlBackColor
                 borderColor:  theme.controlBackColor
-                checkedBorderColor: "black"
+                checkedBorderColor: theme.controlSolidBorderColor
                 checked: true
 
                 CMouseOpacityArea {
@@ -183,7 +189,7 @@ Item {
                 icon.source: "qrc:/icons/ui/ripple.svg"
                 backColor: theme.controlBackColor
                 borderColor:  theme.controlBackColor
-                checkedBorderColor: "black"
+                checkedBorderColor: theme.controlSolidBorderColor
                 checked: true
 
                 CMouseOpacityArea {

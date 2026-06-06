@@ -153,7 +153,24 @@ Item {
 
     function adjustValue(delta) {
         root.disableAutoIfNeeded()
-        root.setSelectorValue(root.currentNumericValue() + delta)
+
+        let current = root.currentNumericValue()
+        let s = root.step
+        let nextValue
+
+        // When the value is off the step grid (e.g. set to an in-between value by a finger
+        // pinch), a tap should snap to the nearest allowed grid value in the tap's direction
+        // (step 5: 12 -> tap up -> 15, tap down -> 10) rather than just adding the step
+        // (12 -> 17). On-grid values step normally, so 2D (step 1) and long-press behaviour
+        // are unchanged.
+        if (s > 1 && (current % s) !== 0) {
+            nextValue = delta > 0 ? Math.ceil(current / s) * s
+                                  : Math.floor(current / s) * s
+        } else {
+            nextValue = current + delta
+        }
+
+        root.setSelectorValue(nextValue)
     }
 
     function autoFunctionAllowed() {
@@ -242,14 +259,20 @@ Item {
 
             let newMaxDepthValue = pulseSettings.echogramWidth
 
-            if (pulseSettings.maxDepthValuePulseBlue > newMaxDepthValue)
+            if (pulseSettings.maxDepthValuePulseBlue > newMaxDepthValue && pulseRuntimeSettings.isSideScan2DView) {
+                console.log("EchogramWidth: selector max depth set pulseSettings.maxDepthValuePulseBlue from", pulseSettings.maxDepthValuePulseBlue, "to", newMaxDepthValue)
                 pulseSettings.maxDepthValuePulseBlue = newMaxDepthValue
+            }
 
-            if (pulseSettings.maxDepthValuePulseBlueFixed > newMaxDepthValue)
+            if (pulseSettings.maxDepthValuePulseBlueFixed > newMaxDepthValue && pulseRuntimeSettings.isSideScan2DView) {
+                console.log("EchogramWidth: selector max depth set pulseSettings.maxDepthValuePulseBlue from", pulseSettings.maxDepthValuePulseBlueFixed, "to", newMaxDepthValue)
                 pulseSettings.maxDepthValuePulseBlueFixed = newMaxDepthValue
+            }
 
-            if (root.quickChangeMaxRangeValue > newMaxDepthValue)
+            if (root.quickChangeMaxRangeValue > newMaxDepthValue) {
+                console.log("EchogramWidth: selector max depth set root.quickChangeMaxRangeValue from", root.quickChangeMaxRangeValue, "to", newMaxDepthValue)
                 root.setSelectorValue(newMaxDepthValue, newMaxDepthValue)
+            }
         }
     }
 
@@ -262,7 +285,8 @@ Item {
 
             let isPulseBlue =
                     pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue ||
-                    pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.pulseBlueBeta
+                    pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.pulseBlueBeta ||
+                    !pulseRuntimeSettings.is2DTransducer
 
             if (!isPulseBlue) {
                 console.log("Auto function: horizontal controller, no change for",
@@ -274,10 +298,17 @@ Item {
             if (root.controleName === "selectorMaxDepth") {
                 let maxRange = pulseRuntimeSettings.maximumDepth * 1.0
 
-                pulseSettings.maxDepthValuePulseBlue = maxRange
-                pulseSettings.maxDepthValuePulseBlueFixed = maxRange
+                //pulseSettings.maxDepthValuePulseBlue = maxRange
+                //pulseSettings.maxDepthValuePulseBlueFixed = maxRange
 
-                root.setSelectorValue(maxRange)
+                //root.setSelectorValue(maxRange)
+                if (pulseRuntimeSettings.isSideScan2DView) {
+                    console.log("onUserManualSetNameChanged: selector max depth set root.setSelectorValue to value pulseSettings.maxDepthValuePulseBlue", pulseSettings.maxDepthValuePulseBlue)
+                    root.setSelectorValue(pulseSettings.maxDepthValuePulseBlue)
+                } else {
+                    console.log("onUserManualSetNameChanged: selector max depth set root.setSelectorValue to value pulseSettings.maxDepthValuePulseBlueFixed", pulseSettings.maxDepthValuePulseBlueFixed)
+                    root.setSelectorValue(pulseSettings.maxDepthValuePulseBlueFixed)
+                }
 
                 pulseSettings.autoRange = false
                 root.isAutoRangeActive = false
@@ -304,10 +335,14 @@ Item {
             if (pulseRuntimeSettings.is2DTransducer)
                 return
 
-            if (pulseRuntimeSettings.isSideScan2DView)
+            if (pulseRuntimeSettings.isSideScan2DView) {
+                console.log("onIsSideScan2DViewChanged: selector max depth set root.setSelectorValue to value pulseSettings.maxDepthValuePulseBlue", pulseSettings.maxDepthValuePulseBlue)
                 root.setSelectorValue(pulseSettings.maxDepthValuePulseBlue)
-            else
+            }
+            else {
+                console.log("onIsSideScan2DViewChanged: selector max depth set root.setSelectorValue to value pulseSettings.maxDepthValuePulseBlueFixed", pulseSettings.maxDepthValuePulseBlueFixed)
                 root.setSelectorValue(pulseSettings.maxDepthValuePulseBlueFixed)
+            }
         }
     }
 

@@ -2,6 +2,7 @@
 
 #include <QDateTime>
 #include <QDir>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <QUrl>
 #include "core.h"
@@ -172,7 +173,7 @@ bool Logger::isOpenKlf()
     return klfLogFile_->isOpen();
 }
 
-void Logger::onFrameParserReceiveKlf(QUuid uuid, Link* linkPtr, FrameParser frame)
+void Logger::onFrameParserReceiveKlf(QUuid uuid, Link* linkPtr, Parsers::FrameParser frame)
 {
     Q_UNUSED(uuid);
     Q_UNUSED(linkPtr);
@@ -466,8 +467,20 @@ bool Logger::creatExportStream(QString name)
 {
     bool isOpen = false;
 
-    QUrl url(name);
-    exportFile_->setFileName(url.toLocalFile());
+#ifdef Q_OS_ANDROID
+    if (!AndroidInterface::checkStoragePermissions()) {
+        core.consoleWarning("Export can't access Documents: permission denied");
+        return false;
+    }
+#endif
+
+    const QUrl url(name);
+    QString localFilePath = url.toLocalFile();
+    if (localFilePath.isEmpty() && QFileInfo(name).isAbsolute()) {
+        localFilePath = name;
+    }
+
+    exportFile_->setFileName(localFilePath);
     isOpen = exportFile_->open(QIODevice::WriteOnly);
 
     if (isOpen) {
@@ -504,7 +517,7 @@ bool Logger::endExportStream()
     return true;
 }
 
-void Logger::receiveProtoFrame(ProtoBinOut protoBinOut)
+void Logger::receiveProtoFrame(Parsers::ProtoBinOut protoBinOut)
 {
     QByteArray data = QByteArray((const char*)protoBinOut.frame(), protoBinOut.frameLen());
 
@@ -520,4 +533,3 @@ void Logger::receiveProtoFrame(ProtoBinOut protoBinOut)
         }
     }
 }
-

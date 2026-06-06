@@ -21,7 +21,7 @@ public:
                        bool showAddBtn);
     */
 
-    bool draw(Plot2D* parent, Dataset* dataset);
+    bool draw(Plot2D* parent, Dataset* dataset) override;
     void setEpochEventState(bool state);
     void drawPopup(QPainter* p, const QString& text, int scaleFactor);
     void setPause(Plot2D* parent, Dataset* dataset, bool on);

@@ -36,7 +36,7 @@
 <context>
     <name>CMouseOpacityArea</name>
     <message>
-        <location filename="../qml/CMouseOpacityArea.qml" line="11"/>
+        <location filename="../qml/CMouseOpacityArea.qml" line="10"/>
         <source>Tooltip</source>
         <translation>Всплывающая подсказка</translation>
     </message>
@@ -111,32 +111,32 @@
 <context>
     <name>ConnectionViewer</name>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="88"/>
+        <location filename="../qml/ConnectionViewer.qml" line="219"/>
         <source>Settings</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="103"/>
+        <location filename="../qml/ConnectionViewer.qml" line="234"/>
         <source>Unpin</source>
         <translation>Открепить</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="103"/>
+        <location filename="../qml/ConnectionViewer.qml" line="234"/>
         <source>Pin</source>
         <translation>Закрепить</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="119"/>
+        <location filename="../qml/ConnectionViewer.qml" line="250"/>
         <source>Auto</source>
         <translation>Авто</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="136"/>
+        <location filename="../qml/ConnectionViewer.qml" line="267"/>
         <source>Delete</source>
         <translation>Удалить</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="272"/>
+        <location filename="../qml/ConnectionViewer.qml" line="403"/>
         <source>src:</source>
         <translation></translation>
     </message>
@@ -146,84 +146,84 @@
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="213"/>
+        <location filename="../qml/ConnectionViewer.qml" line="344"/>
         <source>Auto search baudrate</source>
         <translation>Автопоиск скорости</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="221"/>
+        <location filename="../qml/ConnectionViewer.qml" line="352"/>
         <source>UDP ip:</source>
         <translation>UDP ip:</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="221"/>
+        <location filename="../qml/ConnectionViewer.qml" line="352"/>
         <source>TCP ip:</source>
         <translation>TCP ip:</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="325"/>
+        <location filename="../qml/ConnectionViewer.qml" line="456"/>
         <source>dst:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="325"/>
+        <location filename="../qml/ConnectionViewer.qml" line="456"/>
         <source>srv:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="364"/>
+        <location filename="../qml/ConnectionViewer.qml" line="495"/>
         <source>Close</source>
         <translation>Отключить</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="364"/>
+        <location filename="../qml/ConnectionViewer.qml" line="495"/>
         <source>Open</source>
         <translation>Подключить</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="458"/>
+        <location filename="../qml/ConnectionViewer.qml" line="589"/>
         <source>+UDP</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="467"/>
+        <location filename="../qml/ConnectionViewer.qml" line="598"/>
         <source>+TCP</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="477"/>
+        <location filename="../qml/ConnectionViewer.qml" line="608"/>
         <source>MAVProxy</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="498"/>
+        <location filename="../qml/ConnectionViewer.qml" line="629"/>
         <source>KLF</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="529"/>
+        <location filename="../qml/ConnectionViewer.qml" line="660"/>
         <source>CSV</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="564"/>
+        <location filename="../qml/ConnectionViewer.qml" line="695"/>
         <source>GPS</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="798"/>
-        <location filename="../qml/ConnectionViewer.qml" line="960"/>
+        <location filename="../qml/ConnectionViewer.qml" line="929"/>
+        <location filename="../qml/ConnectionViewer.qml" line="1089"/>
         <source>Enter path</source>
         <translation>Выберите путь</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="987"/>
-        <location filename="../qml/ConnectionViewer.qml" line="1029"/>
+        <location filename="../qml/ConnectionViewer.qml" line="1114"/>
+        <location filename="../qml/ConnectionViewer.qml" line="1154"/>
         <source>Please choose a file</source>
         <translation>Выберите файл</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionViewer.qml" line="1072"/>
+        <location filename="../qml/ConnectionViewer.qml" line="1198"/>
         <source>Undefined</source>
         <translation>Неопределён</translation>
     </message>
@@ -231,21 +231,26 @@
 <context>
     <name>Console</name>
     <message>
-        <location filename="../qml/Console.qml" line="31"/>
+        <location filename="../qml/Console.qml" line="36"/>
         <source>Auto scroll</source>
         <translation>Автоматический скролл</translation>
     </message>
     <message>
-        <location filename="../qml/Console.qml" line="42"/>
+        <location filename="../qml/Console.qml" line="47"/>
         <source>Binnary</source>
         <translation>Бинарный вид</translation>
+    </message>
+    <message>
+        <location filename="../qml/Console.qml" line="71"/>
+        <source>Close console</source>
+        <translation>Закрыть консоль</translation>
     </message>
 </context>
 <context>
     <name>Dataset</name>
     <message>
-        <location filename="../src/dataset.cpp" line="1266"/>
-        <location filename="../src/dataset.cpp" line="1268"/>
+        <location filename="../src/dataset.cpp" line="1296"/>
+        <location filename="../src/dataset.cpp" line="1298"/>
         <source>None</source>
         <translation>Отсутствует</translation>
     </message>
@@ -483,6 +488,14 @@
     </message>
 </context>
 <context>
+    <name>DeviceSettingsViewer</name>
+    <message>
+        <location filename="../qml/DeviceSettingsViewer.qml" line="96"/>
+        <source>Recently opened:</source>
+        <translation>Недавно открытые:</translation>
+    </message>
+</context>
+<context>
     <name>DisplaySettings</name>
     <message>
         <location filename="../qml/DisplaySettings.qml" line="81"/>
@@ -537,7 +550,7 @@
     <message>
         <location filename="../qml/DisplaySettings.qml" line="307"/>
         <source>Side-Scan</source>
-        <translation>Боковое сканирование</translation>
+        <translation>Сайд скан</translation>
     </message>
     <message>
         <location filename="../qml/DisplaySettings.qml" line="329"/>
@@ -586,175 +599,223 @@
     </message>
     <message>
         <location filename="../qml/DisplaySettings.qml" line="765"/>
+        <location filename="../qml/DisplaySettings.qml" line="1190"/>
         <source>Export</source>
         <translation>Экспорт</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="778"/>
+        <location filename="../qml/DisplaySettings.qml" line="832"/>
+        <location filename="../qml/DisplaySettings.qml" line="1175"/>
+        <location filename="../qml/DisplaySettings.qml" line="1291"/>
         <source>Enter path</source>
         <translation>Введите путь</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="795"/>
+        <location filename="../qml/DisplaySettings.qml" line="849"/>
         <source>Select folder for export</source>
         <translation>Выберите папку для экспорта</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="822"/>
+        <location filename="../qml/DisplaySettings.qml" line="871"/>
         <source>Decimation, m:</source>
         <translation>Децимация, м:</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="842"/>
+        <location filename="../qml/DisplaySettings.qml" line="892"/>
         <source>Export to CSV</source>
         <translation>Экспорт в CSV</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="854"/>
+        <location filename="../qml/DisplaySettings.qml" line="904"/>
         <source>Export to XTF</source>
         <translation>Экспорт в XTF</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="862"/>
+        <location filename="../qml/DisplaySettings.qml" line="912"/>
         <source>Complex signal to CSV</source>
         <translation>Комплексный сигнал в CSV</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="870"/>
+        <location filename="../qml/DisplaySettings.qml" line="920"/>
         <source>USBL to CSV</source>
         <translation>USBL в CSV</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="880"/>
+        <location filename="../qml/DisplaySettings.qml" line="930"/>
         <source>Preference</source>
         <translation>Настройки приложения</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="883"/>
+        <location filename="../qml/DisplaySettings.qml" line="933"/>
         <source>Language:</source>
         <translation>Язык:</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="892"/>
-        <location filename="../qml/DisplaySettings.qml" line="898"/>
-        <location filename="../qml/DisplaySettings.qml" line="904"/>
+        <location filename="../qml/DisplaySettings.qml" line="942"/>
+        <location filename="../qml/DisplaySettings.qml" line="948"/>
+        <location filename="../qml/DisplaySettings.qml" line="954"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="892"/>
-        <location filename="../qml/DisplaySettings.qml" line="900"/>
+        <location filename="../qml/DisplaySettings.qml" line="942"/>
+        <location filename="../qml/DisplaySettings.qml" line="950"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="892"/>
-        <location filename="../qml/DisplaySettings.qml" line="902"/>
+        <location filename="../qml/DisplaySettings.qml" line="942"/>
+        <location filename="../qml/DisplaySettings.qml" line="952"/>
         <source>Polish</source>
         <translation>Польский</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="919"/>
+        <location filename="../qml/DisplaySettings.qml" line="969"/>
         <source>Display theme:</source>
         <translation>Тема приложения:</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="928"/>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
         <source>Dark</source>
         <translation>Тёмная</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="928"/>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
         <source>Super Dark</source>
         <translation>Очень Тёмная</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="928"/>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
         <source>Light</source>
         <translation>Светлая</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="928"/>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
         <source>Super Light</source>
         <translation>Очень Светлая</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="941"/>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
+        <source>OneDarkPro</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
+        <source>Monokai</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
+        <source>Kimbie Dark</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="978"/>
+        <source>Solarized Dark</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="991"/>
         <source>Instruments grade:</source>
         <translation>Набор инструментов:</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="950"/>
+        <location filename="../qml/DisplaySettings.qml" line="1000"/>
         <source>Fish Finders</source>
         <translation>Для Рыболова</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="950"/>
+        <location filename="../qml/DisplaySettings.qml" line="1000"/>
         <source>Bottom Tracking</source>
         <translation>Оценка трека дна</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="950"/>
+        <location filename="../qml/DisplaySettings.qml" line="1000"/>
         <source>Maximum</source>
         <translation>Максимум</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="965"/>
+        <location filename="../qml/DisplaySettings.qml" line="1015"/>
         <source>Interface</source>
         <translation>Интерфейс</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="973"/>
+        <location filename="../qml/DisplaySettings.qml" line="1023"/>
         <source>Extra info panel</source>
         <translation>Экстра инфо панель</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="995"/>
+        <location filename="../qml/DisplaySettings.qml" line="1045"/>
         <source>filter</source>
         <translation>фильтр</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1004"/>
+        <location filename="../qml/DisplaySettings.qml" line="1054"/>
         <source>Profiles button</source>
         <translation>Профили</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1013"/>
+        <location filename="../qml/DisplaySettings.qml" line="1063"/>
         <source>Autopilot info</source>
         <translation>Информация об автопилоте</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1021"/>
+        <location filename="../qml/DisplaySettings.qml" line="1071"/>
         <source>Console</source>
         <translation>Консоль</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1055"/>
+        <location filename="../qml/DisplaySettings.qml" line="1092"/>
+        <source>Keyboard shortcuts</source>
+        <translation>Горячие клавиши</translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="1098"/>
+        <source>UI state backup</source>
+        <translation>Бэкап настроек интерфейса</translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="1204"/>
+        <source>Export UI state</source>
+        <translation>Экспорт состояния интерфейса</translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="1306"/>
+        <source>Import</source>
+        <translation>Импорт</translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="1320"/>
+        <source>Import UI state</source>
+        <translation>Импорт состояния интерфейса</translation>
+    </message>
+    <message>
+        <location filename="../qml/DisplaySettings.qml" line="1389"/>
         <source>Depth</source>
         <translation>Глубина</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1066"/>
+        <location filename="../qml/DisplaySettings.qml" line="1400"/>
         <source>Speed</source>
         <translation>Скорость</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1077"/>
+        <location filename="../qml/DisplaySettings.qml" line="1411"/>
         <source>Coordinates</source>
         <translation>Координаты</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1088"/>
+        <location filename="../qml/DisplaySettings.qml" line="1422"/>
         <source>Active point</source>
         <translation>Активная точка</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1099"/>
+        <location filename="../qml/DisplaySettings.qml" line="1433"/>
         <source>Navigation info</source>
         <translation>Навигационное инфо</translation>
     </message>
     <message>
-        <location filename="../qml/DisplaySettings.qml" line="1110"/>
+        <location filename="../qml/DisplaySettings.qml" line="1444"/>
         <source>Boat Status</source>
         <translation>Статус лодки</translation>
     </message>
@@ -869,52 +930,52 @@
 <context>
     <name>FactoryBox</name>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="15"/>
+        <location filename="../qml/FactoryBox.qml" line="20"/>
         <source>Please choose a file</source>
         <translation>Выберите файл</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="49"/>
+        <location filename="../qml/FactoryBox.qml" line="55"/>
         <source>Factory</source>
         <translation>Заводские</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="52"/>
+        <location filename="../qml/FactoryBox.qml" line="58"/>
         <source>PN</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="59"/>
+        <location filename="../qml/FactoryBox.qml" line="65"/>
         <source>Enter PN</source>
         <translation>Введите PN</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="248"/>
+        <location filename="../qml/FactoryBox.qml" line="254"/>
         <source>Write</source>
         <translation>Записать</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="262"/>
+        <location filename="../qml/FactoryBox.qml" line="268"/>
         <source>Read</source>
         <translation>Прочитать</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="276"/>
+        <location filename="../qml/FactoryBox.qml" line="282"/>
         <source>Check</source>
         <translation>Проверить</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="290"/>
+        <location filename="../qml/FactoryBox.qml" line="296"/>
         <source>Upgrade</source>
         <translation>Прошить</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="309"/>
+        <location filename="../qml/FactoryBox.qml" line="315"/>
         <source>FLASH</source>
         <translation>ПРОШИВКА</translation>
     </message>
     <message>
-        <location filename="../qml/FactoryBox.qml" line="324"/>
+        <location filename="../qml/FactoryBox.qml" line="330"/>
         <source>Simple FLASH</source>
         <translation>Простая ПРОШИВКА</translation>
     </message>
@@ -938,99 +999,405 @@
     </message>
 </context>
 <context>
+    <name>HotkeysDialog</name>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="30"/>
+        <source>Application</source>
+        <translation>Приложение</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="31"/>
+        <source>Echogram</source>
+        <translation>Эхограмма</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="32"/>
+        <source>3D</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="33"/>
+        <source>Mosaic</source>
+        <translation>Мозайка</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="34"/>
+        <source>Surface</source>
+        <translation>Поверхность</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="112"/>
+        <source>Already used by: %1</source>
+        <translation>Уже используется: %1</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="136"/>
+        <source>Keyboard Shortcuts</source>
+        <translation>Горячие клавиши</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="145"/>
+        <source>Key</source>
+        <translation>Клавиша</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="146"/>
+        <source>Parameter</source>
+        <translation>Параметр</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="147"/>
+        <source>Action</source>
+        <translation>Действие</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="191"/>
+        <source>…</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="256"/>
+        <source>Press any key  •  click again to cancel</source>
+        <translation>Нажмите любую клавишу • нажмите еще раз для отмены</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="257"/>
+        <source>Click a key to reassign</source>
+        <translation>Нажмите чтобы переназначить</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="266"/>
+        <source>Reset to defaults</source>
+        <translation>По умолчанию</translation>
+    </message>
+    <message>
+        <location filename="../qml/HotkeysDialog.qml" line="275"/>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeysManager</name>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="19"/>
+        <source>Close menu</source>
+        <translation>Закрыть меню</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="20"/>
+        <source>Connection button</source>
+        <translation>Кнопка подключения</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="21"/>
+        <source>Settings button</source>
+        <translation>Кнопка настроек</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="22"/>
+        <source>3D button</source>
+        <translation>Кнопка 3D</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="23"/>
+        <source>2D button</source>
+        <translation>Кнопка 2D</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="24"/>
+        <source>Toggle fullscreen</source>
+        <translation>Полноэкранный режим</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="25"/>
+        <source>Open last file</source>
+        <translation>Открыть последний файл</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="26"/>
+        <source>Open file dialog</source>
+        <translation>Открыть диалог выбора файла</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="27"/>
+        <source>Close file</source>
+        <translation>Закрыть файл</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="29"/>
+        <source>Scroll the echogram to the left</source>
+        <translation>Прокрутка эхограммы влево</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="30"/>
+        <source>Scroll the echogram to the right</source>
+        <translation>Прокрутка эхограммы вправо</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="31"/>
+        <source>Scroll up the echogram</source>
+        <translation>Прокрутка эхограммы вверх</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="32"/>
+        <source>Scroll down the echogram</source>
+        <translation>Прокрутка эхограммы вниз</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="33"/>
+        <source>Zoom in vertically on the echogram</source>
+        <translation>Увеличить масштаб эхограммы по вертикали</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="34"/>
+        <source>Zoom out vertically on the echogram</source>
+        <translation>Уменьшить масштаб эхограммы по вертикали</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="35"/>
+        <source>Increase the lower brightness level of the echogram</source>
+        <translation>Увеличить нижний уровень яркости эхограммы</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="36"/>
+        <source>Decrease the lower brightness level of the echogram</source>
+        <translation>Уменьшить нижний уровень яркости эхограммы</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="37"/>
+        <source>Increase the upper brightness level of the echogram</source>
+        <translation>Увеличить верхний уровень яркости эхограммы</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="38"/>
+        <source>Decrease the upper brightness level of the echogram</source>
+        <translation>Уменьшить верхний уровень яркости эхограммы</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="39"/>
+        <source>Switch the echogram theme to the previous one</source>
+        <translation>Предыдущая тема эхограммы</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="40"/>
+        <source>Switch the echogram theme to the next one</source>
+        <translation>Следующая тема эхограммы</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="41"/>
+        <source>Toggle echogram type raw/side-scan</source>
+        <translation>Переключение типа эхограммы (RAW / Side-scan)</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="43"/>
+        <source>3D movement along the Z-axis down</source>
+        <translation>3D перемещение по Z оси вниз</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="44"/>
+        <source>3D movement along the Z-axis up</source>
+        <translation>3D перемещение по Z оси вверх</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="45"/>
+        <source>Z-axis scaling in 3D: reset</source>
+        <translation>Масштабирование по Z координате в 3D: сброс</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="46"/>
+        <source>3D Camera: Reset Rotation</source>
+        <translation>Камера 3D: сброс поворота</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="47"/>
+        <source>3D camera: Y-axis shift downward</source>
+        <translation>Камера 3D: сдвиг по Y координате вниз</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="48"/>
+        <source>3D camera: Y-axis shift upward</source>
+        <translation>Камера 3D: сдвиг по Y координате вверх</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="49"/>
+        <source>3D camera: shift to the right along the X-axis</source>
+        <translation>Камера 3D: сдвиг по X координате вправо</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="50"/>
+        <source>3D camera: shift left along the X-axis</source>
+        <translation>Камера 3D: сдвиг по X координате влево</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="51"/>
+        <source>Scaling along the Z-axis in 3D: decrease</source>
+        <translation>Масштабирование по Z координате в 3D: уменьшить</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="52"/>
+        <source>Scaling along the Z-axis in 3D: increase</source>
+        <translation>Масштабирование по Z координате в 3D: увеличить</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="53"/>
+        <source>Toggle 3D bottom track</source>
+        <translation>Переключить 3D трек дна</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="54"/>
+        <source>Toggle 3D isobaths</source>
+        <translation>Переключить 3D изобаты</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="55"/>
+        <source>Toggle 3D mosaic</source>
+        <translation>Переключить 3D мозаику</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="57"/>
+        <source>Mosaic previous theme</source>
+        <translation>Предыдущая тема мозаики</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="58"/>
+        <source>Mosaic next theme</source>
+        <translation>Следующая тема мозаики</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="59"/>
+        <source>Mosaic lower level up</source>
+        <translation>Увеличить нижний уровень мозаики</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="60"/>
+        <source>Mosaic lower level down</source>
+        <translation>Уменьшить нижний уровень мозаики</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="61"/>
+        <source>Mosaic upper level up</source>
+        <translation>Увеличить верхний уровень мозаики</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="62"/>
+        <source>Mosaic upper level down</source>
+        <translation>Уменьшить верхний уровень мозаики</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="64"/>
+        <source>Surface previous theme</source>
+        <translation>Предыдущая тема поверхности</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="65"/>
+        <source>Surface next theme</source>
+        <translation>Следующая тема поверхности</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="66"/>
+        <source>Surface isobaths step down</source>
+        <translation>Уменьшить шаг изобат</translation>
+    </message>
+    <message>
+        <location filename="../src/hotkeys_manager.cpp" line="67"/>
+        <source>Surface isobaths step up</source>
+        <translation>Увеличить шаг изобат</translation>
+    </message>
+</context>
+<context>
     <name>IsobathsExtraSettings</name>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="59"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="134"/>
         <source>Isobaths settings</source>
         <translation>Изобаты</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="71"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="146"/>
         <source>Theme:</source>
         <translation>Тема:</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Midnight</source>
         <translation>Полночь</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Default</source>
         <translation>Обычная</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Blue</source>
         <translation>Синий</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Sepia</source>
         <translation>Сепия</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>WRGBD</source>
         <translation>WRGBD</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>WhiteBlack</source>
         <translation>Бело-черный</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Standard</source>
         <translation>Стандарт</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Sepia New</source>
         <translation>Сепия новая</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>DeepBlue</source>
         <translation>Глубокий синий</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Ice</source>
         <translation>Лёд</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="79"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="154"/>
         <source>Green</source>
         <translation>Зелёный</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="103"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="178"/>
         <source>Edge limit, m:</source>
         <translation>Предел грани, м:</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="139"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="214"/>
         <source>Step, m:</source>
         <translation>Шаг, м:</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="188"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="263"/>
         <source>Extra width, m:</source>
         <translation>Экстра ширина, м:</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="225"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="304"/>
         <source>Enter path</source>
         <translation>Введите путь</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="240"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="327"/>
         <source>Select folder and set .csv file name</source>
         <translation>Выберите папку и установите имя файла.csv</translation>
     </message>
     <message>
-        <location filename="../qml/IsobathsExtraSettings.qml" line="266"/>
+        <location filename="../qml/IsobathsExtraSettings.qml" line="351"/>
         <source>Export to CSV</source>
         <translation>Экспорт в CSV</translation>
     </message>
@@ -1056,22 +1423,22 @@
 <context>
     <name>MainMenuBar</name>
     <message>
-        <location filename="../qml/MainMenuBar.qml" line="124"/>
+        <location filename="../qml/MainMenuBar.qml" line="131"/>
         <source>Connections</source>
         <translation>Подключения</translation>
     </message>
     <message>
-        <location filename="../qml/MainMenuBar.qml" line="139"/>
+        <location filename="../qml/MainMenuBar.qml" line="146"/>
         <source>Settings</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/MainMenuBar.qml" line="158"/>
+        <location filename="../qml/MainMenuBar.qml" line="165"/>
         <source>Display 3D</source>
         <translation>Показать 3D</translation>
     </message>
     <message>
-        <location filename="../qml/MainMenuBar.qml" line="184"/>
+        <location filename="../qml/MainMenuBar.qml" line="191"/>
         <source>Display 2D</source>
         <translation>Показать 2D</translation>
     </message>
@@ -1079,72 +1446,72 @@
 <context>
     <name>MosaicExtraSettings</name>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="73"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="119"/>
         <source>Mosaic settings</source>
         <translation>Мозайка</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="130"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="176"/>
         <source>Theme:</source>
         <translation>Тема:</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>Blue</source>
         <translation>Синий</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>Sepia</source>
         <translation>Сепия</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>WRGBD</source>
         <translation>WRGBD</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>WhiteBlack</source>
         <translation>Бело-черный</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>BlackWhite</source>
         <translation>Черно-белый</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>Sepia New</source>
         <translation>Сепия новая</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>DeepBlue</source>
         <translation>Глубокий синий</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>Ice</source>
         <translation>Лёд</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>Green</source>
         <translation>Зелёный</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="139"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="185"/>
         <source>Midnight</source>
         <translation>Полночь</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="163"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="209"/>
         <source>Channels:</source>
         <translation>Каналы:</translation>
     </message>
     <message>
-        <location filename="../qml/MosaicExtraSettings.qml" line="289"/>
+        <location filename="../qml/MosaicExtraSettings.qml" line="335"/>
         <source>Angle, °:</source>
         <translation>Угол, °:</translation>
     </message>
@@ -1168,233 +1535,207 @@
 <context>
     <name>Plot2D</name>
     <message>
-        <location filename="../qml/Plot2D.qml" line="388"/>
+        <location filename="../qml/Plot2D.qml" line="500"/>
         <source>Plot</source>
         <translation>График</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="408"/>
+        <location filename="../qml/Plot2D.qml" line="520"/>
         <source>Channels:</source>
         <translation>Каналы:</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="521"/>
+        <location filename="../qml/Plot2D.qml" line="633"/>
         <source>Echogram</source>
         <translation>Эхограмма</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>Blue</source>
         <translation>Синий</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>Sepia</source>
         <translation>Сепия</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>WRGBD</source>
         <translation>WRGBD</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>WhiteBlack</source>
         <translation>Бело-черный</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>BlackWhite</source>
         <translation>Черно-белый</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>Sepia New</source>
         <translation>Сепия новая</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>DeepBlue</source>
         <translation>Глубокий синий</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>Ice</source>
         <translation>Лёд</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>Green</source>
         <translation>Зелёный</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="530"/>
+        <location filename="../qml/Plot2D.qml" line="642"/>
         <source>Midnight</source>
         <translation>Полночь</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="553"/>
+        <location filename="../qml/Plot2D.qml" line="665"/>
         <source>Raw</source>
         <translation>Исходный</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="553"/>
+        <location filename="../qml/Plot2D.qml" line="665"/>
         <source>Side-Scan</source>
         <translation>Боковое сканирование</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="573"/>
+        <location filename="../qml/Plot2D.qml" line="683"/>
         <source>Bottom-Track</source>
         <translation>Трек дна</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="580"/>
-        <location filename="../qml/Plot2D.qml" line="616"/>
+        <location filename="../qml/Plot2D.qml" line="688"/>
+        <location filename="../qml/Plot2D.qml" line="728"/>
         <source>Value</source>
         <translation>Значение</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="591"/>
-        <source>Line1</source>
-        <translation>Линия1</translation>
-    </message>
-    <message>
-        <location filename="../qml/Plot2D.qml" line="591"/>
-        <source>Line2</source>
-        <translation>Линия2</translation>
-    </message>
-    <message>
-        <location filename="../qml/Plot2D.qml" line="591"/>
-        <source>Dot1</source>
-        <translation>Точка1</translation>
-    </message>
-    <message>
-        <location filename="../qml/Plot2D.qml" line="591"/>
-        <source>Dot2</source>
-        <translation>Точка2</translation>
-    </message>
-    <message>
-        <location filename="../qml/Plot2D.qml" line="591"/>
-        <source>DotLine</source>
-        <translation>Линия точек</translation>
-    </message>
-    <message>
-        <location filename="../qml/Plot2D.qml" line="609"/>
+        <location filename="../qml/Plot2D.qml" line="723"/>
         <source>Rangefinder</source>
         <translation>Глубиномер</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="625"/>
-        <source>Text</source>
-        <translation>Текст</translation>
-    </message>
-    <message>
-        <location filename="../qml/Plot2D.qml" line="625"/>
+        <location filename="../qml/Plot2D.qml" line="697"/>
+        <location filename="../qml/Plot2D.qml" line="706"/>
+        <location filename="../qml/Plot2D.qml" line="737"/>
+        <location filename="../qml/Plot2D.qml" line="746"/>
         <source>Line</source>
         <translation>Линия</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="625"/>
-        <source>Dot</source>
-        <translation>Точка</translation>
+        <location filename="../qml/Plot2D.qml" line="706"/>
+        <location filename="../qml/Plot2D.qml" line="746"/>
+        <source>Points</source>
+        <translation>Точки</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="643"/>
+        <location filename="../qml/Plot2D.qml" line="764"/>
         <source>Attitude</source>
         <translation>Ориентация</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="651"/>
+        <location filename="../qml/Plot2D.qml" line="772"/>
         <source>Temperature</source>
         <translation>Температура</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="669"/>
+        <location filename="../qml/Plot2D.qml" line="790"/>
         <source>Doppler Beams</source>
         <translation>Доплеровские лучи</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="734"/>
+        <location filename="../qml/Plot2D.qml" line="855"/>
         <source>Doppler Instrument</source>
         <translation>Доплеровский инструмент</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="775"/>
+        <location filename="../qml/Plot2D.qml" line="896"/>
         <source>Acoustic angle</source>
         <translation>Акустический угол</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="787"/>
+        <location filename="../qml/Plot2D.qml" line="908"/>
         <source>Doppler Profiler</source>
         <translation>Доплеровский профилировщик</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="797"/>
+        <location filename="../qml/Plot2D.qml" line="918"/>
         <source>GNSS data</source>
         <translation>GNSS данные</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="816"/>
+        <location filename="../qml/Plot2D.qml" line="937"/>
         <source>Grid</source>
         <translation>Сетка</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="822"/>
+        <location filename="../qml/Plot2D.qml" line="943"/>
         <source>fill</source>
         <translation>заполнить</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="838"/>
+        <location filename="../qml/Plot2D.qml" line="959"/>
         <source>invert</source>
         <translation>инвертировать</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="876"/>
+        <location filename="../qml/Plot2D.qml" line="997"/>
         <source>Angle range, °</source>
         <translation>Диапазон углов, °</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="928"/>
+        <location filename="../qml/Plot2D.qml" line="1049"/>
         <source>Velocity range, m/s</source>
         <translation>Диапазон скоростей, м/с</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="985"/>
+        <location filename="../qml/Plot2D.qml" line="1106"/>
         <source>Distance auto range</source>
         <translation>Автоматическая дистанция</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="1001"/>
+        <location filename="../qml/Plot2D.qml" line="1122"/>
         <source>Last data       </source>
         <translation>Последние данные       </translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="1001"/>
+        <location filename="../qml/Plot2D.qml" line="1122"/>
         <source>Last on screen</source>
         <translation>Последний на экране</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="1001"/>
+        <location filename="../qml/Plot2D.qml" line="1122"/>
         <source>Max on screen</source>
         <translation>Максимальный на экране</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="1017"/>
+        <location filename="../qml/Plot2D.qml" line="1138"/>
         <source>Horizontal</source>
         <translation>Горизонтальный режим</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="1025"/>
+        <location filename="../qml/Plot2D.qml" line="1146"/>
         <source>Loupe</source>
         <translation>Лупа</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="1033"/>
+        <location filename="../qml/Plot2D.qml" line="1156"/>
         <source>size</source>
         <translation>размер</translation>
     </message>
     <message>
-        <location filename="../qml/Plot2D.qml" line="1049"/>
+        <location filename="../qml/Plot2D.qml" line="1174"/>
         <source>zoom</source>
         <translation>зум</translation>
     </message>
@@ -1407,7 +1748,7 @@
         <translation> м/с    </translation>
     </message>
     <message>
-        <location filename="../src/scene2d/plot2D_bottom_processing.cpp" line="79"/>
+        <location filename="../src/scene2d/plot2D_bottom_processing.cpp" line="94"/>
         <location filename="../src/scene2d/plot2D_grid.cpp" line="79"/>
         <location filename="../src/scene2d/plot2D_grid.cpp" line="108"/>
         <location filename="../src/scene2d/plot2D_rangefinder.cpp" line="72"/>
@@ -1465,7 +1806,7 @@
         <translation>Скорость звука, м/с: </translation>
     </message>
     <message>
-        <location filename="../src/core.cpp" line="1869"/>
+        <location filename="../src/core.cpp" line="2121"/>
         <source>File</source>
         <translation>Файл</translation>
     </message>
@@ -1688,47 +2029,47 @@
 <context>
     <name>Scene3DRightToolbar</name>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="57"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="65"/>
         <source>Map settings</source>
         <translation>Настройки карты</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="76"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="84"/>
         <source>Ruler</source>
         <translation>Линейка</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="116"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="124"/>
         <source>GeoJSON</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="138"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="146"/>
         <source>Point</source>
         <translation>Точка</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="158"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="166"/>
         <source>Line</source>
         <translation>Линия</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="178"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="186"/>
         <source>Polygon</source>
         <translation>Полигон</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="203"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="211"/>
         <source>Finish drawing</source>
         <translation>Закончить рисование</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="221"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="229"/>
         <source>Undo</source>
         <translation>Отменить</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DRightToolbar.qml" line="239"/>
+        <location filename="../qml/Scene3DRightToolbar.qml" line="247"/>
         <source>Cancel drawing</source>
         <translation>Отменить рисование</translation>
     </message>
@@ -1736,22 +2077,22 @@
 <context>
     <name>Scene3DToolbar</name>
     <message>
-        <location filename="../qml/Scene3DToolbar.qml" line="77"/>
+        <location filename="../qml/Scene3DToolbar.qml" line="141"/>
         <source>Reset camera</source>
         <translation>Сбросить камеру</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DToolbar.qml" line="103"/>
+        <location filename="../qml/Scene3DToolbar.qml" line="167"/>
         <source>GeoJSON</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DToolbar.qml" line="295"/>
+        <location filename="../qml/Scene3DToolbar.qml" line="359"/>
         <source>Boat track</source>
         <translation>Трек лодки</translation>
     </message>
     <message>
-        <location filename="../qml/Scene3DToolbar.qml" line="327"/>
+        <location filename="../qml/Scene3DToolbar.qml" line="391"/>
         <source>Bottom track</source>
         <translation>Трек дна</translation>
     </message>
@@ -1759,129 +2100,129 @@
 <context>
     <name>Settings3DExtraSettings</name>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="58"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="61"/>
         <source>3d scene settings</source>
         <translation>Настройки сцены</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="76"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="79"/>
         <source>Reset depth zoom</source>
         <translation>Сбросить зум</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="94"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="97"/>
         <source>Reset surface</source>
         <translation>Сбросить поверхность</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="113"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="116"/>
         <source>Show surface quality</source>
         <translation>Показать качество поверхности</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="135"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="138"/>
         <source>Force zoom</source>
         <translation>Константный зум</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="189"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="192"/>
         <source>Loupe</source>
         <translation>Лупа</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="208"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="210"/>
         <source>size</source>
         <translation>размер</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="234"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="238"/>
         <source>zoom</source>
         <translation>зум</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="298"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="324"/>
         <source>Sync echogram</source>
         <translation>Синхр. эхограммы</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="355"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="382"/>
         <source>Grid</source>
         <translation>Сетка</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="386"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="413"/>
         <source>Circle</source>
         <translation>Круговая</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="413"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="440"/>
         <source>Labels</source>
         <translation>Метки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="435"/>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="793"/>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="860"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="462"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="820"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="887"/>
         <source>Size:</source>
         <translation>Размер:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="438"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="465"/>
         <source>Step:</source>
         <translation>Шаг:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="441"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="468"/>
         <source>Angle:</source>
         <translation>Угол:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="524"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="551"/>
         <source>Shadows</source>
         <translation>Тени</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="558"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="585"/>
         <source>Vector X:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="598"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="625"/>
         <source>Vector Y:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="638"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="665"/>
         <source>Vector Z:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="678"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="705"/>
         <source>Ambient:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="718"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="745"/>
         <source>Highlight:</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="773"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="800"/>
         <source>Boat</source>
         <translation>Лодка</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="832"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="859"/>
         <source>Compass</source>
         <translation>Компас</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="857"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="884"/>
         <source>Pos:</source>
         <translation>Поз:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings3DExtraSettings.qml" line="271"/>
+        <location filename="../qml/Settings3DExtraSettings.qml" line="297"/>
         <source>North mode</source>
         <translation>Режим Север</translation>
     </message>
@@ -1924,17 +2265,17 @@
         <translation>Открыть файл</translation>
     </message>
     <message>
-        <location filename="../qml/SonarBox.qml" line="118"/>
+        <location filename="../qml/SonarBox.qml" line="115"/>
         <source>Save as file</source>
         <translation>Сохранить как файл</translation>
     </message>
     <message>
-        <location filename="../qml/SonarBox.qml" line="145"/>
+        <location filename="../qml/SonarBox.qml" line="139"/>
         <source>Import</source>
         <translation>Импорт</translation>
     </message>
     <message>
-        <location filename="../qml/SonarBox.qml" line="153"/>
+        <location filename="../qml/SonarBox.qml" line="147"/>
         <source>Export</source>
         <translation>Экспорт</translation>
     </message>
@@ -1982,24 +2323,142 @@
     </message>
 </context>
 <context>
+    <name>UIStateSerializer</name>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="323"/>
+        <source>Export failed: file path is empty</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="353"/>
+        <source>Export failed: cannot read pinned links file</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="366"/>
+        <source>Export failed: cannot open file for writing</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="373"/>
+        <source>Export failed: short write</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="378"/>
+        <source>Exported %1 keys.</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="388"/>
+        <source>Import failed: file path is empty</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="395"/>
+        <source>Import failed: cannot open file</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="403"/>
+        <source>Import failed: invalid JSON: %1</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="409"/>
+        <source>Import failed: root must be JSON object</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="417"/>
+        <source>Import failed: unsupported dump type</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="424"/>
+        <source>Import failed: unsupported schema version</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="432"/>
+        <source>Import failed: dump app version is missing</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="439"/>
+        <source>Import failed: version mismatch (file %1, app %2)</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="447"/>
+        <source>Import failed: settings must be JSON object</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="461"/>
+        <source>Import failed: links must be JSON object</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="469"/>
+        <source>Import failed: unsupported links payload format</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="476"/>
+        <source>Import failed: links payload is empty</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="483"/>
+        <source>Import failed: links payload is not valid Base64</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="516"/>
+        <source>Import failed: cannot write settings</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="529"/>
+        <source>Import failed: cannot apply pinned links: %1</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="534"/>
+        <source> Pinned links were replaced live.</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="538"/>
+        <source>Imported %1 keys. Applied %2 in live UI. Skipped path keys: %3. Skipped serial links: %4.%5</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/ui_state_serializer.cpp" line="731"/>
+        <source>link manager is not available</source>
+        <translation></translation>
+    </message>
+</context>
+<context>
     <name>UpgradeBox</name>
     <message>
-        <location filename="../qml/UpgradeBox.qml" line="16"/>
+        <location filename="../qml/UpgradeBox.qml" line="70"/>
         <source>Please choose a file</source>
         <translation>Выберите файл</translation>
     </message>
     <message>
-        <location filename="../qml/UpgradeBox.qml" line="41"/>
+        <location filename="../qml/UpgradeBox.qml" line="95"/>
         <source>Upgrade</source>
         <translation>Прошить</translation>
     </message>
     <message>
-        <location filename="../qml/UpgradeBox.qml" line="65"/>
+        <location filename="../qml/UpgradeBox.qml" line="119"/>
         <source>Enter path</source>
         <translation>Введите путь</translation>
     </message>
     <message>
-        <location filename="../qml/UpgradeBox.qml" line="78"/>
+        <location filename="../qml/UpgradeBox.qml" line="132"/>
         <source>UPGRADE</source>
         <translation>ПРОШИТЬ</translation>
     </message>
@@ -2012,107 +2471,107 @@
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="90"/>
+        <location filename="../qml/main.qml" line="238"/>
         <source>Undefined</source>
         <translation>Неопределён</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="104"/>
+        <location filename="../qml/main.qml" line="252"/>
         <source>Please restart the application to apply the language change</source>
         <translation>Перезапустите приложение, чтобы применить изменение языка</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="113"/>
+        <location filename="../qml/main.qml" line="261"/>
         <source>Ok</source>
         <translation>Ок</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="784"/>
+        <location filename="../qml/main.qml" line="1222"/>
         <source>Data prepairing...</source>
         <translation>Подготовка данных...</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="788"/>
+        <location filename="../qml/main.qml" line="1226"/>
         <source> cm/pix</source>
         <translation> см/пикс</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="788"/>
+        <location filename="../qml/main.qml" line="1226"/>
         <source>Mosaic: </source>
         <translation>Мозайка: </translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="791"/>
+        <location filename="../qml/main.qml" line="1229"/>
         <source>Surface: </source>
         <translation>Поверхность: </translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="791"/>
+        <location filename="../qml/main.qml" line="1229"/>
         <source> cm/cell</source>
         <translation> см/ячейка</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1215"/>
+        <location filename="../qml/main.qml" line="1780"/>
         <source>Profiles...</source>
         <translation>Профили...</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1270"/>
+        <location filename="../qml/main.qml" line="1835"/>
         <source>Profiles</source>
         <translation>Профили</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1306"/>
+        <location filename="../qml/main.qml" line="1872"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1325"/>
+        <location filename="../qml/main.qml" line="1918"/>
         <source>Select profile XML</source>
         <translation>Выберите профиль XML</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1351"/>
+        <location filename="../qml/main.qml" line="1945"/>
         <source>Add profiles and apply them</source>
         <translation>Добавьте профиль и примените его</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1390"/>
+        <location filename="../qml/main.qml" line="1984"/>
         <source>Path to profile .xml</source>
         <translation>Путь до профиля .xml</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1400"/>
+        <location filename="../qml/main.qml" line="1996"/>
         <source>Browse</source>
         <translation>Выбрать</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1409"/>
+        <location filename="../qml/main.qml" line="2005"/>
         <source>Apply</source>
         <translation>Применить</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1557"/>
+        <location filename="../qml/main.qml" line="2153"/>
         <source> m/s </source>
         <translation> м/с </translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1564"/>
+        <location filename="../qml/main.qml" line="2160"/>
         <source> %</source>
         <translation> %</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1557"/>
+        <location filename="../qml/main.qml" line="2153"/>
         <source> V   </source>
         <translation> В   </translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1557"/>
+        <location filename="../qml/main.qml" line="2153"/>
         <source> A   </source>
         <translation> А   </translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="1673"/>
+        <location filename="../qml/main.qml" line="2269"/>
         <source>Please wait, the file is opening</source>
         <translation>Пожалуйста подождите, файл открывается</translation>
     </message>

@@ -33,6 +33,7 @@ HEADERS += \
     src/dsp_defs.h \
     src/epoch.h \
     src/hotkeys_manager.h \
+    src/hotkeys_controller.h \
     src/id_binnary.h \
     src/delaunay.h \
     src/delaunay_defs.h \
@@ -47,9 +48,9 @@ HEADERS += \
     src/stream_list_model.h \
     src/themes.h \
     src/udp_broadcaster.h \
-    src/xtf_conf.h \
     src/NMEASender.h \
     src/SlidingWindowMedian.h \
+    src/ui_state_serializer.h \
     src/xtf_conf.h \
     src/location_reader.h \
     src/mosaic_index_provider.h
@@ -69,6 +70,7 @@ SOURCES += \
     src/data_horizon.cpp \
     src/epoch.cpp \
     src/hotkeys_manager.cpp \
+    src/hotkeys_controller.cpp \
     src/id_binnary.cpp \
     src/installtoken.cpp \
     src/logger.cpp \
@@ -77,6 +79,7 @@ SOURCES += \
     src/stream_list.cpp \
     src/stream_list_model.cpp \
     src/NMEASender.cpp \
+    src/ui_state_serializer.cpp \
     src/location_reader.cpp \
     src/mosaic_index_provider.cpp
 
@@ -291,3 +294,7 @@ android {
 else {
     QT += serialport
 }
+
+# win32 dump
+#CONFIG(release, debug|release): CONFIG += force_debug_info
+#QMAKE_CXXFLAGS_RELEASE += -fno-omit-frame-pointer

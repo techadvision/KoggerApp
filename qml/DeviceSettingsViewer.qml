@@ -11,6 +11,10 @@ MenuScroll {
         devConnection.importSettingsToAllDevices(path)
     }
 
+
+    function openFileDialog() {
+        devConnection.openNewFileDialog()
+    }
     Column {
         // width: menuWidth
         // Layout.margins: 0
@@ -77,6 +81,68 @@ MenuScroll {
                 id: upgradeBox
                 dev: devConnection.dev
                 width: menuWidth
+            }
+        }
+
+        MenuFrame {
+            id: recentOpenedFrame
+            visible: devConnection.recentOpenedFiles.length > 0
+
+            ColumnLayout {
+                width: menuWidth
+                spacing: 4
+
+                MenuRow {
+                    CText {
+                        text: qsTr("Recently opened:")
+                    }
+                }
+
+                Repeater {
+                    model: Math.min(devConnection.recentOpenedFiles.length, 3)
+
+                    MenuRow {
+                        id: recentFileRow
+                        spacing: 4
+                        property string filePath: devConnection.recentOpenedFiles[index] || ""
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: theme.controlHeight
+
+                            Rectangle {
+                                anchors.fill: parent
+                                color: "transparent"
+                                border.width: 0
+                            }
+
+                            CText {
+                                anchors.fill: parent
+                                anchors.leftMargin: 6
+                                anchors.rightMargin: 6
+                                text: devConnection.urlDisplay(recentFileRow.filePath)
+                                horizontalAlignment: Text.AlignRight
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideLeft
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: devConnection.openRecentFile(recentFileRow.filePath)
+                            }
+                        }
+
+                        CheckButton {
+                            icon.source: "qrc:/icons/ui/x.svg"
+                            checkable: false
+                            backColor: "transparent"
+                            borderWidth: 0
+                            implicitWidth: theme.controlHeight
+                            implicitHeight: theme.controlHeight
+                            onClicked: devConnection.removeRecentFile(recentFileRow.filePath)
+                        }
+                    }
+                }
             }
         }
 

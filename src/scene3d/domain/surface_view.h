@@ -28,10 +28,11 @@ public:
     {
     public:
         SurfaceViewRenderImplementation();
-        virtual void render(QOpenGLFunctions* ctx,
-                            const QMatrix4x4& mvp,
-                            const QMap<QString,
-                            std::shared_ptr<QOpenGLShaderProgram>>& shaderProgramMap) const override final;
+        void render(QOpenGLFunctions* ctx,
+                    const QMatrix4x4& mvp,
+                    const QMap<QString,
+                    std::shared_ptr<QOpenGLShaderProgram>>& shaderProgramMap) const final;
+        void setVerticalScale(float scale);
         void setShadowSettings(bool enabled,
                                const QVector3D& lightDir,
                                float ambient,
@@ -46,7 +47,7 @@ public:
         QVector<QVector3D> buildTileNormals(const SurfaceTile& tile) const;
         void rebuildSeamlessTileNormals(const QHash<TileKey, SurfaceTile>& tiles,
                                         QHash<TileKey, QVector<QVector3D>>& outNormals) const;
-        void updateBounds() override final;
+        void updateBounds() final;
 
         friend class SurfaceView;
 
@@ -67,10 +68,11 @@ public:
         QVector<QVector3D> lastRightLine_;
         float traceWidth_;
         bool  traceVisible_;
+        float verticalScale_;
     };
 
     explicit SurfaceView(QObject* parent = nullptr);
-    virtual ~SurfaceView();
+    ~SurfaceView() override;
 
     void   setMosaicTextureIdByTileId(const TileKey& tileId, GLuint textureId);
     void   setMosaicColorTableTextureId(GLuint value);

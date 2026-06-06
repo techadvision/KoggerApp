@@ -45,12 +45,12 @@ public:
 
 
     /*structures*/
-    enum class DatasetState {
+    enum class DatasetState : uint8_t {
         kUndefined = 0,
         kFile,
         kConnection
     };
-    enum class LlaRefState {
+    enum class LlaRefState : uint8_t {
         kUndefined = 0,
         kSettings,
         kFile,
@@ -96,7 +96,7 @@ public:
 
     /*methods*/
     Dataset();
-    ~Dataset();
+    ~Dataset() override;
 
     //Pulse - getters
     float dist() const { return _dist; }
@@ -123,7 +123,7 @@ public:
     Q_INVOKABLE void setFakeDepthAddition(double addedDepth);
     Q_INVOKABLE void processBottomTrack(bool processTracks);
     Q_INVOKABLE void initiateProcessBottomTrack(bool initiateProcessing);
-    Q_INVOKABLE void setTemperatureCorrection(bool temperatureCorrection);
+    Q_INVOKABLE void setTemperatureCorrection(double temperatureCorrection);
     Q_INVOKABLE void setDepthFilterActive(bool useDepthFilter);
     Q_INVOKABLE void setDepthFilterBottomTrackActive(bool useDepthFilterWithBottomTrack);
     float filterDepthRecords (float distance);
@@ -139,13 +139,18 @@ public:
         return pool_.size();
     }
 
+    inline int sizeThreadSafe() const {
+        QReadLocker rl(&poolMtx_);
+        return pool_.size();
+    }
+
     Epoch* fromIndex(int index_offset = 0) {
         int index = validIndex(index_offset);
         if(index >= 0) {
             return &pool_[index];
         }
 
-        return NULL;
+        return nullptr;
     }
 
     Epoch fromIndexCopy(int index_offset = 0) {
@@ -160,6 +165,28 @@ public:
         Epoch copy = src;
 
         return copy;
+    }
+
+    Epoch fromIndexMosaicCopy(int index_offset = 0) {
+        QReadLocker rl(&poolMtx_);
+
+        const int index = validIndex(index_offset);
+        if (channelsSetup_.empty() || index < 0) {
+            return Epoch{};
+        }
+
+        return pool_.at(index).deepCopyForMosaic();
+    }
+
+    Epoch fromIndexBottomTrackCopy(int index_offset = 0) {
+        QReadLocker rl(&poolMtx_);
+
+        const int index = validIndex(index_offset);
+        if (channelsSetup_.empty() || index < 0) {
+            return Epoch{};
+        }
+
+        return pool_.at(index).deepCopyForBottomTrack();
     }
 
     Epoch::Echogram fromIndexCopyEchogram(int index_offset, const ChannelId& channelId) {
@@ -193,7 +220,7 @@ public:
         if(size() > 1) {
             return fromIndex(endIndex()-1);
         }
-        return NULL;
+        return nullptr;
     }
 
     int endIndex() const {
@@ -207,7 +234,7 @@ public:
         return index;
     }
 
-    void getMaxDistanceRange(float* from, float* to, const ChannelId& channel, uint8_t subAddressCh1, const ChannelId& channel2 = CHANNEL_NONE, uint8_t subAddressCh2 = 0);
+    void getMaxDistanceRange(float* from, float* to, const ChannelId& channel, uint8_t subAddressCh1, const ChannelId& channel2 = channelNone(), uint8_t subAddressCh2 = 0);
 
     bool channelsListIsEmpty() const {
         QReadLocker locker(&lock_);
@@ -224,8 +251,8 @@ public:
     bool isContainsChannelInChannelSetup(const ChannelId& channelId) const {
         QReadLocker locker(&lock_);
 
-        for (int16_t i = 0; i < channelsSetup_.size(); ++i) {
-            if (channelsSetup_.at(i).channelId_ == channelId) {
+        for (const auto& channel : channelsSetup_) {
+            if (channel.channelId_ == channelId) {
                 return true;
             }
         }
@@ -282,14 +309,16 @@ public:
     int64_t getActiveContactIndx() const;
     void setMosaicChannels(const QString& firstChStr, const QString& secondChStr);
     QMap<int, QSet<TileKey>> traceTileKeysForEpoch(int epochIndx) const;
+    friend class DataProcessor;
 
 public slots:
     Q_INVOKABLE void onSetLAngleOffset(float val);
     Q_INVOKABLE void onSetRAngleOffset(float val);
     void setSpatialIndexingEnabled(bool sonarState, bool dimRectState, bool chunkedCatchup);
 
-    friend class DataProcessor;
     void onSonarPosCanCalc(uint64_t indx);
+
+public:
     bool  isValidActiveContactIndx() const { return activeContactIndx_ != -1;  };
     bool  isValidBoatCoordinate() const    { return !qFuzzyIsNull(boatLatitute_) || !qFuzzyIsNull(boatLongitude_); };
     bool  isValidLastDepth() const         { return !qFuzzyIsNull(lastDepth_); };
@@ -317,9 +346,11 @@ public slots:
     float getBoatLongitude() const         { return boatLongitude_;            };
     float getDistToContact() const         { return distToActiveContact_;      };
     float getAngleToContact() const        { return angleToActiveContact_;     };
-    float getLastDepth() const             { return lastDepth_;                };
+    Q_INVOKABLE float getLastDepth() const { return lastDepth_;                };
     float getLastTrackDepth() const        { return lastTrackDepth_;           }; //pulse
     float getSpeed() const                 { return speed_;                    };
+
+public slots:
     void addEvent(int timestamp, int id, int unixt = 0);
     void addEncoder(float angle1_deg, float angle2_deg = NAN, float angle3_deg = NAN);
     void addTimestamp(int timestamp);

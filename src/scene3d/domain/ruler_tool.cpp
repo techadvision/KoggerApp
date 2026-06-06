@@ -121,7 +121,7 @@ void RulerTool::RulerToolRenderImplementation::render(
         return;
     }
 
-    auto shaderProgram = shaderIt.value();
+    const auto& shaderProgram = shaderIt.value();
     if (!shaderProgram->bind()) {
         return;
     }
@@ -180,7 +180,7 @@ void RulerTool::RulerToolRenderImplementation::render(
                 }
 
                 if (!markersNdc.isEmpty()) {
-                    auto sp = shaderIt2.value();
+                    const auto& sp = shaderIt2.value();
                     if (sp->bind()) {
                         const int colorLoc2 = sp->uniformLocation("color");
                         sp->setUniformValue(colorLoc2, DrawUtils::colorToVector4d(QColor(234, 84, 85, 255)));
@@ -202,7 +202,7 @@ void RulerTool::RulerToolRenderImplementation::render(
     QMatrix4x4 textProjection;
     textProjection.ortho(viewport.toRect());
 
-    TextRenderer::instance().setColor(theme.textSolidColor());
+    TextRenderer::instance().setColor(QColor(255, 255, 255));
     TextRenderer::instance().setBackgroundColor(QColor(0, 0, 0, 160));
     QVector<TextRenderer::Text2DItem> labelItems;
     labelItems.reserve(pts.size());

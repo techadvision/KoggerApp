@@ -19,10 +19,9 @@ class qPlot2D : public QQuickPaintedItem, public Plot2D
     Q_OBJECT
     Q_INTERFACES(QQmlParserStatus)
 public:
-    //Q_PROPERTY(bool horizontal READ isHorizontal() WRITE setHorizontal)
-    Q_PROPERTY(bool horizontal READ isHorizontal WRITE setHorizontal)
+    Q_PROPERTY(bool horizontal READ isHorizontal WRITE setHorizontal NOTIFY plotHorizontalChanged)
     Q_PROPERTY(float timelinePosition READ timelinePosition WRITE setTimelinePosition NOTIFY timelinePositionChanged)
-    Q_PROPERTY(bool isEnabled READ getPlotEnabled WRITE setPlotEnabled)
+    Q_PROPERTY(bool isEnabled READ getPlotEnabled WRITE setPlotEnabled NOTIFY plotEnabledChanged)
     Q_PROPERTY(QString contactInfo      READ getContactInfo      WRITE setContactInfo     NOTIFY contactChanged)
     Q_PROPERTY(bool    contactVisible   READ getContactVisible   WRITE setContactVisible  NOTIFY contactChanged)
     Q_PROPERTY(int     contactPositionX READ getContactPositionX /*WRITE setContactPosition*/ NOTIFY contactChanged)
@@ -46,12 +45,20 @@ public:
     void setDataProcessor(DataProcessor* dataProcessorPtr);
 
     bool isHorizontal() { return _isHorizontal; }
-    void setHorizontal(bool is_horizontal) { _isHorizontal = is_horizontal; Plot2D::setHorizontal(_isHorizontal); update(); }
+    void setHorizontal(bool is_horizontal) {
+        if (_isHorizontal == is_horizontal) {
+            return;
+        }
+        _isHorizontal = is_horizontal;
+        Plot2D::setHorizontal(_isHorizontal);
+        Q_EMIT plotHorizontalChanged();
+        update();
+    }
 
     void plotUpdate() override;
 
-    bool eventFilter(QObject *watched, QEvent *event) override final;
-    void sendSyncEvent(int epoch_index, QEvent::Type eventType) override final;
+    bool eventFilter(QObject *watched, QEvent *event) final;
+    void sendSyncEvent(int epoch_index, QEvent::Type eventType) final;
 
     //Pulse app updates
     Q_INVOKABLE void updatePlot() { plotUpdate(); };
@@ -79,6 +86,16 @@ public:
     Q_INVOKABLE float cursorFrom() const { return Plot2D::cursor_.distance.from; }
     Q_INVOKABLE float cursorTo() const { return Plot2D::cursor_.distance.to; }
     Q_INVOKABLE void setCursorFromTo(float from, float to) { cursor_.distance.mode = AutoRangeNone; Plot2D::cursor_.distance.from = from; Plot2D::cursor_.distance.to = to; }
+    Q_INVOKABLE int getAimEpochIndex() const { return cursor_.selectEpochIndx; }
+    Q_INVOKABLE void setAimEpochIndex(int epochIndx) {
+        if (!datasetPtr_ || datasetPtr_->size() <= 0 || epochIndx < 0) {
+            cursor_.selectEpochIndx = -1;
+            update();
+            return;
+        }
+        cursor_.selectEpochIndx = qBound(0, epochIndx, datasetPtr_->size() - 1);
+        update();
+    }
     Q_INVOKABLE void setTimelinePositionByEpochCentered(int epochIndx) {
         if (!datasetPtr_ || datasetPtr_->size() <= 0) {
             return;
@@ -153,6 +170,7 @@ signals:
     void contactChanged();
 
     void plotHorizontalChanged();
+    void plotEnabledChanged();
 
 protected slots:
     void timerUpdater();
@@ -250,8 +268,13 @@ public slots:
     Q_INVOKABLE float getLowEchogramLevel() const;
     Q_INVOKABLE float getHighEchogramLevel() const;
     Q_INVOKABLE int getThemeId() const;
+    Q_INVOKABLE bool getBottomTrackVisible() const { return Plot2D::getBottomTrackVisible(); }
+    Q_INVOKABLE int getBottomTrackThemeId() const;
+    Q_INVOKABLE bool getRangefinderVisible() const { return Plot2D::getRangefinderVisible(); }
+    Q_INVOKABLE int getRangefinderThemeId() const;
     Q_INVOKABLE int getEchogramCompensation() const { return Plot2D::getEchogramCompensation(); }
     Q_INVOKABLE float getLoupeDepthForEpoch(int epochIndx) const;
+    Q_INVOKABLE int getPreferredLoupeEpochIndex(int preferredEpochIndx = -1) const;
     void doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz, bool manual);
     void refreshDistParams(int preset, int windowSize, float verticalGap, float rangeMin, float rangeMax, float gainSlope, float threshold, float offsetX, float offsetY, float offsetZ);
 

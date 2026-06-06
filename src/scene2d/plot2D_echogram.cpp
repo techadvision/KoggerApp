@@ -43,6 +43,7 @@ void Plot2DEchogram::applyPersistent(const QVariantMap& m)
 
 Plot2DEchogram::~Plot2DEchogram()
 {
+    releaseCache();
     delete miniPreviewPlot_;
 }
 
@@ -1680,6 +1681,16 @@ int Plot2DEchogram::getCompensation() const
     return _compensation_id;
 }
 
+void Plot2DEchogram::setWrapEnabled(bool state)
+{
+    if (wrapEnabled_ == state) {
+        return;
+    }
+
+    wrapEnabled_ = state;
+    resetCash();
+}
+
 void Plot2DEchogram::updateColors() {
     // 1) compute your user-range → [0..255]
     float low    = _levels.low;
@@ -1716,6 +1727,24 @@ void Plot2DEchogram::resetCash()
     _cashFlags.resetCash = true;
 }
 
+void Plot2DEchogram::releaseCache()
+{
+    _cash.clear();
+    _cash.squeeze();
+    _image = QImage();
+    _pixmap = QPixmap();
+    _lastCursor = DatasetCursor();
+    _lastWidth = -1;
+    _lastHeight = -1;
+    _flagColorChanged = true;
+    _cashFlags.resetCash = true;
+    reRenderPlotIndxs_.clear();
+
+    if (miniPreviewPlot_ != nullptr) {
+        miniPreviewPlot_->releaseCache();
+    }
+}
+
 void Plot2DEchogram::addReRenderPlotIndxs(const QSet<int> &indxs)
 {
     reRenderPlotIndxs_.unite(indxs);
@@ -1730,7 +1759,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
         resetCash();
     }
 
-    uint8_t* image_data = (uint8_t*)_image.constBits();
+    uint8_t* image_data = _image.bits();
     const int b_scanline = _image.bytesPerLine();
 
     bool is_cash_notvalid = getTriggerCashReset();
@@ -1813,12 +1842,12 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
             if (is_cash_notvalid || pool_index_safe != cash_index || !wasValidlyRendered) {
                 _cash[column].poolIndex = pool_index_safe;
 
-                if(datasource != NULL) {
+                if(datasource != nullptr) {
                     _cash[column].state = CashLine::CashState::CashStateNotValid;
                     int16_t* cash_data = _cash[column].data.data();
                     int16_t cash_data_size = _cash[column].data.size();
 
-                    if (cursor.channel2 == CHANNEL_NONE) {
+                    if (cursor.channel2 == channelNone()) {
                         datasource->chartTo(cursor.channel1, cursor.subChannel1, from, to, cash_data, cash_data_size, _compensation_id);
                     }
                     else {
@@ -1848,7 +1877,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                     }
 //                    _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
                 } else {
-                    if(_cash[column].state != CashLine::CashState::CashStateEraced) {
+                    if(is_cash_notvalid || _cash[column].state != CashLine::CashState::CashStateEraced) {
 //                        _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
                         _cash[column].state = CashLine::CashState::CashStateNotValid;
                         _cash[column].data.fill(0);
@@ -1869,7 +1898,7 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
 
             }
         } else {
-            if(_cash[column].state != CashLine::CashState::CashStateEraced) {
+            if(is_cash_notvalid || _cash[column].state != CashLine::CashState::CashStateEraced) {
 //                _cash[column].stateColor = CashLine::CashState::CashStateNotValid;
                 _cash[column].state = CashLine::CashState::CashStateNotValid;
                 _cash[column].data.fill(0);
@@ -1947,6 +1976,9 @@ bool Plot2DEchogram::draw(Plot2D* parent, Dataset* dataset)
         canvas.painter()->drawPixmap(0, 0, _pixmap, cash_position, 0, cash_width - cash_position, 0);
         canvas.painter()->drawPixmap(cash_width - cash_position, 0, _pixmap, 0, 0, cash_position, 0);
     } else {
+        if (dataset == nullptr || !cursor.distance.isValid()) {
+            releaseCache();
+        }
     }
 
     return true;
@@ -2073,14 +2105,14 @@ bool Plot2DEchogram::drawZoomPreview(Plot2D* parent,
                                                    getThemeId(),
                                                    getLowLevel(),
                                                    getHighLevel(),
-                                                   _compensation_id);
+                                                   _compensation_id,
+                                                   parent->getBottomTrackVisible(),
+                                                   parent->getBottomTrackTheme(),
+                                                   parent->getRangefinderVisible(),
+                                                   parent->getRangefinderTheme());
     painter->restore();
 
-    if (!rendered) {
-        return false;
-    }
-
-    return true;
+    return rendered;
 }
 
 float Plot2DEchogram::getLowLevel() const

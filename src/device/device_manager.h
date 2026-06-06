@@ -32,7 +32,7 @@ class DeviceManager : public QObject
 public:
     /*methods*/
     DeviceManager();
-    ~DeviceManager();
+    ~DeviceManager() override;
 
     //PULSE
     void setSettingsBus(SettingsBus* bus);
@@ -142,7 +142,7 @@ signals:
     void mavlinkWasDetected();
 
     // logger
-    void sendProtoFrame(const Parsers::ProtoBinOut& protoOut);
+    void sendProtoFrame(Parsers::ProtoBinOut protoOut);
 
 #ifdef SEPARATE_READING
     void fileStartOpening();
@@ -221,7 +221,7 @@ private:
     bool mavlinkDetected_;
 
     bool loggingStarted_ = false;
-    LocationReader* locReader_;
+    LocationReader* locReader_{ nullptr };
     bool useGPS_{ false };
 
 private slots:

@@ -64,6 +64,7 @@ set(APP_HEADERS
     src/dsp_defs.h
     src/epoch.h
     src/hotkeys_manager.h
+    src/hotkeys_controller.h
     src/id_binnary.h
     src/delaunay.h
     src/delaunay_defs.h
@@ -76,6 +77,7 @@ set(APP_HEADERS
     src/proto_binnary.h
     src/stream_list.h
     src/stream_list_model.h
+    src/ui_state_serializer.h
     src/themes.h
     src/udp_broadcaster.h
     src/xtf_conf.h
@@ -98,6 +100,7 @@ set(APP_SOURCES
     src/data_horizon.cpp
     src/epoch.cpp
     src/hotkeys_manager.cpp
+    src/hotkeys_controller.cpp
     src/id_binnary.cpp
     src/installtoken.cpp
     src/logger.cpp
@@ -105,6 +108,7 @@ set(APP_SOURCES
     src/map_defs.cpp
     src/stream_list.cpp
     src/stream_list_model.cpp
+    src/ui_state_serializer.cpp
     src/NMEASender.cpp
     src/location_reader.cpp
     src/mosaic_index_provider.cpp

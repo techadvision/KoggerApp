@@ -90,7 +90,7 @@ public:
     float timelinePosition();
     void scrollPosition(int columns);
 
-    void setDataChannel(bool fromGui, const ChannelId& channel, uint8_t subChannel1, const QString& portName1, const ChannelId& channel2 = CHANNEL_NONE, uint8_t subChannel2 = 0, const QString& portName2 = QString());
+    void setDataChannel(bool fromGui, const ChannelId& channel, uint8_t subChannel1, const QString& portName1, const ChannelId& channel2 = channelNone(), uint8_t subChannel2 = 0, const QString& portName2 = QString());
 
     bool getIsContactChanged();
 
@@ -126,10 +126,14 @@ public:
     void setBottomTrackVisible(bool visible);
     void setBottomTrackTheme(int theme_id);
     void setBottomTrackDepthTextVisible(bool visible);
+    bool getBottomTrackVisible() const;
+    int getBottomTrackTheme() const;
 
     void setRangefinderVisible(bool visible);
     void setRangefinderTheme(int theme_id);
     void setRangefinderDepthTextVisible(bool visible);
+    bool getRangefinderVisible() const;
+    int getRangefinderTheme() const;
     void setAttitudeVisible(bool visible);
     void setTemperatureVisible(bool visible);
     bool hasTemperatureValue() const;
@@ -168,6 +172,7 @@ public:
     DatasetCursor& cursor();
 
     void resetCash();
+    void releaseCache();
     Canvas image(int width, int height);
     void reindexingCursor();
     void reRangeDistance();
@@ -269,7 +274,11 @@ public:
                 int themeId,
                 float lowLevel,
                 float highLevel,
-                int compensationId);
+                int compensationId,
+                bool bottomTrackVisible,
+                int bottomTrackThemeId,
+                bool rangefinderVisible,
+                int rangefinderThemeId);
 
 private:
     void updateEchogramSettings(int themeId, float lowLevel, float highLevel, int compensationId);

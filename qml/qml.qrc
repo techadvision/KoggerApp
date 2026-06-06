@@ -31,6 +31,7 @@
         <file>DatasetCheckBox.qml</file>
         <file>SpinBoxCustom.qml</file>
         <file>ChartLevel.qml</file>
+        <file>ChartLevelSingle.qml</file>
         <file>DevAddrBox.qml</file>
         <file>FactoryBox.qml</file>
         <file>DevSettingsBox.qml</file>
@@ -109,5 +110,7 @@
         <file>TimelineSliderHorizontal.qml</file>
         <file>TimelineSliderVertical.qml</file>
         <file>PulseSpinner.qml</file>
+        <file>HotkeysDialog.qml</file>
     </qresource>
 </RCC>
+
