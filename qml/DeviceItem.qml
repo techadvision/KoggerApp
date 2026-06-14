@@ -2120,19 +2120,6 @@ ColumnLayout {
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
 
-        /*
-        function onDataUpdateActiveChanged () {
-            if (pulseRuntimeSettings.dataUpdateActive && !pulseRuntimeSettings.devConfigured) {
-                console.log("DEV_PARAM: Observed data from a device, devices not yet configured")
-                if (dev !== null) {
-                    console.log("DEV_PARAM: Turn off the echogram before we configure anything")
-                    dev.datasetChart = 0
-                } else {
-                    console.log("DEV_PARAM: dev null, no way to turn echogram off")
-                }
-            }
-        }
-        */
 
         function onReconnectAfterLogViewChanged () {
             if (pulseRuntimeSettings === null)

@@ -199,10 +199,35 @@ files to `APP_SOURCES`/`APP_HEADERS` (the lists are explicit, not globbed). New 
 
 **Open items to revisit (deliberately left as shipped during 0.14.2):**
 
-- Rangefinder line defaults ON in C++ (`plot2D.cpp` constructor: `rangefinder_.setVisible(true)`,
-  `setTheme(1)`); the QML checkbox can't override it. Flip the constructor default if the line should be off.
 - Upstream's `_pixmap.fill(palette background)` in `plot2D_echogram.cpp` was NOT taken (Pulse's commented-out
   version kept) — it's a candidate fix for the side-scan "remaining artifact" TODO; test before adopting.
+- **Bottom-track line sometimes paints OUTSIDE the bottom contour** when made visible (expert "Show visible
+  bottom tracks"). Observed on side scan. The painted line reads `Epoch::distProccesing(channel)` filled in
+  `Plot2DBottomProcessing::draw` (`src/scene2d/plot2D_bottom_processing.cpp`); the value is set by the bottom-track
+  processor via `Dataset::onDistCompleted`/`onDistCompletedBatch` (`chart->bottomProcessing.setDistance(...)`).
+  Suspect either bad processor output (profile/parameter tuning) or an epoch/x-axis alignment vs the echogram.
+  Revisit: compare the line's per-epoch value against the echogram bottom and against `_bottomTrackDepth`.
+
+**Rangefinder / bottom-track depth source + on-echogram lines (reworked after 0.14.3 merge):**
+
+- Rangefinder overlay (line AND value text) is OFF by default for Pulse — depth is shown in `DepthAndTemperature`.
+  Forced off in `plot2D.cpp` (both ctors, the mini-preview update, and `setRangefinderVisible` /
+  `setRangefinderDepthTextVisible`). The value TEXT is permanently off; the LINE can be toggled by experts via
+  `pulseRuntimeSettings.rangefinderTrackVisible` -> `Plot2D.qml onRangefinderTrackVisibleChanged` ->
+  `plotRangefinderVisible/Theme`. The rangefinder line is only populated while the rangefinder is the active
+  source (`addRangefinder` early-returns when `_processBottomTrack`), so it has no fresh data during always-on
+  side-scan bottom track. To show both lines at once, store the raw rangefinder per-epoch before that early-return.
+- Depth-source selector is `Dataset::_processBottomTrack` (gates `addRangefinder`; selects bottomTrackDepth vs
+  rangefinder for display AND NMEA). It is driven ONLY by `updateBottomTrackFromSettings_` (the expert/settings
+  realtime toggle) in `DataProcessor::setUpdateBottomTrackSourceState` — NOT by the combined scene3d-OR-settings
+  state, so always-on side-scan bottom track (scene3d) can't pin it. Three places still touch the flag
+  (data_processor settings path, scene3d path, and `DisplaySettings.qml` direct `dataset.processBottomTrack`);
+  keep the expert toggle as the single depth-source authority. `DisplaySettings.qml triggerProcessingTimer`
+  re-asserts bottom track on `onChannelListUpdated` while the checkbox is on — fine for side scan, watch it for 2D.
+- Transducer mount offset is ADDED (transducer is below the surface) in all three depth paths in `dataset.cpp`
+  (`addRangefinder`, `onDistCompleted`, `onDistCompletedBatch`) and applied exactly ONCE: `NMEASender` no longer
+  re-adds it. NMEA depth is fed from `dataset.dist()` / `bottomTrackDepth()` (filtered+offset, = on-screen value),
+  each guarded by `getProcessBottomTrack()`.
 
 ## Branch hygiene
 

@@ -55,6 +55,7 @@ private:
     // freshness / last values
     float          latestDepth {0.0f};
     float          latestTemp  {0.0f};
+    float          transducerBelowWater {0.0f};
     bool           haveDepth {false};
     bool           haveTemp  {false};
     QElapsedTimer  lastDepthTick;

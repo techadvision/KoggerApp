@@ -376,9 +376,9 @@ WaterFall {
         id: configurationInProgressIndicator
         // start hidden
         visible: !pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.dataUpdateActive
-        anchors.top: parent.top
-        anchors.topMargin: 60 + insetTop()
-        anchors.left: parent.left
+        anchors.top: parent.verticalCenter
+        //anchors.topMargin: 60 + insetTop()
+        anchors.left: parent.horizontalCenter
         anchors.leftMargin: 20
 
         // styling: semi-transparent black, rounded corners
@@ -395,7 +395,7 @@ WaterFall {
 
         // the actual label
         Text {
-            id: configurationInProgressText
+            id: completeDeviceConfigurationTimer
             text: {
                 if (pulseRuntimeSettings.unableToConfigure) {
                     return "Fixing transducer com link..."
@@ -1438,6 +1438,9 @@ WaterFall {
             Component.onCompleted: {
                 plot.setIntensityValue(pulseSettings.intensityRealValue * 1.0)
                 plot.updatePlot()
+                // PULSE TRIAL: initial sync of the master light(=high)/filter(=low) levels into the
+                // 3D side-scan mosaic. low = filter, high = intensity.
+                MosaicViewControlMenuController.onLevelChanged(pulseSettings.filterRealValue, pulseSettings.intensityRealValue)
             }
 
             Connections {
@@ -1547,6 +1550,19 @@ WaterFall {
                         }
                         plot.updatePlot()
                     }
+                }
+            }
+
+            // PULSE TRIAL: the echogram light(=high)/filter(=low) controls are the single master
+            // for the 3D side-scan mosaic levels too. Mirror every change into the mosaic.
+            // (The mosaic colour table is a copy of the echogram's, so the level scale matches.)
+            Connections {
+                target: pulseSettings
+                function onIntensityRealValueChanged() {
+                    MosaicViewControlMenuController.onLevelChanged(pulseSettings.filterRealValue, pulseSettings.intensityRealValue)
+                }
+                function onFilterRealValueChanged() {
+                    MosaicViewControlMenuController.onLevelChanged(pulseSettings.filterRealValue, pulseSettings.intensityRealValue)
                 }
             }
         }
@@ -1661,6 +1677,12 @@ WaterFall {
                     pulseSettings.colorMapIndexReal = selectedTheme.id
                     plot.plotEchogramTheme(selectedTheme.id);
                     plot.updatePlot();
+                    // PULSE TRIAL: keep the 3D side-scan mosaic colours in sync with the echogram
+                    // side-scan theme. onThemeChanged() applies themeId+1 internally, which matches
+                    // the mosaic PlotColorTable enum offset (echogram ClassicTheme=0 -> mosaic=1).
+                    // Shared themes: Blue/Yellow/Gray/Red/Green (ids 0-4). HQ Orange (26) has no
+                    // mosaic equivalent yet, so the mosaic keeps its previous colour in that case.
+                    MosaicViewControlMenuController.onThemeChanged(selectedTheme.id);
                 }
 
                 Connections {
@@ -1675,6 +1697,9 @@ WaterFall {
                             plot.plotEchogramTheme(selectedTheme.id)
                             pulseSettings.colorMapIndexReal = selectedTheme.id
                             plot.updatePlot();
+                            // PULSE TRIAL: sync the 3D mosaic colours to the echogram side-scan theme
+                            // at startup / device identification too (see note in onIconSelected).
+                            MosaicViewControlMenuController.onThemeChanged(selectedTheme.id);
                         }
                     }
                 }
@@ -2678,6 +2703,17 @@ WaterFall {
                                 console.log("DistProcessing: toggle bottomTrack visibility, show it?", pulseRuntimeSettings.bottomTrackVisible)
                                 bottomTrackGraphicsVisible.checked = pulseRuntimeSettings.bottomTrackVisible
                             }
+
+                            // Expert-only: paint the raw rangefinder LINE (orange) for analysis when toggled.
+                            // The rangefinder value TEXT stays permanently off (forced in plot2D.cpp);
+                            // theme 1 = solid line, theme 0 = no line. Draws only when distance data is present.
+                            function onRangefinderTrackVisibleChanged () {
+                                if (pulseRuntimeSettings === null)
+                                    return
+                                console.log("DistProcessing: toggle rangefinder track visibility, show it?", pulseRuntimeSettings.rangefinderTrackVisible)
+                                plotRangefinderTheme(pulseRuntimeSettings.rangefinderTrackVisible ? 1 : 0)
+                                plotRangefinderVisible(pulseRuntimeSettings.rangefinderTrackVisible)
+                            }
                         }
                     }
 
@@ -2695,7 +2731,7 @@ WaterFall {
                         CCheck {
                             id: rangefinderValueVisible
                             text: qsTr("Value")
-                            checked: false // I do not use this value, I have my own in DepthAndTemperature.qml
+                            checked: false // Pulse: disable. Pulse has its own in DepthAndTemperature.qml
 
                             onCheckedChanged: plot.updateRangefinderPresentation()
                             Component.onCompleted: plot.updateRangefinderPresentation()
@@ -2703,8 +2739,8 @@ WaterFall {
 
                         CCheck {
                             id: rangefinderGraphicsVisible
-                            text: qsTr("Line")
-                            checked: false
+                            text: qsTr("Text")
+                            checked: false // Pulse: disable. Pulse has its own in DepthAndTemperature.qml
 
                             onCheckedChanged: plot.updateRangefinderPresentation()
                             Component.onCompleted: plot.updateRangefinderPresentation()

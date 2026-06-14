@@ -390,12 +390,39 @@ int main(int argc, char *argv[])
     nmeaSender->setSettingsBus(bus);
     Dataset* dataset = core.getDatasetPtr();
 
-    //TODO: here 14.1 changed the emitted event to lastDepthChanged
-    //This is a trial, we need to properly test with all types of echo sounders
-    QObject::connect(dataset, &Dataset::lastDepthChanged,
+    // NMEA depth must broadcast the SAME value shown on screen: the filtered,
+    // offset-corrected depth. dataset.dist() (rangefinder) and dataset.bottomTrackDepth()
+    // (bottom track) are both filterDepthRecords(raw + transducerOffsetMount + fake),
+    // i.e. already filtered AND offset-corrected.
+    //
+    // Both signals can fire at once (e.g. side scan keeps the bottom-track processor running
+    // while the rangefinder is the chosen source), so each lambda is GUARDED by the active
+    // depth-source selector getProcessBottomTrack(): send rangefinder only when bottom track
+    // is NOT selected, and bottom track only when it IS. This guarantees NMEA matches the
+    // selected source and never flickers between the two.
+    QObject::connect(dataset, &Dataset::distChanged,
                      nmeaSender,
                      [dataset, nmeaSender]() {
-                         const float depth = dataset->getLastDepth();
+                         if (dataset->getProcessBottomTrack()) {
+                             return; // bottom track is the active source; ignore rangefinder
+                         }
+                         const float depth = dataset->dist();
+
+                         if (!std::isfinite(depth) || qFuzzyIsNull(depth)) {
+                             return;
+                         }
+
+                         nmeaSender->setLatestDepth(depth);
+                     },
+                     Qt::QueuedConnection);
+
+    QObject::connect(dataset, &Dataset::bottomTrackDepthChanged,
+                     nmeaSender,
+                     [dataset, nmeaSender]() {
+                         if (!dataset->getProcessBottomTrack()) {
+                             return; // rangefinder is the active source; ignore bottom track
+                         }
+                         const float depth = dataset->bottomTrackDepth();
 
                          if (!std::isfinite(depth) || qFuzzyIsNull(depth)) {
                              return;

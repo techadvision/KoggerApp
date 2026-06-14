@@ -1011,11 +1011,12 @@ GridLayout {
                     Layout.fillWidth: true
 
                     onCheckedChanged: {
-                        core.setBottomTrackRealtimeFromSettings(checked)
+                        //core.setBottomTrackRealtimeFromSettings(checked)
                     }
 
                     Component.onCompleted: {
-                        core.setBottomTrackRealtimeFromSettings(checked)
+                        //core.setBottomTrackRealtimeFromSettings(checked)
+                        core.setBottomTrackRealtimeFromSettings(false)
                     }
 
                     //Settings {

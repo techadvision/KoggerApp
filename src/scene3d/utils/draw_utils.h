@@ -44,7 +44,12 @@ public:
         Ek80WhiteTheme,
         PulseTheme_bluered,
         PulseTheme_rainbow,
-        SepiaTemeExtra
+        SepiaTemeExtra,
+        // PULSE TRIAL: explicit value 27 so it lines up with the echogram enum
+        // (Plot2DEchogram HQthemeOrange = 26) plus the mosaic kUndefined +1 offset.
+        // Lets the echogram side-scan "High Quality Orange" theme drive a matching
+        // mosaic colour table. Values 23-26 are intentionally left unused/unmapped.
+        HQthemeOrange = 27
     };
 
     /*

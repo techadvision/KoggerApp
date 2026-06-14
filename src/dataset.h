@@ -111,6 +111,8 @@ public:
     //Q_INVOKABLE bool isBottomTrackActive() const { return _isBottomTrackActive; }
     //double bottomTrackMinDepth() const { return _bottomTrackMinDepth; }
     double fakeDepthAddition() const { return _fakeDepthAddition; }
+    // Active depth-source selector: true = bottom track is the chosen depth source, false = rangefinder.
+    bool getProcessBottomTrack() const { return _processBottomTrack; }
     //Pulse setters
     Q_INVOKABLE void setSmallAgreeMargin(double margin);
     Q_INVOKABLE void setLargeJumpThreshold(double threshold);

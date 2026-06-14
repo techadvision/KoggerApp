@@ -17,7 +17,7 @@ MiniPreviewPlot2D::MiniPreviewPlot2D()
     echogram_.setWrapEnabled(false);
     bottomProcessing_.setVisible(true);
     bottomProcessing_.setDepthTextVisible(false);
-    rangefinder_.setVisible(true);
+    rangefinder_.setVisible(false); //We do not want this for pulse
     rangefinder_.setTheme(1);
     rangefinder_.setDepthTextVisible(false);
 }
@@ -64,6 +64,7 @@ bool MiniPreviewPlot2D::render(QPainter* painter,
                                bool rangefinderVisible,
                                int rangefinderThemeId)
 {
+    Q_UNUSED(rangefinderVisible); // Pulse: rangefinder overlay forced off (depth shown in DepthAndTemperature)
     if (!painter || !dataset || previewWidth <= 0 || previewHeight <= 0 || parentCanvasWidth <= 0) {
         return false;
     }
@@ -127,7 +128,7 @@ bool MiniPreviewPlot2D::render(QPainter* painter,
     updateEchogramSettings(themeId, lowLevel, highLevel, compensationId);
     bottomProcessing_.setVisible(bottomTrackVisible);
     bottomProcessing_.setTheme(bottomTrackThemeId);
-    rangefinder_.setVisible(rangefinderVisible);
+    rangefinder_.setVisible(false); //We do not want this for pulse
     rangefinder_.setTheme(rangefinderThemeId);
 
     const bool rendered = echogram_.draw(this, dataset);
@@ -170,7 +171,8 @@ Plot2D::Plot2D()
     dvlSolution_.setVisible(true);
     usblSolution_.setVisible(true);
     bottomProcessing_.setVisible(true);
-    rangefinder_.setVisible(true);
+    rangefinder_.setVisible(false);          // Pulse: no rangefinder overlay on the echogram (depth is shown in DepthAndTemperature)
+    rangefinder_.setDepthTextVisible(false);
     depth_.setVisible(true);
     grid_.setVisible(true);
     temperature_.setVisible(true);
@@ -694,6 +696,9 @@ void Plot2D::setBottomTrackDepthTextVisible(bool visible)
 }
 
 void Plot2D::setRangefinderVisible(bool visible) {
+    // Honour the request so the expert "Show visible rangefinder track" toggle can paint the
+    // rangefinder LINE. The value TEXT stays permanently off (see setRangefinderDepthTextVisible).
+    // Default is off (constructors set false) and nothing enables it at load.
     rangefinder_.setVisible(visible);
     plotUpdate();
 }
@@ -715,7 +720,8 @@ int Plot2D::getRangefinderTheme() const
 
 void Plot2D::setRangefinderDepthTextVisible(bool visible)
 {
-    rangefinder_.setDepthTextVisible(visible);
+    Q_UNUSED(visible);
+    rangefinder_.setDepthTextVisible(false); //We do not want this for pulse
     plotUpdate();
 }
 

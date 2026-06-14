@@ -109,7 +109,8 @@ ApplicationWindow  {
                     nmeaPort:                pulseSettings.nmeaPort,
                     nmeaSendPerMilliSec:     pulseSettings.nmeaSendPerMilliSec,
                     nmeaTempPeriodMs:        pulseSettings.nmeaTempPeriodMs,
-                    nmeaBroadcastAddress:    pulseSettings.nmeaBroadcastAddress
+                    nmeaBroadcastAddress:    pulseSettings.nmeaBroadcastAddress,
+                    transducerOffsetMount:   pulseSettings.transducerOffsetMount
                 })
             pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
             settingsBus.updateRuntime({
@@ -172,6 +173,7 @@ ApplicationWindow  {
         function onNmeaSendPerMilliSecChanged()     { settingsBus.updatePersistent({ nmeaSendPerMilliSec:   pulseSettings.nmeaSendPerMilliSec   }) }
         function onNmeaTempPeriodMsChanged()        { settingsBus.updatePersistent({ nmeaTempPeriodMs:      pulseSettings.nmeaTempPeriodMs      }) }
         function onNmeaBroadcastAddressChanged()    { settingsBus.updatePersistent({ nmeaBroadcastAddress:  pulseSettings.nmeaBroadcastAddress  }) }
+        function onTransducerOffsetMountChanged()   { settingsBus.updatePersistent({ transducerOffsetMount: pulseSettings.transducerOffsetMount }) }
         //Echogram speed moved to the persistent settings, workaround to keep the runtime integration as is:
         function onEchogramSpeedChanged ()          { pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed                             }
         function onAutoRangeChanged ()              { pulseRuntimeSettings.shouldDoAutoRange = pulseSettings.autoRange                             }
@@ -1007,25 +1009,36 @@ ApplicationWindow  {
             readonly property int splitGripMainSize: Math.max(38, Math.round(48 * theme.resCoeff))
             readonly property int splitGripCrossSize: Math.max(14, Math.round(16 * theme.resCoeff))
             readonly property int splitGripRadius: Math.max(5, Math.round(7 * theme.resCoeff))
-            // ── PULSE: 3D view intentionally disabled for now ──────────────────────────────
-            // Upstream's split-view layout (movable divider between 2D echogram and 3D scene)
-            // is kept in place but NOT used by Pulse yet. We force has3DView=false so:
-            //   • splitActive becomes false  -> the divider/handle hides (sceneSplitHandle.visible)
-            //   • the 3D pane width collapses to 0
-            //   • plotsContainer (the 2D echogram) gets x=0 and full width -> fills the screen
-            // The GraphicsScene3dView object still EXISTS (see renderer below, visible:false), so
-            // Core::UILoad's findChild<GraphicsScene3dView*>() wiring stays intact — do not remove it.
-            //
-            // REVISIT LATER: to bring the 3D view back, two options —
-            //   (a) Full-screen 3D toggle: add a button in the Pulse UI that flips which pane is
-            //       shown, reusing this same has3DView / has2DView mechanism (mirror of how 2D is
-            //       full-screen today).
-            //   (b) Real split view: restore the original binding below to re-enable the divider.
-            // Original upstream binding was:
-            //   readonly property bool has3DView: (menuBar !== null) ? menuBar.is3DVisible : false
-            readonly property bool has3DView: false
-            readonly property bool has2DView: (menuBar !== null) ? menuBar.is2DVisible : false
-            readonly property bool splitActive: has3DView && has2DView
+            // ── PULSE TRIAL (feature/enable-3d-mosaic): full-screen ECHOGRAM ⇄ 3D toggle ──────
+            // Pulse does NOT use upstream's draggable 50/50 split. Instead the screen shows EITHER
+            // the full-width echogram (default, always at launch) OR the full-screen 3D/mosaic view.
+            // The sceneSplitHandle below is repurposed as a single tap toggle (the green oval):
+            //   • echogram full  -> oval sits at the LEFT edge; tap -> 3D takes the whole screen
+            //   • 3D full        -> oval sits at the RIGHT edge; tap -> back to the echogram
+            // mosaicViewActive is the single source of truth. It is intentionally NOT persisted, so
+            // every launch starts on the echogram (per product requirement "always full echogram").
+            // The GraphicsScene3dView object stays instantiated (renderer.visible follows this flag)
+            // so Core::UILoad's findChild<GraphicsScene3dView*>() wiring stays intact.
+            property bool mosaicViewActive: false
+
+            // Toggle is only offered when the 3D/mosaic view is meaningful: a side-scan transducer
+            // is attached (NOT a 2D/downscan-only model) AND we have position data — live MAVLink
+            // (mavlinkDetected, same flag that greens the play/pause checkbox) OR a loaded log file
+            // (so file-replay testing still works). Relax this line for broader internal testing.
+            readonly property bool view3dToggleAvailable:
+                !pulseRuntimeSettings.is2DTransducer
+                && (pulseRuntimeSettings.mavlinkDetected || (core.filePath && core.filePath.length > 0))
+
+            // Force back to the echogram if the toggle becomes unavailable (e.g. file closed).
+            onView3dToggleAvailableChanged: {
+                if (!view3dToggleAvailable) {
+                    mosaicViewActive = false
+                }
+            }
+
+            readonly property bool has3DView: mosaicViewActive
+            readonly property bool has2DView: !mosaicViewActive
+            readonly property bool splitActive: has3DView && has2DView // always false now (no split) — kept for the geometry below
             readonly property real primaryLength: landscapeMode ? width : height
             readonly property real splitLength: Math.max(0, primaryLength)
             readonly property real firstPaneLength: splitActive
@@ -1126,12 +1139,9 @@ ApplicationWindow  {
 
             GraphicsScene3dView {
                 id:                renderer
-                // PULSE: 3D view hidden for now. Kept instantiated (object must exist for
-                // Core::UILoad's findChild<GraphicsScene3dView*>()). Its width is also forced to 0
-                // via has3DView=false above. To re-enable a 3D view later, restore the original
-                // binding and see the "REVISIT LATER" note on has3DView in visualisationLayout.
-                //visible: menuBar.is3DVisible //- PULSE: hide
-                visible: false
+                // PULSE TRIAL: visible only when the 3D/mosaic view is toggled full-screen.
+                // Object stays instantiated when hidden (Core::UILoad findChild requirement).
+                visible: visualisationLayout.has3DView
                 objectName: "GraphicsScene3dView"
                 x: 0
                 y: 0
@@ -1286,7 +1296,10 @@ ApplicationWindow  {
                                 } else if (renderer.rulerEnabled || renderer.rulerSelected) {
                                     rulerMenuBlock.position(mouse.x, mouse.y)
                                 } else {
-                                    menuBlock.position(mouse.x, mouse.y)
+                                    // PULSE TRIAL: bottom-track edit mini-menu (down/up/eraser/x)
+                                    // suppressed for the test build — Pulse does not expose manual
+                                    // bottom-track editing. Re-enable by restoring the call below.
+                                    // menuBlock.position(mouse.x, mouse.y)
                                 }
                             }
 
@@ -1313,6 +1326,11 @@ ApplicationWindow  {
 
                 Scene3DToolbar{
                     id:                       scene3DToolbar
+                    // PULSE TRIAL: bottom button bar hidden for the test build (mosaic auto-enables,
+                    // so the manual crisis fallback is no longer needed). Object stays instantiated
+                    // so its Component.onCompleted wiring (incl. mosaic auto-enable) still runs.
+                    // Set back to true to expose the manual buttons again.
+                    visible: false
                     // anchors.bottom:              parent.bottom
                     y:renderer.height - height - 2
                     view: renderer
@@ -1323,6 +1341,9 @@ ApplicationWindow  {
 
                 Scene3DRightToolbar {
                     id: scene3DRightToolbar
+                    // PULSE TRIAL: top-right group (map.svg layers + ruler_measure.svg) hidden for
+                    // the test build — not used by Pulse. Set back to true to restore.
+                    visible: false
                     anchors.right: renderer.right
                     anchors.top: renderer.top
                     anchors.bottom: renderer.bottom
@@ -1837,28 +1858,43 @@ ApplicationWindow  {
                 z: 9995
             }
 
+            // ── PULSE TRIAL: ECHOGRAM ⇄ 3D toggle (the green oval) ───────────────────────────
+            // Repurposed from upstream's draggable split divider into a single TAP toggle.
+            // Bigger hit area + green fill so it is easy to find and press on a tablet.
+            // Sits at the LEFT edge while the echogram is full (tap pulls the 3D view in), and at
+            // the RIGHT edge while the 3D view is full (tap returns to the echogram). Portrait uses
+            // top/bottom edges. Shown only when view3dToggleAvailable.
             Item {
                 id: sceneSplitHandle
-                visible: visualisationLayout.splitActive
+                visible: visualisationLayout.view3dToggleAvailable
+                z: 10000
+
+                readonly property int edgeMargin: Math.max(4, Math.round(6 * theme.resCoeff))
+                readonly property int gripThin: Math.max(26, Math.round(30 * theme.resCoeff)) // tap thickness
+                readonly property int gripLong: Math.max(64, Math.round(78 * theme.resCoeff)) // length along edge
+
+                width:  visualisationLayout.landscapeMode ? gripThin : gripLong
+                height: visualisationLayout.landscapeMode ? gripLong : gripThin
+
+                // Landscape: left edge when echogram full, right edge when 3D full.
+                // Portrait:  top edge  when echogram full, bottom edge when 3D full.
                 x: visualisationLayout.landscapeMode
-                   ? Math.round(visualisationLayout.handlePaneLength - width / 2)
+                   ? (visualisationLayout.mosaicViewActive
+                      ? (visualisationLayout.width - width - edgeMargin)
+                      : edgeMargin)
                    : Math.round((visualisationLayout.width - width) / 2)
                 y: visualisationLayout.landscapeMode
                    ? Math.round((visualisationLayout.height - height) / 2)
-                   : Math.round(visualisationLayout.handlePaneLength - height / 2)
-                width: visualisationLayout.landscapeMode ? visualisationLayout.splitGripCrossSize : visualisationLayout.splitGripMainSize
-                height: visualisationLayout.landscapeMode ? visualisationLayout.splitGripMainSize : visualisationLayout.splitGripCrossSize
-                z: 10000
+                   : (visualisationLayout.mosaicViewActive
+                      ? (visualisationLayout.height - height - edgeMargin)
+                      : edgeMargin)
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: visualisationLayout.splitGripRadius
-                    color: (sceneSplitHandleMouse.containsMouse || sceneSplitHandleMouse.pressed)
-                           ? "#8D8D8D"
-                           : "#237A7A7A"
-                    border.color: (sceneSplitHandleMouse.containsMouse || sceneSplitHandleMouse.pressed)
-                                  ? "#D0D0D0"
-                                  : "#4A969696"
+                    radius: Math.round(Math.min(parent.width, parent.height) / 2)
+                    color: sceneSplitHandleMouse.pressed ? "#2EE06A" : "green"
+                    opacity: sceneSplitHandleMouse.pressed ? 1.0 : 0.85
+                    border.color: "#1B5E20"
                     border.width: 1
                 }
 
@@ -1866,67 +1902,30 @@ ApplicationWindow  {
                     anchors.centerIn: parent
                     source: "qrc:/icons/ui/direction_horizontal.svg"
                     fillMode: Image.PreserveAspectFit
-                    width: Math.round(parent.width * 0.65)
-                    height: Math.round(parent.height * 0.65)
+                    width: Math.round(parent.width * 0.6)
+                    height: Math.round(parent.height * 0.6)
                     transformOrigin: Item.Center
                     rotation: visualisationLayout.landscapeMode ? 0 : 90
-                    opacity: sceneSplitHandleMouse.containsMouse || sceneSplitHandleMouse.pressed ? 1.0 : 0.42
+                    opacity: 0.95
                 }
 
                 MouseArea {
                     id: sceneSplitHandleMouse
                     anchors.fill: parent
+                    anchors.margins: -8 // enlarge touch area beyond the visible oval
                     acceptedButtons: Qt.LeftButton
                     hoverEnabled: true
-                    preventStealing: true
-                    cursorShape: visualisationLayout.landscapeMode ? Qt.SplitHCursor : Qt.SplitVCursor
-                    property real dragStartGlobalPos: 0
-                    property real dragStartRatio: visualisationLayout.dragRatio
+                    cursorShape: Qt.PointingHandCursor
 
-                    onPressed: function(mouse) {
-                        visualisationLayout.splitDragging = true
-                        visualisationLayout.dragRatio = visualisationLayout.splitRatio
-                        dragStartRatio = visualisationLayout.dragRatio
-                        const mappedPos = sceneSplitHandleMouse.mapToItem(visualisationLayout, mouse.x, mouse.y)
-                        dragStartGlobalPos = visualisationLayout.landscapeMode ? mappedPos.x : mappedPos.y
-                    }
-
-                    onPositionChanged: function(mouse) {
-                        if (!pressed || !visualisationLayout.splitActive || visualisationLayout.splitLength <= 0) {
-                            return
-                        }
-
-                        const mappedPos = sceneSplitHandleMouse.mapToItem(visualisationLayout, mouse.x, mouse.y)
-                        const currentGlobalPos = visualisationLayout.landscapeMode ? mappedPos.x : mappedPos.y
-                        const delta = currentGlobalPos - dragStartGlobalPos
-                        const startLength = dragStartRatio * visualisationLayout.splitLength
-                        const newRatio = (startLength + delta) / visualisationLayout.splitLength
-                        visualisationLayout.dragRatio = visualisationLayout.clampSplitRatio(newRatio)
-                    }
-
-                    onReleased: {
-                        visualisationLayout.splitDragging = false
-                        visualisationLayout.splitRatio = visualisationLayout.nearestSplitRatio(visualisationLayout.dragRatio)
-                        visualisationLayout.dragRatio = visualisationLayout.splitRatio
-                    }
-
-                    onCanceled: {
-                        visualisationLayout.splitDragging = false
-                        visualisationLayout.splitRatio = visualisationLayout.nearestSplitRatio(visualisationLayout.dragRatio)
-                        visualisationLayout.dragRatio = visualisationLayout.splitRatio
-                    }
-
-                    onDoubleClicked: {
-                        visualisationLayout.splitDragging = false
-                        visualisationLayout.dragRatio = visualisationLayout.splitMidRatio
-                        visualisationLayout.splitRatio = visualisationLayout.splitMidRatio
+                    onClicked: {
+                        visualisationLayout.mosaicViewActive = !visualisationLayout.mosaicViewActive
                     }
                 }
             }
 
             Item {
                 id: plotsContainer
-                visible: menuBar.is2DVisible
+                visible: visualisationLayout.has2DView
                 x: visualisationLayout.landscapeMode
                    ? (visualisationLayout.splitActive
                       ? visualisationLayout.firstPaneLength
