@@ -109,7 +109,8 @@ ApplicationWindow  {
                     nmeaPort:                pulseSettings.nmeaPort,
                     nmeaSendPerMilliSec:     pulseSettings.nmeaSendPerMilliSec,
                     nmeaTempPeriodMs:        pulseSettings.nmeaTempPeriodMs,
-                    nmeaBroadcastAddress:    pulseSettings.nmeaBroadcastAddress
+                    nmeaBroadcastAddress:    pulseSettings.nmeaBroadcastAddress,
+                    transducerOffsetMount:   pulseSettings.transducerOffsetMount
                 })
             pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
             settingsBus.updateRuntime({
@@ -172,6 +173,7 @@ ApplicationWindow  {
         function onNmeaSendPerMilliSecChanged()     { settingsBus.updatePersistent({ nmeaSendPerMilliSec:   pulseSettings.nmeaSendPerMilliSec   }) }
         function onNmeaTempPeriodMsChanged()        { settingsBus.updatePersistent({ nmeaTempPeriodMs:      pulseSettings.nmeaTempPeriodMs      }) }
         function onNmeaBroadcastAddressChanged()    { settingsBus.updatePersistent({ nmeaBroadcastAddress:  pulseSettings.nmeaBroadcastAddress  }) }
+        function onTransducerOffsetMountChanged()   { settingsBus.updatePersistent({ transducerOffsetMount: pulseSettings.transducerOffsetMount }) }
         //Echogram speed moved to the persistent settings, workaround to keep the runtime integration as is:
         function onEchogramSpeedChanged ()          { pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed                             }
         function onAutoRangeChanged ()              { pulseRuntimeSettings.shouldDoAutoRange = pulseSettings.autoRange                             }

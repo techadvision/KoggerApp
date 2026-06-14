@@ -376,9 +376,9 @@ WaterFall {
         id: configurationInProgressIndicator
         // start hidden
         visible: !pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.dataUpdateActive
-        anchors.top: parent.top
-        anchors.topMargin: 60 + insetTop()
-        anchors.left: parent.left
+        anchors.top: parent.verticalCenter
+        //anchors.topMargin: 60 + insetTop()
+        anchors.left: parent.horizontalCenter
         anchors.leftMargin: 20
 
         // styling: semi-transparent black, rounded corners
@@ -395,7 +395,7 @@ WaterFall {
 
         // the actual label
         Text {
-            id: configurationInProgressText
+            id: completeDeviceConfigurationTimer
             text: {
                 if (pulseRuntimeSettings.unableToConfigure) {
                     return "Fixing transducer com link..."
@@ -2703,6 +2703,17 @@ WaterFall {
                                 console.log("DistProcessing: toggle bottomTrack visibility, show it?", pulseRuntimeSettings.bottomTrackVisible)
                                 bottomTrackGraphicsVisible.checked = pulseRuntimeSettings.bottomTrackVisible
                             }
+
+                            // Expert-only: paint the raw rangefinder LINE (orange) for analysis when toggled.
+                            // The rangefinder value TEXT stays permanently off (forced in plot2D.cpp);
+                            // theme 1 = solid line, theme 0 = no line. Draws only when distance data is present.
+                            function onRangefinderTrackVisibleChanged () {
+                                if (pulseRuntimeSettings === null)
+                                    return
+                                console.log("DistProcessing: toggle rangefinder track visibility, show it?", pulseRuntimeSettings.rangefinderTrackVisible)
+                                plotRangefinderTheme(pulseRuntimeSettings.rangefinderTrackVisible ? 1 : 0)
+                                plotRangefinderVisible(pulseRuntimeSettings.rangefinderTrackVisible)
+                            }
                         }
                     }
 
@@ -2720,7 +2731,7 @@ WaterFall {
                         CCheck {
                             id: rangefinderValueVisible
                             text: qsTr("Value")
-                            checked: false // I do not use this value, I have my own in DepthAndTemperature.qml
+                            checked: false // Pulse: disable. Pulse has its own in DepthAndTemperature.qml
 
                             onCheckedChanged: plot.updateRangefinderPresentation()
                             Component.onCompleted: plot.updateRangefinderPresentation()
@@ -2728,8 +2739,8 @@ WaterFall {
 
                         CCheck {
                             id: rangefinderGraphicsVisible
-                            text: qsTr("Line")
-                            checked: false
+                            text: qsTr("Text")
+                            checked: false // Pulse: disable. Pulse has its own in DepthAndTemperature.qml
 
                             onCheckedChanged: plot.updateRangefinderPresentation()
                             Component.onCompleted: plot.updateRangefinderPresentation()

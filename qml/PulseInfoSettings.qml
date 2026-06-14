@@ -418,7 +418,7 @@ Flickable {
                 maximum: 10.0
                 stepSize: 0.01
                 //currentValue: pulseSettings.transducerOffsetMount
-                onPulsePreferenceValueChanged: {
+                onPulsePreferenceValueChanged: function(newValue) {
                     console.log("transducerOffsetMount updated to", newValue)
                     pulseSettings.transducerOffsetMount = newValue
                 }

@@ -200,6 +200,7 @@ QtObject {
     property bool   isBottomTrackInitiated:     false   //Setup for bottom track is prepared
     property bool   isBottomTrackActive:        false   //If bottom track is to be used and is active, this is true: MMAY BE REDUNDANT
     property double bottomTrackMinDepth:        0.5     //Below this depth, the rangefinder shall always be used
+    property bool   rangefinderTrackVisible:    false   //Expert-only: paint the raw rangefinder line on the echogram for analysis (never the value text)
     
     //COLOR MAP
 

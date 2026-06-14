@@ -550,6 +550,19 @@ Flickable {
 
         SettingRow {
             toggle: false
+            checkbox: true
+            id: rangefinderTrackToggleShowLines
+            text: "Show visible rangefinder track"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "rangefinderTrackVisible"
+                initialChecked: pulseRuntimeSettings.rangefinderTrackVisible
+            }
+        }
+
+        SettingRow {
+            toggle: false
             text: "Bottom track gain slope"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {

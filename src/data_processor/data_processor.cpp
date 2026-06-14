@@ -363,8 +363,11 @@ void DataProcessor::setUpdateBottomTrack(bool state)
 {
     //PULSE
     //updateBottomTrack_ = isBottomTrackInitiated_;
+    // NOTE: Dataset::_processBottomTrack (the depth-source switch) is driven from the SETTINGS
+    // source only, inside setUpdateBottomTrackSourceState(). The scene3d path here only starts
+    // the processor (for the mosaic / track line); it must NOT switch the depth measurement off
+    // the rangefinder. Do not set dataset->processBottomTrack() directly here.
     setUpdateBottomTrackSourceState(state, false);
-    datasetPtr_->processBottomTrack(state);
     qDebug() << "DistProcessing: DataProcessor::setUpdateBottomTrack with value" << state;
 }
 
@@ -383,7 +386,22 @@ void DataProcessor::setUpdateBottomTrackSourceState(bool state, bool fromSetting
         updateBottomTrackFromScene3d_ = state;
     }
 
+    // The PROCESSOR runs if EITHER source wants bottom track (the side-scan mosaic / the
+    // painted track line need it even when depth is measured by the rangefinder).
     updateBottomTrack_ = updateBottomTrackFromScene3d_ || updateBottomTrackFromSettings_;
+
+    // The DEPTH-SOURCE switch (Dataset::_processBottomTrack, which gates addRangefinder and
+    // therefore selects bottomTrackDepth vs rangefinder for the display AND NMEA) must follow
+    // the SETTINGS/measurement choice ONLY. The scene3d/side-scan path may keep the processor
+    // running for rendering without forcing depth off the rangefinder.
+    //
+    // NOTE: driving this from the combined updateBottomTrack_ was wrong: once side-scan set
+    // the scene3d flag, the expert "use bottom track depth" toggle could no longer disable it
+    // (the OR pinned it true), so the display/NMEA were stuck on bottom track.
+    if (datasetPtr_) {
+        datasetPtr_->processBottomTrack(updateBottomTrackFromSettings_);
+    }
+
     updateDatasetSpatialIndexingState();
 
     if (resetInProgress_.load()) {

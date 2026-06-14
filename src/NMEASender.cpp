@@ -72,6 +72,9 @@ void NMEASender::applyPersistent(const QVariantMap& m)
         if (tempIntervalMs <= 0) tempIntervalMs = 1000;
         changedTempTick = true;
     }
+    if (m.contains("transducerOffsetMount")) {
+        transducerBelowWater = m.value("transducerOffsetMount").toFloat();
+    }
 
     if (changedDepthTick && depthTimer) depthTimer->start(depthIntervalMs);
     if (changedTempTick  && tempTimer)  tempTimer->start(tempIntervalMs);
@@ -109,6 +112,10 @@ int NMEASender::staleMsForTemp()  const { return qMax(1000, tempIntervalMs  * 2)
 
 void NMEASender::setLatestDepth(float d)
 {
+    // d already includes the transducer mount offset (applied in Dataset::addRangefinder /
+    // onDistCompleted as part of corrDistance) AND the depth filter. Do NOT add the offset
+    // again here, or it would be counted twice. transducerBelowWater is kept wired via
+    // SettingsBus but intentionally unused for this reason.
     latestDepth = d;
     haveDepth   = true;
     lastDepthTick.start();

@@ -613,8 +613,11 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
         emit didReceiveData();
     }
 
-    if (_processBottomTrack)
+    // When bottom track is the active depth source, skip the rangefinder so it neither
+    // updates dataset.dist nor feeds the depth filter (whose state is shared with bottom track).
+    if (_processBottomTrack) {
         return;
+    }
 
     //qDebug() << "addRangefinder triggered";
 
@@ -627,10 +630,12 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     }
 
     //TODO: We likjely need to use the corrDistance below
-    float corrDistance = distance - _transducerOffsetMount + _fakeDepthAddition;
+    // Transducer sits _transducerOffsetMount metres BELOW the surface, so the
+    // surface-referenced water depth = measured range + mount offset (ADD, not subtract).
+    float corrDistance = distance + _transducerOffsetMount + _fakeDepthAddition;
     float filteredMeters = 0;
 
-    //setLastRangefinderDepth(distance);
+    setLastRangefinderDepth(distance); // raw rangefinder depth (getLastRangefinderDepth)
     setLastDepth(distance);
 
     epoch->setDist(channelId, distance * 1000);
@@ -1631,7 +1636,8 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
         int guardInterval = bottomTrackParam_.windowSize; // bottomTrack will proceed epIndx - guardInterval in next iteration
         int compIndx = epIndx > guardInterval ? epIndx - guardInterval : epIndx;
         //PULSE
-        float corrDistance = dist - _transducerOffsetMount + _fakeDepthAddition;
+        // Same convention as addRangefinder: ADD the mount offset (transducer below surface).
+        float corrDistance = dist + _transducerOffsetMount + _fakeDepthAddition;
         float filteredMeters = 0;
         if (_useDepthFilterWithBottomTrack) {
             filteredMeters = filterDepthRecords(corrDistance);
@@ -1639,7 +1645,6 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
             filteredMeters = corrDistance;
         }
         _bottomTrackDepth = filteredMeters;
-        qDebug() << "NMEA bottomTrackDepthChanged" << filteredMeters;
         emit bottomTrackDepthChanged();
         /*
         if (_bottomTrackDepth != dist) {
@@ -1707,6 +1712,18 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
     if (haveDepth) {
         setLastBottomTrackDepth(lastDepth);
         setLastDepth(lastDepth);
+
+        // PULSE: the realtime (batch) path must maintain the SAME corrected/filtered
+        // bottom-track depth as the singular onDistCompleted(), otherwise _bottomTrackDepth
+        // never updates and bottomTrackDepthChanged never fires -> display stuck and no NMEA.
+        // Apply offset (transducer below surface) + the bottom-track depth filter, on the
+        // most recent valid update in this batch.
+        float corrDistance = lastDepth + _transducerOffsetMount + _fakeDepthAddition;
+        float filteredMeters = _useDepthFilterWithBottomTrack
+                                   ? filterDepthRecords(corrDistance)
+                                   : corrDistance;
+        _bottomTrackDepth = filteredMeters;
+        emit bottomTrackDepthChanged();
     }
 
     if (maxCompIndx >= 0) {

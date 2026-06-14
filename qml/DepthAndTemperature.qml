@@ -296,12 +296,23 @@ Item {
 
         function onDistChanged () {
             //console.log("DistProcessing: onDistChanged observed: Distance =", dataset.dist);
-            rangeFinderDepth = dataset.dist
+            // Ignore NaN/inf so the display holds the last good value instead of showing NaN.
+            if (Number.isFinite(dataset.dist)) {
+                rangeFinderDepth = dataset.dist
+            }
         }
 
-        function onLastDepthChanged () {
-            //console.log("DistProcessing: onLastDepthChanged observed: Distance =", dataset.getLastDepth());
-            bottomTrackDepth = dataset.getLastDepth()
+        // Use the SAME filtered, offset-corrected bottom-track value that NMEA sends
+        // (dataset.bottomTrackDepth = filterDepthRecords(rawDist + transducerOffsetMount + fake)).
+        // Previously this read dataset.getLastDepth() (= raw, unfiltered lastDepth_), which made
+        // the bottom-track display noisy and disagree with the NMEA output.
+        function onBottomTrackDepthChanged () {
+            //console.log("DistProcessing: onBottomTrackDepthChanged observed: Depth =", dataset.bottomTrackDepth);
+            // Ignore NaN/inf (e.g. _bottomTrackDepth before the first valid bottom) so the
+            // display keeps the last good value instead of showing NaN.
+            if (Number.isFinite(dataset.bottomTrackDepth)) {
+                bottomTrackDepth = dataset.bottomTrackDepth
+            }
         }
     }
 
@@ -350,7 +361,11 @@ Item {
         repeat: true
         running: true
         onTriggered: {
-            displayDepth = depthAndTemperature.formatDepth()
+            // Only refresh when the current depth is a real number; otherwise keep the last
+            // good displayDepth so the UI never shows "NaN".
+            if (Number.isFinite(depthAndTemperature.currentDepthValue())) {
+                displayDepth = depthAndTemperature.formatDepth()
+            }
         }
     }
 
@@ -362,9 +377,13 @@ Item {
         repeat: true
         running: true
         onTriggered: {
-            tempText = depthAndTemperature
-                           .formatTemperature()
-                           .split(" ")[0] || "-.-";
+            // Only refresh when temperature is a real number; otherwise keep the last good
+            // value so the UI never shows "NaN".
+            if (dataset && Number.isFinite(dataset.temp)) {
+                tempText = depthAndTemperature
+                               .formatTemperature()
+                               .split(" ")[0] || "-.-";
+            }
         }
     }
 
