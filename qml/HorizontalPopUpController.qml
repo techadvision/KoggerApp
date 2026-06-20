@@ -77,7 +77,7 @@ Item {
     property Item hostWindow
 
     Component.onCompleted: {
-        console.log("Favorite colors: Controller controlName", controlName, "iconSource", iconSource, "selectedIndex", selectedIndex)
+        //console.log("Favorite colors: Controller controlName", controlName, "iconSource", iconSource, "selectedIndex", selectedIndex)
     }
 
     // ───────────────────────────────────────────────────────────────

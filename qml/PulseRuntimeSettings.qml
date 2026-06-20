@@ -13,6 +13,10 @@ QtObject {
     property string modelPulseRedProto:     "Basic2D"        //Our device name for PulseRed. Will change!
     property string modelPulseBlueProto:    "Basic2D"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
+    //EXPERIMENT toggle: when true, model detection is driven by dev.devType (board enum, transport-agnostic)
+    //in ConnectionViewer.selectCorrectDevice, and the old devName-string path in main.qml is disabled.
+    //Set false to fall back to the previous main.qml onDevNameChanged detection.
+    property bool   useDevTypeDetection:    true
     property string udpGateway:             "192.168.10.1"
     property string pulseRedBeta:           "PULSEred BETA"
     property string pulseBlueBeta:          "PULSEblue BETA"
@@ -181,6 +185,7 @@ QtObject {
     property bool   rawDev_isDatasetSupport:    false
     property bool   rawDev_isSoundSpeedSupport: false
     property bool   rawDev_isUpgradeSupport:    false
+    property string rawDev_devListDump:         "not set"   // DIAGNOSTIC: full devList snapshot (count, type, name, sn; '*' = selected)
 
     //FALSE DEPTH READING ALGORITHM TUNING
     property double kSmallAgreeMargin:          0.5    // Fluctuations allowed in filtering

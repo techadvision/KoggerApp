@@ -167,6 +167,11 @@ private:
     QHostAddress mavPeerAddr_;
     qint64 mavPeerSeenMs_ = 0;
     qint64 mavPeerLastEmitMs_ = 0;
+    // PULSE: learned unicast peer for plain UDP data links (e.g. the ESP32 bridge over SIYI/Skydroid).
+    // Such bridges only lock onto us once we transmit to them, so we reply to whoever we last received
+    // a datagram from rather than the static configured destination. See readyRead() and write().
+    QHostAddress rxPeerAddr_;
+    quint16      rxPeerPort_ = 0;
 
 private slots:
     void readyRead();

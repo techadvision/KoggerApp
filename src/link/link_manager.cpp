@@ -751,21 +751,24 @@ QString LinkManager::getAndroidGatewayIP()
         allowed = ip.startsWith("192.168.10.") ||
                   ip.startsWith("192.168.2.")   ||
                   ip.startsWith("192.168.144.") ;
-        if (ip.startsWith("192.168.144."))
-            ip = "192.168.144.31";
+        //if (ip.startsWith("192.168.144."))
+        //    ip = "192.168.144.31";
     } else if (isExpert_) {
         allowed = ip.startsWith("192.168.10.")  ||
                   ip.startsWith("192.168.2.")   ||
                   ip.startsWith("192.168.144.") ||
                   ip.startsWith("10.0.0.");
-        if (ip.startsWith("192.168.144."))
-            ip = "192.168.144.31";
+        //if (ip.startsWith("192.168.144."))
+        //    ip = "192.168.144.31";
     } else {
         allowed = ip.startsWith("192.168.10.")  ||
                   ip.startsWith("192.168.144.");
-        if (ip.startsWith("192.168.144."))
-            ip = "192.168.144.31";
+        //if (ip.startsWith("192.168.144."))
+        //    ip = "192.168.144.31";
     }
+
+    if (ip.startsWith("192.168.144."))
+        ip = "192.168.144.31";
 
     if (!allowed) {
         qWarning() << "Gateway IP" << ip << "not allowed, using default:" << udpGateway_;

@@ -390,7 +390,7 @@ WaterFall {
         property int contentMargin: 12
 
         // size to fit the text + padding
-        implicitWidth: configurationInProgressText.width + contentMargin*2
+        implicitWidth: configurationInProgressIndicator.width + contentMargin*2
         implicitHeight: _isAndroid ? 80 : 60 //configurationInProgressText.height + contentMargin*2
 
         // the actual label
@@ -1274,7 +1274,7 @@ WaterFall {
             iconSource: "./icons/ui/pulse_ruler.svg"
 
             onSelectorValueChanged: {
-                console.log("EchogramWidth: max depth onSelectorValueChanged: ", value);
+                //console.log("EchogramWidth: max depth onSelectorValueChanged: ", value);
                 plot.quickChangeMaxRangeValue = value;
                 if (pulseRuntimeSettings.userManualSetName === "...")
                     return
@@ -1282,10 +1282,10 @@ WaterFall {
                     pulseSettings.maxDepthValue = value;
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
-                        console.log("EchogramWidth: max depth isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlue, "but now set to", value)
+                        //console.log("EchogramWidth: max depth isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlue, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlue = value;
                     } else {
-                        console.log("EchogramWidth: max depth !isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlueFixed, "but now set to", value)
+                        //console.log("EchogramWidth: max depth !isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlueFixed, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlueFixed = value
                     }
                 }
@@ -1324,11 +1324,11 @@ WaterFall {
             }
 
             Component.onCompleted: {
-                console.log("EchogramWidth: max depth Component.onComplete")
+                //console.log("EchogramWidth: max depth Component.onComplete")
                 if (pulseSettings.autoRange) {
                     console.log("EchogramWidth: max depth Component.onComplete autoRange")
                     if (pulseRuntimeSettings.is2DTransducer) {
-                        console.log("EchogramWidth: Component.onComplete autoRange for is2DTransducer")
+                        //console.log("EchogramWidth: Component.onComplete autoRange for is2DTransducer")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         pulseRuntimeSettings.shouldDoAutoRange = true
                         plot.plotDistanceAutoRange(0);
@@ -1338,17 +1338,17 @@ WaterFall {
                     pulseRuntimeSettings.shouldDoAutoRange = false
                     plot.plotDistanceAutoRange(-1);
                     if (pulseRuntimeSettings.is2DTransducer) {
-                        console.log("EchogramWidth: max depth Component.onComplete not autoRange")
+                        //console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange(pulseSettings.maxDepthValue * 1.0)
                         pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValue * 1.0
                     } else {
                         if (pulseRuntimeSettings.isSideScan2DView) {
-                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlue * 1.0",pulseSettings.maxDepthValuePulseBlue * 1.0)
+                            //console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlue * 1.0",pulseSettings.maxDepthValuePulseBlue * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlue * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlue * 1.0
                         } else {
-                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlueFixed * 1.0",pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
+                            //console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlueFixed * 1.0",pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlueFixed * 1.0
                         }
@@ -1603,7 +1603,7 @@ WaterFall {
                         }
                     }
                     // Let's pause AFTER we fix the settings
-                    pulseRuntimeSettings.echogramPause = isChecked
+                    pulseRuntimeSettings.echogramPause = isChecked;
                 }
                 /*
                 onControllerStateChanged: {
@@ -2721,6 +2721,7 @@ WaterFall {
                         CText {
                             Layout.fillWidth: true
                             text: qsTr("Rangefinder")
+                            Component.onCompleted: plotRangefinderVisible(false)
                             /*
                             checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.rangefinderVisible : false
                             onCheckedChanged: plotRangefinderVisible(checked)

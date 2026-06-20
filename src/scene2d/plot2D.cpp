@@ -640,13 +640,13 @@ int Plot2D::getEchogramCompensation() const
 }
 
 void Plot2D::setEchogramLowLevel(float low) {
-    qDebug() << "setEchogramLowLevel to value " << low;
+    //qDebug() << "setEchogramLowLevel to value " << low;
     echogram_.setLowLevel(low);
     plotUpdate();
 }
 
 void Plot2D::setEchogramHightLevel(float high) {
-    qDebug() << "setEchogramHightLevel to value " << high;
+    //qDebug() << "setEchogramHightLevel to value " << high;
     echogram_.setHightLevel(high);
     plotUpdate();
 }

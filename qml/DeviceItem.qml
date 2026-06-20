@@ -1357,7 +1357,16 @@ ColumnLayout {
 
         //Disable the echogram before any parameters are changed;
         console.log("DEV_PARAM: disable echogram")
-        dev.datasetChart = 0
+        // Null-protect: configurePulseDevice can be triggered by manual device
+        // selection (onUserManualSetNameChanged) before 'dev' is bound — e.g. the
+        // device wasn't detected on its IP, only the gateway was. Don't bail the
+        // whole function; defer the echogram-disable to completeDeviceConfigurationTimer,
+        // which null-checks dev and calls disableEchogram() once dev is available.
+        if (dev !== null) {
+            dev.datasetChart = 0
+        } else {
+            console.log("DEV_PARAM: dev is null, deferring echogram disable to completeDeviceConfigurationTimer")
+        }
 
         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                 || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {

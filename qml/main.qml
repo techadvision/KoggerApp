@@ -2743,7 +2743,27 @@ ApplicationWindow  {
                 }
             }
 
+            // Single source of truth for the selector: whenever a model is decided (by ANY path -
+            // dev.devType auto-detect, the legacy devName path, or a manual tap) mark the selection
+            // made so the chooser stays hidden. When it clears (no device / swap-device), allow the
+            // chooser to reveal again (e.g. so the user can pick 2D vs side-scan for log review).
+            function onUserManualSetNameChanged() {
+                if (pulseRuntimeSettings.userManualSetName !== "...") {
+                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.userManualSetName
+                    echoSounderSelectorRect.selectionMade  = true
+                    echoSounderSelectorRect.revealGate     = false
+                } else {
+                    echoSounderSelectorRect.selectionMade  = false
+                    echoSounderSelectorRect.selectedDevice = ""
+                    // leave revealGate to the grace timer / swap-device so the chooser can reappear
+                }
+            }
+
             function onDevNameChanged () {
+                // EXPERIMENT: when dev.devType-driven detection is active, ConnectionViewer owns
+                // model detection; disable the legacy devName-string path here to test it in isolation.
+                if (pulseRuntimeSettings.useDevTypeDetection)
+                    return
                 console.log("onDevnameChanged in main.qml: name", pulseRuntimeSettings.devName)
                 let detectedModel = "";
                 console.log("DEVICE: received an onDevNameChanged, devName is", pulseRuntimeSettings.devName);
@@ -2794,6 +2814,10 @@ ApplicationWindow  {
             }
 
             function onNumberOfDatasetChannelsChanged () {
+                // EXPERIMENT: dev.devType-driven detection (ConnectionViewer) handles the Basic2D
+                // channel split itself, so disable the legacy channel-based path here when active.
+                if (pulseRuntimeSettings.useDevTypeDetection)
+                    return
                 if (pulseRuntimeSettings.swapDeviceNow) {
                     return
                 }

@@ -1024,6 +1024,25 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     connect(dev, &DevQProperty::boatStatusComplete, this, &DeviceManager::boatStatusComplete, connType);
     connect(dev, &DevQProperty::depthComplete, this, &DeviceManager::depthComplete, connType);
 
+    // PULSE: re-notify the QML `devs` list when a device's IDENTITY changes.
+    // devChanged() is the NOTIFY for the `devs` Q_PROPERTY, but it was only emitted on
+    // create/delete. A device's name/type arrives later via a version frame
+    // (deviceVersionChanged), so without this the QML selection runs against a still-unnamed
+    // placeholder and never re-evaluates. We must NOT forward every deviceVersionChanged though:
+    // the device emits it on each periodic version/keep-alive frame, which would rebuild devList
+    // (and re-run selection) several times a second. Forward only when the identity signature
+    // (type/serial/firmware) actually changes, so selection re-runs as the device resolves and
+    // then goes quiet (fixes the selection race without churning the list).
+    connect(dev, &DevQProperty::deviceVersionChanged, this, [this, dev]() {
+        const QString sig = QString::number(dev->devType()) + "/" +
+                            QString::number(static_cast<int>(dev->devSerialNumber())) + "/" +
+                            dev->fwVersion();
+        if (dev->property("_lastIdSig").toString() != sig) {
+            dev->setProperty("_lastIdSig", sig);
+            emit devChanged();
+        }
+    }, connType);
+
     dev->moveToThread(qApp->thread());
     dev->getProcessTimer()->moveToThread(qApp->thread());
     QList<QTimer*> timers = dev->getChildTimers();
@@ -1068,6 +1087,25 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     connect(dev, &DevQProperty::simpleNavV2Complete, this, &DeviceManager::simpleNavV2Complete);
     connect(dev, &DevQProperty::boatStatusComplete, this, &DeviceManager::boatStatusComplete);
     connect(dev, &DevQProperty::depthComplete, this, &DeviceManager::depthComplete);
+
+    // PULSE: re-notify the QML `devs` list when a device's IDENTITY changes.
+    // devChanged() is the NOTIFY for the `devs` Q_PROPERTY, but it was only emitted on
+    // create/delete. A device's name/type arrives later via a version frame
+    // (deviceVersionChanged), so without this the QML selection runs against a still-unnamed
+    // placeholder and never re-evaluates. We must NOT forward every deviceVersionChanged though:
+    // the device emits it on each periodic version/keep-alive frame, which would rebuild devList
+    // (and re-run selection) several times a second. Forward only when the identity signature
+    // (type/serial/firmware) actually changes, so selection re-runs as the device resolves and
+    // then goes quiet (fixes the selection race without churning the list).
+    connect(dev, &DevQProperty::deviceVersionChanged, this, [this, dev]() {
+        const QString sig = QString::number(dev->devType()) + "/" +
+                            QString::number(static_cast<int>(dev->devSerialNumber())) + "/" +
+                            dev->fwVersion();
+        if (dev->property("_lastIdSig").toString() != sig) {
+            dev->setProperty("_lastIdSig", sig);
+            emit devChanged();
+        }
+    });
 
     dev->startConnection(link != nullptr);
 #endif

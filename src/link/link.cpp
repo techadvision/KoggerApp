@@ -146,6 +146,10 @@ void Link::updateUdpParameters(const QString& address, int sourcePort, int desti
 
 void Link::openAsUdp()
 {
+    // PULSE: forget any learned unicast peer from a previous session so we relearn on fresh data.
+    rxPeerAddr_ = QHostAddress();
+    rxPeerPort_ = 0;
+
     QUdpSocket *socketUdp = new QUdpSocket(this);
 
     bool isBinded = socketUdp->bind(QHostAddress::AnyIPv4, sourcePort_); // , QAbstractSocket::ReuseAddressHint | QAbstractSocket::ShareAddress
@@ -549,7 +553,15 @@ bool Link::write(QByteArray data)
     switch (linkType_) {
         case LinkType::kLinkIPUDP: {
             auto udp = qobject_cast<QUdpSocket*>(ioDevice_);
-            udp->writeDatagram(data, hostAddress_, destinationPort_);
+            // PULSE: prefer the learned unicast peer (the address we actually receive data from) so a
+            // bridge that only knows us after we transmit gets locked, and so replies reach the real
+            // source. Fall back to the configured destination until a datagram has been seen.
+            const bool haveRxPeer = !isProxy_ && !rxPeerAddr_.isNull() && rxPeerPort_ != 0;
+            if (haveRxPeer) {
+                udp->writeDatagram(data, rxPeerAddr_, rxPeerPort_);
+            } else {
+                udp->writeDatagram(data, hostAddress_, destinationPort_);
+            }
             break;
         }
         case LinkType::kLinkIPTCP:
@@ -783,6 +795,15 @@ void Link::readyRead()
 
             if (isMavlinkProxyLink()) {
                 updateMavlinkPeer(sender);
+            }
+
+            // PULSE: remember the actual sender so write() can reply by unicast to it. A serial->UDP
+            // bridge (ESP32 over SIYI/Skydroid) only locks onto the app once we transmit to it; replying
+            // to the sender of the data we receive establishes that lock automatically. Harmless on Wi-Fi,
+            // where the sender already equals the configured destination. Not done for the MAVLink proxy.
+            if (!isProxy_ && attribute_ == LinkAttribute::kLinkAttributeNone && !sender.isNull()) {
+                rxPeerAddr_ = sender;
+                rxPeerPort_ = senderPort;
             }
 
             if(attribute_ == LinkAttribute::kLinkAttributeNone) {
