@@ -1410,6 +1410,26 @@ void LinkManager::openFLinks()
 
 void LinkManager::createAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort)
 {
+    // PULSE: idempotency guard. This is called from BOTH the runtime toggle
+    // (DeviceItem.qml onPositionSourceAutoPilotChanged) AND logAllDevSetupAsCompleted, which runs on
+    // every config cycle. The UDP bind has no SO_REUSEADDR (link.cpp openAsUdp), so a 2nd call while a
+    // proxy is already up creates a Link that fails to bind 14569, leaks into list_, and OVERWRITES
+    // proxyLinkUuid_ to point at that DEAD link. closeUdpProxy() then deletes the dead one and the real
+    // receiver is orphaned: it keeps emitting mavlinkPeer (~1 Hz) forever and is only cleared by a full
+    // reconnect — exactly the "logs keep hitting after I set the preference false" symptom.
+    // Run this BEFORE constructing the TimerController so we can safely delegate to closeUdpProxy
+    // (which manages its own timer) without nesting timer stop/start.
+    if (proxyLinkUuid_ != QUuid()) {
+        const auto existing = getLinkPtr(proxyLinkUuid_);
+        if (existing && existing->isOpen()) {
+            qDebug() << "LinkManager::createAndOpenAsUdpProxy: live proxy already exists for"
+                     << proxyLinkUuid_ << "- skipping duplicate create";
+            return;
+        }
+        // Stale reference (link gone or never opened): clear it before recreating.
+        closeUdpProxy();
+    }
+
     const TimerController timerGuard(timer_.get());
 
     Link* newLinkPtr = createNewLink();

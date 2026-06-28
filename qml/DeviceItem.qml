@@ -31,12 +31,6 @@ ColumnLayout {
                 console.log("DEV_PARAM onDeviceVersionChanged, but dev was null. Aborting.")
                 return
             }
-            /*
-            if (dev.devName === null) {
-                console.log("DEV_PARAM onDeviceVersionChanged, but devName was null. Aborting.")
-                return
-            }
-            */
 
             if (pulseRuntimeSettings.devName === "..." && !pulseRuntimeSettings.devConfigured) {
             //if (dev.devName === "..." && !pulseRuntimeSettings.devConfigured) {
@@ -58,13 +52,6 @@ ColumnLayout {
                 return
             }
 
-            /*
-            if (pulseRuntimeSettings.onDeviceVersionChanged) {
-                console.log("DEV_PARAM onDeviceVersionChanged, but device already configured for devName ", dev.devName, ". Aborting.")
-                return
-            }
-            */
-
             pulseRuntimeSettings.onDeviceVersionChanged = true
             //console.log("DEV_PARAM onDeviceVersionChanged, devName is ", dev.devName, ". Finally.")
             //myDev = dev
@@ -83,51 +70,6 @@ ColumnLayout {
             //Abort if already OK
             if (pulseRuntimeSettings.onDistSetupChanged)
                 return
-
-            // TODO: Safe to disable this?
-            /*
-            if (true)
-                return
-
-            //Check if settings are OK
-            if (!pulseRuntimeSettings.distMax_ok) {
-                if (dev.distMax !== pulseRuntimeSettings.distMax) {
-                    pulseRuntimeSettings.distMax_ok = false
-                    pulseRuntimeSettings.onDistSetupChanged = false
-                    console.log("DEV_PARAM onDistSetupChanged, found deviation for dev.distMax", dev.distMax)
-                } else {
-                    pulseRuntimeSettings.distMax_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.distDeadZone_ok) {
-                if (dev.distDeadZone !== pulseRuntimeSettings.distDeadZone) {
-                    pulseRuntimeSettings.distDeadZone_ok = false
-                    pulseRuntimeSettings.onDistSetupChanged = false
-                    console.log("DEV_PARAM onDistSetupChanged, found deviation for dev.distDeadZone", dev.distDeadZone)
-                } else {
-                    pulseRuntimeSettings.distDeadZone_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.distConfidence_ok) {
-                if (dev.distConfidence !== pulseRuntimeSettings.distConfidence) {
-                    pulseRuntimeSettings.distConfidence_ok = false
-                    pulseRuntimeSettings.onDistSetupChanged = false
-                    console.log("DEV_PARAM onDistSetupChanged, found deviation for dev.distConfidence", dev.distConfidence)
-                } else {
-                    pulseRuntimeSettings.distConfidence_ok = true
-                }
-            }
-            */
-
-            //Redo settings if needed
-            /*
-            if (!pulseRuntimeSettings.onDistSetupChanged) {
-                console.log("DEV_PARAM onDistSetupChanged, found deviation - run chartSetup")
-                distSetup()
-            }
-            */
         }
 
         function onChartSetupChanged () {
@@ -139,59 +81,16 @@ ColumnLayout {
             pulseRuntimeSettings.chartSamples_Copy = dev.chartSamples
             pulseRuntimeSettings.chartOffset_Copy = dev.chartOffset
 
+            if (pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.chartOffset_Copy != dev.chartOffset) {
+                pulseRuntimeSettings.devConfigured = false
+                pulseRuntimeSettings.chartOffset_ok = false
+                pulseRuntimeSettings.onChartSetupChanged = false
+                completeDeviceConfigurationTimer.start()
+            }
+
             //Abort if already OK
             if (pulseRuntimeSettings.onChartSetupChanged)
                 return
-
-            // TODO: Safe to disable this?
-            /*
-
-            if (true)
-                return
-
-            //Check if settings are OK
-            if (!pulseRuntimeSettings.chartResolution_ok) {
-                if (dev.chartResolution !== pulseRuntimeSettings.chartResolution) {
-                    if (pulseRuntimeSettings.doDynamicResolution) {
-                        pulseRuntimeSettings.chartResolution_ok = true
-                        console.log("DEV_PARAM onChartSetupChanged, dev.chartResolution OK as", dev.chartResolution, "using doDynamicResolution")
-                    } else {
-                        pulseRuntimeSettings.chartResolution_ok = false
-                        pulseRuntimeSettings.onChartSetupChanged = false
-                        console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartResolution", dev.chartResolution)
-                    }
-                }
-            }
-
-            if (!pulseRuntimeSettings.chartSamples_ok) {
-                if (dev.chartSamples !== pulseRuntimeSettings.chartSamples) {
-                    pulseRuntimeSettings.chartSamples_ok = false
-                    pulseRuntimeSettings.onChartSetupChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartSamples", dev.chartSamples)
-                } else {
-                    pulseRuntimeSettings.chartSamples_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.chartOffset_ok) {
-                if (dev.chartOffset !== pulseRuntimeSettings.chartOffset) {
-                    pulseRuntimeSettings.chartOffset_ok = false
-                    pulseRuntimeSettings.onChartSetupChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.chartOffset", dev.chartOffset)
-                } else {
-                    pulseRuntimeSettings.chartOffset_ok = true
-                }
-            }
-            */
-
-
-            //Redo settings if needed
-            /*
-            if (!pulseRuntimeSettings.onChartSetupChanged) {
-                console.log("DEV_PARAM onChartSetupChanged, found deviation - run chartSetup")
-                chartSetup()
-            }
-            */
         }
 
         function onDatasetChanged () {
@@ -211,93 +110,6 @@ ColumnLayout {
             if (pulseRuntimeSettings.onDatasetChanged)
                 return
 
-            // TODO: Safe to disable this?
-            /*
-
-            if (true)
-                return
-
-            //Check if settings are OK
-            if (!pulseRuntimeSettings.ch1Period_ok) {
-                if (dev.ch1Period !== pulseRuntimeSettings.ch1Period) {
-                    pulseRuntimeSettings.ch1Period_ok = false
-                    pulseRuntimeSettings.onDatasetChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.ch1Period", dev.ch1Period)
-                } else {
-                    pulseRuntimeSettings.ch1Period_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.datasetChart_ok) {
-                if (dev.datasetChart !== pulseRuntimeSettings.datasetChart) {
-                    pulseRuntimeSettings.datasetChart_ok = false
-                    pulseRuntimeSettings.onDatasetChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetChart", dev.datasetChart)
-                } else {
-                    pulseRuntimeSettings.datasetChart_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.datasetDist_ok) {
-                if (dev.datasetDist !== pulseRuntimeSettings.datasetDist) {
-                    pulseRuntimeSettings.datasetDist_ok = false
-                    pulseRuntimeSettings.onDatasetChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetDist", dev.datasetDist)
-                } else {
-                    pulseRuntimeSettings.datasetDist_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.datasetSDDBT_ok) {
-                if (dev.datasetSDDBT !== pulseRuntimeSettings.datasetSDDBT) {
-                    pulseRuntimeSettings.datasetSDDBT_ok = false
-                    pulseRuntimeSettings.onDatasetChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetSDDBT", dev.datasetSDDBT)
-                } else {
-                    pulseRuntimeSettings.datasetSDDBT_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.datasetEuler_ok) {
-                if (dev.datasetEuler !== pulseRuntimeSettings.datasetEuler) {
-                    pulseRuntimeSettings.datasetEuler_ok = false
-                    pulseRuntimeSettings.onDatasetChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetEuler", dev.datasetEuler)
-                } else {
-                    pulseRuntimeSettings.datasetEuler_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.datasetTemp_ok) {
-                if (dev.datasetTemp !== pulseRuntimeSettings.datasetTemp) {
-                    pulseRuntimeSettings.datasetTemp_ok = false
-                    pulseRuntimeSettings.onDatasetChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetTemp", dev.datasetTemp)
-                } else {
-                    pulseRuntimeSettings.datasetTemp_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.datasetTimestamp_ok) {
-                if (dev.datasetTimestamp !== pulseRuntimeSettings.datasetTimestamp) {
-                    pulseRuntimeSettings.datasetTimestamp_ok = false
-                    pulseRuntimeSettings.onDatasetChanged = false
-                    console.log("DEV_PARAM onChartSetupChanged, found deviation for dev.datasetTimestamp", dev.datasetTimestamp)
-                } else {
-                    pulseRuntimeSettings.datasetTimestamp_ok = true
-                }
-            }
-
-            */
-
-            //Redo settings if needed
-            /*
-            if (!pulseRuntimeSettings.onDatasetChanged) {
-                console.log("DEV_PARAM onChartSetupChanged, found deviation - run datasetSetup")
-                datasetSetup()
-            }
-            */
-
         }
 
         function onTransChanged () {
@@ -313,51 +125,6 @@ ColumnLayout {
             if (pulseRuntimeSettings.onTransChanged)
                 return
 
-            // TODO: Safe to disable this?
-            /*
-
-            if (true)
-                return
-
-            //Check if settings are OK
-            if (!pulseRuntimeSettings.transPulse_ok) {
-                if (dev.transPulse !== pulseRuntimeSettings.transPulse) {
-                    pulseRuntimeSettings.transPulse_ok = false
-                    pulseRuntimeSettings.onTransChanged = false
-                    console.log("DEV_PARAM onTransChanged, found deviation for dev.transPulse", dev.transPulse)
-                } else {
-                    pulseRuntimeSettings.transPulse_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.transFreq_ok) {
-                if (dev.transFreq !== pulseRuntimeSettings.transFreq) {
-                    pulseRuntimeSettings.transFreq_ok = false
-                    pulseRuntimeSettings.onTransChanged = false
-                    console.log("DEV_PARAM onTransChanged, found deviation for dev.transFreq", dev.transFreq)
-                } else {
-                    pulseRuntimeSettings.transFreq_ok = true
-                }
-            }
-
-            if (!pulseRuntimeSettings.transBoost_ok) {
-                if (dev.transBoost !== pulseRuntimeSettings.transBoost) {
-                    pulseRuntimeSettings.transBoost_ok = false
-                    pulseRuntimeSettings.onTransChanged = false
-                    console.log("DEV_PARAM onTransChanged, found deviation for dev.transBoost", dev.transBoost)
-                } else {
-                    pulseRuntimeSettings.transBoost_ok = true
-                }
-            }
-
-            */
-            //Redo settings if needed
-            /*
-            if (!pulseRuntimeSettings.onTransChanged) {
-                console.log("DEV_PARAM onTransChanged, found deviation - run transSetup")
-                transSetup()
-            }
-            */
         }
 
         function onDspSetupChanged () {
@@ -378,32 +145,6 @@ ColumnLayout {
             //Abort if already OK
             if (pulseRuntimeSettings.onSoundChanged)
                 return
-
-            // TODO: Safe to disable this?
-            /*
-            if (true)
-                return
-
-            //Check if settings are OK
-            if (!pulseRuntimeSettings.soundSpeed_ok) {
-                if (dev.soundSpeed !== pulseRuntimeSettings.soundSpeed) {
-                    pulseRuntimeSettings.soundSpeed_ok = false
-                    pulseRuntimeSettings.onSoundChanged = false
-                    console.log("DEV_PARAM onSoundChanged, found deviation for dev.soundSpeed", dev.soundSpeed)
-                }  else {
-                    pulseRuntimeSettings.soundSpeed_ok = true
-                }
-            }
-
-            */
-
-            //Redo settings if needed
-            /*
-            if (!pulseRuntimeSettings.onSoundChanged) {
-                console.log("DEV_PARAM onSoundChanged, found deviation - run soundSetup")
-                soundSetup()
-            }
-            */
         }
 
     }

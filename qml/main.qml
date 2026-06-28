@@ -2873,62 +2873,20 @@ ApplicationWindow  {
                 //Mark that data is flowing
                 pulseRuntimeSettings.dataUpdateActive = true
 
-                // If this is the very first update of this “session”, record it:
-                if (pulseRuntimeSettings.firstDataTs === 0) {
-                    pulseRuntimeSettings.firstDataTs = Date.now()
-                    pulseRuntimeSettings.guardActive = true
-                    //guardTimer.restart()
-                    console.log("DATAFLOW: First data observed @ " + pulseRuntimeSettings.firstDataTs + ", guard window started")
-                }
-
-                //Every time data arrives, cancel any pending stale-trigger
-                dataStaleTimer.restart()
-                //Cancel the “reset” (we’re not in stale yet)
-                resetTimer.stop()
+                // PULSE: the auto-reboot "dataflow guard" (dataStaleTimer/guardTimer/resetTimer +
+                // firstDataTs/guardActive) was removed. It was a band-aid for the old "stuck configuring
+                // transducer" state caused by never binding a real 'dev'; that is now handled at the source
+                // in selectCorrectDevice (which waits for an identified device before selecting). The guard
+                // was also buggy: guardTimer.restart() was commented out, so guardActive never cleared and
+                // the guard window was effectively infinite, rebooting on ANY data stall (e.g. battery
+                // death). The manual expert reboot (echoSounderReboot) is intentionally kept.
             }
         }
 
-        Timer {
-            id: dataStaleTimer
-            interval: pulseRuntimeSettings.dataIsStaleElapseTime
-            repeat: false
-            onTriggered: {
-                //pulseRuntimeSettings.dataUpdateActive = false
-                // If we’re still inside our initial window, reboot:
-                if (pulseRuntimeSettings.guardActive && !pulseRuntimeSettings.echogramPausedForConfig) {
-                    console.log("DATAFLOW: Auto-reboot (data became stale within guard window)")
-                    pulseRuntimeSettings.dataUpdateActive = false
-                    pulseRuntimeSettings.echoSounderReboot = true
-                    pulseRuntimeSettings.guardActive = false
-                    pulseRuntimeSettings.firstDataTs = 0
-                }
-                // Start/reset the resetTimer so we clear firstDataTs after resetWindowMs
-                resetTimer.restart()
-            }
-        }
-
-        Timer {
-            id: guardTimer
-            interval: pulseRuntimeSettings.rebootWindowMs
-            repeat: false
-            onTriggered: {
-                // Window elapsed, stop guarding (no more auto-reboots this session)
-                console.log("DATAFLOW: Guard window elapsed, safe to turn the dataflow guard off")
-                pulseRuntimeSettings.guardActive = false
-            }
-        }
-
-        Timer {
-            id: resetTimer
-            interval: pulseRuntimeSettings.resetWindowMs
-            repeat: false
-            onTriggered: {
-                // Enough time has passed without data → clear our “firstDataTs” so
-                pulseRuntimeSettings.firstDataTs = 0
-                console.log("DATAFLOW: Resetting firstDataTs; ready for new session")
-            }
-        }
-
+        // PULSE: dataStaleTimer / guardTimer / resetTimer (the auto-reboot "dataflow guard") were
+        // removed here. See the note in the dataset onDataUpdate handler above. Root cause (no bound
+        // 'dev' -> stuck "Configuring transducer") is now handled in selectCorrectDevice; the manual
+        // expert reboot remains the only reboot path.
 
         Item {
             id: freeContainer

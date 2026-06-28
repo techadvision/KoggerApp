@@ -23,16 +23,26 @@ public:
 
     void setMavlinkPeer(const QString& ip, qint64 seenMs)
     {
-        qDebug() << "AddWaypoint: setMavlinkPeer triggered with address" << ip << ", mavPeerAddr_ was before" << mavPeerAddr_;
         QHostAddress a;
-        if (!ip.isEmpty() && a.setAddress(ip) && a.protocol() == QAbstractSocket::IPv4Protocol) {
+        const bool valid = !ip.isEmpty() && a.setAddress(ip) && a.protocol() == QAbstractSocket::IPv4Protocol;
+        const QHostAddress next = valid ? a : QHostAddress();
+
+        // PULSE: log only on an ACTUAL peer change. setMavlinkPeer is invoked ~1 Hz per proxy via the
+        // periodic timestamp refresh in Link::updateMavlinkPeer; logging every call is what "bombed"
+        // the console. The freshness timestamp (mavPeerSeenMs_) is still updated every call below — only
+        // the logging is gated. If this is still spamming after the link_manager idempotency fix, a
+        // stale/orphaned proxy link is still alive.
+        if (next != mavPeerAddr_) {
+            qDebug() << "AddWaypoint: setMavlinkPeer change:" << mavPeerAddr_ << "->" << next;
+        }
+
+        if (valid) {
             mavPeerAddr_ = a;
             mavPeerSeenMs_ = seenMs;
         } else {
             mavPeerAddr_.clear();
             mavPeerSeenMs_ = 0;
         }
-        qDebug() << "AddWaypoint: setMavlinkPeer: mavPeerAddr_ is now" << mavPeerAddr_;
     }
 
     bool sendJsonPointWithSnapshot(double lat, double lon, double depth_m,
@@ -99,7 +109,7 @@ public:
                    QByteArray::number(lon, 'f', 6) + "\"";
         payload += ",\"ts_unix_ms\":" + QByteArray::number(QDateTime::currentMSecsSinceEpoch());
         payload += "}";
-        qDebug() << "AddWaypoint: udp_broadcaster sendJsonPoint completed";
+        qDebug() << "AddWaypoint: udp_broadcaster sendJsonPoint completed. lat:" <<lat << "lng;" <<lon;
         return broadcastWaypoint(payload, port);
     }
 
@@ -272,33 +282,6 @@ private:
 
         return ok;
     }
-
-    /*
-    bool broadcastWaypoint(const QByteArray& payload, quint16 port) {
-        if (payload.isEmpty()) {
-            qDebug() << "AddWaypoint: broadcast - payload empty";
-            return false;
-        }
-
-        const QHostAddress target = pickSingleTarget();
-
-        const qint64 sent = socket_.writeDatagram(payload, target, port);
-        const bool ok = (sent == payload.size());
-
-        if (!ok) {
-            qDebug() << "AddWaypoint: UDP send failed"
-                     << "sent=" << sent
-                     << "of=" << payload.size()
-                     << "to" << target.toString() << ":" << port
-                     << "err=" << socket_.errorString();
-        } else {
-            qDebug() << "AddWaypoint: UDP send"
-                     << sent << "bytes to" << target.toString() << ":" << port;
-        }
-
-        return ok;
-    }
-    */
 
 
 

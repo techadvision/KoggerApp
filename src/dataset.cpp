@@ -2245,7 +2245,18 @@ void Dataset::tryResetDataset(float lat, float lon)
         return;
     }
 
-    //qDebug() << pos.lla.latitude << pos.lla.longitude <<boatLatitute_ << boatLongitude_;
+    // PULSE: ignore the FIRST fix of a session. boatLatitute_/boatLongitude_ start at the
+    // uninitialized origin (0,0) and are reset to (0,0) by reset/softResetDataset. The step from
+    // (0,0) to the first real GNSS/MAVLink fix is thousands of km — not real boat movement — so
+    // without this guard the live echogram is wiped (onRequestClearing -> softResetDataset) the
+    // instant the autopilot position feed appears. And because softResetDataset resets boat pos back
+    // to (0,0), it could re-fire on the next fix. Only treat a >1 km step as a genuine long-distance
+    // relocation (e.g. loading a far-away log) when we already have a valid previous position.
+    const bool havePrevFix = (boatLatitute_ != 0.0f || boatLongitude_ != 0.0f);
+    if (!havePrevFix) {
+        return;
+    }
+
     const double dist = distanceMetersLLA(lat, lon, boatLatitute_, boatLongitude_);
     if (dist > 1e3) {
         core.onRequestClearing();

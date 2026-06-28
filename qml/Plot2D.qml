@@ -376,10 +376,10 @@ WaterFall {
         id: configurationInProgressIndicator
         // start hidden
         visible: !pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.dataUpdateActive
-        anchors.top: parent.verticalCenter
-        //anchors.topMargin: 60 + insetTop()
-        anchors.left: parent.horizontalCenter
-        anchors.leftMargin: 20
+        anchors.top: parent.top
+        anchors.topMargin: 60 + insetTop()
+        anchors.left: parent.left
+        anchors.leftMargin: 50
 
         // styling: semi-transparent black, rounded corners
         color: "#80000000"
@@ -390,13 +390,17 @@ WaterFall {
         property int contentMargin: 12
 
         // size to fit the text + padding
-        implicitWidth: configurationInProgressIndicator.width + contentMargin*2
+        // (reference the Text's width, NOT the Rectangle's own width — the latter
+        //  defaults back to implicitWidth and causes a binding loop)
+        implicitWidth: completeDeviceConfigurationTimer.width + contentMargin*2
         implicitHeight: _isAndroid ? 80 : 60 //configurationInProgressText.height + contentMargin*2
 
         // the actual label
         Text {
             id: completeDeviceConfigurationTimer
             text: {
+                if (pulseRuntimeSettings.isOpeningKlfFile || pulseRuntimeSettings.wasKlfFileOpened)
+                    return ""
                 if (pulseRuntimeSettings.unableToConfigure) {
                     return "Fixing transducer com link..."
                 } else {
@@ -1432,7 +1436,7 @@ WaterFall {
                 pulseSettings.intensityDisplayValue = value;
                 quickChangeObjects.quickChangeStopValue = actualValue;
                 plot.setIntensityValue(actualValue * 1.0)
-                console.log("TAV: selectorIntensity changed intensity (presented):", value, " (actual):", actualValue);
+                //console.log("TAV: selectorIntensity changed intensity (presented):", value, " (actual):", actualValue);
             }
 
             Component.onCompleted: {
@@ -1491,7 +1495,7 @@ WaterFall {
                 pulseSettings.filterDisplayValue = value
                 quickChangeObjects.quickChangeStartValue = actualValue;
                 plot.setFilteringValue(actualValue)
-                console.log("TAV: selectorFiltering changed filter (presented):", value, " (actual):", actualValue);
+                //console.log("TAV: selectorFiltering changed filter (presented):", value, " (actual):", actualValue);
             }
 
             Component.onCompleted: {

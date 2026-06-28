@@ -101,12 +101,10 @@ QtObject {
 
     //TRAFFIC STATE CHANGE CONTROL
     property bool   dataUpdateActive:       false   // If dataUpdate is being signalled, this should be true
-    property int    rebootWindowMs:         20000   // reboot if stale within this many ms of first data
-    property int    resetWindowMs:          60000   // clear “first data” after this many ms of stale
-    property int    firstDataTs:            0       // Date.now() when we first saw data this session
-    property bool   guardActive:            false   // true until rebootWindowMs elapses
-    property bool   echoSounderReboot:      false
-    property int    dataIsStaleElapseTime:  3500    // was 3500, change to 10000
+    property bool   echoSounderReboot:      false   // Manual expert reboot trigger (PulseInfoSettings -> DeviceItem dev.reboot())
+    // PULSE: rebootWindowMs / resetWindowMs / firstDataTs / guardActive / dataIsStaleElapseTime were
+    // removed together with the auto-reboot "dataflow guard" timers in main.qml (band-aid for the old
+    // stuck-configuring state; root cause now fixed in selectCorrectDevice).
 
     //UI AUTO CONTROL
     property double autoDepthMaxLevel:      49      // The current max level displayed, used for automatic change of display based on depth measure
