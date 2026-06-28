@@ -280,6 +280,17 @@ private:
             qDebug() << "AddWaypoint: dst =" << dst.toString() << "peerFresh=" << peerFresh;
         }
 
+        // Same-device delivery guarantee (e.g. Skydroid G30 split-screen with NO wifi):
+        // the chosen dst above can be a remote unicast (the MAVLink peer is the serial-to-IP
+        // adapter at 192.168.144.31 reached over the radio link, NOT this device) or a broadcast
+        // that has no egress when only cellular is up. In those cases it never reaches Carp Pilot
+        // Pro running on THIS device. 127.0.0.1 is always reachable regardless of network state.
+        // UdpWaypointListener listens on 127.0.0.1:port and de-duplicates, so this extra loopback
+        // copy is harmless when dst already reached the local app.
+        if (dst != QHostAddress::LocalHost) {
+            socket_.writeDatagram(payload, QHostAddress::LocalHost, port);
+        }
+
         return ok;
     }
 
