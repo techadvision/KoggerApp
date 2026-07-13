@@ -180,6 +180,28 @@ WaterFall {
             }
             console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, value now", plot.getEchogramCompensation())
         }
+
+        // userManualSetName is the reliable trigger: it is set by every selection path (manual tap
+        // in main.qml, AND the ConnectionViewer.selectCorrectDevice auto-detect path, which never
+        // toggles devManualSelected). Nail compensation here too, without gating on devName, since
+        // the decision only depends on the resolved model / is2DTransducer, not on whether the raw
+        // device identity string has arrived yet.
+        function onUserManualSetNameChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            if (pulseRuntimeSettings.userManualSetName === "...")
+                return
+            if (pulseRuntimeSettings.is2DTransducer) {
+                console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, is2D")
+                plot.plotEchogramCompensation(0)
+                pulseRuntimeSettings.echogramCompensationFile = 0
+            } else {
+                console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, isSideScan")
+                plot.plotEchogramCompensation(1)
+                pulseRuntimeSettings.echogramCompensationFile = 1
+            }
+            console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, value now", plot.getEchogramCompensation())
+        }
     }
 
     signal plotCursorChanged(int indx, real from, real to)
