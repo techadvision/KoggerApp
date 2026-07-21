@@ -501,10 +501,23 @@ public class KoggerUsbSerialManager {
      */
     private static String formatDeviceInfo(final UsbDevice device) {
         StringBuilder deviceInfo = new StringBuilder();
+        // getSerialNumber() requires USB permission for this specific device on Android 10+.
+        // Devices we don't own (e.g. the Skydroid G30's internal USB) never grant it, so calling
+        // it unconditionally throws SecurityException every time availableDevicesInfo() is polled
+        // (~1 Hz) and floods logcat. Guard it and fall back to an empty serial.
+        String serial = "";
+        try {
+            if (usbManager != null && usbManager.hasPermission(device)) {
+                final String s = device.getSerialNumber();
+                if (s != null) serial = s;
+            }
+        } catch (SecurityException ignored) {
+            // no permission for this device; leave serial empty
+        }
         deviceInfo.append(device.getDeviceName()).append(":")
                  .append(device.getProductName()).append(":")
                  .append(device.getManufacturerName()).append(":")
-                 .append(device.getSerialNumber()).append(":")
+                 .append(serial).append(":")
                  .append(device.getProductId()).append(":")
                  .append(device.getVendorId());
 
