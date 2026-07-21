@@ -346,9 +346,17 @@ GridLayout {
 
             // PULSE APP ADDITION for BOTTOM PROCESSING
 
+            // Idempotency guard: the last (model + params) we actually configured dist processing
+            // for. Prevents re-running the full bottom-track configure/enable when its triggers
+            // (userManualSetName / channel updates) re-fire while it is already active for the same
+            // device - that reconfigure churn feeds the echogram-reset loop on the 2D sample.
+            property string _lastDistKey: ""
+
             function prepareDistProcessing () {
-                let list = []
                 //TODO: Prepare bottom track also for the pulseRed and pulseBlack when user is an expert
+                //No need to do this anymore, we will enable bottom track for all if profile says it is enabled
+                /*
+                let list = []
                 list = dataset.channelsNameList()
                 if (list.length < 3) {
                     if (pulseRuntimeSettings.expertMode) {
@@ -357,8 +365,8 @@ GridLayout {
                         console.log("DistProcessing: prepareDistProcessing, not enough channels:", list, ". Abort!")
                         return
                     }
-
                 }
+                */
                 if (pulseRuntimeSettings === null) {
                     console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings === null. Abort")
                     return
@@ -378,6 +386,15 @@ GridLayout {
                     console.log("DistProcessing: prepareDistProcessing, pulseRuntimeSettings.processBottomTrack", pulseRuntimeSettings.processBottomTrack, ". Abort")
                     return
                 }
+                // Idempotency: if bottom track is already active and configured for this exact
+                // model + parameter set, do NOT reconfigure again. This breaks the reconfigure loop
+                // when the triggers re-fire on a still-connected device (the reported echogram reset).
+                var distKey = pulseRuntimeSettings.userManualSetName + "|" + JSON.stringify(pulseRuntimeSettings.distProcessing)
+                if (pulseRuntimeSettings.isBottomTrackActive && distKey === _lastDistKey) {
+                    console.log("DistProcessing: prepareDistProcessing skipped - already active for", distKey)
+                    return
+                }
+                _lastDistKey = distKey
                 // Configure everything
                 console.log("DistProcessing: prepareDistProcessing, all checks OK - let's configure and then enable")
 
@@ -415,10 +432,13 @@ GridLayout {
 
                 //Go ahead
                 bottomTrackProcessingGroup.startDistProcessing()
+                pulseRuntimeSettings.isBottomTrackActive = true
             }
 
             function startDistProcessing () {
                 console.log("DistProcessing: bottomTrackProcessingGroup - let's configure")
+                //No need to do this anymore, we will enable bottom track for all if profile says it is enabled
+                /*
                 const channelsList = dataset.channelsNameList();
                 const values = channelsList
                     .filter(Boolean)
@@ -440,6 +460,7 @@ GridLayout {
                     }
                 }
                 console.log("DistProcessing: bottomTrackProcessingGroup - channels list OK for isBlue",isBlue, ". Continue!")
+                */
 
                 if (targetPlot) {
                     bottomTrackProcessingGroup.updateProcessing()
@@ -452,7 +473,19 @@ GridLayout {
             Connections {
                 target: core
                 function onChannelListUpdated() {
-                    bottomTrackProcessingGroup.prepareDistProcessing()
+                    //Let us ONLY do this when the userManualSetName is changed!!!
+                    /*
+                    console.log("DistProcessing: onChannelListUpdated received")
+                    const channelsList = dataset.channelsNameList();
+                    const values = channelsList
+                    console.log("DistProcessing: looking at channels before starting distProcessing and found", values, "length", channelsList.length)
+                    if (channelsList.length > 1 && !pulseRuntimeSettings.isBottomTrackActive) {
+                        console.log("DistProcessing: triggering prepareDistProcessing since isBottomTrackActive", pulseRuntimeSettings.isBottomTrackActive)
+                        bottomTrackProcessingGroup.prepareDistProcessing()
+                    } else {
+                        console.log("DistProcessing: onChannelListUpdated received, but nbo further need to initiate the processing")
+                    }
+                    */
                 }
             }
 
@@ -468,13 +501,6 @@ GridLayout {
                         console.log("DistProcessing: onProcessBottomTrackChanged - userManualSetName === ..., abort")
                         return
                     }
-                    //TODO: BOTTOM TRACK TEST THIS - Enable bottom track for Pulse Red
-                    /*
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                        console.log("DistProcessing: onProcessBottomTrackChanged - userManualSetName ===", pulseRuntimeSettings.userManualSetName,", should not use bottom track")
-                        return
-                    }
-                    */
                     if (pulseRuntimeSettings.processBottomTrack) {
                         //Turned on
                         console.log("DistProcessing: onProcessBottomTrackChanged - let us initiate tracking")
@@ -486,6 +512,11 @@ GridLayout {
                 }
 
                 function onUserManualSetNameChanged () {
+                    console.log("DistProcessing: onUserManualSetNameChanged received")
+                    // Device left/changed to "...": clear the guard so a genuine new device reconfigures.
+                    // A re-assert of the SAME model is then skipped by the idempotency check above.
+                    if (pulseRuntimeSettings.userManualSetName === "...")
+                        bottomTrackProcessingGroup._lastDistKey = ""
                     bottomTrackProcessingGroup.prepareDistProcessing()
                 }
 
@@ -498,27 +529,15 @@ GridLayout {
                         console.log("DistProcessing: onDistProcessingChanged - userManualSetName === ..., abort")
                         return
                     }
-                    //TODO: BOTTOM TRACK TEST THIS - Enable bottom track for Pulse Red
-                    /*
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                        console.log("DistProcessing: onDistProcessingChanged - userManualSetName ===", pulseRuntimeSettings.userManualSetName,", should not use bottom track")
-                        return
-                    }
-                    */
+
                     if (!pulseRuntimeSettings.processBottomTrack) {
                         console.log("DistProcessing: onDistProcessingChanged - use bottom track", pulseRuntimeSettings.processBottomTrack)
                         return
                     }
                     console.log("DistProcessing: value of bottom track parameter will be changed")
-                    //pulseRuntimeSettings.isBottomTrackActive = false
                     pulseRuntimeSettings.isBottomTrackInitiated = false
                     dataset.initiateProcessBottomTrack(pulseRuntimeSettings.isBottomTrackInitiated)
-                    /*
-                    if (dataset) {
-                        dataset.setIsBottomTrackInitiated(false)
-                        dataset.setIsBottomTrackActive(false)
-                    }
-                    */
+
 
                     triggerBottomTrackParameterChange.start()
                 }
@@ -529,6 +548,7 @@ GridLayout {
                 repeat: false
                 interval: 100
                 onTriggered: {
+                    console.log("DistProcessing: triggerBottomTrackParameterChange was run")
                     bottomTrackProcessingGroup.prepareDistProcessing()
                 }
             }
@@ -544,12 +564,7 @@ GridLayout {
                     //dataset.initiateProcessBottomTrack(pulseRuntimeSettings.isBottomTrackInitiated)
                     core.setBottomTrackRealtimeFromSettings(true)
                     dataset.processBottomTrack(true)
-                    /*
-                    if (dataset) {
-                        dataset.setProcessBottomTrack(pulseRuntimeSettings.processBottomTrack)
-                        dataset.setIsBottomTrackInitiated(pulseRuntimeSettings.isBottomTrackInitiated)
-                    }
-                    */
+                    console.log("DistProcessing: Triggering processing")
                 }
             }
 
