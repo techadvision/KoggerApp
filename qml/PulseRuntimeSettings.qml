@@ -345,7 +345,7 @@ QtObject {
         "transFreqMedium":              710,
         "transFreqNarrow":              810,
         "maximumDepth":                 52,
-        "processBottomTrack":           false,
+        "processBottomTrack":           true,
         "doDynamicResolution":          true,
         "fixBlackStripesBackwardSteps": 5,
         "fixBlackStripesForwardSteps":  3,

@@ -95,9 +95,12 @@ ApplicationWindow  {
             pulseSettings.nmeaBroadcastAddress = pulseRuntimeSettings.nmeaBroadcastAddress
             let shouldBroadcastMtw = pulseSettings.enableNmeaMtw && pulseRuntimeSettings.is2DTransducer
             //Enable bottomTrack for red/blue if the user is an expert
+            //No need to do this for Experts only anymore - we use bottom track for everyone!!!
+            /*
             if (pulseRuntimeSettings.expertMode && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                 pulseRuntimeSettings.processBottomTrack = true
             }
+            */
 
             settingsBus.updatePersistent({
                     filterRealValue:         pulseSettings.filterRealValue,
