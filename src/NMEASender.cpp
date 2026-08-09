@@ -140,10 +140,17 @@ void NMEASender::onDepthTick()
     QHostAddress target(broadcastAddress);
     if (target.isNull()) target = QHostAddress::Broadcast;
 
+    // (1) Network/broadcast consumers (legacy: separate-device or any wifi-connected listener).
     const qint64 n = udpSocket->writeDatagram(sentence, target, port);
     if (n == -1) {
         //qWarning() << "NMEA DBT write failed:" << udpSocket->errorString();
     }
+
+    // (2) Same-device consumers WITHOUT any wifi (e.g. Skydroid G30 split-screen on 4G/5G):
+    // 255.255.255.255 has no broadcast-capable egress when only cellular is up, so it never
+    // reaches a local listener. 127.0.0.1 is always available regardless of network state.
+    // Carp Pilot Pro's CustomNmea de-duplicates (model "8"), so receiving both copies is safe.
+    udpSocket->writeDatagram(sentence, QHostAddress::LocalHost, port);
 }
 
 void NMEASender::onTempTick()
@@ -158,10 +165,15 @@ void NMEASender::onTempTick()
     QHostAddress target(broadcastAddress);
     if (target.isNull()) target = QHostAddress::Broadcast;
 
+    // (1) Network/broadcast consumers (legacy: separate-device or any wifi-connected listener).
     const qint64 n = udpSocket->writeDatagram(sentence, target, port);
     if (n == -1) {
         //qWarning() << "NMEA MTW write failed:" << udpSocket->errorString();
     }
+
+    // (2) Same-device consumers WITHOUT any wifi (see onDepthTick for rationale). Loopback is
+    // always reachable; CustomNmea (model "8") de-duplicates the second copy.
+    udpSocket->writeDatagram(sentence, QHostAddress::LocalHost, port);
 }
 
 static inline QString hexChecksum(const QByteArray& body)

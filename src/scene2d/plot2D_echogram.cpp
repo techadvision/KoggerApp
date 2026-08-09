@@ -1660,9 +1660,9 @@ void Plot2DEchogram::setThemeId(int theme_id) {
     }
 
     _rawThemeColors = coloros;
-    qDebug() << "Theme ID was set by user, new ID is " << theme_id;
-    qDebug() << "setThemeId called on instance:" << this;
-    qDebug() << "Theme ID include colors " << _rawThemeColors;
+    //qDebug() << "Theme ID was set by user, new ID is " << theme_id;
+    //qDebug() << "setThemeId called on instance:" << this;
+    //qDebug() << "Theme ID include colors " << _rawThemeColors;
 
     setColorScheme(coloros, levels);
     getThemeColors();

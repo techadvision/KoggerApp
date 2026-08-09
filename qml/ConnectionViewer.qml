@@ -18,6 +18,17 @@ ColumnLayout {
     property string selectedLogPathSource: ""
     property string importTrackPathSource: ""
 
+    // PULSE: Basic2D (devType 12) red/blue disambiguation state.
+    // 1ch => red, 2ch => blue, but the dataset reports channel 1 first and channel 2 a moment later.
+    // A naive "1 channel => red" commit configures a blue unit as red and then reconfigures as blue
+    // (double config, transient wrong params, echogram churn). So a lone first channel on a Basic2D is
+    // HELD for a short settle window: if a 2nd channel arrives we go straight to blue (configured once);
+    // if the window elapses still at 1 channel it is a genuine single-channel red. basic2dMaxChannels
+    // latches the max seen so a transient dip back to 1 (e.g. a reset) never downgrades blue->red.
+    property int  basic2dMaxChannels:   0
+    property bool basic2dSettleElapsed: false
+    property int  basic2dSettleMs:      1500   // tune vs how long ch2 takes to arrive (incl. Skydroid latency)
+
     Settings {
         property alias logFolder: connectionViewer.lastLogFolder
         property alias importTrackFolder: connectionViewer.lastImportTrackFolder
@@ -164,28 +175,134 @@ ColumnLayout {
     }
 
     onDevListChanged: {
-        selectCorrectDevice()
+        selectCorrectDevice("devListChanged")
     }
 
-    function selectCorrectDevice () {
-        if (devList.length > 0) {
-            if (devList.length > 1) {
-                dev2 = devList[1]
-                if (dev2.devName !== null && dev2.devName.length > 0 && dev2.devName !== "...") {
-                    dev = devList[1]
-                    console.log("onDevListChanged occurred: found multiple devices, device #2 is the real device", dev.devName)
-                }
-                dev1 = devList[0]
-                if (dev1.devName !== null && dev1.devName.length > 0 && dev1.devName !== "...") {
-                    dev = devList[0]
-                    console.log("onDevListChanged occurred: found multiple devices, device #1 is the real device", dev.devName)
-                }
-                dev1 = null
-                dev2 = null
+    // PULSE: Deterministically select the real transducer.
+    // The previous implementation only inspected devList[0]/[1] and depended both on the order
+    // of an unordered hash and on the global pulseRuntimeSettings.devName. That made selection
+    // race-dependent: it assumed the device's version frame (which sets devName/devType) had
+    // already arrived by the time the list changed. Over higher-latency links (e.g. Skydroid)
+    // that race is always lost, so the wrong/placeholder dev stayed selected and configuration
+    // wrote to it forever.
+    //
+    // Now we scan the whole list and pick the first *identified* device (devType !== 0 — the
+    // same criterion the device buttons use for visibility), and mirror its name into
+    // pulseRuntimeSettings.devName so identity/auto-detect always reflect the selected device.
+    // Combined with the C++ change that forwards deviceVersionChanged -> devChanged, this
+    // re-runs the moment a device becomes identified, on every transport. selectCorrectDevice
+    // is therefore no longer a workaround — it is the normal, deterministic selection path.
+    function selectCorrectDevice (reason) {
+        // DIAGNOSTIC: log WHO triggered selection so we can tell whether enabling the MAVLink proxy
+        // (which must NOT look like a device change) ever re-runs this. Expected triggers are real-sonar
+        // only: "devListChanged" (a sonar version frame changed identity) and "numberOfDatasetChannels"
+        // (sonar channel count resolved, e.g. Basic2D 1ch->2ch).
+        console.log("devList: selectCorrectDevice trigger =", reason ? reason : "(direct)")
+        // DIAGNOSTIC: dump every entry in devList (placeholders included) so the expert panel shows
+        // exactly what Pulse sees - count, board type, name, serial - and which one we picked ('*').
+        var dump = devList.length + " dev(s):"
+        var chosen = null
+        for (var i = 0; i < devList.length; ++i) {
+            var d = devList[i]
+            console.log("devList: observed device", d.devName, "SN", d.devSN, "baud", d.baudrate)
+            if (d) {
+                var isReal = (chosen === null && d.devType !== 0 && d.devName && d.devName !== "...")
+                if (isReal)
+                    chosen = d
+                dump += " [" + i + "]t=" + d.devType + "/sn=" + d.devSN + (isReal ? "*" : "")
             } else {
-                dev = devList[0]
-                console.log("onDevListChanged occurred: found one device", dev.devName)
+                dump += " [" + i + "]null"
             }
+        }
+        if (pulseRuntimeSettings)
+            pulseRuntimeSettings.rawDev_devListDump = dump
+        console.log("selectCorrectDevice:", dump)
+
+        if (chosen !== null) {
+            if (dev !== chosen) {
+                dev = chosen
+                console.log("devList: selectCorrectDevice: selected real device", chosen.devName, "SN", chosen.devSN, "baud", chosen.baudrate)
+            }
+            // DIAGNOSTIC: mirror the full identity + capabilities of the SELECTED device into the
+            // expert panel (refreshed on every pass, so late deviceVersionChanged updates show too).
+            pulseRuntimeSettings.rawDev_devName             = chosen.devName
+            pulseRuntimeSettings.rawDev_devType             = chosen.devType
+            pulseRuntimeSettings.rawDev_devBaudRate         = chosen.baudrate
+            pulseRuntimeSettings.rawDev_devSerialNumber     = chosen.devSN
+            pulseRuntimeSettings.rawDev_firmwareVersion     = chosen.fwVersion
+            pulseRuntimeSettings.rawDev_isSonar             = chosen.isSonar
+            pulseRuntimeSettings.rawDev_isChartSupport      = chosen.isChartSupport
+            pulseRuntimeSettings.rawDev_isTransducerSupport = chosen.isTransducerSupport
+            pulseRuntimeSettings.rawDev_isDistSupport       = chosen.isDistSupport
+            pulseRuntimeSettings.rawDev_isDatasetSupport    = chosen.isDatasetSupport
+            pulseRuntimeSettings.rawDev_isSoundSpeedSupport = chosen.isSoundSpeedSupport
+            pulseRuntimeSettings.rawDev_isUpgradeSupport    = chosen.isUpgradeSupport
+
+            if (pulseRuntimeSettings && pulseRuntimeSettings.devName !== chosen.devName) {
+                pulseRuntimeSettings.devName = chosen.devName
+            }
+
+            // EXPERIMENT: transport-agnostic model detection straight from the board enum.
+            if (pulseRuntimeSettings && pulseRuntimeSettings.useDevTypeDetection) {
+                // Basic2D (devType 12) only: manage the channel latch + settle window so a blue unit
+                // (whose 2nd channel arrives a beat after the first) is committed ONCE as blue rather
+                // than red-then-blue. Launched units (128/129) are unambiguous and fall through.
+                if (chosen.devType === 12) {
+                    var n = pulseRuntimeSettings.numberOfDatasetChannels
+                    if (n > basic2dMaxChannels)
+                        basic2dMaxChannels = n
+                    if (basic2dMaxChannels >= 2) {
+                        basic2dSettleTimer.stop()                       // definitive blue, no need to wait
+                    } else if (basic2dMaxChannels === 1 && !basic2dSettleElapsed && !basic2dSettleTimer.running) {
+                        console.log("devList: Basic2D at 1 channel - holding", basic2dSettleMs, "ms for a possible 2nd channel before committing")
+                        basic2dSettleTimer.start()                      // hold back: a 2nd channel may still arrive
+                    }
+                }
+
+                var model = modelForBoard(chosen)
+                if (model !== "" && pulseRuntimeSettings.userManualSetName !== model) {
+                    console.log("devList: DEV_DETECT(devType): board", chosen.devType, "-> model", model,
+                                "channels", pulseRuntimeSettings.numberOfDatasetChannels,
+                                "maxCh", basic2dMaxChannels, "settled", basic2dSettleElapsed)
+                    pulseRuntimeSettings.userManualSetName = model
+                }
+            }
+        }
+    }
+
+    // EXPERIMENT: map the board enum (id_binnary.h BoardVersion, exposed as dev.devType) to a Pulse model.
+    // Launched devices are unambiguous; the pre-launch "Basic2D" (12) batch is split by channel count
+    // (2 -> dual side-scan/blue, 1 -> 2D/red). Returns "" when not yet determinable.
+    function modelForBoard(d) {
+        if (!d)
+            return ""
+        switch (d.devType) {
+        case 128: // BoardPULSEred_2D
+            return pulseRuntimeSettings.modelPulseRed
+        case 129: // BoardPULSEblue_DSS
+            return pulseRuntimeSettings.modelPulseBlue
+        case 12:  // BoardBasic2D (pre-launch batch) - disambiguate by LATCHED channel count + settle window
+            if (basic2dMaxChannels >= 2)
+                return pulseRuntimeSettings.modelPulseBlue            // 2 channels seen -> definitive blue
+            if (basic2dMaxChannels === 1 && basic2dSettleElapsed)
+                return pulseRuntimeSettings.modelPulseRed             // settle elapsed at 1 channel -> genuine red
+            return ""  // hold: no channels yet, or 1 channel still inside the settle window (may become blue)
+        default:
+            return ""
+        }
+    }
+
+    // PULSE: Basic2D settle window. Started when a Basic2D first reports a single channel; if a 2nd
+    // channel arrives first, selectCorrectDevice stops this and commits blue. If this fires, the unit
+    // is a genuine single-channel red and we commit red (one config). Tune interval via basic2dSettleMs.
+    Timer {
+        id: basic2dSettleTimer
+        interval: connectionViewer.basic2dSettleMs
+        repeat: false
+        onTriggered: {
+            connectionViewer.basic2dSettleElapsed = true
+            console.log("devList: Basic2D settle window elapsed, maxCh =", connectionViewer.basic2dMaxChannels, "-> commit")
+            selectCorrectDevice("basic2dSettleElapsed")
         }
     }
 
@@ -209,7 +326,23 @@ ColumnLayout {
             if (!pulseRuntimeSettings.unableToConfigure)
                 return
             //pulseRuntimeSettings.unableToConfigure = false
-            selectCorrectDevice()
+            selectCorrectDevice("unableToConfigure")
+        }
+
+        // EXPERIMENT: for the Basic2D batch the model can only be decided once channels are known,
+        // so re-run detection when the channel count arrives.
+        function onNumberOfDatasetChannelsChanged () {
+            var n = pulseRuntimeSettings.numberOfDatasetChannels
+            console.log("devList: numberOfDatasetChannels ->", n)
+            // Fresh session: channels are cleared to 0 on device swap / disconnect (DeviceItem). Drop the
+            // Basic2D latch so a red unit connected after a blue one (same app session) resolves correctly.
+            if (n === 0) {
+                connectionViewer.basic2dMaxChannels = 0
+                connectionViewer.basic2dSettleElapsed = false
+                basic2dSettleTimer.stop()
+            }
+            if (pulseRuntimeSettings.useDevTypeDetection)
+                selectCorrectDevice("numberOfDatasetChannels=" + n)
         }
 
         function onForceBreakConnectionChanged () {

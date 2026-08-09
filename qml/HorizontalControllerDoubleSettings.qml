@@ -30,7 +30,12 @@ Item {
 
     property var values: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
     property int currentIndex: 0
-    property bool thisControllerWasTapped: false
+
+    // Delay (ms) a finger must be held before auto-repeat begins. A scroll
+    // gesture cancels the press well before this, so it never triggers.
+    property int holdDelay: 450
+    // Interval (ms) between auto-repeat steps once holding.
+    property int repeatInterval: 150
 
     signal pulsePreferenceValueChanged(double newValue)
 
@@ -41,17 +46,6 @@ Item {
     onCurrentIndexChanged: {
         pulsePreferenceValueChanged(values[currentIndex])
     }
-
-    Timer {
-        id: resetTappedStatusTimer
-        interval: 200
-        repeat: false
-        running: false
-        onTriggered: {
-            thisControllerWasTapped = false
-        }
-    }
-
 
     Row {
         anchors.fill: parent
@@ -68,6 +62,10 @@ Item {
             height: root.pressButtonSize
             anchors.top: valueRect.top
             anchors.bottom: valueRect.bottom
+
+            // true once auto-repeat has begun, so the trailing onClicked
+            // (which fires on release) does not add an extra step.
+            property bool _repeating: false
 
             background: Item {
                 width: minusButton.width
@@ -91,42 +89,46 @@ Item {
                 }
             }
 
+            // Arms auto-repeat only after a genuine hold; a scroll cancels
+            // the press before this fires.
+            Timer {
+                id: minusHoldTimer
+                interval: root.holdDelay
+                repeat: false
+                running: false
+                onTriggered: {
+                    minusButton._repeating = true
+                    minusRepeatTimer.start()
+                }
+            }
+
             Timer {
                 id: minusRepeatTimer
-                interval: 200
+                interval: root.repeatInterval
                 repeat: true
                 running: false
                 onTriggered: {
-                    if (currentIndex > 0) {
+                    if (currentIndex > 0)
                         currentIndex--
-                        /*
-                        valueDisplay.text = values[currentIndex]
-                        pulsePreferenceValueChanged(values[currentIndex])
-                        */
-                    } else {
+                    else
                         minusRepeatTimer.stop()
-                    }
                 }
             }
 
+            // Do NOT step on press: a press may turn into a scroll. Just arm
+            // the hold timer for the press-and-hold auto-repeat.
             onPressed: {
-                // set tapped state
-                thisControllerWasTapped = true
-                resetTappedStatusTimer.start()
-                // step immediately
-                if (currentIndex > 0) {
-                    currentIndex--
-                    /*
-                    valueDisplay.text = values[currentIndex]
-                    pulsePreferenceValueChanged(values[currentIndex])
-                    */
-                }
-                // then start repeating
-                minusRepeatTimer.start()
+                _repeating = false
+                minusHoldTimer.restart()
             }
-            onReleased:  minusRepeatTimer.stop()
-            onCanceled:  minusRepeatTimer.stop()
-
+            onReleased: { minusHoldTimer.stop(); minusRepeatTimer.stop() }
+            onCanceled: { minusHoldTimer.stop(); minusRepeatTimer.stop(); _repeating = false }
+            // Single confirmed tap (release without drag). The Flickable
+            // cancels this when the gesture becomes a scroll.
+            onClicked: {
+                if (!_repeating && currentIndex > 0)
+                    currentIndex--
+            }
         }
 
         Rectangle {
@@ -157,6 +159,10 @@ Item {
             anchors.top: valueRect.top
             anchors.bottom: valueRect.bottom
 
+            // true once auto-repeat has begun, so the trailing onClicked
+            // (which fires on release) does not add an extra step.
+            property bool _repeating: false
+
             background: Item {
                 width: plusButton.width
                 height: plusButton.height
@@ -178,37 +184,46 @@ Item {
                 }
             }
 
+            // Arms auto-repeat only after a genuine hold; a scroll cancels
+            // the press before this fires.
+            Timer {
+                id: plusHoldTimer
+                interval: root.holdDelay
+                repeat: false
+                running: false
+                onTriggered: {
+                    plusButton._repeating = true
+                    plusRepeatTimer.start()
+                }
+            }
+
             Timer {
                 id: plusRepeatTimer
-                interval: 200
+                interval: root.repeatInterval
                 repeat: true
                 running: false
                 onTriggered: {
-                    if (currentIndex < values.length - 1) {
+                    if (currentIndex < values.length - 1)
                         currentIndex++
-                        /*
-                        valueDisplay.text = values[currentIndex]
-                        pulsePreferenceValueChanged(values[currentIndex])
-                        */
-                    } else {
+                    else
                         plusRepeatTimer.stop()
-                    }
                 }
             }
 
+            // Do NOT step on press: a press may turn into a scroll. Just arm
+            // the hold timer for the press-and-hold auto-repeat.
             onPressed: {
-                if (currentIndex < values.length - 1) {
-                    currentIndex++
-                    /*
-                    valueDisplay.text = values[currentIndex]
-                    pulsePreferenceValueChanged(values[currentIndex])
-                    */
-                }
-                plusRepeatTimer.start()
+                _repeating = false
+                plusHoldTimer.restart()
             }
-            onReleased:  plusRepeatTimer.stop()
-            onCanceled:  plusRepeatTimer.stop()
-
+            onReleased: { plusHoldTimer.stop(); plusRepeatTimer.stop() }
+            onCanceled: { plusHoldTimer.stop(); plusRepeatTimer.stop(); _repeating = false }
+            // Single confirmed tap (release without drag). The Flickable
+            // cancels this when the gesture becomes a scroll.
+            onClicked: {
+                if (!_repeating && currentIndex < values.length - 1)
+                    currentIndex++
+            }
         }
     }
 }

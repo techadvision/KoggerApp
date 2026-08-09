@@ -95,9 +95,12 @@ ApplicationWindow  {
             pulseSettings.nmeaBroadcastAddress = pulseRuntimeSettings.nmeaBroadcastAddress
             let shouldBroadcastMtw = pulseSettings.enableNmeaMtw && pulseRuntimeSettings.is2DTransducer
             //Enable bottomTrack for red/blue if the user is an expert
+            //No need to do this for Experts only anymore - we use bottom track for everyone!!!
+            /*
             if (pulseRuntimeSettings.expertMode && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                 pulseRuntimeSettings.processBottomTrack = true
             }
+            */
 
             settingsBus.updatePersistent({
                     filterRealValue:         pulseSettings.filterRealValue,
@@ -2743,7 +2746,27 @@ ApplicationWindow  {
                 }
             }
 
+            // Single source of truth for the selector: whenever a model is decided (by ANY path -
+            // dev.devType auto-detect, the legacy devName path, or a manual tap) mark the selection
+            // made so the chooser stays hidden. When it clears (no device / swap-device), allow the
+            // chooser to reveal again (e.g. so the user can pick 2D vs side-scan for log review).
+            function onUserManualSetNameChanged() {
+                if (pulseRuntimeSettings.userManualSetName !== "...") {
+                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.userManualSetName
+                    echoSounderSelectorRect.selectionMade  = true
+                    echoSounderSelectorRect.revealGate     = false
+                } else {
+                    echoSounderSelectorRect.selectionMade  = false
+                    echoSounderSelectorRect.selectedDevice = ""
+                    // leave revealGate to the grace timer / swap-device so the chooser can reappear
+                }
+            }
+
             function onDevNameChanged () {
+                // EXPERIMENT: when dev.devType-driven detection is active, ConnectionViewer owns
+                // model detection; disable the legacy devName-string path here to test it in isolation.
+                if (pulseRuntimeSettings.useDevTypeDetection)
+                    return
                 console.log("onDevnameChanged in main.qml: name", pulseRuntimeSettings.devName)
                 let detectedModel = "";
                 console.log("DEVICE: received an onDevNameChanged, devName is", pulseRuntimeSettings.devName);
@@ -2794,6 +2817,10 @@ ApplicationWindow  {
             }
 
             function onNumberOfDatasetChannelsChanged () {
+                // EXPERIMENT: dev.devType-driven detection (ConnectionViewer) handles the Basic2D
+                // channel split itself, so disable the legacy channel-based path here when active.
+                if (pulseRuntimeSettings.useDevTypeDetection)
+                    return
                 if (pulseRuntimeSettings.swapDeviceNow) {
                     return
                 }
@@ -2849,62 +2876,20 @@ ApplicationWindow  {
                 //Mark that data is flowing
                 pulseRuntimeSettings.dataUpdateActive = true
 
-                // If this is the very first update of this “session”, record it:
-                if (pulseRuntimeSettings.firstDataTs === 0) {
-                    pulseRuntimeSettings.firstDataTs = Date.now()
-                    pulseRuntimeSettings.guardActive = true
-                    //guardTimer.restart()
-                    console.log("DATAFLOW: First data observed @ " + pulseRuntimeSettings.firstDataTs + ", guard window started")
-                }
-
-                //Every time data arrives, cancel any pending stale-trigger
-                dataStaleTimer.restart()
-                //Cancel the “reset” (we’re not in stale yet)
-                resetTimer.stop()
+                // PULSE: the auto-reboot "dataflow guard" (dataStaleTimer/guardTimer/resetTimer +
+                // firstDataTs/guardActive) was removed. It was a band-aid for the old "stuck configuring
+                // transducer" state caused by never binding a real 'dev'; that is now handled at the source
+                // in selectCorrectDevice (which waits for an identified device before selecting). The guard
+                // was also buggy: guardTimer.restart() was commented out, so guardActive never cleared and
+                // the guard window was effectively infinite, rebooting on ANY data stall (e.g. battery
+                // death). The manual expert reboot (echoSounderReboot) is intentionally kept.
             }
         }
 
-        Timer {
-            id: dataStaleTimer
-            interval: pulseRuntimeSettings.dataIsStaleElapseTime
-            repeat: false
-            onTriggered: {
-                //pulseRuntimeSettings.dataUpdateActive = false
-                // If we’re still inside our initial window, reboot:
-                if (pulseRuntimeSettings.guardActive && !pulseRuntimeSettings.echogramPausedForConfig) {
-                    console.log("DATAFLOW: Auto-reboot (data became stale within guard window)")
-                    pulseRuntimeSettings.dataUpdateActive = false
-                    pulseRuntimeSettings.echoSounderReboot = true
-                    pulseRuntimeSettings.guardActive = false
-                    pulseRuntimeSettings.firstDataTs = 0
-                }
-                // Start/reset the resetTimer so we clear firstDataTs after resetWindowMs
-                resetTimer.restart()
-            }
-        }
-
-        Timer {
-            id: guardTimer
-            interval: pulseRuntimeSettings.rebootWindowMs
-            repeat: false
-            onTriggered: {
-                // Window elapsed, stop guarding (no more auto-reboots this session)
-                console.log("DATAFLOW: Guard window elapsed, safe to turn the dataflow guard off")
-                pulseRuntimeSettings.guardActive = false
-            }
-        }
-
-        Timer {
-            id: resetTimer
-            interval: pulseRuntimeSettings.resetWindowMs
-            repeat: false
-            onTriggered: {
-                // Enough time has passed without data → clear our “firstDataTs” so
-                pulseRuntimeSettings.firstDataTs = 0
-                console.log("DATAFLOW: Resetting firstDataTs; ready for new session")
-            }
-        }
-
+        // PULSE: dataStaleTimer / guardTimer / resetTimer (the auto-reboot "dataflow guard") were
+        // removed here. See the note in the dataset onDataUpdate handler above. Root cause (no bound
+        // 'dev' -> stuck "Configuring transducer") is now handled in selectCorrectDevice; the manual
+        // expert reboot remains the only reboot path.
 
         Item {
             id: freeContainer

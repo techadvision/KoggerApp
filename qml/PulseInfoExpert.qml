@@ -31,6 +31,10 @@ Flickable {
 
     anchors.fill: parent
     flickableDirection: Flickable.VerticalFlick
+    // Hold a child's press briefly so a drag becomes a scroll instead of
+    // reaching the +/- buttons. Defense-in-depth alongside the control's
+    // own tap/hold handling.
+    pressDelay: 200
 
     // Scrollbar always visible
     ScrollBar.vertical: ScrollBar {
@@ -79,6 +83,20 @@ Flickable {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "showCatExperimental"
                 initialValue: pulseRuntimeSettings.showCatExperimental
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: echogramToggle
+            text: "Use echogram"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "datasetChart"
+                initialChecked: pulseRuntimeSettings.datasetChart
+                clearAfter: false
             }
         }
 
@@ -194,12 +212,13 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: frequencySelection
-                values: [400, 410, 420, 430, 440, 450, 460, 470, 480, 490,
-                500, 510, 520, 530, 540, 550, 560, 570, 580, 590,
-                600, 610, 620, 630, 640, 650, 660, 670, 680, 690,
-                700, 710, 720, 730, 740, 750, 760, 770, 780, 790,
-                800, 810, 820, 830, 840, 850, 860, 870, 880, 890,
-                900, 910, 920, 930, 940, 950, 960, 970, 980, 990]
+                values: [300, 310, 320, 330, 340, 350, 360, 370, 380, 390,
+                        400, 410, 420, 430, 440, 450, 460, 470, 480, 490,
+                        500, 510, 520, 530, 540, 550, 560, 570, 580, 590,
+                        600, 610, 620, 630, 640, 650, 660, 670, 680, 690,
+                        700, 710, 720, 730, 740, 750, 760, 770, 780, 790,
+                        800, 810, 820, 830, 840, 850, 860, 870, 880, 890,
+                        900, 910, 920, 930, 940, 950, 960, 970, 980, 990]
 
                 //onPulsePreferenceValueChanged: pulseRuntimeSettings.transFreq = newValue
                 onPulsePreferenceValueChanged: function(newValue) {
@@ -270,7 +289,10 @@ Flickable {
                     2250, 2300, 2350, 2400, 2450, 2500, 2550, 2600, 2650,
                     2700, 2750, 2800, 2850, 2900, 2950, 3000, 3050, 3100,
                     3150, 3200, 3250, 3300, 3350, 3400, 3450, 3500, 3550,
-                    3600, 3650, 3700, 3750, 3800, 3850, 3900, 3950, 4000]
+                    3600, 3650, 3700, 3750, 3800, 3850, 3900, 3950, 4000,
+                    4050, 4100, 4150, 4200, 4250, 4300, 4350, 4400, 4450,
+                    4500, 4550, 4600, 4650, 4700, 4750, 4800, 4850, 4900,
+                    4950, 5000]
 
                 //onPulsePreferenceValueChanged: pulseRuntimeSettings.chartSamples = newValue
                 onPulsePreferenceValueChanged: function(newValue) {
@@ -338,8 +360,8 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: depthSelection
-                values: [25000, 27000, 29000, 31000, 33000, 35000, 37000, 39000,
-                    41000, 43000, 45000, 47000, 49000]
+                values: [25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000,
+                        70000, 75000, 80000, 85000, 90000, 95000, 100000]
 
                 onPulsePreferenceValueChanged: function(newValue) {
                 let newMaximumDepth = newValue / 1000
@@ -929,6 +951,21 @@ Flickable {
                 horizontalAlignment: Text.AlignLeft
                 font.pixelSize: settingsPopup.valuePixels
                 text: pulseRuntimeSettings.rawDev_devType
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Device: devList dump"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDeviceRawInfo
+            Text {
+                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                horizontalAlignment: Text.AlignLeft
+                //font.pixelSize: settingsPopup.valuePixels
+                font.pixelSize: Ui.fontS
+                text: pulseRuntimeSettings.rawDev_devListDump
             }
         }
 

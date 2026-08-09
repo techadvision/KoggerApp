@@ -45,6 +45,10 @@ Flickable {
 
     anchors.fill: parent
     flickableDirection: Flickable.VerticalFlick
+    // Hold a child's press briefly so a drag becomes a scroll instead of
+    // reaching the +/- buttons. Defense-in-depth alongside the control's
+    // own tap/hold handling.
+    pressDelay: 200
 
     // Scrollbar always visible
     ScrollBar.vertical: ScrollBar {

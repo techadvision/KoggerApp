@@ -261,8 +261,8 @@ public slots:
     void plotEchogramSetLevels(float low, float hight) {
         setEchogramLowLevel(low);
         setEchogramHightLevel(hight);
-        qDebug() << "TAV: waterfall plotEchogramSetLevels,  setEchogramLowLevel: " << low;
-        qDebug() << "TAV: waterfall plotEchogramSetLevels,  setEchogramHightLevel: " << hight;
+        //qDebug() << "TAV: waterfall plotEchogramSetLevels,  setEchogramLowLevel: " << low;
+        //qDebug() << "TAV: waterfall plotEchogramSetLevels,  setEchogramHightLevel: " << hight;
     }
 
     Q_INVOKABLE float getLowEchogramLevel() const;

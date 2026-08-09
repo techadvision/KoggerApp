@@ -77,7 +77,7 @@ Item {
     property Item hostWindow
 
     Component.onCompleted: {
-        console.log("Favorite colors: Controller controlName", controlName, "iconSource", iconSource, "selectedIndex", selectedIndex)
+        //console.log("Favorite colors: Controller controlName", controlName, "iconSource", iconSource, "selectedIndex", selectedIndex)
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -186,9 +186,9 @@ Item {
 
     // Only clamp when we have more than minFullRows items
     property int clampedHeight: {
-        console.log("PopupList: clampedHeight: model.length is", model.length, "and minFullRows", minFullRows)
+        //console.log("PopupList: clampedHeight: model.length is", model.length, "and minFullRows", minFullRows)
         if (model.length <= minFullRows) {
-            console.log("PopupList: clampedHeight: returned fullContentHeight", fullContentHeight)
+            //console.log("PopupList: clampedHeight: returned fullContentHeight", fullContentHeight)
             // Always show full list (no abbreviation)
             return fullContentHeight;
         }
@@ -201,7 +201,7 @@ Item {
 
         // Optionally show an extra half row to hint that it’s scrollable
         var withHalf = maxFull + rowSize / 2;
-        console.log("PopupList: clampedHeight: returned Math.min(fullContentHeight, withHalf)", Math.min(fullContentHeight, withHalf))
+        //console.log("PopupList: clampedHeight: returned Math.min(fullContentHeight, withHalf)", Math.min(fullContentHeight, withHalf))
 
         return Math.min(fullContentHeight, withHalf);
     }

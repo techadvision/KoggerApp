@@ -13,6 +13,10 @@ QtObject {
     property string modelPulseRedProto:     "Basic2D"        //Our device name for PulseRed. Will change!
     property string modelPulseBlueProto:    "Basic2D"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
+    //EXPERIMENT toggle: when true, model detection is driven by dev.devType (board enum, transport-agnostic)
+    //in ConnectionViewer.selectCorrectDevice, and the old devName-string path in main.qml is disabled.
+    //Set false to fall back to the previous main.qml onDevNameChanged detection.
+    property bool   useDevTypeDetection:    true
     property string udpGateway:             "192.168.10.1"
     property string pulseRedBeta:           "PULSEred BETA"
     property string pulseBlueBeta:          "PULSEblue BETA"
@@ -97,12 +101,10 @@ QtObject {
 
     //TRAFFIC STATE CHANGE CONTROL
     property bool   dataUpdateActive:       false   // If dataUpdate is being signalled, this should be true
-    property int    rebootWindowMs:         20000   // reboot if stale within this many ms of first data
-    property int    resetWindowMs:          60000   // clear “first data” after this many ms of stale
-    property int    firstDataTs:            0       // Date.now() when we first saw data this session
-    property bool   guardActive:            false   // true until rebootWindowMs elapses
-    property bool   echoSounderReboot:      false
-    property int    dataIsStaleElapseTime:  3500    // was 3500, change to 10000
+    property bool   echoSounderReboot:      false   // Manual expert reboot trigger (PulseInfoSettings -> DeviceItem dev.reboot())
+    // PULSE: rebootWindowMs / resetWindowMs / firstDataTs / guardActive / dataIsStaleElapseTime were
+    // removed together with the auto-reboot "dataflow guard" timers in main.qml (band-aid for the old
+    // stuck-configuring state; root cause now fixed in selectCorrectDevice).
 
     //UI AUTO CONTROL
     property double autoDepthMaxLevel:      49      // The current max level displayed, used for automatic change of display based on depth measure
@@ -181,6 +183,7 @@ QtObject {
     property bool   rawDev_isDatasetSupport:    false
     property bool   rawDev_isSoundSpeedSupport: false
     property bool   rawDev_isUpgradeSupport:    false
+    property string rawDev_devListDump:         "not set"   // DIAGNOSTIC: full devList snapshot (count, type, name, sn; '*' = selected)
 
     //FALSE DEPTH READING ALGORITHM TUNING
     property double kSmallAgreeMargin:          0.5    // Fluctuations allowed in filtering
@@ -342,7 +345,7 @@ QtObject {
         "transFreqMedium":              710,
         "transFreqNarrow":              810,
         "maximumDepth":                 52,
-        "processBottomTrack":           false,
+        "processBottomTrack":           true,
         "doDynamicResolution":          true,
         "fixBlackStripesBackwardSteps": 5,
         "fixBlackStripesForwardSteps":  3,

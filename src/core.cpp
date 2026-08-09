@@ -2306,7 +2306,13 @@ void Core::createLinkManagerConnections()
     linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkOpened,  deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLinkOpened,   linkManagerConnection));
     linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkDeleted, deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLinkDeleted,  linkManagerConnection));
 
-    linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkOpened,  this, [this]() {
+    linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkOpened,  this, [this](QUuid, Link* link) {
+                                                                                                                                     // PULSE: the hidden MAVLink proxy link must NOT be treated as a sonar data
+                                                                                                                                     // connection. Otherwise enabling autopilot flips the dataset to kConnection and
+                                                                                                                                     // can make the toggle look like a device (re)connect. Only real data links drive
+                                                                                                                                     // the dataset connection state; the proxy carries autopilot MAVLink, not sonar.
+                                                                                                                                     if (link && link->getIsProxy())
+                                                                                                                                         return;
 #ifdef SEPARATE_READING
                                                                                                                                      tryOpenedfilePath_.clear();
 #endif

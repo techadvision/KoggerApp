@@ -132,7 +132,7 @@ DevSettingsBox {
                     stepSize: 100
                     value: dev.chartOffset
                     onValueChanged: {
-                        dev.chartOffset = value
+                        //dev.chartOffset = value
                     }
                 }
 

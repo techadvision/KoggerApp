@@ -543,9 +543,32 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
                 frame.isCompleteAsUBX() ||
                 frame.isCompleteAsMAVLink()) {
                 if (!frame.isNested()) {
-                    otherProtocolStat_[uuid]++;
-                    if (otherProtocolStat_[uuid] > 30) {
-                        deleteDevicesByLink(uuid);
+                    // PULSE: this heuristic deletes a link's device after >30 non-sonar frames
+                    // (NMEA/UBX/MAVLink), assuming the link is "not a Kogger sonar". MAVLink frames are
+                    // NOT frame.isProxy() (that flag is a KBP option, unrelated to the MAVLink-proxy
+                    // *link*), so the MAVLink proxy link was NOT exempt and accumulated here. On the proxy
+                    // uuid the deletion is harmless (no device), but if MAVLink ever arrives on the SONAR
+                    // uuid this silently deletes the echogram source while autopilot is enabled.
+                    // Fix: never count the known MAVLink-proxy link toward the "not a sonar" heuristic.
+                    // Diagnostic: log when a NON-proxy link accumulates non-sonar frames (the smoking gun
+                    // for the autopilot echogram stall). Logging is bounded (first frame + at deletion)
+                    // so it cannot itself flood the GUI thread.
+                    if (uuid == proxyLinkUuid_) {
+                        // Expected: MAVLink on the proxy link. Do not treat as "not a sonar".
+                    } else {
+                        const int c = ++otherProtocolStat_[uuid];
+                        if (c == 1 || c > 30) {
+                            const char* proto = frame.isCompleteAsMAVLink() ? "MAVLink"
+                                              : frame.isCompleteAsUBX()     ? "UBX" : "NMEA";
+                            qWarning() << "AddWaypoint/DIAG: non-sonar" << proto
+                                       << "frame on NON-proxy uuid" << uuid
+                                       << "proxyLinkUuid_" << proxyLinkUuid_
+                                       << "count" << c
+                                       << (c > 30 ? "-> deleteDevicesByLink() DELETES THIS LINK'S DEVICE (echogram source!)" : "");
+                        }
+                        if (c > 30) {
+                            deleteDevicesByLink(uuid);
+                        }
                     }
                 }
             }
@@ -1024,6 +1047,25 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     connect(dev, &DevQProperty::boatStatusComplete, this, &DeviceManager::boatStatusComplete, connType);
     connect(dev, &DevQProperty::depthComplete, this, &DeviceManager::depthComplete, connType);
 
+    // PULSE: re-notify the QML `devs` list when a device's IDENTITY changes.
+    // devChanged() is the NOTIFY for the `devs` Q_PROPERTY, but it was only emitted on
+    // create/delete. A device's name/type arrives later via a version frame
+    // (deviceVersionChanged), so without this the QML selection runs against a still-unnamed
+    // placeholder and never re-evaluates. We must NOT forward every deviceVersionChanged though:
+    // the device emits it on each periodic version/keep-alive frame, which would rebuild devList
+    // (and re-run selection) several times a second. Forward only when the identity signature
+    // (type/serial/firmware) actually changes, so selection re-runs as the device resolves and
+    // then goes quiet (fixes the selection race without churning the list).
+    connect(dev, &DevQProperty::deviceVersionChanged, this, [this, dev]() {
+        const QString sig = QString::number(dev->devType()) + "/" +
+                            QString::number(static_cast<int>(dev->devSerialNumber())) + "/" +
+                            dev->fwVersion();
+        if (dev->property("_lastIdSig").toString() != sig) {
+            dev->setProperty("_lastIdSig", sig);
+            emit devChanged();
+        }
+    }, connType);
+
     dev->moveToThread(qApp->thread());
     dev->getProcessTimer()->moveToThread(qApp->thread());
     QList<QTimer*> timers = dev->getChildTimers();
@@ -1068,6 +1110,25 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     connect(dev, &DevQProperty::simpleNavV2Complete, this, &DeviceManager::simpleNavV2Complete);
     connect(dev, &DevQProperty::boatStatusComplete, this, &DeviceManager::boatStatusComplete);
     connect(dev, &DevQProperty::depthComplete, this, &DeviceManager::depthComplete);
+
+    // PULSE: re-notify the QML `devs` list when a device's IDENTITY changes.
+    // devChanged() is the NOTIFY for the `devs` Q_PROPERTY, but it was only emitted on
+    // create/delete. A device's name/type arrives later via a version frame
+    // (deviceVersionChanged), so without this the QML selection runs against a still-unnamed
+    // placeholder and never re-evaluates. We must NOT forward every deviceVersionChanged though:
+    // the device emits it on each periodic version/keep-alive frame, which would rebuild devList
+    // (and re-run selection) several times a second. Forward only when the identity signature
+    // (type/serial/firmware) actually changes, so selection re-runs as the device resolves and
+    // then goes quiet (fixes the selection race without churning the list).
+    connect(dev, &DevQProperty::deviceVersionChanged, this, [this, dev]() {
+        const QString sig = QString::number(dev->devType()) + "/" +
+                            QString::number(static_cast<int>(dev->devSerialNumber())) + "/" +
+                            dev->fwVersion();
+        if (dev->property("_lastIdSig").toString() != sig) {
+            dev->setProperty("_lastIdSig", sig);
+            emit devChanged();
+        }
+    });
 
     dev->startConnection(link != nullptr);
 #endif

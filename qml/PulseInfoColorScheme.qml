@@ -309,14 +309,14 @@ Flickable {
                         if (checked) {
                             pulseSettings.addFavorite2DNew(modelData)
                             //pulseSettings.addFavorite2D(modelData.id)
-                            console.log("Favorite Colors: Added id", modelData.id, "with name", modelData.title, "and icon", modelData.icon)
-                            console.log("Favorite Colors: favoriteThemes2DNew contains", pulseSettings.favoriteThemes2DNew)
+                            //console.log("Favorite Colors: Added id", modelData.id, "with name", modelData.title, "and icon", modelData.icon)
+                            //console.log("Favorite Colors: favoriteThemes2DNew contains", pulseSettings.favoriteThemes2DNew)
 
                         } else {
                             pulseSettings.removeFavorite2DNew(modelData)
                             //pulseSettings.removeFavorite2D(modelData.id)
-                            console.log("Favorite Colors: removed id", modelData.id, "with name", modelData.title)
-                            console.log("Favorite Colors: favoriteThemes2DNew contains", pulseSettings.favoriteThemes2DNew)
+                            //console.log("Favorite Colors: removed id", modelData.id, "with name", modelData.title)
+                            //console.log("Favorite Colors: favoriteThemes2DNew contains", pulseSettings.favoriteThemes2DNew)
                         }
                     }
                 }

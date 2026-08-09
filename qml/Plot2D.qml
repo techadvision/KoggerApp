@@ -180,6 +180,28 @@ WaterFall {
             }
             console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, value now", plot.getEchogramCompensation())
         }
+
+        // userManualSetName is the reliable trigger: it is set by every selection path (manual tap
+        // in main.qml, AND the ConnectionViewer.selectCorrectDevice auto-detect path, which never
+        // toggles devManualSelected). Nail compensation here too, without gating on devName, since
+        // the decision only depends on the resolved model / is2DTransducer, not on whether the raw
+        // device identity string has arrived yet.
+        function onUserManualSetNameChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            if (pulseRuntimeSettings.userManualSetName === "...")
+                return
+            if (pulseRuntimeSettings.is2DTransducer) {
+                console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, is2D")
+                plot.plotEchogramCompensation(0)
+                pulseRuntimeSettings.echogramCompensationFile = 0
+            } else {
+                console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, isSideScan")
+                plot.plotEchogramCompensation(1)
+                pulseRuntimeSettings.echogramCompensationFile = 1
+            }
+            console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, value now", plot.getEchogramCompensation())
+        }
     }
 
     signal plotCursorChanged(int indx, real from, real to)
@@ -376,10 +398,10 @@ WaterFall {
         id: configurationInProgressIndicator
         // start hidden
         visible: !pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.dataUpdateActive
-        anchors.top: parent.verticalCenter
-        //anchors.topMargin: 60 + insetTop()
-        anchors.left: parent.horizontalCenter
-        anchors.leftMargin: 20
+        anchors.top: parent.top
+        anchors.topMargin: 60 + insetTop()
+        anchors.left: parent.left
+        anchors.leftMargin: 50
 
         // styling: semi-transparent black, rounded corners
         color: "#80000000"
@@ -390,13 +412,17 @@ WaterFall {
         property int contentMargin: 12
 
         // size to fit the text + padding
-        implicitWidth: configurationInProgressText.width + contentMargin*2
+        // (reference the Text's width, NOT the Rectangle's own width — the latter
+        //  defaults back to implicitWidth and causes a binding loop)
+        implicitWidth: completeDeviceConfigurationTimer.width + contentMargin*2
         implicitHeight: _isAndroid ? 80 : 60 //configurationInProgressText.height + contentMargin*2
 
         // the actual label
         Text {
             id: completeDeviceConfigurationTimer
             text: {
+                if (pulseRuntimeSettings.isOpeningKlfFile || pulseRuntimeSettings.wasKlfFileOpened)
+                    return ""
                 if (pulseRuntimeSettings.unableToConfigure) {
                     return "Fixing transducer com link..."
                 } else {
@@ -1274,7 +1300,7 @@ WaterFall {
             iconSource: "./icons/ui/pulse_ruler.svg"
 
             onSelectorValueChanged: {
-                console.log("EchogramWidth: max depth onSelectorValueChanged: ", value);
+                //console.log("EchogramWidth: max depth onSelectorValueChanged: ", value);
                 plot.quickChangeMaxRangeValue = value;
                 if (pulseRuntimeSettings.userManualSetName === "...")
                     return
@@ -1282,10 +1308,10 @@ WaterFall {
                     pulseSettings.maxDepthValue = value;
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
-                        console.log("EchogramWidth: max depth isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlue, "but now set to", value)
+                        //console.log("EchogramWidth: max depth isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlue, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlue = value;
                     } else {
-                        console.log("EchogramWidth: max depth !isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlueFixed, "but now set to", value)
+                        //console.log("EchogramWidth: max depth !isSideScan2DView onSelectorValueChanged, was", pulseSettings.maxDepthValuePulseBlueFixed, "but now set to", value)
                         pulseSettings.maxDepthValuePulseBlueFixed = value
                     }
                 }
@@ -1324,11 +1350,11 @@ WaterFall {
             }
 
             Component.onCompleted: {
-                console.log("EchogramWidth: max depth Component.onComplete")
+                //console.log("EchogramWidth: max depth Component.onComplete")
                 if (pulseSettings.autoRange) {
                     console.log("EchogramWidth: max depth Component.onComplete autoRange")
                     if (pulseRuntimeSettings.is2DTransducer) {
-                        console.log("EchogramWidth: Component.onComplete autoRange for is2DTransducer")
+                        //console.log("EchogramWidth: Component.onComplete autoRange for is2DTransducer")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         pulseRuntimeSettings.shouldDoAutoRange = true
                         plot.plotDistanceAutoRange(0);
@@ -1338,17 +1364,17 @@ WaterFall {
                     pulseRuntimeSettings.shouldDoAutoRange = false
                     plot.plotDistanceAutoRange(-1);
                     if (pulseRuntimeSettings.is2DTransducer) {
-                        console.log("EchogramWidth: max depth Component.onComplete not autoRange")
+                        //console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange(pulseSettings.maxDepthValue * 1.0)
                         pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValue * 1.0
                     } else {
                         if (pulseRuntimeSettings.isSideScan2DView) {
-                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlue * 1.0",pulseSettings.maxDepthValuePulseBlue * 1.0)
+                            //console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlue * 1.0",pulseSettings.maxDepthValuePulseBlue * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlue * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlue * 1.0
                         } else {
-                            console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlueFixed * 1.0",pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
+                            //console.log("EchogramWidth: max depth Component.onCompleted, set pulseRuntimeSettings.manualSetLevel to pulseSettings.maxDepthValuePulseBlueFixed * 1.0",pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlueFixed * 1.0)
                             pulseRuntimeSettings.manualSetLevel = pulseSettings.maxDepthValuePulseBlueFixed * 1.0
                         }
@@ -1432,7 +1458,7 @@ WaterFall {
                 pulseSettings.intensityDisplayValue = value;
                 quickChangeObjects.quickChangeStopValue = actualValue;
                 plot.setIntensityValue(actualValue * 1.0)
-                console.log("TAV: selectorIntensity changed intensity (presented):", value, " (actual):", actualValue);
+                //console.log("TAV: selectorIntensity changed intensity (presented):", value, " (actual):", actualValue);
             }
 
             Component.onCompleted: {
@@ -1491,7 +1517,7 @@ WaterFall {
                 pulseSettings.filterDisplayValue = value
                 quickChangeObjects.quickChangeStartValue = actualValue;
                 plot.setFilteringValue(actualValue)
-                console.log("TAV: selectorFiltering changed filter (presented):", value, " (actual):", actualValue);
+                //console.log("TAV: selectorFiltering changed filter (presented):", value, " (actual):", actualValue);
             }
 
             Component.onCompleted: {
@@ -1603,7 +1629,7 @@ WaterFall {
                         }
                     }
                     // Let's pause AFTER we fix the settings
-                    pulseRuntimeSettings.echogramPause = isChecked
+                    pulseRuntimeSettings.echogramPause = isChecked;
                 }
                 /*
                 onControllerStateChanged: {
@@ -2721,6 +2747,7 @@ WaterFall {
                         CText {
                             Layout.fillWidth: true
                             text: qsTr("Rangefinder")
+                            Component.onCompleted: plotRangefinderVisible(false)
                             /*
                             checked: pulseRuntimeSettings !== null ? pulseRuntimeSettings.rangefinderVisible : false
                             onCheckedChanged: plotRangefinderVisible(checked)
