@@ -28,6 +28,10 @@ Epoch Epoch::deepCopyForMosaic() const
             echogramCopy.type = srcEchogram.type;
             echogramCopy.compensated = srcEchogram.compensated;
             echogramCopy.compensated.detach();
+            // PULSE: side scan TVG buffer for the mosaic source switch
+            echogramCopy.ssTvgCompensated = srcEchogram.ssTvgCompensated;
+            echogramCopy.ssTvgCompensated.detach();
+            echogramCopy.ssTvgVersion = srcEchogram.ssTvgVersion;
             echogramCopy.bottomProcessing = srcEchogram.bottomProcessing;
             echogramCopy.sensorPosition = srcEchogram.sensorPosition;
             echogramCopy.recordParameters_ = srcEchogram.recordParameters_;

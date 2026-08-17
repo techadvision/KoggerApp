@@ -11,6 +11,9 @@
 
 #include "data_processor_defs.h"
 #include "dataset_defs.h"
+#include "echogram_sidescan_tvg.h" // PULSE: side scan TVG (imageType 3 + mosaic source)
+#include "echogram_tvg.h" // PULSE: TVG display compensation (imageType 2)
+#include "echogram_watercolumn.h" // PULSE: water-body display filter (Stage B)
 #include "id_binnary.h"
 
 
@@ -120,6 +123,28 @@ public:
 
                 procData[i] = val;
             }
+        }
+
+        // PULSE: TVG display compensation cache (imageType 2), lazily built in
+        // chartTo() like `compensated`. tvgVersion tags which global gain
+        // constant the buffer was built with (see EchogramTvg::version()).
+        QVector<uint8_t> tvgCompensated;
+        uint32_t tvgVersion = 0;
+
+        void updateTvgCompensated() {
+            EchogramTvg::apply(amplitude, resolution, offset, tvgCompensated);
+            tvgVersion = EchogramTvg::version();
+        }
+
+        // PULSE: side scan TVG cache (imageType 3 / mosaic source), lazily
+        // built like the two caches above. ssTvgVersion tags which global
+        // parameter set the buffer was built with (EchogramSideScanTvg::version()).
+        QVector<uint8_t> ssTvgCompensated;
+        uint32_t ssTvgVersion = 0;
+
+        void updateSsTvgCompensated() {
+            EchogramSideScanTvg::apply(amplitude, resolution, offset, ssTvgCompensated);
+            ssTvgVersion = EchogramSideScanTvg::version();
         }
 
         DistProcessing bottomProcessing;
@@ -509,6 +534,35 @@ public:
                 return zeroOut();
             }
             src = eg.compensated.constData();
+        }
+        else if (imageType == 2) { // PULSE: TVG display compensation
+            if (eg.tvgCompensated.size() != rawSize || eg.tvgVersion != EchogramTvg::version()) {
+                eg.updateTvgCompensated();
+            }
+            if (eg.tvgCompensated.size() == rawSize) {
+                src = eg.tvgCompensated.constData();
+            }
+            // else: fail-safe — keep rendering the raw amplitude
+        }
+        else if (imageType == 3) { // PULSE: side scan TVG (log-law + noise floor + detail boost)
+            if (eg.ssTvgCompensated.size() != rawSize || eg.ssTvgVersion != EchogramSideScanTvg::version()) {
+                eg.updateSsTvgCompensated();
+            }
+            if (eg.ssTvgCompensated.size() == rawSize) {
+                src = eg.ssTvgCompensated.constData();
+            }
+            // else: fail-safe — keep rendering the raw amplitude
+        }
+
+        // PULSE Stage B: water-body display filter (column dim + surface soft-knee).
+        // Applies on top of EVERY image type — raw (0), side-scan AGC (1),
+        // TVG (2) and side scan TVG (3) — whenever the expert toggle is on
+        // (decoupled from the TVG toggles, 2026-08-17). Off by default, so
+        // the validated option-1 render is unchanged unless requested.
+        // Fail-safe inside apply(): epochs without a bottom track render unfiltered.
+        if (EchogramWaterColumn::isActive()) {
+            src = EchogramWaterColumn::apply(src, rawSize, eg.resolution, eg.offset,
+                                             eg.bottomProcessing.getDistance());
         }
 
         start -= eg.offset;

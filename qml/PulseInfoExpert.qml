@@ -100,6 +100,320 @@ Flickable {
             }
         }
 
+
+
+        //Category: 2D TVG (Stage A) — moved out of Experimental 2026-08-17
+        SettingRow {
+            toggle: true
+            text: "2D TVG settings"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCat2DTvg"
+                initialValue: pulseRuntimeSettings.showCat2DTvg
+            }
+        }
+
+        //PULSE TVG (Stage A): depth compensation for the 2D echogram, display-only
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: tvgToggle
+            text: "TVG depth compensation (2D)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "echogramTvgEnabled"
+                initialChecked: pulseRuntimeSettings.echogramTvgEnabled
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "TVG gain (dB/m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg && pulseRuntimeSettings.echogramTvgEnabled
+            HorizontalControllerDoubleSettings {
+                id: tvgDbPerMeterSelection
+                values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.echogramTvgDbPerMeter = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.echogramTvgDbPerMeter)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0.9)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onEchogramTvgDbPerMeterChanged () {
+                        var idx = tvgDbPerMeterSelection.values.indexOf(pulseRuntimeSettings.echogramTvgDbPerMeter)
+                        tvgDbPerMeterSelection.currentIndex = idx >= 0 ? idx : tvgDbPerMeterSelection.values.indexOf(0.9)
+                    }
+                }
+            }
+        }
+
+        //Category: water body filter (Stage B) — moved out of Experimental
+        //2026-08-17; activation independent of both TVG toggles.
+        SettingRow {
+            toggle: true
+            text: "Water body filter"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCatWaterBody"
+                initialValue: pulseRuntimeSettings.showCatWaterBody
+            }
+        }
+
+        //PULSE water-body filter: the filter control acts on the water column +
+        //surface band only (bottom-guarded) instead of the global low-cut.
+        //Independent of the TVG toggles — applies to every image type (raw,
+        //side scan AGC, 2D TVG, side scan TVG) whenever enabled.
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: waterBodyFilterToggle
+            text: "Water-body filtering"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatWaterBody
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "echogramWaterBodyFilterEnabled"
+                initialChecked: pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Filter bottom margin (m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatWaterBody && pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+            HorizontalControllerDoubleSettings {
+                id: waterBodyMarginSelection
+                values: [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.echogramWaterBodyBottomMargin = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0.05)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onEchogramWaterBodyBottomMarginChanged () {
+                        var idx = waterBodyMarginSelection.values.indexOf(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+                        waterBodyMarginSelection.currentIndex = idx >= 0 ? idx : waterBodyMarginSelection.values.indexOf(0.05)
+                    }
+                }
+            }
+        }
+
+        //PULSE side scan TVG (side scan phase): its own category. Log-law range
+        //gain for the side scan waterfall (imageType 3) and optionally the map
+        //mosaic. Validated offline on SS_pulse_log_2026.07.20 — "variant 4"
+        //(TVG + noise floor) as the core, detail boost stepper morphs it
+        //gradually toward "variant 5".
+        SettingRow {
+            toggle: true
+            text: "Side scan TVG settings"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCatTvg"
+                initialValue: pulseRuntimeSettings.showCatTvg
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: sideScanTvgToggle
+            text: "Side scan TVG (waterfall)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "sideScanTvgEnabled"
+                initialChecked: pulseRuntimeSettings.sideScanTvgEnabled
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: sideScanTvgMosaicToggle
+            text: "Use TVG for mosaic"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "sideScanTvgMosaicEnabled"
+                initialChecked: pulseRuntimeSettings.sideScanTvgMosaicEnabled
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Noise floor subtraction"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgNoiseFloorSelection
+                values: [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgNoiseFloor = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgNoiseFloor)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0.1)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgNoiseFloorChanged () {
+                        var idx = ssTvgNoiseFloorSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgNoiseFloor)
+                        ssTvgNoiseFloorSelection.currentIndex = idx >= 0 ? idx : ssTvgNoiseFloorSelection.values.indexOf(0.1)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Spreading (dB/decade)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgSpreadingSelection
+                values: [0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgSpreading = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgSpreading)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(5)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgSpreadingChanged () {
+                        var idx = ssTvgSpreadingSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgSpreading)
+                        ssTvgSpreadingSelection.currentIndex = idx >= 0 ? idx : ssTvgSpreadingSelection.values.indexOf(5)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Absorption (dB/m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgAbsorptionSelection
+                values: [0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.8, 1.0]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgAbsorption = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgAbsorption)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgAbsorptionChanged () {
+                        var idx = ssTvgAbsorptionSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgAbsorption)
+                        ssTvgAbsorptionSelection.currentIndex = idx >= 0 ? idx : ssTvgAbsorptionSelection.values.indexOf(0)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Reference range (m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgRefRangeSelection
+                values: [2, 5, 10, 15, 20, 30, 50]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgRefRange = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgRefRange)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(15)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgRefRangeChanged () {
+                        var idx = ssTvgRefRangeSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgRefRange)
+                        ssTvgRefRangeSelection.currentIndex = idx >= 0 ? idx : ssTvgRefRangeSelection.values.indexOf(15)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Detail boost"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgBoostSelection
+                values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgBoost = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgBoost)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(1.2)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgBoostChanged () {
+                        var idx = ssTvgBoostSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgBoost)
+                        ssTvgBoostSelection.currentIndex = idx >= 0 ? idx : ssTvgBoostSelection.values.indexOf(1.2)
+                    }
+                }
+            }
+        }
+
         SettingRow {
             toggle: false
             text: "Pulse blue booster"

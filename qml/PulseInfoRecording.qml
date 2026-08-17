@@ -326,13 +326,15 @@ Rectangle {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
+                    // PULSE side scan TVG: cycle raw (0) -> sidescan (1) -> sidescan tvg (3) -> raw
                     if (pulseRuntimeSettings.echogramCompensationFile === 0) {
                         pulseRuntimeSettings.echogramCompensationFile = 1
-                        fileformatting.text = "(sidescan)"
+                    } else if (pulseRuntimeSettings.echogramCompensationFile === 1) {
+                        pulseRuntimeSettings.echogramCompensationFile = 3
                     } else {
                         pulseRuntimeSettings.echogramCompensationFile = 0
-                        fileformatting.text = "(raw)"
                     }
+                    fileformatting.text = layout.compensationLabel(pulseRuntimeSettings.echogramCompensationFile)
                     //pulseRuntimeSettings.reconnectAfterLogView = true
                 }
             }
@@ -355,23 +357,27 @@ Rectangle {
             Layout.leftMargin: Math.round(20 * s) //20
         }
 
+        // PULSE side scan TVG: shared label mapping for the compensation id
+        // NOTE: declared on the GridLayout (id: layout). QML resolves
+        // unqualified functions only against the current object, the file
+        // root and ids — so every call site must use layout.compensationLabel().
+        function compensationLabel(comp) {
+            if (comp === 0) return "(raw)"
+            if (comp === 1) return "(sidescan)"
+            if (comp === 2) return "(tvg 2D)"
+            if (comp === 3) return "(sidescan tvg)"
+            return "()"
+        }
+
         Connections {
             target: pulseRuntimeSettings
              function onEchogramCompensationFileChanged () {
-                if (pulseRuntimeSettings.echogramCompensationFile === 0) {
-                    fileformatting.text = "(raw)"
-                } else {
-                    fileformatting.text = "(sidescan)"
-                }
+                fileformatting.text = layout.compensationLabel(pulseRuntimeSettings.echogramCompensationFile)
              }
         }
 
         Component.onCompleted: {
-            if (pulseRuntimeSettings.echogramCompensationFile === 0) {
-                fileformatting.text = "(raw)"
-            } else {
-                fileformatting.text = "(sidescan)"
-            }
+            fileformatting.text = layout.compensationLabel(pulseRuntimeSettings.echogramCompensationFile)
         }
 
         Connections {
@@ -398,13 +404,13 @@ Rectangle {
                 console.log("FileOpening from recording completed, enforce compensation?")
                 if (pulseRuntimeSettings === null)
                     return
-                if (pulseRuntimeSettings.is2DTransducer) {
-                    pulseRuntimeSettings.echogramCompensationFile = 0
-                    console.log("FileOpening from recording completed, enforce RAW")
-                } else {
-                    pulseRuntimeSettings.echogramCompensationFile = 1
-                    console.log("FileOpening from recording completed, enforce SIDE SCAN")
-                }
+                // PULSE: honour the TVG expert toggles instead of forcing
+                // raw/side scan — resolve returns 2D: TVG(2) or raw(0),
+                // side scan: side scan TVG(3) or AGC(1). No more double-
+                // toggling after opening a file.
+                let comp = pulseRuntimeSettings.resolveEchogramCompensation()
+                pulseRuntimeSettings.echogramCompensationFile = comp
+                console.log("FileOpening from recording completed, enforce resolved compensation", comp)
             }
         }
     }

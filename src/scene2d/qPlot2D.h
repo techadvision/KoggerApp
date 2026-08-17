@@ -5,6 +5,8 @@
 #include <QObject>
 #include <dataset.h>
 #include <QTimer>
+#include "echogram_tvg.h"
+#include "echogram_watercolumn.h"
 #include "plot2D.h"
 #include <QDebug>
 #include "SettingsBus.h"
@@ -251,6 +253,66 @@ public slots:
     Q_INVOKABLE bool isViewHorizontal() { return isHorizontal(); }
     Q_INVOKABLE void setIntensityValue (float intensity) { setEchogramHightLevel(intensity); }
     Q_INVOKABLE void setFilteringValue (float filter) { setEchogramLowLevel(filter); }
+    // PULSE TVG (Stage A): set the global decay constant (dB/m). If TVG is the
+    // active compensation, re-apply it so the cache resets and the view redraws.
+    Q_INVOKABLE void setTvgDbPerMeter (float dbPerMeter) {
+        EchogramTvg::setDbPerMeter(dbPerMeter);
+        if (Plot2D::getEchogramCompensation() == 2) {
+            setEchogramCompensation(2);
+        }
+    }
+    Q_INVOKABLE float getTvgDbPerMeter () const { return EchogramTvg::dbPerMeter(); }
+    // PULSE water-body filter (Stage B): strength [0..1] from the Pulse filter
+    // control. Additive Pulse-only path — the upstream low-level pipeline
+    // (setEchogramLowLevel) is not involved. Re-applies the current
+    // compensation id to reset the echogram cache and redraw.
+    Q_INVOKABLE void setWaterBodyFilter (float strength01) {
+        EchogramWaterColumn::setStrength(strength01);
+        setEchogramCompensation(Plot2D::getEchogramCompensation());
+    }
+    Q_INVOKABLE float getWaterBodyFilter () const { return EchogramWaterColumn::strength(); }
+    // PULSE water-body filter: bottom guard (m) — how close above the detected
+    // bottom the filter may bite. Smaller = debris halo dimmed harder.
+    Q_INVOKABLE void setWaterBodyBottomGuard (float guardM) {
+        EchogramWaterColumn::setBottomGuardM(guardM);
+        if (EchogramWaterColumn::isActive()) {
+            setEchogramCompensation(Plot2D::getEchogramCompensation());
+        }
+    }
+    Q_INVOKABLE float getWaterBodyBottomGuard () const { return EchogramWaterColumn::bottomGuardM(); }
+    // PULSE side scan TVG (imageType 3): parameter setters. Each setter
+    // re-applies compensation when the side scan TVG is active so the
+    // per-epoch caches reset and the waterfall redraws immediately (same
+    // refresh trick as setTvgDbPerMeter above).
+    Q_INVOKABLE void setSsTvgSpreading (float dbPerDecade) {
+        EchogramSideScanTvg::setSpreading(dbPerDecade);
+        refreshIfSsTvgActive();
+    }
+    Q_INVOKABLE float getSsTvgSpreading () const { return EchogramSideScanTvg::spreading(); }
+    Q_INVOKABLE void setSsTvgAbsorption (float dbPerMeter) {
+        EchogramSideScanTvg::setAbsorption(dbPerMeter);
+        refreshIfSsTvgActive();
+    }
+    Q_INVOKABLE float getSsTvgAbsorption () const { return EchogramSideScanTvg::absorption(); }
+    Q_INVOKABLE void setSsTvgRefRange (float meters) {
+        EchogramSideScanTvg::setRefRange(meters);
+        refreshIfSsTvgActive();
+    }
+    Q_INVOKABLE float getSsTvgRefRange () const { return EchogramSideScanTvg::refRange(); }
+    Q_INVOKABLE void setSsTvgNoiseFloor (float strength01) {
+        EchogramSideScanTvg::setNoiseFloorStrength(strength01);
+        refreshIfSsTvgActive();
+    }
+    Q_INVOKABLE float getSsTvgNoiseFloor () const { return EchogramSideScanTvg::noiseFloorStrength(); }
+    Q_INVOKABLE void setSsTvgBoost (float beta) {
+        EchogramSideScanTvg::setBoostBeta(beta);
+        refreshIfSsTvgActive();
+    }
+    Q_INVOKABLE float getSsTvgBoost () const { return EchogramSideScanTvg::boostBeta(); }
+    // Mosaic source switch: takes effect for newly traced epochs; use the
+    // mosaic update action for a full rebuild (handled QML-side in main.qml).
+    Q_INVOKABLE void setSsTvgMosaicEnabled (bool enabled) { EchogramSideScanTvg::setMosaicEnabled(enabled); }
+    Q_INVOKABLE bool getSsTvgMosaicEnabled () const { return EchogramSideScanTvg::mosaicEnabled(); }
     //Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
     //Q_INVOKABLE void setSideScanOnLeftHandSideNow(bool isLeftSideInstalled) { setSideScanOnLeftHandSide(isLeftSideInstalled); }
 
@@ -290,6 +352,13 @@ public slots:
     void setOffsetZ(float value);
 
 private:
+    // PULSE side scan TVG: shared refresh trick — re-applying the current
+    // compensation id resets the per-epoch caches and redraws the view.
+    void refreshIfSsTvgActive() {
+        if (Plot2D::getEchogramCompensation() == 3) {
+            setEchogramCompensation(3);
+        }
+    }
     int indx_ = -1;
     //PULSE
     void wireBus(SettingsBus* bus);

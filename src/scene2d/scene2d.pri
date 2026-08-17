@@ -24,6 +24,9 @@ HEADERS += \
     $$PWD/plot2D_usbl_solution.h \
     $$PWD/plot2D_depth.h \
     $$PWD/plot2D_zoom.h \
+    $$PWD/echogram_sidescan_tvg.h \
+    $$PWD/echogram_tvg.h \
+    $$PWD/echogram_watercolumn.h \
     $$PWD/qPlot2D.h
 
 SOURCES += \
@@ -45,4 +48,7 @@ SOURCES += \
     $$PWD/plot2D_usbl_solution.cpp \
     $$PWD/plot2D_depth.cpp \
     $$PWD/plot2D_zoom.cpp \
+    $$PWD/echogram_sidescan_tvg.cpp \
+    $$PWD/echogram_tvg.cpp \
+    $$PWD/echogram_watercolumn.cpp \
     $$PWD/qPlot2D.cpp

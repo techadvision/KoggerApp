@@ -10,6 +10,7 @@
 #include "data_processor_defs.h"
 #include "dataset.h"
 #include "compute_worker.h"
+#include "echogram_sidescan_tvg.h" // PULSE: mosaic source switch (AGC vs side scan TVG)
 
 
 static constexpr int sampleLimiter    = 2;
@@ -43,6 +44,40 @@ static int sampleIndex(Epoch::Echogram *echogramPtr, float dist)
     }
 
     return indx;
+}
+
+// PULSE: mosaic source switch. Default (and fail-safe) is the historical AGC
+// buffer (`compensated`); when the expert side scan TVG mosaic switch is on
+// and the TVG buffer is fresh, the mosaic renders level-correct TVG data
+// instead. Tiles already drawn keep their pixels until re-traced (use the
+// mosaic update action for a full rebuild after flipping the switch).
+static void ensureMosaicSource(Epoch::Echogram* ch)
+{
+    if (!ch) {
+        return;
+    }
+    if (EchogramSideScanTvg::mosaicEnabled()) {
+        if (ch->ssTvgCompensated.size() != ch->amplitude.size() ||
+            ch->ssTvgVersion != EchogramSideScanTvg::version()) {
+            ch->updateSsTvgCompensated();
+        }
+        if (ch->ssTvgCompensated.size() == ch->amplitude.size()) {
+            return;
+        }
+        // fall through: TVG buffer unavailable -> keep the AGC path working
+    }
+    if (ch->amplitude.size() != ch->compensated.size()) {
+        ch->updateCompesated();
+    }
+}
+
+static const QVector<uint8_t>& mosaicSourceBuf(Epoch::Echogram* ch)
+{
+    if (EchogramSideScanTvg::mosaicEnabled() &&
+        ch->ssTvgCompensated.size() == ch->amplitude.size()) {
+        return ch->ssTvgCompensated;
+    }
+    return ch->compensated;
 }
 
 MosaicProcessor::MosaicProcessor(DataProcessor* parent, ComputeWorker* computeWorker)
@@ -845,12 +880,9 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
             !isfinite(segSCharts->bottomProcessing.getDistance())) {
             continue;
         }
-        if (segFCharts->amplitude.size() != segFCharts->compensated.size()) {
-            segFCharts->updateCompesated();
-        }
-        if (segSCharts->amplitude.size() != segSCharts->compensated.size()) {
-            segSCharts->updateCompesated();
-        }
+        // PULSE: build whichever buffer the mosaic source switch selects
+        ensureMosaicSource(segFCharts);
+        ensureMosaicSource(segSCharts);
 
         // Bresenham, first segment
         QVector3D segFPhBegPnt = segFIsOdd ? measLinesVertices[segFBegVertIndx] : measLinesVertices[segFEndVertIndx];
@@ -1109,11 +1141,13 @@ int MosaicProcessor::getColorIndx(Epoch::Echogram* charts, int ampIndx) const
         return retVal;
     }
 
-    const auto ampSize = charts->compensated.size();
+    // PULSE: mosaic source switch — AGC buffer (default) or side scan TVG
+    const QVector<uint8_t>& srcBuf = mosaicSourceBuf(charts);
+    const auto ampSize = srcBuf.size();
 
     if (ampSize > ampIndx) {
         if (aliasWindow_ == 1) {
-            int cVal = charts->compensated[ampIndx] ;
+            int cVal = srcBuf[ampIndx] ;
             cVal = std::min(colorTableSize_, cVal);
             retVal = cVal;
         }
@@ -1126,14 +1160,14 @@ int MosaicProcessor::getColorIndx(Epoch::Echogram* charts, int ampIndx) const
                 rIndx > 0 && ampSize > rIndx) {
                 int newColorIndx = 0;
                 for (int i = lIndx; i < rIndx; ++i) {
-                    int cVal = charts->compensated[i] ;
+                    int cVal = srcBuf[i] ;
                     cVal = std::min(colorTableSize_, cVal);
                     newColorIndx += cVal;
                 }
                 retVal = float(newColorIndx) / float(aliasWindow_);
             }
             else {
-                int cVal = charts->compensated[ampIndx] ;
+                int cVal = srcBuf[ampIndx] ;
                 cVal = std::min(colorTableSize_, cVal);
                 retVal = cVal;
             }

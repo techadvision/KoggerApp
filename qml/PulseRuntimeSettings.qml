@@ -118,7 +118,37 @@ QtObject {
     property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
     property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
-    property int    echogramCompensationFile:0      // EXPERIMENTAL: Should be either 0 (raw) or 1 (side scan)
+    property int    echogramCompensationFile:0      // EXPERIMENTAL: 0 (raw), 1 (side scan) or 2 (TVG)
+
+    //Water-body filter — Stage B (expert-gated, display-only). When enabled the Pulse
+    //filter control drives the new water-column/surface filter instead of the upstream
+    //global low-cut (which is then pinned to 0; the upstream method itself is untouched).
+    property bool   echogramWaterBodyFilterEnabled: false
+    property double echogramWaterBodyBottomMargin: 0.05   // Bottom guard in m: zone above the bottom the filter never touches
+
+    //TVG — Stage A (expert-gated, display-only). See tvg_analysis_and_recommendation.md v2.
+    property bool   echogramTvgEnabled:     false   // Expert toggle: TVG depth compensation (imageType 2), 2D non-side-scan only
+    property double echogramTvgDbPerMeter:  0.9     // Net decay constant in dB/m (Dreamlake harvest: 0.66-1.11, mean ~0.9)
+
+    //Side scan TVG — side scan phase (expert-gated, display-only). Log-law range
+    //gain (imageType 3) validated offline on SS_pulse_log_2026.07.20: consistent
+    //intensity over range (brightness = bottom hardness) instead of the AGC's
+    //local-contrast normalization. Defaults mirror EchogramSideScanTvg constants.
+    property bool   sideScanTvgEnabled:      false  // Expert toggle: waterfall uses TVG (3) instead of AGC (1)
+    property double sideScanTvgSpreading:    5      // S in dB/decade (field-tuned 2026-08-16; deeper water/chirp may want more)
+    property double sideScanTvgAbsorption:   0.0    // a in dB/m (field-tuned: 0 on 25 m ranges; matters for chirp long range)
+    property double sideScanTvgRefRange:     15     // gain = 1 at this range (m): near field keeps familiar brightness
+    property double sideScanTvgNoiseFloor:   0.1    // noise-floor subtraction strength 0..1 (0 = off; base level for partner testing 2026-08-17)
+    property double sideScanTvgBoost:        1.2    // detail boost beta (field-tuned: essential for crispness)
+    property bool   sideScanTvgMosaicEnabled:false  // mosaic renders TVG buffer instead of AGC (rebuild applied on switch)
+
+    // Single source of truth for the echogram compensation id.
+    // 2D uses TVG (2) when enabled, else raw (0); side scan uses side scan
+    // TVG (3) when enabled, else AGC (1).
+    function resolveEchogramCompensation() {
+        return is2DTransducer ? (echogramTvgEnabled ? 2 : 0)
+                              : (sideScanTvgEnabled ? 3 : 1)
+    }
 
     //APP DYNAMIC CONTROLS
     property int    dynamicResolutionMin:   50      // The minimum allowed resolution in mm, reduced from 90 to 50
@@ -158,6 +188,9 @@ QtObject {
     property bool   showCatTroubleShoot:    false
     property bool   showCatRecording:       false
     property bool   showCatExperimental:    false
+    property bool   showCatTvg:             false
+    property bool   showCat2DTvg:           false
+    property bool   showCatWaterBody:       false
     property bool   showCatDepthTricks:     false
     property bool   showCatBottomTrack:     false
     property bool   showCatDebug:           false

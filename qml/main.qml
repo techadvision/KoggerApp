@@ -88,6 +88,11 @@ ApplicationWindow  {
         function onIsBottomTrackInitiatedChanged()  { settingsBus.updateRuntime({ isBottomTrackInitiated:   pulseRuntimeSettings.isBottomTrackInitiated     }) }
         //Play/Pause echogram
         function onEchogramPauseChanged()           { settingsBus.updateRuntime({ echogramPause:            pulseRuntimeSettings.echogramPause              }) }
+        //PULSE side scan TVG: full mosaic rebuild when the mosaic source
+        //switch flips, so existing tiles re-trace with the selected buffer.
+        //Qt.callLater ensures the Plot2D.qml handler has pushed the C++ flag
+        //before the rebuild starts.
+        function onSideScanTvgMosaicEnabledChanged() { Qt.callLater(function() { scene3DToolbar.updateMosaic() }) }
         //App is ready configured, ensure C++ values are up to date:
         function onUserManualSetNameChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")

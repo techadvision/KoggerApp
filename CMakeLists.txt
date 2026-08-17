@@ -189,6 +189,9 @@ list(APPEND APP_HEADERS
     src/scene2d/plot2D_usbl_solution.h
     src/scene2d/plot2D_depth.h
     src/scene2d/plot2D_zoom.h
+    src/scene2d/echogram_sidescan_tvg.h
+    src/scene2d/echogram_tvg.h
+    src/scene2d/echogram_watercolumn.h
     src/scene2d/qPlot2D.h
 )
 list(APPEND APP_SOURCES
@@ -210,6 +213,9 @@ list(APPEND APP_SOURCES
     src/scene2d/plot2D_usbl_solution.cpp
     src/scene2d/plot2D_depth.cpp
     src/scene2d/plot2D_zoom.cpp
+    src/scene2d/echogram_sidescan_tvg.cpp
+    src/scene2d/echogram_tvg.cpp
+    src/scene2d/echogram_watercolumn.cpp
     src/scene2d/qPlot2D.cpp
 )
 
@@ -598,8 +604,8 @@ if(ANDROID)
     set_target_properties(Pulse PROPERTIES
         QT_ANDROID_ABIS "${KOGGER_ANDROID_ABIS}"
         QT_ANDROID_MIN_SDK_VERSION 28
-        QT_ANDROID_TARGET_SDK_VERSION 35
-        QT_ANDROID_SDK_BUILD_TOOLS_REVISION "35.0.0"
+        QT_ANDROID_TARGET_SDK_VERSION 36
+        QT_ANDROID_SDK_BUILD_TOOLS_REVISION "36.1.0"
         QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/platform/android"
         QT_QML_IMPORT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/qml"
     )

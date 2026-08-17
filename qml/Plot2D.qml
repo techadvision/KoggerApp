@@ -169,15 +169,11 @@ WaterFall {
                 return
             if(pulseRuntimeSettings.devName === "...")
                 return
-            if (pulseRuntimeSettings.is2DTransducer) {
-                console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, is2D")
-                plot.plotEchogramCompensation(0)
-                pulseRuntimeSettings.echogramCompensationFile = 0
-            } else {
-                console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, isSideScan")
-                plot.plotEchogramCompensation(1)
-                pulseRuntimeSettings.echogramCompensationFile = 1
-            }
+            // PULSE TVG: centralized id resolution — side-scan 1, 2D = TVG (2) when enabled, else raw (0)
+            let comp = pulseRuntimeSettings.resolveEchogramCompensation()
+            console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, resolved", comp)
+            plot.plotEchogramCompensation(comp)
+            pulseRuntimeSettings.echogramCompensationFile = comp
             console.log("EchogramCompensation: Plot2D onDevManualSelectedChanged, value now", plot.getEchogramCompensation())
         }
 
@@ -191,16 +187,120 @@ WaterFall {
                 return
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
-            if (pulseRuntimeSettings.is2DTransducer) {
-                console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, is2D")
-                plot.plotEchogramCompensation(0)
-                pulseRuntimeSettings.echogramCompensationFile = 0
-            } else {
-                console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, isSideScan")
-                plot.plotEchogramCompensation(1)
-                pulseRuntimeSettings.echogramCompensationFile = 1
-            }
+            // PULSE TVG: centralized id resolution — side-scan 1, 2D = TVG (2) when enabled, else raw (0)
+            let comp = pulseRuntimeSettings.resolveEchogramCompensation()
+            console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, resolved", comp)
+            plot.plotEchogramCompensation(comp)
+            pulseRuntimeSettings.echogramCompensationFile = comp
             console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, value now", plot.getEchogramCompensation())
+        }
+
+        // PULSE TVG (Stage A): expert toggle. Only ever switches between raw (0)
+        // and TVG (2) — never touches an active side-scan AGC (1).
+        function onEchogramTvgEnabledChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+            let cur = plot.getEchogramCompensation()
+            if (cur === 1) {
+                console.log("EchogramCompensation: TVG toggle ignored, side-scan AGC active")
+                return
+            }
+            let comp = pulseRuntimeSettings.echogramTvgEnabled ? 2 : 0
+            console.log("EchogramCompensation: Plot2D onEchogramTvgEnabledChanged, resolved", comp)
+            plot.plotEchogramCompensation(comp)
+            pulseRuntimeSettings.echogramCompensationFile = comp
+        }
+
+        // PULSE TVG: live tuning of the decay constant (dB/m); the C++ side
+        // refreshes the echogram itself when TVG is the active compensation.
+        function onEchogramTvgDbPerMeterChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: TVG dB/m ->", pulseRuntimeSettings.echogramTvgDbPerMeter)
+            plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+        }
+
+        // PULSE side scan TVG: expert toggle. Only ever switches between the
+        // side scan AGC (1) and side scan TVG (3) — never touches an active
+        // 2D compensation (0/2).
+        function onSideScanTvgEnabledChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            // push the full parameter set so C++ matches QML before switching
+            plot.setSsTvgSpreading(pulseRuntimeSettings.sideScanTvgSpreading)
+            plot.setSsTvgAbsorption(pulseRuntimeSettings.sideScanTvgAbsorption)
+            plot.setSsTvgRefRange(pulseRuntimeSettings.sideScanTvgRefRange)
+            plot.setSsTvgNoiseFloor(pulseRuntimeSettings.sideScanTvgNoiseFloor)
+            plot.setSsTvgBoost(pulseRuntimeSettings.sideScanTvgBoost)
+            let cur = plot.getEchogramCompensation()
+            if (cur === 0 || cur === 2) {
+                console.log("EchogramCompensation: side scan TVG toggle ignored, 2D compensation active")
+                return
+            }
+            let comp = pulseRuntimeSettings.sideScanTvgEnabled ? 3 : 1
+            console.log("EchogramCompensation: Plot2D onSideScanTvgEnabledChanged, resolved", comp)
+            plot.plotEchogramCompensation(comp)
+            pulseRuntimeSettings.echogramCompensationFile = comp
+        }
+
+        // PULSE side scan TVG: live tuning — C++ refreshes the echogram
+        // itself whenever side scan TVG (3) is the active compensation.
+        function onSideScanTvgSpreadingChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: side scan TVG spreading ->", pulseRuntimeSettings.sideScanTvgSpreading)
+            plot.setSsTvgSpreading(pulseRuntimeSettings.sideScanTvgSpreading)
+        }
+        function onSideScanTvgAbsorptionChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: side scan TVG absorption ->", pulseRuntimeSettings.sideScanTvgAbsorption)
+            plot.setSsTvgAbsorption(pulseRuntimeSettings.sideScanTvgAbsorption)
+        }
+        function onSideScanTvgRefRangeChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: side scan TVG ref range ->", pulseRuntimeSettings.sideScanTvgRefRange)
+            plot.setSsTvgRefRange(pulseRuntimeSettings.sideScanTvgRefRange)
+        }
+        function onSideScanTvgNoiseFloorChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: side scan TVG noise floor ->", pulseRuntimeSettings.sideScanTvgNoiseFloor)
+            plot.setSsTvgNoiseFloor(pulseRuntimeSettings.sideScanTvgNoiseFloor)
+        }
+        function onSideScanTvgBoostChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: side scan TVG boost ->", pulseRuntimeSettings.sideScanTvgBoost)
+            plot.setSsTvgBoost(pulseRuntimeSettings.sideScanTvgBoost)
+        }
+        function onSideScanTvgMosaicEnabledChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: side scan TVG mosaic ->", pulseRuntimeSettings.sideScanTvgMosaicEnabled)
+            plot.setSsTvgMosaicEnabled(pulseRuntimeSettings.sideScanTvgMosaicEnabled)
+        }
+
+        // PULSE water-body filter (Stage B): re-route the current filter value
+        // through the selected mode whenever the expert toggle flips.
+        function onEchogramWaterBodyFilterEnabledChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("WaterBodyFilter: toggle ->", pulseRuntimeSettings.echogramWaterBodyFilterEnabled)
+            plot.setWaterBodyBottomGuard(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+            quickChangeObjects.applyFiltering(pulseSettings.filterRealValue)
+            plot.updatePlot()
+        }
+
+        // PULSE water-body filter: live tuning of the bottom guard (m); the
+        // C++ side refreshes the echogram itself when the filter is active.
+        function onEchogramWaterBodyBottomMarginChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("WaterBodyFilter: bottom margin ->", pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+            plot.setWaterBodyBottomGuard(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
         }
     }
 
@@ -1090,6 +1190,21 @@ WaterFall {
             return 0;
         }
 
+        // PULSE Stage B: single routing point for the filter control.
+        // realValue is the "actual" filter scale (display 0-20 × 2.5 → 0-50).
+        // Water-body mode ON: upstream global low-cut pinned to 0, strength
+        // [0..1] goes to the Pulse-only water-column/surface filter.
+        // OFF: exactly the pre-Stage-B behavior.
+        function applyFiltering(realValue) {
+            if (pulseRuntimeSettings.echogramWaterBodyFilterEnabled) {
+                plot.setFilteringValue(0)
+                plot.setWaterBodyFilter(realValue / 50.0)
+            } else {
+                plot.setWaterBodyFilter(0.0)
+                plot.setFilteringValue(realValue)
+            }
+        }
+
         function doAutoFilter() {
             if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
                     || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
@@ -1102,7 +1217,7 @@ WaterFall {
 
                 let filter = getFilterForDepth (currentMaxDept)
                 filter = Math.ceil(filter * 2.5)
-                plot.setFilteringValue(filter)
+                applyFiltering(filter)
                 plot.updatePlot()
                 //console.log("TAV: auto filter updated plot to real newFilterValue", filter);
 
@@ -1516,14 +1631,14 @@ WaterFall {
                 pulseSettings.filterRealValue = actualValue
                 pulseSettings.filterDisplayValue = value
                 quickChangeObjects.quickChangeStartValue = actualValue;
-                plot.setFilteringValue(actualValue)
+                quickChangeObjects.applyFiltering(actualValue) // PULSE Stage B routing
                 //console.log("TAV: selectorFiltering changed filter (presented):", value, " (actual):", actualValue);
             }
 
             Component.onCompleted: {
                 if (pulseRuntimeSettings.is2DTransducer) {
                 //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                    plot.setFilteringValue(pulseSettings.filterRealValue)
+                    quickChangeObjects.applyFiltering(pulseSettings.filterRealValue) // PULSE Stage B routing
                     if (pulseSettings.autoFilter) {
                         quickChangeObjects.doAutoFilter()
                     }
@@ -1542,7 +1657,7 @@ WaterFall {
                 //console.log("TAV: Fixed filter requested");
                 pulseSettings.autoFilter = false;
                 let preferredValue = pulseSettings.filterRealValue
-                plot.setFilteringValue(preferredValue)
+                quickChangeObjects.applyFiltering(preferredValue) // PULSE Stage B routing
 
                 plot.updatePlot()
             }
@@ -1570,7 +1685,7 @@ WaterFall {
                 onTriggered: {
                     if (pulseRuntimeSettings.is2DTransducer) {
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                        plot.setFilteringValue(pulseSettings.filterRealValue)
+                        quickChangeObjects.applyFiltering(pulseSettings.filterRealValue) // PULSE Stage B routing
                         if (pulseSettings.autoFilter) {
                             quickChangeObjects.doAutoFilter()
                         }

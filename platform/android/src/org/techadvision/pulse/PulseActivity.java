@@ -106,12 +106,12 @@ public class PulseActivity extends QtActivity {
 
             nativeInit();
 
-            // 1) LANDSCAPE ENFORCE (when not multi-window)
-            if (!isInMultiWindowMode()) {
-                setRequestedOrientation(ORIENTATION_LANDSCAPE);
-            } else {
-                setRequestedOrientation(ORIENTATION_UNSPECIFIED);
-            }
+            // 1) LANDSCAPE ENFORCE (when not multi-window).
+            // Applied now AND re-posted after first layout: on some OEM ROMs
+            // (e.g. Skydroid G20) isInMultiWindowMode()/window metrics are not
+            // reliable until the window is attached.
+            applyOrientationPolicy();
+            getWindow().getDecorView().post(this::applyOrientationPolicy);
 
             // 2) EDGE-TO-EDGE + INSETS + DEX
             setupEdgeToEdgeInsetsAndDex();
@@ -145,29 +145,75 @@ public class PulseActivity extends QtActivity {
         protected void onResume() {
             super.onResume();
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                setRequestedOrientation(isInMultiWindowMode()
-                    ? ORIENTATION_UNSPECIFIED
-                    : ORIENTATION_LANDSCAPE);
-            }
+            applyOrientationPolicy();
 
             final View root = getWindow().getDecorView();
             root.post(() -> ViewCompat.requestApplyInsets(root));
         }
-    
+
         @Override
         public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
             super.onMultiWindowModeChanged(isInMultiWindowMode);
 
-            if (isInMultiWindowMode) {
-                setRequestedOrientation(ORIENTATION_UNSPECIFIED);
-            } else {
-                setRequestedOrientation(ORIENTATION_LANDSCAPE);
-            }
             multiWindow = isInMultiWindowMode;
+            applyOrientationPolicy();
 
             Log.d(TAG, "INSETS: App in multi window? " + isInMultiWindowMode());
             ViewCompat.requestApplyInsets(getWindow().getDecorView());
+        }
+
+        /**
+         * Some OEM ROMs (e.g. Skydroid G20) never call onMultiWindowModeChanged and
+         * misreport isInMultiWindowMode() when their split-screen implementation is
+         * engaged. The activity is not recreated either, because the manifest handles
+         * the relevant configChanges. onConfigurationChanged IS delivered on every
+         * split resize, so re-evaluate the orientation policy here.
+         */
+        @Override
+        public void onConfigurationChanged(Configuration newConfig) {
+            super.onConfigurationChanged(newConfig);
+            applyOrientationPolicy();
+            ViewCompat.requestApplyInsets(getWindow().getDecorView());
+        }
+
+        /**
+         * Multi-window detection that does not blindly trust the ROM: in addition to
+         * isInMultiWindowMode(), compare our window bounds against the display's
+         * maximum bounds (API 30+). If our window is meaningfully smaller than the
+         * screen, we are windowed/split regardless of what the ROM reports.
+         */
+        private boolean isEffectivelyMultiWindow() {
+            if (isInMultiWindowMode()) {
+                return true;
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    android.view.WindowManager wm = getWindowManager();
+                    android.graphics.Rect cur = wm.getCurrentWindowMetrics().getBounds();
+                    android.graphics.Rect max = wm.getMaximumWindowMetrics().getBounds();
+                    if (cur.width() < max.width() * 0.85f || cur.height() < max.height() * 0.85f) {
+                        Log.d(TAG, "ORIENTATION: window " + cur + " smaller than display " + max
+                                + " -> treating as multi-window despite isInMultiWindowMode()=false");
+                        return true;
+                    }
+                } catch (Throwable t) {
+                    Log.w(TAG, "ORIENTATION: window metrics check failed", t);
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Single authority for the orientation request: landscape when we own the
+         * whole screen, unspecified (let the window fill its pane) when windowed.
+         */
+        private void applyOrientationPolicy() {
+            final boolean mw = isEffectivelyMultiWindow();
+            final int wanted = mw ? ORIENTATION_UNSPECIFIED : ORIENTATION_LANDSCAPE;
+            if (getRequestedOrientation() != wanted) {
+                Log.d(TAG, "ORIENTATION: applying " + (mw ? "UNSPECIFIED (multi-window)" : "LANDSCAPE"));
+                setRequestedOrientation(wanted);
+            }
         }
     
         private void setupEdgeToEdgeInsetsAndDex() {
@@ -227,9 +273,14 @@ public class PulseActivity extends QtActivity {
                 Log.d(TAG, "INSETS: Dex on?? " + dexOn);
                 Log.d(TAG, "INSETS: Dex full screen?? " + dexFS);
 
-                if (isInMultiWindowMode()) {
-                    top = top + 36;
-                    Log.d(TAG, "INSETS: multi window mode, increasing top inset");
+                if (isEffectivelyMultiWindow()) {
+                    // Density-independent: the old raw "36" px was tuned on a
+                    // ~2x-density tablet (≈18dp) and would render differently on
+                    // every other screen. 18dp keeps the tuned look there and
+                    // scales correctly on low-density devices like the G20.
+                    int extraTopPx = (int) (18 * getResources().getDisplayMetrics().density + 0.5f);
+                    top = top + extraTopPx;
+                    Log.d(TAG, "INSETS: multi window mode, increasing top inset by " + extraTopPx + "px");
                     //dexOn = true;
                     //dexFS = true;
                 }
