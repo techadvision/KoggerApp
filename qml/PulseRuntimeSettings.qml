@@ -42,6 +42,16 @@ QtObject {
     property bool   isSideScanLeftHand:     false   // Side scan mounted on the left side
     property bool   isOpeningKlfFile:       false
     property bool   wasKlfFileOpened:       false
+    //DEMO MODE (Stage 1) — see demo_mode_plan.md.
+    //A .plog file is replayed as if a live transducer were streaming it. This is
+    //a THIRD state, not file view: wasKlfFileOpened MUST stay false during a
+    //demo, because that flag is what disables the live-style UI all over
+    //Plot2D.qml. isInDemoMode instead silences the things that talk to, or react
+    //to, a device that is not really there.
+    property bool   isInDemoMode:           false
+    property string demoFilePath:           ""      // File chosen for replay
+    property int    demoMeasuredPeriodMs:   0       // 0 = unknown; else the pacing in use (ms/epoch)
+    property bool   demoIsSideScan:         false   // What the prescan classified the log as
     property int    numberOfDatasetChannels:0       // The number of channels in the dataset received
     property int    currentDepthSolution:   -1      // Depth reporting inactive = 0, depth distance = 1, depth NMEA = 2
     property bool   disableAllSetup:        false
@@ -120,21 +130,88 @@ QtObject {
     property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
     property int    echogramCompensationFile:0      // EXPERIMENTAL: 0 (raw), 1 (side scan) or 2 (TVG)
 
-    //Water-body filter — Stage B (expert-gated, display-only). When enabled the Pulse
+    //Water-body filter — Stage B (display-only). When enabled the Pulse
     //filter control drives the new water-column/surface filter instead of the upstream
     //global low-cut (which is then pinned to 0; the upstream method itself is untouched).
-    property bool   echogramWaterBodyFilterEnabled: false
+    //DEFAULT ON since the external-tester build (2026-08-29): validated by the expert
+    //testers on 2D, side scan and live Red/Blue. Experts can still switch it off.
+    property bool   echogramWaterBodyFilterEnabled: true
     property double echogramWaterBodyBottomMargin: 0.05   // Bottom guard in m: zone above the bottom the filter never touches
+    //Minimum "real" filter value (0-50 scale) used for the water body strength while the
+    //filter is enabled. The filter slider is PERSISTENT, so a tester upgrading from an
+    //older build can arrive with it at 0 — which would leave EchogramWaterColumn at
+    //strength 0 (isActive() false) while the checkbox reads "on". Flooring the strength
+    //here keeps the promise the toggle makes; raising the slider still works normally.
+    //5/50 = 0.10, the same gentle level the slider default (5) gives.
+    property int    echogramWaterBodyMinRealValue:  5
 
-    //TVG — Stage A (expert-gated, display-only). See tvg_analysis_and_recommendation.md v2.
-    property bool   echogramTvgEnabled:     false   // Expert toggle: TVG depth compensation (imageType 2), 2D non-side-scan only
+    //Which device profile is actually rendering right now. "" = nothing committed yet.
+    //
+    //userManualSetName is the committed model and is set by BOTH selection paths
+    //(ConnectionViewer.selectCorrectDevice via modelForBoard(), and the manual pick in
+    //main.qml). It is "..." before detection settles — including inside the Basic2D
+    //settle window — and is reset to "..." on a device swap / disconnect.
+    //
+    //Everything per-device binds through `userManualSetName === modelPulseRed ? red : blue`,
+    //which means the UNCOMMITTED state silently falls through to the BLUE profile. That was
+    //harmless while both TVG toggles defaulted to false, but with the profile-driven
+    //defaults below it would put the side scan log-law gain (imageType 3) on a 2D echogram
+    //— exactly what a tester sees when a saved 2D log is opened before any device has been
+    //identified. So on the LIVE path: no committed model -> no TVG at all (see
+    //resolveEchogramCompensation). File and demo playback classify from the data instead.
+    //
+    //WHEN THE DATA IS NOT LIVE, THE DATA DECIDES. A demo or an opened log carries its own
+    //identity, and that identity — not whatever transducer happens to be plugged in — is
+    //what must drive the display gain. Two reasons this matters in practice:
+    //  * cold start: a demonstrator opens a saved log with no transducer ever identified.
+    //    On the committed model alone activeModel would be "" and the log would render
+    //    with no TVG at all, which is precisely what the demo is meant to show off.
+    //  * wrong device committed: the app was started as a Blue and a Red log is played.
+    //    The committed model would put the side scan log-law gain on a 2D echogram.
+    //Classification sources, both already maintained elsewhere:
+    //  * demo    -> demoIsSideScan, from the prescan (core.onDemoPeriodChanged).
+    //  * file    -> numberOfDatasetChannels, from core.onChannelListUpdated in main.qml.
+    //               1 channel = 2D, 2 = dual side scan — the same rule ConnectionViewer
+    //               .modelForBoard() uses to split the Basic2D batch. 0 = not known yet,
+    //               so fall back to the committed model until the channel list arrives.
+    //enterDemoMode() already prefers the prescan over the device for the black-stripes
+    //profile, so this is the established pattern for display-side settings, not a new one.
+    //
+    //NOTE: this covers the DISPLAY path only. Resolution, samples, ranges and dist
+    //processing still come from the committed device profile, so playing a log that does
+    //not match the connected transducer is still something the demonstrator has to be
+    //aware of — until there is a proper way to re-identify the sounder and re-run setup.
+    property string committedModel:
+        (userManualSetName === modelPulseRed || userManualSetName === modelPulseBlue) ? userManualSetName
+      : ""
+
+    property string activeModel:
+        isInDemoMode ? (demoIsSideScan ? modelPulseBlue : modelPulseRed)
+      : (wasKlfFileOpened || isOpeningKlfFile)
+            ? (numberOfDatasetChannels >= 2 ? modelPulseBlue
+             : numberOfDatasetChannels === 1 ? modelPulseRed
+             : committedModel)
+      : committedModel
+
+    //TVG — Stage A (display-only). See tvg_analysis_and_recommendation.md v2.
+    //PER-PROFILE DEFAULT since 2026-08-29: 2D TVG and side scan TVG are never both the
+    //"right" answer, so the default now comes from the device profile (pulseRed /
+    //pulseBlue below) instead of a flat false. Writing to either property from the expert
+    //panel breaks this binding for the rest of the session — deliberate: a manual expert
+    //choice must not be silently undone by a reconnect. Restart restores the profile
+    //default, as with every other runtime TVG value.
+    property bool   echogramTvgEnabled:     activeModel === modelPulseRed  ? pulseRed.echogramTvgEnabled
+                                          : activeModel === modelPulseBlue ? pulseBlue.echogramTvgEnabled
+                                          : false
     property double echogramTvgDbPerMeter:  0.9     // Net decay constant in dB/m (Dreamlake harvest: 0.66-1.11, mean ~0.9)
 
     //Side scan TVG — side scan phase (expert-gated, display-only). Log-law range
     //gain (imageType 3) validated offline on SS_pulse_log_2026.07.20: consistent
     //intensity over range (brightness = bottom hardness) instead of the AGC's
     //local-contrast normalization. Defaults mirror EchogramSideScanTvg constants.
-    property bool   sideScanTvgEnabled:      false  // Expert toggle: waterfall uses TVG (3) instead of AGC (1)
+    property bool   sideScanTvgEnabled:      activeModel === modelPulseRed  ? pulseRed.sideScanTvgEnabled
+                                           : activeModel === modelPulseBlue ? pulseBlue.sideScanTvgEnabled
+                                           : false    // waterfall uses TVG (3) instead of AGC (1)
     property double sideScanTvgSpreading:    5      // S in dB/decade (field-tuned 2026-08-16; deeper water/chirp may want more)
     property double sideScanTvgAbsorption:   0.0    // a in dB/m (field-tuned: 0 on 25 m ranges; matters for chirp long range)
     property double sideScanTvgRefRange:     15     // gain = 1 at this range (m): near field keeps familiar brightness
@@ -145,22 +222,214 @@ QtObject {
     // Single source of truth for the echogram compensation id.
     // 2D uses TVG (2) when enabled, else raw (0); side scan uses side scan
     // TVG (3) when enabled, else AGC (1).
+    //
+    // Keyed on activeModel, NOT on is2DTransducer: is2DTransducer is derived from the
+    // same red/blue binding and therefore reads "side scan" whenever nothing is committed.
+    // With no committed model we render neutral raw (0) rather than guessing — one frame
+    // of un-gained echogram is a far better failure than a side scan gain curve stretched
+    // over a 2D log.
     function resolveEchogramCompensation() {
-        return is2DTransducer ? (echogramTvgEnabled ? 2 : 0)
-                              : (sideScanTvgEnabled ? 3 : 1)
+        if (activeModel === "") {
+            return 0
+        }
+        return (activeModel === modelPulseRed) ? (echogramTvgEnabled  ? 2 : 0)
+                                               : (sideScanTvgEnabled ? 3 : 1)
+    }
+
+    //DEMO MODE: put the CONFIGURATION STATES block into "nothing left to do".
+    //
+    //The guards in DeviceItem stop the configuration machinery from running, but
+    //the UI reads these flags for its "device ready" affordances and
+    //completeDeviceConfigurationTimer binds `repeat:` to !devConfigured — so
+    //without this the timer keeps ticking against a device that does not exist.
+    //Mirror image of DeviceItem.resetAllSetupStates().
+    //
+    //  setConfigStatesForDemo(true)  -> entering demo: everything reads "done"
+    //  setConfigStatesForDemo(false) -> leaving demo: back to the declared
+    //                                   fresh-start defaults
+    //
+    //onDsp*/onSound* are declared true at rest and are never configured, so they
+    //stay true in BOTH directions. That asymmetry is deliberate.
+    function setConfigStatesForDemo(inDemo) {
+        var v = inDemo
+
+        onDeviceVersionChanged  = false
+        devConfigured           = v
+
+        echogramPausedForConfig = false
+        echogramEnabledByConfig = false
+
+        onDistSetupChanged      = v
+        distMax_ok              = v
+        distDeadZone_ok         = v
+        distConfidence_ok       = v
+
+        onChartSetupChanged     = v
+        chartSamples_ok         = v
+        chartResolution_ok      = v
+        chartOffset_ok          = v
+
+        onDatasetChanged        = v
+        ch1Period_ok            = v
+        datasetTimestamp_ok     = v
+        datasetChart_ok         = v
+        datasetTemp_ok          = v
+        datasetEuler_ok         = v
+        datasetDist_ok          = v
+        datasetSDDBT_ok         = v
+
+        onTransChanged          = v
+        transFreq_ok            = v
+        transPulse_ok           = v
+        transBoost_ok           = v
+
+        // Never used / never configured — true at rest, true in demo.
+        onDspSetupChanged       = true
+        dspHorSmooth_ok         = true
+        onSoundChanged          = true
+        soundSpeed_ok           = true
+
+        unableToConfigure       = false
+
+        console.log("DEMO: setConfigStatesForDemo(", inDemo, ") applied")
+    }
+
+    //Black stripes removal. This is a DISPLAY setting: it does not touch the
+    //transducer, it tells core how to paper over the gaps left by missing data.
+    //It therefore matters just as much in demo mode as it does live — without it
+    //the empty "black stripe" columns show up in the replayed echogram.
+    //
+    //Single source of truth on purpose: DeviceItem.configurePulseDevice() and
+    //enterDemoMode() both call this, so the two paths cannot drift apart. The
+    //guarded writes are a literal transcription of the original block.
+    function applyBlackStripesToCore(forwardSteps, backwardSteps, state) {
+        if (core === null) {
+            return
+        }
+        if (core.fixBlackStripesForwardSteps !== forwardSteps) {
+            core.fixBlackStripesForwardSteps = forwardSteps
+            console.log("DEV_CONFIG: core.fixBlackStripesForwardSteps changed to ", core.fixBlackStripesForwardSteps)
+        }
+        if (core.fixBlackStripesBackwardSteps !== backwardSteps) {
+            core.fixBlackStripesBackwardSteps = backwardSteps
+            console.log("DEV_CONFIG: core.fixBlackStripesBackwardSteps changed to ", core.fixBlackStripesBackwardSteps)
+        }
+        if (core.fixBlackStripesState !== state) {
+            core.fixBlackStripesState = state
+            console.log("DEV_CONFIG: core.fixBlackStripesState changed to ", core.fixBlackStripesState)
+        }
+    }
+
+    //DEMO MODE: entering and leaving, in one place so the Recording tab, the
+    //end-of-file path and any later kiosk autostart all take the same route.
+    //
+    //These live here rather than in main.qml because pulseRuntimeSettings is a
+    //root context property and is therefore reachable from every QML file —
+    //main.qml's `mainview` id is not (QML ids do not cross files).
+    //
+    //Note what is deliberately NOT touched: wasKlfFileOpened stays false. Demo
+    //wants the live-style Plot2D behaviour that flag switches off.
+    function enterDemoMode(path) {
+        if (isInDemoMode) {
+            console.log("DEMO: already running")
+            return
+        }
+        if (!path || path.length === 0) {
+            console.log("DEMO: no file chosen")
+            return
+        }
+
+        console.log("DEMO: entering demo mode with", path)
+
+        // Starting a demo on top of an opened file view is allowed — the open has
+        // already finished, we were only rendering it. But wasKlfFileOpened MUST be
+        // cleared: that flag is what switches OFF the live-style behaviour all over
+        // Plot2D (live follow, the old-data indicator, the UI controls row), and a
+        // demo wants all of it ON. core.startDemo() drops the file on its side.
+        if (wasKlfFileOpened || isOpeningKlfFile) {
+            console.log("DEMO: leaving the file view behind")
+            wasKlfFileOpened = false
+            isOpeningKlfFile = false
+            klfFilePath = ""
+        }
+
+        demoFilePath = path
+        isInDemoMode = true
+
+        // Quieten the configuration machinery before the first frame arrives.
+        setConfigStatesForDemo(true)
+
+        // Honour the TVG / water-body toggles from the first epoch, exactly as
+        // the file-open path does.
+        echogramCompensationFile = resolveEchogramCompensation()
+
+        core.startDemo(path)
+
+        //Black stripes removal must be enforced for the replay too, otherwise the
+        //gaps from missing data show as empty columns. Done AFTER startDemo on
+        //purpose: the prescan has run by then, so demoIsSideScan tells us which
+        //profile the LOG needs — we do not have to rely on device detection,
+        //which for a ghost device may never settle on a model.
+        //No echogram pause around this: unlike a real parameter write, these are
+        //display-side settings and are safe to change with the echogram flowing.
+        var prof = demoIsSideScan ? pulseBlue : pulseRed
+        console.log("DEMO: applying black stripes profile for",
+                    demoIsSideScan ? "side scan" : "2D")
+        applyBlackStripesToCore(prof.fixBlackStripesForwardSteps,
+                                prof.fixBlackStripesBackwardSteps,
+                                prof.fixBlackStripesState)
+    }
+
+    function exitDemoMode() {
+        if (!isInDemoMode) {
+            return
+        }
+        console.log("DEMO: leaving demo mode")
+
+        // No-op when core already stopped itself at end of file.
+        core.stopDemo()
+
+        isInDemoMode = false
+        demoMeasuredPeriodMs = 0
+        setConfigStatesForDemo(false)
+
+        // Leave nothing behind that makes the app think it should configure a
+        // device. dataUpdateActive in particular drives Plot2D's
+        // "Configuring transducer..." overlay, which after 10 s escalates to
+        // "Fixing transducer com link...".
+        // Stage 2 replaces this with the consolidated resetAppToFreshState().
+        didEverReceiveData = false
+        hasDeviceLostConnection = false
+        isReceivingData = false
+        dataUpdateActive = false
+        devConfigured = false
+        unableToConfigure = false
+        devDetected = false
+        devIdentified = false
+        appConfigured = false
+        numberOfDatasetChannels = 0
+        devName = "..."
+        userManualSetName = "..."
+        pulseBetaName = "..."
     }
 
     //APP DYNAMIC CONTROLS
-    property int    dynamicResolutionMin:   50      // The minimum allowed resolution in mm, reduced from 90 to 50
-    property int    dynamicResolutionMax:   2       // The maximum allowed resolution in mm
+    //NUMERIC convention since 2026-08-29: Min is always the SMALLER number, whatever the
+    //quantity means. These six bounds used to be named after resolution QUALITY (finer
+    //resolution = fewer mm), so dynamicResolutionMin held 50 and Max held 2 — and that
+    //inverted convention had been copied to samples and period as well. The clamp code
+    //has always been Math.max(candidate, <lower>) then Math.min(result, <upper>); after
+    //the swap those read Min then Max, which is idiomatic for the first time.
+    property int    dynamicResolutionMin:   2       // Finest sample spacing allowed, mm
+    property int    dynamicResolutionMax:   50      // Coarsest sample spacing allowed, mm (reduced from 90)
     property int    dynamicResolutionMargin:2       // The margin resolution in m
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property bool   dynamicResolutionInit:  false   // The initial dynamic resolution was performed
-    property int    dynamicSamplesMax:      500     // When reolution is maxed out, we alter the number of samples and the period
-    property int    dynamicSamplesMin:      1020
+    property int    dynamicSamplesMin:      500     // When sample spacing is at its coarsest, we alter the number of samples and the period
+    property int    dynamicSamplesMax:      1020
     property int    dynamicSamplesStep:     20
-    property int    dynamicPeriodMax:       50      // When reolution is maxed out, we alter the period and the number of samples
-    property int    dynamicPeriodMin:       154
+    property int    dynamicPeriodMin:       50      // When sample spacing is at its coarsest, we alter the period and the number of samples
+    property int    dynamicPeriodMax:       154
     property int    dynamicPeriodStep:      2
     property int    dynamicSamples:         500     //
     property int    dynamicPeriod:          50      //
@@ -351,6 +620,9 @@ QtObject {
     property int    datasetTimestamp_Copy:               -1
 
 
+    //TVG defaults are part of the profile: the Red is a 2D transducer, so the 2D TVG
+    //(echogramTvgEnabled -> imageType 2) is the correct one and the side scan log-law
+    //gain must stay off. The two are never both right at once.
     property var pulseRed: {
         "devName":                      "PULSEred",
         "settingVersion":               1,
@@ -385,10 +657,15 @@ QtObject {
         "fixBlackStripesState":         true,
         "temperatureCorrection":        -2.0,
         "bottomTrackVisible":           false,
-        "bottomTrackVisibleModel":      0
+        "bottomTrackVisibleModel":      0,
+        "echogramTvgEnabled":           true,
+        "sideScanTvgEnabled":           false
     }
 
 
+    //TVG defaults are part of the profile: the Blue is a dual side scan, so the side scan
+    //TVG (sideScanTvgEnabled -> imageType 3) is the correct one and the 2D TVG must stay
+    //off. The two are never both right at once.
     property var pulseBlue: {
         "devName":                      "PULSEblue",
         "settingVersion":               1,
@@ -417,13 +694,15 @@ QtObject {
         "transFreqNarrow":              460,
         "maximumDepth":                 25,
         "processBottomTrack":           true,
-        "doDynamicR esolution":          false,
+        "doDynamicResolution":          false,
         "fixBlackStripesBackwardSteps": 5,
         "fixBlackStripesForwardSteps":  1,
         "fixBlackStripesState":         true,
         "temperatureCorrection":        0,
         "bottomTrackVisible":           false,
-        "bottomTrackVisibleModel":      0
+        "bottomTrackVisibleModel":      0,
+        "echogramTvgEnabled":           false,
+        "sideScanTvgEnabled":           true
     }
 
     property var    distProcPulseRed: [
@@ -483,6 +762,14 @@ QtObject {
     */
 
 
+    //RETIRED 2026-08-29 — no longer read by anything (doAutoFilter() in Plot2D.qml is now
+    //a no-op). Kept for reference until we are sure the water body filter covers every case
+    //these tables used to handle.
+    //They mapped depth -> filter strength because the old global low-cut also dimmed the
+    //BOTTOM render, so the value had to be re-tuned per depth: too little left high-frequency
+    //noise in the water column, too much faded the bottom out. The water body filter touches
+    //the water column only and TVG makes the bottom render depth-independent, so one value
+    //chosen to taste now works at every depth.
     property var autoFilterPulseRedNarrow: [
         { "min": 0,  "max": 1,  "filter": 23},
         { "min": 1,  "max": 2,  "filter": 22},

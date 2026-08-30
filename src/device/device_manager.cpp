@@ -100,7 +100,12 @@ DeviceManager::toUnixFromBootMs(const QUuid& srcUuid, qint64 boot_ms) const
 
 DeviceManager::~DeviceManager()
 {
-
+    //PULSE demo mode: never leave a paced replay running past teardown.
+    if (demoTimer_) {
+        demoTimer_->stop();
+    }
+    demoRunning_ = false;
+    demoCleanup();
 }
 
 float DeviceManager::vruVoltage()
@@ -681,6 +686,396 @@ void DeviceManager::openFile(QString filePath)
 
     emit fileOpened();
     emit fileStopsOpening();
+}
+
+// ---------------------------------------------------------------------------
+// PULSE DEMO MODE (Stage 1) — paced .plog replay. See demo_mode_plan.md.
+//
+// openFile() above pushes the whole file through frameInput() as fast as the
+// disk allows. startDemo() pushes the same frames through the same entry point,
+// but one chart epoch per timer tick, so the app experiences the recording at
+// the rate it was recorded at. Everything downstream of frameInput() — Dataset,
+// bottom track, black stripes, the 2D waterfall, TVG/WBF, mosaic, boat track —
+// behaves exactly as it does on a live connection, because it cannot tell the
+// difference.
+// ---------------------------------------------------------------------------
+
+namespace {
+// Pacing fallbacks, used only when the log carries no usable timestamps.
+// Source of truth is ch1Period in PulseRuntimeSettings.qml: PulseRed (2D) 50,
+// PulseBlue (side scan) 70.
+constexpr int kDemoPeriod2dMs       = 50;
+constexpr int kDemoPeriodSideScanMs = 70;
+// A measured period outside this band means the timestamps lied; fall back.
+constexpr int kDemoPeriodMinMs      = 20;
+constexpr int kDemoPeriodMaxMs      = 500;
+// The prescan only needs enough of the file to classify it and (if the log has
+// timestamps at all) measure the rate. Scanning the whole file would add a
+// visible hitch at demo start for no benefit in Stage 1.
+constexpr qint64 kDemoPrescanMaxBytes = 8LL * 1024 * 1024;
+constexpr int    kDemoPrescanMaxEpochs = 400;
+
+// Pacing (see demoTick). The clock decides WHEN an epoch is due; these bound how
+// much work a single tick may do so catching up can never freeze the UI.
+constexpr int kDemoMaxEpochsPerTick = 4;
+constexpr int kDemoTickBudgetMs     = 12;
+// Past this much lag we are not "late", we are unable to keep up: take the drift
+// instead of spiralling (each catch-up would otherwise cost more than it earns).
+constexpr int kDemoMaxLagMs         = 400;
+constexpr int kDemoReportEpochs     = 200;
+} // namespace
+
+bool DeviceManager::isChartEpochStart(const Parsers::FrameParser& frame)
+{
+    // A ping is transmitted as a run of ID_CHART fragments whose payload starts
+    // with a U2 seqOffset; the fragment with seqOffset == 0 is the first of a
+    // new ping. IDBinChart::parsePayload uses the same signal to decide that the
+    // PREVIOUS ping is complete (id_binnary.cpp:216).
+    //
+    // Cheap const checks FIRST: this runs on every replayed frame, and copying a
+    // FrameParser drags its 1 KB frame buffer along. Only chart frames pay it.
+    if (frame.id() != ID_CHART) {
+        return false;
+    }
+    if (frame.ver() != v0 && frame.ver() != v1) {
+        return false;
+    }
+
+    // Peek on a copy: frame() is a member array so the copy is deep, and
+    // read<U2>() would otherwise advance the read position of the frame we are
+    // about to hand to frameInput(). frameInput() already takes FrameParser by
+    // value, so copying here is the established pattern.
+    Parsers::FrameParser peek = frame;
+    if (peek.readAvailable() < static_cast<int16_t>(sizeof(U2))) {
+        return false;
+    }
+    return peek.read<U2>() == 0;
+}
+
+bool DeviceManager::demoPrescan(const QString& localPath, int& periodMsOut, bool& isSideScanOut)
+{
+    QFile file;
+    const QUrl url(localPath);
+    url.isLocalFile() ? file.setFileName(url.toLocalFile()) : file.setFileName(url.toString());
+
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning() << "DEMO: prescan cannot open" << localPath;
+        return false;
+    }
+
+    Parsers::FrameParser parser;
+    qint64 bytesScanned = 0;
+    int    epochs       = 0;
+    bool   sawSideScan  = false;
+    bool   sawChart     = false;
+    qint64 firstUnix    = -1;
+    qint64 lastUnix     = -1;
+    int    epochsAtFirstUnix = -1;
+
+    while (bytesScanned < kDemoPrescanMaxBytes && epochs < kDemoPrescanMaxEpochs) {
+        QByteArray chunk = file.read(static_cast<qint64>(1024) * 1024);
+        if (chunk.isEmpty()) {
+            break;
+        }
+        bytesScanned += chunk.size();
+        parser.setContext(reinterpret_cast<uint8_t*>(chunk.data()), chunk.size());
+
+        while (parser.availContext() > 0) {
+            parser.process();
+            if (!parser.isComplete()) {
+                continue;
+            }
+            if (!parser.completeAsKBP() && !parser.completeAsKBP2()) {
+                continue;
+            }
+            if (parser.id() == ID_CHART) {
+                sawChart = true;
+                // v1 carries two byte-interleaved side scan channels; v0 is the
+                // single-channel 2D chart.
+                if (parser.ver() == v1) {
+                    sawSideScan = true;
+                }
+                if (isChartEpochStart(parser)) {
+                    ++epochs;
+                }
+            }
+            else if (parser.id() == ID_TIMESTAMP && parser.ver() == v1) {
+                Parsers::FrameParser peek = parser;
+                peek.read<U4>();                                    // device timestamp
+                const qint64 unixTime = static_cast<qint64>(peek.read<U4>());
+                if (unixTime > 0) {
+                    if (firstUnix < 0) {
+                        firstUnix = unixTime;
+                        epochsAtFirstUnix = epochs;
+                    }
+                    lastUnix = unixTime;
+                }
+            }
+        }
+        chunk.clear();
+    }
+    file.close();
+
+    if (!sawChart) {
+        qWarning() << "DEMO: prescan found no chart data in" << localPath;
+        return false;
+    }
+
+    isSideScanOut = sawSideScan;
+    const int fallbackMs = sawSideScan ? kDemoPeriodSideScanMs : kDemoPeriod2dMs;
+
+    // Pulse logs usually have datasetTimestamp disabled (both device profiles
+    // ship ch1 timestamp = 0), so this measurement normally does not trigger and
+    // the device-dependent fallback is what actually runs. Kept because logs
+    // recorded with timestamps on, or with an autopilot attached, do carry it.
+    const int epochsSpanned = epochs - epochsAtFirstUnix;
+    if (firstUnix > 0 && lastUnix > firstUnix && epochsSpanned > 1) {
+        const qint64 spanMs = (lastUnix - firstUnix) * 1000;
+        const int measured = static_cast<int>(spanMs / (epochsSpanned - 1));
+        if (measured >= kDemoPeriodMinMs && measured <= kDemoPeriodMaxMs) {
+            periodMsOut = measured;
+            qInfo() << "DEMO: pacing measured from log timestamps:" << measured << "ms/epoch"
+                    << "(" << epochsSpanned << "epochs over" << spanMs << "ms )";
+            return true;
+        }
+        qWarning() << "DEMO: measured period" << measured
+                   << "ms is outside" << kDemoPeriodMinMs << ".." << kDemoPeriodMaxMs
+                   << "- using fallback";
+    }
+
+    periodMsOut = fallbackMs;
+    qInfo() << "DEMO: pacing fallback" << fallbackMs << "ms/epoch ("
+            << (sawSideScan ? "side scan, chart v1" : "2D, chart v0") << ")";
+    return true;
+}
+
+void DeviceManager::startDemo(QString filePath)
+{
+    if (demoRunning_) {
+        qWarning() << "DEMO: already running, ignoring startDemo";
+        return;
+    }
+
+    int  periodMs   = kDemoPeriod2dMs;
+    bool isSideScan = false;
+
+    if (demoCachedPath_ == filePath && demoCachedPeriodMs_ > 0) {
+        // Looping the same file: the prescan answer cannot have changed.
+        periodMs   = demoCachedPeriodMs_;
+        isSideScan = demoCachedIsSideScan_;
+    }
+    else {
+        if (!demoPrescan(filePath, periodMs, isSideScan)) {
+            emit demoFinished(0);   // nothing played: Core must not loop on this
+            return;
+        }
+        demoCachedPath_       = filePath;
+        demoCachedPeriodMs_   = periodMs;
+        demoCachedIsSideScan_ = isSideScan;
+    }
+
+    demoFile_ = new QFile();
+    const QUrl url(filePath);
+    url.isLocalFile() ? demoFile_->setFileName(url.toLocalFile())
+                      : demoFile_->setFileName(url.toString());
+
+    if (!demoFile_->open(QIODevice::ReadOnly)) {
+        qWarning() << "DEMO: cannot open" << filePath;
+        demoCleanup();
+        emit demoFinished(0);       // nothing played: Core must not loop on this
+        return;
+    }
+
+    // Same clean slate openFile() starts from: the ghost devices are recreated
+    // from the recorded frames themselves.
+    delAllDev();
+
+    demoParser_.resetContext();
+    demoChunk_.clear();
+    demoUuid_           = QUuid(kFileUuidStr);
+    demoPeriodMs_       = periodMs;
+    demoSeenFirstChart_ = false;
+    demoEpochsPlayed_   = 0;
+    demoNextDueMs_      = 0;        // first epoch is due immediately
+    demoLastReportMs_   = 0;
+    demoEpochsAtLastReport_ = 0;
+    demoCatchUpEvents_  = 0;
+    demoBehindEvents_   = 0;
+    demoRunning_        = true;
+    demoClock_.start();
+
+    if (!demoTimer_) {
+        demoTimer_ = new QTimer(this);
+        connect(demoTimer_, &QTimer::timeout, this, &DeviceManager::demoTick);
+    }
+    demoTimer_->setTimerType(Qt::PreciseTimer);
+    // Tick FASTER than the epoch rate. The tick is only a scheduling
+    // opportunity; demoClock_ decides what is actually due. Ticking at exactly
+    // the epoch period left no room to absorb a late or slow pass.
+    demoTimer_->start(qMax(5, demoPeriodMs_ / 3));
+
+    qInfo() << "DEMO: started" << filePath << "at" << demoPeriodMs_ << "ms/epoch"
+            << "(tick" << demoTimer_->interval() << "ms )";
+    emit demoStarted(demoPeriodMs_, isSideScan);
+}
+
+void DeviceManager::demoTick()
+{
+    if (!demoRunning_ || !demoFile_) {
+        return;
+    }
+
+    // WHY THIS IS CLOCK-DRIVEN RATHER THAN ONE-EPOCH-PER-TICK:
+    //
+    // A repeating QTimer guarantees a delay BETWEEN slot invocations, not a rate.
+    // Delivering exactly one epoch per timeout therefore produced an effective
+    // period of roughly (interval + work), because every millisecond spent
+    // parsing, adding to Dataset, running bottom track and building mosaic tiles
+    // was added to the 50 ms instead of being absorbed by it. As per-epoch cost
+    // grew during the first minutes (plot cache, mosaic tiles and bottom-track
+    // history filling up) the echogram slowed down, then held steady once those
+    // costs reached their own bounded steady state.
+    //
+    // Now demoClock_ is the source of truth: we deliver whatever the recording
+    // says is due by now. A late tick is caught up on the next one, so the
+    // AVERAGE rate matches the recording whenever the machine has the headroom.
+    const qint64 now = demoClock_.elapsed();
+
+    if (now < demoNextDueMs_) {
+        return;                     // nothing due yet
+    }
+
+    if (now - demoNextDueMs_ > kDemoMaxLagMs) {
+        // Not merely late — unable to keep up. Forgive the debt so we degrade to
+        // "a bit slow" instead of spiralling into ever-bigger catch-up batches.
+        demoNextDueMs_ = now;
+        ++demoBehindEvents_;
+    }
+
+    QElapsedTimer tickBudget;
+    tickBudget.start();
+
+    int delivered = 0;
+    // The first iteration always runs (budget starts at 0), so we can never
+    // stall completely — we deliver at least one epoch per due tick.
+    while (delivered < kDemoMaxEpochsPerTick
+           && demoClock_.elapsed() >= demoNextDueMs_
+           && tickBudget.elapsed() < kDemoTickBudgetMs) {
+
+        if (!demoDeliverOneEpoch()) {
+            return;                 // EOF: already stopped and signalled
+        }
+
+        demoNextDueMs_ += demoPeriodMs_;
+        ++delivered;
+    }
+
+    if (delivered > 1) {
+        ++demoCatchUpEvents_;
+    }
+
+    demoReportRate();
+}
+
+bool DeviceManager::demoDeliverOneEpoch()
+{
+    // Dispatch frames until the next ping starts. The fragment with
+    // seqOffset == 0 is what makes IDBinChart flush the ping before it, so it
+    // belongs to THIS delivery.
+    while (true) {
+        if (demoParser_.availContext() <= 0) {
+            demoChunk_ = demoFile_->read(static_cast<qint64>(1024) * 1024);
+            if (demoChunk_.isEmpty()) {
+                const quint64 played = demoEpochsPlayed_;
+                qInfo() << "DEMO: end of file after" << played << "epochs";
+                stopDemo();
+                emit demoFinished(played);
+                return false;
+            }
+            demoParser_.setContext(reinterpret_cast<uint8_t*>(demoChunk_.data()),
+                                   demoChunk_.size());
+        }
+
+        while (demoParser_.availContext() > 0) {
+            demoParser_.process();
+            if (!demoParser_.isComplete()) {
+                continue;
+            }
+
+            const bool epochStart = isChartEpochStart(demoParser_);
+            if (epochStart && demoSeenFirstChart_) {
+                frameInput(demoUuid_, nullptr, demoParser_);
+                ++demoEpochsPlayed_;
+                return true;
+            }
+
+            frameInput(demoUuid_, nullptr, demoParser_);
+            if (epochStart) {
+                demoSeenFirstChart_ = true;
+            }
+        }
+    }
+}
+
+void DeviceManager::demoReportRate()
+{
+    if (demoEpochsPlayed_ - demoEpochsAtLastReport_ < kDemoReportEpochs) {
+        return;
+    }
+
+    const qint64  nowMs  = demoClock_.elapsed();
+    const qint64  spanMs = nowMs - demoLastReportMs_;
+    const quint64 count  = demoEpochsPlayed_ - demoEpochsAtLastReport_;
+    const double  actual = count ? static_cast<double>(spanMs) / static_cast<double>(count)
+                                 : 0.0;
+
+    // This line is the whole diagnosis: if actual tracks nominal we are pacing
+    // correctly; if it does not, this machine cannot render at the recorded rate
+    // and the fix has to be per-epoch cost, not pacing.
+    qInfo().nospace() << "DEMO: " << demoEpochsPlayed_ << " epochs"
+                      << " | nominal " << demoPeriodMs_ << " ms"
+                      << " | actual " << QString::number(actual, 'f', 1) << " ms/epoch"
+                      << " | catch-up ticks " << demoCatchUpEvents_
+                      << " | fell behind " << demoBehindEvents_
+                      << (actual > demoPeriodMs_ * 1.15 ? "  <-- CANNOT KEEP UP" : "  ok");
+
+    demoLastReportMs_       = nowMs;
+    demoEpochsAtLastReport_ = demoEpochsPlayed_;
+    demoCatchUpEvents_      = 0;
+    demoBehindEvents_       = 0;
+}
+
+void DeviceManager::stopDemo()
+{
+    // Idempotent: demoTick() stops itself at EOF, and Core::onDemoFinished()
+    // then calls back in here. The second call must be a no-op.
+    if (!demoRunning_ && !demoFile_) {
+        return;
+    }
+
+    if (demoTimer_) {
+        demoTimer_->stop();
+    }
+    demoRunning_ = false;
+    demoCleanup();
+
+    vru_.cleanVru();
+    delAllDev();
+    emit vruChanged();
+
+    qInfo() << "DEMO: stopped";
+}
+
+void DeviceManager::demoCleanup()
+{
+    if (demoFile_) {
+        demoFile_->close();
+        delete demoFile_;
+        demoFile_ = nullptr;
+    }
+    demoParser_.resetContext();
+    demoChunk_.clear();
+    demoSeenFirstChart_ = false;
 }
 
 #ifdef SEPARATE_READING

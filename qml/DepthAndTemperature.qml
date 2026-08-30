@@ -132,11 +132,13 @@ Item {
         //console.log("TAV: dynamicResolution:  considering bottomCompositionAddition, new candidateRes ", candidateRes)
 
         pulseRuntimeSettings.dynamicResolution = candidateRes;
-        if (pulseRuntimeSettings.dynamicPeriod !== pulseRuntimeSettings.dynamicPeriodMax) {
-            pulseRuntimeSettings.dynamicPeriod = pulseRuntimeSettings.dynamicPeriodMax
+        //Back to the shortest period — numerically the minimum.
+        if (pulseRuntimeSettings.dynamicPeriod !== pulseRuntimeSettings.dynamicPeriodMin) {
+            pulseRuntimeSettings.dynamicPeriod = pulseRuntimeSettings.dynamicPeriodMin
         }
-        if (pulseRuntimeSettings.dynamicSamples !== pulseRuntimeSettings.dynamicSamplesMax) {
-            pulseRuntimeSettings.dynamicSamples = pulseRuntimeSettings.dynamicSamplesMax
+        //Back to the fewest samples — numerically the minimum.
+        if (pulseRuntimeSettings.dynamicSamples !== pulseRuntimeSettings.dynamicSamplesMin) {
+            pulseRuntimeSettings.dynamicSamples = pulseRuntimeSettings.dynamicSamplesMin
         }
 
         //console.log("DYNAMIC: setting dynamicResolution to", candidateRes,"for depth", depth,"compared to last stable", lastStableDepth,"and bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel)
@@ -147,6 +149,15 @@ Item {
     }
 
     function calculateDynamicResolution(depth) {
+        //DEMO MODE: the resolution and period are already baked into the
+        //recording. Recomputing them is at best a write to a null link and at
+        //worst UI oscillation as the replayed "boat" crosses depth steps.
+        //The auto DISPLAY level in autoLevelCalculate() is deliberately left
+        //running — it only changes what the echogram shows, and it looks right.
+        if (pulseRuntimeSettings.isInDemoMode) {
+            return;
+        }
+
         if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
                 && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto) {
             return;
@@ -161,8 +172,8 @@ Item {
         }
 
         if (candidateRes <= 50) {
-            candidateRes = Math.max(candidateRes, pulseRuntimeSettings.dynamicResolutionMax);
-            candidateRes = Math.min(candidateRes, pulseRuntimeSettings.dynamicResolutionMin);
+            candidateRes = Math.max(candidateRes, pulseRuntimeSettings.dynamicResolutionMin);
+            candidateRes = Math.min(candidateRes, pulseRuntimeSettings.dynamicResolutionMax);
             updateDynamicResolutionWithStep(depth, candidateRes);
         } else {
             updateDynamicSamplesAndPeriod (depth, candidateRes)
@@ -180,13 +191,15 @@ Item {
 
         let candidateSamples = candidateRes * 10
         //console.log("DYNAMIC: candidateSamples suggested as", candidateSamples)
-        candidateSamples = Math.max(candidateSamples, pulseRuntimeSettings.dynamicSamplesMax);
-        candidateSamples = Math.min(candidateSamples, pulseRuntimeSettings.dynamicSamplesMin);
+        candidateSamples = Math.max(candidateSamples, pulseRuntimeSettings.dynamicSamplesMin);
+        candidateSamples = Math.min(candidateSamples, pulseRuntimeSettings.dynamicSamplesMax);
 
-        let candidatePeriod = candidateRes + (candidateRes - pulseRuntimeSettings.dynamicResolutionMin)
+        //dynamicResolutionMax = the COARSEST spacing (50 mm). Was spelled ...Min before the
+        //2026-08-29 numeric-convention swap; the value it reads is unchanged.
+        let candidatePeriod = candidateRes + (candidateRes - pulseRuntimeSettings.dynamicResolutionMax)
         //console.log("DYNAMIC: candidatePeriod suggested as", candidatePeriod)
-        candidatePeriod = Math.max(candidatePeriod, pulseRuntimeSettings.dynamicPeriodMax);
-        candidatePeriod = Math.min(candidatePeriod, pulseRuntimeSettings.dynamicPeriodMin);
+        candidatePeriod = Math.max(candidatePeriod, pulseRuntimeSettings.dynamicPeriodMin);
+        candidatePeriod = Math.min(candidatePeriod, pulseRuntimeSettings.dynamicPeriodMax);
 
         //console.log("DYNAMIC: allowed candidateSamples of", candidateSamples, "and candidatePeriod of", candidatePeriod)
 
@@ -277,6 +290,11 @@ Item {
 
         function onDynamicResolutionInitChanged () {
             if (pulseRuntimeSettings.dynamicResolutionInit) {
+                //DEMO MODE: do not kick off a resolution pass for a ghost device.
+                if (pulseRuntimeSettings.isInDemoMode) {
+                    pulseRuntimeSettings.dynamicResolutionInit = false
+                    return
+                }
                 initialAutoLevelCalculatorTimer.start()
                 pulseRuntimeSettings.dynamicResolutionInit = false
             }
@@ -287,6 +305,9 @@ Item {
     Connections {
         target: pulseSettings ? pulseSettings : undefined
         function onDoubleEchoOptimizeChanged () {
+            //DEMO MODE: no resolution writes while replaying.
+            if (pulseRuntimeSettings.isInDemoMode)
+                return
             pulseRuntimeSettings.forceUpdateResolution = true
         }
     }
@@ -321,6 +342,9 @@ Item {
         repeat: false
         interval: 1000
         onTriggered: {
+            //DEMO MODE: no resolution writes while replaying.
+            if (pulseRuntimeSettings.isInDemoMode)
+                return
             pulseRuntimeSettings.forceUpdateResolution = true
             //console.log("TAV: dynamicResolution: Set the pulseRuntimeSettings.forceUpdateResolution to", pulseRuntimeSettings.forceUpdateResolution);
         }

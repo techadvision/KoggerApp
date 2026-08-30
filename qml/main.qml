@@ -230,6 +230,26 @@ ApplicationWindow  {
                 pulseRuntimeSettings.wasKlfFileOpened = true
             }
         }
+
+        //DEMO MODE (Stage 1) — see demo_mode_plan.md.
+        //The prescan reports the pacing it settled on; surface it so the expert
+        //UI can show what the demo is actually running at.
+        function onDemoPeriodChanged(periodMs, isSideScan) {
+            pulseRuntimeSettings.demoMeasuredPeriodMs = periodMs
+            pulseRuntimeSettings.demoIsSideScan = isSideScan
+            console.log("DEMO: running at", periodMs, "ms/epoch,",
+                        isSideScan ? "side scan" : "2D")
+        }
+
+        //End of the replayed file, or a stop initiated in C++. Undo the quieting
+        //so a real device can be configured normally again.
+        //enterDemoMode/exitDemoMode live on pulseRuntimeSettings, not here: it
+        //is a root context property, so every QML file can reach it, while this
+        //file's `mainview` id is not visible outside main.qml.
+        function onDemoStopped() {
+            console.log("DEMO: stopped by core, restoring normal app state")
+            pulseRuntimeSettings.exitDemoMode()
+        }
     }
 
     function handleUpdateBottomTrack() {
@@ -492,6 +512,11 @@ ApplicationWindow  {
 
         if (pulseRuntimeSettings.wasKlfFileOpened) {
             //console.log("TAV: showLostConnection, please do not when viewing a file");
+            return
+        }
+
+        //DEMO MODE: a replay has no connection to lose.
+        if (pulseRuntimeSettings.isInDemoMode) {
             return
         }
 
@@ -2652,9 +2677,15 @@ ApplicationWindow  {
         Connections {
             target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
             function onEchogramSpeedChanged () {
-                //zoomText.text = "Horizontal zoom: " + pulseRuntimeSettings.echogramSpeed
-                zoomText.text = "Echogram speed: " + pulseSettings.echogramSpeed
-                console.log("Echogram speed: New value", pulseRuntimeSettings.echogramSpeed)
+                // Do NOT assign zoomText.text here. zoomText.text is a declarative
+                // binding on pulseSettings.echogramSpeed (above); an imperative
+                // assignment destroys that binding on the first change, after which the
+                // label can only ever update from inside this handler. That is what made
+                // a stale number stick on screen when the two properties were written
+                // independently. This handler now only decides WHEN the indicator shows;
+                // the binding decides WHAT it says.
+                console.log("Echogram speed: New value", pulseRuntimeSettings.echogramSpeed,
+                            "(persistent", pulseSettings.echogramSpeed + ")")
                 zoomIndicator.visible = true
                 hideTimer.restart()
             }

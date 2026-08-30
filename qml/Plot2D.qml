@@ -195,6 +195,49 @@ WaterFall {
             console.log("EchogramCompensation: Plot2D onUserManualSetNameChanged, value now", plot.getEchogramCompensation())
         }
 
+        // PULSE: the model that is actually rendering changed — a device was identified,
+        // a device was swapped, or a demo prescan classified the log. This is the ONE
+        // place that guarantees C++ holds the full QML parameter set BEFORE the
+        // compensation id switches.
+        //
+        // Needed because every per-parameter push lives in an individual toggle handler,
+        // and now that the TVG toggles default ON from the device profile a session can
+        // reach a TVG image type without any of those handlers ever having fired. The C++
+        // defaults happen to match the QML defaults today, so this is belt and braces
+        // rather than a live bug — but it stops the two drifting apart silently.
+        function onActiveModelChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: Plot2D onActiveModelChanged ->",
+                        pulseRuntimeSettings.activeModel === "" ? "(none committed)"
+                                                                : pulseRuntimeSettings.activeModel)
+
+            plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+            plot.setSsTvgSpreading(pulseRuntimeSettings.sideScanTvgSpreading)
+            plot.setSsTvgAbsorption(pulseRuntimeSettings.sideScanTvgAbsorption)
+            plot.setSsTvgRefRange(pulseRuntimeSettings.sideScanTvgRefRange)
+            plot.setSsTvgNoiseFloor(pulseRuntimeSettings.sideScanTvgNoiseFloor)
+            plot.setSsTvgBoost(pulseRuntimeSettings.sideScanTvgBoost)
+            plot.setSsTvgMosaicEnabled(pulseRuntimeSettings.sideScanTvgMosaicEnabled)
+
+            // Water body filter: its strength lives in a C++ atomic and is ONLY ever
+            // pushed through applyFiltering(). Push it here so the filter is genuinely
+            // active on both models from the first frame instead of waiting for the
+            // tester to touch the filter slider. Gated so that with the filter switched
+            // off the old (2D-only) behaviour is untouched.
+            plot.setWaterBodyBottomGuard(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+            if (pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+                    || pulseRuntimeSettings.is2DTransducer) {
+                quickChangeObjects.applyFiltering(pulseSettings.filterRealValue)
+            }
+
+            let comp = pulseRuntimeSettings.resolveEchogramCompensation()
+            console.log("EchogramCompensation: Plot2D onActiveModelChanged, resolved", comp)
+            plot.plotEchogramCompensation(comp)
+            pulseRuntimeSettings.echogramCompensationFile = comp
+            plot.updatePlot()
+        }
+
         // PULSE TVG (Stage A): expert toggle. Only ever switches between raw (0)
         // and TVG (2) — never touches an active side-scan AGC (1).
         function onEchogramTvgEnabledChanged () {
@@ -202,8 +245,13 @@ WaterFall {
                 return
             plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
             let cur = plot.getEchogramCompensation()
-            if (cur === 1) {
-                console.log("EchogramCompensation: TVG toggle ignored, side-scan AGC active")
+            // Ignore 3 as well as 1: with the TVG flags now driven by the device profile
+            // this handler also fires on a device SWAP, and a Red->Blue swap would
+            // otherwise land here with side scan TVG (3) already correctly applied and
+            // knock it back to raw (0). The mirror guard in onSideScanTvgEnabledChanged
+            // already covered both 2D ids; this one only covered the AGC.
+            if (cur === 1 || cur === 3) {
+                console.log("EchogramCompensation: TVG toggle ignored, side scan compensation active (", cur, ")")
                 return
             }
             let comp = pulseRuntimeSettings.echogramTvgEnabled ? 2 : 0
@@ -494,10 +542,41 @@ WaterFall {
         }
     }
 
+    //DEMO MODE badge. Always visible while replaying so nobody mistakes a
+    //recording for live sonar. Deliberately a LABEL, not a button: as a button it
+    //invited taps (it fooled its own author), and stopping belongs where the demo
+    //is started — the Recording tab. No MouseArea here on purpose.
+    Rectangle {
+        id: demoModeBadge
+        visible: pulseRuntimeSettings.isInDemoMode
+        anchors.top: parent.top
+        anchors.topMargin: 60 + insetTop()
+        anchors.horizontalCenter: parent.horizontalCenter
+
+        color: "#B0000000"
+        radius: height / 2
+        property int contentMargin: 14
+        implicitWidth: demoBadgeText.width + contentMargin * 2
+        implicitHeight: _isAndroid ? 80 : 60
+
+        Text {
+            id: demoBadgeText
+            text: qsTr("Demo")
+            font.pixelSize: 32
+            color: "white"
+            anchors.centerIn: parent
+        }
+    }
+
     Rectangle {
         id: configurationInProgressIndicator
-        // start hidden
-        visible: !pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.dataUpdateActive
+        // start hidden.
+        // DEMO MODE: never offer to configure a device that is not there. During
+        // a demo devConfigured is forced true anyway, but this also covers the
+        // moment right after a demo ends.
+        visible: !pulseRuntimeSettings.devConfigured
+                 && pulseRuntimeSettings.dataUpdateActive
+                 && !pulseRuntimeSettings.isInDemoMode
         anchors.top: parent.top
         anchors.topMargin: 60 + insetTop()
         anchors.left: parent.left
@@ -522,6 +601,8 @@ WaterFall {
             id: completeDeviceConfigurationTimer
             text: {
                 if (pulseRuntimeSettings.isOpeningKlfFile || pulseRuntimeSettings.wasKlfFileOpened)
+                    return ""
+                if (pulseRuntimeSettings.isInDemoMode)
                     return ""
                 if (pulseRuntimeSettings.unableToConfigure) {
                     return "Fixing transducer com link..."
@@ -1197,33 +1278,34 @@ WaterFall {
         // OFF: exactly the pre-Stage-B behavior.
         function applyFiltering(realValue) {
             if (pulseRuntimeSettings.echogramWaterBodyFilterEnabled) {
+                // The filter slider is PERSISTENT. A tester upgrading into the
+                // default-on build can arrive with it at 0, which would leave
+                // EchogramWaterColumn::isActive() false while the checkbox reads "on".
+                // Floor the strength so the toggle always means something; anything the
+                // tester dials above the floor is passed straight through.
+                var wbfValue = Math.max(realValue, pulseRuntimeSettings.echogramWaterBodyMinRealValue)
                 plot.setFilteringValue(0)
-                plot.setWaterBodyFilter(realValue / 50.0)
+                plot.setWaterBodyFilter(wbfValue / 50.0)
             } else {
                 plot.setWaterBodyFilter(0.0)
                 plot.setFilteringValue(realValue)
             }
         }
 
+        //AUTO FILTER RETIRED 2026-08-29. The depth->filter tables
+        //(pulseRuntimeSettings.autoFilterPulseRedNarrow / ...Wide) existed because the
+        //old global low-cut hit the BOTTOM render as well, so the amount of filtering had
+        //to be re-tuned at every depth: too little and the high frequencies left noise in
+        //the water column, too much and the bottom faded out. The water body filter now
+        //applies to the water column ONLY, and TVG keeps the bottom render independent of
+        //depth, so a single value chosen to taste is correct at every depth and the tables
+        //mean nothing.
+        //
+        //This function is the single choke point. The call sites are deliberately left in
+        //place so that a stored autoFilter = true cannot resurrect the behaviour through
+        //any of them before PulseSettings has migrated the flag away.
         function doAutoFilter() {
-            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
-                    || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
-                //console.log("TAV: auto filter not be set for pulseBlue")
-                return
-            }
-
-            if (pulseSettings.autoFilter) {
-                let currentMaxDept = pulseRuntimeSettings.autoDepthMaxLevel
-
-                let filter = getFilterForDepth (currentMaxDept)
-                filter = Math.ceil(filter * 2.5)
-                applyFiltering(filter)
-                plot.updatePlot()
-                //console.log("TAV: auto filter updated plot to real newFilterValue", filter);
-
-            } else {
-                //console.log("TAV: auto filter not active");
-            }
+            return
         }
 
         Connections {
@@ -1464,6 +1546,43 @@ WaterFall {
                 //console.log("TAV: Fixed range requested");
             }
 
+            //DEMO MODE: re-assert the user's max depth after a channel rebind.
+            //
+            //Plot2D::setDataChannel() (plot2D.cpp) does NOT just bind the channel —
+            //it also overwrites cursor_.distance with Dataset::getMaxDistanceRange()
+            //for that channel. On a demo loop restart the dataset has just been
+            //reset, so at rebind time it holds only the first ping of the new pass
+            //and the view snaps to that ping's shallow range (the "set as if 3 m"
+            //symptom) instead of the value still showing on this controller.
+            //
+            //Nothing re-issues the range afterwards, because onSelectorValueChanged
+            //only fires when the VALUE changes and it has not. Hence this hook.
+            //core.channelListUpdated is emitted at the end of onChannelsUpdated(),
+            //i.e. after every setDataChannel() call, so it is the right moment.
+            //
+            //This is why max depth was the only affected control: filter, intensity
+            //and colour map are not touched by setDataChannel.
+            //Demo-scoped on purpose — the live path is left exactly as it was.
+            Connections {
+                target: core
+                function onChannelListUpdated() {
+                    if (!pulseRuntimeSettings.isInDemoMode)
+                        return
+                    if (pulseRuntimeSettings.shouldDoAutoRange)
+                        return      // auto range recomputes on its own
+                    let v = plot.quickChangeMaxRangeValue * 1.0
+                    if (v <= 0)
+                        return
+                    console.log("DEMO: re-applying max depth", v, "after channel rebind")
+                    if (plot.isViewHorizontal()) {
+                        plot.plotDistanceRange2d(v)
+                    } else {
+                        plot.plotDistanceRange(v)
+                    }
+                    plot.updatePlot()
+                }
+            }
+
             Component.onCompleted: {
                 //console.log("EchogramWidth: max depth Component.onComplete")
                 if (pulseSettings.autoRange) {
@@ -1636,21 +1755,26 @@ WaterFall {
             }
 
             Component.onCompleted: {
-                if (pulseRuntimeSettings.is2DTransducer) {
-                //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                // PULSE water body filter: this push used to sit entirely inside the
+                // is2DTransducer gate, so on Pulse Blue setWaterBodyFilter() was never
+                // called at all and the filter stayed inactive however the toggle read.
+                // The filter now pushes for BOTH models; doAutoFilter stays 2D-only
+                // (it is the Red depth->filter table), and with the filter switched off
+                // the original 2D-only routing is preserved exactly.
+                plot.setWaterBodyBottomGuard(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+                if (pulseRuntimeSettings.is2DTransducer
+                        || pulseRuntimeSettings.echogramWaterBodyFilterEnabled) {
                     quickChangeObjects.applyFiltering(pulseSettings.filterRealValue) // PULSE Stage B routing
-                    if (pulseSettings.autoFilter) {
-                        quickChangeObjects.doAutoFilter()
-                    }
+                }
+                if (pulseRuntimeSettings.is2DTransducer && pulseSettings.autoFilter) {
+                    quickChangeObjects.doAutoFilter()
                 }
             }
 
             onFilterAutoRangeRequested: {
-                //console.log("TAV: Auto filter requested");
-                if (!pulseRuntimeSettings.is2DTransducer)
-                    return
-                pulseSettings.autoFilter = true
-                quickChangeObjects.doAutoFilter()
+                //Retired 2026-08-29 — HorizontalController no longer emits this for the
+                //filter control. Kept as a hard stop so nothing can re-arm autoFilter.
+                console.log("AUTO FILTER: request ignored, auto filtering is retired")
             }
 
             onFilterFixedRangeRequested: {
@@ -1683,10 +1807,13 @@ WaterFall {
                 interval: 500
                 repeat: false
                 onTriggered: {
-                    if (pulseRuntimeSettings.is2DTransducer) {
-                    //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                    // Same widening as Component.onCompleted above: the water body filter
+                    // strength must reach C++ on Pulse Blue too, not only on 2D.
+                    plot.setWaterBodyBottomGuard(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+                    if (pulseRuntimeSettings.is2DTransducer
+                            || pulseRuntimeSettings.echogramWaterBodyFilterEnabled) {
                         quickChangeObjects.applyFiltering(pulseSettings.filterRealValue) // PULSE Stage B routing
-                        if (pulseSettings.autoFilter) {
+                        if (pulseRuntimeSettings.is2DTransducer && pulseSettings.autoFilter) {
                             quickChangeObjects.doAutoFilter()
                         }
                         plot.updatePlot()
@@ -1862,25 +1989,50 @@ WaterFall {
                 onThemeListChanged: recalcSelectedIndex()
                 iconSource: "./icons/ui//pulse_paint.svg"
 
+                // SOURCE OF TRUTH for this control is colorMapIndex2D — the 2D model's
+                // OWN stored preference, an index into the master themeModelRed.
+                //
+                // It used to read colorMapIndexReal instead, which is the SHARED
+                // "currently applied theme id" that the side scan selector also writes.
+                // themeModelRed is a superset of themeModelBlue (it carries ids 0-4 and
+                // 26 too), so after using a Blue the lookup did not fail — it quietly
+                // found the Blue's theme inside the red list, selected it, and wrote that
+                // position back into colorMapIndex2D. The Red's own preference was
+                // therefore DESTROYED, not merely displayed wrong, which is why it
+                // survived a restart. Mirror image of what themeSelectorColorSS already
+                // does correctly from colorMapIndexSideScan.
                 function recalcSelectedIndex() {
                     if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue)
                         return
-                    // 1. Figure out where in the *visible* list we live
+
+                    var master = pulseRuntimeSettings.themeModelRed
+                    if (!master || master.length === 0)
+                        return
+
+                    // 1. Which theme does the 2D preference name?
+                    var stored = pulseSettings.colorMapIndex2D
+                    var wantId = (stored >= 0 && stored < master.length) ? master[stored].id
+                                                                         : master[0].id
+
+                    // 2. Where does it sit in the *visible* list (favorites may be a subset)?
                     var idx = themeList.findIndex(function(item){
-                        return item.id === pulseSettings.colorMapIndexReal
+                        return item.id === wantId
                     })
                     selectedIndex = idx >= 0 ? idx : 0
 
-                    // 2. Grab that theme object
+                    // 3. Grab that theme object
                     var theme = themeList[selectedIndex]
+                    if (!theme)
+                        return
 
-                    // 3. Map it back into the *master* red‐themes array
-                    var globalIdx = pulseRuntimeSettings.themeModelRed.findIndex(function(i){
+                    // 4. Map it back into the master red-themes array and store BOTH
+                    //    indices. Guard the -1: never write a negative index into the
+                    //    persistent preference.
+                    var globalIdx = master.findIndex(function(i){
                         return i.id === theme.id
                     })
-
-                    // 4. Always update BOTH your stored indices
-                    pulseSettings.colorMapIndex2D   = globalIdx
+                    if (globalIdx >= 0)
+                        pulseSettings.colorMapIndex2D = globalIdx
                     pulseSettings.colorMapIndexReal = theme.id
 
                     // 5. And refresh the plot
@@ -1931,8 +2083,12 @@ WaterFall {
                     function onUserManualSetNameChanged() {
                         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
                          || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
-                            plot.plotEchogramTheme(pulseSettings.colorMapIndexReal)
-                            plot.updatePlot()
+                            // Restore THIS model's own preference. Applying
+                            // colorMapIndexReal here was the second half of the bug: after
+                            // a Blue session that shared value still holds the Blue's
+                            // theme id. recalcSelectedIndex() reads colorMapIndex2D,
+                            // applies the theme and fixes the selector thumb in one go.
+                            themeSelectorColor2D.recalcSelectedIndex()
                         }
                     }
                 }
@@ -2080,16 +2236,14 @@ WaterFall {
 
                 Connections {
                     target: pulseSettings ? pulseSettings : undefined
-                    function onColorMapIndexSideScanChanged () {
-                        if (pulseSettings === null)
-                            return
-                        let useIndex = pulseSettings.colorMapIndexSideScan
-                        if (useIndex > 1)
-                            useIndex = 1
-                        themeSelectorColor2D.selectedIndex = useIndex
-                        //themeSelectorColor2D.selectedIndex = pulseSettings.colorMapIndexSideScan
-                        //console.log("TAV: colormap updated to index:", pulseSettings.colorMapIndexSideScan);
-                    }
+                    // REMOVED: onColorMapIndexSideScanChanged used to drive
+                    // themeSelectorColor2D.selectedIndex from the SIDE SCAN preference
+                    // (clamped to 0..1, which is the only reason it never went out of
+                    // range). Picking a side scan colour would move the 2D selector's
+                    // thumb to an unrelated entry. The two selectors keep separate
+                    // preferences — colorMapIndexSideScan and colorMapIndex2D — and must
+                    // not write each other's state. themeSelectorColorSS binds its own
+                    // selectedIndex to colorMapIndexSideScan already.
                     function onPulseBlueOffsetChanged () {
                         if (pulseSettings === null)
                             return
@@ -2177,8 +2331,13 @@ WaterFall {
                 Connections {
                     target: pulseSettings ? pulseSettings : undefined
                     function onColorMapIndex2DChanged () {
-                        themeSelectorColor2D.selectedIndex = pulseSettings.colorMapIndex2D
-                        console.log("TAV: colormap updated to index for 2D to:", pulseSettings.colorMapIndex2D);
+                        // colorMapIndex2D indexes the MASTER themeModelRed; selectedIndex
+                        // indexes the VISIBLE list, which is a subset when favorites are
+                        // on. Assigning one to the other was wrong whenever favorites
+                        // were enabled. recalcSelectedIndex() does the master->visible
+                        // mapping properly and is idempotent, so the write it makes back
+                        // to colorMapIndex2D resolves to the same value and stops.
+                        themeSelectorColor2D.recalcSelectedIndex()
                     }
                 }
             }

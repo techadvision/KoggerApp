@@ -145,6 +145,9 @@ Flickable {
             show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.expertMode
             HorizontalControllerDoubleSettings {
                 id: soundSpeedSelector
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [1400, 1405, 1410, 1415, 1420, 1425, 1430,
                     1435, 1440, 1445, 1450, 1455, 1460, 1465, 1470,
                     1475, 1480, 1485, 1490, 1495, 1500, 1505, 1510,
@@ -162,7 +165,13 @@ Flickable {
                 Connections {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onSoundSpeedChanged () {
-                        var idx = soundSpeedSelector.values.indexOf(soundSpeedSelector.soundSpeed / 1000)
+                        // Was `soundSpeedSelector.soundSpeed / 1000`. The controller has no
+                        // `soundSpeed` property, so that read gave undefined -> NaN ->
+                        // indexOf() === -1, and this thumb never followed a change made
+                        // anywhere else. Harmless while this was the only control for the
+                        // parameter; now that the expert panel has one too (2026-08-29)
+                        // the two would visibly disagree.
+                        var idx = soundSpeedSelector.values.indexOf(pulseRuntimeSettings.soundSpeed / 1000)
                         if (idx >= 0) soundSpeedSelector.currentIndex = idx
                     }
                 }
@@ -175,6 +184,9 @@ Flickable {
             show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: speedSelector
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
                     2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9,
                     3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9,
@@ -187,14 +199,19 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
 
-                /*
-                onPulsePreferenceValueChanged: {
-                    //console.log("pulseSettingsValue speedSelector changed to", newValue)
-                    pulseSettings.echogramSpeed = newValue
-                }
-                */
+                // Write the PERSISTENT property, exactly like the pinch gesture in
+                // Plot2D does (Plot2D.qml zoomX -> pulseSettings.echogramSpeed).
+                // pulseSettings is a Qt.labs.settings Settings object, so this write IS
+                // the persistence; main.qml's `onEchogramSpeedChanged` on pulseSettings
+                // then mirrors it into pulseRuntimeSettings, which is what drives the
+                // render side (settingsBus.updateRuntime) and the on-screen indicator.
+                //
+                // This used to write pulseRuntimeSettings directly, which skipped the
+                // persistent half entirely: the speed changed for the session but was
+                // lost on restart, and the on-screen indicator popped up still showing
+                // the OLD number, because its label reads pulseSettings.echogramSpeed.
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.echogramSpeed = newValue
+                    pulseSettings.echogramSpeed = newValue
                 }
 
                 Connections {
@@ -213,6 +230,9 @@ Flickable {
             show: pulseRuntimeSettings.showCatScreen && !pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: widthSelector
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [25, 35]
                 height: 80
                 Layout.preferredWidth: 280
@@ -261,7 +281,10 @@ Flickable {
 
                 Connections {
                     target: pulseSettings ? pulseSettings : undefined
-                    function onPulseBlueOffsethanged () {
+                    // Was `onPulseBlueOffsethanged` — missing the C in "Changed", so this handler
+                    // never fired and the thumb never followed a pulseBlueOffset change made
+                    // elsewhere. Qt also flags an unmatched handler name in Connections.
+                    function onPulseBlueOffsetChanged () {
                         var idx = noiseKillSelector.values.indexOf(pulseSettings.pulseBlueOffset)
                         if (idx >= 0) noiseKillSelector.currentIndex = idx
                     }
@@ -311,6 +334,9 @@ Flickable {
             show: pulseRuntimeSettings.showCatNmea
             HorizontalControllerDoubleSettings {
                 id: nmeaMessageInterval
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 height: 80
                 Layout.preferredWidth: 280
 
@@ -332,6 +358,9 @@ Flickable {
             show: pulseRuntimeSettings.showCatNmea
             HorizontalControllerDoubleSettings {
                 id: nmeaMessageToPort
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 height: 80
                 Layout.preferredWidth: 280
 
@@ -418,6 +447,9 @@ Flickable {
             show: pulseRuntimeSettings.showCatInstallation
             HorizontalControllerMinMaxSettings {
                 id: transducerSubmergedMeasure
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 minimum: 0.0
                 maximum: 10.0
                 stepSize: 0.01
@@ -483,6 +515,9 @@ Flickable {
             show: pulseRuntimeSettings.showCatInstallation && (pulseRuntimeSettings.expertMode || pulseRuntimeSettings.betaMode)
             HorizontalControllerDoubleSettings {
                 id: udpPortSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [14550, 14560]
                 //onPulsePreferenceValueChanged: pulseSettings.udpPort = newValue
                 onPulsePreferenceValueChanged: function(newValue) {

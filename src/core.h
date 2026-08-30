@@ -164,6 +164,20 @@ public slots:
     void releaseFlasherLink();
 #endif
 
+    //PULSE DEMO MODE (Stage 1) — see demo_mode_plan.md.
+    // Replays a .plog as if a live transducer were streaming it. Deliberately
+    // NOT the file-view path: the dataset goes to kConnection, isOpeningFile
+    // stays false, and QML must not set wasKlfFileOpened for a demo.
+    Q_INVOKABLE void startDemo(const QString& filePath);
+    Q_INVOKABLE void stopDemo();
+    Q_INVOKABLE bool getIsDemoMode() const { return isDemoMode_; }
+    // Endless loop: at end of file the demo restarts from the beginning and keeps
+    // going until the user stops it. On by default — that is the whole point of an
+    // exhibition demo. Each pass does a FULL pipeline reset, which is what keeps
+    // dataset/mosaic memory from growing without bound over a whole day.
+    Q_INVOKABLE bool getDemoLoopEnabled() const { return demoLoopEnabled_; }
+    Q_INVOKABLE void setDemoLoopEnabled(bool state) { demoLoopEnabled_ = state; }
+
     Q_INVOKABLE void setPosZeroing(bool state);
     Q_INVOKABLE bool getIsFileOpening() const;
     Q_INVOKABLE bool getIsSeparateReading() const;
@@ -201,12 +215,20 @@ signals:
     void mapTileProviderChanged();
     void internetAvailableChanged();
     void mapTileLoadingEnabledChanged();
+    //PULSE demo mode
+    void demoModeChanged();
+    void demoPeriodChanged(int periodMs, bool isSideScan);
+    void demoStopped();
+    void demoLooped(int passNumber);
 
 #ifdef SEPARATE_READING
     void sendCloseLogFile(bool onOpen = false);
 #endif
 
 private slots:
+    //PULSE demo mode: end of the replayed file. epochsPlayed == 0 means the pass
+    //produced nothing, so looping it would spin — see Core::onDemoFinished.
+    void onDemoFinished(quint64 epochsPlayed);
     void onFileStopsOpening();
     void onSendMapTextureIdByTileIndx(const map::TileIndex& tileIndx, GLuint textureId); // TODO: maybe store map texture id in mapView
     void onDataProcesstorStateChanged(const DataProcessorType& state);
@@ -308,6 +330,14 @@ private:
     bool isFileOpening_;
     //Pulse
     QFutureWatcher<void> openFileWatcher_;
+    //Pulse demo mode
+    bool isDemoMode_ = false;
+    bool demoLoopEnabled_ = true;
+    int  demoPassNumber_ = 0;
+    QString demoFilePath_;
+    // Everything the pipeline needs reset for a fresh pass; shared by startDemo
+    // and the loop restart so a looped pass is identical to the first one.
+    void prepareDemoPipeline(const QString& localFilePath);
 
     bool isGPSAlive_;
     bool isUseGPS_;

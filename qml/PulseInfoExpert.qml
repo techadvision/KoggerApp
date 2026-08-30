@@ -65,7 +65,7 @@ Flickable {
 
         SettingRow {
             toggle: true
-            checkbox: true
+            checkbox: false
             text: "Expert mode enabled"
             visible: pulseRuntimeSettings.expertMode
             SettingsCheckBox {
@@ -100,326 +100,15 @@ Flickable {
             }
         }
 
-
-
-        //Category: 2D TVG (Stage A) — moved out of Experimental 2026-08-17
-        SettingRow {
-            toggle: true
-            text: "2D TVG settings"
-            visible: pulseRuntimeSettings.expertMode
-            SettingCategoryToggle {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "showCat2DTvg"
-                initialValue: pulseRuntimeSettings.showCat2DTvg
-            }
-        }
-
-        //PULSE TVG (Stage A): depth compensation for the 2D echogram, display-only
-        SettingRow {
-            toggle: false
-            checkbox: true
-            id: tvgToggle
-            text: "TVG depth compensation (2D)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg
-            SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "echogramTvgEnabled"
-                initialChecked: pulseRuntimeSettings.echogramTvgEnabled
-                clearAfter: false
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            text: "TVG gain (dB/m)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg && pulseRuntimeSettings.echogramTvgEnabled
-            HorizontalControllerDoubleSettings {
-                id: tvgDbPerMeterSelection
-                values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
-
-                onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.echogramTvgDbPerMeter = newValue
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.echogramTvgDbPerMeter)
-                    currentIndex = idx >= 0 ? idx : values.indexOf(0.9)
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onEchogramTvgDbPerMeterChanged () {
-                        var idx = tvgDbPerMeterSelection.values.indexOf(pulseRuntimeSettings.echogramTvgDbPerMeter)
-                        tvgDbPerMeterSelection.currentIndex = idx >= 0 ? idx : tvgDbPerMeterSelection.values.indexOf(0.9)
-                    }
-                }
-            }
-        }
-
-        //Category: water body filter (Stage B) — moved out of Experimental
-        //2026-08-17; activation independent of both TVG toggles.
-        SettingRow {
-            toggle: true
-            text: "Water body filter"
-            visible: pulseRuntimeSettings.expertMode
-            SettingCategoryToggle {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "showCatWaterBody"
-                initialValue: pulseRuntimeSettings.showCatWaterBody
-            }
-        }
-
-        //PULSE water-body filter: the filter control acts on the water column +
-        //surface band only (bottom-guarded) instead of the global low-cut.
-        //Independent of the TVG toggles — applies to every image type (raw,
-        //side scan AGC, 2D TVG, side scan TVG) whenever enabled.
-        SettingRow {
-            toggle: false
-            checkbox: true
-            id: waterBodyFilterToggle
-            text: "Water-body filtering"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatWaterBody
-            SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "echogramWaterBodyFilterEnabled"
-                initialChecked: pulseRuntimeSettings.echogramWaterBodyFilterEnabled
-                clearAfter: false
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            text: "Filter bottom margin (m)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatWaterBody && pulseRuntimeSettings.echogramWaterBodyFilterEnabled
-            HorizontalControllerDoubleSettings {
-                id: waterBodyMarginSelection
-                values: [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5]
-
-                onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.echogramWaterBodyBottomMargin = newValue
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
-                    currentIndex = idx >= 0 ? idx : values.indexOf(0.05)
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onEchogramWaterBodyBottomMarginChanged () {
-                        var idx = waterBodyMarginSelection.values.indexOf(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
-                        waterBodyMarginSelection.currentIndex = idx >= 0 ? idx : waterBodyMarginSelection.values.indexOf(0.05)
-                    }
-                }
-            }
-        }
-
-        //PULSE side scan TVG (side scan phase): its own category. Log-law range
-        //gain for the side scan waterfall (imageType 3) and optionally the map
-        //mosaic. Validated offline on SS_pulse_log_2026.07.20 — "variant 4"
-        //(TVG + noise floor) as the core, detail boost stepper morphs it
-        //gradually toward "variant 5".
-        SettingRow {
-            toggle: true
-            text: "Side scan TVG settings"
-            visible: pulseRuntimeSettings.expertMode
-            SettingCategoryToggle {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "showCatTvg"
-                initialValue: pulseRuntimeSettings.showCatTvg
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            checkbox: true
-            id: sideScanTvgToggle
-            text: "Side scan TVG (waterfall)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
-            SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "sideScanTvgEnabled"
-                initialChecked: pulseRuntimeSettings.sideScanTvgEnabled
-                clearAfter: false
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            checkbox: true
-            id: sideScanTvgMosaicToggle
-            text: "Use TVG for mosaic"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
-            SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "sideScanTvgMosaicEnabled"
-                initialChecked: pulseRuntimeSettings.sideScanTvgMosaicEnabled
-                clearAfter: false
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            text: "Noise floor subtraction"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
-            HorizontalControllerDoubleSettings {
-                id: ssTvgNoiseFloorSelection
-                values: [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]
-
-                onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.sideScanTvgNoiseFloor = newValue
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgNoiseFloor)
-                    currentIndex = idx >= 0 ? idx : values.indexOf(0.1)
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onSideScanTvgNoiseFloorChanged () {
-                        var idx = ssTvgNoiseFloorSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgNoiseFloor)
-                        ssTvgNoiseFloorSelection.currentIndex = idx >= 0 ? idx : ssTvgNoiseFloorSelection.values.indexOf(0.1)
-                    }
-                }
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            text: "Spreading (dB/decade)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
-            HorizontalControllerDoubleSettings {
-                id: ssTvgSpreadingSelection
-                values: [0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40]
-
-                onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.sideScanTvgSpreading = newValue
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgSpreading)
-                    currentIndex = idx >= 0 ? idx : values.indexOf(5)
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onSideScanTvgSpreadingChanged () {
-                        var idx = ssTvgSpreadingSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgSpreading)
-                        ssTvgSpreadingSelection.currentIndex = idx >= 0 ? idx : ssTvgSpreadingSelection.values.indexOf(5)
-                    }
-                }
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            text: "Absorption (dB/m)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
-            HorizontalControllerDoubleSettings {
-                id: ssTvgAbsorptionSelection
-                values: [0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.8, 1.0]
-
-                onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.sideScanTvgAbsorption = newValue
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgAbsorption)
-                    currentIndex = idx >= 0 ? idx : values.indexOf(0)
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onSideScanTvgAbsorptionChanged () {
-                        var idx = ssTvgAbsorptionSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgAbsorption)
-                        ssTvgAbsorptionSelection.currentIndex = idx >= 0 ? idx : ssTvgAbsorptionSelection.values.indexOf(0)
-                    }
-                }
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            text: "Reference range (m)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
-            HorizontalControllerDoubleSettings {
-                id: ssTvgRefRangeSelection
-                values: [2, 5, 10, 15, 20, 30, 50]
-
-                onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.sideScanTvgRefRange = newValue
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgRefRange)
-                    currentIndex = idx >= 0 ? idx : values.indexOf(15)
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onSideScanTvgRefRangeChanged () {
-                        var idx = ssTvgRefRangeSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgRefRange)
-                        ssTvgRefRangeSelection.currentIndex = idx >= 0 ? idx : ssTvgRefRangeSelection.values.indexOf(15)
-                    }
-                }
-            }
-        }
-
-        SettingRow {
-            toggle: false
-            text: "Detail boost"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
-            HorizontalControllerDoubleSettings {
-                id: ssTvgBoostSelection
-                values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5]
-
-                onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.sideScanTvgBoost = newValue
-                }
-                height: 80
-                Layout.preferredWidth: 280
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgBoost)
-                    currentIndex = idx >= 0 ? idx : values.indexOf(1.2)
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onSideScanTvgBoostChanged () {
-                        var idx = ssTvgBoostSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgBoost)
-                        ssTvgBoostSelection.currentIndex = idx >= 0 ? idx : ssTvgBoostSelection.values.indexOf(1.2)
-                    }
-                }
-            }
-        }
-
         SettingRow {
             toggle: false
             text: "Pulse blue booster"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
             HorizontalControllerDoubleSettings {
                 id: transBoostSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [0, 1]
 
                 //onPulsePreferenceValueChanged: pulseRuntimeSettings.transBoost = newValue
@@ -452,6 +141,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
             HorizontalControllerDoubleSettings {
                 id: blueHiLoFrequency
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [460, 820]
 
                 onPulsePreferenceValueChanged: function(newValue) {
@@ -522,10 +214,13 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Experimental frequency adjust"
+            text: "Frequency adjust"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: frequencySelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [300, 310, 320, 330, 340, 350, 360, 370, 380, 390,
                         400, 410, 420, 430, 440, 450, 460, 470, 480, 490,
                         500, 510, 520, 530, 540, 550, 560, 570, 580, 590,
@@ -560,13 +255,38 @@ Flickable {
 
         SettingRow {
             toggle: false
-            text: "Experimental period adjust (50)"
+            text: "Period, ms"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
-            HorizontalControllerDoubleSettings {
+            HorizontalControllerMinMaxSettings {
                 id: periodSelection
-                values: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+                //MinMax rather than a fixed values[] list (changed 2026-08-29): this
+                //parameter is driven dynamically for the Red, so the live value is
+                //routinely OUTSIDE any list we could write down. The old stepper then
+                //fell back to values[0] and displayed a number the device never had.
+                //Olav measured 156 ms on a live Red while the stepper showed 10.
+                minimum: 0
+                maximum: 2000
+                stepSize: 1
+                //Never write on a programmatic seed or re-sync — only on a real step.
+                //Without this the seed alone would break the profile binding on
+                //ch1Period, and a re-sync could push a wrong value to the transducer.
+                emitOnUserActionOnly: true
 
-                //onPulsePreferenceValueChanged: pulseRuntimeSettings.ch1Period = newValue
+                //DISPLAY the device read-back, so this row always agrees with the
+                //"Device parameter information" category further down. ch1Period_Copy is -1
+                //until the first read, so fall back to the value the app intends.
+                //
+                //Held in its own bound property rather than a Connections block: the
+                //change handler for ch1Period_Copy would have to be spelled
+                //onCh1Period_CopyChanged, and Qt 6 treats a mistyped signal name in
+                //Connections as an error. A property we own has an unambiguous handler.
+                property int deviceValue: (pulseRuntimeSettings.ch1Period_Copy >= 0)
+                                            ? pulseRuntimeSettings.ch1Period_Copy
+                                            : pulseRuntimeSettings.ch1Period
+
+                //Programmatic, so emitOnUserActionOnly keeps it from writing back.
+                onDeviceValueChanged: currentValue = deviceValue
+
                 onPulsePreferenceValueChanged: function(newValue) {
                     pulseRuntimeSettings.ch1Period = newValue
                 }
@@ -574,41 +294,44 @@ Flickable {
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
 
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.ch1Period)
-                    currentIndex = idx >= 0 ? idx : 0
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onCh1PeriodChanged () {
-                        console.log("Detected pulseRuntimeSettings.ch1Period got new value ", pulseRuntimeSettings.ch1Period)
-                        var idx = periodSelection.values.indexOf(pulseRuntimeSettings.ch1Period)
-                        periodSelection.currentIndex = idx >= 0 ? idx : 0
-                    }
-                }
+                Component.onCompleted: currentValue = deviceValue
             }
         }
 
         SettingRow {
             toggle: false
-            text: "Experimental samples adjust (2000)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
-            HorizontalControllerDoubleSettings {
+            text: "Samples"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            HorizontalControllerMinMaxSettings {
                 id: samplesSelection
-                values: [700, 750, 800, 850, 900, 950,
-                    1000 ,1050, 1100, 1150, 1200, 1250, 1300, 1350,
-                    1358, 1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750,
-                    1800, 1850, 1900, 1950, 2000, 2050, 2100, 2150, 2200,
-                    2250, 2300, 2350, 2400, 2450, 2500, 2550, 2600, 2650,
-                    2700, 2750, 2800, 2850, 2900, 2950, 3000, 3050, 3100,
-                    3150, 3200, 3250, 3300, 3350, 3400, 3450, 3500, 3550,
-                    3600, 3650, 3700, 3750, 3800, 3850, 3900, 3950, 4000,
-                    4050, 4100, 4150, 4200, 4250, 4300, 4350, 4400, 4450,
-                    4500, 4550, 4600, 4650, 4700, 4750, 4800, 4850, 4900,
-                    4950, 5000]
+                //MinMax rather than a fixed values[] list (changed 2026-08-29): this
+                //parameter is driven dynamically for the Red, so the live value is
+                //routinely OUTSIDE any list we could write down. The old stepper then
+                //fell back to values[0] and displayed a number the device never had.
+                //Device range per DeviceItem's "Number of Samples" SpinBox: 100-15000.
+                minimum: 100
+                maximum: 15000
+                stepSize: 50
+                //Never write on a programmatic seed or re-sync — only on a real step.
+                //Without this the seed alone would break the profile binding on
+                //chartSamples, and a re-sync could push a wrong value to the transducer.
+                emitOnUserActionOnly: true
 
-                //onPulsePreferenceValueChanged: pulseRuntimeSettings.chartSamples = newValue
+                //DISPLAY the device read-back, so this row always agrees with the
+                //"Device parameter information" category further down. chartSamples_Copy is -1
+                //until the first read, so fall back to the value the app intends.
+                //
+                //Held in its own bound property rather than a Connections block: the
+                //change handler for chartSamples_Copy would have to be spelled
+                //onChartSamples_CopyChanged, and Qt 6 treats a mistyped signal name in
+                //Connections as an error. A property we own has an unambiguous handler.
+                property int deviceValue: (pulseRuntimeSettings.chartSamples_Copy >= 0)
+                                            ? pulseRuntimeSettings.chartSamples_Copy
+                                            : pulseRuntimeSettings.chartSamples
+
+                //Programmatic, so emitOnUserActionOnly keeps it from writing back.
+                onDeviceValueChanged: currentValue = deviceValue
+
                 onPulsePreferenceValueChanged: function(newValue) {
                     pulseRuntimeSettings.chartSamples = newValue
                 }
@@ -616,35 +339,44 @@ Flickable {
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
 
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.chartSamples)
-                    currentIndex = idx >= 0 ? idx : 0
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onChartSamplesChanged () {
-                        console.log("Detected pulseRuntimeSettings.chartSamples got new value ", pulseRuntimeSettings.chartSamples)
-                        var idx = samplesSelection.values.indexOf(pulseRuntimeSettings.chartSamples)
-                        samplesSelection.currentIndex = idx >= 0 ? idx : 0
-                    }
-                }
+                Component.onCompleted: currentValue = deviceValue
             }
         }
 
         SettingRow {
             toggle: false
-            text: "Experimental resolution adjust (37)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental && !pulseRuntimeSettings.is2DTransducer
-            HorizontalControllerDoubleSettings {
+            text: "Sample spacing, mm"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            HorizontalControllerMinMaxSettings {
                 id: resolutionSelection
-                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-                    21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-                    31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-                    41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+                //MinMax rather than a fixed values[] list (changed 2026-08-29): this
+                //parameter is driven dynamically for the Red, so the live value is
+                //routinely OUTSIDE any list we could write down. The old stepper then
+                //fell back to values[0] and displayed a number the device never had.
+                //Renamed from "Resolution": high resolution is a LOW number, which misreads every time. Sample spacing is a length, so bigger is plainly coarser.
+                minimum: 1
+                maximum: 100
+                stepSize: 1
+                //Never write on a programmatic seed or re-sync — only on a real step.
+                //Without this the seed alone would break the profile binding on
+                //chartResolution, and a re-sync could push a wrong value to the transducer.
+                emitOnUserActionOnly: true
 
-                //onPulsePreferenceValueChanged: pulseRuntimeSettings.chartResolution = newValue
+                //DISPLAY the device read-back, so this row always agrees with the
+                //"Device parameter information" category further down. chartResolution_Copy is -1
+                //until the first read, so fall back to the value the app intends.
+                //
+                //Held in its own bound property rather than a Connections block: the
+                //change handler for chartResolution_Copy would have to be spelled
+                //onChartResolution_CopyChanged, and Qt 6 treats a mistyped signal name in
+                //Connections as an error. A property we own has an unambiguous handler.
+                property int deviceValue: (pulseRuntimeSettings.chartResolution_Copy >= 0)
+                                            ? pulseRuntimeSettings.chartResolution_Copy
+                                            : pulseRuntimeSettings.chartResolution
+
+                //Programmatic, so emitOnUserActionOnly keeps it from writing back.
+                onDeviceValueChanged: currentValue = deviceValue
+
                 onPulsePreferenceValueChanged: function(newValue) {
                     pulseRuntimeSettings.chartResolution = newValue
                 }
@@ -652,28 +384,19 @@ Flickable {
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
 
-                Component.onCompleted: {
-                    var idx = values.indexOf(pulseRuntimeSettings.chartResolution)
-                    currentIndex = idx >= 0 ? idx : 0
-                }
-
-                Connections {
-                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                    function onChartResolutionChanged () {
-                        console.log("Detected pulseRuntimeSettings.chartResolution got new value ", pulseRuntimeSettings.chartResolution)
-                        var idx = resolutionSelection.values.indexOf(pulseRuntimeSettings.chartResolution)
-                        resolutionSelection.currentIndex = idx >= 0 ? idx : 0
-                    }
-                }
+                Component.onCompleted: currentValue = deviceValue
             }
         }
 
         SettingRow {
             toggle: false
-            text: "Experimental maximum depth adjust"
+            text: "Maximum depth adjust"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: depthSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [25000, 30000, 35000, 40000, 45000, 50000, 55000, 60000, 65000,
                         70000, 75000, 80000, 85000, 90000, 95000, 100000]
 
@@ -706,12 +429,152 @@ Flickable {
             }
         }
 
+        //PULSE 2026-08-29: three more device parameters exposed to the expert, on request.
+        //All three are ALREADY wired in DeviceItem.qml — it has live Connections on
+        //onDistConfidenceChanged, onTransPulseChanged and onSoundSpeedChanged that push
+        //straight into dev.*, so writing the pulseRuntimeSettings property is all that is
+        //needed here. Same shape as the rows above: writing a per-device property breaks
+        //its profile binding for the session, which is the intended expert behaviour.
+
         SettingRow {
             toggle: false
-            text: "Experimental USB baud rate"
+            text: "Dist confidence adjust (14)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            HorizontalControllerDoubleSettings {
+                id: distConfidenceSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                //Full 0-100 in steps of 1, matching the device range in DeviceItem's
+                //"Confidence threshold, %" SpinBox. Full fidelity on purpose: the list
+                //must always contain whatever the device reports, otherwise
+                //values.indexOf() misses and the control falls back to showing 0.
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                    31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                    41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+                    61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+                    71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
+                    81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
+                    91, 92, 93, 94, 95, 96, 97, 98, 99, 100]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.distConfidence = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.distConfidence)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onDistConfidenceChanged () {
+                        console.log("Detected pulseRuntimeSettings.distConfidence got new value ", pulseRuntimeSettings.distConfidence)
+                        var idx = distConfidenceSelection.values.indexOf(pulseRuntimeSettings.distConfidence)
+                        distConfidenceSelection.currentIndex = idx >= 0 ? idx : 0
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Transducer pulse adjust (10)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            HorizontalControllerDoubleSettings {
+                id: transPulseSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                //1-50 in steps of 1. DeviceItem's "Pulse count" SpinBox nominally accepts
+                //0-5000, which is far too wide for a stepper; this covers experimentation
+                //around the profile default of 10 without stepping into four-digit values
+                //by accident.
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                    21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                    31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                    41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.transPulse = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.transPulse)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onTransPulseChanged () {
+                        console.log("Detected pulseRuntimeSettings.transPulse got new value ", pulseRuntimeSettings.transPulse)
+                        var idx = transPulseSelection.values.indexOf(pulseRuntimeSettings.transPulse)
+                        transPulseSelection.currentIndex = idx >= 0 ? idx : 0
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Sound of speed adjust (1480)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            HorizontalControllerDoubleSettings {
+                id: soundSpeedSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                //Same list as the regular user control in PulseInfoSettings.qml — the
+                //expert just wants it reachable from one place. IMPORTANT: soundSpeed is
+                //stored in the runtime settings MULTIPLIED BY 1000 (profile: 1480*1000),
+                //so the stepper works in m/s and converts on the way in and out.
+                values: [1400, 1405, 1410, 1415, 1420, 1425, 1430,
+                    1435, 1440, 1445, 1450, 1455, 1460, 1465, 1470,
+                    1475, 1480, 1485, 1490, 1495, 1500, 1505, 1510,
+                    1515, 1520, 1525, 1530, 1535, 1540, 1545, 1550]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.soundSpeed = newValue * 1000
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.soundSpeed / 1000)
+                    currentIndex = idx >= 0 ? idx : 0
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSoundSpeedChanged () {
+                        console.log("Detected pulseRuntimeSettings.soundSpeed got new value ", pulseRuntimeSettings.soundSpeed)
+                        var idx = soundSpeedSelection.values.indexOf(pulseRuntimeSettings.soundSpeed / 1000)
+                        soundSpeedSelection.currentIndex = idx >= 0 ? idx : 0
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "USB baud rate"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             HorizontalControllerDoubleSettings {
                 id: baudSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [115200, 921600]
 
                 //onPulsePreferenceValueChanged: pulseSettings.usbSerialBaud = newValue
@@ -738,6 +601,348 @@ Flickable {
             }
         }
 
+        //Category: water body filter (Stage B) — moved out of Experimental
+        //2026-08-17; activation independent of both TVG toggles.
+        SettingRow {
+            toggle: true
+            text: "Water body filter"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCatWaterBody"
+                initialValue: pulseRuntimeSettings.showCatWaterBody
+            }
+        }
+
+        //PULSE water-body filter: the filter control acts on the water column +
+        //surface band only (bottom-guarded) instead of the global low-cut.
+        //Independent of the TVG toggles — applies to every image type (raw,
+        //side scan AGC, 2D TVG, side scan TVG) whenever enabled.
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: waterBodyFilterToggle
+            text: "Water-body filtering"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatWaterBody
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "echogramWaterBodyFilterEnabled"
+                initialChecked: pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Filter bottom margin (m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatWaterBody && pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+            HorizontalControllerDoubleSettings {
+                id: waterBodyMarginSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                values: [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.echogramWaterBodyBottomMargin = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0.05)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onEchogramWaterBodyBottomMarginChanged () {
+                        var idx = waterBodyMarginSelection.values.indexOf(pulseRuntimeSettings.echogramWaterBodyBottomMargin)
+                        waterBodyMarginSelection.currentIndex = idx >= 0 ? idx : waterBodyMarginSelection.values.indexOf(0.05)
+                    }
+                }
+            }
+        }
+
+
+        //Category: 2D TVG (Stage A) — moved out of Experimental 2026-08-17
+        SettingRow {
+            toggle: true
+            text: "TVG 2D settings"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCat2DTvg"
+                initialValue: pulseRuntimeSettings.showCat2DTvg
+            }
+        }
+
+        //PULSE TVG (Stage A): depth compensation for the 2D echogram, display-only
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: tvgToggle
+            text: "TVG depth compensation (2D)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "echogramTvgEnabled"
+                initialChecked: pulseRuntimeSettings.echogramTvgEnabled
+                // Profile-driven default: never write back unless the expert really clicks,
+                // otherwise the first device identification kills the profile binding.
+                writeBackOnUserActionOnly: true
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "TVG gain (dB/m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg && pulseRuntimeSettings.echogramTvgEnabled
+            HorizontalControllerDoubleSettings {
+                id: tvgDbPerMeterSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.echogramTvgDbPerMeter = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.echogramTvgDbPerMeter)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0.9)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onEchogramTvgDbPerMeterChanged () {
+                        var idx = tvgDbPerMeterSelection.values.indexOf(pulseRuntimeSettings.echogramTvgDbPerMeter)
+                        tvgDbPerMeterSelection.currentIndex = idx >= 0 ? idx : tvgDbPerMeterSelection.values.indexOf(0.9)
+                    }
+                }
+            }
+        }
+
+
+        //PULSE side scan TVG (side scan phase): its own category. Log-law range
+        //gain for the side scan waterfall (imageType 3) and optionally the map
+        //mosaic. Validated offline on SS_pulse_log_2026.07.20 — "variant 4"
+        //(TVG + noise floor) as the core, detail boost stepper morphs it
+        //gradually toward "variant 5".
+        SettingRow {
+            toggle: true
+            text: "TVG side scan settings"
+            visible: pulseRuntimeSettings.expertMode
+            SettingCategoryToggle {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "showCatTvg"
+                initialValue: pulseRuntimeSettings.showCatTvg
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: sideScanTvgToggle
+            text: "Side scan TVG (waterfall)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "sideScanTvgEnabled"
+                initialChecked: pulseRuntimeSettings.sideScanTvgEnabled
+                // Profile-driven default: never write back unless the expert really clicks,
+                // otherwise the first device identification kills the profile binding.
+                writeBackOnUserActionOnly: true
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: sideScanTvgMosaicToggle
+            text: "Use TVG for mosaic"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "sideScanTvgMosaicEnabled"
+                initialChecked: pulseRuntimeSettings.sideScanTvgMosaicEnabled
+                clearAfter: false
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Noise floor subtraction"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgNoiseFloorSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                values: [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgNoiseFloor = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgNoiseFloor)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0.1)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgNoiseFloorChanged () {
+                        var idx = ssTvgNoiseFloorSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgNoiseFloor)
+                        ssTvgNoiseFloorSelection.currentIndex = idx >= 0 ? idx : ssTvgNoiseFloorSelection.values.indexOf(0.1)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Spreading (dB/decade)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgSpreadingSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                values: [0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgSpreading = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgSpreading)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(5)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgSpreadingChanged () {
+                        var idx = ssTvgSpreadingSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgSpreading)
+                        ssTvgSpreadingSelection.currentIndex = idx >= 0 ? idx : ssTvgSpreadingSelection.values.indexOf(5)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Absorption (dB/m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgAbsorptionSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                values: [0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.8, 1.0]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgAbsorption = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgAbsorption)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(0)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgAbsorptionChanged () {
+                        var idx = ssTvgAbsorptionSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgAbsorption)
+                        ssTvgAbsorptionSelection.currentIndex = idx >= 0 ? idx : ssTvgAbsorptionSelection.values.indexOf(0)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Reference range (m)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgRefRangeSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                values: [2, 5, 10, 15, 20, 30, 50]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgRefRange = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgRefRange)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(15)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgRefRangeChanged () {
+                        var idx = ssTvgRefRangeSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgRefRange)
+                        ssTvgRefRangeSelection.currentIndex = idx >= 0 ? idx : ssTvgRefRangeSelection.values.indexOf(15)
+                    }
+                }
+            }
+        }
+
+        SettingRow {
+            toggle: false
+            text: "Detail boost"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
+            HorizontalControllerDoubleSettings {
+                id: ssTvgBoostSelection
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
+                values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5]
+
+                onPulsePreferenceValueChanged: function(newValue) {
+                    pulseRuntimeSettings.sideScanTvgBoost = newValue
+                }
+                height: 80
+                Layout.preferredWidth: 280
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+                Component.onCompleted: {
+                    var idx = values.indexOf(pulseRuntimeSettings.sideScanTvgBoost)
+                    currentIndex = idx >= 0 ? idx : values.indexOf(1.2)
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onSideScanTvgBoostChanged () {
+                        var idx = ssTvgBoostSelection.values.indexOf(pulseRuntimeSettings.sideScanTvgBoost)
+                        ssTvgBoostSelection.currentIndex = idx >= 0 ? idx : ssTvgBoostSelection.values.indexOf(1.2)
+                    }
+                }
+            }
+        }
+
+
         SettingRow {
             toggle: true
             text: "Depth manipulation settings"
@@ -755,6 +960,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthTricks
             HorizontalControllerMinMaxSettings {
                 id: fakeDepthAddition
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 minimum: 0
                 maximum: 60
                 stepSize: 0.1
@@ -903,6 +1111,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackGainSlopeValue
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
                         2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
 
@@ -929,6 +1140,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackWindowValue
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [3, 4, 5, 6, 7, 8, 9, 10,
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                     21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
@@ -957,6 +1171,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackVerticalGapValue
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
@@ -983,6 +1200,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackMinDepthValue
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [0.0, 0.5, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
 
                 onPulsePreferenceValueChanged: function(newValue) {
@@ -1008,6 +1228,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             HorizontalControllerDoubleSettings {
                 id: bottomTrackMaxDepthValue
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
                         31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
                         41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
@@ -1046,6 +1269,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBlackStripes
             HorizontalControllerDoubleSettings {
                 id: blackStripesSizeForward
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                     21, 22, 23, 25, 25, 26, 27, 28, 29, 30]
@@ -1071,6 +1297,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBlackStripes
             HorizontalControllerDoubleSettings {
                 id: blackStripesSizeBackward
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                     21, 22, 23, 25, 25, 26, 27, 28, 29, 30]
@@ -1151,6 +1380,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.is2DTransducer
             HorizontalControllerDoubleSettings {
                 id: kSmallAgreeMargin
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
                 height: 80
                 Layout.preferredWidth: 280
@@ -1177,6 +1409,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering
             HorizontalControllerDoubleSettings {
                 id: kLargeJumpThreshold
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0,
                         11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0]
                 height: 80
@@ -1204,6 +1439,9 @@ Flickable {
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering
             HorizontalControllerDoubleSettings {
                 id: kConsistNeeded
+                //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
+                //only on a real user step. See HorizontalControllerDoubleSettings.
+                emitOnUserActionOnly: true
                 values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
                 height: 80

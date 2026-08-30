@@ -39,11 +39,36 @@ Item {
 
     signal pulsePreferenceValueChanged(double newValue)
 
+    // PULSE: emit pulsePreferenceValueChanged ONLY for a real user step.
+    //
+    // The default (false) is the historic behaviour: the signal fires on ANY change,
+    // including the programmatic seed in Component.onCompleted and the Connections
+    // re-sync. That has two bad effects on a property that is BOUND to a device
+    // profile: the seed writes the value straight back and destroys the binding, and
+    // a re-sync that cannot find the current value falls back to the first entry and
+    // WRITES THAT to the device. Rows driving bound or device-critical parameters
+    // opt in; everything else keeps the old behaviour untouched.
+    property bool emitOnUserActionOnly: false
+    property bool _userDriven: false
+
+    // The ONLY user-driven path. QML emits the change signal synchronously during the
+    // assignment, so _userDriven is still set when onCurrentIndexChanged runs.
+    function _stepBy(delta) {
+        var next = currentIndex + delta
+        if (next < 0 || next > values.length - 1 || next === currentIndex)
+            return
+        _userDriven = true
+        currentIndex = next
+        _userDriven = false
+    }
+
     implicitWidth: Math.round(100 * s) //_isAndroid ? 280 : 180
     implicitHeight: Math.round(54 * s) //_isAndroid ? 54 : 32
     //implicitHeight: _isAndroid ? 80 : 54
 
     onCurrentIndexChanged: {
+        if (emitOnUserActionOnly && !_userDriven)
+            return
         pulsePreferenceValueChanged(values[currentIndex])
     }
 
@@ -109,7 +134,7 @@ Item {
                 running: false
                 onTriggered: {
                     if (currentIndex > 0)
-                        currentIndex--
+                        root._stepBy(-1)
                     else
                         minusRepeatTimer.stop()
                 }
@@ -127,7 +152,7 @@ Item {
             // cancels this when the gesture becomes a scroll.
             onClicked: {
                 if (!_repeating && currentIndex > 0)
-                    currentIndex--
+                    root._stepBy(-1)
             }
         }
 
@@ -204,7 +229,7 @@ Item {
                 running: false
                 onTriggered: {
                     if (currentIndex < values.length - 1)
-                        currentIndex++
+                        root._stepBy(1)
                     else
                         plusRepeatTimer.stop()
                 }
@@ -222,7 +247,7 @@ Item {
             // cancels this when the gesture becomes a scroll.
             onClicked: {
                 if (!_repeating && currentIndex < values.length - 1)
-                    currentIndex++
+                    root._stepBy(1)
             }
         }
     }

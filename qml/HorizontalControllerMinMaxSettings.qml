@@ -37,6 +37,18 @@ Item {
 
     signal pulsePreferenceValueChanged(double newValue)
 
+    // PULSE: emit pulsePreferenceValueChanged ONLY for a real user step.
+    //
+    // The default (false) is the historic behaviour: the signal fires on ANY change,
+    // including the programmatic seed in Component.onCompleted and the Connections
+    // re-sync. That has two bad effects on a property that is BOUND to a device
+    // profile: the seed writes the value straight back and destroys the binding, and
+    // a re-sync that cannot find the current value falls back to the first entry and
+    // WRITES THAT to the device. Rows driving bound or device-critical parameters
+    // opt in; everything else keeps the old behaviour untouched.
+    property bool emitOnUserActionOnly: false
+    property bool _userDriven: false
+
     implicitWidth: Math.round(280 * s) //_isAndroid ? 280 : 180
     implicitHeight: Math.round(54 * s) //_isAndroid? 54 : 32
     //implicitHeight: _isAndroid? 80 : 54
@@ -45,7 +57,10 @@ Item {
     onStepSizeChanged: precision = calcPrecision(stepSize)
 
     // Notify when the value is changed
-    onCurrentValueChanged: pulsePreferenceValueChanged(currentValue)
+    onCurrentValueChanged: {
+        if (!emitOnUserActionOnly || _userDriven)
+            pulsePreferenceValueChanged(currentValue)
+    }
 
     Row {
         //anchors.fill: parent
@@ -104,7 +119,10 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                font.pixelSize: root.valuePixels
+                // Match HorizontalControllerDoubleSettings, which uses Ui.fontXL for its
+                // value text. valuePixels (42 * s) rendered noticeably larger than the
+                // steppers beside it in the expert list.
+                font.pixelSize: Ui.fontXL //root.valuePixels
                 // Format with dynamic precision
                 text: root.currentValue.toFixed(root.precision)
             }
@@ -148,14 +166,20 @@ Item {
         }
     }
 
-    // Adjust and clamp
+    // Adjust and clamp. This is the ONLY user-driven path, so it is where _userDriven
+    // is raised. QML emits the change signal synchronously during the assignment, so
+    // the flag is still set when onCurrentValueChanged runs.
     function adjust(delta) {
         var newVal = currentValue + delta;
         newVal = Math.max(minimum, Math.min(newVal, maximum));
         // Round to precision to avoid floating errors
         var factor = Math.pow(10, precision);
         newVal = Math.round(newVal * factor) / factor;
-        if (newVal !== currentValue) currentValue = newVal;
+        if (newVal !== currentValue) {
+            _userDriven = true
+            currentValue = newVal;
+            _userDriven = false
+        }
     }
 
     // Helper to determine decimal places from stepSize

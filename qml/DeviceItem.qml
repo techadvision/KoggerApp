@@ -1096,6 +1096,13 @@ ColumnLayout {
             return
         }
 
+        //DEMO MODE: the "device" is a ghost built from recorded frames. Writes
+        //go nowhere (link == nullptr), so configuring it is pointless churn.
+        if (pulseRuntimeSettings.isInDemoMode){
+            console.log("DEV_PARAM: demo mode is replaying a file, no device setup")
+            return
+        }
+
         //Disable the echogram before any parameters are changed;
         console.log("DEV_PARAM: disable echogram")
         // Null-protect: configurePulseDevice can be triggered by manual device
@@ -1125,24 +1132,12 @@ ColumnLayout {
         }
 
         console.log("DEV_PARAM: pulseRuntimeSettings - black stripes for", pulseRuntimeSettings.userManualSetName)
-        if (core.fixBlackStripesForwardSteps       !== pulseRuntimeSettings.fixBlackStripesForwardSteps) {
-            core.fixBlackStripesForwardSteps       = pulseRuntimeSettings.fixBlackStripesForwardSteps
-            console.log("DEV_CONFIG: core.fixBlackStripesForwardSteps changed to ", core.fixBlackStripesForwardSteps)
-        } else {
-            //console.log("DEV_CONFIG: core.fixBlackStripesForwardSteps OK as ", core.fixBlackStripesForwardSteps)
-        }
-        if (core.fixBlackStripesBackwardSteps        !== pulseRuntimeSettings.fixBlackStripesBackwardSteps) {
-            core.fixBlackStripesBackwardSteps        = pulseRuntimeSettings.fixBlackStripesBackwardSteps
-            console.log("DEV_CONFIG: core.fixBlackStripesBackwardSteps changed to ", core.fixBlackStripesBackwardSteps)
-        } else {
-            console.log("DEV_CONFIG: core.fixBlackStripesBackwardSteps OK as ", core.fixBlackStripesBackwardSteps)
-        }
-        if (core.fixBlackStripesState               !== pulseRuntimeSettings.fixBlackStripesState) {
-            core.fixBlackStripesState               = pulseRuntimeSettings.fixBlackStripesState
-            //console.log("DEV_CONFIG: core.fixBlackStripesState changed to ", core.fixBlackStripesState)
-        } else {
-            //console.log("DEV_CONFIG: core.fixBlackStripesState OK as ", core.fixBlackStripesState)
-        }
+        // Moved to pulseRuntimeSettings so demo mode enforces the identical
+        // settings (it never reaches this function). Same guarded writes, same
+        // values — black stripes removal is display-side, not a device write.
+        pulseRuntimeSettings.applyBlackStripesToCore(pulseRuntimeSettings.fixBlackStripesForwardSteps,
+                                                     pulseRuntimeSettings.fixBlackStripesBackwardSteps,
+                                                     pulseRuntimeSettings.fixBlackStripesState)
 
         pulseRuntimeSettings.devIdentified      = true
         pulseRuntimeSettings.appConfigured      = true
@@ -1175,6 +1170,9 @@ ColumnLayout {
         onTriggered: {
             //console.log("DEV_PARAM deviceParameterSetterRepeat")
             if (pulseRuntimeSettings.wasKlfFileOpened)
+                return
+            //DEMO MODE: nothing to configure while replaying a file.
+            if (pulseRuntimeSettings.isInDemoMode)
                 return
             if (pulseRuntimeSettings.devConfigured) {
                 //console.log("DEV_PARAM completeDeviceConfigurationTimer no need to repeat as devConfigured complete")
@@ -1913,6 +1911,12 @@ ColumnLayout {
         }
 
         function onUserManualSetNameChanged () {
+            //DEMO MODE: a replayed log announces its own device; do not react to
+            //it by starting a configuration pass.
+            if (pulseRuntimeSettings.isInDemoMode) {
+                console.log("DEV_PARAM: onUserManualSetNameChanged ignored, demo mode")
+                return
+            }
             if (pulseRuntimeSettings.userManualSetName !== "...") {
                 console.log("DEV_PARAM: onUserManualSetNameChanged observed, now we configure the device")
                 configurePulseDevice()
@@ -1922,6 +1926,12 @@ ColumnLayout {
         }
 
         function onSwapDeviceNowChanged () {
+            //DEMO MODE: there is no device to swap to.
+            if (pulseRuntimeSettings.isInDemoMode) {
+                console.log("DEV_RESELECT: ignored, demo mode")
+                pulseRuntimeSettings.swapDeviceNow = false
+                return
+            }
             if (pulseRuntimeSettings.swapDeviceNow) {
                 pulseRuntimeSettings.didEverReceiveData = false
                 pulseRuntimeSettings.hasDeviceLostConnection = false
@@ -1949,6 +1959,13 @@ ColumnLayout {
         }
 
         function onHasDeviceLostConnectionChanged () {
+            //DEMO MODE: a replay has no connection to lose. Without this, the
+            //gap at demo stop (and at every loop boundary in Stage 2) would wipe
+            //the setup state and restart the configuration timer.
+            if (pulseRuntimeSettings.isInDemoMode) {
+                console.log("DEV_PARAM lost/regained connection ignored, demo mode")
+                return
+            }
             if (pulseRuntimeSettings.hasDeviceLostConnection) {
                 console.log("DEV_PARAM alerted that device connection was lost")
                 resetAllSetupStates()
@@ -2046,6 +2063,13 @@ ColumnLayout {
         repeat: false
         running: false
         onTriggered: {
+            //DEMO MODE: during playback data keeps arriving so this never fires,
+            //but the gap at demo stop (and at every loop boundary in Stage 2)
+            //would otherwise raise a "lost connection" for a device that was
+            //never connected.
+            if (pulseRuntimeSettings.isInDemoMode) {
+                return
+            }
             if (pulseRuntimeSettings.didEverReceiveData) {
                 if (pulseRuntimeSettings.devName !== "...") {
                     pulseRuntimeSettings.isReceivingData = false;

@@ -7,6 +7,9 @@
 #include <QHash>
 #include <QGeoPositionInfoSource>
 #include <QUuid>
+#include <QTimer>
+#include <QFile>
+#include <QElapsedTimer>
 #include "link.h"
 #include "stream_list.h"
 #include "dev_q_property.h"
@@ -55,6 +58,14 @@ public slots:
     void initStreamList();
     void frameInput(QUuid uuid, Link* link, Parsers::FrameParser frame);
     void openFile(QString filePath);
+
+    //PULSE DEMO MODE (Stage 1) — see demo_mode_plan.md
+    // Paced replay of a .plog file through frameInput(): the same entry point
+    // openFile() uses, but metered to one chart epoch per timer tick so the app
+    // sees the recording as if a live transducer were streaming it. Nothing
+    // downstream of frameInput() can tell replay from live.
+    void startDemo(QString filePath);
+    void stopDemo();
 #ifdef SEPARATE_READING
     void closeFile(bool onOpen = false);
 #else
@@ -140,6 +151,11 @@ signals:
     void chartLossesChanged();
     //Pulse
     void mavlinkWasDetected();
+    //Pulse demo mode
+    void demoStarted(int periodMs, bool isSideScan);
+    // epochsPlayed lets Core decide whether looping is safe: a pass that played
+    // nothing (unreadable file, no chart data) must NOT be retried forever.
+    void demoFinished(quint64 epochsPlayed);
 
     // logger
     void sendProtoFrame(Parsers::ProtoBinOut protoOut);
@@ -157,6 +173,21 @@ private:
     void delAllDev();
     void deleteDevicesByLink(QUuid uuid);
     DevQProperty* createDev(QUuid uuid, Link* link, uint8_t addr);
+
+    //PULSE DEMO MODE
+    // Bounded prefix scan: works out the pacing before the first frame is
+    // dispatched. Returns false when the file cannot be used for a demo.
+    bool demoPrescan(const QString& localPath, int& periodMsOut, bool& isSideScanOut);
+    // Clock-driven: each tick delivers whatever the recording says is due by now.
+    void demoTick();
+    // Dispatches frames up to and including the next chart epoch boundary.
+    // Returns false at end of file (having already stopped the demo).
+    bool demoDeliverOneEpoch();
+    void demoReportRate();
+    void demoCleanup();
+    // Non-destructive peek: true when this frame is the first fragment of a ping.
+    static bool isChartEpochStart(const Parsers::FrameParser& frame);
+
     //PULSE
     SettingsBus* bus_ = nullptr;
     QHash<QUuid, BootEpochSync> mavEpochSync_;
@@ -223,6 +254,38 @@ private:
     bool loggingStarted_ = false;
     LocationReader* locReader_{ nullptr };
     bool useGPS_{ false };
+
+    //PULSE DEMO MODE state. All of it lives on the DeviceManager thread; with
+    // SEPARATE_READING off that is the GUI thread, which is exactly where a
+    // QTimer-paced replay wants to be.
+    QTimer*             demoTimer_{ nullptr };
+    QFile*              demoFile_{ nullptr };
+    Parsers::FrameParser demoParser_;
+    // The parser keeps a raw pointer into this buffer between ticks, so it must
+    // outlive every tick that reads from it. Do not make it a local.
+    QByteArray          demoChunk_;
+    QUuid               demoUuid_;
+    bool                demoRunning_{ false };
+    bool                demoSeenFirstChart_{ false };
+    int                 demoPeriodMs_{ 0 };
+    quint64             demoEpochsPlayed_{ 0 };
+    // Pacing is driven by this clock, NOT by counting timer ticks. A repeating
+    // QTimer only guarantees a DELAY BETWEEN slot invocations, so every
+    // millisecond spent processing an epoch was being added to the epoch period
+    // — which is why the echogram ran slower as per-epoch cost grew.
+    QElapsedTimer       demoClock_;
+    qint64              demoNextDueMs_{ 0 };
+    // Diagnostics, reported periodically so we can tell "timer was late" (which
+    // catch-up absorbs) from "this machine cannot render at the recorded rate".
+    qint64              demoLastReportMs_{ 0 };
+    quint64             demoEpochsAtLastReport_{ 0 };
+    quint64             demoCatchUpEvents_{ 0 };
+    quint64             demoBehindEvents_{ 0 };
+    // Prescan result cache. Looping restarts startDemo() for the same file, and
+    // re-scanning 8 MB on every pass would put a visible hitch at each loop.
+    QString             demoCachedPath_;
+    int                 demoCachedPeriodMs_{ 0 };
+    bool                demoCachedIsSideScan_{ false };
 
 private slots:
     void readyReadProxy(Link* link);

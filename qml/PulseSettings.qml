@@ -6,7 +6,9 @@ import Qt.labs.settings 1.1
 Settings {
     id: pulseSettings
 
-    property int    settingsVersion:            1       //This MUST be updated (+1) if we decide to change the default runtime values
+    //NOTE: nothing reads settingsVersion today — it is a marker, not a migration trigger.
+    //Bumped to 2 on 2026-08-29 for the filterDisplayValue / filterRealValue default change.
+    property int    settingsVersion:            2       //This MUST be updated (+1) if we decide to change the default runtime values
 
     //Token for the installation
     property string validateSalt:               ""
@@ -16,11 +18,18 @@ Settings {
     property int    maxDepthValuePulseBlue:     25
     property int    maxDepthValuePulseBlueFixed:35
     property bool   autoRange:                  false
+    //autoFilter is RETIRED (2026-08-29). Kept as a property only so an existing stored
+    //"true" can be found and migrated away; nothing sets it back to true any more.
     property bool   autoFilter:                 false
     property int    intensityDisplayValue:      10
     property int    intensityRealValue:         90
-    property int    filterDisplayValue:         2
-    property int    filterRealValue:            5
+    //Defaults raised 2 -> 8 (real 5 -> 20) on 2026-08-29, when the depth-driven auto
+    //filter was retired: 8 is the value Olav found works well across the range with the
+    //water body filter (real 20 -> strength 20/50 = 0.4). Qt.labs.settings only falls back
+    //to a declared default when NOTHING is stored, so this affects fresh installs only —
+    //anyone who has ever moved the filter slider keeps their own value.
+    property int    filterDisplayValue:         8
+    property int    filterRealValue:            20
     property int    ecoViewIndex:               0
     property int    ecoConeIndex:               0
     property bool   useMetricValues:            true  //Not used anymore
@@ -158,6 +167,38 @@ Settings {
             return typeof x === "string" ? parseInt(x, 10) : x
         })
 
+        //ONE-SHOT MIGRATION: retire auto filtering.
+        //
+        //This belongs here rather than in main.qml because pulseSettings is created by its
+        //own QQmlComponent in main.cpp BEFORE main.qml is loaded. main.qml's
+        //Component.onCompleted fires AFTER its children have already seeded themselves from
+        //the stored values, which would leave the filter slider showing the pre-migration
+        //number while the filter itself had moved.
+        //
+        //STARTUP FINGERPRINT. Qt.labs.settings OVERWRITES a declared default with the
+        //stored value whenever one exists, so settingsVersion is a reliable tell:
+        //  prints 2 -> the store really was empty, these are the declared defaults
+        //  prints 1 -> a settings file was present (restored backup, or a clear that did
+        //              not actually remove it) and every value below is stored data
+        //Added 2026-08-29 to settle where a fresh install's filter value comes from.
+        console.log("SETTINGS: settingsVersion", settingsVersion,
+                    "| filter display", filterDisplayValue, "real", filterRealValue,
+                    "| autoFilter", autoFilter,
+                    "| intensity display", intensityDisplayValue, "real", intensityRealValue)
+
+        //Clear the retired flag and NOTHING ELSE. filterDisplayValue / filterRealValue are
+        //written only by the slider's onSelectorValueChanged (Plot2D.qml) — never by
+        //applyFiltering() or the old doAutoFilter() — so the stored pair is exactly the
+        //last value the user set BY HAND before switching to auto. Turning auto off has
+        //always restored it (onFilterFixedRangeRequested), and an upgrade must behave the
+        //same way: the auto badge disappears and the user's own value comes back.
+        //Overwriting them here would silently discard a preference the user still holds.
+        //The 8 / 20 pair is the DEFAULT above, for installs that have never stored one.
+        if (autoFilter) {
+            console.log("AUTO FILTER: retired — clearing stored autoFilter; keeping the user's manual filter of",
+                        filterDisplayValue, "(real", filterRealValue + ")")
+            autoFilter = false
+        }
     }
 
 

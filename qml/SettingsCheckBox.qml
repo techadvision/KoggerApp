@@ -27,6 +27,19 @@ CheckBox {
     property bool clearAfter: false
     property int clearInterval: 2000
 
+    // PULSE: write the target property ONLY on real user interaction.
+    //
+    // The historic behaviour (false) writes the target back on ANY change to `checked`,
+    // including one that arrived through the `initialChecked` binding. For a plain
+    // storage property that is harmless. For a property that is itself BOUND — e.g. one
+    // of the per-device profile values — it is fatal: the first programmatic change
+    // (a device being identified) round-trips through this write-back and permanently
+    // destroys the binding, so the value never follows the device again.
+    //
+    // Default stays false so every existing checkbox behaves exactly as before; the
+    // profile-driven rows opt in.
+    property bool writeBackOnUserActionOnly: false
+
     // Initialize checked state
     checked: initialChecked
 
@@ -82,10 +95,17 @@ CheckBox {
         indicatorCanvas.requestPaint();
     }
 
+    // Real user interaction only (CheckBox emits toggled() on click, never on a
+    // programmatic or binding-driven change of `checked`).
+    onToggled: {
+        if (writeBackOnUserActionOnly && target && targetPropertyName.length > 0)
+            target[targetPropertyName] = control.checked;
+    }
+
     // When user toggles checkbox
     onCheckedChanged: {
         // Update your model property
-        if (target && targetPropertyName.length > 0)
+        if (!writeBackOnUserActionOnly && target && targetPropertyName.length > 0)
             target[targetPropertyName] = control.checked;
         // Repaint indicator
         indicatorCanvas.requestPaint();

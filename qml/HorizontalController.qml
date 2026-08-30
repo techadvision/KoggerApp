@@ -64,13 +64,16 @@ Item {
 
     property bool isAutoRangeActive: false
 
-    property bool isAutoFilterActive: pulseSettings
-                                      ? pulseSettings.autoFilter &&
-                                        (
-                                            pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed ||
-                                            pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto
-                                        )
-                                      : false
+    //AUTO FILTER RETIRED 2026-08-29. The depth->filter tables
+    //(pulseRuntimeSettings.autoFilterPulseRedNarrow / ...Wide) existed because the old
+    //global low-cut hit the BOTTOM render as well, so the amount of filtering had to be
+    //re-tuned at every depth: too little and the high frequencies left noise in the water
+    //column, too much and the bottom faded out. The water body filter now applies to the
+    //water column ONLY, and TVG keeps the bottom render independent of depth, so a single
+    //value chosen to taste is correct at every depth and the tables mean nothing.
+    //Pinned to false: it is what makes the "auto" badge visible and what
+    //disableAutoIfNeeded() acts on, so a constant false retires both.
+    property bool isAutoFilterActive: false
 
     property real quickChangeMaxRangeValue: root.defaultValue
 
@@ -202,14 +205,11 @@ Item {
             }
         }
 
+        //Auto filtering is retired (see isAutoFilterActive above). A long press on the
+        //filter control is simply ignored now instead of arming a depth-driven filter.
         if (root.controleName === "selectorFiltering") {
-            if (root.isAutoFilterActive) {
-                root.filterFixedRangeRequested()
-                root.isAutoFilterActive = false
-            } else {
-                root.filterAutoRangeRequested()
-                root.isAutoFilterActive = true
-            }
+            console.log("Auto function: auto filter is retired, long press ignored")
+            return
         }
     }
 
@@ -593,7 +593,8 @@ Item {
         if (root.controleName === "selectorMaxDepth")
             root.isAutoRangeActive = pulseSettings ? pulseSettings.autoRange : false
 
-        if (root.controleName === "selectorFiltering")
-            root.isAutoFilterActive = pulseSettings ? pulseSettings.autoFilter : false
+        //Deliberately no isAutoFilterActive seed here any more: auto filtering is retired
+        //and the property must stay false even for a user whose stored autoFilter is true
+        //(PulseSettings migrates that flag away on the next start anyway).
     }
 }

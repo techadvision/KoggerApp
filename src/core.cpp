@@ -405,6 +405,157 @@ void Core::restoreRealtimeProcessingFlags()
     }
 }
 
+// ---------------------------------------------------------------------------
+// PULSE DEMO MODE (Stage 1) — see demo_mode_plan.md.
+//
+// Demo is a THIRD state, not file view:
+//   - dataset state is kConnection, not kFile, so the app auto-scrolls and
+//     DataProcessor runs its live processing path (updateDataProcType()).
+//   - isOpeningFile stays false, so mosaic/surface updates are NOT skipped
+//     (data_processor.cpp early-returns on isOpeningFile_).
+//   - QML must NOT set wasKlfFileOpened; that flag is what turns off the
+//     live-style UI all over Plot2D.qml. QML uses isInDemoMode instead.
+// ---------------------------------------------------------------------------
+
+void Core::startDemo(const QString& filePath)
+{
+    if (isDemoMode_) {
+        qWarning() << "Core::startDemo: demo already running";
+        return;
+    }
+    if (isFileOpening_) {
+        qWarning() << "Core::startDemo: a file is being opened, ignoring";
+        return;
+    }
+
+    QString localFilePath = filePath;
+    fixFilePathString(localFilePath);   // handles Android content:// URLs
+    if (localFilePath.isEmpty()) {
+        qWarning() << "Core::startDemo: empty path";
+        return;
+    }
+
+    // A file already open for viewing is NOT a reason to refuse. By this point
+    // the open has finished and we are only rendering it, so drop it and start
+    // the demo over the top. Deliberately not via closeLogFile(): that reopens
+    // live links, which we are about to close again two lines below, and which
+    // would briefly set the app hunting for a transducer.
+    if (isOpenedFile()) {
+        qInfo() << "Core::startDemo: replacing the opened file view with a demo";
+        QMetaObject::invokeMethod(dataProcessor_, "prepareForFileClose",
+                                  Qt::BlockingQueuedConnection, Q_ARG(int, 1500));
+        openedfilePath_.clear();
+        filePath_.clear();
+        emit filePathChanged();
+    }
+
+    // Leave live links behind exactly as openLogFile does — a demo must not
+    // interleave with a real transducer.
+    linkManagerWrapperPtr_->closeOpenedLinks();
+    removeLinkManagerConnections();
+    QCoreApplication::processEvents(QEventLoop::AllEvents);
+
+    prepareDemoPipeline(localFilePath);
+
+    // Coming from a file view the timeline can be parked mid-file; park it at the
+    // live edge so the replay scrolls instead of sitting still.
+    setTimelinePosition(1.0);
+
+    isDemoMode_    = true;
+    demoFilePath_  = localFilePath;
+    demoPassNumber_ = 1;
+    emit demoModeChanged();
+
+    QMetaObject::invokeMethod(deviceManagerWrapperPtr_->getWorker(), "startDemo",
+                              Qt::AutoConnection, Q_ARG(QString, localFilePath));
+}
+
+void Core::prepareDemoPipeline(const QString& localFilePath)
+{
+    // Shared by the first pass and every loop restart, so a looped pass is
+    // byte-for-byte the same situation as the first one.
+    QMetaObject::invokeMethod(dataProcessor_, "setSuppressResults", Qt::QueuedConnection, Q_ARG(bool, true));
+    resetDataProcessorConnections();
+    resetRealtimeSessionState();
+    // Ignores the path; recreates a clean temporary mosaic tile cache.
+    QMetaObject::invokeMethod(dataProcessor_, "setFilePath", Qt::QueuedConnection, Q_ARG(QString, localFilePath));
+    setDataProcessorConnections();
+
+    datasetPtr_->setState(Dataset::DatasetState::kConnection);
+    restoreRealtimeProcessingFlags();
+}
+
+void Core::stopDemo()
+{
+    if (!isDemoMode_) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(deviceManagerWrapperPtr_->getWorker(), "stopDemo",
+                              Qt::AutoConnection);
+
+    isDemoMode_ = false;
+    demoFilePath_.clear();
+    demoPassNumber_ = 0;
+
+    // Leave the app idle and clean, as if it had just started with no device.
+    //
+    // Deliberately NOT calling linkManagerWrapperPtr_->openClosedLinks() here.
+    // Reopening links makes the app immediately start hunting for a transducer
+    // that is not there, which is what produced the "Configuring transducer..." /
+    // "Fixing transducer com link..." overlay once a demo ended. Link manager
+    // connections are restored so a user-initiated connect works normally, but
+    // reconnecting stays an explicit action.
+    resetDataProcessorConnections();
+    resetRealtimeSessionState();
+    setDataProcessorConnections();
+    createLinkManagerConnections();
+    restoreRealtimeProcessingFlags();
+
+    emit demoModeChanged();
+}
+
+void Core::onDemoFinished(quint64 epochsPlayed)
+{
+    if (!isDemoMode_) {
+        return;
+    }
+
+    // A pass that played nothing means the file could not be read or holds no
+    // chart data. Looping that would restart, fail, and restart again as fast as
+    // the event loop allows.
+    if (epochsPlayed == 0) {
+        qWarning() << "Core: demo pass played no epochs, not looping";
+        stopDemo();
+        emit demoStopped();
+        return;
+    }
+
+    if (demoLoopEnabled_ && !demoFilePath_.isEmpty()) {
+        // Endless loop: start the same file over and keep going until the user
+        // stops it. The full pipeline reset is deliberate rather than a cheap
+        // seek-to-zero — without it the dataset, mosaic and bottom track would
+        // keep growing for every pass and eat memory across an exhibition day.
+        // isDemoMode_ stays true throughout, which matters: getLinkNames() must
+        // keep advertising the demo UUID or the new pass gets no chart channel.
+        const QString path = demoFilePath_;
+        ++demoPassNumber_;
+        qInfo() << "Core: demo reached end of file, starting pass" << demoPassNumber_;
+
+        prepareDemoPipeline(path);
+
+        QMetaObject::invokeMethod(deviceManagerWrapperPtr_->getWorker(), "startDemo",
+                                  Qt::AutoConnection, Q_ARG(QString, path));
+
+        emit demoLooped(demoPassNumber_);
+        return;
+    }
+
+    qInfo() << "Core: demo finished";
+    stopDemo();
+    emit demoStopped();
+}
+
 
 #ifdef SEPARATE_READING
 void Core::openLogFile(const QString &filePath, bool isAppend, bool onCustomEvent)
@@ -2250,6 +2401,9 @@ void Core::createDeviceManagerConnections()
                                                                                                                                                   }, deviceManagerConnection));
     deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendProtoFrame,        &logger_, &Logger::receiveProtoFrame,    deviceManagerConnection));
     deviceManagerWrapperConnections_.append(QObject::connect(&logger_, &Logger::loggingKlfStarted,  deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLoggingKlfStarted,     deviceManagerConnection));
+    //PULSE demo mode
+    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::demoFinished,          this,        &Core::onDemoFinished,     deviceManagerConnection));
+    deviceManagerWrapperConnections_.append(QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::demoStarted,           this,        &Core::demoPeriodChanged,  deviceManagerConnection));
 }
 
 void Core::removeDeviceManagerConnections()
@@ -2295,6 +2449,10 @@ void Core::createDeviceManagerConnections()
     QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::sendProtoFrame,         &logger_, &Logger::receiveProtoFrame, deviceManagerConnection);
     QObject::connect(&logger_, &Logger::loggingKlfStarted, deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLoggingKlfStarted, deviceManagerConnection);
 
+    //PULSE demo mode. Queued on purpose: demoFinished() is emitted from inside
+    // demoTick(), and onDemoFinished() tears the worker's timer and file down.
+    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::demoFinished, this, &Core::onDemoFinished,    Qt::QueuedConnection);
+    QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::demoStarted,  this, &Core::demoPeriodChanged, deviceManagerConnection);
 }
 #endif
 
@@ -2352,6 +2510,18 @@ QHash<QUuid, QString> Core::getLinkNames() const
 
     if (isFileOpening_) {
         retVal[deviceManagerWrapperPtr_->getFileUuid()] = QObject::tr("File");
+    }
+    //PULSE DEMO MODE: replayed frames carry the synthetic file UUID, and a demo
+    //has no links at all. Without an entry here the demo's chart channel gets
+    //portName_ = "None" (dataset.cpp addChart), and onChannelsUpdated() then
+    //fails its `linkNames.contains(...)` test, returns early, and NEVER calls
+    //plot2dList_[i]->setDataChannel() — so the echogram stays blank while depth,
+    //temperature and position (which do not go through channels) work fine.
+    //This is the same mechanism the file-open path relies on via isFileOpening_;
+    //demo deliberately does not set that flag, because it would also suppress
+    //mosaic/surface updates (data_processor.cpp early-returns on isOpeningFile_).
+    else if (isDemoMode_) {
+        retVal[deviceManagerWrapperPtr_->getFileUuid()] = QObject::tr("Demo");
     }
 
     const auto linkNames = linkManagerWrapperPtr_->getLinkNames();

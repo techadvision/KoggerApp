@@ -238,6 +238,18 @@ Flickable {
             Text {
                 id: appIpText
                 text: {
+                    //DEMO MODE: there is no link at all — the "device" is built
+                    //from recorded frames. Reporting the WiFi gateway here (which
+                    //just falls back to the default 192.168.10.1) would be a lie.
+                    if (pulseRuntimeSettings.isInDemoMode) {
+                        if (pulseRuntimeSettings.demoMeasuredPeriodMs > 0) {
+                            return "\nDemo mode\n"
+                                 + pulseRuntimeSettings.demoMeasuredPeriodMs + " ms/epoch, "
+                                 + (pulseRuntimeSettings.demoIsSideScan ? "side scan" : "2D")
+                        }
+                        return "\nDemo mode"
+                    }
+
                     if (pulseRuntimeSettings.wasKlfFileOpened && pulseRuntimeSettings.uuidSuccessfullyOpened !== "") {
                         return "\nWas connected when opening log:"
                     }
