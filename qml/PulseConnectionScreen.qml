@@ -53,17 +53,29 @@ Item {
     readonly property bool nothingIdentified:
         pulseRuntimeSettings ? pulseRuntimeSettings.userManualSetName === "..." : false
 
+    // WHEN THE GRACE WINDOW IS NEEDED, AND WHEN IT IS IN THE WAY.
+    //
+    // It exists so the cards cannot flash during an automatic swap: acceptDeviceSwap()
+    // clears userManualSetName and commits the target in the same synchronous pass, and
+    // a cold start with a transducer already powered on identifies it a moment later.
+    // Both of those have something that will answer.
+    //
+    // With nothing connected and nothing ever committed, NOTHING is going to answer, so
+    // waiting is pure delay - which is what showed up on device as the screen arriving
+    // after the echogram. That case opens instantly.
+    readonly property bool somethingMayStillAnswer:
+        (pulseRuntimeSettings ? pulseRuntimeSettings.hasConnectedDevice : false)
+        || lastCommittedModel !== ""
+
     // A latch, not a value with two sources: the timer is the only thing that raises it
-    // and re-arming is the only thing that lowers it. Without the grace window the cards
-    // would flash during every automatic swap, because acceptDeviceSwap() clears
-    // userManualSetName and commits the target in the same synchronous pass.
+    // and re-arming is the only thing that lowers it.
     property bool graceElapsed: false
 
     readonly property bool chooserAsking:
            (pulseRuntimeSettings ? pulseRuntimeSettings.swapDeviceNow : false)
         || (nothingIdentified
-            && graceElapsed
-            && !(pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false))
+            && !(pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false)
+            && (graceElapsed || !somethingMayStillAnswer))
     // STEP 3 adds `|| pulseRuntimeSettings.deviceSwapPending` here, at the same time as
     // the prompt itself moves onto this surface. Adding the term now would raise this
     // screen over a swap prompt that is still drawn in PulseAppClassic, which is a
@@ -170,6 +182,8 @@ Item {
                     "| committed", pulseRuntimeSettings ? pulseRuntimeSettings.userManualSetName : "?",
                     "| swapNow", pulseRuntimeSettings ? pulseRuntimeSettings.swapDeviceNow : "?",
                     "| presentingLog", pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : "?",
+                    "| mayStillAnswer", somethingMayStillAnswer,
+                    "| grace", graceElapsed,
                     "| canCancel", canCancel)
     }
 
