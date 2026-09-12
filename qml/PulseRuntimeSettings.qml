@@ -1049,24 +1049,7 @@ QtObject {
     property int    transFreqWide:                  coneFreq(0, committedProfile.transFreq)
     property int    transFreqMedium:                coneFreq(1, committedProfile.transFreq)
     property int    transFreqNarrow:                coneFreq(2, committedProfile.transFreq)
-    //THE RANGE CEILING. Two answers, and only one of them can live in a profile record.
-    //
-    //A 2D transducer's ceiling is a property of the hardware, so it is a profile key (red 52
-    //= its 50 m dist max plus 2). A side scan's is the configured swath WIDTH, which the user
-    //picks in Settings and which therefore cannot be a static number — hence the three places
-    //that used to ASSIGN maximumDepth. Every one of those assignments destroyed the binding
-    //permanently, and after the first of them the ceiling was frozen at whatever device was
-    //current: a blue log presented on a red-committed app could still be stepped to red's 52
-    //instead of stopping at the blue swath width.
-    //
-    //So the dynamic answer goes in its own property. maximumDepth stays a binding that can
-    //never be broken, the override is what the UI writes, and 0 means "no answer, use the
-    //profile". PulseAppClassic drives it from pulseSettings.echogramWidth while the PICTURE
-    //is a side scan — this file deliberately never reads pulseSettings, which is created
-    //after it.
-    property int    maximumDepthOverride:           0
-    property int    maximumDepth:                   maximumDepthOverride > 0 ? maximumDepthOverride
-                                                                             : committedProfile.maximumDepth
+    property int    maximumDepth:                   committedProfile.maximumDepth
     property var    doDynamicResolution:            committedProfile.doDynamicResolution
     property var    fixBlackStripesForwardSteps:    committedProfile.fixBlackStripesForwardSteps
     property var    fixBlackStripesBackwardSteps:   committedProfile.fixBlackStripesBackwardSteps

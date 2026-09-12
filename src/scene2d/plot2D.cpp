@@ -231,12 +231,7 @@ void Plot2D::applyRuntime(const QVariantMap& m)
     if (m.contains("isSideScanLeftHand"))  isSideScanLeftHand_ = m.value("isSideScanLeftHand").toBool();
     if (m.contains("isSideScan2DView"))    isSideScan2DView_   = m.value("isSideScan2DView").toBool();
     if (m.contains("echogramSpeed"))       echogramSpeed_      = m.value("echogramSpeed").toDouble();
-    // PULSE: display, not committed - is2DTransducer_ here only feeds reRangeDistance(),
-    // which decides the SHAPE of the auto range (0..max for a 2D echogram, symmetric for a
-    // side scan). That follows the picture. Falls back to the committed key when the new one
-    // is absent.
-    if (m.contains("displayIs2DTransducer")) is2DTransducer_   = m.value("displayIs2DTransducer").toBool();
-    else if (m.contains("is2DTransducer"))   is2DTransducer_   = m.value("is2DTransducer").toBool();
+    if (m.contains("is2DTransducer"))      is2DTransducer_     = m.value("is2DTransducer").toBool();
     if (m.contains("shouldDoAutoRange"))   shouldDoAutoRange_  = m.value("shouldDoAutoRange").toBool();
     if (m.contains("autoDepthMaxLevel"))   autoDepthMaxLevel_  = m.value("autoDepthMaxLevel").toDouble();
     if (m.contains("maximumDepth"))        maximumDepth_       = m.value("maximumDepth").toInt();
