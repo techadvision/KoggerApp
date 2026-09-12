@@ -674,7 +674,11 @@ int main(int argc, char *argv[])
     core.consoleInfo("Run...");
     core.setEngine(&engine);
     //qDebug() << "SQL drivers =" << QSqlDatabase::drivers(); // тут должен появиться QSQLITE
-    const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
+    //PULSE: our qml.qrc uses prefix "/" so main.qml is at qrc:/main.qml. Upstream moved
+    //theirs to qrc:/qml/main.qml when they split the QML into modules - a path that does
+    //not exist here. Loading it failed silently, objectCreated then fired with a null
+    //object, and Core::UILoad dereferenced it.
+    const QUrl url(QStringLiteral("qrc:/main.qml"));
     QPointer<QQuickWindow> mainWindow;
     QObject::connect(&engine,   &QQmlApplicationEngine::objectCreated,
                      &app,      [url](QObject *obj, const QUrl &objUrl) {

@@ -2399,6 +2399,16 @@ void Core::UILoad(QObject* object, const QUrl& url)
 {
     Q_UNUSED(url)
 
+    //QQmlApplicationEngine::objectCreated fires with a NULL object when the component
+    //fails to load, and everything below dereferences it. Every other objectCreated
+    //handler in main.cpp already guards; this one is connected as a plain method and did
+    //not, so a failed load came out as SIGSEGV in findChild rather than as a message.
+    if (!object) {
+        qCritical() << "Core::UILoad: QML root object is null -" << url
+                    << "failed to load. Check the qrc path.";
+        return;
+    }
+
     loadLLARefFromSettings();
 
 #if !defined(Q_OS_ANDROID)
