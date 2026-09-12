@@ -473,7 +473,7 @@ WaterFall {
                     plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
                     let newMaxDepthValue = Math.abs(plot.getMaxDepth())
                     plot.quickChangeMaxRangeValue = newMaxDepthValue
-                    pulseUi.maxDepthValue = newMaxDepthValue
+                    pulseUi.setMaxDepth(newMaxDepthValue)
                 } else {
                     // To overcome the complexity of blue, we modify the max depth picker directly instead of through the echogram
                     if (plot.isViewHorizontal()) {
@@ -489,13 +489,13 @@ WaterFall {
                                 newVal = pulseRuntimeSettings.maximumDepth
 
                             plot.quickChangeMaxRangeValue = newVal
-                            pulseUi.maxDepthValue = newVal
+                            pulseUi.setMaxDepth(newVal)
                         }
                     } else {
                         plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
                         let newMaxDepthValue = Math.abs(plot.getMaxDepth())
                         plot.quickChangeMaxRangeValue = newMaxDepthValue
-                        pulseUi.maxDepthValue = newMaxDepthValue
+                        pulseUi.setMaxDepth(newMaxDepthValue)
                     }
                 }
                 //***************
@@ -535,7 +535,7 @@ WaterFall {
                         if (newVal > pulseRuntimeSettings.maximumDepth)
                             newVal = pulseRuntimeSettings.maximumDepth
                         plot.quickChangeMaxRangeValue = newVal
-                        pulseUi.maxDepthValue = newVal
+                        pulseUi.setMaxDepth(newVal)
                     }
                 }
             }

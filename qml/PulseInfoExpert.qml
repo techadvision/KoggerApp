@@ -86,6 +86,34 @@ Flickable {
             }
         }
 
+        //UI VARIANT (Stage 2, docs/pulse-ui/pulse-ui-strategy.md).
+        //Flips PulseApp.qml between the shipping UI and the one being built, so the
+        //two can be compared on the water without swapping builds.
+        //
+        //No `target` here on purpose: SettingsCheckBox's built-in write-back only
+        //handles a bool, and uiVariant is a string so a third variant needs no new
+        //property. The onToggled below does the write instead, and it fires on a real
+        //tap only - never on the initialChecked binding.
+        //
+        //Turning this ON removes this very switch from the screen, because the settings
+        //panel lives inside the classic UI. PulseAppV2.qml therefore carries its own
+        //way back, and it must keep carrying one.
+        SettingRow {
+            toggle: false
+            checkbox: true
+            text: "New UI (PULSE UI v2)"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
+            SettingsCheckBox {
+                initialChecked: pulseSettings.uiVariant === "v2"
+                clearAfter: false
+                writeBackOnUserActionOnly: true
+                onToggled: {
+                    pulseSettings.uiVariant = checked ? "v2" : "classic"
+                    console.log("PULSE UI: variant switched to", pulseSettings.uiVariant)
+                }
+            }
+        }
+
         SettingRow {
             toggle: false
             checkbox: true

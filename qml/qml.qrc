@@ -103,6 +103,8 @@
         <file>PulseTabbedSettingsExpert.qml</file>
         <file>Plot2D.qml</file>
         <file>PulseApp.qml</file>
+        <file>PulseAppClassic.qml</file>
+        <file>PulseAppV2.qml</file>
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>LocationExtraSettings.qml</file>

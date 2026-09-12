@@ -456,3 +456,107 @@ cheapest possible price for the merge.
 
 After those: the `uiVariant` switch (small), then building the new UI against the
 design canvas, then the phone layouts.
+
+---
+
+## Stage 2 progress — the variant switch (12 Sept 2026)
+
+Stage 1 was merged to `master` as a fast-forward (`38dd8a31..9093762b`, four commits,
+no conflicts). Stage 2 is on `feature/pulse-ui-variant-switch`.
+
+### What it does
+
+```
+PulseApp.qml            dispatcher, 97 lines — dispatches on pulseSettings.uiVariant
+  PulseAppClassic.qml   today's UI, unchanged since the Stage 1 extraction
+  PulseAppV2.qml        the new design — a placeholder until Stage 4
+```
+
+`PulseAppClassic.qml` is the Stage 1 file renamed. Twenty-one lines differ from it,
+all of them the header comment and the root `id`; the 1700 lines of UI are untouched.
+
+### The three decisions worth recording
+
+**1. The seam became functions only.** Plot2D held `pulseUi.maxDepthValue` as a
+property alias, and wrote to it at four sites in the pinch handler — never read it.
+A Loader's item cannot be the target of an alias, so that became `pulseUi.setMaxDepth(v)`,
+forwarded by the dispatcher. Plot2D now reaches the UI through three functions and
+nothing else:
+
+| Plot2D calls | Sites |
+|---|---|
+| `pulseUi.applyFiltering(v)` | 2 |
+| `pulseUi.setMaxDepth(v)` | 4 |
+| `pulseUi.armOldDataWarning()` | 1 |
+
+**2. `sourceComponent`, not `source`.** The Loader picks between two inline
+`Component`s rather than a URL string. An inline Component binds `plot` and `pinch`
+lexically, so the variant is created with them already set. Going through a URL would
+build the object first and set the properties afterwards, and every `plot.*` binding
+in the 1700 lines would evaluate once against `null` on the way past — exactly the
+startup warning noise Stage 1 said to watch for.
+
+**3. Any unknown variant resolves to classic.** `uiVariant` is persisted, so a string
+written by a future build or a half-finished experiment must never be able to start
+the app without an interface.
+
+### The switch, and the way back
+
+A checkbox in expert settings → Experimental: **"New UI (PULSE UI v2)"**. It writes the
+string directly in `onToggled`, so a third variant needs no new property.
+
+Turning it on removes that switch from the screen, because the settings panel lives
+inside the classic UI — and `uiVariant` survives a restart. `PulseAppV2.qml` therefore
+carries its own **"Back to the classic UI"** button, and whatever replaces the
+placeholder in Stage 4 has to keep carrying one until the new settings panel exists.
+
+### The variant contract
+
+Every `PulseApp*` variant provides:
+
+```qml
+property var  plot            // the WaterFall root — passed in, never guessed
+property var  pinch           // Plot2D's PinchArea, for its isLiveView flag
+property real maxDepthValue   // writable; the max-depth selector's value
+function applyFiltering(value)
+function armOldDataWarning()
+```
+
+The V2 placeholder implements it with two deliberate no-ops: while it is showing, the
+water-body filter and the old-data warning are driven by nothing. That is expected,
+not a fault.
+
+### Files touched
+
+| File | Change |
+|---|---|
+| `qml/PulseApp.qml` | replaced by the 97-line dispatcher |
+| `qml/PulseAppClassic.qml` | the Stage 1 file, renamed; header + `id` only |
+| `qml/PulseAppV2.qml` | new placeholder |
+| `qml/Plot2D.qml` | 4 sites: `maxDepthValue =` → `setMaxDepth()` |
+| `qml/PulseSettings.qml` | `property string uiVariant: "classic"` |
+| `qml/PulseInfoExpert.qml` | the switch row |
+| `qml/qml.qrc` | both new files registered |
+
+### Verified statically; not yet built
+
+No Qt toolchain is reachable from the sandboxed shell, so as in Stage 1 the checking
+is static: brace/paren/bracket balance on every touched file, the qrc parsed as XML
+with every entry confirmed present on disk and no duplicates, both variants checked
+against the contract, and a line-by-line diff of the classic against the Stage 1 file.
+
+**Still needs the device:**
+
+- Build and run. Confirm the classic UI is bit-for-bit what it was — the Loader is the
+  only thing between it and Plot2D now.
+- Watch the QML console at startup for `plot`-is-null warnings. Decision 2 above is what
+  should prevent them; this is the check that proves it.
+- Flip the switch: classic → v2 shows the placeholder, the button returns, the setting
+  survives a restart in both positions.
+- Split screen, where two Plot2Ds each build their own dispatcher.
+
+### Still open from Stage 1
+
+Both pre-existing defects are untouched and still open: the dead `pulseSettingsLoader`
+reference in `closePulseSettingsTimer`, and `pinch2D`'s own `isLiveView` shadowing
+`plot.isLiveView`.

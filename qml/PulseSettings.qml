@@ -40,6 +40,12 @@ Settings {
     property int    colorMapIndex2D:            0
     property int    colorMapIndexReal:          0
     property bool   areUiControlsVisible:       true
+    //UI VARIANT (Stage 2, docs/pulse-ui/pulse-ui-strategy.md). "classic" is the UI that
+    //ships today; "v2" is the new one being built. PulseApp.qml resolves anything it does
+    //not recognise back to classic, so a value written by a future build or a half-finished
+    //experiment can never start the app without an interface. Persisted on purpose: a
+    //comparison on the water has to survive the app being closed between runs.
+    property string uiVariant:                  "classic"
     property int    bottomCompositionAddition:  0
     property bool   doubleEchoOptimize:         false
     property double echogramSpeed:              1.0
