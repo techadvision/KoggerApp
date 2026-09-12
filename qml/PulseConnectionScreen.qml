@@ -105,13 +105,16 @@ Item {
     // asserts it the way it already asserts the view list.
     readonly property var cards: !pulseRuntimeSettings ? [] : [
         { "id": "red",   "name": "PULSE red",   "tagline": "2D echo sounder",
-          "art": "./image/pulse_device_red.png",   "badge": "#d81f26",
+          "art":  "./image/pulse_device_red.png",
+          "logo": "./image/pulse_logo_red.png",    "badge": "#d81f26",
           "profile": pulseRuntimeSettings.modelPulseRed  },
         { "id": "black", "name": "PULSE black", "tagline": "True downscan",
-          "art": "./image/pulse_device_black.png", "badge": "#6d7480",
+          "art":  "./image/pulse_device_black.png",
+          "logo": "./image/pulse_logo_black.png",  "badge": "#6d7480",
           "profile": pulseRuntimeSettings.modelPulseRed  },
         { "id": "blue",  "name": "PULSE blue",  "tagline": "Side scan",
-          "art": "./image/pulse_device_blue.png",  "badge": "#3d7fd0",
+          "art":  "./image/pulse_device_blue.png",
+          "logo": "./image/pulse_logo_blue.png",   "badge": "#3d7fd0",
           "profile": pulseRuntimeSettings.modelPulseBlue }
     ]
 
@@ -151,6 +154,23 @@ Item {
         wide ? Math.min(Math.round(cardW * 0.88), Math.round(availH * 0.38))
              : Math.max(Math.round(52 * uiScale),
                         Math.min(Math.round(92 * uiScale), Math.round(availH * 0.16)))
+
+    readonly property real platePad: Math.round(10 * uiScale)
+    readonly property real innerGap: Math.round(8 * uiScale)
+    readonly property real badgeH:   Math.max(3, Math.round(4 * uiScale))
+
+    // THE WORDMARK GOES ON THE PLATE. pulse_logo_red / _black / _blue are the real brand
+    // assets (500 x 99, the same files the profile map already names as ui.brand.logo and
+    // ui.brand.logoBlack), and they are dark ink drawn for a light ground - on the dark
+    // card body the PULSE lettering would simply not be there. So the light plate grows to
+    // carry the render AND the wordmark, which is the background that artwork was drawn
+    // for, and the dark card below it keeps only the tagline.
+    readonly property real logoH:
+        stacked ? Math.round(cardW * 0.17) : Math.round(artH * 0.42)
+
+    readonly property real plateH:
+        stacked ? platePad * 2 + artH + innerGap + logoH + badgeH
+                : platePad * 2 + Math.max(artH, logoH) + badgeH
 
     // ---- Behaviour ----------------------------------------------------------
 
@@ -310,31 +330,21 @@ Item {
                         readonly property bool isChosen: connectionScreen.chosenCardId === rec.id
 
                         width:  connectionScreen.cardW
-                        height: cardGrid.implicitHeight + connectionScreen.pad
+                        height: cardCol.height + connectionScreen.pad
                         radius: Math.round(12 * connectionScreen.uiScale)
                         color:  cardArea.pressed ? "#1e232b" : "#15181d"
                         border.width: Math.max(1, Math.round(1.5 * connectionScreen.uiScale))
                         border.color: (card.isChosen || cardArea.pressed) ? rec.badge : "#2b3038"
 
-                        GridLayout {
-                            id: cardGrid
+                        Column {
+                            id: cardCol
                             anchors.centerIn: parent
                             width: card.width - connectionScreen.pad
-                            columns: connectionScreen.stacked ? 1 : 2
-                            columnSpacing: Math.round(12 * connectionScreen.uiScale)
-                            rowSpacing:    Math.round(10 * connectionScreen.uiScale)
+                            spacing: Math.round(8 * connectionScreen.uiScale)
 
-                            // The hardware, contained and never cropped. A cylinder, a
-                            // wide block and a wedge are three very different aspect
-                            // ratios, so each keeps its own shape at a common height. The
-                            // plate is light because the hardware is dark grey and black -
-                            // on a dark card the downscan block would simply disappear.
                             Rectangle {
-                                Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                Layout.preferredHeight: connectionScreen.artH
-                                Layout.preferredWidth: connectionScreen.stacked
-                                                       ? cardGrid.width
-                                                       : Math.round(connectionScreen.artH * 1.35)
+                                width:  parent.width
+                                height: connectionScreen.plateH
                                 radius: Math.round(8 * connectionScreen.uiScale)
                                 clip: true
                                 gradient: Gradient {
@@ -342,58 +352,86 @@ Item {
                                     GradientStop { position: 1.0; color: "#dbdde0" }
                                 }
 
-                                Image {
+                                GridLayout {
                                     anchors.fill: parent
-                                    anchors.margins: Math.round(8 * connectionScreen.uiScale)
-                                    anchors.bottomMargin: Math.round(12 * connectionScreen.uiScale)
-                                    source: card.rec.art
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                    mipmap: true
-                                    // Three small PNGs out of the qrc. Decoding them on
-                                    // the loading thread is what made the screen assemble
-                                    // itself after it was already on top of the echogram.
-                                    asynchronous: false
-                                    cache: true
+                                    anchors.margins: connectionScreen.platePad
+                                    anchors.bottomMargin: connectionScreen.platePad
+                                                          + connectionScreen.badgeH
+                                    columns: connectionScreen.stacked ? 1 : 2
+                                    columnSpacing: connectionScreen.innerGap
+                                    rowSpacing:    connectionScreen.innerGap
+
+                                    // The hardware, contained and never cropped. A
+                                    // cylinder, a wide block and a wedge are three very
+                                    // different aspect ratios, so each keeps its own shape
+                                    // at a common height.
+                                    Image {
+                                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                                        Layout.preferredHeight: connectionScreen.artH
+                                        Layout.fillWidth: connectionScreen.stacked
+                                        Layout.preferredWidth: connectionScreen.stacked
+                                                               ? 1
+                                                               : Math.round(connectionScreen.artH * 1.35)
+                                        source: card.rec.art
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        mipmap: true
+                                        // Three small PNGs out of the qrc. Decoding them on
+                                        // the loading thread is what made the screen
+                                        // assemble itself after it was already up.
+                                        asynchronous: false
+                                        cache: true
+                                    }
+
+                                    Item {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: connectionScreen.logoH
+                                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+
+                                        Image {
+                                            id: logoImage
+                                            anchors.fill: parent
+                                            source: card.rec.logo
+                                            fillMode: Image.PreserveAspectFit
+                                            horizontalAlignment: Image.AlignHCenter
+                                            verticalAlignment: Image.AlignVCenter
+                                            smooth: true
+                                            mipmap: true
+                                            asynchronous: false
+                                            cache: true
+                                        }
+
+                                        // A card must still name its device if the artwork
+                                        // is missing: a new model arrives as a data edit,
+                                        // and its logo file can land a commit later.
+                                        Text {
+                                            anchors.centerIn: parent
+                                            visible: logoImage.status !== Image.Ready
+                                            text: card.rec.name
+                                            color: "#1c2026"
+                                            font.pixelSize: Math.round(19 * connectionScreen.uiScale)
+                                            font.bold: true
+                                        }
+                                    }
                                 }
 
                                 Rectangle {
                                     anchors.left: parent.left
                                     anchors.right: parent.right
                                     anchors.bottom: parent.bottom
-                                    height: Math.max(3, Math.round(4 * connectionScreen.uiScale))
+                                    height: connectionScreen.badgeH
                                     color: card.rec.badge
                                 }
                             }
 
-                            // The wordmark stays LIVE TEXT, never baked into the image.
-                            // The old pulse_info_* artwork had the lettering in the
-                            // pixels, so enlarging a card enlarged the lettering as pixels
-                            // and it went to mush. Text that is text survives every size.
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: Math.round(2 * connectionScreen.uiScale)
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: card.rec.name
-                                    color: "#f2f4f7"
-                                    font.pixelSize: Math.round(19 * connectionScreen.uiScale)
-                                    font.bold: true
-                                    elide: Text.ElideRight
-                                    horizontalAlignment: connectionScreen.stacked
-                                                         ? Text.AlignHCenter : Text.AlignLeft
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: card.rec.tagline
-                                    color: "#8d96a2"
-                                    font.pixelSize: Math.round(13 * connectionScreen.uiScale)
-                                    elide: Text.ElideRight
-                                    horizontalAlignment: connectionScreen.stacked
-                                                         ? Text.AlignHCenter : Text.AlignLeft
-                                }
+                            Text {
+                                width: parent.width
+                                text: card.rec.tagline
+                                color: "#8d96a2"
+                                font.pixelSize: Math.round(13 * connectionScreen.uiScale)
+                                elide: Text.ElideRight
+                                horizontalAlignment: connectionScreen.stacked
+                                                     ? Text.AlignHCenter : Text.AlignLeft
                             }
                         }
 
