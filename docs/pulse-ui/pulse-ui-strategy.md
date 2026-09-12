@@ -633,3 +633,8 @@ session.** Stage 1 and Stage 2 are not wasted — `PulseAppClassic.qml` and
 The cost side is now known. **The value side is not:** nobody has yet asked what is
 actually in those 537 commits that the Pulse app would want. That question should be
 answered before the merge is either started or abandoned.
+
+**Answered the same day — see `upstream-merge-survey.md`.** The short version: the C++
+is the valuable half and it can be taken without the UI, because `qPlot2D` grew from 104
+members to 140 and **lost nothing**. Our QML calls 95 of them and upstream dropped none.
+The recommendation there is to merge `src/` and keep `qml/`.

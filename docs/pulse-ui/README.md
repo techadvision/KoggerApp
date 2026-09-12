@@ -7,6 +7,7 @@ and every change to them shows up in a diff alongside the code change it describ
 
 | Document | What it holds |
 |---|---|
+| `upstream-merge-survey.md` | What is in upstream's 537 commits since 0.14.3, what of it Pulse wants, and the merge shape that follows. Written 12 Sept 2026. |
 | `pulse-ui-strategy.md` | The staged plan: the `PulseApp.qml` extraction, the settings model, the device-profile rework, and the design decisions behind each. Updated at the end of every stage. |
 
 The visual prototype these documents describe is a design canvas, linked from the
