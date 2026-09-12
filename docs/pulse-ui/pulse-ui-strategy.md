@@ -873,7 +873,7 @@ rather than a global level cut, which means it needs the bottom track available 
 mosaic-build time. Related to item 1 — both are the mosaic missing what the echogram
 path already has.
 
-### 4. Dynamic resolution steps are visible in the 2D TVG render
+### 4. Dynamic resolution steps are visible in the 2D TVG render — CLOSED 12 Sept 2026
 
 `doDynamicResolution` (true for red, false for blue) re-resolves the echogram to suit the
 depth — finer sample spacing the shallower it gets, between `dynamicResolutionMin` 2 mm
@@ -891,6 +891,23 @@ does it which way before designing the fix.
 Note the IP link removes the constraint that motivated dynamic resolution in the first
 place — that profile can afford far more samples — so the `ui` block work in step 3 and
 this item meet each other.
+
+**CLOSED — it was the `imageType == 2` shadowing, and it is fixed.** Confirmed on the
+tablet 12 Sept 2026. This was never a defect in PULSE's TVG, because PULSE's TVG was not
+running. The two gain laws differ in exactly the way that produces this symptom:
+
+- `EchogramTvg` (PULSE, `imageType` 2) computes `gain(z) = 10^(k·z/20)` where **z is range
+  in metres**, stepped by `resolution` per sample. Re-resolving the trace changes how many
+  samples cover a metre and changes nothing about the gain at that metre.
+- Upstream's TGC (now `imageType` 4) computes `gain = gN + (i/n)·(gF − gN)` — a ramp over
+  **sample index over sample count**. Both ends of that fraction move when dynamic
+  resolution re-resolves the trace, so the gain at a given depth jumps at every resolution
+  step. That is the colour-strength change that was being seen.
+
+The open question this item recorded — *"worth confirming which of the two TVG
+implementations does it which way"* — is answered: PULSE's works in metres and was always
+right; upstream's works in samples. Nothing further to do here as long as `imageType` 2
+stays `EchogramTvg`.
 
 ### 5. Re-identify the device and re-run setup when the app is wrong about it
 
@@ -1174,8 +1191,15 @@ someone would otherwise just add the two entries.
 **What Olav sees.** Black stripes are missing data — always possible, especially over UDP on
 wifi. The black-stripes mechanism evaluates a window forward and back, detects the gap and
 computes the most likely render. It is an echogram-render nicety and nothing more, but users
-care about it a great deal. On PULSE blue the TVG render bypasses it; not certain whether
-red is affected too.
+care about it a great deal. On PULSE blue the TVG render bypasses it.
+
+**CONFIRMED ON RED TOO, 12 Sept 2026**, visually, on the build that restored `EchogramTvg`
+to `imageType` 2 — which is the first build where red's own TVG has ever actually rendered.
+That settles the open question in this item: it is not blue-only, and the table below
+already predicted it. Both 2D TVG (2) and side scan TVG (3) render from a cached buffer
+that no one invalidates when the black-stripes pass patches the amplitudes. The fix stands
+as written: one data version on `Echogram`, bumped on every write to `amplitude`, folded
+into all four cache guards.
 
 **It is structural, and it is not only blue.** `BlackStripesProcessor::update()` patches the
 epoch's raw amplitudes in place — `amplitude[i] = ethalonVector[i].second`
@@ -1423,3 +1447,109 @@ asking"** — turns the asking off.
   bindings cannot resolve and never could, from well before the extraction. On Android
   the indicators are drawn 60 high instead of 80 and sit under the inset. Cheap to fix
   by moving the two helpers to the root item; worth doing next time that file is open.
+
+---
+
+## Step 4 — first device build, and what it found (12 Sept 2026)
+
+Branch `feature/device-profiles-step4`. Commit `56f011bf` carries the two fixes below.
+
+### Confirmed on the tablet
+
+- **The 2D TVG is running for the first time since the upstream merge.** This also closed
+  backlog item 4 outright — the resolution-dependent colour strength was upstream's ramp
+  being a function of sample index, not a defect in PULSE's TVG. See that item above for
+  the two gain laws side by side.
+- **Black stripes are bypassed on red as well as blue** (backlog item 6), which is the
+  first time red's own TVG has rendered at all and so the first time this was observable
+  there. The item's open question is closed; the proposed fix is unchanged.
+
+### Not yet verified
+
+- **`PULSEblue-IP`.** Olav cannot reach the IP gateway at the moment. Nothing about the
+  profile has been exercised on hardware: not the address publishing, not
+  `resolveProfileKey` picking the variant, not the `PROFILE: committed key ->
+  PULSEblue-IP` log line. Everything else in step 4 has now been on the device; this has
+  not. To check when the gateway is available: the key appears in the log on connecting,
+  and **nothing about the picture or the device configuration changes** — that is the
+  whole acceptance test, since the profile is deliberately blue on the wire.
+
+### The undefined warnings were the 3D ruler, not the profiles
+
+```
+qrc:/Scene3DRightToolbar.qml:94: Error: Cannot assign [undefined] to bool
+qrc:/main.qml:1835:25: Unable to assign [undefined] to bool     (x3, repeating)
+```
+
+`Scene3dView` exposes the ruler as a **child controller** — `Q_PROPERTY(QObject* ruler)`,
+with `enabled` / `drawing` / `selected` / `hasGeometry` and
+`clear` / `finishDrawing` / `cancelDrawing` / `deleteSelected` on the controller. But **22
+sites** across `main.qml` and `Scene3DRightToolbar.qml` addressed them flat on the view:
+`renderer.rulerEnabled`, `renderer.rulerFinishDrawing()`, `root.view.rulerEnabled`. None of
+those exist there, so every read was `undefined`, the three ruler buttons could never
+become visible, and the handlers would have thrown had they been reachable. **The 3D ruler
+has been dead since the merge.** All 22 rewritten to go through `.ruler.`; the controller is
+built in the view's constructor, so it is never null and needs no guard.
+
+Worth knowing for the next merge: this is the shape upstream-QML fallout takes — it does
+not fail the build, it fails one binding at a time and says so once in the log.
+
+### A new log was classified by the previous log's channel count
+
+The reported symptom: *committed red, open a side scan log → does not come up as side
+scan; open a red log, then the side scan again → correct.*
+
+`activeModel` classifies an opened file from `numberOfDatasetChannels`, and
+`onChannelListUpdated` **only ever assigned** it — it returns early while the channel list
+is still just the placeholder, and nothing cleared it between logs. So a newly opened log
+was displayed as whatever the last one was until a full list arrived; with nothing opened
+yet the count was 0 and the first side scan fell back to the committed device, which is
+exactly what was seen.
+
+Now cleared when a file starts opening, where `wasKlfFileOpened` is already set. `0` means
+"not known yet" and `activeModel` already falls back to `committedModel` for it. Safe on the
+live path: ConnectionViewer's Basic2D window latches the **maximum** channel count seen, so
+a transient 0 cannot lower it, and `onNumberOfDatasetChannelsChanged` does nothing at 0.
+
+The classification was also entirely silent, which is why this had to be reproduced by
+hand. It now logs every update including the early returns (`CHANNELS: ...`), so a
+misclassified replay says so in the application output.
+
+### Backlog item 7 — the colour chooser follows the committed device, not the picture
+
+Reported in the same test: *"the icon side/down even adapted, while colour did not."*
+Correct on both counts, and the reason is one property.
+
+`PulseAppClassic.isDevice2DTransducer()` sets `showAs2DTransducer` from
+`userManualSetName` — the **committed** model — and `showAs2DTransducer` is what chooses
+between the two colour selectors:
+
+| | gated on | during a mismatched replay |
+|---|---|---|
+| echogram orientation, grid | `activeModel` (`Plot2D.onActiveModelChanged`) | follows the **log** — correct |
+| `themeSelectorColorSS` / `themeSelectorColor2D` | `showAs2DTransducer` | follows the **committed device** |
+
+So a red-committed app replaying a side scan draws a side scan and offers the 20-entry
+`themeModelRed` palette for it, instead of the 6-entry `themeModelBlue` one the picture
+actually uses.
+
+**The colour palette is a display concern, not a configuration one** — it is which ramp is
+painted on the samples on screen, and it belongs on the same side of the split as the
+echogram itself. The fix is to gate the two selectors on the display model rather than on
+`showAs2DTransducer`; `showAs2DTransducer` should keep meaning "the committed device is a
+2D transducer", because that is what its other callers want.
+
+Deliberately **not fixed now** — Olav's call, and not the focus. Recorded because it is a
+clean, small example of the display-vs-configuration line being drawn in the wrong place,
+and Stage 4 has to draw that line everywhere.
+
+### The device swap, on playback
+
+The swap wired in step 4 is keyed on the **connection** and is deliberately never raised by
+playback, so what was tested above exercised the display path rather than the swap. The
+"re-identify the device" backlog item therefore remains only half answered: a connected
+device that disagrees is now handled, an **opened log** that disagrees still leaves the rest
+of the app configured for the committed device. Whether opening a log should ever offer to
+re-run setup is a real question and probably the answer is no — a log is not a device — but
+it is worth writing down that the two halves were tested together and only one of them is
+in scope.
