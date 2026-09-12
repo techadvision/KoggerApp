@@ -597,9 +597,9 @@ private:
     bool pwmRouteState_ = false;
     bool devSyncState_ = false;
     QTimer m_devSyncDebounceTimer;
-    int errorFreezeCnt_;
-    int averageChartLosses_;
-    QUuid linkUuid_;
+    //NOTE: errorFreezeCnt_, averageChartLosses_ and linkUuid_ are declared above with the
+    //PULSE members. Both sides of the merge carried them, and the union resolution brought
+    //them in twice.
     bool linkConnected_    = false;
     bool linkReceivesData_ = false;
     bool linkNotAvailable_ = false;
