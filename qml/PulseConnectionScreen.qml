@@ -10,14 +10,18 @@ import QtCore
 // This replaces echoSounderSelectorRect / freeContainer / the two EchoSounderSelector
 // panels and the windowShadow sheet that used to live at the foot of main.qml. It is a
 // PulseApp*-level component rather than a main.qml block, and it is instantiated ONCE
-// above both Plot2D panes - which is what lets step 3 move the swap prompt here and
+// above both Plot2D panes - which is what let step 3 move the swap prompt here and
 // retire its `indx === 1` gate, since one surface above both panes cannot draw twice.
 //
-// STEP 1 IS THE SELECTION ONLY. The wire strip, the swap prompt, the source chip and the
-// demo/recording pills are all drawn in the prototype and all belong to later steps:
+//   step 1  the selection: the cards, the one binding, the status strip
 //   step 2  the card list moves into the profile map, asserted by pulse-profile-check.js
-//   step 3  the swap prompt moves off PulseAppClassic, and the wire strip gets its states
+//   step 3  the swap prompt moves off PulseAppClassic and becomes a MODE of this screen
 //   step 4  the rail's source button and the demo indicator, which wait for PulseAppV2
+//
+// A SWAP IS THIS SCREEN'S OWN QUESTION IN OTHER WORDS - "PULSE blue detected, you are set
+// up for PULSE red" - so it is a mode of the panel and not a sheet drawn on it. A sheet
+// would be a second box with its own width, breakpoint, insets and scrolling, on top of a
+// panel that already answers all four, and two boxes asking one question at phone width.
 //
 // THE ONE BINDING. `windowShadow` was a plain bool written by four handlers: raised by
 // selectorDelayTimer.onTriggered and onSwapDeviceNowChanged, lowered by
@@ -73,15 +77,34 @@ Item {
     // and re-arming is the only thing that lowers it.
     property bool graceElapsed: false
 
+    // A DIFFERENT TRANSDUCER IS ON THE WIRE. Detection found one that disagrees with what
+    // the app is configured for, and a swap re-runs the whole device setup - so it asks
+    // rather than doing it and offering an undo. The state is all in PulseRuntimeSettings;
+    // this screen only draws the question and routes the two answers.
+    readonly property bool swapPending:
+        pulseRuntimeSettings ? pulseRuntimeSettings.deviceSwapPending : false
+
+    readonly property string swapTo:
+        (pulseRuntimeSettings && swapPending)
+            ? pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.pendingSwapToModel)
+            : ""
+    readonly property string swapFrom:
+        (pulseRuntimeSettings && swapPending)
+            ? pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.pendingSwapFromModel)
+            : ""
+
     readonly property bool chooserAsking:
            (pulseRuntimeSettings ? pulseRuntimeSettings.swapDeviceNow : false)
+        || swapPending
         || (nothingIdentified
             && !(pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false)
             && (graceElapsed || !somethingMayStillAnswer))
-    // STEP 3 adds `|| pulseRuntimeSettings.deviceSwapPending` here, at the same time as
-    // the prompt itself moves onto this surface. Adding the term now would raise this
-    // screen over a swap prompt that is still drawn in PulseAppClassic, which is a
-    // regression rather than a step.
+
+    // WHICH QUESTION THE PANEL ASKS when both could apply is settled in the panel itself,
+    // by `visible: connectionScreen.swapPending` on the swap block and its negation on the
+    // cards. The swap wins, and that is safe for the one reason that matters: both of its
+    // answers settle a model, so the screen still cannot strand itself behind a raised
+    // sheet.
 
     visible: chooserAsking
     enabled: chooserAsking
@@ -278,6 +301,7 @@ Item {
         console.log("CONN_SCREEN: asking ->", chooserAsking,
                     "| committed", pulseRuntimeSettings ? pulseRuntimeSettings.userManualSetName : "?",
                     "| swapNow", pulseRuntimeSettings ? pulseRuntimeSettings.swapDeviceNow : "?",
+                    "| swapPending", swapPending, "-> to", swapTo,
                     "| presentingLog", pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : "?",
                     "| mayStillAnswer", somethingMayStillAnswer,
                     "| grace", graceElapsed,
@@ -289,6 +313,14 @@ Item {
 
     // Committing a card writes userManualSetName and nothing else, so the whole
     // configuration path behaves exactly as it did through the old selectors.
+    //
+    // NO SWAP BRANCH HERE, and that is decided rather than forgotten: the cards are not
+    // drawn while a swap is pending - the panel asks the swap question in their slot - so
+    // deviceSwapPending cannot be true on this path. If cards are ever shown beside a
+    // pending swap, this needs routing and not a guard: the TARGET's card is acceptSwap(),
+    // any other card is declineDeviceSwap() and then this. Tapping the target and landing
+    // here would commit the new model with the old device's setup still standing, which is
+    // exactly the order acceptDeviceSwap() exists to get right.
     function commitCard(card) {
         if (!pulseRuntimeSettings || !card)
             return
@@ -357,13 +389,47 @@ Item {
         }
     }
 
+    // ACCEPTING A SWAP IS NOT commitCard(). commitCard() clears swapDeviceNow and writes
+    // the model itself; acceptDeviceSwap() raises swapDeviceNow FIRST - which is what runs
+    // DeviceItem's reset synchronously - and commits the target after, because committing
+    // it first would be undone a line later. So this is a thin wrapper and never a second
+    // path to the same place.
+    //
+    // chosenCardId is cleared because a swap was not a tap. Left set, the old card would
+    // wear the chosen border the next time the cards are shown, against a model it does
+    // not commit.
+    function acceptSwap() {
+        if (!pulseRuntimeSettings)
+            return
+        console.log("CONN_SCREEN: swap accepted ->", pulseRuntimeSettings.pendingSwapToModel)
+        chosenCardId = ""
+        pulseRuntimeSettings.acceptDeviceSwap()
+    }
+
     // Cancel means "I meant to keep what I had". A force reselection has already cleared
     // every setup state, so keeping it re-commits the same model and re-runs the same
     // configuration pass the card would have - it is a choice, not an undo.
     function keepCurrent() {
-        if (!pulseRuntimeSettings || !canCancel)
+        if (!pulseRuntimeSettings)
             return
+
+        // DECLINING COMES FIRST, and deliberately ABOVE the canCancel guard: it is the
+        // only thing on this screen that clears pendingSwapToModel, and chooserAsking now
+        // reads that. Skip it and the screen never falls, and the same device is asked
+        // about again the moment it is detected.
+        if (swapPending) {
+            console.log("CONN_SCREEN: swap declined - keeping",
+                        pulseRuntimeSettings.pendingSwapFromModel)
+            pulseRuntimeSettings.declineDeviceSwap()
+        }
+
+        if (!canCancel)
+            return
+
         console.log("CONN_SCREEN: cancelled - keeping", lastCommittedModel)
+        // A no-op after a declined swap - nothing was torn down, so userManualSetName is
+        // already this value and assigning it emits nothing. After a force reselection it
+        // is the re-commit that re-runs the configuration pass. One path covers both.
         pulseRuntimeSettings.swapDeviceNow = false
         pulseRuntimeSettings.userManualSetName = lastCommittedModel
         pulseRuntimeSettings.devManualSelected = true
@@ -503,6 +569,9 @@ Item {
                     }
 
                     Text {
+                        // Stands down in swap mode: the question below is the headline
+                        // there, and two headlines compete.
+                        visible: !connectionScreen.swapPending
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: connectionScreen.canCancel
                               ? "Choose your transducer"
@@ -517,6 +586,13 @@ Item {
                     }
 
                     Flow {
+                        // NOT DRAWN WHILE A SWAP IS PENDING, and that is what removes the
+                        // trap rather than special-casing it: with no card on screen there
+                        // is no way to commit the detected device by hand and skip the
+                        // reset. It costs nothing - red and black commit the same profile,
+                        // so a detected swap has exactly two honest answers and never a
+                        // third. See commitCard().
+                        visible: !connectionScreen.swapPending
                         anchors.horizontalCenter: parent.horizontalCenter
                         // NOT a plain `width` inside a ColumnLayout - a Layout
                         // overwrites it with the implicit width, which for a Flow is
@@ -653,6 +729,37 @@ Item {
                         }
                     }
 
+                    // THE SWAP QUESTION - the body in swap mode, in the slot the cards
+                    // occupy, at the same two weights the prompt on the echogram used.
+                    // Text only, deliberately: a swap to PULSEred matches TWO cards, red
+                    // and black, so "the detected device's picture" has no single answer
+                    // and inventing one would be a change rather than a move.
+                    Column {
+                        visible: connectionScreen.swapPending
+                        width: panelCol.width
+                        spacing: Math.round(6 * connectionScreen.uiScale)
+
+                        Text {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            text: connectionScreen.swapTo + " detected"
+                            color: "#f2f4f7"
+                            font.pixelSize: Math.round(22 * connectionScreen.uiScale)
+                            font.bold: true
+                        }
+
+                        Text {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            text: "The app is set up for " + connectionScreen.swapFrom
+                                  + ". Switching re-runs the device setup."
+                            color: "#9aa3ae"
+                            font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                        }
+                    }
+
                     Item {
                         width: 1
                         height: Math.round(20 * connectionScreen.uiScale)
@@ -678,8 +785,16 @@ Item {
                             Layout.preferredHeight: 1
                         }
 
+                        // THE FIRST SLOT HOLDS THE PRIMARY ANSWER, and which one that is
+                        // depends on the mode: a simulation when the screen is asking
+                        // which transducer, Switch when it is asking about a swap. Two
+                        // pills in one slot with one of them visible, rather than one pill
+                        // with its text, colour and action all on ternaries - a RowLayout
+                        // drops invisible children, so the three-spacer chain from step 1
+                        // never learns that a third button exists.
                         Rectangle {
                             id: simPill
+                            visible: !connectionScreen.swapPending
                             Layout.alignment: Qt.AlignTop
                             implicitWidth:  simLabel.implicitWidth
                                             + Math.round(40 * connectionScreen.uiScale)
@@ -704,18 +819,49 @@ Item {
                             }
                         }
 
+                        // Accepting goes through acceptDeviceSwap(), which is the only
+                        // order the re-setup survives. Amber and filled, carried over from
+                        // the prompt this replaces: it is the answer the device is
+                        // proposing, and the only primary action this screen has.
+                        Rectangle {
+                            id: switchPill
+                            visible: connectionScreen.swapPending
+                            Layout.alignment: Qt.AlignTop
+                            implicitWidth:  switchLabel.implicitWidth
+                                            + Math.round(40 * connectionScreen.uiScale)
+                            implicitHeight: Math.round(44 * connectionScreen.uiScale)
+                            radius: height / 2
+                            color: switchArea.pressed ? "#ffdd55" : "#ffcc00"
+
+                            Text {
+                                id: switchLabel
+                                anchors.centerIn: parent
+                                text: "Switch to " + connectionScreen.swapTo
+                                color: "#102030"
+                                font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                                font.bold: true
+                            }
+
+                            MouseArea {
+                                id: switchArea
+                                anchors.fill: parent
+                                onClicked: connectionScreen.acceptSwap()
+                            }
+                        }
+
                         Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 1
-                            visible: connectionScreen.canCancel
+                            visible: connectionScreen.canCancel || connectionScreen.swapPending
                         }
 
                         // Cancelling is possible whenever there is something to go
                         // back to. On a cold start there is not, and the screen
-                        // correctly offers no way out but a choice.
+                        // correctly offers no way out but a choice. A pending swap
+                        // always has one - the model it says the app is set up for.
                         Rectangle {
                             id: keepPill
-                            visible: connectionScreen.canCancel
+                            visible: connectionScreen.canCancel || connectionScreen.swapPending
                             Layout.alignment: Qt.AlignTop
                             implicitWidth:  keepLabel.implicitWidth
                                             + Math.round(36 * connectionScreen.uiScale)
@@ -728,9 +874,15 @@ Item {
                             Text {
                                 id: keepLabel
                                 anchors.centerIn: parent
-                                text: "Keep " + (pulseRuntimeSettings
-                                                 ? pulseRuntimeSettings.modelDisplayName(connectionScreen.lastCommittedModel)
-                                                 : "")
+                                // In swap mode it names pendingSwapFromModel rather than
+                                // lastCommittedModel: the swap's Keep is about the model
+                                // the SWAP says you are set up for, which is the fact the
+                                // question was built on.
+                                text: "Keep " + (connectionScreen.swapPending
+                                                 ? connectionScreen.swapFrom
+                                                 : (pulseRuntimeSettings
+                                                    ? pulseRuntimeSettings.modelDisplayName(connectionScreen.lastCommittedModel)
+                                                    : ""))
                                 color: "#dfe4ea"
                                 font.pixelSize: Math.round(15 * connectionScreen.uiScale)
                             }
@@ -756,6 +908,9 @@ Item {
                     // under the middle of a panel it is not talking about.
                     Text {
                         id: simCaption
+                        // Goes with the pill it explains - and its x reads simPill.x,
+                        // which means nothing while that pill is not laid out.
+                        visible: !connectionScreen.swapPending
                         x: Math.max(0, Math.min(panelCol.width - width,
                                                 simPill.x + (simPill.width - width) / 2))
                         topPadding: Math.round(6 * connectionScreen.uiScale)
