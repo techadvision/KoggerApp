@@ -137,7 +137,7 @@ Item {
     readonly property string linkHeadline:
           linkState === "lost"        ? "Connection lost"
         : linkState === "talking"     ? "Connected to " + pulseRuntimeSettings.devName
-        : linkState === "identifying" ? "Connected, identifying the sounder"
+        : linkState === "identifying" ? "Connected, identifying the transducer"
         : linkState === "found"       ? "Sounder found, nothing open on it yet"
         :                               "Not connected"
 
