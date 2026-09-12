@@ -2841,3 +2841,93 @@ Android split screen; and the screen is up as fast as the echogram.
   purpose for these builds. It goes with the step 3 wire strip.
 - Backlog 11 / 12 / 13 stay parked. The boat run still covers the swap prompt on
   hardware, item 10's bench re-test and `PULSEblue-IP`.
+
+
+---
+
+## Stage 4, step 2 — the card list is profile data (12 Sept 2026)
+
+Confirmed on device: *"The chooser is the same as before."* One commit,
+`dcc62e7e`, on `feature/device-profiles-step4` — now 39 commits, of which 31 are
+not yet on `origin/feature/device-profiles-step4`.
+
+The three cards left `PulseConnectionScreen.qml` for the profile map, beside
+`ui.views` / `ui.cones`, one list per record and in the record each card commits
+to: red's holds `red` and `black`, blue's holds `blue`. The screen keeps one line
+of device data.
+
+```qml
+readonly property var cards: pulseRuntimeSettings ? pulseRuntimeSettings.uiCards : []
+```
+
+A new model is now one entry in a profile record, with nothing to change in the
+screen at all.
+
+### Three things the move had to decide
+
+**`profile` is written in the card, not inferred from the record holding it.**
+Red and black both name `modelPulseRed`. Inferring it from the enclosing record
+gives the same answer today and makes "two cards on one profile" an accident of
+where an entry sits rather than a stated fact — and what a card commits is a
+MODEL, which is not what the map is keyed by.
+
+**A card names WHICH wordmark it wears, never the path.** The record already
+holds `ui.brand.logo` and `ui.brand.logoBlack`, so the card carries
+`"wordmark": "logo"` or `"logoBlack"` and `cardForScreen()` resolves it —
+renaming a model's artwork stays one edit. That function is also the single place
+the seven-key shape the screen reads is stated: `id`, `name`, `tagline`, `art`,
+`logo`, `badge`, `profile`.
+
+**A variant offers no cards of its own.** `PULSEblue-IP` is blue's record plus
+overrides, so it inherits blue's `cards` through `mergedProfile()`. Left alone it
+would have drawn the blue card twice and, worse, handed a profile KEY to
+`userManualSetName`. A record offers its cards only when its key IS its model,
+which is exactly what `devName` says:
+
+```qml
+if (!prof || prof.devName !== key)
+    continue        // a variant is not a model
+```
+
+`uiCards` is also the one `ui*` accessor that does **not** read the committed
+profile. Every other one answers "what does the transducer on the wire offer".
+This one is the question asked when nothing is committed and there may be nothing
+on the wire at all, so it spans the whole map.
+
+### What the check asserts now
+
+`node tools/pulse-profile-check.js`, on top of everything it already did: every
+card field present and non-empty; every badge a hex colour; every `wordmark`
+naming a wordmark its own record carries, and no card repeating a brand path;
+every card committing a model and never a profile key; card ids unique across
+records; the assembled list three long in record order with each logo resolved;
+the exact seven-key shape; and every render and wordmark both on disk *and* in
+`images.qrc`.
+
+And the acceptance test — the same promise the 820 kHz test makes about views. A
+FOURTH card is one entry added to `pulseRed.ui.cards`: it reaches the screen in
+record order, its logo resolves the same way as every other, it commits a model,
+it arrives in the same shape, and the three that were already there come back
+byte-identical. No accessor, no resolver line and no second record had to change.
+
+The check now also reads `modelPulseRed` / `modelPulseBlue` out of the QML rather
+than retyping them, because the card records name the models by property.
+
+### Left open, on purpose
+
+Step 3 (the swap prompt off `PulseAppClassic`, plus the wire strip) and step 4
+(the rail's source button) are untouched, and the `deviceSwapPending` term is
+still held back from `chooserAsking`. Backlog 11 / 12 / 13 stay parked. The
+wording pass is open, unchanged from step 1.
+
+Two checks were suggested after the build and have not been reported back. Both
+cost nothing on the next one:
+
+- `CONN_SCREEN: built 3 cards` in the log is the whole test for the variant rule.
+  Three is the only number that proves both records contributed *and* that blue
+  was not offered twice.
+- Tapping **black** specifically. Its `profile` now comes out of red's record
+  rather than being typed on the screen, so it is the one card where the
+  committed model could have changed silently.
+
+---
