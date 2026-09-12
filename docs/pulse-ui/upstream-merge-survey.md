@@ -290,9 +290,12 @@ something more elegant. **Rule: compare properly rather than defaulting to ours 
 multi-ABI must survive the comparison.** It is the one thing in that file with a customer
 on the end of it.
 
-Same for `platform/android/src/org/kogger/koggerapp/KoggerActivity.java`: upstream
-deleted the custom activity; ours carries the Skydroid G30 USB and security-exception
-handling. Ours stays.
+Same for the Android activity — **with a correction to what this document said earlier.**
+Upstream did not delete it. *We* renamed the package: `org.kogger.koggerapp` became
+`org.techadvision.pulse`, and `KoggerActivity.java` (244 lines at the base) became our
+646-line `PulseActivity.java` with the Skydroid G30 USB and security-exception handling.
+Upstream meanwhile added 58 lines to theirs. So this is a port, not a conflict: our
+package stays and their change is read and carried across by hand where it is wanted.
 
 ### 3. TVG and TGC — ours, but theirs is worth reading
 
@@ -316,3 +319,97 @@ What is worth studying is **which abilities he offers on a screen, and what they
 on** — the capability inventory, not the interaction pattern. He is clever and creative,
 so his ideas are always worth a look. This is also why `getAimFieldsMask()` is declined
 above: it is a choice offered where Pulse would simply decide.
+
+---
+
+## The merge, as done — `merge/upstream-1.0.3` (12 September 2026)
+
+Merge commit `7b79a356`, off `master` at `fe8082fd`. 391 files changed.
+**Nothing is compiled.** Everything below was checked statically.
+
+### The shape
+
+`qml/` is byte-for-byte `master`. Upstream's 203 new QML files never enter the tree —
+and note that the merge had also **deleted 74 of our QML files**, because upstream moved
+them and we had never edited them, so nothing conflicted. They are restored. That one is
+worth remembering for next time: a file you never touched is exactly the file a merge
+will take from the other side without asking.
+
+50 conflicted paths were resolved. 37 needed judgement; the rest were the QML sweep.
+
+### Four things git merged silently that would have broken on the device
+
+None of these appeared as a conflict. Each arrived through a line neither side marked.
+
+1. **The JNI table.** `android_interface.cpp` came across registering
+   `koggerStoragePermissionResult` in the *same* `JNINativeMethod` table as
+   `koggerLogDebug` and `koggerLogWarning`. Our `PulseActivity.java` has no such method,
+   and `RegisterNatives` fails the **whole table** if one method is missing — so the
+   logging natives would have gone down with it, on a class that looked fine.
+   Upstream's permission plumbing is ported into our activity instead.
+2. **A declined hunk's sibling line.** In `plot2D_aim`, upstream's `int y = 0` arrived
+   through a non-conflicted line belonging to the sync-depth rework we had just declined
+   two hunks above, leaving the initialiser disagreeing with our `yFloat` formula.
+3. **A member function turned static.** Upstream split the colour table out of
+   `setThemeId` into a **static** `colormapFor()`. Our 1500-line Pulse table came across
+   with its apply-tail still attached — `_rawThemeColors`, `setColorScheme`,
+   `getThemeColors`, `publishThemeColors` — none of which can compile in a static
+   function. Moved back into `setThemeId`, and the table given a fallback because
+   `qPlot2D` calls `colormapFor` with an id it has not clamped.
+4. **A corrected value replaced by a raw one.** `dataset.cpp`'s pool took upstream's
+   `setTemp(temp_c)` instead of our `setTemp(lastTemp_)`, quietly dropping
+   `_temperatureCorrection` from every stored temperature.
+
+Two more were caught by the brace check rather than by reading: union resolutions in
+`core.cpp` and `epoch.h` ate the closing brace of the function they were joined to,
+because git had split the hunk right before a `}` that was common to both sides.
+
+### What was taken from upstream
+
+`renderScale()` across the 2D layers (the whole renderer moved, so the aim layer had to
+move with it) · the stale-version-after-reboot guard in `dev_driver` · `autoSpeedSelection_`
+and the `std::array` baudrate list · `markDataAvailable` for rangefinder and temperature ·
+notifications · the app logger · settings migration · device topology · the echogram state
+serializer · instance lock (desktop only) · `bt_worker` · `tile_baidu_provider` · the
+animation engine · `copyVisualConfigTo` · `lastRightTextX_`.
+
+### What was refused
+
+- **`src/video`** — removed, and `main.cpp` unwired from it. `video_stream.cpp` includes
+  `libavcodec` and `libavformat` directly while upstream's `CMakeLists.txt` has no ffmpeg
+  find or link **at all**. It cannot survive the Android multi-ABI build, and RTSP belongs
+  to Seascape rather than the sounder.
+- **`getAimFieldsMask()`** and the synced-cursor early return — features of theirs we are
+  not adopting, and the first is a choice offered where Pulse would simply decide.
+- **The sonar-offset removal.** Upstream dropped `offsetx/y/z` from `doDistProcessing` and
+  `refreshDistParams` when they moved offset XYZ into their CSV export UI. Our
+  `DisplaySettings.qml` passes them, so our signatures are restored.
+- **Upstream's `navigation_arrow` colour parameters** — the PULSE TRIAL boat green stays
+  hardcoded for now. Worth re-expressing through their `fillColor`/`ribColor` later.
+
+### The one decision still open
+
+**The mosaic source.** Ours is a boolean switch between the AGC buffer (`compensated`) and
+the Pulse side-scan TVG (`ssTvgCompensated`), driven by `EchogramSideScanTvg::mosaicEnabled()`.
+Upstream's is a three-way enum — `Amplitude` / `SideScan` / `Tgc` — over `amplitude`,
+`compensated` and their new linear `tgc` buffer.
+
+Both are now in the tree. **Ours picks the buffer**; theirs reaches `setSource()` and the
+stats but decides nothing. `Epoch::Echogram` carries both `ssTvgCompensated` and `tgc`.
+
+This is rule 3, and it is the one thing here that should not be settled by a merge. The
+question is whether upstream's TGC has improved enough to realign against — as the Pulse
+TVG was once aligned to his older TGC — or whether the two stay independent and the enum
+gains a fourth value for the Pulse side-scan buffer.
+
+### What has to happen on the device
+
+1. It has to build. Multi-ABI, both ABIs.
+2. The `.plog` replay in demo mode, as with Stage 1.
+3. **The echogram compared side by side against a v1.38 build.** `renderScale()` changes
+   how every 2D layer scales on Android, from a flat 2 to the real device DPI. That is the
+   upgrade — and it is also the thing most likely to look wrong first.
+4. The loupe: tap a feature out to the side on a side scan and confirm the position sent
+   to the autopilot is still right. That is the capability this whole merge was shaped
+   around protecting.
+5. Storage permissions on a fresh install, since the JNI table changed.
