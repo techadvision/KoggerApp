@@ -1553,3 +1553,89 @@ of the app configured for the committed device. Whether opening a log should eve
 re-run setup is a real question and probably the answer is no — a log is not a device — but
 it is worth writing down that the two halves were tested together and only one of them is
 in scope.
+
+---
+
+## Backlog items 8 and 9 — added 12 Sept 2026
+
+Both come from the same place: the app assumes the thing it is showing and the thing it is
+connected to are the same thing. They are not, during a demo or a replay — and a demo in
+front of an audience is exactly when that has to be graceful.
+
+**There is a date on this.** An exhibition in late September. Both items below are
+demonstration failures rather than field failures, which moves them ahead of most of the
+rest of the backlog and puts them in the same bracket as the UI work itself.
+
+### 8. Playing a log of the wrong type should adapt the whole UI, not half of it
+
+The generalisation of item 7, and the one that matters at a show: a visitor — or one of us,
+in a hurry — picks a side scan log while the app is set up as a red, and gets a side scan
+picture wrapped in a 2D interface. Item 7 is the colour chooser; the same split runs through
+the cone/view chooser, the per-device settings rows, and the brand artwork.
+
+**The split as it stands, and it is deliberate:**
+
+| path | keyed on | follows |
+|---|---|---|
+| display — echogram, grid, gain law | `activeModel` | the log |
+| configuration — what is written to the transducer | `committedProfileKey` | the connected device |
+
+That is right when a transducer is connected: an opened log must never reconfigure hardware.
+It is wrong when **nothing is connected**, which is every demo and every exhibition laptop —
+there is no hardware to protect, and the only honest answer is that the log IS the device.
+
+**The shape of the fix, and why it is cheap now.** `committedProfileKey` is one function,
+`resolveProfileKey(model, address, channels)`. It gains one more input: whether a device is
+actually connected. With no connection and a log or demo running, it resolves from the log's
+identity — which `activeModel` already computes — instead of from `userManualSetName`. Two
+consequences worth stating:
+
+- A **connected** device behaves exactly as it does today. The rule only relaxes where there
+  is nothing to break.
+- It wants to be visible, not magic. The app is claiming to be a device it is not connected
+  to, and at a show somebody will ask. A quiet marker — the device name with the log's
+  identity, or the existing "playing a log" state made to say which device — is enough.
+
+The alternative shape is an explicit **presentation mode**: the user names the device the
+demo should present as, and everything follows it. More control, more to explain, and one
+more thing to forget to switch off. The connection-aware resolver is the better default; a
+manual override on top of it is where presentation mode belongs if it is ever wanted.
+
+### 9. Reconnecting to a real transducer after a demo, without restarting the app
+
+Today this needs an app restart. That is a bad thing to discover in front of a stand.
+
+**It is deliberate, and documented in the code.** `Core::startDemo()` closes live links, and
+`Core::stopDemo()` says of itself:
+
+> *Deliberately NOT calling `linkManagerWrapperPtr_->openClosedLinks()` here. Reopening links
+> makes the app immediately start hunting for a transducer that is not there, which is what
+> produced the "Configuring transducer..." / "Fixing transducer com link..." overlay once a
+> demo ended. Link manager connections are restored so a user-initiated connect works
+> normally, but reconnecting stays an explicit action.*
+
+The reasoning is sound — the overlay it prevents was a real defect — but "an explicit action"
+was never given anywhere to be explicit **from**, so in practice it became "restart the app".
+
+**Three things, and only the first is required:**
+
+1. **An affordance.** Something that says the demo is over and offers to reconnect. The
+   connection panel can already open a link; nothing points at it at the moment it is needed.
+2. **Re-run detection afterwards.** `exitDemoMode()` already clears the state properly —
+   `userManualSetName`, `devName`, `numberOfDatasetChannels` all go back to fresh — but
+   **nothing re-runs `ConnectionViewer.selectCorrectDevice()`**, whose only triggers are a
+   device-list change, a channel-count change and the Basic2D settle timer. So even with the
+   link back up, identification may not re-run until the device happens to say something that
+   changes the list. A `selectCorrectDevice("exitDemoMode")` after the link reopens closes
+   that gap.
+3. **Verify the explicit path actually works.** The comment asserts that a user-initiated
+   connect works normally after a demo. That has not been tested since the demo work landed,
+   and the symptom being reported — "I need to restart" — is consistent with it not working
+   rather than merely not being discoverable. Worth establishing which of the two it is
+   before designing anything.
+
+**This is cheaper than it was.** The re-setup machinery the swap now uses (`swapDeviceNow` →
+`DeviceItem.resetAllSetupStates()` → re-commit) is exactly what "come back from a demo and
+find the transducer" needs. Leaving demo mode and swapping device are the same operation
+wearing different clothes, and item 9 should reuse the wire step 4 built rather than grow a
+second one.
