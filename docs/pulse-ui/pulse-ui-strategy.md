@@ -851,3 +851,43 @@ Two candidate fixes, and they are not exclusive:
 - Otherwise: **use the rangefinder depth value until it passes 1–2 m, then hand over to
   the `bottomTrack` value** once the rangefinder reports deeper than that. A crossover
   rather than a choice.
+
+### 3. The water-body filter dims the bottom in the mosaic
+
+Overlooked when the filter was built. In the 2D echogram the two were deliberately
+separated: `EchogramWaterColumn` (`src/scene2d/echogram_watercolumn.{h,cpp}`, a PULSE
+addition) filters **only the water column above the bottom**, with
+`echogramWaterBodyBottomMargin` keeping a band above the bottom untouched and an explicit
+fail-safe that never dims a bottom it has not detected. The header says it outright:
+*"the low-level cut (setEchogramLowLevel) is intentionally left untouched — this is
+display-only, above the bottom."*
+
+The mosaic never got that treatment. It goes through
+`DataProcessor::setMosaicLevels` → `mosaicColorTable_.setLevels(low, high)` — a flat
+colour-table cut applied to the whole image, bottom included. So a high filter value
+darkens the entire bottom render, and at the highest setting the bottom disappears
+altogether.
+
+The fix is the same shape as the 2D one: the mosaic needs a water-column-aware filter
+rather than a global level cut, which means it needs the bottom track available at
+mosaic-build time. Related to item 1 — both are the mosaic missing what the echogram
+path already has.
+
+### 4. Dynamic resolution steps are visible in the 2D TVG render
+
+`doDynamicResolution` (true for red, false for blue) re-resolves the echogram to suit the
+depth — finer sample spacing the shallower it gets, between `dynamicResolutionMin` 2 mm
+and `dynamicResolutionMax` 50 mm. It is what produces the stairway under the bottom and
+what feeds the auto-depth feature, and its purpose is sound: maximum detail at a stable
+data rate, which mattered a great deal on wifi.
+
+But it also moves the TVG render. Passing a resolution step visibly changes colour
+strength, because the gain curve is applied per sample and the samples have just changed
+what they mean in metres. The TVG needs to be computed against **range in metres**, not
+sample index, so a resolution change is invisible in the rendered brightness. Worth
+confirming which of the two TVG implementations (2D `imageType 2`, side scan `imageType 3`)
+does it which way before designing the fix.
+
+Note the IP link removes the constraint that motivated dynamic resolution in the first
+place — that profile can afford far more samples — so the `ui` block work in step 3 and
+this item meet each other.
