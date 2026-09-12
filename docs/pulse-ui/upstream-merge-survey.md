@@ -413,3 +413,100 @@ gains a fourth value for the Pulse side-scan buffer.
    to the autopilot is still right. That is the capability this whole merge was shaped
    around protecting.
 5. Storage permissions on a fresh install, since the JNI table changed.
+
+---
+
+## Merge complete — 12 September 2026
+
+Branch `merge/upstream-1.0.3`. Builds for Android arm64 and runs on the tablet.
+
+### What broke between "merged" and "running", and why
+
+Seven fixes after the merge commit. Every one was the same root cause in a different
+costume: **git split a hunk across content both sides shared**, so an "ours wins"
+resolution kept a line whose surroundings had moved, or a union kept a line twice.
+
+| | Symptom | Cause |
+|---|---|---|
+| `b3c89bea` | `animator.h` not found | `src/animation` listed in the sources but never added to the include path |
+| `b3c89bea` | definition matches no declaration | the union took upstream's 6-arg `drawTextWithBackdrop` over our 4-arg one |
+| `6b24612f` | duplicate member | both sides declared `errorFreezeCnt_`, `averageChartLosses_`, `linkUuid_` |
+| `f210fd5d` | no member `usblProcessing` | upstream deleted the USBL beacon API; that block was upstream's own, from 0.14.3 |
+| `f210fd5d` | undeclared `uuid` | our lambda's unnamed parameter, upstream's body inside it |
+| `68fa0856` | undeclared `bottomTrackVisible` | upstream replaced four parameters with `configSource`; we kept the lines that read them |
+| `85c6a99a` | **SIGSEGV on launch** | upstream's `qrc:/qml/main.qml` path; ours is `qrc:/main.qml`. The load failed, `objectCreated` fired with null, `Core::UILoad` dereferenced it |
+| `825476ee` | **HQ colour profiles rendered as Classic** | the static `colormapFor()` was given the clamped `themeId_` instead of the raw `theme_id` |
+| `529bc766` | (pre-existing) seven themes stored as Classic | `setThemeId`'s clamp stops at enum index 20; the enum runs to 27 |
+
+Each fix was followed by a sweep for the same shape across the whole merge, so the class
+was closed rather than the instance: include resolution, declared-vs-defined arity,
+duplicate members and definitions, bodies referencing lost parameters, and every `qrc:`
+literal against the four `.qrc` files.
+
+`Core::UILoad` now returns with a message instead of segfaulting when the root object is
+null — every other `objectCreated` handler already guarded; that one did not.
+
+### Verified on device
+
+- Builds and runs; no crash.
+- HQ colour profiles correct; other profiles unaffected.
+- Side-scan mosaic runs.
+- Add-waypoint works from several places on the echogram.
+- The settings bus survived: `SettingsBus` untouched, every `applyRuntime` /
+  `applyPersistent` implementation matches master across 15 files, and main.cpp's wiring
+  is intact (one bus, one context property, four `setSettingsBus` calls).
+
+### NOT verified — carry these forward
+
+1. **Sideways waypoint placement accuracy.** The whole merge was shaped around protecting
+   `solveSidescanTap` and the `sendJsonPoint` path. Waypoints *place*, but the
+   cross-track geometry has not been checked against known positions on the water. This
+   is the single most important open verification, because the loupe-plus-waypoint
+   capability is the one with real customer results behind it.
+2. **The echogram against a v1.38 build, side by side.** `renderScale()` moved every 2D
+   layer from a flat ×2 on Android to real device DPI. Nobody has compared the pictures.
+3. **Split screen**, where two `Plot2D`s each build their own `PulseApp` dispatcher.
+4. **Storage permissions on a fresh install** — the JNI native table changed.
+5. **The `uiVariant` switch** (Stage 2) has not been re-exercised since the merge.
+6. **The release build and the second ABI.** Only Debug arm64-v8a has been built.
+7. **Expert-pane settings one by one.** The bus is structurally intact; individual
+   controls have not been walked.
+
+### The mosaic sweep line
+
+The new visual sweep line on the mosaic is upstream's **trace line** (`e9eefa74e`). The
+capability came across with the C++ and defaults to on: `MosaicViewControlMenuController`
+is registered as a QML context property in `core.cpp:246` with `measLineVisible_(true)`.
+
+Upstream's toggle lives in *their* `MosaicExtraSettings.qml`, which we did not take — so
+the line is on with no way to turn it off. One call switches it:
+
+```qml
+MosaicViewControlMenuController.onMeasLineVisibleChanged(false)
+```
+
+Decide whether it earns a control in the new mosaic settings, or is simply set once.
+
+### Open decisions carried forward
+
+- **The mosaic source** — ours (AGC vs side-scan TVG, boolean) against upstream's
+  three-way `Amplitude` / `SideScan` / `Tgc` enum. Both are in the tree; ours picks the
+  buffer. Rule 3: a deliberate decision, not a merge.
+- **TVG against upstream's TGC.** Never reviewed. `14850a1c9` is the commit.
+- **`navigation_arrow`** — the PULSE TRIAL boat green is still hardcoded; upstream
+  parameterised it as `fillColor` / `ribColor`.
+- **`Qt.labs.settings` → `QtCore`** — deprecated, warns at startup. Worth doing with the
+  `settingsVersion` migration rather than separately, especially now that upstream's
+  settings-migration module is available to build on.
+- **Two Stage 1 defects**, both still open: the dead `pulseSettingsLoader` reference in
+  `closePulseSettingsTimer`, and `pinch2D`'s own `isLiveView` shadowing `plot.isLiveView`.
+
+### Upstream capability now in the tree but not wired to any Pulse UI
+
+Notifications · the app logger and the split console · settings migration · device
+topology · the echogram state serializer · instance lock (desktop) · `markDataAvailable`
+for rangefinder and temperature · recorder file retrieval and status · the animation
+engine · `copyVisualConfigTo` · `lastRightTextX_`.
+
+These cost nothing to carry and each is a decision for the new UI rather than for the
+merge.

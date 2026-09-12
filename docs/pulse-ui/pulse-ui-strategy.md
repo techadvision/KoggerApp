@@ -413,6 +413,11 @@ Nothing here has been compiled. The verification above is static: brace balance,
 
 ## Stage status
 
+**Stage 5 — the upstream merge: COMPLETE, builds and runs (12 Sept 2026).**
+Branch `merge/upstream-1.0.3`. Upstream's C++ taken, upstream's new QML refused.
+Nine fixes after the merge commit before it ran. Full account, including what is
+still unverified, in `upstream-merge-survey.md`.
+
 **Stage 2 — the `uiVariant` switch: COMPLETE and verified on device (12 Sept 2026).**
 Branch `feature/pulse-ui-variant-switch`. See the Stage 2 section below.
 
@@ -638,3 +643,74 @@ answered before the merge is either started or abandoned.
 is the valuable half and it can be taken without the UI, because `qPlot2D` grew from 104
 members to 140 and **lost nothing**. Our QML calls 95 of them and upstream dropped none.
 The recommendation there is to merge `src/` and keep `qml/`.
+
+
+---
+
+## Next stage — the device-profile rework (starting point for the next session)
+
+Agreed order was: merge first, then profiles, then build the new UI. The merge is done,
+so **this is next**, and it should land before any Stage 4 panel is written — the new
+panels must read a profile rather than branch on `is2DTransducer`.
+
+### Why this one
+
+Four separate requirements collapse into a single piece of architecture:
+
+1. Expert mode must toggle without a restart.
+2. 820 kHz for blue must be re-activatable without uncommenting code.
+3. Per-view settings must hold in single-pane view.
+4. New hardware IDs are coming, plus the IP-connector profile selected by `192.168.144.*`.
+
+### What is already right
+
+`pulseRed` and `pulseBlue` in `PulseRuntimeSettings.qml` are **already profile records** —
+a `property var` of roughly 35 keys each. The data shape is fine. What does not scale is
+how they are read and how the UI decides what to offer.
+
+### What breaks today
+
+- About forty per-device properties are each written as
+  `userManualSetName === modelPulseRed ? pulseRed.X : pulseBlue.X`. A third device means
+  editing forty ternaries by hand.
+- `activeModel` resolves from two name constants plus the channel count. There is no room
+  for a third answer.
+- Nothing declares what the UI should *offer*. It infers options from `is2DTransducer`,
+  which is why removing 820 kHz meant commenting out a model array in `Plot2D.qml`.
+
+### The four steps
+
+1. **Keyed map** — `profiles: { "PULSEred": {…}, "PULSEblue": {…}, "PULSEblue-IP": {…} }`.
+   Adding hardware becomes adding one entry.
+2. **One lookup** — `activeProfile` resolves once; every per-device property becomes
+   `activeProfile.chartSamples`. Forty ternaries become forty plain reads.
+3. **A `ui` block per profile** — declaring what the interface should offer: frequencies,
+   cones, views, and which of resolution, samples and update period are tunable, between
+   what limits. Blue carries `frequencies: [460]` today, so the chooser is absent; add 820
+   when the hardware is good enough and the chooser appears, with no code change.
+4. **A resolver, not a ternary** — detected device name, channel count and connection,
+   including the address, so `192.168.144.*` picks the IP variant. Manual override still
+   wins, as it does today.
+
+### What the merge changed about this
+
+Upstream's **settings-migration module** (`1c33fb9c0`, `d3d6a7111`) is now in the tree.
+The profile rework is exactly the kind of change that needs stored settings migrated
+rather than silently reinterpreted, and `PulseSettings.qml` still says of its own version
+field: *"nothing reads settingsVersion today — it is a marker, not a migration trigger."*
+Worth settling the `Qt.labs.settings` → `QtCore` move at the same time, since both touch
+the same file and the deprecation already warns at startup.
+
+### How to start
+
+1. Merge `merge/upstream-1.0.3` into `master` and push, so the profile work branches off
+   a tree that builds and runs.
+2. Read `PulseRuntimeSettings.qml` and inventory the forty ternaries before changing any
+   of them — the list is the specification.
+3. Branch `feature/device-profiles` off master.
+4. Do the keyed map and the single `activeProfile` lookup first, with no behaviour change
+   and no new UI, and verify on device that red and blue still behave exactly as now.
+   Only then add the third profile and the `ui` blocks.
+
+The same rule that made Stage 1 work applies: the mechanical move first, verified, before
+anything new is built on it.
