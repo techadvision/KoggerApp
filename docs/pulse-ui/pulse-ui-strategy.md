@@ -2134,3 +2134,87 @@ reachable from QML.
    — with no restart and no "Configuring transducer…" overlay left on screen.
 3. **The palette on the way back**: stopping a blue demo on a red-committed app must return the
    red theme to the picture, not leave the blue one loaded.
+
+---
+
+## Third device build — two flaws left, and they were the same one twice (12 Sept 2026)
+
+Commit `5393eb4f`. Olav: *"Now we are talking. This worked very well."* The deferred redraw,
+the pushed palette and the reconnect on stop all behaved. Two things remained, and both are the
+pattern this whole run has been about: **a display question answered by the committed device,
+and a binding destroyed by an assignment.**
+
+### 1. The range ceiling stayed on the previous device
+
+With a blue log presented on a red-committed app the max depth selector could still be stepped
+to **52** — red's profile ceiling, its 50 m dist max plus 2 — instead of stopping at the blue
+swath width.
+
+`maximumDepth` was a binding on `committedProfile.maximumDepth`, and **three places assigned
+it**: `DeviceItem` when configuring a blue, `main.qml`'s manual blue pick, and the expert
+dist-max control. Any one of those destroys the binding for the rest of the session, and from
+then on the ceiling is frozen at whichever device happened to be current. This is the same
+fault as the max depth *value* last round, one property over.
+
+Two answers exist and only one of them can live in a profile record:
+
+- **A 2D transducer's ceiling is hardware** — a profile key, as it is now.
+- **A side scan's ceiling is the configured swath width**, which the user picks in Settings.
+  No static number can hold that, which is exactly why those three assignments existed.
+
+So the dynamic answer gets its own property. `maximumDepth` is a binding that cannot be broken,
+`maximumDepthOverride` is what the UI writes, and `0` means "no answer, use the profile". A
+`Binding` in `main.qml` drives the override from `pulseSettings.echogramWidth` **while the
+picture is a side scan**, with `restoreMode: RestoreBindingOrValue` so an expert's own 2D
+dist-max survives a side scan log played in between.
+
+In `main.qml` because it exists once. `PulseAppClassic` is instantiated per `Plot2D`, so two
+copies would fight over one property in split screen — and the binding needs nothing from the
+UI layer anyway: `displayIs2DTransducer` is the whole question.
+
+**One consequence worth knowing:** editing the expert dist-max *while a side scan picture is on
+screen* now has its ceiling reverted by that binding (the width wins). `distMax` itself is
+still written. Arguably right — the swath width is the honest ceiling for a side scan — but it
+is a behaviour change and it is written down here rather than discovered.
+
+### 2. The side scan ruler drew only its right half
+
+`Plot2DGrid::calculateRulerTicks()` mirrors the ticks to both sides of the centre line when
+`!is2DTransducer` and does not otherwise. That flag reaches the grid over the settings bus
+from `pulseRuntimeSettings.is2DTransducer` — the **committed** profile. Start a 2D transducer,
+play a blue log, and the picture turns vertical while the ruler keeps the 2D tick set: one
+side only.
+
+A ruler draws the picture's own scale. `main.qml` now publishes **`displayIs2DTransducer`** as
+its own bus key; `plot2D_grid` reads it for the mirroring, and `plot2D` for
+`reRangeDistance()`, which decides the *shape* of the auto range — `0..max` for a 2D echogram,
+symmetric for a side scan — and wants the same answer for the same reason. Both fall back to
+`is2DTransducer` when the new key is absent, so a snapshot that does not carry it behaves
+exactly as before, and `is2DTransducer` keeps meaning what it says for the configuration path.
+
+This one also matters beyond the demo case: with a transducer connected and a mismatched log
+playing — the exhibition with the aquarium — the committed and display answers genuinely differ,
+and only the display one is right for anything drawn.
+
+### The pattern, now stated once for Stage 4
+
+Five separate defects this session reduced to two rules, and the new UI should be built so that
+neither can recur:
+
+1. **Anything the user judges by looking at it reads the display model.** Orientation, grid,
+   ruler, palette, range shape, range ceiling, step size. `is2DTransducer` answers "what is
+   connected"; `displayIs2DTransducer` answers "what is on screen". Nothing that draws should
+   ask the first.
+2. **A value with two sources gets one binding and one override, never an assignment.** Every
+   fault above was a `property x: <expression>` that some handler later assigned to, silently
+   and permanently. Where a dynamic answer is needed, it goes in its own property that the
+   binding falls back from.
+
+### What the next build has to show
+
+1. **Max depth on a presented blue log**: the selector stops at the configured swath width
+   (35 if that is what Settings says), not at 52, and 1 m steps return on a 2D picture.
+2. **The side scan ruler**: ticks on both sides of the centre line after starting 2D and
+   opening a blue log. The log says `VALUE_CHANGE: publishing displayIs2DTransducer false`
+   followed by `VALUE_CHANGE: grid is2DTransducer_ (display) was updated to false`.
+3. **Nothing changed for a live device of either kind**, which is the guard as always.
