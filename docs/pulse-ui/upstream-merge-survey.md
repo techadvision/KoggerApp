@@ -236,3 +236,83 @@ dropped without them noticing.
 Order: this merge, then the device-profile rework — which now has upstream's settings
 migration to build on — then Stage 4, which gets the split screen, the loupe and the
 scrollbar as working C++ to build an interface over rather than as features to invent.
+
+---
+
+## Resolution rules, and the provenance behind them
+
+Added 12 September 2026, from Olav after a visit to the upstream author. These are not
+preferences. Several of them exist because **Pulse did the work first**, and a merge that
+forgets that will quietly delete a capability upstream never had.
+
+### 1. `plot2D_aim` — Pulse was first, and upstream's version cannot do what ours does
+
+Pulse had the aim-with-loupe first. The upstream author liked it and wrote his own
+implementation, with a setting in his UI to show it. **His version has none of Pulse's
+ability to send a position back to the autopilot** — the mathematics that works out, on a
+side scan, what real-world position you get when you press a feature out to the side.
+
+The file sizes say the same thing: `plot2D_aim.cpp` is 257 lines at the merge base, 311
+upstream, **1197 ours**. The ten conflict hunks are two different rewrites of one small
+original, not a contested patch.
+
+**Rule: ours wins wholesale.** Specifically protected, by name:
+
+- `solveSidescanTap()` with `GeoPoint` / `TapSolve`, `wrap2pi()`, `kWaterMargin` — the
+  slant-range → cross-track → latitude/longitude solution
+  (`r_cross = sqrt(r_slant² − depth²)`, bearing from yaw ± 90°, metres-per-degree at the
+  boat's latitude)
+- `cand_` and everything hanging off it — the candidate target, its device-space anchors,
+  the abort and add-waypoint hit rects, the zoom tile shared with the autopilot
+- `UdpBroadcaster::instance().sendJsonPoint(lat, lon, depth, model, "Pulse")` — the send
+- `setPause()`, `rangeTFromDeviceTap()`, `applyRuntime()`, `isTapInsideZoom()`,
+  `armCandidateFromTap()`, `fireWaypointAndClose()`
+
+**Taken from upstream anyway**, because it is orthogonal to all of the above:
+`scaleFactor_` becomes `qreal` and is sourced from `renderScale()` in `themes.h` — that
+is the fractional-DPR rendering work, and it is upstream's entire change to
+`plot2D_aim.h`.
+
+**Deliberately not taken:** the synced-cursor early return and `getAimFieldsMask()`. Both
+belong to features of theirs we are not adopting, and the second is a configurability
+Pulse does not want — see rule 4.
+
+### 2. `CMakeLists.txt` — Pulse was first here too
+
+Pulse dropped qmake and moved to CMake first, because a newer Qt was needed and
+**multi-ABI builds (32- and 64-bit) are required to serve Google Play customers** — a
+constraint the upstream author had not considered. He then promised to move to CMake as
+well, and has.
+
+So this is not "ours versus theirs". Ours was written fast, to keep customer releases
+moving, and may be more complex than it needs to be; he may have had the time to find
+something more elegant. **Rule: compare properly rather than defaulting to ours — but
+multi-ABI must survive the comparison.** It is the one thing in that file with a customer
+on the end of it.
+
+Same for `platform/android/src/org/kogger/koggerapp/KoggerActivity.java`: upstream
+deleted the custom activity; ours carries the Skydroid G30 USB and security-exception
+handling. Ours stays.
+
+### 3. TVG and TGC — ours, but theirs is worth reading
+
+TVG is Pulse's own work and was never discussed with the upstream author. There are two
+implementations: one for regular 2D, one for side scan. Upstream's side scan renders with
+TGC differently, and earlier Pulse versions were **carefully aligned with his older TGC**.
+
+Upstream is a company, not an individual, where the science behind the echogram is
+concerned, and `14850a1c9` (*tgc for chart data*) may well be an improvement. **Rule:
+this is a review item, not an automatic merge.** Read what changed, decide deliberately,
+and if the alignment moves, move it on purpose.
+
+### 4. What to learn from their UI — and what not to
+
+Not how he lets users make choices. Up until recently he offered **far too many choices
+for an ordinary echo sounder user to understand**. Pulse deliberately does the opposite:
+it makes most of the decisions and exposes only the adjustments that are intuitive, and
+experts tune and suggest changes that then go into the runtime settings, or into the code.
+
+What is worth studying is **which abilities he offers on a screen, and what they depend
+on** — the capability inventory, not the interaction pattern. He is clever and creative,
+so his ideas are always worth a look. This is also why `getAimFieldsMask()` is declined
+above: it is a choice offered where Pulse would simply decide.
