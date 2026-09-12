@@ -2931,3 +2931,48 @@ cost nothing on the next one:
   committed model could have changed silently.
 
 ---
+
+---
+
+## The IP variant is not blue-only — red and black need it too (12 Sept 2026)
+
+Recorded as a requirement. Deliberately not built.
+
+`PULSEblue-IP` exists today as though the IP telemetry link were a blue feature.
+It is not. The 192.168.144.* connection carries **every** PULSE echo sounder: the
+echogram is routed through the data channel of the Skydroid and SIYI devices, and
+that is as available to a red or a black as it is to a blue.
+
+What it is worth is a compromise red and black were designed under and can now
+drop. Their data rate is held at about 60 kbit/s come what may, because on the
+5.8 GHz wifi every extra bit was paid for in wireless range. On the IP link it is
+not. The first thing to spend it on is the **period** — `ch1Period` is 50 ms on
+red and black today — exposed to the user as an echogram speed change. On wifi
+that would skyrocket the data rate and cost range; on IP it is free.
+
+### What it touches, when it is built
+
+**The resolver stops sending red straight home.** `resolveProfileKey()` returns
+`modelPulseRed` outright for a recognised red and never looks at the address;
+`blueKeyFor(address)` is the only place the connection enters the answer, and
+`pulse-profile-check.js` asserts *"red on the IP gateway is still red"*. That
+assertion inverts, and `blueKeyFor` generalises into a `keyFor(model, address)`
+that every model passes through. The fallback is unaffected: with nothing
+identified on an IP address, blue remains the right guess.
+
+**It is a different KIND of variant from `PULSEblue-IP`.** Blue's IP record was
+built to be provably a no-op on the wire — `chartResolution`, `chartSamples` and
+`ch1Period` identical to blue, on purpose, so the first build could prove that
+committing it changed nothing. A red IP record whose whole point is a faster
+period is the opposite: it changes what is transmitted, deliberately. Its
+acceptance test is a measurement on the water — echogram speed against range —
+not an equality.
+
+**Two things are already in its favour.** `ui.tunable.period` is declared and
+unconsumed on red for exactly this case, and a variant offering no cards of its
+own falls out of step 2, so a red IP record appears with no change to the
+connection screen at all.
+
+What the numbers should BE is still a measurement, exactly as blue's are. The
+limits are what let the UI expose the control in the first place; the period the
+echogram actually runs at is decided on the water.
