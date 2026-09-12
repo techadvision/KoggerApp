@@ -2027,3 +2027,110 @@ Olav's other point — *terminating the playback is a good moment to check wheth
 connected* — is backlog item 9, and this build has made it cheaper. Leaving demo mode already
 restores the profile by itself; what is still missing is reopening the link and re-running
 detection, plus something on screen that says the demo is over and offers it.
+
+---
+
+## Second device build — the log named all three causes (12 Sept 2026)
+
+Commit `b5f74f1a`. Olav ran the build with a PULSE red on the 192.168.10.1 wifi gateway and
+captured the application output. The diagnostics added in the previous commit did their job:
+every one of these was read off the log rather than guessed.
+
+### 1. The first playback drew a side scan horizontally — a binding-order bug, not a state bug
+
+The log, in order:
+
+```
+DEV_UI: showAs2DTransducer -> false | active PULSEblue | committed PULSEred
+qPlot2.h setHorizontalNow                                    ← wrong
+CONTROL: selectorMaxDepth default -> 15 (was showing 3)
+PROFILE: committed key -> PULSEblue | model PULSEblue (presenting a log, nothing connected;
+                                                       committed PULSEred)
+```
+
+`setUserInterface()` ran **synchronously from the change handler**, at a moment when
+`showAs2DTransducer` already said blue but `uiViews` was still the **red** profile's empty
+list. Its side-scan branch asks `viewModeForId(pulseSettings.ecoViewId) === "side"`, could not
+resolve the id against a list that does not contain it, and fell through to horizontal.
+
+`activeProfile`, `committedProfileKey`, `uiProfile` and `uiViews` are one chain that moves
+together, and QML guarantees no order within it. The handler now defers through
+**`Qt.callLater`**, which runs once the chain has settled and coalesces the duplicate call the
+log also shows.
+
+**This is the whole of "it only works on the second attempt."** By the second demo
+`userManualSetName` had been cleared to `"..."` by the first demo's exit, so the profile had
+already resolved to blue before the handler ran — and the second attempt was right for a reason
+that had nothing to do with it being second. The same explains why matching log types always
+worked: nothing had to move.
+
+### 2. The chooser switched palette; the picture did not
+
+*"Now the colour selection shows HQ. Rendered colours are S-Dark."* Exactly right, and a
+palette is not applied by being **shown**.
+
+`themeSelectorColor2D` carries `onVisibleChanged: recalcSelectedIndex()`, and that function
+ends by pushing its theme into the plot. `themeSelectorColorSS` had no equivalent: becoming
+visible changed which swatches the user saw and nothing else, so the plot kept whatever theme
+was last pushed — the red one. It now has `applyStoredTheme()` on the same hook.
+
+And `recalcSelectedIndex()`'s guard moved from `userManualSetName === modelPulseBlue` to the
+display model, so the 2D selector stands aside whenever the **picture** is a side scan, not
+whenever the committed device is a blue. Asking the committed device is what let it push a red
+theme over a blue picture in the first place.
+
+### 3. Stopping a demo now reconnects — backlog item 9
+
+The log after stop:
+
+```
+DEMO: leaving demo mode
+PROFILE: presenting a log -> false | ... | linkOpen false | devicePresent false
+devList: numberOfDatasetChannels -> 0
+selectCorrectDevice: 0 dev(s)
+```
+
+The profile returns by itself, exactly as designed — and the link never comes back. Olav's
+reading was right: *"we do not engage the link manager properly after having shut everything
+down."*
+
+`Core::startDemo()` closes the live links and `Core::stopDemo()` deliberately does not reopen
+them, because reopening while the app still believed it was mid-configuration is what produced
+the *"Configuring transducer…"* overlay. The comment said reconnecting should stay an explicit
+action — but **no affordance was ever given to be explicit from**, so in practice it became
+"restart the app".
+
+**Pressing stop is that action.** The overlay cannot come from here: `exitDemoMode()` has just
+cleared `dataUpdateActive`, `devConfigured`, `unableToConfigure` and `devName`, so the app
+reopens the link in the state it would have had at a cold start with a device attached. It then
+bumps `redetectRequestId`; `ConnectionViewer` answers with `selectCorrectDevice()` immediately
+**and once more after a 1.5 s settle**, because a link takes a moment to open and a transducer a
+moment to speak, and neither need produce a device-list change, a channel-count change or a
+Basic2D settle — `selectCorrectDevice`'s only other triggers.
+
+`LinkManagerWrapper::openClosedLinks()` is now `Q_INVOKABLE`; it was already there, just not
+reachable from QML.
+
+### What the log also showed, and is not fixed
+
+- **The demo's ghost device trips the beta-key force-break.** On the first demo:
+  `forceBreakConnection for device Device ID: -1.0 … triggered, should break? true and
+  isConnected true`. The replay announces an unidentified device before the log's real identity
+  arrives, and the beta gate treats it as an unsupported unit. It did no visible harm — the
+  links were already closed — but it is the kind of thing that only misbehaves in front of an
+  audience. Worth a guard on `isInDemoMode` next time that code is open.
+- **`Echogram speed: New value 1 (persistent 1.3)`** on entering a blue demo: the speed
+  follows the log's profile and does not return the stored value afterwards. Cosmetic, noted.
+
+### What the next build has to show
+
+1. **First demo, mismatched type, transducer connected.** A side scan log on a red-committed
+   app: `setVerticalNow`, the blue palette actually rendered, the blue view chooser, 5 m steps.
+   No second attempt needed. `DEV_UI: applying display model, 2D? false | view side` says the
+   deferred pass saw a settled profile.
+2. **Stop the demo.** `DEMO: reopening the links the demo closed`, then
+   `devList: re-detection requested (#1)` and `devList: selectCorrectDevice trigger =
+   redetectRequested`, then the real transducer identified again — `devList: DEV_DETECT(devType)`
+   — with no restart and no "Configuring transducer…" overlay left on screen.
+3. **The palette on the way back**: stopping a blue demo on a red-committed app must return the
+   red theme to the picture, not leave the blue one loaded.
