@@ -61,7 +61,6 @@ bool MiniPreviewPlot2D::render(QPainter* painter,
                                float highLevel,
                                int compensationId)
 {
-    Q_UNUSED(rangefinderVisible); // Pulse: rangefinder overlay forced off (depth shown in DepthAndTemperature)
     if (!painter || !dataset || previewWidth <= 0 || previewHeight <= 0 || parentCanvasWidth <= 0) {
         return false;
     }
@@ -126,11 +125,11 @@ bool MiniPreviewPlot2D::render(QPainter* painter,
     if (configSource) {
         configSource->copyVisualConfigTo(*this);
     }
-    //PULSE: applied AFTER any copied config, so our choices still win.
-    bottomProcessing_.setVisible(bottomTrackVisible);
-    bottomProcessing_.setTheme(bottomTrackThemeId);
+    //UPSTREAM 1.0.3 replaced the bottomTrackVisible / bottomTrackThemeId /
+    //rangefinderVisible / rangefinderThemeId parameters with configSource, and
+    //copyVisualConfigTo() above now sets all four from the parent plot. Only the Pulse
+    //override is still needed, and it has to come AFTER the copy so it still wins.
     rangefinder_.setVisible(false); //We do not want this for pulse
-    rangefinder_.setTheme(rangefinderThemeId);
 
     const bool rendered = echogram_.draw(this, dataset);
     if (!rendered) {
