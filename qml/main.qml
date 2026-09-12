@@ -48,7 +48,6 @@ ApplicationWindow  {
     readonly property int _activeObjectParamsMenuHeight: 500
     readonly property int _sceneObjectsListHeight:       300
 
-    property bool windowShadow: false
     property var lostConnectionAlert: null
 
     Settings {
@@ -552,7 +551,6 @@ ApplicationWindow  {
             var component = Qt.createComponent("LostConnectionOverlay.qml")
             lostConnectionAlert = component.createObject( mainview, {"x": 0, "y": 0 } )
             if (lostConnectionAlert !== null) {
-                //lostConnectionAlert.anchors.centerIn = echoSounderSelectorRect
                 lostConnectionAlert.anchors.bottom = overlay.anchors.bottom
                 lostConnectionAlert.anchors.right = overlay.anchors.right
                 lostConnectionAlert.anchors.rightMargin = mainview.insetRight() + 20
@@ -2643,21 +2641,6 @@ ApplicationWindow  {
     }
 
 
-    Rectangle {
-        id: hideBackground
-        anchors.fill: parent
-        color: "gray"
-        opacity: 0.8
-        visible: mainview.windowShadow
-
-        Image {
-                anchors.fill: parent
-                source: "./icons/ui/patternDots.svg"
-                fillMode: Image.Tile
-                opacity: 0.8
-            }
-
-    }
 
     // Echogram speed change indication
 
@@ -2721,400 +2704,194 @@ ApplicationWindow  {
     }
 
 
-    // echosounder selector Screen
-    Rectangle {
-        id: echoSounderSelectorRect
-        width: Math.round(1000 * s)
-        height: Math.round(350 * s)
-        //width: 1000
-        //height: 350
-        anchors.centerIn: parent
-        color: "transparent"
-
-        // Decides when the whole selector is allowed to appear
-        property bool revealGate: false
-        visible: revealGate || selectionMade
-        opacity: 1
-        // These properties control which item was selected.
-        property bool selectionMade: false
-        property string selectedDevice: ""
-
-        Timer {
-            id: selectorDelayTimer
-            interval: 1000
-            repeat: false
-            onTriggered: {
-                if (!echoSounderSelectorRect.selectionMade) {
-                    // only show the full selector if nothing auto-selected
-                    echoSounderSelectorRect.revealGate = true
-                    mainview.windowShadow = true
-                }
-            }
+    // DEVICE IDENTIFICATION, and the surface that asks when it fails.
+    //
+    // These Connections used to be nested inside echoSounderSelectorRect, which made them
+    // look like chooser code. They are not: they are how the app learns what is on the
+    // wire. The chooser around them is gone (see PulseConnectionScreen.qml); they are
+    // hoisted here unchanged apart from the four echoSounderSelectorRect writes that
+    // followed each detection, which the new screen reads from userManualSetName instead.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        // Force reselection and an accepted device swap both raise swapDeviceNow.
+        // DeviceItem owns what that means - resetAllSetupStates(), userManualSetName
+        // back to "...", and clearing the flag afterwards. This handler keeps the one
+        // line of its old body that nothing else does: resetAllSetupStates() does not
+        // clear devManualSelected.
+        //
+        // It deliberately no longer clears swapDeviceNow itself. This Connections
+        // object is created at load and DeviceItem's is created later, so this handler
+        // ran FIRST - and setting the flag false here re-entered the signal, leaving
+        // DeviceItem's handler looking at a flag that was already false, so the reset
+        // it exists to perform never ran at all. That is why force reselection left a
+        // gray sheet with nothing under it (backlog item 10), and why an accepted swap
+        // kept the previous device's orientation and colours on the bench. The order
+        // PulseRuntimeSettings.acceptDeviceSwap() documents - reset synchronously,
+        // then commit the target - only holds once this stops eating the flag.
+        function onSwapDeviceNowChanged () {
+            if (!pulseRuntimeSettings.swapDeviceNow)
+                return
+            console.log("DEV_RESELECT: raised in main - clearing devManualSelected;",
+                        "DeviceItem owns the reset")
+            pulseRuntimeSettings.devManualSelected = false
         }
 
-        Component.onCompleted: selectorDelayTimer.start()
-
-        Connections {
-            target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-            function onSwapDeviceNowChanged () {
-                if (pulseRuntimeSettings.swapDeviceNow) {
-                    console.log("DEV_RESELECT initialize in main")
-
-                    // 1) Don't force it visible now; let the gate control it
-                    echoSounderSelectorRect.revealGate     = false
-                    echoSounderSelectorRect.selectionMade  = false
-                    echoSounderSelectorRect.selectedDevice = ""
-
-                    // 2) Show both choices when/if the gate opens
-                    pulseRedSelector.visible  = true
-                    pulseBlueSelector.visible = true
-
-                    // 3) Clear any lingering state + restart the reveal delay
-                    echoSounderSelectorRect.state = ""
-                    selectorDelayTimer.restart()
-
-                    // 4) Clear other UI bits
-                    pulseRuntimeSettings.devManualSelected = false
-                    pulseRuntimeSettings.swapDeviceNow = false
-                    mainview.windowShadow = true
-
-                    console.log("DEV_RESELECT now we want to re-select the device in main")
-                }
-            }
-
-            function onDevManualSelectedChanged() {
-                if (pulseRuntimeSettings.devManualSelected) {
-                    mainview.windowShadow = false
+        function onHasDeviceLostConnectionChanged() {
+            if (pulseRuntimeSettings.didEverReceiveData) {
+                //console.log("TAV: hasDeviceLostConnection");
+                if (pulseRuntimeSettings.hasDeviceLostConnection) {
+                    //console.log("TAV: hasDeviceLostConnection, show alert");
+                    showLostConnection()
                 } else {
-                    //console.log("TAV: echoSounderSelector onDevManualSelectedChanged false, skip");
-                }
-            }
-            function onDevConfiguredChanged() {
-                if (pulseRuntimeSettings.devConfigured) {
-                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.userManualSetName
-                    echoSounderSelectorRect.selectionMade = true
-                    mainview.windowShadow = false
-                }
-            }
-            function onHasDeviceLostConnectionChanged() {
-                if (pulseRuntimeSettings.didEverReceiveData) {
-                    //console.log("TAV: hasDeviceLostConnection");
-                    if (pulseRuntimeSettings.hasDeviceLostConnection) {
-                        //console.log("TAV: hasDeviceLostConnection, show alert");
-                        showLostConnection()
-                    } else {
-                        //console.log("TAV: hasDeviceLostConnection, remove alert");
-                        removeLostConnection()
-                        pulseRuntimeSettings.hasDeviceLostConnection = false
-                    }
-                }
-            }
-
-            // Single source of truth for the selector: whenever a model is decided (by ANY path -
-            // dev.devType auto-detect, the legacy devName path, or a manual tap) mark the selection
-            // made so the chooser stays hidden. When it clears (no device / swap-device), allow the
-            // chooser to reveal again (e.g. so the user can pick 2D vs side-scan for log review).
-            function onUserManualSetNameChanged() {
-                if (pulseRuntimeSettings.userManualSetName !== "...") {
-                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.userManualSetName
-                    echoSounderSelectorRect.selectionMade  = true
-                    echoSounderSelectorRect.revealGate     = false
-                } else {
-                    echoSounderSelectorRect.selectionMade  = false
-                    echoSounderSelectorRect.selectedDevice = ""
-                    // leave revealGate to the grace timer / swap-device so the chooser can reappear
-                }
-            }
-
-            function onDevNameChanged () {
-                // EXPERIMENT: when dev.devType-driven detection is active, ConnectionViewer owns
-                // model detection; disable the legacy devName-string path here to test it in isolation.
-                if (pulseRuntimeSettings.useDevTypeDetection)
-                    return
-                console.log("onDevnameChanged in main.qml: name", pulseRuntimeSettings.devName)
-                let detectedModel = "";
-                console.log("DEVICE: received an onDevNameChanged, devName is", pulseRuntimeSettings.devName);
-                if (pulseRuntimeSettings.devName === "...") {
-                    console.log("DEVICE: aborting this method for devName", pulseRuntimeSettings.devName);
-                    return
-                }
-                console.log("devName no longer ..., dataset numberOfDatasetChannels", pulseRuntimeSettings.numberOfDatasetChannels, "for devName", pulseRuntimeSettings.devName, "and rawDev_devName", pulseRuntimeSettings.rawDev_devName)
-                if (pulseRuntimeSettings.devName === "PULSEred") {
-                    detectedModel = pulseRuntimeSettings.modelPulseRed
-                }
-                if (pulseRuntimeSettings.devName === "PULSEblue") {
-                    detectedModel = pulseRuntimeSettings.modelPulseBlue
-                }
-                //TODO: Auto select does not work for Basic2D inb USB connection mode
-                if (pulseRuntimeSettings.devName === "Basic2D") {
-                    const channelsList = dataset.channelsNameList();
-                    const values = channelsList
-                        .filter(Boolean)
-                        .map(String)
-                        .filter(v => v !== "None");
-                    //const isBlue = values.some(v => /UDP\([^)]+\)\|\d+\|1\b/.test(v));
-                    const isBlue = values.some(v =>
-                            /^(?:UDP\([^)]+\)|bus\/usb\/\d+\/\d+)\|\d+\|1$/.test(v)
-                        );
-                    if (isBlue) {
-                        detectedModel = pulseRuntimeSettings.modelPulseBlue
-                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
-                    } else {
-                        detectedModel = pulseRuntimeSettings.modelPulseRed
-                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
-                    }
-                    pulseRuntimeSettings.devManualSelected = true
-                    console.log("DEV_PARAM: observed this channel list and will use it to auto select for Basic2D", channelsList)
-                }
-
-                if (detectedModel !== "") {
-                    pulseRuntimeSettings.userManualSetName = detectedModel
-                    echoSounderSelectorRect.selectedDevice = detectedModel
-                    echoSounderSelectorRect.selectionMade = true
-                    pulseRuntimeSettings.devManualSelected = true
-                    console.log("DEV_PARAM: Automatically detected device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
-                } else {
-                    //ECHO20 has become "Basic2D"
-                    //TODO Still have not set the beta name. ow to do that?
-                    console.log("DEVICE: devName not auto selected, name is", pulseRuntimeSettings.devName);
-                }
-            }
-
-            function onNumberOfDatasetChannelsChanged () {
-                // EXPERIMENT: dev.devType-driven detection (ConnectionViewer) handles the Basic2D
-                // channel split itself, so disable the legacy channel-based path here when active.
-                if (pulseRuntimeSettings.useDevTypeDetection)
-                    return
-                if (pulseRuntimeSettings.swapDeviceNow) {
-                    return
-                }
-                console.log("dataset numberOfDatasetChannels", pulseRuntimeSettings.numberOfDatasetChannels, "for devName", pulseRuntimeSettings.devName, "and rawDev_devName", pulseRuntimeSettings.rawDev_devName)
-
-                let detectedModel = "";
-                if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {
-                    if (pulseRuntimeSettings.devName === "Basic2D") {
-                        detectedModel = pulseRuntimeSettings.modelPulseRed
-                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
-                    }
-                } else if (pulseRuntimeSettings.numberOfDatasetChannels === 2) {
-                    if (pulseRuntimeSettings.devName === "Basic2D") {
-                        detectedModel = pulseRuntimeSettings.modelPulseBlue
-                        pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
-                    }
-                }
-                if (detectedModel !== "") {
-                    pulseRuntimeSettings.userManualSetName = detectedModel
-                    echoSounderSelectorRect.selectedDevice = detectedModel
-                    echoSounderSelectorRect.selectionMade = true
-                    pulseRuntimeSettings.devManualSelected = true
-                    console.log("DEV_PARAM: Automatically detected beta device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
-                } else {
-                    console.log("DEV_PARAM: onNumberOfDatasetChannelsChanged, but channels are 0 so nothing happened")
-                }
-            }
-        }
-
-        Connections {
-            target: core
-            function onChannelListUpdated() {
-                let list = []
-                list = dataset.channelsNameList()
-                // Diagnostic: this is the ONLY thing that classifies an opened log as 2D or
-                // side scan (activeModel reads the count), and it was silent. Log every
-                // update, including the ones that return early, so a misclassified replay
-                // says why in the application output instead of having to be reproduced.
-                if (list.length < 2) {
-                    console.log("CHANNELS: list not ready yet (length", list.length,
-                                ") - keeping", pulseRuntimeSettings.numberOfDatasetChannels)
-                    return
-                }
-
-                var channels = list.length - 1
-                if (pulseRuntimeSettings.numberOfDatasetChannels !== channels)
-                    console.log("CHANNELS:", pulseRuntimeSettings.numberOfDatasetChannels, "->", channels,
-                                "| list", JSON.stringify(list),
-                                "|", channels >= 2 ? "side scan" : "2D")
-                pulseRuntimeSettings.numberOfDatasetChannels = channels
-            }
-        }
-
-        Connections {
-            target: dataset ? dataset : undefined
-
-            function onDataUpdate () {
-                if (lostConnectionAlert !== null && pulseRuntimeSettings.hasDeviceLostConnection) {
-                    pulseRuntimeSettings.hasDeviceLostConnection = false
-                    pulseRuntimeSettings.isReceivingData = true
-                    //console.log("TAV: got data update when hasDeviceLostConnection, remove alert");
+                    //console.log("TAV: hasDeviceLostConnection, remove alert");
                     removeLostConnection()
-                }
-                //Mark that data is flowing
-                pulseRuntimeSettings.dataUpdateActive = true
-
-                // PULSE: the auto-reboot "dataflow guard" (dataStaleTimer/guardTimer/resetTimer +
-                // firstDataTs/guardActive) was removed. It was a band-aid for the old "stuck configuring
-                // transducer" state caused by never binding a real 'dev'; that is now handled at the source
-                // in selectCorrectDevice (which waits for an identified device before selecting). The guard
-                // was also buggy: guardTimer.restart() was commented out, so guardActive never cleared and
-                // the guard window was effectively infinite, rebooting on ANY data stall (e.g. battery
-                // death). The manual expert reboot (echoSounderReboot) is intentionally kept.
-            }
-        }
-
-        // PULSE: dataStaleTimer / guardTimer / resetTimer (the auto-reboot "dataflow guard") were
-        // removed here. See the note in the dataset onDataUpdate handler above. Root cause (no bound
-        // 'dev' -> stuck "Configuring transducer") is now handled in selectCorrectDevice; the manual
-        // expert reboot remains the only reboot path.
-
-        Item {
-            id: freeContainer
-            //width: 1000; height: 800
-            width: Math.round(1000 * s)
-            height: Math.round(800 * s)
-            anchors.centerIn: parent
-            property int spacing: Math.round(100 * s) //100
-            property int center: Math.round(550 * s) //550
-
-            EchoSounderSelector {
-                id: pulseRedSelector
-                //width: 450
-                width: Math.round(450 * s)
-                height: parent.height
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                backgroundColor: "transparent"   // light red background
-                title: "PULSEred"
-                titleColor: "red"
-                description: "High-performance 2D echo sounder"
-                //illustrationSource: "./image/PulseRedForApp.jpg"
-                illustrationSource: "./image/pulse_info_red_black_large.png"
-                onVisibleChanged: {
-                    console.log("DEV_SELECTION: pulseRedSelector visible?", visible)
-                    console.log("DEV_SELECTION: pulseRedSelector visible? echoSounderSelectorRect.selectedDevice", echoSounderSelectorRect.selectedDevice)
-                    console.log("DEV_SELECTION: pulseRedSelector visible? echoSounderSelectorRect.selectionMade", echoSounderSelectorRect.selectionMade)
-
-                }
-                onSelected: {
-                    pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseRed
-                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseRed
-                    echoSounderSelectorRect.selectionMade = true
-                    pulseRuntimeSettings.devManualSelected = true
-                    console.log("DEV_SELECTION: selected", echoSounderSelectorRect.selectedDevice)
-                }
-            }
-
-            EchoSounderSelector {
-                id: pulseBlueSelector
-                //width: 450
-                width: Math.round(450 * s)
-                height: parent.height
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.right: parent.right
-                backgroundColor: "transparent"   // light blue background
-                title: "PULSEblue"
-                titleColor: "blue"
-                description: "High-performance side-scan echo sounder"
-                //illustrationSource: "./image/PulseBlueForApp.jpg"
-                illustrationSource: "./image/pulse_info_blue_large.png"
-                //versions: ["v1.0"]
-                //version: "v1.0"
-                onVisibleChanged: {
-                    console.log("DEV_SELECTION: pulseBlueSelector visible?", visible)
-                    console.log("DEV_SELECTION: pulseBlueSelector visible? echoSounderSelectorRect.selectedDevice", echoSounderSelectorRect.selectedDevice)
-                    console.log("DEV_SELECTION: pulseBlueSelector visible? echoSounderSelectorRect.selectionMade", echoSounderSelectorRect.selectionMade)
-                }
-
-                onSelected: {
-                    //This is set for a device that was configured, bit not for device manually selected. Always set it at selection?
-                    pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth //- This workaround will lower resolution but keep the data rate unchanged. Fits anglers, but not SAR
-                    pulseRuntimeSettings.distMax = 1000 * pulseSettings.echogramWidth
-                    pulseRuntimeSettings.maximumDepth = pulseSettings.echogramWidth
-                    //
-                    pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseBlue
-                    echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseBlue
-                    echoSounderSelectorRect.selectionMade = true
-                    pulseRuntimeSettings.devManualSelected = true
-                    console.log("DEV_SELECTION: selected", echoSounderSelectorRect.selectedDevice)
+                    pulseRuntimeSettings.hasDeviceLostConnection = false
                 }
             }
         }
 
-
-        // Define states for when a selection has been made.
-        states: [
-            State {
-                name: "selectedRed"
-                when: echoSounderSelectorRect.selectionMade && echoSounderSelectorRect.selectedDevice === pulseRuntimeSettings.modelPulseRed
-                // Hide the blue selector.
-                PropertyChanges {
-                    target: pulseBlueSelector ? pulseBlueSelector : undefined
-                    visible: false
-                }
-                // Re-anchor pulseRedSelector to the center.
-                PropertyChanges {
-                    target: pulseRedSelector ? pulseRedSelector : undefined
-                    // center it exactly
-                    x: (freeContainer.width - pulseRedSelector.width)/2
-                    y: (freeContainer.height - pulseRedSelector.height)/2
-                }
-            },
-            State {
-                name: "selectedBlue"
-                when: echoSounderSelectorRect.selectionMade && echoSounderSelectorRect.selectedDevice === pulseRuntimeSettings.modelPulseBlue
-                PropertyChanges {
-                    target: pulseRedSelector ? pulseRedSelector : undefined
-                    visible: false }
-                PropertyChanges {
-                    target: pulseBlueSelector ? pulseBlueSelector : undefined
-                    // center it exactly
-                    x: (freeContainer.width - pulseBlueSelector.width)/2
-                    y: (freeContainer.height - pulseBlueSelector.height)/2
-                }
+        function onDevNameChanged () {
+            // EXPERIMENT: when dev.devType-driven detection is active, ConnectionViewer owns
+            // model detection; disable the legacy devName-string path here to test it in isolation.
+            if (pulseRuntimeSettings.useDevTypeDetection)
+                return
+            console.log("onDevnameChanged in main.qml: name", pulseRuntimeSettings.devName)
+            let detectedModel = "";
+            console.log("DEVICE: received an onDevNameChanged, devName is", pulseRuntimeSettings.devName);
+            if (pulseRuntimeSettings.devName === "...") {
+                console.log("DEVICE: aborting this method for devName", pulseRuntimeSettings.devName);
+                return
             }
-        ]
-
-        // Animate the movement of the selected item to the center.
-        transitions: [
-            Transition {
-                from: ""; to: "selectedRed"
-                NumberAnimation {
-                    target: pulseRedSelector ? pulseRedSelector : undefined
-                    properties: "x,y";
-                    duration: 1500;
-                    easing.type: Easing.InOutQuad
+            console.log("devName no longer ..., dataset numberOfDatasetChannels", pulseRuntimeSettings.numberOfDatasetChannels, "for devName", pulseRuntimeSettings.devName, "and rawDev_devName", pulseRuntimeSettings.rawDev_devName)
+            if (pulseRuntimeSettings.devName === "PULSEred") {
+                detectedModel = pulseRuntimeSettings.modelPulseRed
+            }
+            if (pulseRuntimeSettings.devName === "PULSEblue") {
+                detectedModel = pulseRuntimeSettings.modelPulseBlue
+            }
+            //TODO: Auto select does not work for Basic2D inb USB connection mode
+            if (pulseRuntimeSettings.devName === "Basic2D") {
+                const channelsList = dataset.channelsNameList();
+                const values = channelsList
+                    .filter(Boolean)
+                    .map(String)
+                    .filter(v => v !== "None");
+                //const isBlue = values.some(v => /UDP\([^)]+\)\|\d+\|1\b/.test(v));
+                const isBlue = values.some(v =>
+                        /^(?:UDP\([^)]+\)|bus\/usb\/\d+\/\d+)\|\d+\|1$/.test(v)
+                    );
+                if (isBlue) {
+                    detectedModel = pulseRuntimeSettings.modelPulseBlue
+                    pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
+                } else {
+                    detectedModel = pulseRuntimeSettings.modelPulseRed
+                    pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
                 }
-            },
-            Transition {
-                from: ""; to: "selectedBlue"
-                NumberAnimation {
-                    target: pulseBlueSelector ? pulseBlueSelector : undefined
-                    properties: "x,y";
-                    duration: 1500;
-                    easing.type: Easing.InOutQuad
-                }
+                pulseRuntimeSettings.devManualSelected = true
+                console.log("DEV_PARAM: observed this channel list and will use it to auto select for Basic2D", channelsList)
             }
 
-        ]
-
-
-        // After the glow effect, fade out the entire container.
-        SequentialAnimation on opacity {
-            // Start when a selection has been made.
-            running: echoSounderSelectorRect.selectionMade
-            // Wait for the glow animation to complete.
-            PauseAnimation { duration: 2000 }
-            NumberAnimation { from: 1; to: 0; duration: 1000 }
-            PauseAnimation { duration: 500 }
-            ScriptAction {
-                script: {
-                    //echoSounderSelector.visible = false;
-                    //pulseRuntimeSettings.devManualSelected = true;
-                    pulseRedSelector.visible = false;
-                    pulseBlueSelector.visible = false;
-                    echoSounderSelectorRect.visible = false;
-                }
+            if (detectedModel !== "") {
+                pulseRuntimeSettings.userManualSetName = detectedModel
+                pulseRuntimeSettings.devManualSelected = true
+                console.log("DEV_PARAM: Automatically detected device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
+            } else {
+                //ECHO20 has become "Basic2D"
+                //TODO Still have not set the beta name. ow to do that?
+                console.log("DEVICE: devName not auto selected, name is", pulseRuntimeSettings.devName);
             }
         }
+
+        function onNumberOfDatasetChannelsChanged () {
+            // EXPERIMENT: dev.devType-driven detection (ConnectionViewer) handles the Basic2D
+            // channel split itself, so disable the legacy channel-based path here when active.
+            if (pulseRuntimeSettings.useDevTypeDetection)
+                return
+            if (pulseRuntimeSettings.swapDeviceNow) {
+                return
+            }
+            console.log("dataset numberOfDatasetChannels", pulseRuntimeSettings.numberOfDatasetChannels, "for devName", pulseRuntimeSettings.devName, "and rawDev_devName", pulseRuntimeSettings.rawDev_devName)
+
+            let detectedModel = "";
+            if (pulseRuntimeSettings.numberOfDatasetChannels === 1) {
+                if (pulseRuntimeSettings.devName === "Basic2D") {
+                    detectedModel = pulseRuntimeSettings.modelPulseRed
+                    pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseRedBeta
+                }
+            } else if (pulseRuntimeSettings.numberOfDatasetChannels === 2) {
+                if (pulseRuntimeSettings.devName === "Basic2D") {
+                    detectedModel = pulseRuntimeSettings.modelPulseBlue
+                    pulseRuntimeSettings.pulseBetaName = pulseRuntimeSettings.pulseBlueBeta
+                }
+            }
+            if (detectedModel !== "") {
+                pulseRuntimeSettings.userManualSetName = detectedModel
+                pulseRuntimeSettings.devManualSelected = true
+                console.log("DEV_PARAM: Automatically detected beta device and set pulseRuntimeSettings.userManualSetName to", pulseRuntimeSettings.userManualSetName)
+            } else {
+                console.log("DEV_PARAM: onNumberOfDatasetChannelsChanged, but channels are 0 so nothing happened")
+            }
+        }
+    }
+
+    Connections {
+        target: core
+        function onChannelListUpdated() {
+            let list = []
+            list = dataset.channelsNameList()
+            // Diagnostic: this is the ONLY thing that classifies an opened log as 2D or
+            // side scan (activeModel reads the count), and it was silent. Log every
+            // update, including the ones that return early, so a misclassified replay
+            // says why in the application output instead of having to be reproduced.
+            if (list.length < 2) {
+                console.log("CHANNELS: list not ready yet (length", list.length,
+                            ") - keeping", pulseRuntimeSettings.numberOfDatasetChannels)
+                return
+            }
+
+            var channels = list.length - 1
+            if (pulseRuntimeSettings.numberOfDatasetChannels !== channels)
+                console.log("CHANNELS:", pulseRuntimeSettings.numberOfDatasetChannels, "->", channels,
+                            "| list", JSON.stringify(list),
+                            "|", channels >= 2 ? "side scan" : "2D")
+            pulseRuntimeSettings.numberOfDatasetChannels = channels
+        }
+    }
+
+    Connections {
+        target: dataset ? dataset : undefined
+
+        function onDataUpdate () {
+            if (lostConnectionAlert !== null && pulseRuntimeSettings.hasDeviceLostConnection) {
+                pulseRuntimeSettings.hasDeviceLostConnection = false
+                pulseRuntimeSettings.isReceivingData = true
+                //console.log("TAV: got data update when hasDeviceLostConnection, remove alert");
+                removeLostConnection()
+            }
+            //Mark that data is flowing
+            pulseRuntimeSettings.dataUpdateActive = true
+
+            // PULSE: the auto-reboot "dataflow guard" (dataStaleTimer/guardTimer/resetTimer +
+            // firstDataTs/guardActive) was removed. It was a band-aid for the old "stuck configuring
+            // transducer" state caused by never binding a real 'dev'; that is now handled at the source
+            // in selectCorrectDevice (which waits for an identified device before selecting). The guard
+            // was also buggy: guardTimer.restart() was commented out, so guardActive never cleared and
+            // the guard window was effectively infinite, rebooting on ANY data stall (e.g. battery
+            // death). The manual expert reboot (echoSounderReboot) is intentionally kept.
+        }
+    }
+
+    // PULSE: dataStaleTimer / guardTimer / resetTimer (the auto-reboot "dataflow guard") were
+    // removed here. See the note in the dataset onDataUpdate handler above. Root cause (no bound
+    // 'dev' -> stuck "Configuring transducer") is now handled in selectCorrectDevice; the manual
+    // expert reboot remains the only reboot path.
+
+    // THE CONNECTION SCREEN (Stage 4, step 1). One instance, above both Plot2D panes.
+    // Replaces echoSounderSelectorRect, freeContainer, both EchoSounderSelector panels and
+    // the windowShadow sheet. Everything it shows hangs off one binding, chooserAsking.
+    PulseConnectionScreen {
+        id: pulseConnectionScreen
+        uiScale: mainview.s
     }
 
 }
