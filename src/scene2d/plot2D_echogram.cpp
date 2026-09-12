@@ -129,8 +129,16 @@ int Plot2DEchogram::getThemeId() const
 
 void Plot2DEchogram::setThemeId(int theme_id) {
 
-    if (theme_id >= ClassicTheme && theme_id <= PulseTheme_rainbow) {
-    //if (theme_id >= ClassicTheme && theme_id <= MidnightTheme) {
+    //PRE-EXISTING BUG, not from the merge - fixed here, in its own commit, so it can be
+    //reverted on its own.
+    //
+    //The bound has never kept up with the enum. PulseTheme_rainbow is index 20 while the
+    //enum runs to HQthemePurple at 27, so SepiaTemeExtra, BWTheme, DeepBlueTheme, IceTheme,
+    //MidnightTheme and both HQ themes were all silently stored as ClassicTheme. The
+    //rendering never showed it, because the colour table read the raw parameter - but
+    //themeId_, and therefore Plot2D::getThemeId() and the Q_INVOKABLE qPlot2D::getThemeId()
+    //that QML can call, reported Classic for any of them.
+    if (theme_id >= ClassicTheme && theme_id <= HQthemePurple) {
         themeId_ = static_cast<ThemeId>(theme_id);
     }
     else {
