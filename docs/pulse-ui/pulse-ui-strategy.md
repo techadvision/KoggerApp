@@ -570,3 +570,66 @@ the contract, and a line-by-line diff of the classic against the Stage 1 file.
 Both pre-existing defects are untouched and still open: the dead `pulseSettingsLoader`
 reference in `closePulseSettingsTimer`, and `pinch2D`'s own `isLiveView` shadowing
 `plot.isLiveView`.
+
+---
+
+## Stage 5 survey — the upstream merge is not the job we thought (12 Sept 2026)
+
+Before touching anything, the merge was dry-run on a throwaway branch and aborted.
+What it found changes the recommendation, so it is recorded here in full.
+
+### The numbers
+
+| | |
+|---|---|
+| Merge base | `eb46efd6`, upstream **0.14.3**, 15 April 2026 |
+| Upstream now | `3a7f5266`, **1.0.3**, 7 September 2026 |
+| Divergence | upstream +537 commits, Pulse +343 |
+| Files changed | upstream 629, Pulse 328, **71 touched by both** |
+| Dry-run result | **50 conflicted paths** — 34 both-modified, 15 modify/delete, 1 both-added |
+| Also incoming | 359 new files, 60 renames, 39 deletions |
+
+### What actually happened upstream
+
+**Upstream rewrote the user interface.** Not evolved — rewrote. Where 0.14.3 had a flat
+`qml/` directory and a `qml.qrc`, 1.0.3 has **188 QML files** in proper Qt QML modules,
+one `CMakeLists.txt` per directory, URI imports (`import app`):
+
+```
+qml/kqml_types  qml/controls  qml/menus  qml/settings
+qml/devices     qml/scene2d   qml/scene3d  qml/app      (+ qml/legacy_qml)
+```
+
+The consequences for us, in order of how much they hurt:
+
+1. **`qml/main.qml` is now five lines.** It imports `app` and instantiates
+   `MainWindow` (1689 lines). Ours is **3081 lines** and is where the entire Pulse
+   startup lives — device detection, the settings bus wiring, the singletons, the
+   profile logic. Our delta against the base is +899/−95. There is no merge between a
+   3081-line file and a 5-line file; there is only a port.
+2. **`qml/Plot2D.qml` was deleted** and reborn as `qml/scene2d/Plot2D.qml`, 2119 lines.
+   Our delta against the base is **+722/−60** — and this is the one place Stage 1 paid
+   off exactly as predicted. Before the extraction that number would have been about
+   2100. It is now a replay of a readable patch onto a relocated file.
+3. **`KoggerApp.pro` and `qml/qml.qrc` are gone.** Our **50 Pulse-only QML files** are
+   registered in that qrc. They would need re-homing into the module layout — most
+   naturally as our own `qml/pulse/` module, which is arguably where they should have
+   been all along.
+4. **The C++ survived.** `qmlRegisterType<qPlot2D>("WaterFall", ...)` is still there, so
+   `PulseAppClassic.qml` is still talking to the same backend object. The C++ conflicts
+   are real but ordinary: `plot2D_aim.cpp` 10 hunks, `qPlot2D.cpp` 7, `plot2D_grid.cpp`
+   6, `plot2D.cpp` 4, `mosaic_processor.cpp` 4, `core.cpp` 4, the rest 1–3 each.
+
+### What this means for the plan
+
+The strategy document argued Stage 1 would make this merge cheap because "upstream's
+`Plot2D.qml` changes and your UI stop touching the same lines." That was right about
+`Plot2D.qml` and wrong about the merge, because nobody knew upstream had rewritten the
+UI around it. **This is a port onto a new architecture, not a conflict-resolution
+session.** Stage 1 and Stage 2 are not wasted — `PulseAppClassic.qml` and
+`PulseAppV2.qml` conflict with nothing and would move across as a module — but the
+`main.qml` port is work that no amount of QML tidying on our side would have avoided.
+
+The cost side is now known. **The value side is not:** nobody has yet asked what is
+actually in those 537 commits that the Pulse app would want. That question should be
+answered before the merge is either started or abandoned.
