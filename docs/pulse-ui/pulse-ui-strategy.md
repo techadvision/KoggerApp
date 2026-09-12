@@ -1642,6 +1642,101 @@ second one.
 
 ---
 
+## Backlog item 10 — the device swap leaves parts of the UI behind (12 Sept 2026)
+
+The first exercise of the step-4 swap machinery on hardware. **USB only**, one red and one
+blue transducer on the bench, both expert switches under *Swap device*:
+
+- **"Swap device automatically, without asking"** (`deviceSwapAutomatic`) — **partly works.**
+  The red↔blue swap does happen, the setup re-runs, and the gray overlay **does** clear. What
+  did not follow the new device: **the echogram orientation** and **the colour choices**.
+- **"Force reselection of device"** (the expert checkbox that raises `swapDeviceNow` by hand)
+  — leaves a full-window **gray overlay that is never removed**.
+
+The **prompt** path — a detected device disagreeing with the committed one — is still
+untested; it needs one transducer powered down and the other up.
+
+### Orientation and colour are one property, and it is assigned rather than bound
+
+Both symptoms come from `showAs2DTransducer`, a plain `property bool` on
+`quickChangeObjects` (`PulseAppClassic.qml:469`):
+
+- `reArrangeQuickChangeObject()` calls `plot2DGrid.setGridHorizontal(...)` from it — the
+  **orientation**.
+- `themeSelectorColorSS` / `themeSelectorColor2D` are gated `visible: !showAs2DTransducer` /
+  `visible: showAs2DTransducer` — the **colour chooser**. That is backlog item 7, now
+  observed on a live swap instead of a replay.
+
+It is computed by `isDevice2DTransducer()`, which reads `userManualSetName`, falling back to
+`devName`, and — this is the part that matters — **matches neither branch when the name is
+`"..."`, in which case it silently keeps the previous device's value.** It is applied only by
+`setUserInterface()` and `reArrangeQuickChangeObject()`, and those run on exactly two signals:
+`devManualSelected` becoming **true**, and any change of `appConfigured`.
+
+A detection-driven swap hits both gaps at once. `devManualSelected` is set **false** by the
+swap and is only ever set true again by a **tap** in the chooser, so that trigger is gone. And
+`appConfigured` fires first on its reset to false — at which point `userManualSetName` is back
+to `"..."` and the recomputation keeps the **old** device's answer. Whether the later
+transition back to true repaints correctly evidently depends on ordering, which is exactly
+what "partly works" looks like.
+
+**The fix is the shape, not the timing.** `showAs2DTransducer` should be a **binding** on the
+resolved profile rather than a variable assigned from two handlers — then orientation and the
+colour chooser follow a swap, and a replayed log, by construction. That is the same line item
+8 draws (display follows the picture, configuration follows the connection), so this should be
+done **with** item 8 rather than patched separately.
+
+### The overlay
+
+`hideBackground` (`main.qml:2637`) is a full-window gray rectangle at 0.8 opacity,
+`visible: mainview.windowShadow`, and `windowShadow` is written imperatively from four places
+and nowhere else:
+
+| | what writes it | where |
+|---|---|---|
+| raised | the 1 s `selectorDelayTimer` firing with no selection made; `onSwapDeviceNowChanged` | `main.qml:2741`, `2770` |
+| lowered | `devManualSelected` becoming true (a tap in the chooser); `devConfigured` becoming true | `main.qml:2778`, `2787` |
+
+Which explains why one path recovers and the other does not: the automatic swap commits a
+device and completes a configuration pass, so `devConfigured` goes true and lowers it. Force
+reselection commits nothing — it waits for a chooser tap that can never come, because
+`onUserManualSetNameChanged` sets `selectionMade = true` and `revealGate = false` as soon as
+anything re-commits a model, and the reveal timer then fires into `if (!selectionMade)` and
+does nothing. The overlay is raised with nothing under it and no way to dismiss it. (It
+carries no `MouseArea`, so it obscures rather than blocks — in front of an audience that
+distinction is worth nothing.)
+
+The minimal fix is to stop assigning `windowShadow` and bind it to the one thing it means —
+*the chooser is asking a question* — with the automatic swap, which asks nothing, never
+raising it at all. **But Olav's call is to rethink the overlay properly as part of the UI
+update rather than patch it here**, and that is right: it belongs with the connection screen
+below.
+
+### What still has to be tested, and when
+
+Everything above is USB on the bench. The proper run is on a **boat with a real device**, and
+that boat arrives with the **IP connector on the `192.168.144.*` address** — so one session can
+cover item 10, the prompt path, and the still-unverified `PULSEblue-IP` acceptance test
+(`PROFILE: committed key -> PULSEblue-IP` in the log, and **nothing** about the picture or the
+device configuration changing).
+
+---
+
+## Stage 4 design gap — the connection screen was never prototyped
+
+The design canvas covers the echogram screen, the rail, the settings panel and the phone
+layouts. It does not cover the **connection screen** — the device chooser, the connection
+list, and the overlay states around them — and that surface now looks dated next to everything
+else being drawn.
+
+It is also where three open things already point: the device chooser that the swap paths
+reveal and hide, the gray overlay above, and item 9's missing "the demo is over, reconnect"
+affordance. Prototyping it once, whole, is cheaper than fixing each of those where it sits.
+
+**Not now.** When the UI work starts, propose a prototype session for this screen alone.
+
+---
+
 ## Handover — where the next session picks up (12 Sept 2026, second session of the day)
 
 **Repo state.** Branch `feature/device-profiles-step4`, seven commits, off `master` at
@@ -1669,12 +1764,12 @@ and not pushed** — that is the first housekeeping step, via GitHub Desktop.
 
 ### NOT verified, in the order it matters
 
-1. **The device swap prompt has never been exercised.** Everything tested so far went
-   through *playback*, which by design never raises it. The test needs both transducers:
-   with the app committed to one, power it down and the other up. Expect the prompt once,
-   naming both; **Keep** dismisses it and it must not come back for that device; **Switch**
-   re-runs setup and the app comes up as the other device. Then the same in reverse. This is
-   the one piece of step-4 behaviour with no hardware evidence at all.
+1. **The device swap prompt has never been exercised.** The *automatic* swap has now been
+   tried over USB, red↔blue, and partly works — see backlog item 10, which is what that run
+   produced. The **prompt** path has not: it needs both transducers with the app committed to
+   one, that one powered down and the other up. Expect the prompt once, naming both; **Keep**
+   dismisses it and it must not come back for that device; **Switch** re-runs setup and the
+   app comes up as the other device. Then the same in reverse.
 2. **The stale-channel-count fix.** Re-run the sequence that found it: committed red, open a
    side scan log **first**, with nothing opened before it. It should come up as side scan
    immediately, and the log should show `CHANNELS: 0 -> 2 ... side scan`.
@@ -1703,13 +1798,19 @@ and not pushed** — that is the first housekeeping step, via GitHub Desktop.
    `resolveProfileKey`: with nothing connected, the log is the device.
 2. **Item 9** — reconnect to a real transducer after a demo. Establish first whether the
    explicit reconnect path works at all, then give it an affordance and re-run detection.
-3. **Item 7** — the colour chooser following the committed device. Subsumed by 8 if 8 is
+3. **Item 10** — the parts of the UI that do not follow a device swap (orientation and
+   colour), and the overlay that force-reselection strands. The UI half is the same binding
+   item 8 fixes; the overlay is deliberately left to the UI update. The proper re-test waits
+   for the boat and the IP connector.
+4. **Item 7** — the colour chooser following the committed device. Subsumed by 8 if 8 is
    done properly, and worth doing as part of it rather than separately.
-4. Items 1, 2, 3, 5, 6 as previously recorded. Item 2 (shallow and on-shore depth) is still
+5. Items 1, 2, 3, 5, 6 as previously recorded. Item 2 (shallow and on-shore depth) is still
    the most important one that is not about demonstrations.
 
 Then **Stage 4** of the UI work — the panels built against a profile, which is what the
-whole device-profile rework was for.
+whole device-profile rework was for. It has one prototyping gap to close first: the
+**connection screen**, which was never drawn and now carries the overlay and the reconnect
+affordance as well. See the section above item 10's handover.
 
 ### Two pre-existing defects, still open and still deliberately untouched
 
