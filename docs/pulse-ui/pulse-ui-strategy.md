@@ -413,7 +413,11 @@ Nothing here has been compiled. The verification above is static: brace balance,
 
 ## Stage status
 
+**Stage 2 — the `uiVariant` switch: COMPLETE and verified on device (12 Sept 2026).**
+Branch `feature/pulse-ui-variant-switch`. See the Stage 2 section below.
+
 **Stage 1 — extract `PulseApp.qml`: COMPLETE and verified on device (12 Sept 2026).**
+Merged to `master` as a fast-forward, `38dd8a31..9093762b`.
 
 Built and run on the tablet test device. Verified by loading a `plog` file in demo
 mode as a playback, which exercises most of the app; no issues found. Branch
@@ -538,21 +542,27 @@ not a fault.
 | `qml/PulseInfoExpert.qml` | the switch row |
 | `qml/qml.qrc` | both new files registered |
 
-### Verified statically; not yet built
+### Verified on device (12 Sept 2026)
 
-No Qt toolchain is reachable from the sandboxed shell, so as in Stage 1 the checking
-is static: brace/paren/bracket balance on every touched file, the qrc parsed as XML
-with every entry confirmed present on disk and no duplicates, both variants checked
-against the contract, and a line-by-line diff of the classic against the Stage 1 file.
+Built and run. Confirmed:
 
-**Still needs the device:**
+- The classic UI behaves as before through the Loader — demo-mode playback, which
+  exercises most of the app, is unchanged.
+- The switch works from expert settings, and the v2 placeholder appears.
+- **No `plot`-is-null warnings in the application output.** This is the one that
+  mattered: it is what Decision 2 above (`sourceComponent` rather than `source`) was
+  chosen to prevent, and the reason the 1700 lines of `plot.*` bindings survive being
+  moved behind a Loader.
 
-- Build and run. Confirm the classic UI is bit-for-bit what it was — the Loader is the
-  only thing between it and Plot2D now.
-- Watch the QML console at startup for `plot`-is-null warnings. Decision 2 above is what
-  should prevent them; this is the check that proves it.
-- Flip the switch: classic → v2 shows the placeholder, the button returns, the setting
-  survives a restart in both positions.
+Static checking beforehand, since no Qt toolchain is reachable from the sandboxed
+shell: brace/paren/bracket balance on every touched file, the qrc parsed as XML with
+every entry confirmed present on disk and no duplicates, both variants checked against
+the contract, and a line-by-line diff of the classic against the Stage 1 file.
+
+**Not yet exercised, and cheap to fold into the next run on the water:**
+
+- The placeholder's "Back to the classic UI" button, and that `uiVariant` survives a
+  restart in both positions.
 - Split screen, where two Plot2Ds each build their own dispatcher.
 
 ### Still open from Stage 1
