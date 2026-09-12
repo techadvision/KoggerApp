@@ -714,3 +714,140 @@ the same file and the deprecation already warns at startup.
 
 The same rule that made Stage 1 work applies: the mechanical move first, verified, before
 anything new is built on it.
+
+---
+
+## The upstream merge landed on master — 12 Sept 2026
+
+`merge/upstream-1.0.3` is on `master` as a **fast-forward**, `d780a94b..b3262306`,
+549 commits, clean tree, no conflicts to resolve. Nothing was re-decided; this is
+the branch that was already built and run on the tablet. Not pushed — `origin/master`
+is 549 behind and Olav pushes via GitHub Desktop.
+
+One operational note for future sessions: the checkout initially half-failed because
+the sandboxed shell had no delete permission on the folder, so git could not unlink
+the files that only exist on one of the two branches. It left ~230 stray files and a
+stale `.git/index.lock`. The fix is to grant delete permission for the repo folder
+*before* any branch switch that moves this much of the tree.
+
+---
+
+## Device-profile rework — steps 1 and 2 done, 12 Sept 2026
+
+Branch `feature/device-profiles`, off `master` at `b3262306`. One file touched:
+`qml/PulseRuntimeSettings.qml`, +74 −42. No behaviour change, no new UI, no third
+profile yet — the mechanical move first, exactly as Stage 1 was done.
+
+### The inventory, which is the specification
+
+There were **36** device-dependent bindings, not forty, and they were not all the
+same shape:
+
+| Count | Shape | Keyed on |
+|---|---|---|
+| 33 | `userManualSetName === modelPulseRed ? pulseRed.X : pulseBlue.X` | `userManualSetName` |
+| 1 | `distProcessing` → `distProcPulseRed` / `distProcPulseBlue` | `userManualSetName` |
+| 2 | `echogramTvgEnabled`, `sideScanTvgEnabled`, three-way with `false` | `activeModel` |
+
+### The finding that changed the plan: two lookups, not one
+
+The strategy said "one lookup — `activeProfile` resolves once". That would have been a
+**behaviour change**. The 34 configuration properties key on `userManualSetName` (the
+committed model); the 2 TVG properties key on `activeModel`, which demo mode and an
+opened `.klf` deliberately override, because a log carries its own identity and that is
+what must drive display gain. The file already said so in the long note above
+`activeModel`: *"this covers the DISPLAY path only. Resolution, samples, ranges and dist
+processing still come from the committed device profile."*
+
+Collapsing them would put an opened log's gain curve on the connected transducer's
+configuration, or the other way round. So there are two resolvers:
+
+```qml
+property var profiles: ({ "PULSEred": pulseRed, "PULSEblue": pulseBlue })
+
+property var committedProfile: (userManualSetName === modelPulseRed) ? profiles[modelPulseRed]
+                                                                     : profiles[modelPulseBlue]
+property var activeProfile:    profiles[activeModel]
+```
+
+`committedProfile` reproduces the old fallback exactly: anything that is not `PULSEred`
+resolves to blue, including `""` and the `Basic2D` proto names. That is preserved on
+purpose and is **not** obviously right — it is a step-3 question once a third profile
+exists, and it is written down in the file as such.
+
+`activeProfile` is `undefined` when nothing is identified, which is what keeps the TVG
+defaults falling back to `false` rather than guessing. Same three-way as before.
+
+### Other decisions
+
+- **The two profile records are untouched.** `pulseRed` and `pulseBlue` keep every key
+  and every value; the map just points at them.
+- **`distProcPulseRed` / `distProcPulseBlue` were folded in as a `distProcessing` key**,
+  by reference, not by copy. This matters: `PulseInfoExpert.qml` mutates
+  `distProcessing[n]` **in place** and then reassigns the property to force a change
+  signal, which permanently breaks the binding. That was already true before this change
+  and is unchanged by it — same arrays, same aliasing, same broken binding. Worth fixing
+  one day; not today.
+
+### Static verification (no Qt toolchain in the sandboxed shell)
+
+- All 36 reads resolve to keys that exist in **both** profile records — checked by
+  parsing the records and cross-referencing every `committedProfile.X` / `activeProfile.X`.
+- Both records carry the same 37 keys, in the same order.
+- Brace and bracket balance unchanged; the one unbalanced `(` is pre-existing, in a comment.
+- Nothing outside this file ever referenced `pulseRed`, `pulseBlue`, `distProcPulseRed`
+  or `distProcPulseBlue`, so the blast radius really is one file.
+
+### Needs a device build before step 3
+
+Red and blue must behave **exactly** as now: resolution, samples, ranges, frequencies,
+datasets, bottom-track processing, and the TVG on both a live transducer and a replayed
+log. The one thing to watch in the application output is any `undefined` read — a missing
+profile key fails silently in QML rather than loudly.
+
+### Step 3 and 4, still to do
+
+- A `ui` block per profile, declaring what the interface should **offer** (frequencies,
+  cones, views, and which of resolution/samples/period are tunable, between what limits).
+  This is what replaces inferring options from `is2DTransducer` — **61 reads of it across
+  10 QML files**, so it is a real piece of work, not a rename.
+- A resolver that takes detected name, channel count and connection address, so
+  `192.168.144.*` picks the IP variant. Manual override still wins.
+- Then the third profile, `PULSEblue-IP`.
+- Also still branching on the model outside this file: `main.qml` (15 refs),
+  `PulseAppClassic.qml` (26), `ConnectionViewer.qml` (10), `DeviceItem.qml` (5),
+  `Plot2D.qml` (5), `PulseInfoExpert.qml` (4), and four more files with one or two each.
+  `HorizontalController.qml:188` branches on `devName` rather than `userManualSetName` —
+  a third key source, worth settling when the resolver is written.
+
+---
+
+## Backlog — known, deliberately not being fixed now
+
+Recorded 12 Sept 2026. None of these is part of the UI work; the first is a rendering
+defect, the second is the first thing to do **after** the UI is in order.
+
+### 1. The side scan mosaic does not apply the TVG
+
+Observed as fact on the render: the mosaic is bright along the centre of the scan line
+and much darker towards the outer part — the signature of an ungained image, since the
+TVG is exactly what flattens brightness across range. The echogram path has
+`sideScanTvgEnabled` and `sideScanTvgMosaicEnabled` (the latter defaults to `false`,
+"mosaic renders TVG buffer instead of AGC"); the mosaic is evidently not taking that
+path. Left alone for now.
+
+### 2. Shallow and on-shore depth — the important one after the UI
+
+From Dennis's feedback, two related failures:
+
+- **Depths shallower than 0.5 m cannot be measured at all.**
+- **Erratic depth values on some echo sounders when the boat is on the shore** —
+  `bottomTrack` cannot determine a depth in that situation.
+
+Two candidate fixes, and they are not exclusive:
+
+- Check whether the upstream author has already fixed this; upstream 1.0.3's bottom-track
+  work is now in the tree and unexamined for this.
+- Otherwise: **use the rangefinder depth value until it passes 1–2 m, then hand over to
+  the `bottomTrack` value** once the rangefinder reports deeper than that. A crossover
+  rather than a choice.

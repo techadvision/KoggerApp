@@ -200,18 +200,16 @@ QtObject {
     //panel breaks this binding for the rest of the session — deliberate: a manual expert
     //choice must not be silently undone by a reconnect. Restart restores the profile
     //default, as with every other runtime TVG value.
-    property bool   echogramTvgEnabled:     activeModel === modelPulseRed  ? pulseRed.echogramTvgEnabled
-                                          : activeModel === modelPulseBlue ? pulseBlue.echogramTvgEnabled
-                                          : false
+    property bool   echogramTvgEnabled:     activeProfile !== undefined ? activeProfile.echogramTvgEnabled
+                                                                        : false
     property double echogramTvgDbPerMeter:  0.9     // Net decay constant in dB/m (Dreamlake harvest: 0.66-1.11, mean ~0.9)
 
     //Side scan TVG — side scan phase (expert-gated, display-only). Log-law range
     //gain (imageType 3) validated offline on SS_pulse_log_2026.07.20: consistent
     //intensity over range (brightness = bottom hardness) instead of the AGC's
     //local-contrast normalization. Defaults mirror EchogramSideScanTvg constants.
-    property bool   sideScanTvgEnabled:      activeModel === modelPulseRed  ? pulseRed.sideScanTvgEnabled
-                                           : activeModel === modelPulseBlue ? pulseBlue.sideScanTvgEnabled
-                                           : false    // waterfall uses TVG (3) instead of AGC (1)
+    property bool   sideScanTvgEnabled:      activeProfile !== undefined ? activeProfile.sideScanTvgEnabled
+                                                                         : false    // waterfall uses TVG (3) instead of AGC (1)
     property double sideScanTvgSpreading:    5      // S in dB/decade (field-tuned 2026-08-16; deeper water/chirp may want more)
     property double sideScanTvgAbsorption:   0.0    // a in dB/m (field-tuned: 0 on 25 m ranges; matters for chirp long range)
     property double sideScanTvgRefRange:     15     // gain = 1 at this range (m): near field keeps familiar brightness
@@ -561,41 +559,73 @@ QtObject {
     property int    distanceAutoRangeCurrentIndex:  -1
     
     
+    //PROFILE MAP — one entry per device. Adding hardware is adding one entry here and
+    //one line in the resolver below; nothing else in this file branches on the model.
+    //The records themselves (pulseRed / pulseBlue) are unchanged and still further down.
+    property var profiles: ({
+        "PULSEred":  pulseRed,      // = modelPulseRed
+        "PULSEblue": pulseBlue      // = modelPulseBlue
+    })
+
+    //TWO lookups, not one — and this is deliberate. The two paths key on different things
+    //and always have (see the long note above activeModel):
+    //
+    //  committedProfile  the CONFIGURATION path — resolution, samples, ranges, datasets,
+    //                    frequencies, dist processing. Keyed on userManualSetName, the
+    //                    model the user or the detection committed to.
+    //  activeProfile     the DISPLAY path — the TVG defaults only. Keyed on activeModel,
+    //                    which demo mode and an opened .klf override, because a log
+    //                    carries its own identity and that is what must drive display gain.
+    //
+    //Collapsing them into one lookup would be a behaviour change, not a tidy-up: it would
+    //put an opened log's gain curve on the connected transducer's configuration, or the
+    //other way round.
+
+    //Exactly the fallback the forty ternaries had: anything that is not PULSEred resolves
+    //to blue — including "" and the Basic2D proto names. Preserved on purpose; whether it
+    //is the RIGHT fallback is a step-3 question, once a third profile exists.
+    property var committedProfile: (userManualSetName === modelPulseRed) ? profiles[modelPulseRed]
+                                                                        : profiles[modelPulseBlue]
+
+    //undefined when nothing is identified (activeModel === ""), which is what makes the
+    //TVG defaults fall back to false rather than guess. Same three-way as before.
+    property var activeProfile: profiles[activeModel]
+
     //PER DEVICE PROPERTIES
-    property bool   settingVersion:                 userManualSetName === modelPulseRed ? pulseRed.settingVersion               : pulseBlue.settingVersion
-    property bool   useTemperature:                 userManualSetName === modelPulseRed ? pulseRed.useTemperature               : pulseBlue.useTemperature
-    property bool   is2DTransducer:                 userManualSetName === modelPulseRed ? pulseRed.is2DTransducer               : pulseBlue.is2DTransducer
-    property int    chartResolution:                userManualSetName === modelPulseRed ? pulseRed.chartResolution              : pulseBlue.chartResolution
-    property int    chartSamples:                   userManualSetName === modelPulseRed ? pulseRed.chartSamples                 : pulseBlue.chartSamples
-    property int    chartOffset:                    userManualSetName === modelPulseRed ? pulseRed.chartOffset                  : pulseBlue.chartOffset
-    property int    distMax:                        userManualSetName === modelPulseRed ? pulseRed.distMax                      : pulseBlue.distMax
-    property int    distDeadZone:                   userManualSetName === modelPulseRed ? pulseRed.distDeadZone                 : pulseBlue.distDeadZone
-    property int    distConfidence:                 userManualSetName === modelPulseRed ? pulseRed.distConfidence               : pulseBlue.distConfidence
-    property int    transPulse:                     userManualSetName === modelPulseRed ? pulseRed.transPulse                   : pulseBlue.transPulse
-    property int    transFreq:                      userManualSetName === modelPulseRed ? pulseRed.transFreq                    : pulseBlue.transFreq
-    property int    transBoost:                     userManualSetName === modelPulseRed ? pulseRed.transBoost                   : pulseBlue.transBoost
-    property int    dspHorSmooth:                   userManualSetName === modelPulseRed ? pulseRed.dspHorSmooth                 : pulseBlue.dspHorSmooth
-    property int    soundSpeed:                     userManualSetName === modelPulseRed ? pulseRed.soundSpeed                   : pulseBlue.soundSpeed
-    property int    ch1Period:                      userManualSetName === modelPulseRed ? pulseRed.ch1Period                    : pulseBlue.ch1Period
-    property int    datasetChart:                   userManualSetName === modelPulseRed ? pulseRed.datasetChart                 : pulseBlue.datasetChart
-    property int    datasetDist:                    userManualSetName === modelPulseRed ? pulseRed.datasetDist                  : pulseBlue.datasetDist
-    property int    datasetSDDBT:                   userManualSetName === modelPulseRed ? pulseRed.datasetSDDBT                 : pulseBlue.datasetSDDBT
-    property int    datasetEuler:                   userManualSetName === modelPulseRed ? pulseRed.datasetEuler                 : pulseBlue.datasetEuler
-    property int    datasetTemp:                    userManualSetName === modelPulseRed ? pulseRed.datasetTemp                  : pulseBlue.datasetTemp
-    property int    datasetTimestamp:               userManualSetName === modelPulseRed ? pulseRed.datasetTimestamp             : pulseBlue.datasetTimestamp
-    property int    transFreqWide:                  userManualSetName === modelPulseRed ? pulseRed.transFreqWide                : pulseBlue.transFreqWide
-    property int    transFreqMedium:                userManualSetName === modelPulseRed ? pulseRed.transFreqMedium              : pulseBlue.transFreqMedium
-    property int    transFreqNarrow:                userManualSetName === modelPulseRed ? pulseRed.transFreqNarrow              : pulseBlue.transFreqNarrow
-    property int    maximumDepth:                   userManualSetName === modelPulseRed ? pulseRed.maximumDepth                 : pulseBlue.maximumDepth
-    property var    doDynamicResolution:            userManualSetName === modelPulseRed ? pulseRed.doDynamicResolution          : pulseBlue.doDynamicResolution
-    property var    fixBlackStripesForwardSteps:    userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesForwardSteps  : pulseBlue.fixBlackStripesForwardSteps
-    property var    fixBlackStripesBackwardSteps:   userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesBackwardSteps : pulseBlue.fixBlackStripesBackwardSteps
-    property var    fixBlackStripesState:           userManualSetName === modelPulseRed ? pulseRed.fixBlackStripesState         : pulseBlue.fixBlackStripesState
-    property var    temperatureCorrection:          userManualSetName === modelPulseRed ? pulseRed.temperatureCorrection        : pulseBlue.temperatureCorrection
-    property var    bottomTrackVisible:             userManualSetName === modelPulseRed ? pulseRed.bottomTrackVisible           : pulseBlue.bottomTrackVisible
-    property var    bottomTrackVisibleModel:        userManualSetName === modelPulseRed ? pulseRed.bottomTrackVisibleModel      : pulseBlue.bottomTrackVisibleModel
-    property bool   processBottomTrack:             userManualSetName === modelPulseRed ? pulseRed.processBottomTrack           : pulseBlue.processBottomTrack
-    property var    distProcessing:                 userManualSetName === modelPulseRed ? distProcPulseRed                      : distProcPulseBlue
+    property bool   settingVersion:                 committedProfile.settingVersion
+    property bool   useTemperature:                 committedProfile.useTemperature
+    property bool   is2DTransducer:                 committedProfile.is2DTransducer
+    property int    chartResolution:                committedProfile.chartResolution
+    property int    chartSamples:                   committedProfile.chartSamples
+    property int    chartOffset:                    committedProfile.chartOffset
+    property int    distMax:                        committedProfile.distMax
+    property int    distDeadZone:                   committedProfile.distDeadZone
+    property int    distConfidence:                 committedProfile.distConfidence
+    property int    transPulse:                     committedProfile.transPulse
+    property int    transFreq:                      committedProfile.transFreq
+    property int    transBoost:                     committedProfile.transBoost
+    property int    dspHorSmooth:                   committedProfile.dspHorSmooth
+    property int    soundSpeed:                     committedProfile.soundSpeed
+    property int    ch1Period:                      committedProfile.ch1Period
+    property int    datasetChart:                   committedProfile.datasetChart
+    property int    datasetDist:                    committedProfile.datasetDist
+    property int    datasetSDDBT:                   committedProfile.datasetSDDBT
+    property int    datasetEuler:                   committedProfile.datasetEuler
+    property int    datasetTemp:                    committedProfile.datasetTemp
+    property int    datasetTimestamp:               committedProfile.datasetTimestamp
+    property int    transFreqWide:                  committedProfile.transFreqWide
+    property int    transFreqMedium:                committedProfile.transFreqMedium
+    property int    transFreqNarrow:                committedProfile.transFreqNarrow
+    property int    maximumDepth:                   committedProfile.maximumDepth
+    property var    doDynamicResolution:            committedProfile.doDynamicResolution
+    property var    fixBlackStripesForwardSteps:    committedProfile.fixBlackStripesForwardSteps
+    property var    fixBlackStripesBackwardSteps:   committedProfile.fixBlackStripesBackwardSteps
+    property var    fixBlackStripesState:           committedProfile.fixBlackStripesState
+    property var    temperatureCorrection:          committedProfile.temperatureCorrection
+    property var    bottomTrackVisible:             committedProfile.bottomTrackVisible
+    property var    bottomTrackVisibleModel:        committedProfile.bottomTrackVisibleModel
+    property bool   processBottomTrack:             committedProfile.processBottomTrack
+    property var    distProcessing:                 committedProfile.distProcessing
 
     //ACTUAL DEVICE PARAMETER VALUE COPY
 
@@ -659,7 +689,8 @@ QtObject {
         "bottomTrackVisible":           false,
         "bottomTrackVisibleModel":      0,
         "echogramTvgEnabled":           true,
-        "sideScanTvgEnabled":           false
+        "sideScanTvgEnabled":           false,
+        "distProcessing":               distProcPulseRed
     }
 
 
@@ -702,7 +733,8 @@ QtObject {
         "bottomTrackVisible":           false,
         "bottomTrackVisibleModel":      0,
         "echogramTvgEnabled":           false,
-        "sideScanTvgEnabled":           true
+        "sideScanTvgEnabled":           true,
+        "distProcessing":               distProcPulseBlue
     }
 
     property var    distProcPulseRed: [
