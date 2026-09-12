@@ -19,5 +19,8 @@
         <file>image/pulse_info_red_black.png</file>
         <file>image/pulse_info_blue_large.png</file>
         <file>image/pulse_info_red_black_large.png</file>
+        <file>image/pulse_device_red.png</file>
+        <file>image/pulse_device_black.png</file>
+        <file>image/pulse_device_blue.png</file>
     </qresource>
 </RCC>
