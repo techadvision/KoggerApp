@@ -34,7 +34,7 @@ protected:
     bool beenEpochEvent_;
     int lineWidth_;
     QColor lineColor_;
-    int scaleFactor_;
+    qreal scaleFactor_;   //UPSTREAM 1.0.3: qreal for fractional DPR
     bool echogramPause_;
     bool needClearUi_ = false;
     bool paused_ = false;

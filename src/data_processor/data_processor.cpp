@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QtGlobal>
 #include <cmath>
+#include "bt_worker.h"
 #include "compute_worker.h"
 #include "dataset.h"
 
@@ -53,6 +54,7 @@ DataProcessor::DataProcessor(QObject *parent, Dataset* datasetPtr)
     : QObject(parent),
     datasetPtr_(datasetPtr),
     worker_(nullptr),
+    btWorker_(nullptr),
     state_(DataProcessorType::kUndefined),
     chartsCounter_(0),
     bottomTrackCounter_(0),
@@ -115,7 +117,7 @@ DataProcessor::DataProcessor(QObject *parent, Dataset* datasetPtr)
 
     cameraRectCoalesceTimer_.setParent(this);
     cameraRectCoalesceTimer_.setSingleShot(true);
-    cameraRectCoalesceTimer_.setInterval(20);
+    cameraRectCoalesceTimer_.setInterval(8);
     connect(&cameraRectCoalesceTimer_, &QTimer::timeout, this, [this]() {
         if (shuttingDown_.load() || !cameraRectPending_) {
             return;
@@ -138,11 +140,18 @@ DataProcessor::DataProcessor(QObject *parent, Dataset* datasetPtr)
     worker_->moveToThread(&computeThread_);
 
     connect(worker_, &ComputeWorker::jobFinished,          this, &DataProcessor::onWorkerFinished,      Qt::QueuedConnection);
-    connect(worker_, &ComputeWorker::bottomTrackStarted,   this, &DataProcessor::onBottomTrackStarted,  Qt::QueuedConnection);
-    connect(worker_, &ComputeWorker::bottomTrackFinished,  this, &DataProcessor::onBottomTrackFinished, Qt::QueuedConnection);
 
     computeThread_.setObjectName("ComputeWorkerThread");
     computeThread_.start();
+
+    btWorker_ = new BtWorker(this, datasetPtr_);
+    btWorker_->moveToThread(&btThread_);
+
+    connect(btWorker_, &BtWorker::bottomTrackStarted,  this, &DataProcessor::onBottomTrackStarted,  Qt::QueuedConnection);
+    connect(btWorker_, &BtWorker::bottomTrackFinished, this, &DataProcessor::onBottomTrackFinished, Qt::QueuedConnection);
+
+    btThread_.setObjectName("BtWorkerThread");
+    btThread_.start();
 }
 
 DataProcessor::~DataProcessor()
@@ -158,6 +167,15 @@ DataProcessor::~DataProcessor()
         }
         delete worker_;
         worker_ = nullptr;
+    }
+
+    if (btWorker_) {
+        if (btThread_.isRunning()) {
+            btThread_.quit();
+            btThread_.wait();
+        }
+        delete btWorker_;
+        btWorker_ = nullptr;
     }
 }
 
@@ -203,7 +221,8 @@ void DataProcessor::setDatasetPtr(Dataset *datasetPtr)
 {
     datasetPtr_ = datasetPtr;
 
-    QMetaObject::invokeMethod(worker_, "setDatasetPtr", Qt::QueuedConnection, Q_ARG(Dataset*, datasetPtr_));
+    QMetaObject::invokeMethod(worker_,   "setDatasetPtr", Qt::QueuedConnection, Q_ARG(Dataset*, datasetPtr_));
+    QMetaObject::invokeMethod(btWorker_, "setDatasetPtr", Qt::QueuedConnection, Q_ARG(Dataset*, datasetPtr_));
     updateDatasetSpatialIndexingState();
 }
 
@@ -238,8 +257,8 @@ void DataProcessor::prepareForFileClose(int timeoutMs)
     QEventLoop loop;
     QTimer timer;
     timer.setSingleShot(true);
-    QObject::connect(worker_, &ComputeWorker::jobFinished, &loop, &QEventLoop::quit);
-    QObject::connect(worker_, &ComputeWorker::bottomTrackFinished, &loop, &QEventLoop::quit);
+    QObject::connect(worker_,   &ComputeWorker::jobFinished,         &loop, &QEventLoop::quit);
+    QObject::connect(btWorker_, &BtWorker::bottomTrackFinished,      &loop, &QEventLoop::quit);
     QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
     timer.start(timeoutMs);
 
@@ -344,11 +363,7 @@ void DataProcessor::tryFinalizeResetProcessing()
     QMetaObject::invokeMethod(worker_, "setVisibleTileKeys", Qt::BlockingQueuedConnection,
                               Q_ARG(QSet<TileKey>, QSet<TileKey>()));
 
-    // Recreate temporary tile DB cache.
-    if (!filePath_.isEmpty()) {
-        closeDB();
-        openDB();
-    }
+    closeDB();
 
     state_ = DataProcessorType::kUndefined;
     postState(DataProcessorType::kUndefined);
@@ -506,6 +521,7 @@ void DataProcessor::setUpdateMosaic(bool state)
         if (!wasMosaic) {
             pendingMosaicIndxs_.clear();
             mosaicInFlightIndxs_.clear();
+            mosaicBootstrapPending_ = true;
         }
 
         if (hotCache_.checkAnyTileForZoom(lastDataZoomIndx_)) {
@@ -517,10 +533,21 @@ void DataProcessor::setUpdateMosaic(bool state)
             }
         }
         onCameraMoved();
+
+        if (!wasMosaic && !epIndxsFromBottomTrack_.isEmpty()) {
+            const bool hadPending = !pendingMosaicIndxs_.isEmpty();
+            for (int ep : std::as_const(epIndxsFromBottomTrack_)) {
+                pendingMosaicIndxs_.insert(ep);
+            }
+            if (!hadPending) {
+                scheduleLatest(WorkSet(WF_Mosaic));
+            }
+        }
     }
     else {
         pendingMosaicIndxs_.clear();
         mosaicInFlightIndxs_.clear();
+        mosaicBootstrapPending_ = false;
         pendingIsobathsWork_ = true; // мозаика могла изменить поверхность
         scheduleLatest(WorkSet(WF_Isobaths));
     }
@@ -544,6 +571,10 @@ void DataProcessor::onCameraMoved()
         return;
     }
 
+    if (!lastVisTileKeys_.isEmpty()) {
+        mosaicBootstrapPending_ = false;
+    }
+
     // Keep already queued mosaic epochs (e.g. from realtime bottom-track updates).
     // Camera movement should only add visible work, not drop pending work.
     //if (updateSurface_) {
@@ -564,13 +595,17 @@ void DataProcessor::onCameraMoved()
     const QSet<int> visibleSurfaceEpochs = collectVisibleSurfaceEpochsSet(zoom);
     const QSet<int> visibleMosaicEpochs  = updateMosaic_ ? collectEpochsForTilesSet(zoom, lastVisTileKeys_) : QSet<int>();
 
-    if (updateMosaic_ && !pendingMosaicIndxs_.isEmpty()) {
+    const int mosaicLowAllowed = (activeZeroing_ && mosaicFakeCoordsLastN_ > 0)
+        ? std::max(0, mosaicCounter_ - mosaicFakeCoordsLastN_ + 1)
+        : 0;
+
+    if (updateMosaic_ && !pendingMosaicIndxs_.isEmpty() && !lastVisTileKeys_.isEmpty()) {
         // Keep mosaic queue focused on current viewport to avoid processing stale backlog
         // accumulated during rapid camera moves.
         QSet<int> filteredPending;
         filteredPending.reserve(qMin(pendingMosaicIndxs_.size(), visibleMosaicEpochs.size()));
         for (int idx : std::as_const(pendingMosaicIndxs_)) {
-            if (visibleMosaicEpochs.contains(idx)) {
+            if (visibleMosaicEpochs.contains(idx) && idx >= mosaicLowAllowed) {
                 filteredPending.insert(idx);
             }
         }
@@ -594,6 +629,9 @@ void DataProcessor::onCameraMoved()
 
     if (updateMosaic_) {
         for (int itm : std::as_const(visibleMosaicEpochs)) {
+            if (itm < mosaicLowAllowed) {
+                continue;
+            }
             if (!processedMosaic.contains(itm) && !pendingMosaicIndxs_.contains(itm)) {
                 pendingMosaicIndxs_.insert(itm);
                 addedMosaic = true;
@@ -682,7 +720,7 @@ void DataProcessor::tryScheduleAutoBottomTrack(uint64_t indx)
 
     btBusy_ = true;
 
-    QMetaObject::invokeMethod(worker_, "bottomTrackProcessing", Qt::QueuedConnection,
+    QMetaObject::invokeMethod(btWorker_, "bottomTrackProcessing", Qt::QueuedConnection,
                               Q_ARG(DatasetChannel, ch1),
                               Q_ARG(DatasetChannel, ch2),
                               Q_ARG(BottomTrackParam, btP),
@@ -782,6 +820,10 @@ void DataProcessor::onBottomTrack3DAdded(const QVector<int>& epIndxs, const QVec
         }
     }
 
+    if (mosaicBootstrapPending_ && updateMosaic_) {
+        onCameraMoved();
+    }
+
     scheduleLatest(WorkSet(WF_All));
 }
 
@@ -830,12 +872,17 @@ void DataProcessor::bottomTrackProcessing(const DatasetChannel &ch1, const Datas
         forceVisibleRefreshAfterBottomTrack_ = true;
     }
 
-    QMetaObject::invokeMethod(worker_, "bottomTrackProcessing", Qt::QueuedConnection,
+    QMetaObject::invokeMethod(btWorker_, "bottomTrackProcessing", Qt::QueuedConnection,
                               Q_ARG(DatasetChannel, ch1),
                               Q_ARG(DatasetChannel, ch2),
                               Q_ARG(BottomTrackParam, p),
                               Q_ARG(bool, manual),
                               Q_ARG(bool, redrawAll));
+}
+
+void DataProcessor::setBottomTrackZeroDepth(bool state)
+{
+    QMetaObject::invokeMethod(btWorker_, "setBottomTrackZeroDepth", Qt::QueuedConnection, Q_ARG(bool, state));
 }
 
 void DataProcessor::setSurfaceColorTableThemeById(int id)
@@ -1024,6 +1071,65 @@ void DataProcessor::askColorTableForMosaic()
     emitMosaicColorTable();
 }
 
+void DataProcessor::setMosaicSource(int source)
+{
+    QMetaObject::invokeMethod(worker_, "setMosaicSource", Qt::QueuedConnection, Q_ARG(int, source));
+    restartMosaic();
+}
+
+void DataProcessor::setActiveZeroing(bool state)
+{
+    if (activeZeroing_ == state) {
+        return;
+    }
+    activeZeroing_ = state;
+
+    if (!state) {
+        return;
+    }
+    // Toggling FAKE_COORDS on with a bounded window: pre-toggle paint (possibly real-coords
+    // history) would otherwise remain stuck visible on the same zoom. Restart so the next
+    // radical recalc replays only the last N onto a clean slate.
+    if (mosaicFakeCoordsLastN_ > 0) {
+        restartMosaic();
+    }
+}
+
+void DataProcessor::setMosaicFakeCoordsLastN(int n)
+{
+    mosaicFakeCoordsLastN_ = std::max(0, n);
+}
+
+void DataProcessor::setMosaicFakeCoordsClearOldData(bool state)
+{
+    mosaicFakeCoordsClearOldData_ = state;
+}
+
+void DataProcessor::restartMosaic()
+{
+    hotCache_.clear();
+
+    QMetaObject::invokeMethod(worker_, "clearMosaic", Qt::QueuedConnection);
+
+    pendingMosaicIndxs_.clear();
+    mosaicTaskEpochIndxsByZoom_.clear();
+    mosaicInFlightIndxs_.clear();
+
+    emit mosaicProcessingCleared();
+
+    const int mosaicLowAllowed = (activeZeroing_ && mosaicFakeCoordsLastN_ > 0)
+        ? std::max(0, mosaicCounter_ - mosaicFakeCoordsLastN_ + 1)
+        : 0;
+    for (auto it = epIndxsFromBottomTrack_.cbegin(); it != epIndxsFromBottomTrack_.cend(); ++it) {
+        if (*it < mosaicLowAllowed) {
+            continue;
+        }
+        pendingMosaicIndxs_.insert(*it);
+    }
+
+    scheduleLatest(WorkSet(WF_Mosaic), /*replace*/true);
+}
+
 void DataProcessor::emitMosaicColorTable()
 {
     const auto table = mosaicColorTable_.getRgbaColors();
@@ -1169,17 +1275,49 @@ void DataProcessor::runCoalescedWork()
         }
     }
 
-    if (wantMosaic && !pendingMosaicIndxs_.isEmpty() && updateMosaic_) {
+    if (wantMosaic && updateMosaic_ && activeZeroing_ && mosaicFakeCoordsLastN_ > 0 && mosaicFakeCoordsClearOldData_) {
+        // Radical FAKE_COORDS+N path: every mosaic recalc is a full restart. Wipe caches,
+        // queue worker clearMosaic, then schedule a fresh paint of the last N epochs from
+        // epIndxsFromBottomTrack_. By design every tick re-renders the tail from scratch.
+        hotCache_.clear();
+        QMetaObject::invokeMethod(worker_, "clearMosaic", Qt::QueuedConnection);
+        mosaicTaskEpochIndxsByZoom_.clear();
+        pendingMosaicIndxs_.clear();
+        mosaicInFlightIndxs_.clear();
+
+        const int mosaicLowAllowed = std::max(0, mosaicCounter_ - mosaicFakeCoordsLastN_ + 1);
+        wb.mosaicVec.reserve(mosaicFakeCoordsLastN_);
+        for (int idx : std::as_const(epIndxsFromBottomTrack_)) {
+            if (idx >= mosaicLowAllowed && idx <= mosaicCounter_) {
+                wb.mosaicVec.append(idx);
+            }
+        }
+        std::sort(wb.mosaicVec.begin(), wb.mosaicVec.end());
+        for (int idx : std::as_const(wb.mosaicVec)) {
+            mosaicInFlightIndxs_.insert(idx);
+        }
+        wb.batchMosaicEmit = true;
+    }
+    else if (wantMosaic && !pendingMosaicIndxs_.isEmpty() && updateMosaic_) {
         int mosaicZoom = lastDataZoomIndx_;
         if (mosaicZoom <= 0) {
             mosaicZoom = zoomFromMpp(tileResolution_);
         }
         auto& processedMosaic = mosaicTaskEpochIndxsByZoom_[mosaicZoom];
 
+        // FAKE_COORDS+N without "Clear old data": still cap work to the last-N window so old
+        // backlog doesn't drown the worker. Old paint already on tiles stays as-is.
+        const int mosaicLowAllowed = (activeZeroing_ && mosaicFakeCoordsLastN_ > 0)
+            ? std::max(0, mosaicCounter_ - mosaicFakeCoordsLastN_ + 1)
+            : 0;
+
         auto it = pendingMosaicIndxs_.begin();
         while (it != pendingMosaicIndxs_.end()) {
             const int idx = *it;
-
+            if (idx < mosaicLowAllowed) {
+                it = pendingMosaicIndxs_.erase(it);
+                continue;
+            }
             if (processedMosaic.contains(idx)) {
                 it = pendingMosaicIndxs_.erase(it);
                 continue;
@@ -1188,7 +1326,6 @@ void DataProcessor::runCoalescedWork()
                 ++it;
                 continue;
             }
-
             if (idx <= mosaicCounter_) {
                 wb.mosaicVec.append(idx);
                 mosaicInFlightIndxs_.insert(idx);
@@ -1198,7 +1335,6 @@ void DataProcessor::runCoalescedWork()
                 ++it;
             }
         }
-
         if (!wb.mosaicVec.isEmpty()) {
             std::sort(wb.mosaicVec.begin(), wb.mosaicVec.end());
         }
@@ -1268,15 +1404,30 @@ void DataProcessor::startTimerIfNeeded()
 
 void DataProcessor::onWorkerFinished()
 {
+    const bool wasCanceled = cancelRequested_.load();
+
     jobRunning_.store(false);
 
     if (!mosaicInFlightIndxs_.isEmpty()) {
+        if (wasCanceled) {
+            for (int idx : std::as_const(mosaicInFlightIndxs_)) {
+                pendingMosaicIndxs_.insert(idx);
+            }
+        }
         mosaicInFlightIndxs_.clear();
     }
+
+    cancelRequested_.store(false);
 
     if (resetInProgress_.load()) {
         tryFinalizeResetProcessing();
         return;
+    }
+
+    if (wasCanceled && updateMosaic_ && !pendingMosaicIndxs_.isEmpty()
+            && !suppressResults_.load()) {
+        requestedMask_.fetch_or(WF_Mosaic);
+        nextRunPending_.store(true);
     }
 
     if (nextRunPending_.load() && !shuttingDown_.load()) {
@@ -1404,6 +1555,61 @@ void DataProcessor::postIsobathsLineSegments(const QVector<QVector3D>& lineSegme
     emit sendIsobathsLineSegments(lineSegments);
 }
 
+void DataProcessor::requestPipelineStats()
+{
+    if (!worker_) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(worker_, "reportPipelineStats", Qt::QueuedConnection);
+}
+
+void DataProcessor::postPipelineStats(const QVariantMap& stats)
+{
+    QVariantMap out = stats;
+
+    out["state"]             = static_cast<int>(state_);
+    out["updateSurface"]     = updateSurface_;
+    out["updateIsobaths"]    = updateIsobaths_;
+    out["updateBottomTrack"] = updateBottomTrack_;
+    out["updateMosaic"]      = updateMosaic_;
+    out["openingFile"]       = isOpeningFile_;
+    out["bottomTrackBusy"]   = btBusy_;
+    out["dbReady"]           = isDbReady();
+    out["lastEpochIndx"]     = static_cast<qulonglong>(epochCounter_);
+    out["lastChartIndx"]     = static_cast<qulonglong>(chartsCounter_);
+    out["queuedSurface"]     = pendingSurfaceIndxs_.size();
+    out["queuedBtVertices"]  = epIndxsFromBottomTrack_.size();
+
+    emit pipelineStats(out);
+}
+
+void DataProcessor::requestMosaicStats(int probeWindow)
+{
+    if (!worker_) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(worker_, "reportMosaicStats", Qt::QueuedConnection, Q_ARG(int, probeWindow));
+}
+
+void DataProcessor::postMosaicStats(const QVariantMap& stats)
+{
+    QVariantMap out = stats;
+
+    out["state"]            = static_cast<int>(state_);
+    out["updateMosaic"]     = updateMosaic_;
+    out["updateBottomTrack"]= updateBottomTrack_;
+    out["openingFile"]      = isOpeningFile_;
+    out["dbReady"]          = isDbReady();
+    out["zeroing"]          = activeZeroing_;
+    out["fakeCoordsLastN"]  = mosaicFakeCoordsLastN_;
+    out["lastMosaicIndx"]   = mosaicCounter_;
+    out["queuedMosaic"]     = pendingMosaicIndxs_.size();
+
+    emit mosaicStats(out);
+}
+
 void DataProcessor::onBottomTrackStarted()
 {
     btBusy_ = true;
@@ -1454,6 +1660,11 @@ void DataProcessor::onSendSavedKeys(QVector<TileKey> savedKeys)
 void DataProcessor::requestTilesFromDB(const QSet<TileKey>& keys)
 {
     if (shuttingDown_.load() || suppressResults_.load() || !dbReader_ || keys.isEmpty()) {
+        return;
+    }
+    // FAKE_COORDS + bounded window: DB holds pre-erase paint that doesn't match the rolling
+    // window state. Showing it would leak "old garbage" into the renderer.
+    if (activeZeroing_ && mosaicFakeCoordsLastN_ > 0) {
         return;
     }
 
@@ -1561,9 +1772,10 @@ void DataProcessor::postMinZ(float val)
 
     emit sendSurfaceMinZ(val); // to surface view
 
-    pendingIsobathsWork_ = true;
-
-    scheduleLatest(WorkSet(WF_Isobaths));
+    if (!updateMosaic_) {
+        pendingIsobathsWork_ = true;
+        scheduleLatest(WorkSet(WF_Isobaths));
+    }
 }
 
 void DataProcessor::postMaxZ(float val)
@@ -1572,9 +1784,10 @@ void DataProcessor::postMaxZ(float val)
 
     emit sendSurfaceMaxZ(val); // to surface view
 
-    pendingIsobathsWork_ = true;
-
-    scheduleLatest(WorkSet(WF_Isobaths));
+    if (!updateMosaic_) {
+        pendingIsobathsWork_ = true;
+        scheduleLatest(WorkSet(WF_Isobaths));
+    }
 }
 
 void DataProcessor::postSurfaceColorTable(const std::vector<uint8_t> &t)
@@ -1603,7 +1816,7 @@ void DataProcessor::clearBottomTrackProcessing()
     btBusy_ = false;
     forceVisibleRefreshAfterBottomTrack_ = false;
 
-    QMetaObject::invokeMethod(worker_, "clearBottomTrack", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(btWorker_, "clearBottomTrack", Qt::QueuedConnection);
 }
 
 void DataProcessor::clearIsobathsProcessing()
@@ -1670,7 +1883,6 @@ void DataProcessor::clearAllProcessings()
     nextRunPending_ = false;
     requestedMask_ = 0;
     hotCache_.clear();
-    filePath_.clear();
     dbReaderInWork_ = false;
     lastViewRect_ = QRectF();
     pendingCameraRect_ = QRectF();
@@ -1706,6 +1918,9 @@ void DataProcessor::scheduleLatest(WorkSet mask, bool replace, bool clearUnreque
         if (jobRunning_.load()) {
             cancelRequested_.store(true);
             if (m & WF_Mosaic) {
+                for (int idx : std::as_const(mosaicInFlightIndxs_)) {
+                    pendingMosaicIndxs_.insert(idx);
+                }
                 mosaicInFlightIndxs_.clear();
             }
         }
@@ -1740,16 +1955,20 @@ void DataProcessor::scheduleLatest(WorkSet mask, bool replace, bool clearUnreque
 
 void DataProcessor::openDB()
 {
-    if (shuttingDown_.load() || dbReader_ || dbWriter_ || filePath_.isEmpty()) {
+    if (shuttingDown_.load() || dbReader_ || dbWriter_) {
         return;
     }
 
+    if (const QString dbPath = MosaicDB::surfaceDbPath(); !MosaicDB::removeDbFiles(dbPath)) {
+        qWarning() << "Failed to cleanup previous mosaic cache" << dbPath;
+    }
+
     // writer
-    dbWriter_ = new MosaicDB(filePath_, DbRole::Writer, true /*delete temp db files*/);
+    dbWriter_ = new MosaicDB(DbRole::Writer, true /*delete temp db files*/);
     MosaicDB* const writer = dbWriter_;
     writer->moveToThread(&dbWriteThread_);
 
-    connect(&dbWriteThread_, &QThread::started, writer, [writer]() {
+    QMetaObject::invokeMethod(writer, [writer]() {
         if (!writer->open()) {
             qWarning() << "DB Writer open failed";
         }
@@ -1764,10 +1983,10 @@ void DataProcessor::openDB()
         dbIsReady_.store(true, std::memory_order_relaxed);
 
         // reader
-        dbReader_ = new MosaicDB(filePath_, DbRole::Reader);
+        dbReader_ = new MosaicDB(DbRole::Reader);
         MosaicDB* const reader = dbReader_;
         reader->moveToThread(&dbReadThread_);
-        connect(&dbReadThread_, &QThread::started, reader, [reader]() {
+        QMetaObject::invokeMethod(reader, [reader]() {
             if (!reader->open()) {
                 qWarning() << "DB Reader open failed";
             }
@@ -1840,8 +2059,8 @@ void DataProcessor::closeDB()
     dbIsReady_.store(false, std::memory_order_relaxed);
     notifyPrefetchProgress(); // сообщить префетчерам
 
-    if (!filePath_.isEmpty() && !MosaicDB::removeDbFiles(filePath_)) {
-        qWarning() << "Failed to remove mosaic cache" << filePath_;
+    if (const QString dbPath = MosaicDB::surfaceDbPath(); !MosaicDB::removeDbFiles(dbPath)) {
+        qWarning() << "Failed to remove mosaic cache" << dbPath;
     }
 
     //qDebug() << "DB closed";
@@ -2032,6 +2251,14 @@ void DataProcessor::onUpdateDataZoom(int zoom) // calc or db
     emit mosaicProcessingCleared();
     emit surfaceProcessingCleared();
 
+    // FAKE_COORDS + bounded last-N: wipe mosaic state on zoom change and replay only the last N
+    // epochs. Without this the new zoom would either lazy-erase huge backlogs as soon as the
+    // first new epoch arrives, or inherit stale paint from a prior visit.
+    if (activeZeroing_ && mosaicFakeCoordsLastN_ > 0) {
+        restartMosaic();
+        return;
+    }
+
     if (hotCache_.checkAnyTileForZoom(lastDataZoomIndx_)) {
         pumpVisible();
     }
@@ -2045,15 +2272,6 @@ void DataProcessor::onUpdateDataZoom(int zoom) // calc or db
 void DataProcessor::setFilePath(QString filePath)
 {
     Q_UNUSED(filePath);
-
-    const QString dbPath = MosaicDB::surfaceDbPath();
-    if (!MosaicDB::removeDbFiles(dbPath)) {
-        qWarning() << "Failed to cleanup previous mosaic cache" << dbPath;
-    }
-
-    filePath_ = dbPath;
-
-    openDB();
 }
 
 void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, float maxY)
@@ -2139,6 +2357,7 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
     lastViewRect_ = viewRect;
     lastVisTileKeys_ = tiles;
     lastVisTilesZoom_ = reqZoom;
+
     if (updateSurface_ && !reopenTiles.isEmpty()) {
         int zoom = reqZoom;
         if (zoom <= 0) {
@@ -2241,6 +2460,7 @@ void DataProcessor::shutdown()
 
     requestCancel();
     computeThread_.requestInterruption();
+    btThread_.requestInterruption();
     dbReadThread_.requestInterruption();
     dbWriteThread_.requestInterruption();
 
@@ -2268,6 +2488,14 @@ void DataProcessor::shutdown()
         computeThread_.requestInterruption();
         computeThread_.quit();
         waitForThread(computeThread_, 7000);
+    }
+
+    btThread_.quit();
+    if (!waitForThread(btThread_, 3000)) {
+        qWarning() << "BtWorkerThread did not stop in time; retrying graceful wait";
+        btThread_.requestInterruption();
+        btThread_.quit();
+        waitForThread(btThread_, 7000);
     }
 
     if (dbReader_) {
@@ -2482,6 +2710,22 @@ void DataProcessor::onDbSaveTiles(const QHash<TileKey, SurfaceTile> &tiles)
     if (shuttingDown_.load() || suppressResults_.load()) {
         return;
     }
+    // FAKE_COORDS + bounded window: don't persist the rolling-window state. Without this the
+    // DB would gradually accept (and later replay) snapshots that contradict the gate logic.
+    // Hot cache needs an ACK to release the blocked nodes, so we still drive the save-cycle —
+    // just without actually writing anywhere.
+    if (activeZeroing_ && mosaicFakeCoordsLastN_ > 0) {
+        QVector<TileKey> ackKeys;
+        ackKeys.reserve(tiles.size());
+        for (auto it = tiles.cbegin(); it != tiles.cend(); ++it) {
+            ackKeys.append(it.key());
+        }
+        hotCache_.onSendSavedTiles(ackKeys);
+        return;
+    }
+
+    openDB();
+
     emit dbSaveTiles(engineVer_, tiles, true, defaultTileSidePixelSize, defaultTileHeightMatrixRatio);
 }
 
@@ -2708,7 +2952,7 @@ void DataProcessor::onDbAnyTileForZoom(int zoom, bool exists)
     }
 }
 
-void DataProcessor::postTraceLines(const QVector3D &leftBeg, const QVector3D &leftEnd, const QVector3D &rightBeg, const QVector3D &rightEnd)
+void DataProcessor::postTraceLines(const QVector3D &leftBeg, const QVector3D &leftEnd, const QVector3D &rightBeg, const QVector3D &rightEnd, int epochIndex)
 {
-    emit sendTraceLines(leftBeg, leftEnd, rightBeg, rightEnd);
+    emit sendTraceLines(leftBeg, leftEnd, rightBeg, rightEnd, epochIndex);
 }

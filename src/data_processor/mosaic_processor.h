@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <QVariantMap>
+
 #include "dataset_defs.h"
 #include "epoch.h"
 #include "surface_tile.h"
@@ -13,6 +16,14 @@ class SurfaceMesh;
 class MosaicProcessor
 {
 public:
+    // Источник амплитуды для отрисовки мозайки.
+    // Значения должны совпадать с порядком в qml/MosaicExtraSettings.qml (CCombo mosaicSource).
+    enum class Source : std::uint8_t {
+        Amplitude = 0,  // Echogram::amplitude (сырое)
+        SideScan  = 1,  // Echogram::compensated (gain-compensation)
+        Tgc       = 2,  // Echogram::tgc (линейный TGC, параметры — Echogram::gTgc*)
+    };
+
     explicit MosaicProcessor(DataProcessor* parent, ComputeWorker* computeWorker);
     ~MosaicProcessor();
 
@@ -23,14 +34,17 @@ public:
 
     // PROCESSING
     void setChannels(const ChannelId& firstChId, uint8_t firstSubChId, const ChannelId& secondChId, uint8_t secondSubChId);
-    void updateDataWrapper(const QVector<int>& indxs);
+    void updateDataWrapper(const QVector<int>& indxs, bool batchEmit = false);
     void setLAngleOffset(float val);
     void setRAngleOffset(float val);
     void setTileResolution(float tileResolution);
     void setGenerageGridContour(bool state);
+    void setSource(Source source);
 
     QPair<ChannelId, uint8_t> getFirstChannelId()  const { return qMakePair(segFChannelId_, segFSubChannelId_); };
     QPair<ChannelId, uint8_t> getSecondChannelId() const { return qMakePair(segSChannelId_, segSSubChannelId_); };
+
+    void fillDiagnostics(QVariantMap& stats, int probeWindow) const;
 
 private:
     void postUpdate(const QSet<SurfaceTile*>& updatedIn, QSet<SurfaceTile*>& changedOut);
@@ -68,4 +82,16 @@ private:
     float lAngleOffset_;
     float rAngleOffset_;
     bool generateGridContour_;
+    Source source_ = Source::SideScan;
+    // When true, updateData buffers per-chunk tile updates into batchedTiles_ instead of
+    // pushing each chunk to the renderer immediately. updateDataWrapper flushes once at the
+    // end. Eliminates piece-by-piece flicker for multi-chunk batches (e.g. FAKE_COORDS+N
+    // full-restart repaints of last-N epochs).
+    bool inBatch_ = false;
+    TileMap batchedTiles_;
+    int lastTraceLineEpoch_;
+    QVector3D lastLeftBeg_;
+    QVector3D lastLeftEnd_;
+    QVector3D lastRightBeg_;
+    QVector3D lastRightEnd_;
 };

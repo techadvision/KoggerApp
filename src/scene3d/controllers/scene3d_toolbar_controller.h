@@ -30,7 +30,9 @@ public:
     Q_INVOKABLE void onCompassButtonChanged(bool state);
     Q_INVOKABLE void onCompassPosChanged(int pos);
     Q_INVOKABLE void onCompassSizeChanged(int size);
+    Q_INVOKABLE void onScaleBarButtonChanged(bool state);
     Q_INVOKABLE void onShadowsEnabledChanged(bool state);
+    Q_INVOKABLE void onUsblLayerVisibilityChanged(bool state);
     Q_INVOKABLE void onShadowVectorXChanged(float value);
     Q_INVOKABLE void onShadowVectorYChanged(float value);
     Q_INVOKABLE void onShadowVectorZChanged(float value);
@@ -77,7 +79,9 @@ private:
     bool compass_;
     int  compassPos_;
     int  compassSize_;
+    bool scaleBar_;
     bool shadowsEnabled_;
+    bool usblLayerVisible_;
     float shadowVectorX_;
     float shadowVectorY_;
     float shadowVectorZ_;

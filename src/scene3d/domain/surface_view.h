@@ -22,6 +22,7 @@ public:
         QVector3D dir;
         float depth;
         QString text;
+        int level = 0;
     };
 
     class SurfaceViewRenderImplementation : public SceneObject::RenderImplementation
@@ -63,9 +64,11 @@ public:
         QHash<TileKey, QVector<QVector3D>> tileNormals_;
         QVector<IsoLabel> isoLabels_;
         float labelStep_;
+        float labelBaseSpacing_;
         float cameraDist_;
         QVector<QVector3D> lastLeftLine_;
         QVector<QVector3D> lastRightLine_;
+        int   lastTraceEpoch_;
         float traceWidth_;
         bool  traceVisible_;
         float verticalScale_;
@@ -86,6 +89,9 @@ public:
     GLuint getSurfaceColorTableTextureId() const;
     bool   getMVisible() const;
     bool   getIVisible() const;
+    int    getRenderTilesCount() const;
+    int    getRenderIsoLabelsCount() const;
+    float  getRenderSurfaceStep() const;
 
     QVector<GLuint>                                   takeMosaicTileTextureToDelete();
     QVector<std::pair<TileKey, std::vector<uint8_t>>> takeMosaicTileTextureToAppend();
@@ -95,12 +101,13 @@ public:
     GLuint                                            takeSurfaceColorTableToDelete();
 
     void setLlaRef(LLARef llaRef);
-    void saveVerticesToFile(const QString& path);
+    bool saveVerticesToFile(const QString& path);
 
     bool trySetMosaicTextureId(const TileKey& key, GLuint texId);
     bool hasTile(const TileKey& key) const;
 
-    void setTraceLines(const QVector3D& leftBeg, const QVector3D& leftEnd, const QVector3D& rightBeg, const QVector3D& rightEnd);
+    void setTraceLines(const QVector3D& leftBeg, const QVector3D& leftEnd, const QVector3D& rightBeg, const QVector3D& rightEnd, int epochIndex);
+    void setTraceVisible(bool state);
 
 public slots: // from dataprocessor
     void clear();
@@ -119,7 +126,7 @@ private:
     void rebuildIsobathLabels();
     // isobaths
     void edgeIntersection(const QVector3D& a, const QVector3D& b, float level, QVector<QVector3D>& out);
-    void filterLabelsBySpacing(const QVector<SurfaceView::IsoLabel>& in, QVector<SurfaceView::IsoLabel>& out, float minDist);
+    void assignLabelLevels(const QVector<SurfaceView::IsoLabel>& in, QVector<SurfaceView::IsoLabel>& out, float baseSpacing);
 
 private:
     QMutex mosaicTexTasksMutex_;

@@ -1,5 +1,15 @@
 #include "isobaths_view_control_menu_controller.h"
 #include "scene3d_view.h"
+#include "isobaths_defs.h"
+#include <QColor>
+#include <QVariantMap>
+
+namespace {
+
+constexpr int kStatusPollMs = 700;
+constexpr int kStatusCollapsedPollMs = 3000;
+
+} // namespace
 
 
 IsobathsViewControlMenuController::IsobathsViewControlMenuController(QObject* parent)
@@ -16,9 +26,15 @@ IsobathsViewControlMenuController::IsobathsViewControlMenuController(QObject* pa
     edgesVisible_(false),
     trianglesVisible_(false),
     debugModeView_(false),
-    processState_(true)
+    processState_(true),
+    statusMonitorEnabled_(false),
+    statusRequestPending_(false),
+    statusDetailedPolling_(false)
 {
     qRegisterMetaType<DataProcessorType>("DataProcessorType");
+
+    statusTimer_.setInterval(kStatusPollMs);
+    QObject::connect(&statusTimer_, &QTimer::timeout, this, &IsobathsViewControlMenuController::refreshPipelineStatus);
 }
 
 void IsobathsViewControlMenuController::setGraphicsSceneView(GraphicsScene3dView* sceneView)
@@ -36,6 +52,110 @@ void IsobathsViewControlMenuController::setGraphicsSceneView(GraphicsScene3dView
 void IsobathsViewControlMenuController::setDataProcessorPtr(DataProcessor *dataProcessorPtr)
 {
     dataProcessorPtr_ = dataProcessorPtr;
+
+    if (dataProcessorPtr_) {
+        QObject::connect(dataProcessorPtr_, &DataProcessor::pipelineStats,
+                         this, &IsobathsViewControlMenuController::onPipelineStats,
+                         Qt::UniqueConnection);
+    }
+}
+
+QVariantMap IsobathsViewControlMenuController::pipelineStatus() const
+{
+    return pipelineStatus_;
+}
+
+bool IsobathsViewControlMenuController::statusMonitorEnabled() const
+{
+    return statusMonitorEnabled_;
+}
+
+void IsobathsViewControlMenuController::setStatusMonitorEnabled(bool state)
+{
+    if (statusMonitorEnabled_ == state) {
+        return;
+    }
+
+    statusMonitorEnabled_ = state;
+
+    if (statusMonitorEnabled_) {
+        statusTimer_.setInterval(statusDetailedPolling_ ? kStatusPollMs : kStatusCollapsedPollMs);
+        statusTimer_.start();
+        refreshPipelineStatus();
+    }
+    else {
+        statusTimer_.stop();
+        statusRequestPending_ = false;
+        pipelineStatus_.clear();
+        emit pipelineStatusChanged();
+    }
+
+    emit statusMonitorEnabledChanged();
+}
+
+bool IsobathsViewControlMenuController::statusDetailedPolling() const
+{
+    return statusDetailedPolling_;
+}
+
+void IsobathsViewControlMenuController::setStatusDetailedPolling(bool state)
+{
+    if (statusDetailedPolling_ == state) {
+        return;
+    }
+
+    statusDetailedPolling_ = state;
+
+    if (statusMonitorEnabled_) {
+        statusTimer_.setInterval(statusDetailedPolling_ ? kStatusPollMs : kStatusCollapsedPollMs);
+
+        if (statusDetailedPolling_) {
+            refreshPipelineStatus();
+        }
+    }
+
+    emit statusDetailedPollingChanged();
+}
+
+void IsobathsViewControlMenuController::refreshPipelineStatus()
+{
+    if (!dataProcessorPtr_ || statusRequestPending_) {
+        return;
+    }
+
+    statusRequestPending_ = true;
+    QMetaObject::invokeMethod(dataProcessorPtr_, "requestPipelineStats", Qt::QueuedConnection);
+}
+
+void IsobathsViewControlMenuController::onPipelineStats(const QVariantMap& stats)
+{
+    statusRequestPending_ = false;
+
+    if (!statusMonitorEnabled_) {
+        return;
+    }
+
+    QVariantMap next = stats;
+    next["isobathsRequested"] = visibility_;
+    next["processEnabled"]    = processState_;
+
+    if (graphicsSceneViewPtr_) {
+        if (auto surfacePtr = graphicsSceneViewPtr_->getSurfaceViewPtr(); surfacePtr) {
+            next["renderTiles"]       = surfacePtr->getRenderTilesCount();
+            next["renderIsoLabels"]   = surfacePtr->getRenderIsoLabelsCount();
+            next["renderSurfaceStep"] = surfacePtr->getRenderSurfaceStep();
+            next["renderIsobathsOn"]  = surfacePtr->getIVisible();
+            next["renderMosaicOn"]    = surfacePtr->getMVisible();
+        }
+    }
+
+    if (next == pipelineStatus_) {
+        return;
+    }
+
+    pipelineStatus_ = next;
+
+    emit pipelineStatusChanged();
 }
 
 void IsobathsViewControlMenuController::findComponent()
@@ -242,4 +362,19 @@ void IsobathsViewControlMenuController::onSetExtraWidth(int val)
     else {
         tryInitPendingLambda();
     }
+}
+
+QVariantList IsobathsViewControlMenuController::themeStops(int index) const
+{
+    const QVector<QVector3D>& palette = IsobathUtils::colorPalette(index);
+    QVariantList stops;
+    const int count = palette.size();
+    for (int i = 0; i < count; ++i) {
+        const QVector3D& c = palette[i];
+        QVariantMap stop;
+        stop["pos"] = (count > 1) ? static_cast<double>(i) / (count - 1) : 0.0;
+        stop["color"] = QColor::fromRgbF(c.x(), c.y(), c.z()).name();
+        stops.append(stop);
+    }
+    return stops;
 }

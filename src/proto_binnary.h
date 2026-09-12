@@ -4,6 +4,7 @@
 #include "stdint.h"
 #include "stddef.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <cmath>
 #include "mav_link_conf.h"
 
@@ -72,6 +73,7 @@ enum ID : uint16_t {
     ID_ACC_SETUP = 0x1C,
     ID_MAG_SETUP = 0x1D,
     ID_BARO_SETUP = 0x1E,
+    ID_DEV_SYNC = 0x1F,
 
     ID_VERSION = 0x20,
     ID_MARK = 0x21,
@@ -79,6 +81,10 @@ enum ID : uint16_t {
     ID_FLASH = 0x23,
     ID_BOOT = 0x24,
     ID_UPDATE = 0x25,
+    ID_RECORDER_STATUS = 0x26,
+
+    ID_SERVO_CONTROL = 0x27,
+    ID_PWM_ROUTE     = 0x28,
 
     ID_EVENT = 0x30,
     ID_VOLTAGE = 0x31,
@@ -93,12 +99,13 @@ enum ID : uint16_t {
 
     ID_USBL_SOLUTION = 0x65,
 
-    ID_SIGNAL_ENCODER = 0x66, // 102
-    ID_SIGNAL_DECODER = 0x67, // 103
+    ID_MODEM_SOLUTION = 0x66, // 102
     ID_USBL_CONTROL = 0x68, // 104
 
     ID_GFW = 200,
     ID_BOAT_STATUS = 0xC9,
+
+    ID_STAND_SCAN = 240,
 
     sizer = 0xFFFF
 };
@@ -1008,12 +1015,6 @@ public:
         _readPosition++;
     }
 
-    char readChar() {
-        char c = _frame[_readPosition++];
-        _readPosition++;
-        return c;
-    }
-
     double readDouble() {
         uint32_t i = 0;
         char data[20] = {};
@@ -1025,7 +1026,11 @@ public:
 
         double res = NAN;
         if(i > 0) {
-            sscanf(data, "%lf", &res);
+            char* end = nullptr;
+            const double parsed = strtod(data, &end);
+            if (end != data) {
+                res = parsed;
+            }
         }
 
         _readPosition++;

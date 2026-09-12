@@ -139,6 +139,19 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     QVector<QColor> coloros;
     QVector<int> levels;
+    colormapFor(static_cast<int>(themeId_), coloros, levels);
+
+    //PULSE: the apply-steps that used to sit at the foot of the theme table, before
+    //upstream split the table out into the static colormapFor().
+    _rawThemeColors = coloros;
+    setColorScheme(coloros, levels);
+    getThemeColors();
+    publishThemeColors();
+}
+
+void Plot2DEchogram::colormapFor(int theme_id, QVector<QColor>& coloros, QVector<int>& levels) {
+    coloros.clear();
+    levels.clear();
 
     // ID 0
     if(theme_id == ClassicTheme) {
@@ -1659,15 +1672,20 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     }
 
-    _rawThemeColors = coloros;
-    //qDebug() << "Theme ID was set by user, new ID is " << theme_id;
-    //qDebug() << "setThemeId called on instance:" << this;
-    //qDebug() << "Theme ID include colors " << _rawThemeColors;
-
-    setColorScheme(coloros, levels);
-    getThemeColors();
-    publishThemeColors();
-    //emit themeColorsChanged();
+    //UPSTREAM 1.0.3 split this into a STATIC colormapFor() plus setThemeId(). The table above
+    //is unchanged; what used to follow it - _rawThemeColors, setColorScheme, getThemeColors,
+    //publishThemeColors - touches members and has moved into setThemeId() below.
+    //
+    //Fallback: setThemeId clamps its id, but qPlot2D::getThemeColorsFor() calls this with an
+    //arbitrary one, and an empty ramp would render nothing at all.
+    if (coloros.isEmpty()) {
+        coloros = { QColor::fromRgb(0, 0, 0),
+                    QColor::fromRgb(20, 5, 80),
+                    QColor::fromRgb(50, 180, 230),
+                    QColor::fromRgb(190, 240, 250),
+                    QColor::fromRgb(255, 255, 255) };
+        levels  = {0, 30, 130, 220, 255};
+    }
 }
 
 
@@ -2094,6 +2112,7 @@ bool Plot2DEchogram::drawZoomPreview(Plot2D* parent,
 
     const bool rendered = miniPreviewPlot_->render(painter,
                                                    dataset,
+                                                   parent,
                                                    cursor,
                                                    canvas.width(),
                                                    sourceLeft,
@@ -2105,11 +2124,7 @@ bool Plot2DEchogram::drawZoomPreview(Plot2D* parent,
                                                    getThemeId(),
                                                    getLowLevel(),
                                                    getHighLevel(),
-                                                   _compensation_id,
-                                                   parent->getBottomTrackVisible(),
-                                                   parent->getBottomTrackTheme(),
-                                                   parent->getRangefinderVisible(),
-                                                   parent->getRangefinderTheme());
+                                                   _compensation_id);
     painter->restore();
 
     return rendered;

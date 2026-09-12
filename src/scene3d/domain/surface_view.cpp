@@ -5,8 +5,21 @@
 #include <cmath>
 #include <algorithm>
 #include <QFile>
+#include <QDir>
+#include <QFileInfo>
+#include <QUrl>
 #include "math_defs.h"
+#include "themes.h"
 
+namespace {
+
+constexpr int   kIsoLabelLevelCount = 11;
+constexpr float kIsoLabelTargetPx = 16.0f;
+constexpr float kIsoLabelSpacingPx = 160.0f;
+constexpr float kIsoLabelAdvanceRatio = 0.80f;
+constexpr float kIsoLabelOverlapGapPx = 2.0f;
+
+} // namespace
 
 QVector2D SurfaceView::SurfaceViewRenderImplementation::projectToScreen(const QVector3D& p,
                                                                          const QMatrix4x4& mvp,
@@ -292,24 +305,33 @@ void SurfaceView::setLlaRef(LLARef llaRef)
     llaRef_ = llaRef;
 }
 
-void SurfaceView::saveVerticesToFile(const QString &path)
+bool SurfaceView::saveVerticesToFile(const QString &path)
 {
     auto* r = RENDER_IMPL(SurfaceView);
     if (!r) {
         qWarning() << "SurfaceView::saveVerticesToFile: no render impl";
-        return;
+        return false;
     }
 
 #ifdef Q_OS_ANDROID
     const QString filePath = path;
 #else
-    const QString filePath = QUrl(path).toLocalFile();
+    QString filePath = QUrl(path).toLocalFile();
+    if (filePath.isEmpty())
+        filePath = path;
 #endif
+
+    if (filePath.isEmpty()) {
+        qWarning() << "SurfaceView::saveVerticesToFile: empty path";
+        return false;
+    }
+
+    QDir().mkpath(QFileInfo(filePath).absolutePath());
 
     QFile file(filePath);
     if (!file.open(QFile::WriteOnly | QFile::Text)) {
         qWarning() << "Failed to open file for writing:" << filePath;
-        return;
+        return false;
     }
 
     QTextStream out(&file);
@@ -356,6 +378,7 @@ void SurfaceView::saveVerticesToFile(const QString &path)
     }
 
     file.close();
+    return true;
 }
 
 bool SurfaceView::trySetMosaicTextureId(const TileKey &key, GLuint texId)
@@ -378,15 +401,26 @@ bool SurfaceView::hasTile(const TileKey &key) const
     return false;
 }
 
-void SurfaceView::setTraceLines(const QVector3D &leftBeg, const QVector3D &leftEnd, const QVector3D &rightBeg, const QVector3D &rightEnd)
+void SurfaceView::setTraceLines(const QVector3D &leftBeg, const QVector3D &leftEnd, const QVector3D &rightBeg, const QVector3D &rightEnd, int epochIndex)
 {
     if (auto* r = RENDER_IMPL(SurfaceView); r) {
+        if (epochIndex <= r->lastTraceEpoch_)
+            return;
         r->lastLeftLine_.resize(2);
         r->lastRightLine_.resize(2);
         r->lastLeftLine_[0]  = leftBeg;
         r->lastLeftLine_[1]  = leftEnd;
         r->lastRightLine_[0] = rightBeg;
         r->lastRightLine_[1] = rightEnd;
+        r->lastTraceEpoch_   = epochIndex;
+        Q_EMIT changed();
+    }
+}
+
+void SurfaceView::setTraceVisible(bool state)
+{
+    if (auto* r = RENDER_IMPL(SurfaceView); r) {
+        r->traceVisible_ = state;
         Q_EMIT changed();
     }
 }
@@ -410,6 +444,24 @@ bool SurfaceView::getIVisible() const
 {
     auto* r = RENDER_IMPL(SurfaceView);
     return r->iVis_;
+}
+
+int SurfaceView::getRenderTilesCount() const
+{
+    auto* r = RENDER_IMPL(SurfaceView);
+    return r ? r->tiles_.size() : 0;
+}
+
+int SurfaceView::getRenderIsoLabelsCount() const
+{
+    auto* r = RENDER_IMPL(SurfaceView);
+    return r ? r->isoLabels_.size() : 0;
+}
+
+float SurfaceView::getRenderSurfaceStep() const
+{
+    auto* r = RENDER_IMPL(SurfaceView);
+    return r ? r->surfaceStep_ : 0.0f;
 }
 
 void SurfaceView::setSurfaceColorTableTextureId(GLuint textureId)
@@ -497,6 +549,7 @@ void SurfaceView::clear()
 
     r->lastLeftLine_.clear();
     r->lastRightLine_.clear();
+    r->lastTraceEpoch_ = -1;
 
     Q_EMIT changed();
     Q_EMIT boundsChanged();
@@ -842,16 +895,8 @@ void SurfaceView::rebuildIsobathLabels()
         }
     }
 
-    float distFactor = 1.0f;
-    if (std::isfinite(r->cameraDist_) && r->cameraDist_ > 1.0f) {
-        distFactor = qBound(0.3f, 150.0f / r->cameraDist_, 1.0f);
-    }
-    float minDist = r->labelStep_ * distFactor;
-    if (std::isfinite(r->cameraDist_) && r->cameraDist_ > 0.0f) {
-        minDist = qMin(minDist, r->cameraDist_ * 0.4f);
-    }
-    minDist = qMax(r->surfaceStep_ * 2.0f, minDist);
-    filterLabelsBySpacing(candidates, r->isoLabels_, minDist);
+    r->labelBaseSpacing_ = qMax(r->surfaceStep_ * 2.0f, kmath::fltEps);
+    assignLabelLevels(candidates, r->isoLabels_, r->labelBaseSpacing_);
 }
 
 void SurfaceView::edgeIntersection(const QVector3D &a, const QVector3D &b, float level, QVector<QVector3D> &out)
@@ -887,48 +932,89 @@ void SurfaceView::edgeIntersection(const QVector3D &a, const QVector3D &b, float
     }
 }
 
-void SurfaceView::filterLabelsBySpacing(const QVector<IsoLabel> &in, QVector<IsoLabel> &out, float minDist)
+void SurfaceView::assignLabelLevels(const QVector<IsoLabel> &in, QVector<IsoLabel> &out, float baseSpacing)
 {
     out.clear();
     if (in.isEmpty()) {
         return;
     }
 
-    if (!std::isfinite(minDist) || minDist <= 0.0f) {
+    if (!std::isfinite(baseSpacing) || baseSpacing <= 0.0f) {
         out = in;
         return;
     }
 
-    const float cell = minDist;
-    const float inv  = 1.0f / cell;
-    const float min2 = cell * cell;
+    out.reserve(in.size());
 
-    QHash<QPair<int,int>, QVector<QVector3D>> grid;
-    grid.reserve(in.size());
+    struct AcceptedPoint
+    {
+        QVector3D pos;
+        int isoKey;
+    };
 
-    for (const auto& lbl : in) {
-        const int cx = int(std::floor(lbl.pos.x() * inv));
-        const int cy = int(std::floor(lbl.pos.y() * inv));
-        bool isNear = false;
-        for (int dx = -1; dx <= 1 && !isNear; ++dx) {
-            for (int dy = -1; dy <= 1 && !isNear; ++dy) {
-                auto it = grid.constFind(qMakePair(cx + dx, cy + dy));
-                if (it == grid.cend()) {
-                    continue;
-                }
-                const auto& pts = it.value();
-                for (const auto& p : pts) {
-                    if ((lbl.pos - p).lengthSquared() < min2) {
-                        isNear = true;
-                        break;
+    auto isoKeyOf = [](const IsoLabel& lbl) {
+        return qRound(lbl.depth * 1000.0f);
+    };
+
+    QVector<int> pending(in.size());
+    for (int i = 0; i < in.size(); ++i) {
+        pending[i] = i;
+    }
+
+    QVector<AcceptedPoint> accepted;
+    accepted.reserve(in.size());
+
+    for (int level = kIsoLabelLevelCount - 1; level >= 0 && !pending.isEmpty(); --level) {
+        const float spacing = baseSpacing * static_cast<float>(1 << level);
+        const float inv = 1.0f / spacing;
+        const float sameSq = spacing * spacing;
+
+        QHash<QPair<int, int>, QVector<AcceptedPoint>> grid;
+        grid.reserve(accepted.size() + pending.size());
+        for (const auto& pt : accepted) {
+            grid[qMakePair(int(std::floor(pt.pos.x() * inv)), int(std::floor(pt.pos.y() * inv)))].append(pt);
+        }
+
+        QVector<int> rejected;
+        rejected.reserve(pending.size());
+
+        for (const int idx : pending) {
+            const IsoLabel& lbl = in[idx];
+            const int isoKey = isoKeyOf(lbl);
+            const int cx = int(std::floor(lbl.pos.x() * inv));
+            const int cy = int(std::floor(lbl.pos.y() * inv));
+
+            bool isNear = false;
+            for (int dx = -1; dx <= 1 && !isNear; ++dx) {
+                for (int dy = -1; dy <= 1 && !isNear; ++dy) {
+                    auto it = grid.constFind(qMakePair(cx + dx, cy + dy));
+                    if (it == grid.cend()) {
+                        continue;
+                    }
+                    for (const auto& pt : it.value()) {
+                        if (pt.isoKey == isoKey && (lbl.pos - pt.pos).lengthSquared() < sameSq) {
+                            isNear = true;
+                            break;
+                        }
                     }
                 }
             }
+
+            if (isNear) {
+                rejected.append(idx);
+                continue;
+            }
+
+            IsoLabel acceptedLabel = lbl;
+            acceptedLabel.level = level;
+            out.append(acceptedLabel);
+
+            const AcceptedPoint pt{ lbl.pos, isoKey };
+            accepted.append(pt);
+            grid[qMakePair(cx, cy)].append(pt);
         }
-        if (!isNear) {
-            out.append(lbl);
-            grid[qMakePair(cx, cy)].append(lbl.pos);
-        }
+
+        pending = std::move(rejected);
     }
 }
 
@@ -944,8 +1030,10 @@ SurfaceView::SurfaceViewRenderImplementation::SurfaceViewRenderImplementation()
     iVis_(false),
     mVis_(false),
     labelStep_(100.0f),
+    labelBaseSpacing_(6.0f),
     cameraDist_(10.0f),
-    traceWidth_(2.0f),
+    lastTraceEpoch_(-1),
+    traceWidth_(3.0f),
     traceVisible_(true),
     verticalScale_(1.0f)
 {}
@@ -1143,7 +1231,8 @@ void SurfaceView::SurfaceViewRenderImplementation::render(QOpenGLFunctions *ctx,
     }
 
     { // лучи
-        if (traceVisible_ && lastLeftLine_.size() == 2 && lastRightLine_.size() == 2) {
+        if (mVis_ && traceVisible_ && lastTraceEpoch_ >= 0 && lastLeftLine_.size() == 2 && lastRightLine_.size() == 2) {
+            ctx->glDisable(GL_DEPTH_TEST);
             lineProg->bind();
 
             const int posLoc   = lineProg->attributeLocation("position");
@@ -1169,6 +1258,7 @@ void SurfaceView::SurfaceViewRenderImplementation::render(QOpenGLFunctions *ctx,
 
             lineProg->disableAttributeArray(posLoc);
             lineProg->release();
+            ctx->glEnable(GL_DEPTH_TEST);
         }
     }
 
@@ -1180,12 +1270,38 @@ void SurfaceView::SurfaceViewRenderImplementation::render(QOpenGLFunctions *ctx,
         const float baseScale = (std::isfinite(cameraDist_) && cameraDist_ > 0.0f)
                                 ? cameraDist_ * 0.0015f
                                 : surfaceStep_ * 0.20f;
-        const float scale = qBound(0.12f, baseScale, 0.45f);
+        const float fallbackScale = qBound(0.12f, baseScale, 0.45f) / static_cast<float>(renderScale());
 
-        QVector<TextRenderer::Text3DItem> labelBatch;
-        labelBatch.reserve(isoLabels_.size());
+        const QRectF vport = DrawUtils::viewportRect(ctx);
+        const float halfVpW = static_cast<float>(vport.width()) * 0.5f;
+        const float halfVpH = static_cast<float>(vport.height()) * 0.5f;
+        const QVector4D axisXClip = mvp * QVector4D(1.0f, 0.0f, 0.0f, 0.0f);
+        const QVector4D axisYClip = mvp * QVector4D(0.0f, 1.0f, 0.0f, 0.0f);
+        const float pxPerMetreX = QVector2D(axisXClip.x() * halfVpW, axisXClip.y() * halfVpH).length();
+        const float pxPerMetreY = QVector2D(axisYClip.x() * halfVpW, axisYClip.y() * halfVpH).length();
+        const float pxPerMetreW = qMax(pxPerMetreX, pxPerMetreY);
+        const float glyphPx = static_cast<float>(TextRenderer::instance().getCharPixelHeight());
+        const float targetPx = kIsoLabelTargetPx * static_cast<float>(renderScale());
+        const float spacingPx = kIsoLabelSpacingPx * static_cast<float>(renderScale());
+        const bool screenSized = std::isfinite(pxPerMetreW) && pxPerMetreW > kmath::fltEps && glyphPx > 0.0f;
+        const bool levelCulling = screenSized && std::isfinite(labelBaseSpacing_) && labelBaseSpacing_ > 0.0f;
+
+        struct PlacedLabel
+        {
+            const IsoLabel* label;
+            float scale;
+            QVector2D screenPos;
+            float radiusPx;
+            int order;
+        };
+
+        QVector<PlacedLabel> placed;
+        placed.reserve(isoLabels_.size());
+
         constexpr float ndcMargin = 0.2f;
+        int order = -1;
         for (const auto& lbl : isoLabels_) {
+            ++order;
             const QVector4D clip = mvp * QVector4D(lbl.pos, 1.0f);
             const float w = clip.w();
             if (!std::isfinite(w) || std::fabs(w) < kmath::fltEps || w <= 0.0f) {
@@ -1202,7 +1318,84 @@ void SurfaceView::SurfaceViewRenderImplementation::render(QOpenGLFunctions *ctx,
                 continue;
             }
 
-            labelBatch.append(TextRenderer::Text3DItem{QStringView{lbl.text}, scale, lbl.pos, lbl.dir});
+            if (levelCulling) {
+                const float needSpacing = spacingPx * std::fabs(w) / pxPerMetreW;
+                int needLevel = 0;
+                if (needSpacing > labelBaseSpacing_) {
+                    needLevel = int(std::ceil(std::log2(needSpacing / labelBaseSpacing_)));
+                }
+                needLevel = std::clamp(needLevel, 0, kIsoLabelLevelCount - 1);
+                if (lbl.level < needLevel) {
+                    continue;
+                }
+            }
+
+            const float scale = screenSized ? (targetPx * std::fabs(w) / pxPerMetreW) / glyphPx
+                                            : fallbackScale;
+
+            const float textHeightPx = screenSized ? glyphPx * scale * pxPerMetreW / std::fabs(w) : 0.0f;
+            const float textWidthPx = textHeightPx * kIsoLabelAdvanceRatio * static_cast<float>(lbl.text.size());
+            const float radiusPx = screenSized
+                                   ? 0.5f * std::hypot(textWidthPx, textHeightPx) + kIsoLabelOverlapGapPx
+                                   : 0.0f;
+
+            placed.append(PlacedLabel{ &lbl,
+                                       scale,
+                                       QVector2D((x + 1.0f) * halfVpW, (y + 1.0f) * halfVpH),
+                                       radiusPx,
+                                       order });
+        }
+
+        std::sort(placed.begin(), placed.end(), [](const PlacedLabel& a, const PlacedLabel& b) {
+            if (a.label->level != b.label->level) {
+                return a.label->level > b.label->level;
+            }
+            return a.order < b.order;
+        });
+
+        float maxRadiusPx = 0.0f;
+        for (const auto& item : placed) {
+            maxRadiusPx = qMax(maxRadiusPx, item.radiusPx);
+        }
+
+        const float overlapCell = qMax(2.0f * maxRadiusPx, 1.0f);
+        const float overlapInv = 1.0f / overlapCell;
+        QHash<QPair<int, int>, QVector<QPair<QVector2D, float>>> overlapGrid;
+        overlapGrid.reserve(placed.size());
+
+        QVector<TextRenderer::Text3DItem> labelBatch;
+        labelBatch.reserve(placed.size());
+
+        for (const auto& item : placed) {
+            const int cx = int(std::floor(item.screenPos.x() * overlapInv));
+            const int cy = int(std::floor(item.screenPos.y() * overlapInv));
+
+            bool overlaps = false;
+            for (int dx = -1; dx <= 1 && !overlaps; ++dx) {
+                for (int dy = -1; dy <= 1 && !overlaps; ++dy) {
+                    auto it = overlapGrid.constFind(qMakePair(cx + dx, cy + dy));
+                    if (it == overlapGrid.cend()) {
+                        continue;
+                    }
+                    for (const auto& taken : it.value()) {
+                        const float limit = item.radiusPx + taken.second;
+                        if ((item.screenPos - taken.first).lengthSquared() < limit * limit) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (overlaps) {
+                continue;
+            }
+
+            overlapGrid[qMakePair(cx, cy)].append(qMakePair(item.screenPos, item.radiusPx));
+            labelBatch.append(TextRenderer::Text3DItem{QStringView{item.label->text},
+                                                       item.scale,
+                                                       item.label->pos,
+                                                       item.label->dir});
         }
 
         if (!labelBatch.isEmpty()) {
@@ -1265,9 +1458,10 @@ void SurfaceView::SurfaceViewRenderImplementation::render(QOpenGLFunctions *ctx,
         QMatrix4x4 textProjection;
         textProjection.ortho(vport.toRect());
 
-        const float padX     = 4.0f;
-        const float padY     = 4.0f;
-        const float keyDY    = 14.0f;
+        const float uiScale  = static_cast<float>(renderScale());
+        const float padX     = 4.0f * uiScale;
+        const float padY     = 4.0f * uiScale;
+        const float keyDY    = 14.0f * uiScale;
         const float scaleStr = 0.5f;
 
         for (auto it = tiles_.cbegin(); it != tiles_.cend(); ++it) {

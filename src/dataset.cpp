@@ -9,6 +9,7 @@
 
 extern Core core;
 #include <algorithm>
+#include <QDateTime>
 #include <QTimer>
 
 
@@ -25,6 +26,9 @@ Dataset::Dataset() :
 {
     qRegisterMetaType<ChannelId>("ChannelId");
     qRegisterMetaType<uint64_t>("uint64_t");
+    // usblSolutionAdded crosses from the link thread to the GUI thread queued, and a queued
+    // connection cannot marshal a type the metatype system has not been told about.
+    qRegisterMetaType<IDBinUsblSolution::UsblSolution>("IDBinUsblSolution::UsblSolution");
     resetDataset();
 }
 
@@ -212,6 +216,14 @@ void Dataset::setSoundSpeed(const ChannelId& channelId, uint32_t soundSpeed)
 void Dataset::setSonarOffset(float x, float y, float z)
 {
     sonarOffset_ = QVector3D(x, y, z);
+}
+
+void Dataset::invalidateEpochTgc()
+{
+    QWriteLocker wl(&poolMtx_);
+    for (auto& epoch : pool_) {
+        epoch.invalidateTgc();
+    }
 }
 
 void Dataset::setChartSetup(const ChannelId& channelId, uint16_t resol, uint16_t count, uint16_t offset)
@@ -444,6 +456,7 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
         validateChannelList(channelId, i);
     }
 
+    markDataAvailable(hasChartData_);
     emit dataUpdate();
     emit chartAdded(lastIndx);
     //32bit low mem workaround
@@ -553,6 +566,8 @@ void Dataset::addDist(const ChannelId& channelId, int dist)
     setLastRangefinderDepth(distMeters);
     //setLastDepth(distMeters);
 
+    if (dist > 0)
+        markDataAvailable(hasRangefinderData_);
     emit dataUpdate();
 
 }
@@ -640,6 +655,13 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
 
     epoch->setDist(channelId, distance * 1000);
 
+    //UPSTREAM 1.0.3: feeds "hide echo controls when the data is not there". Taken.
+    if (isfinite(distance))
+        markDataAvailable(hasRangefinderData_);
+
+    //PULSE: the mount offset and the depth filter are ours and stay. Upstream emits
+    //dataUpdate() unconditionally here; we keep our gate, because with bottom track on
+    //it is the bottom-track path that drives the update and a second emit would double it.
     if (_useDepthFilter) {
         filteredMeters = filterDepthRecords(corrDistance);
     } else {
@@ -765,54 +787,15 @@ float Dataset::filterDepthRecords (float distance) {
 
 
 void Dataset::addUsblSolution(IDBinUsblSolution::UsblSolution data) {
-    tracks[-1].data_.append(QVector3D());
-    tracks[-1].objectColor_ = QColor(0, 255, 255);
-    tracks[-1].type_ = UsblView::UsblObjectType::kBeacon;
-
+    // The head carries its own GNSS, and on a USBL-only deployment it is the ONLY fix there is:
+    // nothing calls addPosition, so without this the NED frame is never established and nothing
+    // can be placed on the scene. Guarded by the same state precedence as the calls in
+    // addPosition, so a boat fix still wins wherever there is one.
     Position pos;
     pos.lla = LLA(data.usbl_latitude, data.usbl_longitude);
-
-    static float dist_save = NAN;
-    static float angl_save = NAN;
-
-    Q_UNUSED(dist_save);
-    Q_UNUSED(angl_save);
-
-    float angl_usbl = data.azimuth_deg;
-    float dist = data.distance_m;
-
-    if(pos.lla.isCoordinatesValid()) {
+    if (pos.lla.isCoordinatesValid()) {
         setLlaRef(LLARef(pos.lla), getCurrentLlaRefState());
-
-        pos.LLA2NED(&_llaRef);
-
-        tracks[-2].data_.append(QVector3D(pos.ned.n, pos.ned.e, 0));
-        tracks[-2].objectColor_ = QColor(0, 200, 0);
-        tracks[-2].type_ = UsblView::UsblObjectType::kUsbl;
-        tracks[-2].yaw_ = 0.0f;
-
-        float beacon_n = data.beacon_n;
-        float beacon_e = data.beacon_e;
-
-        if(pos.ned.isCoordinatesValid()) {
-            beacon_n += pos.ned.n;
-            beacon_e += pos.ned.e;
-        }
-
-        tracks[-4].data_.append(QVector3D(beacon_n, beacon_e, 0));
-        tracks[-4].objectColor_ = QColor(200, 0, 0);
-        tracks[-4].lineWidth_ = 15;
-        tracks[-4].pointRadius_ = 50;
-        tracks[-4].type_ = UsblView::UsblObjectType::kBeacon;
-        tracks[-4].yaw_ = 90.0f;
-    } else {
-         tracks[-4].data_.append(QVector3D(NAN, NAN, 0));
     }
-    dist_save = dist;
-    angl_save = angl_usbl;
-
-    std::shared_ptr<UsblView> view = scene3dViewPtr_->getUsblViewPtr();
-    view->setTrackRef(tracks);
 
     {
         QWriteLocker wl(&poolMtx_);
@@ -831,7 +814,47 @@ void Dataset::addUsblSolution(IDBinUsblSolution::UsblSolution data) {
         pool_[poolIndex].set(data);
     }
 
+    // Host arrival time: the device clock in data.timestamp_us is not comparable with
+    // the host's, and fix age is what tells the operator whether a range is live.
+    const double nowMs = (double)QDateTime::currentMSecsSinceEpoch();
+    lastUsblSolution_ = data;
+    lastUsblFixEpochMs_ = nowMs;
+
+    // Keep it per address as well. 0xFF is the "no address" marker in the payload, and
+    // the protocol only ever uses 0..8, so anything else is not a beacon we can name.
+    if (data.id <= 8) {
+        QWriteLocker wl(&usblAddrLock_);
+        usblByAddr_[(int)data.id] = data;
+        usblEpochMsByAddr_[(int)data.id] = nowMs;
+    }
+    emit lastUsblSolutionChanged();
+    emit usblSolutionAdded(data);
+
+    markDataAvailable(hasUsblData_);
     emit dataUpdate();
+}
+
+QVariantMap Dataset::getUsblSolutions() const {
+    QReadLocker rl(&usblAddrLock_);
+
+    QVariantMap out;
+    for (auto it = usblByAddr_.constBegin(); it != usblByAddr_.constEnd(); ++it) {
+        const IDBinUsblSolution::UsblSolution& s = it.value();
+        QVariantMap e;
+        e["address"]      = it.key();
+        e["distance"]     = s.distance_m;
+        e["azimuth"]      = s.azimuth_deg;
+        e["elevation"]    = s.elevation_deg;
+        e["snr"]          = s.snr;
+        e["beaconLat"]    = s.beacon_latitude;
+        e["beaconLon"]    = s.beacon_longitude;
+        e["beaconDepth"]  = s.beacon_depth;
+        e["epochMs"]      = usblEpochMsByAddr_.value(it.key(), 0.0);
+        e["coordValid"]   = LLA(s.beacon_latitude, s.beacon_longitude).isCoordinatesValid();
+        // String key: QVariantMap keys are QStrings, so QML indexes it as usblSolutions["2"].
+        out[QString::number(it.key())] = e;
+    }
+    return out;
 }
 
 void Dataset::addDopplerBeam(IDBinDVL::BeamSolution *beams, uint16_t cnt) {
@@ -850,6 +873,8 @@ void Dataset::addDopplerBeam(IDBinDVL::BeamSolution *beams, uint16_t cnt) {
 
         pool_[pool_index].setDopplerBeam(beams, cnt);
     }
+    if (cnt > 0)
+        markDataAvailable(hasDopplerBeamData_);
     emit dataUpdate();
 }
 
@@ -869,11 +894,17 @@ void Dataset::addDVLSolution(IDBinDVL::DVLSolution dvlSolution) {
 
         pool_[pool_index].setDVLSolution(dvlSolution);
     }
+    markDataAvailable(hasDvlSolutionData_);
     emit dataUpdate();
 }
 
 void Dataset::addAtt(float yaw, float pitch, float roll)
 {
+    lastYaw_ = yaw;
+    lastPitch_ = pitch;
+    lastRoll_ = roll;
+    emit attitudeUpdated();
+
     if (activeZeroing_) {
         ++testTime_;
 
@@ -942,6 +973,8 @@ void Dataset::addAtt(float yaw, float pitch, float roll)
 
     interpolator_.interpolateAtt(false);
 
+    if (isfinite(yaw) || isfinite(pitch) || isfinite(roll))
+        markDataAvailable(hasAttitudeData_);
     emit attitudeAdded(lastIndx);
     emit dataUpdate();
 }
@@ -964,6 +997,8 @@ void Dataset::addPosition(double lat, double lon, uint32_t unix_time, int32_t na
         }
 
         tryResetDataset(pos.lla.latitude, pos.lla.longitude);
+
+        markDataAvailable(hasPositionData_);
 
         uint64_t lastIndx = 0;
         bool needEmitSpeedChanged = false;
@@ -1179,19 +1214,27 @@ void Dataset::addSimpleNavV2(uint8_t gnssFixType,
     simpleNavV2PitchDeg_ = pitchDeg;
     simpleNavV2RollDeg_ = rollDeg;
 
+    if (gnssFixType > 0)
+        markDataAvailable(hasPositionData_);
     emit simpleNavV2Changed();
 }
 
 void Dataset::addTemp(float temp_c) {
-    _temp = temp_c + _temperatureCorrection;
+    _temp = temp_c + _temperatureCorrection;   //PULSE: mount/calibration correction
     lastTemp_ = _temp;
     emit tempChanged();
+    emit lastTempChanged();                    //UPSTREAM 1.0.3
 
-    QWriteLocker wl(&poolMtx_);
-    if (pool_.isEmpty()) {
-        pool_.resize(1);
+    {
+        QWriteLocker wl(&poolMtx_);
+        if (pool_.isEmpty()) {
+            pool_.resize(1);
+        }
+        pool_.last().setTemp(lastTemp_);   //PULSE: the CORRECTED value, as on master
     }
-    pool_.last().setTemp(lastTemp_);
+
+    if (isfinite(temp_c))
+        markDataAvailable(hasTemperatureData_);   //UPSTREAM 1.0.3
 }
 
 void Dataset::addBoatStatus(uint8_t batteryBoatPercent, uint8_t batteryBridgePercent, uint8_t signalQualityBoatPercent, uint8_t signalQualityBridgePercent)
@@ -1244,7 +1287,7 @@ void Dataset::mergeGnssTrack(QList<Position> track) {
             if(min_ind > 0) {
                 track_pos_save = min_ind;
                 epoch->setExternalPosition(track[min_ind]);
-                sync_count++;
+                sync_count = sync_count + 1;
             }
         }
     }
@@ -1374,9 +1417,9 @@ void Dataset::softResetDataset() // for long-distance camera movement
 void Dataset::resetRenderBuffers()
 {
     clearTileEpochIndex();
-    tracks.clear();
     pool_.clear();
     pool_.shrink_to_fit();//
+    resetDataAvailability();
     lastAYaw_ = NAN;
     lastAPitch_ = NAN;
     lastARoll_ = NAN;
@@ -1474,53 +1517,6 @@ void Dataset::spatialProcessing() {
 
                 data->bottomProcessing.bottomPoint = ext_pos;
             }
-        }
-    }
-}
-
-void Dataset::usblProcessing() {
-    const int to_size = size();
-    int from_index = 0;
-
-    _beaconTrack.clear();
-    _beaconTrack1.clear();
-
-    for(int i = from_index; i < to_size; i+=1) {
-        Epoch* epoch = fromIndex(i);
-        Position boatPos = epoch->getPositionGNSS();
-
-        // if(pos.lla.isCoordinatesValid() && !pos.ned.isCoordinatesValid()) {
-        //     if(!_llaRef.isInit) {
-        //         _llaRef = LLARef(pos.lla);
-        //     }
-        //     pos.LLA2NED(&_llaRef);
-        // }
-
-        if(boatPos.ned.isCoordinatesValid() && epoch->isAttAvail() && epoch->isUsblSolutionAvailable()) {
-            double n = boatPos.ned.n, e = boatPos.ned.e;
-            Q_UNUSED(n);
-            Q_UNUSED(e);
-            double yaw = epoch->yaw();
-            double azimuth = epoch->usblSolution().azimuth_deg-180;
-            double dist = epoch->usblSolution().distance_m;
-            double dir = ((yaw + azimuth) + 120);
-            double rel_n = dist*cos(qDegreesToRadians(dir));
-            double rel_e = dist*sin(qDegreesToRadians(dir));
-            Q_UNUSED(rel_n);
-            Q_UNUSED(rel_e);
-            // if(i > 4000 && i < 4500) {
-            //     _beaconTrack.append(QVector3D(n+rel_n, e + rel_e, 0));
-            // }
-            // if(dist > 250 && (abs(azimuth)  > 170)) {
-            //     _beaconTrack1.append(QVector3D(n+rel_n, e + rel_e, 0));
-            // }
-            // if(dist > 50 && azimuth < 10  && azimuth > -10) {
-            //     _beaconTrack.append(QVector3D(n+rel_n, e + rel_e, 0));
-            // }
-            // if(dist > 250 && (abs(azimuth)  > 170)) {
-            //     _beaconTrack1.append(QVector3D(n+rel_n, e + rel_e, 0));
-            // }
-
         }
     }
 }
@@ -1910,6 +1906,7 @@ void Dataset::setLastDepth(float val)
 void Dataset::setLastRangefinderDepth(float val)
 {
     lastRangefinderDepth_ = val;
+    emit lastRangefinderDepthChanged();
 }
 
 void Dataset::setLastBottomTrackDepth(float val)
@@ -1927,6 +1924,7 @@ void Dataset::setLastBottomTrackDepth(float val)
     }
 
     lastBottomTrackDepth_ = val;
+    emit lastBottomTrackDepthChanged();
 }
 
 void Dataset::calcDimensionRects(uint64_t indx)
@@ -2267,17 +2265,21 @@ std::tuple<ChannelId, uint8_t, QString>  Dataset::channelIdFromName(const QStrin
 {
     auto retVal = std::make_tuple(ChannelId(), 0x00, QString());
 
-    if (name.isEmpty() || channelsNames_.isEmpty() ||
-        channelsIds_.size() != channelsNames_.size() ||
-        subChannelIds_.size() != channelsNames_.size()) {
-
+    if (name.isEmpty()) {
         return retVal;
     }
 
-    int index = channelsNames_.indexOf(name);
+    const QVector<DatasetChannel> chList = channelsList();
 
-    if (index >= 0 && index < channelsIds_.size()) {
-        return std::make_tuple(channelsIds_[index], subChannelIds_[index], channelsNames_[index]);
+    for (const auto& channel : chList) {
+        const QString chName = QString("%1|%2|%3").arg(
+            channel.portName_,
+            QString::number(channel.channelId_.address),
+            QString::number(channel.subChannelId_));
+
+        if (chName == name) {
+            return std::make_tuple(channel.channelId_, channel.subChannelId_, chName);
+        }
     }
 
     return retVal;
@@ -2423,6 +2425,8 @@ void Dataset::onSonarPosCanCalc(uint64_t indx)
         chunkTarget = std::min(calcTarget, sonarPosIndx_ + kSonarChunk);
     }
 
+    const uint64_t prevSonarPosIndx = sonarPosIndx_;
+
     for (uint64_t i = sonarPosIndx_ + 1; i <= chunkTarget; ++i) {
         if (auto* ep = fromIndex(i); ep) {
             if (sonarOffset_.isNull()) {
@@ -2444,6 +2448,15 @@ void Dataset::onSonarPosCanCalc(uint64_t indx)
 
     sonarPosIndx_ = chunkTarget;
     pendingSonarPosIndx_ = sonarPosIndx_;
+
+    {
+        const int btEnd = static_cast<int>(getLastBottomTrackEpoch());
+        const int reFrom = static_cast<int>(prevSonarPosIndx) + 1;
+        const int reTo   = std::min<int>(static_cast<int>(chunkTarget), btEnd);
+        if (btEnd > 0 && reFrom <= reTo) {
+            emit sonarPositionsUpdated(reFrom, reTo);
+        }
+    }
 
     if (chunkedSpatialCatchup_ && calcTarget > sonarPosIndx_) {
         pendingSonarPosIndx_ = calcTarget;

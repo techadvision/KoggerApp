@@ -20,7 +20,9 @@ public:
     void setSettingsBus(SettingsBus* bus);
 
     Q_PROPERTY(QList<DevQProperty*> devs READ getDevList NOTIFY devChanged)
+    Q_PROPERTY(bool standAvailable READ standAvailable NOTIFY standAvailableChanged)
     Q_PROPERTY(bool protoBinConsoled READ getProtoBinConsoled WRITE setProtoBinConsoled NOTIFY protoBinConsoledChanged)
+    Q_PROPERTY(bool nmeaConsoled READ getNmeaConsoled WRITE setNmeaConsoled NOTIFY nmeaConsoledChanged)
     Q_PROPERTY(StreamListModel* streamsList READ streamsList NOTIFY streamChanged)
     Q_PROPERTY(float vruVoltage READ vruVoltage NOTIFY vruChanged)
     Q_PROPERTY(float vruCurrent READ vruCurrent NOTIFY vruChanged)
@@ -38,6 +40,7 @@ public:
 
     /*QML*/
     QList<DevQProperty*> getDevList     () { return getWorker()->getDevList();     }
+    bool                 standAvailable () { return getWorker()->standAvailable(); }
     StreamListModel*     streamsList    () { return getWorker()->streamsList();    }
     float                vruVoltage     () { return getWorker()->vruVoltage();     }
     float                vruCurrent     () { return getWorker()->vruCurrent();     }
@@ -51,6 +54,7 @@ public:
     //Pulse
     bool mavlinkDetected() const;
     bool getProtoBinConsoled() const { return protoBinConsoledState_; };
+    bool getNmeaConsoled() const { return nmeaConsoledState_; };
     bool getUSBLBeaconDirectAsk() const { return USBLBeaconDirectAskState_; };
     int getAverageChartLosses() const {
         return averageChartLosses_;
@@ -58,7 +62,10 @@ public:
 
 
 public slots:
-    Q_INVOKABLE bool isCreatedId(int id) { return getWorker()->isCreatedId(id); }
+    Q_INVOKABLE bool isCreatedId(int id) { return getWorker()->isCreatedId(id); };
+    Q_INVOKABLE void startStreamDownload(int id);
+    Q_INVOKABLE void cancelStreamDownload(int id);
+    Q_INVOKABLE void refreshStreamList();
     void calcAverageChartLosses();
     void setProtoBinConsoled(bool state) {
         const bool changed = (protoBinConsoledState_ != state);
@@ -66,6 +73,15 @@ public slots:
         getWorker()->setProtoBinConsoled(protoBinConsoledState_);
         if (changed) {
             emit protoBinConsoledChanged();
+        }
+    }
+
+    void setNmeaConsoled(bool state) {
+        const bool changed = (nmeaConsoledState_ != state);
+        nmeaConsoledState_ = state;
+        getWorker()->setNmeaConsoled(nmeaConsoledState_);
+        if (changed) {
+            emit nmeaConsoledChanged();
         }
     }
 
@@ -87,11 +103,13 @@ signals:
 #endif
 
     void devChanged();
+    void standAvailableChanged();
     void streamChanged();
     void vruChanged();
     void chartLossesChanged();
     void mavlinkWasDetected();
     void protoBinConsoledChanged();
+    void nmeaConsoledChanged();
     void USBLBeaconDirectAskChanged();
 
 private:
@@ -103,5 +121,6 @@ private:
 
     int averageChartLosses_;
     bool protoBinConsoledState_;
+    bool nmeaConsoledState_;
     bool USBLBeaconDirectAskState_;
 }; // class DeviceWrapper

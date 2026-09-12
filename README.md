@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="resources/images/readme_md/kogger_app_logo.png" alt="KoggerApp Logo" width="670">
+  <a href="https://kogger.tech/koggerapp/">
+    <img src="resources/images/readme_md/kogger_app_logo.png" alt="KoggerApp Logo" width="670">
+  </a>
 </p>
 
 <p align="center">
@@ -15,7 +17,7 @@
 ### 🚤 *Key Features*
 - Multiple connections of Kogger sonars via serial port or TCP/UDP network.
 
-- Autopilot data display (battery level, speed, communication quality).
+- Info panel with sonar, navigation and autopilot telemetry (depth, position, battery level, speed, communication quality).
 
 - Real-time display of highly detailed echogram.
 <p align="center">
@@ -61,12 +63,15 @@ Supported versions: Windows 10 (1809 or later), 11.
 - Portable: Download .zip. Extract and run "KoggerApp.exe".  
 - Installer: Download and launch the installer (Optionally associates .klf files with the app during setup).
 
-🤖 Android (armeabi-v7a, arm64-v8a):  
+🤖 Android (universal APK: armeabi-v7a + arm64-v8a):  
 Supported versions: Android 9.0 (Pie, level 28) and above.  
-Download and install the .apk file. You may need to enable "Install from unknown sources" in your device settings.
+A single **universal .apk** carries both ABIs, so there is no per-device variant to choose — download that one file and install it. You may need to enable "Install from unknown sources" in your device settings.
 
-🐧 Linux (Ubuntu x86_64):  
-Supported distributions: Ubuntu 22.04, 24.04 and compatible systems.  
+🐧 Linux (x86_64, AppImage):  
+The AppImage bundles Qt and the application's own libraries — it runs on any modern x86_64 distribution with **glibc 2.39 or newer**. The AppImage is built on Ubuntu 24.04, and glibc is never bundled into an AppImage; check yours with `ldd --version`.
+
+Runs on: Ubuntu 24.04+, Linux Mint 22+, Pop!_OS 24.04+, elementary OS 8+, Debian 13+, Fedora 40+, RHEL / Rocky / AlmaLinux 10+, Arch / Manjaro / EndeavourOS and openSUSE Tumbleweed.
+
 Download the .AppImage file and make it executable:
 ```bash
 chmod +x KoggerApp_version_linux_x86_64.AppImage
@@ -79,37 +84,46 @@ and run:
 ---
 
 ### 🧱 *Build Instructions*
-*KoggerApp* is a cross-platform C++ Qt QML project, built using a .pro file. You can build it on Windows, Linux, and Android using the appropriate Qt kits and compilers.
+*KoggerApp* is a cross-platform C++ Qt QML project, built with **CMake** (CMake ≥ 3.22, Qt 6.8.3, C++23). You can build it on Windows, Linux, and Android using the appropriate Qt kits and compilers. The easiest way is to open the top-level `CMakeLists.txt` in Qt Creator, select a kit, and build; a command-line example is given for Linux below.
 
 🪟 Windows (x86_64):  
 Compiler: LLVM-MinGW 17.0.6  
 Qt version: Qt 6.8.3 (llvm-mingw_64)  
 Steps:
-- Open the .pro file in Qt Creator
+- Open `CMakeLists.txt` in Qt Creator (File > Open File or Project)
 - Select the LLVM-MinGW 64-bit kit
-- Click Build > Run qmake, then Build > Build Project
-- Run the application from Qt Creator or find the built binary in build/
+- Build > Build Project (Qt Creator runs CMake configure automatically)
+- Run from Qt Creator or find `KoggerApp.exe` under `build/`
 
 🤖 Android (armeabi-v7a, arm64-v8a)  
 Compiler: Clang from NDK 27.3.13750724  
-Qt version: Qt 6.8.3 (android_armv7 or android_arm64_v8a)  
-Set up Android SDK/NDK in Qt Creator (via Tools > Options > Devices > Android)  
+Qt version: Qt 6.8.3 (android_arm64_v8a)  
+Set up the Android SDK/NDK in Qt Creator (Tools > Options > Devices > Android)  
 Steps:
-- Open the .pro file in Qt Creator
-- Select Android kit
-- Click Build > Run qmake, then Build > Build Project
-- Use the .apk file generated in android-build/ to install on a device
+- Open `CMakeLists.txt` in Qt Creator
+- Select the Android (arm64-v8a) kit — a single kit produces a **universal APK** with both ABIs; keep the `android_armeabi_v7a` Qt installation present for the second-ABI sub-build
+- Build > Build Project
+- Install the generated `.apk` on a device
 
-🐧 Linux (Ubuntu x86_64)  
+🐧 Linux (x86_64)  
 Compiler: Clang 18.1.3  
-Qt version: Qt 6.8.3 (gcc)  
-Clone and build:
+Qt version: Qt 6.8.3 (gcc_64)  
+
+Build dependencies besides Qt itself:
+- Debian / Ubuntu: `sudo apt install build-essential cmake ninja-build libgl1-mesa-dev`
+- Fedora / RHEL: `sudo dnf install gcc-c++ cmake ninja-build mesa-libGL-devel`
+- Arch / Manjaro: `sudo pacman -S base-devel cmake ninja mesa`
+- openSUSE: `sudo zypper install gcc-c++ cmake ninja Mesa-libGL-devel`
+
+Clone and build (set `CMAKE_PREFIX_PATH` to your Qt installation):
 ```bash
 git clone https://github.com/koggertech/KoggerApp.git
 cd KoggerApp
-qmake
-make -j$(nproc)
-./KoggerApp
+cmake -S . -B build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.3/gcc_64"
+cmake --build build -j"$(nproc)"
+./build/KoggerApp
 ```
 
 ---
@@ -119,13 +133,25 @@ KoggerApp is open-source, meaning you have the power to shape it! Whether you're
 
 ---
 
+### 📜 *License*
+KoggerApp is released under the **GNU General Public License v3** — full text in [LICENSE](LICENSE).
+
+Third-party components: [Qt](https://www.qt.io/) 6.8.3 (GNU LGPL v3), [FFmpeg](https://ffmpeg.org/) 7.1 (GNU LGPL v2.1 or later), [FreeType](https://freetype.org/) 2.13.2 (FreeType License). Provenance and sources: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). All license texts also ship in the app — *Settings → Interface → About*.
+
+---
+
 ### 🔗 *Useful links*
 - 🌐 [Official Website](https://kogger.tech/)
+- 📄 [KoggerApp Product Page](https://kogger.tech/koggerapp/)
+- 📄 [KoggerApp - first introductory post](https://kogger.tech/koggerapp-sonar-survey-software/)
+- 📄 [KoggerApp - second introductory post](https://kogger.tech/koggerapp-sonar-survey-workflow/)
 
 ---
 
 Unlock next-level insights in hydrography and survey with KoggerApp.
 
 <p align="center">
-<img src="resources/images/readme_md/kogger_logo.png" alt="kogger logo" width="670">
+<a href="https://kogger.tech/">
+  <img src="resources/images/readme_md/kogger_logo.png" alt="kogger logo" width="670">
+</a>
 </p>

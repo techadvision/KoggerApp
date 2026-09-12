@@ -48,6 +48,35 @@ void Logger::setDatasetPtr(Dataset *datasetPtr)
     datasetPtr_ = datasetPtr;
 }
 
+QString Logger::logDirectory() const
+{
+    return logDirectory_.isEmpty() ? resolveLogDirectoryPath() : logDirectory_;
+}
+
+qint64 Logger::activeLogSizeBytes() const
+{
+    qint64 total = 0;
+    const QString paths[] = { klfLogFilePath(), csvLogFilePath() };
+    for (const QString& path : paths) {
+        if (path.isEmpty()) {
+            continue;
+        }
+        const QFileInfo info(path);
+        if (info.exists()) {
+            total += info.size();
+        }
+    }
+    return total;
+}
+
+int Logger::activeLogDurationSecs() const
+{
+    if (recordStartMs_ == 0) {
+        return 0;
+    }
+    return int((QDateTime::currentMSecsSinceEpoch() - recordStartMs_) / 1000);
+}
+
 bool Logger::startNewKlfLog()
 {
     stopKlfLogging();
@@ -106,7 +135,7 @@ bool Logger::startNewKlfLog()
 #else
 
     QDir dir;
-    const QString logPath = resolveLogDirectoryPath();
+    const QString logPath = logDirectory();
 
     qDebug() << "PLOG using path" << logPath;
 
@@ -133,6 +162,9 @@ bool Logger::startNewKlfLog()
 
     if (isOpen) {
         qDebug() << "PLOG good to go";
+        if (recordStartMs_ == 0) {
+            recordStartMs_ = QDateTime::currentMSecsSinceEpoch();
+        }
         emit loggingKlfStarted(true);
     }
 
@@ -147,6 +179,10 @@ bool Logger::stopKlfLogging()
 
     klfLogFile_->close();
     klfCurrentIteration_ = 0;
+
+    if (!isOpenCsv()) {
+        recordStartMs_ = 0;
+    }
 
     emit loggingKlfStarted(false);
 
@@ -230,7 +266,7 @@ bool Logger::startNewCsvLog()
 #else
 
     QDir dir;
-    const QString logPath = resolveLogDirectoryPath();
+    const QString logPath = logDirectory();
 
     if (dir.mkpath(logPath)) {
         dir.setPath(logPath);
@@ -251,13 +287,11 @@ bool Logger::startNewCsvLog()
 #endif
 
     if (isOpen) {
-        csvData_.csvConnections.append(QObject::connect(
-            datasetPtr_,
-            &Dataset::dataUpdate,
-            this,
-            &Logger::loggingCsvStream,
-            Qt::AutoConnection
-            ));
+        if (recordStartMs_ == 0) {
+            recordStartMs_ = QDateTime::currentMSecsSinceEpoch();
+        }
+        // connects
+        csvData_.csvConnections.append(QObject::connect(datasetPtr_, &Dataset::dataUpdate, this, &Logger::loggingCsvStream, Qt::AutoConnection));
     }
 
     return isOpen;
@@ -277,6 +311,10 @@ bool Logger::stopCsvLogging()
 
     if (isOpenCsv()) {
         csvLogFile_->close();
+    }
+
+    if (!isOpenKlf()) {
+        recordStartMs_ = 0;
     }
 
     return true;
@@ -482,12 +520,13 @@ bool Logger::creatExportStream(QString name)
 
     exportFile_->setFileName(localFilePath);
     isOpen = exportFile_->open(QIODevice::WriteOnly);
+    exportWriteFailed_ = false;
 
     if (isOpen) {
         core.consoleInfo("Export make file: " + exportFile_->fileName());
     }
     else {
-        core.consoleInfo("Export can't make file: " + exportFile_->fileName());
+        core.consoleWarning("Export can't make file: " + exportFile_->fileName() + " (" + exportFile_->errorString() + ")");
     }
 
     return isOpen;
@@ -495,17 +534,20 @@ bool Logger::creatExportStream(QString name)
 
 bool Logger::dataExport(QString str)
 {
-    if (exportFile_->isOpen()) {
-        exportFile_->write(str.toUtf8());
-    }
-
-    return true;
+    return dataByteExport(str.toUtf8());
 }
 
 bool Logger::dataByteExport(QByteArray data)
 {
-    if (exportFile_->isOpen()) {
-        exportFile_->write(data);
+    if (!exportFile_->isOpen()) {
+        exportWriteFailed_ = true;
+        return false;
+    }
+
+    const qint64 written = exportFile_->write(data);
+    if (written != data.size()) {
+        exportWriteFailed_ = true;
+        return false;
     }
 
     return true;
@@ -513,7 +555,27 @@ bool Logger::dataByteExport(QByteArray data)
 
 bool Logger::endExportStream()
 {
+    if (!exportFile_->isOpen()) {
+        return false;
+    }
+
+    const bool flushed = exportFile_->flush();
+    const bool hadError = exportWriteFailed_ ||
+                          exportFile_->error() != QFileDevice::NoError;
+    const QString path = exportFile_->fileName();
     exportFile_->close();
+
+    const QFileInfo info(path);
+    const bool fileOk = info.exists() && info.size() > 0;
+
+    if (!flushed || hadError || !fileOk) {
+        core.consoleWarning("Export verification failed: " + path);
+        if (info.exists() && info.size() == 0) {
+            QFile::remove(path);
+        }
+        return false;
+    }
+
     return true;
 }
 

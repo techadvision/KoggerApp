@@ -61,6 +61,7 @@ public:
     void setDataProcessorPtr(DataProcessor* dataProcessorPtr);
 
     float getDepthByMousePos(int mouseX, int mouseY, bool isHorizontal) const;
+    float getSyncDepthByMousePos(int mouseX, int mouseY, bool isHorizontal, int* channelOut) const;
     int getEpochIndxByMousePos(int mouseX, int mouseY, bool isHorizontal) const;
     QPoint getMousePosByDepthAndEpochIndx(float depth, int epochIndx, bool isHorizontal) const;
 
@@ -86,6 +87,14 @@ public:
 
     void setTimelinePositionSec(float position);
     void setTimelinePositionByEpoch(int epochIndx);
+    void setSyncCursor(int epoch, float depth, int channel);
+    void clearSyncCursor();
+    virtual void syncClearAim() {}
+    bool hasSyncDepth() const { return syncDepthValid_; }
+    float getSyncDepth() const { return syncDepth_; }
+    int getSyncChannel() const { return syncChannel_; }
+    void setAimFieldsMask(int mask) { aimFieldsMask_ = mask; }
+    int getAimFieldsMask() const { return aimFieldsMask_; }
 
     float timelinePosition();
     void scrollPosition(int columns);
@@ -104,10 +113,12 @@ public:
     double  getContactLat();
     double  getContactLon();
     double  getContactDepth();
+    bool    getContactIsActive();
 
     bool getImage(int width, int height, QPainter* painter, bool is_horizontal);
     void draw(QPainter* painterPtr);
     bool drawEchogramZoomPreview(QPainter* painter, const QRect& targetRect, const QPoint& sourceCenter, int sourceSize, QPointF* focusPoint = nullptr);
+    void copyVisualConfigTo(Plot2D& dst) const;
     bool drawEchogramZoomPreview(QPainter* painter, const QRect& targetRect, const QPoint& sourceCenter, int sourceWidth, int sourceHeight, QPointF* focusPoint = nullptr);
 
     float getCursorDistance() const;
@@ -139,7 +150,9 @@ public:
     bool hasTemperatureValue() const;
     bool hasRangefinderDepthTextValue() const;
     void setDopplerBeamVisible(bool visible, int beam_filter);
-    void setDopplerInstrumentVisible(bool visible);
+    void setDopplerInstrumentVisible(bool visible, int line_filter = -1);
+    void setDVLLegendVisible(bool visible);
+    void setDVLLegendPosition(int pos);
 
     void setGNSSVisible(bool visible, int flags);
 
@@ -154,6 +167,28 @@ public:
     void setVelocityVisible(bool visible);
     void setVelocityRange(float velocity);
     void setDistanceAutoRange(int auto_range_type);
+
+    bool getEchogramVisible() const { return echogram_.isVisible(); }
+    bool getBottomTrackDepthTextVisible() const { return bottomProcessing_.isDepthTextVisible(); }
+    bool getRangefinderDepthTextVisible() const { return rangefinder_.isDepthTextVisible(); }
+    bool getAttitudeVisible() const { return attitude_.isVisible(); }
+    bool getTemperatureVisible() const { return temperature_.isVisible(); }
+    bool getAcousticAngleVisible() const { return usblSolution_.isVisible(); }
+    bool getGNSSVisible() const { return gnss_.isVisible(); }
+    bool getDopplerBeamVisible() const { return dvlBeamVelocity_.isVisible(); }
+    int  getDopplerBeamFilter() const { return dvlBeamVelocity_.getBeamFilter(); }
+    bool getDopplerInstrumentVisible() const { return dvlSolution_.isVisible(); }
+    int  getDopplerInstrumentFilter() const { return dvlSolution_.getLineFilter(); }
+    bool getDVLLegendVisible() const { return dvlLegendVisible_; }
+    int  getDVLLegendPosition() const { return dvlLegendPosIndex_; }
+    int  getGridVerticalNumber() const { return grid_.getVetricalNumber(); }
+    bool getGridFillWidth() const { return grid_.isFillWidth(); }
+    bool getGridInvert() const { return grid_.isInvert(); }
+    bool getAngleVisibility() const { return grid_.getAngleVisibility(); }
+    bool getVelocityVisible() const { return grid_.getVelocityVisible(); }
+    int  getAngleRange() const { return std::isfinite(cursor_.attitude.to) ? static_cast<int>(std::lround(cursor_.attitude.to)) : 0; }
+    float getVelocityRange() const { return std::isfinite(cursor_.velocity.to) ? cursor_.velocity.to : 0.0f; }
+    int  getDistanceAutoRange() const { return static_cast<int>(cursor_.distance.mode); }
 
     void setDistance(float from, float to);
     void zoomDistance(float ratio);
@@ -220,6 +255,12 @@ protected:
     DataProcessor* dataProcessorPtr_;
     std::function<void()> pendingBtpLambda_;
     bool isHorizontal_;
+    bool dvlLegendVisible_ = true;
+    int  dvlLegendPosIndex_ = 0;
+    bool syncDepthValid_ = false;
+    float syncDepth_ = 0.0f;          // absolute physical depth (>=0 from surface)
+    int syncChannel_ = 1;             // which channel the synced depth belongs to (1/2)
+    int aimFieldsMask_ = 0xFF;
 
 private:
     bool   isEnabled_;
@@ -263,6 +304,7 @@ public:
 
     bool render(QPainter* painter,
                 Dataset* dataset,
+                const Plot2D* configSource,
                 const DatasetCursor& parentCursor,
                 int parentCanvasWidth,
                 int sourceLeft,
@@ -274,11 +316,7 @@ public:
                 int themeId,
                 float lowLevel,
                 float highLevel,
-                int compensationId,
-                bool bottomTrackVisible,
-                int bottomTrackThemeId,
-                bool rangefinderVisible,
-                int rangefinderThemeId);
+                int compensationId);
 
 private:
     void updateEchogramSettings(int themeId, float lowLevel, float highLevel, int compensationId);

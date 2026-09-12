@@ -1,5 +1,6 @@
 #include "id_binnary.h"
 #include "math.h"
+#include <utility>
 
 #include <core.h>
 #include <iterator>
@@ -480,6 +481,24 @@ Resp IDBinBoatStatus::parsePayload(FrameParser& proto)
     return respOk;
 }
 
+static_assert(sizeof(IDBinRecorderStatus::RecorderStatus) == 21,
+              "RecorderStatusV0 wire layout must stay 21 bytes");
+
+Resp IDBinRecorderStatus::parsePayload(FrameParser& proto)
+{
+    if (proto.ver() != RecorderStatus::getVer()) {
+        return respErrorVersion;
+    }
+
+    if (proto.readAvailable() < static_cast<int16_t>(sizeof(RecorderStatus))) {
+        return respErrorPayload;
+    }
+
+    data_ = proto.read<RecorderStatus>();
+    valid_ = true;
+    return respOk;
+}
+
 Resp IDBinDVL::parsePayload(FrameParser &proto) {
     if(proto.ver() == v0) {
          vel_x = proto.read<F4>();
@@ -638,6 +657,165 @@ void IDBinDistSetup::setConfidence(int confidence) {
     id_out.end();
 
     hashBinFrameOut(id_out);
+}
+
+
+Resp IDBinServoControl::parsePayload(FrameParser &proto) {
+    if (proto.ver() == v0) {
+        m_general       = proto.read<U2>();
+        m_options       = proto.read<U2>();
+        m_pwmMinUs      = proto.read<U2>();
+        m_pwmMaxUs      = proto.read<U2>();
+        m_angleRangeDeg = proto.read<S2>();
+        m_stepDeg       = proto.read<S2>();
+        m_rangeDeg      = proto.read<S2>();
+        m_centerDeg     = proto.read<S2>();
+    } else {
+        return respErrorVersion;
+    }
+    return respOk;
+}
+
+void IDBinServoControl::startColdStartTimer()
+{
+    interExecColdStartTimer();
+}
+
+void IDBinServoControl::setAll(U2 general, U2 options, U2 pwm_min_us, U2 pwm_max_us,
+                               S2 angle_range_deg, S2 step_deg, S2 range_deg, S2 center_deg) {
+    m_general       = general;
+    m_options       = options;
+    m_pwmMinUs      = pwm_min_us;
+    m_pwmMaxUs      = pwm_max_us;
+    m_angleRangeDeg = angle_range_deg;
+    m_stepDeg       = step_deg;
+    m_rangeDeg      = range_deg;
+    m_centerDeg     = center_deg;
+
+    ProtoBinOut id_out;
+    id_out.create(SETTING, v0, id(), m_address);
+    id_out.write<U2>(general);
+    id_out.write<U2>(options);
+    id_out.write<U2>(pwm_min_us);
+    id_out.write<U2>(pwm_max_us);
+    id_out.write<S2>(angle_range_deg);
+    id_out.write<S2>(step_deg);
+    id_out.write<S2>(range_deg);
+    id_out.write<S2>(center_deg);
+    id_out.end();
+
+    hashBinFrameOut(id_out);
+}
+
+
+Resp IDBinPwmRoute::parsePayload(FrameParser &proto) {
+    if (proto.ver() == v0) {
+        for (int i = 0; i < PwmOutCount; ++i) {
+            m_target[i] = proto.read<U1>();
+        }
+    } else {
+        return respErrorVersion;
+    }
+    return respOk;
+}
+
+void IDBinPwmRoute::startColdStartTimer()
+{
+    interExecColdStartTimer();
+}
+
+void IDBinPwmRoute::setRoute(U1 out1, U1 out2, U1 out3) {
+    m_target[0] = out1;
+    m_target[1] = out2;
+    m_target[2] = out3;
+
+    ProtoBinOut id_out;
+    id_out.create(SETTING, v0, id(), m_address);
+    id_out.write<U1>(out1);
+    id_out.write<U1>(out2);
+    id_out.write<U1>(out3);
+    id_out.end();
+
+    hashBinFrameOut(id_out);
+}
+
+
+Resp IDBinStandScan::parsePayload(FrameParser &proto) {
+    Q_UNUSED(proto)
+    // Nothing to read: the stand publishes no state. Everything this class learns arrives as
+    // the response code to a command it sent, which IDBin::parse handles before this point.
+    return respOk;
+}
+
+void IDBinStandScan::command(Command cmd) {
+    Scan idle;
+    idle.innerStep = 1;
+    idle.outerStep = 1;
+    writeScan(cmd, idle);
+}
+
+void IDBinStandScan::probe() {
+    command(CmdNop);
+}
+
+void IDBinStandScan::start(const Scan &scan) {
+    writeScan(CmdStart, scan);
+}
+
+void IDBinStandScan::writeScan(Command cmd, const Scan &scan) {
+    ProtoBinOut id_out;
+    id_out.create(SETTING, v0, id(), m_address);
+    id_out.write<U1>(static_cast<U1>(cmd));
+    id_out.write<U1>(scan.order);
+    id_out.write<U1>(scan.options);
+    id_out.write<U2>(scan.fires);
+    id_out.write<U2>(scan.cycles);
+    id_out.write<U2>(scan.settleMs);
+    id_out.write<U2>(scan.postFireMs);
+    id_out.write<S4>(scan.innerStart);
+    id_out.write<S4>(scan.innerEnd);
+    id_out.write<S4>(scan.innerStep);
+    id_out.write<S4>(scan.outerStart);
+    id_out.write<S4>(scan.outerEnd);
+    id_out.write<S4>(scan.outerStep);
+    id_out.end();
+
+    emit binFrameOut(id_out);
+}
+
+
+Resp IDBinDevSync::parsePayload(FrameParser &proto) {
+    if (proto.ver() != v0)         return respErrorVersion;
+    if (proto.readAvailable() < 2) return respErrorPayload;
+
+    m_periodMs = proto.read<U2>();
+
+    const int n = proto.readAvailable();
+    m_portSource.resize(n);
+    for (int i = 0; i < n; ++i)
+        m_portSource[i] = static_cast<char>(proto.read<U1>());
+
+    m_synced = true;
+    return respOk;
+}
+
+void IDBinDevSync::startColdStartTimer()
+{
+    interExecColdStartTimer();
+}
+
+void IDBinDevSync::flushPending() {
+    if (!m_synced || !m_pending) return;
+
+    ProtoBinOut id_out;
+    id_out.create(SETTING, v0, id(), m_address);
+    id_out.write<U2>(m_periodMs);
+    for (char b : std::as_const(m_portSource))
+        id_out.write<U1>(static_cast<U1>(b));
+    id_out.end();
+
+    hashBinFrameOut(id_out);
+    m_pending = false;
 }
 
 
@@ -1076,13 +1254,67 @@ void IDBinDVLMode::setModes(bool ismode1, bool ismode2, bool ismode3, bool ismod
     emit binFrameOut(id_out);
 }
 
+void IDBinUsblSolution::projectToSolution(const AcousticNavSolution& src) {
+    _usblSolution = {};
+    _usblSolution.id = src.address;
+    _usblSolution.cmd_id = src.cmd_id;
+    _usblSolution.timestamp_us = src.timestamp_us;
+    _usblSolution.carrier_counter = src.carrier_counter;
+    _usblSolution.distance_m = src.distance;
+    _usblSolution.azimuth_deg = src.acousticAzimuth;
+    _usblSolution.beacon_latitude = src.lat;
+    _usblSolution.beacon_longitude = src.lon;
+    _usblSolution.beacon_depth = src.depth;
+    _usblSolution.usbl_yaw = src.heading;
+    _usblSolution.usbl_latitude = src.baseLat;
+    _usblSolution.usbl_longitude = src.baseLon;
+}
+
+void IDBinUsblSolution::projectToSolution(const BaseToBeacon& src) {
+    _usblSolution = {};
+    _usblSolution.id = src.address;
+    _usblSolution.cmd_id = src.cmd_id;
+    _usblSolution.timestamp_us = src.timestamp_us;
+    _usblSolution.carrier_counter = src.carrier_counter;
+    _usblSolution.distance_m = src.beaconDistance;
+    _usblSolution.azimuth_deg = src.acousticAzimuth;
+    _usblSolution.beacon_depth = src.beaconD;
+    _usblSolution.beacon_latitude = src.beaconLat;
+    _usblSolution.beacon_longitude = src.beaconLon;
+    _usblSolution.beacon_n_m = src.beaconN;
+    _usblSolution.beacon_e_m = src.beaconE;
+    _usblSolution.usbl_yaw = src.antennaYaw;
+    _usblSolution.usbl_latitude = src.antennaLat;
+    _usblSolution.usbl_longitude = src.antennaLon;
+}
+
 Resp IDBinUsblSolution::parsePayload(FrameParser &proto) {
     if(proto.ver() == v0) {
         _usblSolution = proto.read<UsblSolution>();
-        qInfo("USBL d: %f, a: %f,e: %f, y: %f", _usblSolution.distance_m, _usblSolution.azimuth_deg, _usblSolution.elevation_deg, _usblSolution.usbl_yaw);
+        _lastPayloadKind = PayloadKind::Solution;
+        qInfo("USBL addr: %d, cmd: %d, d: %f, a: %f, e: %f, y: %f", _usblSolution.id, _usblSolution.cmd_id,
+              _usblSolution.distance_m, _usblSolution.azimuth_deg, _usblSolution.elevation_deg, _usblSolution.usbl_yaw);
     } else if(proto.ver() == v1) {
-        _beaconResponcel = proto.read<BeaconActivationResponce>();
-        qInfo("Beacon responce: %d", _beaconResponcel.id);
+        // v1 is overloaded: a full nav solution, or a 4-byte beacon activation
+        // response. Length is the only discriminator.
+        if(proto.readAvailable() >= (int16_t)sizeof(AcousticNavSolution)) {
+            _acousticNavSolution = proto.read<AcousticNavSolution>();
+            _lastPayloadKind = PayloadKind::AcousticNav;
+            projectToSolution(_acousticNavSolution);
+        } else if(proto.readAvailable() >= (int16_t)sizeof(BeaconActivationResponce)) {
+            _beaconResponcel = proto.read<BeaconActivationResponce>();
+            _lastPayloadKind = PayloadKind::BeaconActivation;
+            qInfo("Beacon responce: %d", _beaconResponcel.id);
+        } else {
+            return respErrorPayload;
+        }
+    } else if(proto.ver() == v2) {
+        if(proto.readAvailable() < (int16_t)sizeof(BaseToBeacon)) {
+            return respErrorPayload;
+        }
+        _baseToBeacon = proto.read<BaseToBeacon>();
+        _lastPayloadKind = PayloadKind::BaseToBeacon;
+        projectToSolution(_baseToBeacon);
     } else {
         return respErrorVersion;
     }
@@ -1117,17 +1349,38 @@ Resp IDBinUsblControl::parsePayload(FrameParser& proto)
     return respOk;
 }
 
-void IDBinUsblControl::pingRequest(uint32_t timeout_us, uint8_t address) {
+void IDBinUsblControl::pingRequest(uint32_t timeout_us, uint8_t address, uint8_t cmd_id) {
+    pingRequest(timeout_us, address, cmd_id, 20000, QByteArray());
+}
+
+void IDBinUsblControl::pingRequest(uint32_t timeout_us, uint8_t address, uint8_t cmd_id, uint32_t reply_distance_mm, const QByteArray& payload) {
     ProtoBinOut ping_req;
     ping_req.create(SETTING, USBLPingRequest::getVer(), id(), m_address);
-    USBLPingRequest req = {timeout_us, address};
+
+    int max_payload_bytes = ping_req.frameSpaceAvail() - (int)sizeof(USBLPingRequest);
+    if(max_payload_bytes < 0) {
+        max_payload_bytes = 0;
+    }
+    const int payload_bytes = qMin((int)payload.size(), max_payload_bytes);
+
+    USBLPingRequest req;
+    req.trigger_timeout_us = timeout_us;
+    req.address = address;
+    req.cmd_id = cmd_id;
+    req.reply_distance_mm = reply_distance_mm;
+    req.function = payload_bytes > 0 ? USBLPingRequest::FunctionBitArray : USBLPingRequest::FunctionDefault;
+    req.payload_bit_length = (uint16_t)(payload_bytes * 8);
+
     ping_req.write<USBLPingRequest>(req);
+    if(payload_bytes > 0) {
+        ping_req.write((void*)payload.constData(), (uint16_t)payload_bytes);
+    }
     ping_req.end();
 
     emit binFrameOut(ping_req);
 }
 
-void IDBinUsblControl::setResponseTimeout(uint32_t timeout_us) {
+void IDBinUsblControl::setTransponderEnable(uint32_t timeout_us) {
     ProtoBinOut ping_resp_t;
     ping_resp_t.create(SETTING, USBLResponseTimeout::getVer(), id(), m_address);
     USBLResponseTimeout req = {timeout_us};
@@ -1137,12 +1390,85 @@ void IDBinUsblControl::setResponseTimeout(uint32_t timeout_us) {
     emit binFrameOut(ping_resp_t);
 }
 
-void IDBinUsblControl::setResponseAddressFilter(uint8_t address) {
+void IDBinUsblControl::setResponseTimeout(uint32_t timeout_us) {
+    setTransponderEnable(timeout_us);
+}
+
+void IDBinUsblControl::setMonitorConfig(const USBLMonitorConfig& cfg) {
+    ProtoBinOut monitor_cfg;
+    monitor_cfg.create(SETTING, USBLMonitorConfig::getVer(), id(), m_address);
+    monitor_cfg.write<USBLMonitorConfig>(cfg);
+    monitor_cfg.end();
+
+    emit binFrameOut(monitor_cfg);
+}
+
+void IDBinUsblControl::setResponseAddressFilter(const std::array<uint8_t, 8>& addresses) {
     ProtoBinOut ping_resp_a;
     ping_resp_a.create(SETTING, USBLResponseAddressFilter::getVer(), id(), m_address);
-    USBLResponseAddressFilter req = {address};
+    USBLResponseAddressFilter req;
+    for(size_t i = 0; i < addresses.size(); ++i) {
+        req.address[i] = addresses[i];
+    }
     ping_resp_a.write<USBLResponseAddressFilter>(req);
     ping_resp_a.end();
 
     emit binFrameOut(ping_resp_a);
+}
+
+void IDBinUsblControl::setResponseAddressFilter(uint8_t address) {
+    std::array<uint8_t, 8> addresses;
+    addresses.fill(0xFF);
+    addresses[0] = address;
+    setResponseAddressFilter(addresses);
+}
+
+void IDBinUsblControl::setCmdConfig(const USBLCmdConfig& cfg, const QByteArray& sendingPayload) {
+    ProtoBinOut proto_cfg;
+    proto_cfg.create(SETTING, USBLCmdConfig::getVer(), id(), m_address);
+
+    int max_payload_bytes = proto_cfg.frameSpaceAvail() - (int)sizeof(USBLCmdConfig);
+    if(max_payload_bytes < 0) {
+        max_payload_bytes = 0;
+    }
+
+    const bool sender_is_bit_array = cfg.sender_function == USBLCmdConfig::FunctionBitArray;
+    const QByteArray payload = sender_is_bit_array ? sendingPayload : QByteArray();
+    const int payload_bytes = qMin((int)payload.size(), max_payload_bytes);
+
+    USBLCmdConfig cfg_out = cfg;
+    cfg_out.sending_bit_length = sender_is_bit_array ? (uint16_t)(payload_bytes * 8) : 0;
+
+    proto_cfg.write<USBLCmdConfig>(cfg_out);
+    if(payload_bytes > 0) {
+        proto_cfg.write((void*)payload.constData(), (uint16_t)payload_bytes);
+    }
+    proto_cfg.end();
+
+    emit binFrameOut(proto_cfg);
+}
+
+Resp IDBinModemSolution::parsePayload(FrameParser &proto) {
+    if(proto.ver() != v0) {
+        return respErrorVersion;
+    }
+
+    if(proto.readAvailable() < (int16_t)sizeof(ModemSolutionHeader)) {
+        return respErrorPayload;
+    }
+
+    _header = proto.read<ModemSolutionHeader>();
+    const int byte_length = (_header.bit_length + 7) / 8;
+
+    if(proto.readAvailable() < byte_length) {
+        return respErrorPayload;
+    }
+
+    if(byte_length > 0) {
+        _payload = QByteArray((char*)proto.read(byte_length), byte_length);
+    } else {
+        _payload.clear();
+    }
+
+    return respOk;
 }

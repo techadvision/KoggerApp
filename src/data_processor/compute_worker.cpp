@@ -3,6 +3,7 @@
 #include "dataset.h"
 #include "surface_mesh.h"
 #include <QMetaType>
+#include <QVariantMap>
 #include <QDebug>
 
 namespace {
@@ -19,8 +20,7 @@ ComputeWorker::ComputeWorker(DataProcessor* ownerDp,
       surfaceMesh_(defaultTileSidePixelSize, defaultTileHeightMatrixRatio, defaultTileResolution),
       surface_(ownerDp),
       isobaths_(ownerDp),
-      mosaic_(ownerDp, this),
-      bottom_(ownerDp)
+      mosaic_(ownerDp, this)
 {
     qRegisterMetaType<WorkBundle>("WorkBundle");
 
@@ -30,7 +30,6 @@ ComputeWorker::ComputeWorker(DataProcessor* ownerDp,
     isobaths_.setSurfaceMeshPtr(&surfaceMesh_);
     mosaic_.setSurfaceMeshPtr(&surfaceMesh_);
 
-    bottom_.setDatasetPtr(dataset_);
     mosaic_.setDatasetPtr(dataset_);
 }
 
@@ -46,7 +45,6 @@ void ComputeWorker::clearAll()
     surface_.clear();
     mosaic_.clear();
     isobaths_.clear();
-    bottom_.clear();
 
     surfaceMesh_.clear();
 }
@@ -67,16 +65,21 @@ void ComputeWorker::clearSurface()
 void ComputeWorker::clearMosaic()
 {
     mosaic_.clear();
+
+    for (SurfaceTile* t : surfaceMesh_.getTilesCRef()) {
+        if (!t) {
+            continue;
+        }
+        t->setHeadIndx(-1);
+        auto& img = t->getMosaicImageDataRef();
+        std::fill(img.begin(), img.end(), uint8_t(0));
+        t->setIsUpdated(true);
+    }
 }
 
 void ComputeWorker::clearIsobaths()
 {
     isobaths_.clear();
-}
-
-void ComputeWorker::clearBottomTrack()
-{
-    bottom_.clear();
 }
 
 inline bool ComputeWorker::isCanceled() const noexcept
@@ -87,7 +90,6 @@ inline bool ComputeWorker::isCanceled() const noexcept
 void ComputeWorker::setDatasetPtr(Dataset* ds)
 {
     dataset_ = ds;
-    bottom_.setDatasetPtr(ds);
     mosaic_.setDatasetPtr(ds);
 }
 
@@ -147,6 +149,11 @@ void ComputeWorker::setMosaicRAngleOffset(float val)
     mosaic_.setRAngleOffset(val);
 }
 
+void ComputeWorker::setMosaicSource(int source)
+{
+    mosaic_.setSource(static_cast<MosaicProcessor::Source>(source));
+}
+
 void ComputeWorker::setMosaicTileResolution(float res)
 {
     //qDebug() << "ComputeWorker::setMosaicTileResolution" << res;
@@ -182,15 +189,6 @@ void ComputeWorker::setMaxZ(float v)
     isobaths_.setMaxZ(v);
 }
 
-void ComputeWorker::bottomTrackProcessing(const DatasetChannel& ch1, const DatasetChannel& ch2, const BottomTrackParam& p, bool manual, bool redrawAll)
-{
-    emit bottomTrackStarted();
-
-    bottom_.bottomTrackProcessing(ch1, ch2, p, manual, redrawAll);
-
-    emit bottomTrackFinished();
-}
-
 void ComputeWorker::processBundle(const WorkBundle& wb)
 {
     //qDebug() << "ComputeWorker::processBundle: task" <<  wb.mosaicVec.size() ;
@@ -205,7 +203,7 @@ void ComputeWorker::processBundle(const WorkBundle& wb)
     }
 
     if (!wb.mosaicVec.isEmpty() && !isCanceled()) {
-        mosaic_.updateDataWrapper(wb.mosaicVec);
+        mosaic_.updateDataWrapper(wb.mosaicVec, wb.batchMosaicEmit);
     }
 
     emit jobFinished();
@@ -215,4 +213,50 @@ void ComputeWorker::setVisibleTileKeys(const QSet<TileKey>& val)
 {
     visibleTileKeys_ = val;
     surface_.setVisibleTileKeys(val);
+}
+
+void ComputeWorker::reportPipelineStats()
+{
+    QVariantMap stats;
+
+    stats["meshInited"]         = surfaceMesh_.getIsInited();
+    stats["meshHasData"]        = surfaceMesh_.hasData();
+    stats["meshTilesInited"]    = surfaceMesh_.currentInitedTiles();
+    stats["meshZoom"]           = surfaceMesh_.getCurrentZoom();
+    stats["meshTilesWide"]      = surfaceMesh_.getNumWidthTiles();
+    stats["meshTilesHigh"]      = surfaceMesh_.getNumHeightTiles();
+
+    stats["triPoints"]          = surface_.getTriangulationPointCount();
+    stats["triTriangles"]       = surface_.getTriangleCount();
+    stats["meshPoints"]         = surface_.getMeshPointCount();
+    stats["surfaceStep"]        = surface_.getSurfaceStepSize();
+    stats["surfaceEdgeLimit"]   = surface_.getEdgeLimit();
+    stats["surfaceExtraWidth"]  = surface_.getExtraWidth();
+    stats["colorIntervals"]     = surface_.getColorIntervalsCount();
+    stats["surfaceMinZ"]        = surface_.getMinZ();
+    stats["surfaceMaxZ"]        = surface_.getMaxZ();
+
+    stats["isoHasMesh"]         = isobaths_.hasSurfaceMesh();
+    stats["isoLineSegments"]    = isobaths_.getLineSegmentsCount();
+    stats["isoLabels"]          = isobaths_.getLabelsCount();
+    stats["isoLineStep"]        = isobaths_.getLineStepSize();
+
+    stats["visibleTileKeys"]    = visibleTileKeys_.size();
+
+    QMetaObject::invokeMethod(dp_, "postPipelineStats", Qt::QueuedConnection, Q_ARG(QVariantMap, stats));
+}
+
+void ComputeWorker::reportMosaicStats(int probeWindow)
+{
+    QVariantMap stats;
+
+    stats["meshInited"]      = surfaceMesh_.getIsInited();
+    stats["meshHasData"]     = surfaceMesh_.hasData();
+    stats["meshTilesInited"] = surfaceMesh_.currentInitedTiles();
+    stats["meshZoom"]        = surfaceMesh_.getCurrentZoom();
+    stats["visibleTileKeys"] = visibleTileKeys_.size();
+
+    mosaic_.fillDiagnostics(stats, probeWindow);
+
+    QMetaObject::invokeMethod(dp_, "postMosaicStats", Qt::QueuedConnection, Q_ARG(QVariantMap, stats));
 }

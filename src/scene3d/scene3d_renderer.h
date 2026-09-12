@@ -8,13 +8,13 @@
 #include "image_view.h"
 #include "map_view.h"
 #include "contacts.h"
+#include "usbl_layer.h"
 #include "geojson_layer.h"
 #include "ruler_tool.h"
 #include "point_group.h"
 #include "polygon_group.h"
 #include "scene3d_view.h"
 #include "navigation_arrow.h"
-#include "usbl_view.h"
 #include <QMatrix4x4>
 #include "qsystemdetection.h"
 #if !defined(Q_OS_ANDROID) && !defined(LINUX_ES)
@@ -49,6 +49,8 @@ public:
 private:
     void initialize();
     void drawObjects();
+    void drawCompass(int x, int y, int sizePx);
+    void drawScaleBar(const QRect& vportRect, const QMatrix4x4& view);
     QMatrix4x4 model() const;
     QMatrix4x4 view() const;
     QMatrix4x4 projection() const;
@@ -71,6 +73,7 @@ private:
     ImageView::ImageViewRenderImplementation imageViewRenderImpl_;
     MapView::MapViewRenderImplementation mapViewRenderImpl_;
     Contacts::ContactsRenderImplementation contactsRenderImpl_;
+    UsblLayer::UsblLayerRenderImplementation usblLayerRenderImpl_;
     GeoJsonLayer::GeoJsonLayerRenderImplementation geoJsonLayerRenderImpl_;
     RulerTool::RulerToolRenderImplementation rulerToolRenderImpl_;
     BottomTrack::BottomTrackRenderImplementation m_bottomTrackRenderImpl;
@@ -78,7 +81,6 @@ private:
     PointGroup::PointGroupRenderImplementation m_pointGroupRenderImpl;
     BoatTrack::BoatTrackRenderImplementation m_boatTrackRenderImpl;
     NavigationArrow::NavigationArrowRenderImplementation navigationArrowRenderImpl_;
-    UsblView::UsblViewRenderImplementation usblViewRenderImpl_;
 
     QMatrix4x4 m_model;
     QMatrix4x4 m_projection;
@@ -93,5 +95,7 @@ private:
     bool compass_ = false;
     int compassPos_ = 1;
     int compassSize_ = 1;
+    bool scaleBar_ = false;
+    QRectF compassRectPx_;   // drawn compass rect (physical px, top-left) for QML/hit-test
     bool planeGridType_ = true;
 };

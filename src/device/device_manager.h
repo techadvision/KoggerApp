@@ -46,6 +46,9 @@ public:
     Q_INVOKABLE int pilotArmState();
     Q_INVOKABLE int pilotModeState();
     QList<DevQProperty*> getDevList();
+    // True while any connected device has answered the stand probe. The stand panel kind is
+    // hidden everywhere this is false, so it has to follow the devices rather than a snapshot.
+    bool standAvailable();
     QList<DevQProperty*> getDevList(BoardVersion ver);
     int calcAverageChartLosses();
     //Pulse
@@ -54,6 +57,9 @@ public:
 public slots:
     Q_INVOKABLE bool isCreatedId(int id);
     Q_INVOKABLE StreamListModel* streamsList();
+    Q_INVOKABLE void startStreamDownload(int id);
+    Q_INVOKABLE void cancelStreamDownload(int id);
+    Q_INVOKABLE void refreshStreamList();
 
     void initStreamList();
     void frameInput(QUuid uuid, Link* link, Parsers::FrameParser frame);
@@ -76,6 +82,7 @@ public slots:
     void onLinkDeleted(QUuid uuid, Link* link);
     void binFrameOut(Parsers::ProtoBinOut protoOut);
     void setProtoBinConsoled(bool isConsoled);
+    void setNmeaConsoled(bool isConsoled);
     void upgradeLastDev(QByteArray data);
 
     void beaconActivationReceive(uint8_t id);
@@ -122,6 +129,7 @@ signals:
     void upgradeProgressChanged(int progressStatus);
     void deviceVersionChanged();
     void devChanged();
+    void standAvailableChanged();
     void streamChanged();
     void vruChanged();
     void writeProxyFrame(Parsers::FrameParser frame);
@@ -238,6 +246,7 @@ private:
     int lastAddress_;
     int progress_;
     bool isConsoled_;
+    bool nmeaConsoled_;
     volatile bool break_;
 #ifdef SEPARATE_READING
     bool onOpen_{ false };
@@ -252,6 +261,7 @@ private:
     bool mavlinkDetected_;
 
     bool loggingStarted_ = false;
+    bool autoDownloadStarted_ = false;
     LocationReader* locReader_{ nullptr };
     bool useGPS_{ false };
 

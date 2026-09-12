@@ -1,9 +1,13 @@
 #include "ui_state_serializer.h"
 #include "link_manager_wrapper.h"
+#include "notifications.h"
+
+extern Notifications notifications;
 
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -14,21 +18,30 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
+#include <cstdint>
 
 namespace {
 
-const QString kDumpType = QStringLiteral("KoggerUiStateDump");
+constexpr QLatin1StringView kDumpType("KoggerUiStateDump");
 const int kSchemaVersion = 1;
-const QString kLinksObjectKey = QStringLiteral("links");
-const QString kLinksFormatKey = QStringLiteral("format");
-const QString kLinksPayloadKey = QStringLiteral("pinnedLinksXmlBase64");
-const QString kLinksFormatPinnedXmlBase64 = QStringLiteral("pinned_links_xml_base64_v1");
+constexpr QLatin1StringView kLinksObjectKey("links");
+constexpr QLatin1StringView kLinksFormatKey("format");
+constexpr QLatin1StringView kLinksPayloadKey("pinnedLinksXmlBase64");
+constexpr QLatin1StringView kLinksFormatPinnedXmlBase64("pinned_links_xml_base64_v1");
 
-enum class PathSyntax {
+enum class PathSyntax : std::uint8_t {
     kRelativeOrEmpty,
     kWindowsAbsolute,
     kUnixAbsolute
 };
+
+bool looksLikePinnedLinksXmlPayload(const QByteArray& xmlData)
+{
+    const QByteArray trimmed = xmlData.trimmed();
+    return !trimmed.isEmpty() &&
+           !trimmed.contains('\0') &&
+           trimmed.startsWith('<');
+}
 
 QString normalizeOsFamilyName(const QString& osFamily)
 {
@@ -134,6 +147,15 @@ PathSyntax detectPathSyntax(const QString& rawPath)
     return PathSyntax::kRelativeOrEmpty;
 }
 
+QString localPathForExistenceCheck(const QString& rawPath)
+{
+    QString path = rawPath.trimmed();
+    if (path.startsWith(QStringLiteral("file://"), Qt::CaseInsensitive)) {
+        return QUrl(path).toLocalFile();
+    }
+    return path;
+}
+
 bool isPathStringImportable(const QString& pathValue)
 {
     const PathSyntax syntax = detectPathSyntax(pathValue);
@@ -142,10 +164,16 @@ bool isPathStringImportable(const QString& pathValue)
     }
 
 #if defined(Q_OS_WIN)
-    return syntax == PathSyntax::kWindowsAbsolute;
+    if (syntax != PathSyntax::kWindowsAbsolute) {
+        return false;
+    }
 #else
-    return syntax == PathSyntax::kUnixAbsolute;
+    if (syntax != PathSyntax::kUnixAbsolute) {
+        return false;
+    }
 #endif
+
+    return QFileInfo::exists(localPathForExistenceCheck(pathValue));
 }
 
 bool isPathLikeSettingsKey(const QString& key)
@@ -242,7 +270,7 @@ void collectPathSyntaxStats(const QJsonValue& value, int* windowsCount, int* uni
 
     if (value.isArray()) {
         const QJsonArray array = value.toArray();
-        for (const QJsonValue& item : array) {
+        for (const auto& item : array) {
             collectPathSyntaxStats(item, windowsCount, unixCount);
         }
     }
@@ -275,7 +303,7 @@ QString detectDumpOsFamily(const QJsonObject& appObject,
                            const QJsonObject& settingsObject,
                            const QByteArray& pinnedLinksXmlData)
 {
-    const QString explicitOsFamily = normalizeOsFamilyName(appObject.value(QStringLiteral("osFamily")).toString());
+    QString explicitOsFamily = normalizeOsFamilyName(appObject.value(QStringLiteral("osFamily")).toString());
     if (!explicitOsFamily.isEmpty()) {
         return explicitOsFamily;
     }
@@ -333,6 +361,11 @@ bool UIStateSerializer::exportToJsonFile(const QString& path)
         settingsObject.insert(key, variantToJsonValue(settings.value(key)));
     }
 
+    const QHash<QString, QVariant> liveValues = collectLiveQmlSettingsValues();
+    for (auto it = liveValues.constBegin(); it != liveValues.constEnd(); ++it) {
+        settingsObject.insert(it.key(), variantToJsonValue(it.value()));
+    }
+
     QJsonObject appObject;
     appObject.insert(QStringLiteral("name"), QCoreApplication::applicationName());
     appObject.insert(QStringLiteral("version"), currentAppVersion());
@@ -347,17 +380,11 @@ bool UIStateSerializer::exportToJsonFile(const QString& path)
     rootObject.insert(QStringLiteral("app"), appObject);
     rootObject.insert(QStringLiteral("settings"), settingsObject);
 
-    QFile pinnedLinksFile(pinnedLinksFilePath());
-    if (pinnedLinksFile.exists()) {
-        if (!pinnedLinksFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            setLastError(tr("Export failed: cannot read pinned links file"));
-            setLastStatus(QString());
-            return false;
-        }
-
+    const QByteArray pinnedLinksXmlData = loadPinnedLinksXmlDataForExport();
+    if (!pinnedLinksXmlData.isEmpty()) {
         QJsonObject linksObject;
         linksObject.insert(kLinksFormatKey, kLinksFormatPinnedXmlBase64);
-        linksObject.insert(kLinksPayloadKey, QString::fromLatin1(pinnedLinksFile.readAll().toBase64()));
+        linksObject.insert(kLinksPayloadKey, QString::fromLatin1(pinnedLinksXmlData.toBase64()));
         rootObject.insert(kLinksObjectKey, linksObject);
     }
 
@@ -375,7 +402,8 @@ bool UIStateSerializer::exportToJsonFile(const QString& path)
         return false;
     }
 
-    setLastStatus(tr("Exported %1 keys.").arg(keys.size()));
+    setLastStatus(tr("Exported %1 keys.").arg(settingsObject.size()));
+    notifications.info(tr("UI state exported: %1").arg(filePath), filePath);
     return true;
 }
 
@@ -435,7 +463,8 @@ bool UIStateSerializer::importFromJsonFile(const QString& path)
     }
 
     const QString currentVersion = currentAppVersion();
-    if (fileVersion != currentVersion) {
+    const QString fileMajorMinor = majorMinorFromVersion(fileVersion);
+    if (fileMajorMinor.isEmpty() || fileMajorMinor != currentMajorMinorVersion()) {
         setLastError(tr("Import failed: version mismatch (file %1, app %2)")
                          .arg(fileVersion, currentVersion));
         setLastStatus(QString());
@@ -455,38 +484,35 @@ bool UIStateSerializer::importFromJsonFile(const QString& path)
 
     bool hasPinnedLinksPayload = false;
     QByteArray pinnedLinksXmlData;
+    QString linksWarning;
     if (rootObject.contains(kLinksObjectKey)) {
         const QJsonValue linksValue = rootObject.value(kLinksObjectKey);
         if (!linksValue.isObject()) {
-            setLastError(tr("Import failed: links must be JSON object"));
-            setLastStatus(QString());
-            return false;
+            linksWarning = tr("links must be JSON object");
         }
-
-        const QJsonObject linksObject = linksValue.toObject();
-        const QString linksFormat = linksObject.value(kLinksFormatKey).toString();
-        if (linksFormat != kLinksFormatPinnedXmlBase64) {
-            setLastError(tr("Import failed: unsupported links payload format"));
-            setLastStatus(QString());
-            return false;
+        else {
+            const QJsonObject linksObject = linksValue.toObject();
+            const QString linksFormat = linksObject.value(kLinksFormatKey).toString();
+            if (linksFormat != kLinksFormatPinnedXmlBase64) {
+                linksWarning = tr("unsupported links payload format");
+            }
+            else {
+                const QString payloadText = linksObject.value(kLinksPayloadKey).toString();
+                if (payloadText.isEmpty()) {
+                    linksWarning = tr("links payload is empty");
+                }
+                else {
+                    const auto decodedPayload = QByteArray::fromBase64Encoding(payloadText.toLatin1());
+                    if (!decodedPayload) {
+                        linksWarning = tr("links payload is not valid Base64");
+                    }
+                    else {
+                        pinnedLinksXmlData = decodedPayload.decoded;
+                        hasPinnedLinksPayload = true;
+                    }
+                }
+            }
         }
-
-        const QString payloadText = linksObject.value(kLinksPayloadKey).toString();
-        if (payloadText.isEmpty()) {
-            setLastError(tr("Import failed: links payload is empty"));
-            setLastStatus(QString());
-            return false;
-        }
-
-        const auto decodedPayload = QByteArray::fromBase64Encoding(payloadText.toLatin1());
-        if (!decodedPayload) {
-            setLastError(tr("Import failed: links payload is not valid Base64"));
-            setLastStatus(QString());
-            return false;
-        }
-
-        pinnedLinksXmlData = decodedPayload.decoded;
-        hasPinnedLinksPayload = true;
     }
 
     const QString dumpOsFamily = detectDumpOsFamily(appObject, settingsObject, pinnedLinksXmlData);
@@ -522,16 +548,22 @@ bool UIStateSerializer::importFromJsonFile(const QString& path)
     QString linksStatus;
     if (hasPinnedLinksPayload) {
         QString linksError;
+        bool linksInfrastructureUnavailable = false;
         if (!reloadPinnedLinksImmediately(pinnedLinksXmlData,
                                           !isCrossOsImport,
                                           &skippedSerialLinks,
+                                          &linksInfrastructureUnavailable,
                                           &linksError)) {
-            setLastError(tr("Import failed: cannot apply pinned links: %1").arg(linksError));
-            setLastStatus(QString());
-            return false;
+            linksWarning = userVisiblePinnedLinksWarning(pinnedLinksXmlData,
+                                                         linksInfrastructureUnavailable);
         }
+        else {
+            linksStatus = tr(" Pinned links were replaced live.");
+        }
+    }
 
-        linksStatus = tr(" Pinned links were replaced live.");
+    if (!linksWarning.isEmpty()) {
+        linksStatus = tr(" Pinned links were skipped: %1").arg(linksWarning);
     }
 
     const int appliedCount = applyImportedSettingsToQml(importedValues);
@@ -542,7 +574,17 @@ bool UIStateSerializer::importFromJsonFile(const QString& path)
                       .arg(skippedPathKeys)
                       .arg(skippedSerialLinks)
                       .arg(linksStatus));
+    notifications.info(tr("UI state imported: %1").arg(filePath), filePath);
     return true;
+}
+
+bool UIStateSerializer::pathExists(const QString& path) const
+{
+    const QString local = normalizePath(path);
+    if (local.isEmpty()) {
+        return false;
+    }
+    return QFileInfo::exists(local);
 }
 
 void UIStateSerializer::setQmlRootObject(QObject* rootObject)
@@ -570,7 +612,7 @@ void UIStateSerializer::setLinkManagerWrapper(LinkManagerWrapper* linkManagerWra
 
 QString UIStateSerializer::normalizePath(const QString& path)
 {
-    const QString trimmedPath = path.trimmed();
+    QString trimmedPath = path.trimmed();
     if (trimmedPath.isEmpty()) {
         return QString();
     }
@@ -653,35 +695,53 @@ QString UIStateSerializer::currentAppVersion() const
 
 QString UIStateSerializer::currentMajorMinorVersion() const
 {
-    const QString majorMinorVersion = majorMinorFromVersion(currentAppVersion());
+    QString majorMinorVersion = majorMinorFromVersion(currentAppVersion());
     if (!majorMinorVersion.isEmpty()) {
         return majorMinorVersion;
     }
     return QStringLiteral("0.0");
 }
 
-int UIStateSerializer::applyImportedSettingsToQml(const QHash<QString, QVariant>& importedValues) const
+QList<QObject*> UIStateSerializer::liveSettingsObjects() const
 {
+    QList<QObject*> result;
     if (!qmlRootObject_) {
-        return 0;
+        return result;
     }
 
-    int appliedCount = 0;
-
-    QList<QObject*> objects;
-    objects.reserve(1 + qmlRootObject_->children().size());
-    objects.append(qmlRootObject_.data());
+    if (isSettingsObject(qmlRootObject_.data())) {
+        result.append(qmlRootObject_.data());
+    }
 
     const auto allChildren = qmlRootObject_->findChildren<QObject*>();
     for (QObject* child : allChildren) {
-        objects.append(child);
+        if (isSettingsObject(child)) {
+            result.append(child);
+        }
     }
 
-    for (QObject* object : objects) {
-        if (!isSettingsObject(object)) {
-            continue;
-        }
+    return result;
+}
 
+namespace {
+
+bool isReservedSettingsPropertyName(const QString& propertyName)
+{
+    return propertyName.isEmpty() ||
+           propertyName == QStringLiteral("objectName") ||
+           propertyName == QStringLiteral("category") ||
+           propertyName == QStringLiteral("fileName") ||
+           propertyName == QStringLiteral("location");
+}
+
+}
+
+QHash<QString, QVariant> UIStateSerializer::collectLiveQmlSettingsValues() const
+{
+    QHash<QString, QVariant> values;
+
+    const QList<QObject*> objects = liveSettingsObjects();
+    for (QObject* object : objects) {
         const QString category = object->property("category").toString();
         const QMetaObject* metaObject = object->metaObject();
         if (!metaObject) {
@@ -695,11 +755,45 @@ int UIStateSerializer::applyImportedSettingsToQml(const QHash<QString, QVariant>
             }
 
             const QString propertyName = QString::fromUtf8(property.name());
-            if (propertyName.isEmpty() ||
-                propertyName == QStringLiteral("objectName") ||
-                propertyName == QStringLiteral("category") ||
-                propertyName == QStringLiteral("fileName") ||
-                propertyName == QStringLiteral("location")) {
+            if (isReservedSettingsPropertyName(propertyName)) {
+                continue;
+            }
+
+            const QVariant value = property.read(object);
+            if (!value.isValid()) {
+                continue;
+            }
+
+            const QString settingsKey = category.isEmpty()
+                                            ? propertyName
+                                            : category + QStringLiteral("/") + propertyName;
+            values.insert(settingsKey, value);
+        }
+    }
+
+    return values;
+}
+
+int UIStateSerializer::applyImportedSettingsToQml(const QHash<QString, QVariant>& importedValues) const
+{
+    int appliedCount = 0;
+
+    const QList<QObject*> objects = liveSettingsObjects();
+    for (QObject* object : objects) {
+        const QString category = object->property("category").toString();
+        const QMetaObject* metaObject = object->metaObject();
+        if (!metaObject) {
+            continue;
+        }
+
+        for (int i = 0; i < metaObject->propertyCount(); ++i) {
+            const QMetaProperty property = metaObject->property(i);
+            if (!property.isWritable()) {
+                continue;
+            }
+
+            const QString propertyName = QString::fromUtf8(property.name());
+            if (isReservedSettingsPropertyName(propertyName)) {
                 continue;
             }
 
@@ -724,9 +818,13 @@ int UIStateSerializer::applyImportedSettingsToQml(const QHash<QString, QVariant>
 bool UIStateSerializer::reloadPinnedLinksImmediately(const QByteArray& xmlData,
                                                      bool allowSerialLinks,
                                                      int* skippedSerialLinks,
+                                                     bool* infrastructureUnavailable,
                                                      QString* error) const
 {
     if (!linkManagerWrapper_) {
+        if (infrastructureUnavailable) {
+            *infrastructureUnavailable = true;
+        }
         if (error) {
             *error = tr("link manager is not available");
         }
@@ -736,7 +834,57 @@ bool UIStateSerializer::reloadPinnedLinksImmediately(const QByteArray& xmlData,
     return linkManagerWrapper_->reloadPinnedLinksFromXmlData(xmlData,
                                                              allowSerialLinks,
                                                              skippedSerialLinks,
+                                                             infrastructureUnavailable,
                                                              error);
+}
+
+QByteArray UIStateSerializer::loadPinnedLinksXmlDataForExport() const
+{
+    if (linkManagerWrapper_) {
+        const QByteArray liveXmlData = linkManagerWrapper_->exportPinnedLinksToXmlData();
+        if (looksLikePinnedLinksXmlPayload(liveXmlData)) {
+            return liveXmlData;
+        }
+    }
+
+    QFile pinnedLinksFile(pinnedLinksFilePath());
+    if (!pinnedLinksFile.exists()) {
+        return QByteArray();
+    }
+
+    if (!pinnedLinksFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QByteArray();
+    }
+
+    QByteArray fileXmlData = pinnedLinksFile.readAll();
+    if (!looksLikePinnedLinksXmlPayload(fileXmlData)) {
+        return QByteArray();
+    }
+
+    return fileXmlData;
+}
+
+QString UIStateSerializer::userVisiblePinnedLinksWarning(const QByteArray& xmlData,
+                                                        bool infrastructureUnavailable) const
+{
+    if (infrastructureUnavailable) {
+        return tr("link manager is not available");
+    }
+
+    const QByteArray trimmedXmlData = xmlData.trimmed();
+    if (trimmedXmlData.isEmpty()) {
+        return tr("payload is empty");
+    }
+
+    if (xmlData.contains('\0')) {
+        return tr("payload is not XML text");
+    }
+
+    if (!trimmedXmlData.startsWith('<')) {
+        return tr("payload is not XML text");
+    }
+
+    return tr("invalid XML payload");
 }
 
 void UIStateSerializer::setLastError(const QString& errorText)

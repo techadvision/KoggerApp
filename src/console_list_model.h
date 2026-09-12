@@ -19,8 +19,13 @@ public:
 
     void init();
 
+    Q_INVOKABLE void setMaxRows(int rows);
+    Q_INVOKABLE int maxRows() const { return _maxRows; }
+
+    Q_INVOKABLE QString rowText(int row) const;
+    Q_INVOKABLE QString rangeText(int from, int to) const;
+
     enum Roles : uint8_t {
-        Visibility,
         Time,
         Category,
         Payload,
@@ -28,26 +33,26 @@ public:
 
 signals:
     void appendEvent(const QString& time, int category, const QString& data);
+    void rowsTrimmed(int count);
 
 private:
     Q_DISABLE_COPY(ConsoleListModel)
 
     static constexpr int kMaxRows = 4000;
+    static constexpr int kMinRows = 50;
     static constexpr int kTrimBatch = 256;
 
     int _size = 0;
-    int _categories = 0;
+    int _maxRows = kMaxRows;
 
-    QVector<int> _roles;
     QHash<int, QByteArray> _roleNames {
-        {{ConsoleListModel::Visibility}, {"visibity"}},
         {{ConsoleListModel::Time}, {"time"}},
         {{ConsoleListModel::Category}, {"category"}},
         {{ConsoleListModel::Payload}, {"payload"}},
     };
     QHash<int, QVector<QVariant>> _vectors;
 
-
+    void removeHead(int removeCount);
     void trimHeadIfNeeded(int incomingCount = 1);
     void doAppend(const QString& time, int category, const QString& data);
 };

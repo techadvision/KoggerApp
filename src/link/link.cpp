@@ -30,7 +30,9 @@ Link::Link()
       onUpgradingFirmware_(false),
       localGhostIgnoreCount_(0),
       requestCnt_(requestAllCntBig),
-      autoConnOnce_(false)
+      autoConnOnce_(false),
+      autoConnUntilMsecs_(0),
+      rtspRequested_(false)
 {
     frame_.resetComplete();
 
@@ -79,7 +81,8 @@ void Link::createAsSerial(const QString &portName, int baudrate, bool parity)
     uuid_ =  QUuid::createUuidV3(QUuid{}, portName_);
     parity_ = parity;
     baudrate_ = baudrate;
-    baudrateSearchList_ = baudrateSearchList; // by default
+    autoSpeedSelection_ = true;
+    baudrateSearchList_ = QList<uint32_t>(baudrateSearchList.cbegin(), baudrateSearchList.cend()); // by default
     qDebug() << "Link::createAsSerial, uuid" << uuid_
              << "portName_" << portName_
              << "baudrate_" << baudrate_
@@ -124,7 +127,7 @@ void Link::openAsSerial()
         qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_;
         emit connectionStatusChanged(uuid_);
     }
-    baudrateSearchList_ = baudrateSearchList;
+    baudrateSearchList_ = QList<uint32_t>(baudrateSearchList.cbegin(), baudrateSearchList.cend());
     resetLastSearchIndx();
 }
 
@@ -173,6 +176,26 @@ void Link::openAsUdp()
     }
 }
 
+void Link::createAsRtsp(const QString &address)
+{
+    linkType_ = LinkType::kLinkRtsp;
+    address_ = address;
+    sourcePort_ = 0;
+    destinationPort_ = 0;
+    uuid_ = QUuid::createUuid();
+}
+
+void Link::openAsRtsp()
+{
+    if (address_.trimmed().isEmpty()) {
+        return;
+    }
+
+    if (!rtspRequested_.exchange(true)) {
+        emit connectionStatusChanged(uuid_);
+    }
+}
+
 void Link::createAsTcp(const QString &address, int sourcePort, int destinationPort)
 {
     linkType_ = LinkType::kLinkIPTCP;
@@ -196,7 +219,7 @@ void Link::openAsTcp()
 
     QPointer<QTcpSocket> safeSock = socketTcp;
 
-    connect(socketTcp, &QTcpSocket::connected, this, [=]() {
+    connect(socketTcp, &QTcpSocket::connected, this, [=, this]() {
         if (!safeSock) {
             return;
         }
@@ -206,7 +229,7 @@ void Link::openAsTcp()
         emit opened(uuid_, this);
     });
 
-    connect(socketTcp, &QTcpSocket::disconnected, this, [=]() {
+    connect(socketTcp, &QTcpSocket::disconnected, this, [=, this]() {
         if (safeSock) {
             safeSock->deleteLater();
         }
@@ -215,7 +238,7 @@ void Link::openAsTcp()
         close();
     });
 
-    connect(socketTcp, &QTcpSocket::errorOccurred, this, [=](QAbstractSocket::SocketError err) {
+    connect(socketTcp, &QTcpSocket::errorOccurred, this, [=, this](QAbstractSocket::SocketError err) {
         Q_UNUSED(err);
         if (safeSock && safeSock->state() != QAbstractSocket::ConnectedState) {
             safeSock->abort();
@@ -229,6 +252,9 @@ void Link::openAsTcp()
 bool Link::isOpen() const
 {
     bool retVal{ false };
+
+    if (linkType_ == LinkType::kLinkRtsp)
+        return rtspRequested_.load();
 
     if (!ioDevice_)
         return retVal;
@@ -261,6 +287,13 @@ bool Link::isOpen() const
 
 void Link::close()
 {
+    if (linkType_ == LinkType::kLinkRtsp) {
+        if (rtspRequested_.exchange(false)) {
+            emit connectionStatusChanged(uuid_);
+        }
+        return;
+    }
+
     deleteDev();
 }
 
@@ -303,6 +336,7 @@ void Link::setConnectionStatus(bool connectionStatus)
         case LinkType::kLinkSerial: { openAsSerial(); break; }
         case LinkType::kLinkIPUDP: { openAsUdp(); break; }
         case LinkType::kLinkIPTCP: { openAsTcp(); break; }
+        case LinkType::kLinkRtsp: { openAsRtsp(); break; }
         default: { break; }
         }
     }
@@ -403,7 +437,11 @@ void Link::setIsHided(bool isHided)
 
 void Link::setIsNotAvailable(bool isNotAvailable)
 {
+    if (isNotAvailable_ == isNotAvailable) {
+        return;
+    }
     isNotAvailable_ = isNotAvailable;
+    emit isNotAvailableChanged(uuid_);
 }
 
 void Link::setIsProxy(bool isProxy)
@@ -433,6 +471,20 @@ void Link::setIsUpgradingState(bool state)
 void Link::setAutoConnOnce(bool state)
 {
     autoConnOnce_ = state;
+    if (!autoConnOnce_) {
+        autoConnUntilMsecs_ = 0;
+    }
+}
+
+void Link::armAutoConn(int windowMs)
+{
+    autoConnOnce_ = true;
+    autoConnUntilMsecs_ = windowMs > 0 ? QDateTime::currentMSecsSinceEpoch() + windowMs : 0;
+}
+
+bool Link::isAutoConnExpired(qint64 nowMsecs) const
+{
+    return autoConnUntilMsecs_ != 0 && nowMsecs > autoConnUntilMsecs_;
 }
 
 QUuid Link::getUuid() const
@@ -442,6 +494,10 @@ QUuid Link::getUuid() const
 
 bool Link::getConnectionStatus() const
 {
+    if (linkType_ == LinkType::kLinkRtsp) {
+        return rtspRequested_.load();
+    }
+
     if (ioDevice_) {
         if (ioDevice_->isOpen()) {
             return true;
@@ -586,7 +642,7 @@ void Link::onStartUpgradingFirmware()
     timeoutCnt_ = linkNumTimeoutsSmall;
     requestCnt_ = requestAllCntSmall;
     resetLastSearchIndx();
-    setAutoConnOnce(true); // logger
+    armAutoConn(linkUpgradeReconnectWindowMs);
 }
 
 void Link::onUpgradingFirmwareDone()
@@ -598,11 +654,15 @@ void Link::onUpgradingFirmwareDone()
     localGhostIgnoreCount_ = ghostIgnoreCount;
     requestCnt_ = requestAllCntBig;
     resetLastSearchIndx();
-    setAutoConnOnce(true); // logger
+    armAutoConn(linkUpgradeReconnectWindowMs);
 }
 
 void Link::onCheckedTimerEnd()
 {
+    if (linkType_ == LinkType::kLinkRtsp) {
+        return;
+    }
+
     if (!getConnectionStatus()) {
         return;
     }
@@ -637,9 +697,10 @@ void Link::onCheckedTimerEnd()
         emit isReceivesDataChanged(uuid_);
     }
 
-    // autosearch
+    // autosearch; boot-attributed links have their baudrate managed externally — never cycle it
+    // here (the protocol on them stays silent for seconds at a time, which looks like a dead link)
     bool isAutoSpeedSelection = autoSpeedSelection_ || (!autoSpeedSelection_ && onUpgradingFirmware_) || localGhostIgnoreCount_;
-    bool isNeedSearch = isAutoSpeedSelection && !isReceivesData_ && !timeoutCnt_ && !baudrateSearchList_.empty();
+    bool isNeedSearch = attribute_ == LinkAttribute::kLinkAttributeNone && isAutoSpeedSelection && !isReceivesData_ && !timeoutCnt_ && !baudrateSearchList_.empty();
 
     if (isNeedSearch) {
         timeoutCnt_ = linkNumTimeoutsSmall;
@@ -669,6 +730,7 @@ void Link::setDev(QIODevice *dev)
 {
     deleteDev();
     if (dev != nullptr) {
+        isReceivesData_ = false;
         ioDevice_ = dev;
 
         connect(dev, &QAbstractSocket::readyRead, this, &Link::readyRead);

@@ -14,6 +14,7 @@ DeviceManager::DeviceManager()
       lastAddress_(-1),
       progress_(0),
       isConsoled_(false),
+      nmeaConsoled_(true),
       break_(false),
       upgradeUuid_(QUuid()),
       upgradeAddr_(0)
@@ -25,6 +26,9 @@ DeviceManager::DeviceManager()
     qRegisterMetaType<QVector<uint8_t>>("QVector<uint8_t>");
     qRegisterMetaType<QByteArray>("QByteArray");
     qRegisterMetaType<IDBinUsblSolution::UsblSolution>("IDBinUsblSolution::UsblSolution");
+    qRegisterMetaType<IDBinUsblSolution::AcousticNavSolution>("IDBinUsblSolution::AcousticNavSolution");
+    qRegisterMetaType<IDBinUsblSolution::BaseToBeacon>("IDBinUsblSolution::BaseToBeacon");
+    qRegisterMetaType<IDBinModemSolution::ModemSolutionHeader>("IDBinModemSolution::ModemSolutionHeader");
     qRegisterMetaType<IDBinDVL::BeamSolution>("IDBinDVL::BeamSolution");
     qRegisterMetaType<uint16_t>("uint16_t");
     qRegisterMetaType<IDBinDVL::DVLSolution>("IDBinDVL::DVLSolution");
@@ -199,14 +203,19 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
 
     if (frame.isComplete()) {
 
-// #if !defined(Q_OS_ANDROID)
-//         if (frame.isStream())
-//             streamList_.append(&frame);
-//         if (frame.id() == ID_STREAM)
-//             streamList_.parse(&frame);
-//         if (streamList_.isListChenged())
-//             emit streamChanged();
-// #endif
+        if (frame.isStream())
+            streamList_.append(&frame);
+        if (frame.id() == ID_STREAM)
+            streamList_.parse(&frame);
+        if (streamList_.isListChenged()) {
+            emit streamChanged();
+            // qInfo("stream-list: %d logs", streamList_.streamsList()->size());
+            static const QString kAutoDl = qEnvironmentVariable("KOGGER_AUTODOWNLOAD");
+            if (!kAutoDl.isEmpty() && !autoDownloadStarted_) {
+                autoDownloadStarted_ = true;
+                startStreamDownload(kAutoDl.toInt());
+            }
+        }
 
         if (link != nullptr) {
             if (frame.isProxy() || frame.completeAsKBP()) {
@@ -260,7 +269,9 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
             ProtoNMEA& prot_nmea = (ProtoNMEA&)frame;
             QString str_data = QByteArray((char*)prot_nmea.frame(), prot_nmea.frameLen() - 2);
 #ifndef SEPARATE_READING
-            core.consoleInfo(QString(">> NMEA: %5").arg(str_data));
+            if (nmeaConsoled_) {
+                core.consoleProtoText(QString(">> NMEA: %5").arg(str_data));
+            }
 #endif
             if (prot_nmea.isEqualId("DBT")) {
                 prot_nmea.skip();
@@ -398,7 +409,7 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
 
                 // if (isConsoled_) {
 #ifndef SEPARATE_READING
-                    core.consoleInfo(QString(">> UBX: NAV_PVT, fix %1, sats %2, lat %3, lon %4, time %5:%6:%7.%8")
+                    core.consoleStreamInfo(QString(">> UBX: NAV_PVT, fix %1, sats %2, lat %3, lon %4, time %5:%6:%7.%8")
                                          .arg(fix_type).arg(satellites_in_used).arg(double(lat_int)*0.0000001).arg(double(lon_int)*0.0000001).arg(h).arg(m).arg(s).arg(nanosec/1000));
 #endif
                     // }
@@ -406,7 +417,7 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
             else {
                 // if (isConsoled_)
 #ifndef SEPARATE_READING
-                    core.consoleInfo(QString(">> UBX: class/id 0x%1 0x%2, len %3").arg(ubx_frame.msgClass(), 2, 16, QLatin1Char('0')).arg(ubx_frame.msgId(), 2, 16, QLatin1Char('0')).arg(ubx_frame.frameLen()));
+                    core.consoleStreamInfo(QString(">> UBX: class/id 0x%1 0x%2, len %3").arg(ubx_frame.msgClass(), 2, 16, QLatin1Char('0')).arg(ubx_frame.msgId(), 2, 16, QLatin1Char('0')).arg(ubx_frame.frameLen()));
 #endif
             }
         }
@@ -506,7 +517,7 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
                     int flight_mode = (int)heartbeat.customMode();
                     if (flight_mode != vru_.flightMode) {
 #ifndef SEPARATE_READING
-                        core.consoleInfo(QString(">> FC: Flight mode %1").arg(flight_mode));
+                        core.consoleStreamInfo(QString(">> FC: Flight mode %1").arg(flight_mode));
 #endif
                     }
                     vru_.flightMode = flight_mode;
@@ -532,7 +543,7 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
                     }
                 }
 #ifndef SEPARATE_READING
-                core.consoleInfo(QString(">> MAVLink v%1: ID %2, comp. id %3, seq numb %4, len %5").arg(mavlink_frame.MAVLinkVersion()).arg(mavlink_frame.msgId()).arg(mavlink_frame.componentID()).arg(mavlink_frame.sequenceNumber()).arg(mavlink_frame.frameLen()));
+                core.consoleProtoText(QString(">> MAVLink v%1: ID %2, comp. id %3, seq numb %4, len %5").arg(mavlink_frame.MAVLinkVersion()).arg(mavlink_frame.msgId()).arg(mavlink_frame.componentID()).arg(mavlink_frame.sequenceNumber()).arg(mavlink_frame.frameLen()));
 #endif
             }
             else {
@@ -658,7 +669,7 @@ void DeviceManager::openFile(QString filePath)
                 file.close();
                 return;
             }
-            if (sleepCnt > 50) {
+            if (sleepCnt > 10) {
                 QThread::msleep(1);
                 sleepCnt = 0;
             }
@@ -1161,6 +1172,11 @@ void DeviceManager::setProtoBinConsoled(bool isConsoled)
     isConsoled_ = isConsoled;
 }
 
+void DeviceManager::setNmeaConsoled(bool isConsoled)
+{
+    nmeaConsoled_ = isConsoled;
+}
+
 void DeviceManager::upgradeLastDev(QByteArray data)
 {
     if (lastDevs_ != nullptr) {
@@ -1228,6 +1244,36 @@ void DeviceManager::onSendRequestAll(QUuid uuid)
 StreamListModel* DeviceManager::streamsList()
 {
     return streamList_.streamsList();
+}
+
+void DeviceManager::startStreamDownload(int id)
+{
+    QList<DevQProperty*> recs = getDevList(BoardRecorderMini);
+    if (recs.isEmpty()) {
+        qInfo("startStreamDownload: no recorder device connected");
+        return;
+    }
+    DevQProperty* rec = recs.first();
+    qRegisterMetaType<QVector<quint32>>("QVector<quint32>");
+    connect(&streamList_, &StreamList::requestRanges, rec, &DevDriver::requestStreamRanges, Qt::UniqueConnection);
+    streamList_.startDownload(id);
+}
+
+void DeviceManager::cancelStreamDownload(int id)
+{
+    streamList_.cancelDownload(id);
+}
+
+void DeviceManager::refreshStreamList()
+{
+    QList<DevQProperty*> recs = getDevList(BoardRecorderMini);
+    if (!recs.isEmpty()) {
+        if (!streamList_.hasActiveDownload()) {
+            streamList_.reset();
+            emit streamChanged();
+        }
+        recs.first()->requestStreamList();
+    }
 }
 
 void DeviceManager::readyReadProxy(Link* link)
@@ -1374,7 +1420,11 @@ void DeviceManager::deleteDevicesByLink(QUuid uuid)
 {
     if (devTree_.contains(uuid)) {
         const auto& devs = devTree_[uuid];
+        bool hadRecorder = false;
         for (auto i = devs.cbegin(), end = devs.cend(); i != end; ++i) {
+            if (i.value() && i.value()->isRecorder()) {
+                hadRecorder = true;
+            }
             if (lastDevice_ == i.value()) {
                 lastDevice_ = nullptr;
             }
@@ -1388,8 +1438,23 @@ void DeviceManager::deleteDevicesByLink(QUuid uuid)
         }
         devTree_[uuid].clear();
         devTree_.remove(uuid);
+        if (hadRecorder) {
+            streamList_.reset();
+            emit streamChanged();
+        }
         emit devChanged();
+        emit standAvailableChanged();
     }
+}
+
+bool DeviceManager::standAvailable()
+{
+    const QList<DevQProperty*> devs = getDevList();
+    for (DevQProperty* dev : devs) {
+        if (dev && dev->getStandState())
+            return true;
+    }
+    return false;
 }
 
 DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
@@ -1425,6 +1490,7 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
     connect(dev, &DevQProperty::sendTranscSetup, this, &DeviceManager::sendTranscSetup, connType);
     connect(dev, &DevQProperty::sendSoundSpeed, this, &DeviceManager::sendSoundSpeeed, connType);
     connect(dev, &DevQProperty::averageChartLossesChanged, this, &DeviceManager::chartLossesChanged, connType);
+    connect(dev, &DevQProperty::standChanged, this, &DeviceManager::standAvailableChanged, connType);
 
     connect(dev, &DevQProperty::chartComplete, this, &DeviceManager::chartComplete, connType);
     connect(dev, &DevQProperty::rawDataRecieved, this, &DeviceManager::rawDataRecieved, connType);
@@ -1527,6 +1593,25 @@ DevQProperty* DeviceManager::createDev(QUuid uuid, Link* link, uint8_t addr)
 
     dev->startConnection(link != nullptr);
 #endif
+
+    if (link != nullptr) {
+        auto syncStatus = [dev, link](QUuid = {}) {
+            dev->setLinkStatus(link->getConnectionStatus(),
+                               link->getIsRecievesData(),
+                               link->getIsNotAvailable());
+        };
+        connect(link, &Link::connectionStatusChanged, dev, syncStatus);
+        connect(link, &Link::isReceivesDataChanged,   dev, syncStatus);
+        connect(link, &Link::isNotAvailableChanged,   dev, syncStatus);
+        syncStatus();
+    }
+
+    if (upgradeUuid_ == uuid && upgradeAddr_ == addr) {
+        upgradeUuid_ = QUuid();
+        QMetaObject::invokeMethod(dev, [dev, firmware = upgradeData_]() {
+            dev->setFirmware(firmware);
+        }, Qt::QueuedConnection);
+    }
 
     emit devChanged();
 

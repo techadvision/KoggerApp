@@ -13,10 +13,21 @@ LinkManagerWrapper::LinkManagerWrapper(QObject* parent) : QObject(parent)
     QObject::connect(workerThread_.get(), &QThread::started,                                workerObject_.get(), &LinkManager::createAndStartTimer,          connectionType);
     QObject::connect(workerObject_.get(), &LinkManager::appendModifyModel,                  this,                &LinkManagerWrapper::appendModifyModelData, connectionType);
     QObject::connect(workerObject_.get(), &LinkManager::deleteModel,                        this,                &LinkManagerWrapper::deleteModelData,       connectionType);
+    QObject::connect(workerObject_.get(), &LinkManager::linkCreatedInteractively,           this,                &LinkManagerWrapper::linkCreatedInteractively, connectionType);
+    QObject::connect(workerObject_.get(), &LinkManager::linkOpened, this, [this](QUuid uuid, Link* link) {
+        if (link && (link->getIsProxy() || link->attribute() == LinkAttribute::kLinkAttributeBoot))
+            return;
+        emit linkOpened(uuid.toString());
+    }, connectionType);
+    QObject::connect(workerObject_.get(), &LinkManager::linkRemoved, this, [this](QUuid uuid) {
+        emit linkRemoved(uuid.toString());
+    }, connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendOpenAsSerial,            workerObject_.get(), &LinkManager::openAsSerial,                 connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendCreateAsUdp,             workerObject_.get(), &LinkManager::createAsUdp,                  connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendOpenAsUdp,               workerObject_.get(), &LinkManager::openAsUdp,                    connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendCreateAsTcp,             workerObject_.get(), &LinkManager::createAsTcp,                  connectionType);
+    QObject::connect(this,                &LinkManagerWrapper::sendCreateAsRtsp,            workerObject_.get(), &LinkManager::createAsRtsp,                 connectionType);
+    QObject::connect(this,                &LinkManagerWrapper::sendOpenAsRtsp,              workerObject_.get(), &LinkManager::openAsRtsp,                   connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendOpenAsTcp,               workerObject_.get(), &LinkManager::openAsTcp,                    connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendCloseLink,               workerObject_.get(), &LinkManager::closeLink,                    connectionType);
     QObject::connect(this,                &LinkManagerWrapper::sendGetUuidFromString,       workerObject_.get(), &LinkManager::getUuidFromString,            connectionType);
@@ -145,12 +156,44 @@ void LinkManagerWrapper::openClosedLinks()
     emit sendOpenFLinks();
 }
 
+QByteArray LinkManagerWrapper::exportPinnedLinksToXmlData(QString* error)
+{
+    if (!workerObject_) {
+        if (error) {
+            *error = QStringLiteral("Link worker is not available");
+        }
+        return QByteArray();
+    }
+
+    if (workerThread_ && !workerThread_->isRunning()) {
+        workerThread_->start();
+    }
+
+    if (QThread::currentThread() == workerObject_->thread()) {
+        return workerObject_->exportPinnedLinksToXmlData();
+    }
+
+    QByteArray xmlData;
+    QMetaObject::invokeMethod(workerObject_.get(), [this, &xmlData]() {
+        xmlData = workerObject_->exportPinnedLinksToXmlData();
+    }, Qt::BlockingQueuedConnection);
+    return xmlData;
+}
+
 bool LinkManagerWrapper::reloadPinnedLinksFromXmlData(const QByteArray& xmlData,
                                                        bool allowSerialLinks,
                                                        int* skippedSerialLinks,
+                                                       bool* infrastructureUnavailable,
                                                        QString* error)
 {
+    if (infrastructureUnavailable) {
+        *infrastructureUnavailable = false;
+    }
+
     if (!workerObject_) {
+        if (infrastructureUnavailable) {
+            *infrastructureUnavailable = true;
+        }
         if (error) {
             *error = QStringLiteral("Link worker is not available");
         }
@@ -228,6 +271,17 @@ void LinkManagerWrapper::resetMyOpenLink()
     emit sendResetMyOpenLink();
 }
 
+void LinkManagerWrapper::createAsRtsp(QString address)
+{
+    emit sendCreateAsRtsp(address);
+}
+
+void LinkManagerWrapper::openAsRtsp(QUuid uuid, QString address)
+{
+    emit sendOpenAsRtsp(uuid, address);
+}
+
+
 void LinkManagerWrapper::closeLink(QUuid uuid)
 {
     emit sendCloseLink(uuid);
@@ -244,6 +298,15 @@ void LinkManagerWrapper::deleteLink(QUuid uuid)
 
 void LinkManagerWrapper::updateBaudrate(QUuid uuid, int baudrate)
 {
+    emit sendUpdateBaudrate(uuid, baudrate);
+}
+
+void LinkManagerWrapper::updateBaudrateFor(const QString& uuidStr, int baudrate)
+{
+    const QUuid uuid(uuidStr);
+    if (uuid.isNull() || !model_.containsUuid(uuid))
+        return;
+
     emit sendUpdateBaudrate(uuid, baudrate);
 }
 
@@ -274,4 +337,63 @@ void LinkManagerWrapper::appendModifyModelData(QUuid uuid, bool connectionStatus
 void LinkManagerWrapper::deleteModelData(QUuid uuid)
 {
     emit model_.removeEvent(uuid);
+}
+
+QStringList LinkManagerWrapper::pinnedUuids() const
+{
+    QStringList retVal;
+    const auto uuids = model_.pinnedUuids();
+    for (const auto& u : uuids)
+        retVal.append(u.toString());
+    return retVal;
+}
+
+QStringList LinkManagerWrapper::serialUuids() const
+{
+    QStringList retVal;
+    const auto uuids = model_.serialUuids();
+    for (const auto& u : uuids)
+        retVal.append(u.toString());
+    return retVal;
+}
+
+int LinkManagerWrapper::linkState(const QString& uuidStr) const
+{
+    const QUuid uuid(uuidStr);
+    if (!model_.containsUuid(uuid))
+        return -1;
+    if (model_.valueForUuid(uuid, LinkListModel::Roles::IsNotAvailable).toBool())
+        return 3;
+    if (!model_.valueForUuid(uuid, LinkListModel::Roles::ConnectionStatus).toBool())
+        return 0;
+    return model_.valueForUuid(uuid, LinkListModel::Roles::ReceivesData).toBool() ? 1 : 2;
+}
+
+void LinkManagerWrapper::reopenLink(const QString& uuidStr)
+{
+    const QUuid uuid(uuidStr);
+    if (!model_.containsUuid(uuid))
+        return;
+
+    const auto linkType = static_cast<LinkType>(model_.valueForUuid(uuid, LinkListModel::Roles::LinkType).toInt());
+    switch (linkType) {
+    case LinkType::kLinkSerial:
+        emit sendOpenAsSerial(uuid, LinkAttribute::kLinkAttributeNone);
+        break;
+    case LinkType::kLinkIPUDP: {
+        const QString address = model_.valueForUuid(uuid, LinkListModel::Roles::Address).toString();
+        const int src = model_.valueForUuid(uuid, LinkListModel::Roles::SourcePort).toInt();
+        const int dst = model_.valueForUuid(uuid, LinkListModel::Roles::DestinationPort).toInt();
+        emit sendOpenAsUdp(uuid, address, src, dst, LinkAttribute::kLinkAttributeNone);
+        break;
+    }
+    case LinkType::kLinkIPTCP: {
+        const QString address = model_.valueForUuid(uuid, LinkListModel::Roles::Address).toString();
+        const int dst = model_.valueForUuid(uuid, LinkListModel::Roles::DestinationPort).toInt();
+        emit sendOpenAsTcp(uuid, address, 0, dst, LinkAttribute::kLinkAttributeNone);
+        break;
+    }
+    default:
+        break;
+    }
 }

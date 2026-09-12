@@ -41,6 +41,9 @@ set(KOGGER_QT_MODULES
 
 if(NOT ANDROID)
     list(APPEND KOGGER_QT_MODULES Widgets SerialPort)
+    # UPSTREAM 1.0.3: single-instance guard, desktop only (as upstream has it).
+    list(APPEND APP_HEADERS src/instance_lock.h)
+    list(APPEND APP_SOURCES src/instance_lock.cpp)
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS ${KOGGER_QT_MODULES})
@@ -85,6 +88,27 @@ set(APP_HEADERS
     src/SlidingWindowMedian.h
     src/location_reader.h
     src/mosaic_index_provider.h
+    # ---- UPSTREAM 1.0.3 ----
+    # New modules that main.cpp and core.cpp now depend on. src/video is deliberately
+    # absent: it includes libavcodec/libavformat directly and upstream ships no ffmpeg
+    # plumbing, so it cannot survive the Android multi-ABI build.
+    src/app_log.h
+    src/app_utils.h
+    src/echogram_state_serializer.h
+    src/input_device_tracker.h
+    src/language_controller.h
+    src/notifications.h
+    src/settings_migration.h
+    src/system_battery.h
+    src/ui_keepalive.h
+    src/ui_probe.h
+    src/data_processor/bt_worker.h
+    src/device/device_topology_model.h
+    src/tile_engine/tile_baidu_provider.h
+    src/animation/animation_spec.h
+    src/animation/animation_specs.h
+    src/animation/animator.h
+    src/animation/smoother.h
 )
 
 set(APP_SOURCES
@@ -112,6 +136,20 @@ set(APP_SOURCES
     src/NMEASender.cpp
     src/location_reader.cpp
     src/mosaic_index_provider.cpp
+    # ---- UPSTREAM 1.0.3 ----
+    src/app_log.cpp
+    src/echogram_state_serializer.cpp
+    src/input_device_tracker.cpp
+    src/notifications.cpp
+    src/settings_migration.cpp
+    src/system_battery.cpp
+    src/ui_keepalive.cpp
+    src/ui_probe.cpp
+    src/data_processor/bt_worker.cpp
+    src/device/device_topology_model.cpp
+    src/tile_engine/tile_baidu_provider.cpp
+    src/animation/animator.cpp
+    src/animation/smoother.cpp
 )
 
 set(APP_RESOURCES
@@ -121,11 +159,27 @@ set(APP_RESOURCES
     resources/resources.qrc
 )
 
+# UPSTREAM 1.0.3: src/app_utils.h includes "kogger_revision.h", which upstream generates
+# from src/kogger_revision.h.in. Best effort - empty outside a git checkout.
+set(KOGGER_GIT_REVISION "")
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" rev-parse --short=10 HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE KOGGER_GIT_REVISION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+endif()
+configure_file(src/kogger_revision.h.in
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/kogger_revision.h" @ONLY)
+
 set(APP_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/qml
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freetype/include
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 # Keep this as an include-only path. Do not compile/moc files from

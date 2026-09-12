@@ -75,6 +75,12 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     auto &canvas = parent->canvas();
     auto &cursor = parent->cursor();
 
+    //UPSTREAM 1.0.3: plot2D.cpp asks the grid how far left its right-hand depth labels
+    //reached, so the DVL legend can be placed clear of them (grid_.lastRightTextX()).
+    //This file is otherwise ours, so the tracker is wired into OUR label placement below.
+    //Starts at the canvas width, meaning "nothing drawn yet, no constraint".
+    lastRightTextX_ = canvas.width();
+
     if (!isVisible())
         return false;
 
@@ -293,6 +299,8 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                     const int labelMargin = 5;
                     const int desiredX =
                         safeRightEdge - labelMargin - fm.horizontalAdvance(lineText);
+
+                    lastRightTextX_ = qMin(lastRightTextX_, desiredX - labelMargin);
 
                     drawTextWithBackdrop(p, lineText,
                                          QPoint(desiredX, posYflipped - textYOffset),

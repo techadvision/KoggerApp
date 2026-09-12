@@ -6,6 +6,7 @@
 #include <QHash>
 #include "scene3d_view.h"
 #include "epoch_event.h"
+#include "themes.h"
 
 
 BoatTrack::BoatTrack(GraphicsScene3dView* view, QObject* parent) :
@@ -29,13 +30,12 @@ SceneObject::SceneObjectType BoatTrack::type() const
 bool BoatTrack::eventFilter(QObject *watched, QEvent *event)
 {
     Q_UNUSED(watched);
-    if (m_view->m_mode == GraphicsScene3dView::ActiveMode::Idle) {
+    if (!m_view->isEpochSyncEnabled()) {
         return false;
     }
     auto* epochEvent = dynamic_cast<EpochEvent*>(event);
     if (epochEvent && epochEvent->eventTypeId() == static_cast<int>(EpochSelected2d)) {
         clearSelectedEpoch();
-        m_view->m_mode = GraphicsScene3dView::ActiveMode::BottomTrackVertexSelectionMode;
         selectEpoch(epochEvent->epochIndex());
     }
     return false;
@@ -159,7 +159,7 @@ void BoatTrack::mousePressEvent(Qt::MouseButtons buttons, qreal x, qreal y)
     if (!m_view)
         return;
 
-    if (m_view->m_mode == GraphicsScene3dView::BottomTrackVertexSelectionMode) {
+    if (m_view->isEpochSyncEnabled()) {
         if (buttons.testFlag(Qt::LeftButton)) {
             if (m_view->bottomTrack()->data().empty()) {
                 auto hits = m_view->m_ray.hitObject(shared_from_this(), Ray::HittingMode::Vertex);
@@ -283,7 +283,7 @@ void BoatTrack::BoatTrackRenderImplementation::render(QOpenGLFunctions *ctx,
 
         shaderProgram->setUniformValue(colorLoc, lineColor);
         shaderProgram->setUniformValue(matrixLoc, projection * view * model);
-        shaderProgram->setUniformValue(widthLoc, 12.0f);
+        shaderProgram->setUniformValue(widthLoc, static_cast<float>(12.0f * renderScale()));
 
         QVector<QVector3D> vertices{ boatTrackVertice_, bottomTrackVertice_ };
 

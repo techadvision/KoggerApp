@@ -75,6 +75,15 @@ public class PulseActivity extends QtActivity {
 
         private static PulseActivity m_instance = null;
 
+        //UPSTREAM 1.0.3: storage-permission result plumbing, ported from KoggerActivity.
+        //Not optional. android_interface.cpp registers koggerStoragePermissionResult in the
+        //SAME JNINativeMethod table as koggerLogDebug/koggerLogWarning, and RegisterNatives
+        //fails the WHOLE table if one method is missing from the class - so leaving this out
+        //would have silently killed the logging natives too. core.cpp and logger.cpp both
+        //call through to it now.
+        private static final int STORAGE_PERMISSION_REQUEST_CODE = 1;
+        private static boolean m_storagePermissionPending = false;
+
         private PowerManager.WakeLock m_wakeLock;
         private WifiManager.MulticastLock m_wifiMulticastLock;
         private boolean multiWindow = false;
@@ -83,6 +92,7 @@ public class PulseActivity extends QtActivity {
         public native boolean nativeInit();
         public native void koggerLogDebug(final String message);
         public native void koggerLogWarning(final String message);
+        public native void koggerStoragePermissionResult(final boolean granted);
         private static native void notifyInsets(int left, int top, int right, int bottom, int imeBottom);
         private static native void notifyDexState(boolean enabled, boolean fullscreen);
 
@@ -141,6 +151,40 @@ public class PulseActivity extends QtActivity {
     
         // PULSE METHODS
     
+        /**
+         * Delivers the outcome of a runtime storage permission request (API 23-29).
+         * Ported from upstream KoggerActivity at 1.0.3.
+         */
+        @Override
+        public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+            if (requestCode != STORAGE_PERMISSION_REQUEST_CODE) {
+                return;
+            }
+
+            boolean granted = grantResults.length > 0;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    granted = false;
+                    break;
+                }
+            }
+
+            m_storagePermissionPending = false;
+            notifyStoragePermissionResult(granted);
+        }
+
+        private void notifyStoragePermissionResult(boolean granted) {
+            Log.i(TAG, "Storage permission result: " + granted);
+
+            try {
+                koggerStoragePermissionResult(granted);
+            } catch (final UnsatisfiedLinkError e) {
+                Log.e(TAG, "Native storage permission callback is not registered", e);
+            }
+        }
+
         @Override
         protected void onResume() {
             super.onResume();
@@ -149,6 +193,16 @@ public class PulseActivity extends QtActivity {
 
             final View root = getWindow().getDecorView();
             root.post(() -> ViewCompat.requestApplyInsets(root));
+
+            //UPSTREAM 1.0.3: MANAGE_EXTERNAL_STORAGE (API 30+) is granted in system
+            //settings, not in a runtime dialog, so its outcome is only observable when
+            //the user comes back to the app.
+            if (m_storagePermissionPending && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (Environment.isExternalStorageManager()) {
+                    m_storagePermissionPending = false;
+                    notifyStoragePermissionResult(true);
+                }
+            }
         }
 
         @Override
@@ -523,7 +577,8 @@ public class PulseActivity extends QtActivity {
 
                 if (!allGranted) {
                     Log.i(TAG, "Storage permissions not granted, requesting...");
-                    ActivityCompat.requestPermissions(m_instance, permissions, 1);
+                    m_storagePermissionPending = true;
+                    ActivityCompat.requestPermissions(m_instance, permissions, STORAGE_PERMISSION_REQUEST_CODE);
                     return false;
                 }
 

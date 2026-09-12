@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <math.h>
 #include <stdint.h>
 #include <time.h>
@@ -100,6 +101,18 @@ public:
 
         QVector<uint8_t> compensated;
 
+        static void compensateInPlace(uint8_t* data, int n, float resol) {
+            float avrg = 255;
+            for (int i = 0; i < n; ++i) {
+                float val = data[i];
+                avrg += (val - avrg) * (0.05f + avrg * 0.0006f);
+                val = (val - avrg * 0.55f) * (0.85f + float(i * resol) * 0.006f) * 2.f;
+                if (val < 0.0f)        val = 0.0f;
+                else if (val > 255.0f) val = 255.0f;
+                data[i] = uint8_t(val);
+            }
+        }
+
         void updateCompesated() {
             int raw_size = amplitude.size();
             if(compensated.size() != raw_size) {
@@ -145,6 +158,48 @@ public:
         void updateSsTvgCompensated() {
             EchogramSideScanTvg::apply(amplitude, resolution, offset, ssTvgCompensated);
             ssTvgVersion = EchogramSideScanTvg::version();
+        }
+
+        //UPSTREAM 1.0.3: their linear TGC buffer, kept alongside ours. See rule 3 -
+        //which of the two drives the mosaic is a decision, not a merge.
+        QVector<uint8_t> tgc;
+
+        static inline std::atomic<float> gTgcGainNear  { 0.5f };  // дефолт 50%
+        static inline std::atomic<float> gTgcGainFar   { 2.5f };  // дефолт 250%
+        static inline std::atomic<bool>  gTgcCompensate{ false };
+
+        void updateTgc() {
+            const int n = amplitude.size();
+            if (tgc.size() != n) {
+                tgc.resize(n);
+            }
+            if (n <= 0) {
+                return;
+            }
+
+            const uint8_t* src = amplitude.constData();
+            uint8_t* dst = tgc.data();
+            const float invN  = 1.0f / float(n);
+            const float gN    = gTgcGainNear.load(std::memory_order_relaxed);
+            const float gF    = gTgcGainFar.load(std::memory_order_relaxed);
+            const float gSpan = gF - gN;
+
+            for (int i = 0; i < n; ++i) {
+                const float frac = float(i) * invN;
+                const float gain = gN + frac * gSpan;
+                float val = float(src[i]) * gain;
+                if (val < 0.0f)        val = 0.0f;
+                else if (val > 255.0f) val = 255.0f;
+                dst[i] = uint8_t(val);
+            }
+
+            if (gTgcCompensate.load(std::memory_order_relaxed)) {
+                compensateInPlace(dst, n, resolution);
+            }
+        }
+
+        void clearTgc() {
+            tgc.clear();
         }
 
         DistProcessing bottomProcessing;
@@ -235,6 +290,14 @@ public:
     float encoder2() { return _encoder.e2; }
     float encoder3() { return _encoder.e3; }
 
+    void invalidateTgc() {
+        for (auto& echograms : charts_) {
+            for (auto& iEchogram : echograms) {
+                iEchogram.clearTgc();
+            }
+        }
+    }
+
     void setDistProcessing(const ChannelId& channelId, float dist) {
         if (charts_.contains(channelId)) {
             auto& charts = charts_[channelId];
@@ -306,6 +369,7 @@ public:
     int chartSize(const ChannelId& channelId = channelNone(), uint8_t subChannelId = 0);
     bool chartAvail();
     bool chartAvail(const ChannelId& channelId, uint8_t subChannelId = 0) const;
+    float chartBottomDistance(const ChannelId& channelId, uint8_t subChannelId = 0) const;
     Echogram* chart(const ChannelId& channelId = channelNone(), uint8_t subChannelId = 0);
     Echogram chartCopy(const ChannelId &channelId = channelNone(), uint8_t subChannelId = 0) const;
     Epoch deepCopyForMosaic() const;
@@ -465,6 +529,7 @@ public:
     Position getPositionGNSS() { return _positionGNSS; }
     Position getExternalPosition() { return _positionExternal; }
     Position getSonarPosition() { return sonarPosition_; }
+    const Position& getSonarPositionCRef() const { return sonarPosition_; }
 
     uint32_t positionTimeUnix() { return _positionGNSS.time.sec; }
     uint32_t positionTimeNano() { return _positionGNSS.time.nanoSec; }
@@ -534,6 +599,14 @@ public:
                 return zeroOut();
             }
             src = eg.compensated.constData();
+        } else if (imageType == 2) {
+            if (eg.tgc.isEmpty()) {
+                eg.updateTgc();
+            }
+            if (eg.tgc.isEmpty()) {
+                return zeroOut();
+            }
+            src = eg.tgc.constData();
         }
         else if (imageType == 2) { // PULSE: TVG display compensation
             if (eg.tvgCompensated.size() != rawSize || eg.tvgVersion != EchogramTvg::version()) {

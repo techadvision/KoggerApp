@@ -19,6 +19,7 @@ public:
 
     Q_INVOKABLE bool exportToJsonFile(const QString& path);
     Q_INVOKABLE bool importFromJsonFile(const QString& path);
+    Q_INVOKABLE bool pathExists(const QString& path) const;
 
     QString lastError() const { return lastError_; }
     QString lastStatus() const { return lastStatus_; }
@@ -40,10 +41,16 @@ private:
 
     QString currentAppVersion() const;
     QString currentMajorMinorVersion() const;
+    QList<QObject*> liveSettingsObjects() const;
+    QHash<QString, QVariant> collectLiveQmlSettingsValues() const;
     int applyImportedSettingsToQml(const QHash<QString, QVariant>& importedValues) const;
+    QByteArray loadPinnedLinksXmlDataForExport() const;
+    QString userVisiblePinnedLinksWarning(const QByteArray& xmlData,
+                                          bool infrastructureUnavailable) const;
     bool reloadPinnedLinksImmediately(const QByteArray& xmlData,
                                       bool allowSerialLinks,
                                       int* skippedSerialLinks,
+                                      bool* infrastructureUnavailable,
                                       QString* error) const;
 
     void setLastError(const QString& errorText);

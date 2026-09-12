@@ -31,6 +31,7 @@ public:
     void setSettingsBus(SettingsBus* b);
     void applyRuntime(const QVariantMap& m);
     void applyPersistent(const QVariantMap& m);
+    QByteArray exportPinnedLinksToXmlData() const;
     bool reloadPinnedLinksFromXmlData(const QByteArray& xmlData,
                                       bool allowSerialLinks = true,
                                       int* skippedSerialLinks = nullptr,
@@ -42,6 +43,8 @@ public slots:
     void onUpgradingFirmwareStateChanged(QUuid uuid);
     void onLinkBaudrateChanged(QUuid uuid);
     void onLinkIsReceivesDataChanged(QUuid uuid);
+    void onLinkDataFlowNotify(QUuid uuid);
+    void onLinkAvailabilityNotify(QUuid uuid);
     void createAndStartTimer();
     void stopTimer();
     void onExpiredTimer();
@@ -68,6 +71,8 @@ public slots:
     void frameInput(Link* link, Parsers::FrameParser frame);
     void createAsUdp(QString address, int sourcePort, int destinationPort);
     void createAsTcp(QString address, int sourcePort, int destinationPort);
+    void createAsRtsp(QString address);
+    void openAsRtsp(QUuid uuid, QString address);
     void importPinnedLinksFromXML();
     void openFLinks();
     void createAndOpenAsUdpProxy(QString address, int sourcePort, int destinationPort);
@@ -82,13 +87,18 @@ signals:
                         LinkType linkType, QString address, int sourcePort, int destinationPort, bool isPinned, bool isHided, bool isNotAvailable,
                         bool autoSpeedSelection, bool isUpgradingState);
     void deleteModel(QUuid uuid);
+    void linkCreatedInteractively(QUuid uuid);
     void frameReady(QUuid uuid, Link* link, Parsers::FrameParser frame);
     void linkClosed(QUuid uuid, Link* link);
     void linkOpened(QUuid uuid, Link* link);
     void linkDeleted(QUuid uuid, Link* link);
+    void linkRemoved(QUuid uuid); // runtime removal only (deleteLink); NOT shutdown
     void sendDoRequestAll(QUuid uuid);
     //Pulse
     void mavlinkPeerUpdated(const QString& ip, qint64 seenMs);
+
+protected:
+    virtual QStringList currentSerialPortNames() const;
 
 private:
     /*structures*/
@@ -118,10 +128,9 @@ private:
     };
 
     /*methods*/
-    QList<QSerialPortInfo> getCurrentSerialList() const;
-    Link* createSerialPort(const QSerialPortInfo& serialInfo) const;
-    void addNewLinks(const QList<QSerialPortInfo> &currSerialList);
-    void deleteMissingLinks(const QList<QSerialPortInfo> &currSerialList);
+    Link* createSerialPort(const QString& portName) const;
+    void addNewLinks(const QStringList &currSerialList);
+    void deleteMissingLinks(const QStringList &currSerialList);
     void openAutoConnections();
     void update();
     void doEmitAppendModifyModel(Link* linkPtr);

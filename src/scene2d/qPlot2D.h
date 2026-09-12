@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QQuickPaintedItem>
 #include <QObject>
+#include <QVariant>
 #include <dataset.h>
 #include <QTimer>
 #include "echogram_tvg.h"
@@ -21,13 +22,16 @@ class qPlot2D : public QQuickPaintedItem, public Plot2D
     Q_OBJECT
     Q_INTERFACES(QQmlParserStatus)
 public:
-    Q_PROPERTY(bool horizontal READ isHorizontal WRITE setHorizontal NOTIFY plotHorizontalChanged)
+    // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method): QML bridge intentionally re-exposes Plot2D methods as Q_INVOKABLE
+    Q_PROPERTY(bool horizontal READ isHorizontal() WRITE setHorizontal NOTIFY plotHorizontalChanged)
     Q_PROPERTY(float timelinePosition READ timelinePosition WRITE setTimelinePosition NOTIFY timelinePositionChanged)
+    Q_PROPERTY(float viewportRatio READ viewportRatio NOTIFY timelinePositionChanged)
+    Q_PROPERTY(bool hasData READ hasData NOTIFY timelinePositionChanged)
     Q_PROPERTY(bool isEnabled READ getPlotEnabled WRITE setPlotEnabled NOTIFY plotEnabledChanged)
     Q_PROPERTY(QString contactInfo      READ getContactInfo      WRITE setContactInfo     NOTIFY contactChanged)
     Q_PROPERTY(bool    contactVisible   READ getContactVisible   WRITE setContactVisible  NOTIFY contactChanged)
-    Q_PROPERTY(int     contactPositionX READ getContactPositionX /*WRITE setContactPosition*/ NOTIFY contactChanged)
-    Q_PROPERTY(int     contactPositionY READ getContactPositionY /*WRITE setContactPosition*/ NOTIFY contactChanged)
+    Q_PROPERTY(int     contactPositionX READ qmlContactPositionX /*WRITE setContactPosition*/ NOTIFY contactChanged)
+    Q_PROPERTY(int     contactPositionY READ qmlContactPositionY /*WRITE setContactPosition*/ NOTIFY contactChanged)
     Q_PROPERTY(int     contactIndx      READ getContactIndx /*WRITE setContactIndx*/ NOTIFY contactChanged)
     Q_PROPERTY(double  contactLat       READ getContactLat /*WRITE setContactLat*/ NOTIFY contactChanged)
     Q_PROPERTY(double  contactLon       READ getContactLon /*WRITE setContactLon*/ NOTIFY contactChanged)
@@ -38,15 +42,35 @@ public:
     // PULSE QQmlParserStatus
     void classBegin() override {}
     void componentComplete() override;
+    Q_PROPERTY(bool    contactIsActive  READ getContactIsActive NOTIFY contactChanged)
 
     qPlot2D(QQuickItem* parent = nullptr);
     void paint(QPainter *painter) override;
+    void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override {
+        QQuickPaintedItem::geometryChange(newGeometry, oldGeometry);
+        if (newGeometry.size() != oldGeometry.size())
+            update();
+    }
 //    QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *) override;
 
     void setPlot(Dataset* plot);
     void setDataProcessor(DataProcessor* dataProcessorPtr);
 
     bool isHorizontal() { return _isHorizontal; }
+
+    int qmlContactPositionX() { return qRound(Plot2D::getContactPositionX() / deviceScale_); }
+    int qmlContactPositionY() { return qRound(Plot2D::getContactPositionY() / deviceScale_); }
+
+    float viewportRatio() const {
+        if (!datasetPtr_ || datasetPtr_->size() <= 0) return 1.0f;
+        const float dim = (_isHorizontal ? static_cast<float>(width()) : static_cast<float>(height())) * static_cast<float>(deviceScale_);
+        return qBound(0.0f, dim / static_cast<float>(datasetPtr_->size()), 1.0f);
+    }
+
+    bool hasData() const {
+        return datasetPtr_ != nullptr && datasetPtr_->size() > 0;
+    }
+
     void setHorizontal(bool is_horizontal) {
         if (_isHorizontal == is_horizontal) {
             return;
@@ -61,6 +85,7 @@ public:
 
     bool eventFilter(QObject *watched, QEvent *event) final;
     void sendSyncEvent(int epoch_index, QEvent::Type eventType) final;
+    void syncClearAim() final;
 
     //Pulse app updates
     Q_INVOKABLE void updatePlot() { plotUpdate(); };
@@ -107,7 +132,7 @@ public:
             cursor_.selectEpochIndx = -1;
             return;
         }
-        const float halfWidth = static_cast<float>(qRound(width() * 0.5f));
+        const float halfWidth = static_cast<float>(qRound(width() * deviceScale_ * 0.5));
         const float timelinePos = static_cast<float>(epochIndx + halfWidth) / static_cast<float>(datasetPtr_->size());
         Plot2D::setTimelinePosition(qBound(0.0f, timelinePos, 1.0f));
         cursor_.selectEpochIndx = epochIndx;
@@ -166,6 +191,7 @@ protected:
     bool m_needUpdate = true;
     bool _isHorizontal = true;
     bool _isSideScanLeftSide = true;
+    qreal deviceScale_ = 1.0;
 
 signals:
     void timelinePositionChanged();
@@ -220,6 +246,7 @@ public slots:
     void plotEchogramVisible(bool visible) { setEchogramVisible(visible); }
     Q_INVOKABLE void plotEchogramTheme(int theme_id) { setEchogramTheme(theme_id); }
     Q_INVOKABLE void plotEchogramCompensation(int compensation_id) { setEchogramCompensation(compensation_id); }
+    Q_INVOKABLE void updateBottomTrackProcessing();
     void plotBottomTrackVisible(bool visible) { setBottomTrackVisible(visible); }
     void plotBottomTrackTheme(int theme_id) { setBottomTrackTheme(theme_id); }
     void plotBottomTrackDepthTextVisible(bool visible) { setBottomTrackDepthTextVisible(visible); }
@@ -230,7 +257,9 @@ public slots:
     void plotAttitudeVisible(bool visible) { setAttitudeVisible(visible); }
     void plotTemperatureVisible(bool visible) { setTemperatureVisible(visible); }
     void plotDopplerBeamVisible(bool visible, int beam_filter) { setDopplerBeamVisible(visible, beam_filter); }
-    void plotDopplerInstrumentVisible(bool visible) { setDopplerInstrumentVisible(visible); }
+    void plotDopplerInstrumentVisible(bool visible, int line_filter = -1) { setDopplerInstrumentVisible(visible, line_filter); }
+    void plotDVLLegendVisible(bool visible) { setDVLLegendVisible(visible); }
+    void plotDVLLegendPosition(int pos) { setDVLLegendPosition(pos); }
 
     void plotGNSSVisible(bool visible, int flags) { setGNSSVisible(visible, flags);}
 
@@ -330,6 +359,7 @@ public slots:
     Q_INVOKABLE float getLowEchogramLevel() const;
     Q_INVOKABLE float getHighEchogramLevel() const;
     Q_INVOKABLE int getThemeId() const;
+    Q_INVOKABLE QVariantList echogramThemeStops(int id) const;
     Q_INVOKABLE bool getBottomTrackVisible() const { return Plot2D::getBottomTrackVisible(); }
     Q_INVOKABLE int getBottomTrackThemeId() const;
     Q_INVOKABLE bool getRangefinderVisible() const { return Plot2D::getRangefinderVisible(); }
@@ -337,8 +367,33 @@ public slots:
     Q_INVOKABLE int getEchogramCompensation() const { return Plot2D::getEchogramCompensation(); }
     Q_INVOKABLE float getLoupeDepthForEpoch(int epochIndx) const;
     Q_INVOKABLE int getPreferredLoupeEpochIndex(int preferredEpochIndx = -1) const;
-    void doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz, bool manual);
-    void refreshDistParams(int preset, int windowSize, float verticalGap, float rangeMin, float rangeMax, float gainSlope, float threshold, float offsetX, float offsetY, float offsetZ);
+
+    Q_INVOKABLE bool getEchogramVisible() const { return Plot2D::getEchogramVisible(); }
+    Q_INVOKABLE bool getBottomTrackDepthTextVisible() const { return Plot2D::getBottomTrackDepthTextVisible(); }
+    Q_INVOKABLE bool getRangefinderDepthTextVisible() const { return Plot2D::getRangefinderDepthTextVisible(); }
+    Q_INVOKABLE bool getAttitudeVisible() const { return Plot2D::getAttitudeVisible(); }
+    Q_INVOKABLE bool getTemperatureVisible() const { return Plot2D::getTemperatureVisible(); }
+    Q_INVOKABLE bool getDopplerBeamVisible() const { return Plot2D::getDopplerBeamVisible(); }
+    Q_INVOKABLE int getDopplerBeamFilter() const { return Plot2D::getDopplerBeamFilter(); }
+    Q_INVOKABLE bool getDopplerInstrumentVisible() const { return Plot2D::getDopplerInstrumentVisible(); }
+    Q_INVOKABLE int getDopplerInstrumentFilter() const { return Plot2D::getDopplerInstrumentFilter(); }
+    Q_INVOKABLE bool getDVLLegendVisible() const { return Plot2D::getDVLLegendVisible(); }
+    Q_INVOKABLE int getDVLLegendPosition() const { return Plot2D::getDVLLegendPosition(); }
+    Q_INVOKABLE bool getAcousticAngleVisible() const { return Plot2D::getAcousticAngleVisible(); }
+    Q_INVOKABLE bool getGNSSVisible() const { return Plot2D::getGNSSVisible(); }
+    Q_INVOKABLE int getGridVerticalNumber() const { return Plot2D::getGridVerticalNumber(); }
+    Q_INVOKABLE bool getGridFillWidth() const { return Plot2D::getGridFillWidth(); }
+    Q_INVOKABLE bool getGridInvert() const { return Plot2D::getGridInvert(); }
+    Q_INVOKABLE bool getAngleVisibility() const { return Plot2D::getAngleVisibility(); }
+    Q_INVOKABLE int getAngleRange() const { return Plot2D::getAngleRange(); }
+    Q_INVOKABLE bool getVelocityVisible() const { return Plot2D::getVelocityVisible(); }
+    Q_INVOKABLE float getVelocityRange() const { return Plot2D::getVelocityRange(); }
+    Q_INVOKABLE int getDistanceAutoRange() const { return Plot2D::getDistanceAutoRange(); }
+    Q_INVOKABLE bool getLoupeVisible() const { return Plot2D::getLoupeVisible(); }
+    Q_INVOKABLE int getLoupeSize() const { return Plot2D::getLoupeSize(); }
+    Q_INVOKABLE int getLoupeZoom() const { return Plot2D::getLoupeZoom(); }
+    void doDistProcessing(int preset, int window_size, float vertical_gap, float range_min, float range_max, float gain_slope, float threshold, float offsetx, float offsety, float offsetz, bool manual);   //PULSE: offsets kept - DisplaySettings.qml passes them
+    void refreshDistParams(int preset, int windowSize, float verticalGap, float rangeMin, float rangeMax, float gainSlope, float threshold, float offsetX, float offsetY, float offsetZ);   //PULSE: offsets kept
 
     void setPreset(int value);
     void setWindowSize(int value);
@@ -373,4 +428,5 @@ private:
     int zoomPreviewEpochIndx_ = -1;
     float zoomPreviewDepth_ = 0.0f;
     bool zoomPreviewFlipY_ = false;
+    // NOLINTEND(bugprone-derived-method-shadowing-base-method)
 };

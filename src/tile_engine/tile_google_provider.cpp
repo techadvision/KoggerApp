@@ -9,7 +9,8 @@ namespace map {
 
 
 TileGoogleProvider::TileGoogleProvider() :
-    TileProvider(GOOGLE_PROVIDER_ID)
+    TileProvider(GOOGLE_PROVIDER_ID),
+    satVersion_(kGoogleSatFallback)
 {
 
 }
@@ -102,6 +103,12 @@ map::TileInfo TileGoogleProvider::indexToTileInfo(map::TileIndex tileIndx, map::
     info.tileSizeMeters = resolution * tileSizePixels;
 
     info.bounds = bounds;
+    info.corners = {
+        bounds.south, bounds.west,  // SW
+        bounds.north, bounds.west,  // NW
+        bounds.north, bounds.east,  // NE
+        bounds.south, bounds.east,  // SE
+    };
 
     return info;
 }
@@ -122,10 +129,35 @@ void TileGoogleProvider::generateWords(int x, int y, QString& sec1, QString& sec
 
 QString TileGoogleProvider::createURL(const map::TileIndex& tileIndx) const
 {
+    return buildUrl(tileIndx, satVersion_);
+}
+
+QString TileGoogleProvider::buildUrl(const map::TileIndex& tileIndx, int version) const
+{
     QString str1, str2;
     generateWords(tileIndx.x_, tileIndx.y_, str1, str2);
     return QString(QStringLiteral("http://%1%2.google.com/%3/v=%4&hl=%5&x=%6%7&y=%8&z=%9&s=%10")).arg(server).arg(generateNum(tileIndx.x_, tileIndx.y_))
-        .arg(request).arg(googleSat).arg(language).arg(tileIndx.x_).arg(str1).arg(tileIndx.y_).arg(tileIndx.z_).arg(str2);
+        .arg(request).arg(version).arg(language).arg(tileIndx.x_).arg(str1).arg(tileIndx.y_).arg(tileIndx.z_).arg(str2);
+}
+
+QString TileGoogleProvider::manifestKey() const
+{
+    return QStringLiteral("google");
+}
+
+int TileGoogleProvider::imageryVersion() const
+{
+    return satVersion_;
+}
+
+void TileGoogleProvider::setImageryVersion(int version)
+{
+    satVersion_ = version;
+}
+
+QString TileGoogleProvider::versionedCanaryUrl(int version) const
+{
+    return buildUrl(map::TileIndex(1, 1, 1, providerId_), version);
 }
 
 

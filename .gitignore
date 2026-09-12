@@ -1,8 +1,12 @@
 # build folder
 /build/
 build
+build-*/
 # deploy folder
 out_x64
+out_android
+# compiled translations
+translations/*.qm
 # Qt Creator
 *.pro.user
 *.user
@@ -61,3 +65,16 @@ Android_Qt_6_8_3_Clang_arm64_v8a-Debug16k/
 
 # macOS
 .DS_Store
+dev-notes/
+CLAUDE.md
+AGENTS.md
+.codex/
+.cursorrules
+.cursor/
+.codex/
+.aider*
+.continue/
+.codeium/
+.claude/
+docs/KoggerApp-Docs/
+*.py

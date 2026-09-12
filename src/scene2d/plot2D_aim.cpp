@@ -12,6 +12,7 @@
 #include <QStandardPaths>
 #include <QDateTime>
 
+#include "themes.h"   //UPSTREAM 1.0.3: renderScale()
 #include <cmath>
 
 namespace {
@@ -24,11 +25,12 @@ Plot2DAim::Plot2DAim()
     lineWidth_(1),
     lineColor_(255, 255, 255, 255)
 {
-#if defined(Q_OS_ANDROID) || defined(LINUX_ES)
-    scaleFactor_ = 2;
-#else
-    scaleFactor_ = 1;
-#endif
+    //UPSTREAM 1.0.3: the renderer now scales by real device DPI (themes.h renderScale())
+    //instead of a flat 2 on Android. Every other 2D layer moved with it - grid, contact,
+    //rangefinder, temperature, bottom processing - so the aim layer has to move too, or the
+    //crosshair and loupe would be the only things scaled differently from the echogram
+    //under them. VISIBLE CHANGE: verify the loupe and popup geometry on device.
+    scaleFactor_ = renderScale();
     //Pulse
     debounce_.start();
     touchStreamTimer_.start();
@@ -363,6 +365,7 @@ bool Plot2DAim::isTapInsideZoom(Plot2D* parent, int devX, int devY) const
 // Draw the aim (upstream cursor correctness + your Plot2DZoom panel/buttons), sync-fixed
 bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 {
+    scaleFactor_ = renderScale();
     setPause(parent, dataset, echogramPause_);
 
     auto& canvas = parent->canvas();
@@ -452,6 +455,9 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                     bottomDistance = 0.0f;
 
                 const float distanceRange = cursor.distance.range();
+                //NOTE: upstream changed this initialiser to 0 alongside their sync-depth
+                //rework, which we declined. It must keep matching OUR yFloat formula
+                //below, whose dual-channel branch measures from the canvas centre.
                 int y = (cursor.channel2 != channelNone()) ? canvas.height() / 2 : 0;
                 if (std::isfinite(distanceRange) && std::abs(distanceRange) > 1e-6f) {
                     const float yFloat = (cursor.channel2 != channelNone())

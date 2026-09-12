@@ -8,6 +8,7 @@
 #include <QQuickWindow>
 #include <cmath>
 #include <limits>
+#include "core.h"
 #include "epoch_event.h"
 #include "SettingsBus.h"
 #include "InsetsHelper.h"
@@ -79,6 +80,9 @@ void qPlot2D::wireBus(SettingsBus* bus) {
 
 }
 */
+#include "themes.h"
+
+extern Core core;
 
 
 qPlot2D::qPlot2D(QQuickItem* parent)
@@ -89,8 +93,14 @@ qPlot2D::qPlot2D(QQuickItem* parent)
     qRegisterMetaType<DatasetChannel>("DatasetChannel");
 
 //    setRenderTarget(QQuickPaintedItem::FramebufferObject);
-//    connect(m_updateTimer, &QTimer::timeout, this, [&] { update(); });
+    connect(m_updateTimer, &QTimer::timeout, this, &qPlot2D::timerUpdater);
     m_updateTimer->start(30);
+    connect(this, &QQuickItem::widthChanged, this, &qPlot2D::updater);
+    connect(this, &QQuickItem::heightChanged, this, &qPlot2D::updater);
+    connect(this, &QQuickItem::visibleChanged, this, &qPlot2D::updater);
+    connect(this, &QQuickItem::parentChanged, this, [this](QQuickItem*) { updater(); });
+    connect(&core, &Core::languageChanged, this, &qPlot2D::updater);
+    connect(&theme, &Themes::changed, this, &qPlot2D::updater);
     setFlag(ItemHasContents);
     setAcceptedMouseButtons(Qt::AllButtons);
 //    setFillColor(QColor(255, 255, 255));
@@ -109,13 +119,21 @@ void qPlot2D::paint(QPainter *painter)
     clock_t start = clock();
 
     if (m_plot != nullptr && painter != nullptr) {
-        //Plot2D::getImage((int)width(), (int)height(), painter, _isHorizontal);
-        //Plot2D::draw(painter);
-        const int w = static_cast<int>(width());
-        const int h = static_cast<int>(height());
-        if (w <= 0 || h <= 0) {
+        const int lw = static_cast<int>(width());
+        const int lh = static_cast<int>(height());
+        if (lw <= 0 || lh <= 0) {
             return;
         }
+
+        const qreal dpr = window() ? window()->effectiveDevicePixelRatio() : 1.0;
+        deviceScale_ = (qAbs(dpr - qRound(dpr)) > 0.01) ? dpr : 1.0;
+        const int w = qRound(lw * deviceScale_);
+        const int h = qRound(lh * deviceScale_);
+
+        painter->save();
+        if (deviceScale_ != 1.0)
+            painter->scale(1.0 / deviceScale_, 1.0 / deviceScale_);
+        g_plotRenderExtraScale = deviceScale_;
 
         if (zoomPreviewMode_ && datasetPtr_ && datasetPtr_->size() > 0 && zoomPreviewEpochIndx_ >= 0) {
             const float halfWidth = static_cast<float>(qRound(w * 0.5f));
@@ -323,12 +341,14 @@ void qPlot2D::paint(QPainter *painter)
                 }
             }
 
-            const int sourceWidth = qBound(4, zoomPreviewSourceSize_, qMax(4, canvas().width()));
-            int sourceHeight = qBound(4, zoomPreviewSourceSize_, qMax(4, canvas().height()));
-            if (zoomPreviewReferenceDepthPixels_ > 0 && canvas().height() > 0) {
+            const int srcSize = qRound(zoomPreviewSourceSize_ * deviceScale_);
+            const int refDepthPx = qRound(zoomPreviewReferenceDepthPixels_ * deviceScale_);
+            const int sourceWidth = qBound(4, srcSize, qMax(4, canvas().width()));
+            int sourceHeight = qBound(4, srcSize, qMax(4, canvas().height()));
+            if (refDepthPx > 0 && canvas().height() > 0) {
                 const float scaledSource = static_cast<float>(sourceHeight)
                     * static_cast<float>(canvas().height())
-                    / static_cast<float>(zoomPreviewReferenceDepthPixels_);
+                    / static_cast<float>(refDepthPx);
                 sourceHeight = qBound(4, qRound(scaledSource), qMax(4, canvas().height()));
             }
             const QRect previewRect(0, 0, w, h);
@@ -379,6 +399,9 @@ void qPlot2D::paint(QPainter *painter)
             }
         }
         */
+
+        g_plotRenderExtraScale = 1.0;
+        painter->restore();
     }
 
     clock_t end = clock();
@@ -389,10 +412,13 @@ void qPlot2D::paint(QPainter *painter)
 }
 
 void qPlot2D::setPlot(Dataset *dataset) {
-    if(dataset == nullptr) { return; }
+    if (dataset == nullptr || m_plot == dataset) { return; }
+    if (m_plot != nullptr) {
+        QObject::disconnect(m_plot, &Dataset::dataUpdate, this, &qPlot2D::dataUpdate);
+    }
     m_plot = dataset;
     setDataset(dataset);
-    connect(dataset, &Dataset::dataUpdate, this, &qPlot2D::dataUpdate);
+    connect(dataset, &Dataset::dataUpdate, this, &qPlot2D::dataUpdate, Qt::UniqueConnection);
 //    connect(m_plot, &Dataset::updatedImage, this, [&] { updater(); });
 }
 
@@ -508,12 +534,30 @@ bool qPlot2D::eventFilter(QObject *watched, QEvent *event)
 void qPlot2D::sendSyncEvent(int epoch_index, QEvent::Type eventType)
 {
     //qDebug() << "qPlot2D::sendSyncEvent: epoch_index: " << epoch_index;
+    if (!datasetPtr_) {
+        return;
+    }
+    if (epoch_index < 0 && eventType != ContactActiveChanged) {
+        return;
+    }
+
     if (eventType == EpochSelected2d) {
         cursor_.selectEpochIndx = -1;
     }
 
     auto epochEvent = new EpochEvent(eventType, datasetPtr_->fromIndex(epoch_index), epoch_index, DatasetChannel(cursor_.channel1, cursor_.subChannel1));
     QCoreApplication::postEvent(this, epochEvent);
+
+    if (eventType == EpochSelected2d && epoch_index >= 0) {
+        int channel = 1;
+        const float depth = getSyncDepthByMousePos(cursor_.mouseX, cursor_.mouseY, true, &channel);
+        core.broadcastEpochCursor(this, epoch_index, depth, channel);
+    }
+}
+
+void qPlot2D::syncClearAim()
+{
+    core.broadcastCursorClear(this);
 }
 
 void qPlot2D::horScrollEvent(int delta) {
@@ -523,6 +567,12 @@ void qPlot2D::horScrollEvent(int delta) {
         scrollPosition(-delta);
     } else {
         scrollPosition(delta);
+    }
+
+    // Don't allow scrolling into empty space — clamp to valid data range
+    const float minPos = viewportRatio();
+    if (cursor_.position < minPos) {
+        Plot2D::setTimelinePosition(minPos);
     }
 }
 
@@ -569,7 +619,12 @@ void qPlot2D::setPlotEnabled(bool state)
     }
     Plot2D::setPlotEnabled(state);
     Q_EMIT plotEnabledChanged();
-    update();
+    if (state) {
+        m_updateTimer->start(30);
+        update();
+    } else {
+        m_updateTimer->stop();
+    }
 }
 
 void qPlot2D::mosaicLOffsetChanged(float val)
@@ -595,6 +650,23 @@ float qPlot2D::getHighEchogramLevel() const
 int qPlot2D::getThemeId() const
 {
     return Plot2D::getThemeId();
+}
+
+QVariantList qPlot2D::echogramThemeStops(int id) const
+{
+    QVector<QColor> coloros;
+    QVector<int> levels;
+    Plot2DEchogram::colormapFor(id, coloros, levels);
+
+    QVariantList out;
+    const int n = qMin(coloros.size(), levels.size());
+    for (int i = 0; i < n; ++i) {
+        QVariantMap stop;
+        stop.insert("pos", levels[i] / 255.0);
+        stop.insert("color", coloros[i]);
+        out.append(stop);
+    }
+    return out;
 }
 
 int qPlot2D::getBottomTrackThemeId() const
@@ -631,9 +703,6 @@ void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, 
             btpPtr->maxDistance = range_max;
             btpPtr->indexFrom = 0;
             btpPtr->indexTo = datasetPtr_->size();
-            btpPtr->offset.x = offsetx;
-            btpPtr->offset.y = offsety;
-            btpPtr->offset.z = offsetz;
 
             QMetaObject::invokeMethod(dataProcessorPtr_, "bottomTrackProcessing", Qt::QueuedConnection,
                                       Q_ARG(DatasetChannel, DatasetChannel(cursor_.channel1, cursor_.subChannel1)),
@@ -646,6 +715,26 @@ void qPlot2D::doDistProcessing(int preset, int window_size, float vertical_gap, 
         qDebug() << "DevDriver: cannot doDistProcessing: dataset nullptr";
     }
     plotUpdate();
+}
+
+void qPlot2D::updateBottomTrackProcessing()
+{
+    if (!datasetPtr_ || !dataProcessorPtr_)
+        return;
+
+    if (auto* btpPtr = datasetPtr_->getBottomTrackParamPtr(); btpPtr) {
+        doDistProcessing(static_cast<int>(btpPtr->preset),
+                         btpPtr->windowSize,
+                         btpPtr->verticalGap,
+                         btpPtr->minDistance,
+                         btpPtr->maxDistance,
+                         btpPtr->gainSlope,
+                         btpPtr->threshold,
+                         btpPtr->offset.x,   //PULSE: the sonar offsets stay in this path
+                         btpPtr->offset.y,
+                         btpPtr->offset.z,
+                         true);
+    }
 }
 
 void qPlot2D::refreshDistParams(int preset, int windowSize, float verticalGap, float rangeMin, float rangeMax, float gainSlope, float threshold, float offsetX, float offsetY, float offsetZ)
@@ -784,13 +873,19 @@ void qPlot2D::setOffsetZ(float value)
 
 void qPlot2D::plotMousePosition(int x, int y, bool isSync)
 {
+    //PULSE: stays true. Upstream flipped this to false as part of their synced-cursor
+    //rework, which we did not adopt - see the aim resolution rule.
     setAimEpochEventState(true);
 
+    //UPSTREAM 1.0.3: paint() now scales by deviceScale_, so the mouse mapping has to
+    //scale with it or the crosshair lands off the feature at fractional DPR.
+    const int sx = x >= 0 ? qRound(x * deviceScale_) : x;
+    const int sy = y >= 0 ? qRound(y * deviceScale_) : y;
     if (_isHorizontal) {
-        setMousePosition(x, y, isSync);
+        setMousePosition(sx, sy, isSync);
     } else {
-        if (x >= 0 && y >= 0) {
-            setMousePosition(height() - y, x, isSync);
+        if (sx >= 0 && sy >= 0) {
+            setMousePosition(qRound(height() * deviceScale_) - sy, sx, isSync);
         } else {
             setMousePosition(-1, -1, isSync);
         }
@@ -802,12 +897,14 @@ void qPlot2D::plotMousePosition(int x, int y, bool isSync)
 void qPlot2D::simplePlotMousePosition(int x, int y) {
     Plot2D::setAimEpochEventState(false);
 
+    const int sx = x >= 0 ? qRound(x * deviceScale_) : x;
+    const int sy = y >= 0 ? qRound(y * deviceScale_) : y;
     if(_isHorizontal) {
-        Plot2D::simpleSetMousePosition(x, y);
-    } 
+        Plot2D::simpleSetMousePosition(sx, sy);
+    }
     else {
-        if(x >=0 && y >= 0) {
-            Plot2D::simpleSetMousePosition(height() - y, x);
+        if(sx >=0 && sy >= 0) {
+            Plot2D::simpleSetMousePosition(qRound(height() * deviceScale_) - sy, sx);
         }
         else {
             Plot2D::simpleSetMousePosition(-1, -1);
@@ -818,13 +915,16 @@ void qPlot2D::simplePlotMousePosition(int x, int y) {
 
 void qPlot2D::onCursorMoved(int x, int y)
 {
-    Plot2D::onCursorMoved(x, y);
+    Plot2D::onCursorMoved(x >= 0 ? qRound(x * deviceScale_) : x,
+                          y >= 0 ? qRound(y * deviceScale_) : y);
 }
 
 void qPlot2D::timerUpdater() {
-    if(m_needUpdate) {
+    if (!Plot2D::plotEnabled())
+        return;
+    if (m_needUpdate) {
         m_needUpdate = false;
-       update();
+        update();
     }
 }
 

@@ -12,7 +12,10 @@
 #include <QtCore/QString>
 #include <QtCore/QLoggingCategory>
 
+#include <functional>
 #include <jni.h>
+
+class QObject;
 
 Q_DECLARE_LOGGING_CATEGORY(AndroidInterfaceLog)
 
@@ -25,7 +28,9 @@ namespace AndroidInterface
     void jniLogWarning(JNIEnv *envA, jobject thizA, jstring messageA);
 
     // Legacy storage helpers. Do not use for Google Play scoped-storage logging.
+    void jniStoragePermissionResult(JNIEnv *envA, jobject thizA, jboolean grantedA);
     bool checkStoragePermissions();
+    void setStoragePermissionHandler(QObject *context, std::function<void(bool)> handler);
     QString getSDCardPath();
 
     // Pulse SAF-based log folder helpers.

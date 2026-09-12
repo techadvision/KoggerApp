@@ -1,7 +1,10 @@
 #ifndef IDBINNARY_H
 #define IDBINNARY_H
 
+#include <array>
+
 #include <QObject>
+#include <QByteArray>
 #include <QList>
 #include <QMap>
 #include <QVector>
@@ -519,6 +522,250 @@ protected:
 
 
 
+class IDBinServoControl : public IDBin
+{
+    Q_OBJECT
+public:
+    static constexpr int AngleScale = 100;
+
+    enum GeneralBits : U1 { GenEnable = 0x0001 };
+    enum OptionsBits : U1 { OptReverse = 0x0001 };
+
+    explicit IDBinServoControl() : IDBin() {}
+
+    ID id() override { return ID_SERVO_CONTROL; }
+    Resp parsePayload(FrameParser &proto) override;
+    void startColdStartTimer() override;
+
+    void setAll(U2 general, U2 options, U2 pwm_min_us, U2 pwm_max_us,
+                S2 angle_range_deg, S2 step_deg, S2 range_deg, S2 center_deg);
+
+    bool enabled() const { return (m_general & GenEnable) != 0; }
+    void setEnabled(bool on) {
+        U2 g = on ? (m_general | GenEnable) : (m_general & ~GenEnable);
+        setAll(g, m_options, m_pwmMinUs, m_pwmMaxUs, m_angleRangeDeg, m_stepDeg, m_rangeDeg, m_centerDeg);
+    }
+
+    bool reverse() const { return (m_options & OptReverse) != 0; }
+    void setReverse(bool on) {
+        U2 o = on ? (m_options | OptReverse) : (m_options & ~OptReverse);
+        setAll(m_general, o, m_pwmMinUs, m_pwmMaxUs, m_angleRangeDeg, m_stepDeg, m_rangeDeg, m_centerDeg);
+    }
+
+    U2 pwmMinUs() const { return m_pwmMinUs; }
+    void setPwmMinUs(U2 v) {
+        setAll(m_general, m_options, v, m_pwmMaxUs, m_angleRangeDeg, m_stepDeg, m_rangeDeg, m_centerDeg);
+    }
+
+    U2 pwmMaxUs() const { return m_pwmMaxUs; }
+    void setPwmMaxUs(U2 v) {
+        setAll(m_general, m_options, m_pwmMinUs, v, m_angleRangeDeg, m_stepDeg, m_rangeDeg, m_centerDeg);
+    }
+
+    S2 angleRangeDeg() const { return m_angleRangeDeg; }
+    void setAngleRangeDeg(S2 v) {
+        setAll(m_general, m_options, m_pwmMinUs, m_pwmMaxUs, v, m_stepDeg, m_rangeDeg, m_centerDeg);
+    }
+
+    S2 stepDeg() const { return m_stepDeg; }
+    void setStepDeg(S2 v) {
+        setAll(m_general, m_options, m_pwmMinUs, m_pwmMaxUs, m_angleRangeDeg, v, m_rangeDeg, m_centerDeg);
+    }
+
+    S2 rangeDeg() const { return m_rangeDeg; }
+    void setRangeDeg(S2 v) {
+        setAll(m_general, m_options, m_pwmMinUs, m_pwmMaxUs, m_angleRangeDeg, m_stepDeg, v, m_centerDeg);
+    }
+
+    S2 centerDeg() const { return m_centerDeg; }
+    void setCenterDeg(S2 v) {
+        setAll(m_general, m_options, m_pwmMinUs, m_pwmMaxUs, m_angleRangeDeg, m_stepDeg, m_rangeDeg, v);
+    }
+
+    void requestAll() override { simpleRequest(v0); }
+
+protected:
+    U2 m_general       = 0;
+    U2 m_options       = 0;
+    U2 m_pwmMinUs      = 500;
+    U2 m_pwmMaxUs      = 2500;
+    S2 m_angleRangeDeg = 18000;
+    S2 m_stepDeg       = 450;
+    S2 m_rangeDeg      = 18000;
+    S2 m_centerDeg     = 0;
+};
+
+
+
+class IDBinPwmRoute : public IDBin
+{
+    Q_OBJECT
+public:
+    static constexpr int PwmOutCount = 3;
+    enum Target : U1 { TargetOff = 0, TargetServoScan = 1 };
+
+    explicit IDBinPwmRoute() : IDBin() {}
+
+    ID id() override { return ID_PWM_ROUTE; }
+    Resp parsePayload(FrameParser &proto) override;
+    void startColdStartTimer() override;
+
+    void setRoute(U1 out1, U1 out2, U1 out3);
+
+    U1 target(int idx) const {
+        return (idx >= 0 && idx < PwmOutCount) ? m_target[idx] : static_cast<U1>(TargetOff);
+    }
+    void setTarget(int idx, U1 t) {
+        if (idx < 0 || idx >= PwmOutCount) return;
+        U1 t0 = m_target[0], t1 = m_target[1], t2 = m_target[2];
+        if (idx == 0) t0 = t;
+        else if (idx == 1) t1 = t;
+        else t2 = t;
+        setRoute(t0, t1, t2);
+    }
+
+    void requestAll() override { simpleRequest(v0); }
+
+protected:
+    U1 m_target[PwmOutCount] = { TargetServoScan, TargetOff, TargetOff };
+};
+
+
+
+// Calibration stand. Control-only: the device answers a command and publishes nothing else, so
+// this class sends and never mirrors device state — unlike every setup command around it.
+//
+// Frames go out through binFrameOut, not hashBinFrameOut. The hash path re-sends until the
+// device acknowledges, which is right for a setting and wrong here: a resent Start restarts a
+// physical scan.
+class IDBinStandScan : public IDBin
+{
+    Q_OBJECT
+public:
+    enum Command : U1 {
+        CmdNop    = 0,
+        CmdStart  = 1,
+        CmdStop   = 2,
+        CmdPause  = 3,
+        CmdResume = 4,
+        CmdHome   = 5
+    };
+
+    enum ScanOrder : U1 {
+        AzimuthToElevation = 0,
+        ElevationToAzimuth = 1
+    };
+
+    enum OptionsBits : U1 {
+        OptReverseInner    = 0x01,
+        OptContinuousInner = 0x02
+    };
+
+    struct Scan {
+        U1 order      = AzimuthToElevation;
+        U1 options    = 0;
+        U2 fires      = 1;
+        U2 cycles     = 1;
+        U2 settleMs   = 0;
+        U2 postFireMs = 0;
+        S4 innerStart = 0;
+        S4 innerEnd   = 0;
+        S4 innerStep  = 0;
+        S4 outerStart = 0;
+        S4 outerEnd   = 0;
+        S4 outerStep  = 0;
+    };
+
+    explicit IDBinStandScan() : IDBin() {}
+
+    ID id() override { return ID_STAND_SCAN; }
+    Resp parsePayload(FrameParser &proto) override;
+
+    // The capability probe. The command does nothing on a device that has a stand and is
+    // answered with an unknown-id response by one that does not — which is the only signal
+    // available, since there is no readback to request.
+    void probe();
+
+    void start(const Scan &scan);
+    void stop()   { command(CmdStop); }
+    void pause()  { command(CmdPause); }
+    void resume() { command(CmdResume); }
+    void home()   { command(CmdHome); }
+
+protected:
+    void command(Command cmd);
+    void writeScan(Command cmd, const Scan &scan);
+};
+
+
+
+class IDBinDevSync : public IDBin
+{
+    Q_OBJECT
+public:
+    enum SyncSource : U1 { SyncOff = 0, SyncTimer = 1 };
+
+    explicit IDBinDevSync() : IDBin() {}
+
+    ID id() override { return ID_DEV_SYNC; }
+    Resp parsePayload(FrameParser &proto) override;
+    void startColdStartTimer() override;
+    void requestAll() override { simpleRequest(v0); }
+
+    int  portCount() const { return m_portSource.size(); }
+    U1   portSource(int idx) const {
+        return (idx >= 0 && idx < m_portSource.size())
+            ? static_cast<U1>(m_portSource.at(idx))
+            : static_cast<U1>(SyncOff);
+    }
+    U2   periodMs() const { return m_periodMs; }
+    bool synced()  const { return m_synced; }
+
+    void setPortSource(int idx, U1 src) {
+        if (idx < 0 || idx >= m_portSource.size()) return;
+        if (static_cast<U1>(m_portSource.at(idx)) == src) return;
+        m_portSource[idx] = static_cast<char>(src);
+        m_pending = true;
+    }
+    void setPeriodMs(U2 ms) {
+        if (m_periodMs == ms) return;
+        m_periodMs = ms;
+        m_pending = true;
+    }
+
+    void flushPending();
+    void commitFromDisplayed() {
+        m_committedPortSource = m_portSource;
+        m_committedPeriodMs   = m_periodMs;
+        m_pending = false;
+    }
+    void revertToCommitted() {
+        m_portSource = m_committedPortSource;
+        m_periodMs   = m_committedPeriodMs;
+        m_pending = false;
+    }
+    void reset() {
+        m_synced  = false;
+        m_pending = false;
+        m_periodMs = 20;
+        m_portSource.clear();
+        m_committedPeriodMs = 20;
+        m_committedPortSource.clear();
+    }
+
+protected:
+    QByteArray m_portSource;
+    U2         m_periodMs = 20;
+    bool       m_synced   = false;
+
+    QByteArray m_committedPortSource;
+    U2         m_committedPeriodMs = 20;
+
+    bool       m_pending  = false;
+};
+
+
+
 class IDBinChartSetup : public IDBin
 {
     Q_OBJECT
@@ -679,15 +926,25 @@ public:
     explicit IDBinVersion() : IDBin() {
     }
 
+    enum BootMode : int {
+        BootModeUnknown = -1,
+        BootModeFirmware = 0,
+        BootModeBootloader = 1
+    };
+
     ID id() override { return ID_VERSION; }
     Resp  parsePayload(FrameParser &proto) override;
     uint8_t productName() { return 0; }
 
     BoardVersion boardVersion() { return m_boardVersion; }
     uint8_t boardVersionMinor() { return m_boardVersionMinor; }
+    int bootMode() const { return _bootMode; }
 
     int fwVersion() { return _fwVersion; }
     int fwVersionMinor() { return _fwVersionMinor; }
+
+    int bootVersion() { return _bootVersion; }
+    int bootVersionMinor() { return _bootVersionMinor; }
 
     uint32_t serialNumber() { return m_serialNumber; }
 
@@ -695,6 +952,7 @@ public:
         m_boardVersion = BoardNone;
         m_boardVersionMinor = 0;
         m_serialNumber = 0;
+        _bootMode = BootModeUnknown;
     }
 
     QByteArray uid() { return _uid; }
@@ -714,7 +972,7 @@ protected:
     int _fwVersionMinor = 0;
     int _bootVersion = 0;
     int _bootVersionMinor = 0;
-    int _bootMode = 0;
+    int _bootMode = BootModeUnknown;
 };
 
 class IDBinMark : public IDBin
@@ -939,6 +1197,60 @@ protected:
     BoatStatus data_{};
 };
 
+class IDBinRecorderStatus : public IDBin
+{
+    Q_OBJECT
+public:
+    explicit IDBinRecorderStatus() : IDBin() {
+    }
+
+    ID id() override { return ID_RECORDER_STATUS; }
+    Resp parsePayload(FrameParser& proto) override;
+
+    struct RecorderStatus {
+        static constexpr ID getId() { return ID_RECORDER_STATUS; }
+        static constexpr Version getVer() { return v0; }
+
+        union {
+            struct {
+                uint8_t device_condition : 3;
+                uint8_t recording_mode   : 2;
+                uint8_t recording_state  : 3;
+            };
+            uint8_t packed_status;
+        };
+        uint16_t status_flags;
+        uint16_t warning_flags;
+        uint16_t degraded_flags;
+        uint16_t critical_flags;
+        uint16_t uptime_10s;
+        uint16_t current_log_id;
+        uint16_t recorded_size_64k;
+        uint16_t free_space_1m;
+        uint16_t recording_duration_seconds;
+        uint16_t seconds_since_last_write;
+    } __attribute__((packed));
+
+    bool     isValid() const { return valid_; }
+    uint8_t  deviceCondition() const { return data_.device_condition; }
+    uint8_t  recordingMode() const { return data_.recording_mode; }
+    uint8_t  recordingState() const { return data_.recording_state; }
+    uint16_t statusFlags() const { return data_.status_flags; }
+    uint16_t warningFlags() const { return data_.warning_flags; }
+    uint16_t degradedFlags() const { return data_.degraded_flags; }
+    uint16_t criticalFlags() const { return data_.critical_flags; }
+    uint16_t uptime10s() const { return data_.uptime_10s; }
+    uint16_t currentLogId() const { return data_.current_log_id; }
+    uint16_t recordedSize64k() const { return data_.recorded_size_64k; }
+    uint16_t freeSpace1m() const { return data_.free_space_1m; }
+    uint16_t recordingDurationSeconds() const { return data_.recording_duration_seconds; }
+    uint16_t secondsSinceLastWrite() const { return data_.seconds_since_last_write; }
+
+protected:
+    RecorderStatus data_{};
+    bool valid_ = false;
+};
+
 class IDBinDVL : public IDBin
 {
     Q_OBJECT
@@ -1073,31 +1385,49 @@ public:
     ID id() override { return ID_USBL_SOLUTION; }
     Resp  parsePayload(FrameParser &proto) override;
 
+    // ID_USBL_SOLUTION multiplexes unrelated payloads onto the same version:
+    // v1 carries either AcousticNavSolution or BeaconActivationResponce, told
+    // apart by payload length. Version alone cannot identify the content.
+    enum class PayloadKind : uint8_t {
+        None = 0,
+        Solution,
+        AcousticNav,
+        BaseToBeacon,
+        BeaconActivation
+    };
+
     struct UsblSolution {
-        uint8_t id = 0;
+        uint8_t id = 0xFF;
         uint8_t role = 0;
-        uint16_t watermark = 0;
+        uint8_t cmd_id = 0xFF;
+        uint8_t reserved = 0;
 
         int64_t timestamp_us = 0;
         uint32_t ping_counter = 0;
         int64_t carrier_counter = 0;
 
-        float distance_m = 0;
+        float distance_m = NAN;
         float distance_unc = 0;
 
-        float azimuth_deg = 0;
+        float azimuth_deg = NAN;
         float azimuth_unc = 0;
 
-        float elevation_deg = 0;
+        float elevation_deg = NAN;
         float elevation_unc = 0;
 
-        float snr = 0;
+        // NAN like its neighbours, and for the same reason: v1/v2 are PROJECTED onto this struct
+        // and projectToSolution assigns no SNR, because neither AcousticNavSolution nor
+        // BaseToBeacon carries one. A 0 default made that absence indistinguishable from a
+        // measured 0 dB, and every consumer -- the node rows, the widget fields, the CSV export --
+        // reported a confident zero for a number the payload never contained. Only v0 reads this
+        // off the wire, where a genuine 0 stays a genuine 0.
+        float snr = NAN;
 
-        float x_m = NAN;
-        float y_m = NAN;
-        double latitude_deg = NAN;
-        double longitude_deg = NAN;
-        float depth_m = NAN;
+        float beacon_x_m = NAN;
+        float beacon_y_m = NAN;
+        double beacon_latitude = NAN;
+        double beacon_longitude = NAN;
+        float beacon_depth = NAN;
 
         float usbl_yaw = NAN;
         float usbl_pitch = NAN;
@@ -1107,8 +1437,67 @@ public:
         double usbl_longitude = NAN;
         uint32_t last_iTOW = 0;
 
-        float beacon_n = NAN;
-        float beacon_e = NAN;
+        float beacon_n_m = NAN;
+        float beacon_e_m = NAN;
+        // Tail-appended: absent from older firmware payloads, left NAN by the
+        // short-payload path in FrameParser::read<T>().
+        float code_snr[8] = {NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN};
+    } __attribute__((packed));
+
+    struct AcousticNavSolution {
+        static constexpr ID getId() { return ID_USBL_SOLUTION; }
+        static constexpr Version getVer() { return v1; }
+
+        uint8_t address = 0xFF;
+        uint8_t cmd_id = 0xFF;
+
+        uint32_t reserved = 0;
+
+        int64_t timestamp_us = 0;
+        int64_t carrier_us = 0;
+        int64_t carrier_counter = 0;
+
+        double lat = NAN;
+        double lon = NAN;
+        float depth = NAN;
+
+        float acousticAzimuth = NAN;
+        float geoAzimuth = NAN;
+        float heading = NAN;
+
+        float distance = NAN;
+
+        double baseLat = NAN;
+        double baseLon = NAN;
+        float baseDepth = NAN;
+    } __attribute__((packed));
+
+    struct BaseToBeacon {
+        static constexpr ID getId() { return ID_USBL_SOLUTION; }
+        static constexpr Version getVer() { return v2; }
+
+        uint8_t address = 0xFF;
+        uint8_t cmd_id = 0xFF;
+
+        uint32_t reserved = 0;
+
+        int64_t timestamp_us = 0;
+        int64_t carrier_us = 0;
+        int64_t carrier_counter = 0;
+
+        float acousticAzimuth = NAN;
+        float geoAzimuth = NAN;
+        float beaconDistance = NAN;
+        float beaconN = NAN;
+        float beaconE = NAN;
+        float beaconD = NAN;
+        double beaconLat = NAN;
+        double beaconLon = NAN;
+
+        float antennaYaw = NAN;
+        float antennaDepth = NAN;
+        double antennaLat = NAN;
+        double antennaLon = NAN;
     } __attribute__((packed));
 
     struct USBLRequestBeacon {
@@ -1137,12 +1526,24 @@ public:
         return _usblSolution;
     }
 
+    AcousticNavSolution acousticNavSolution() const { return _acousticNavSolution; }
+    BaseToBeacon baseToBeacon() const { return _baseToBeacon; }
+    PayloadKind lastPayloadKind() const { return _lastPayloadKind; }
+
     void askBeacon(USBLRequestBeacon ask);
     void enableBeaconOnce(float timeout);
 
 protected:
+    // v1/v2 payloads are projected onto _usblSolution so the 2D/3D views and the
+    // epoch pool keep consuming a single solution type.
+    void projectToSolution(const AcousticNavSolution& src);
+    void projectToSolution(const BaseToBeacon& src);
+
     UsblSolution _usblSolution;
+    AcousticNavSolution _acousticNavSolution;
+    BaseToBeacon _baseToBeacon;
     BeaconActivationResponce _beaconResponcel;
+    PayloadKind _lastPayloadKind = PayloadKind::None;
 };
 
 class IDBinUsblControl : public IDBin
@@ -1165,9 +1566,23 @@ public:
         // 0xFFFFFFFF: trigger always enabled
         // otherwise: enable tx trigger for a certain time after setting the value
 
-        uint32_t timeout_us = 0;
+        uint32_t trigger_timeout_us = 0;
         // 1-8 are addresses, 0: promisc address, 0xFF: disabled address slot
         uint8_t address = 0;
+        uint8_t cmd_id = 0;
+        // 0: Pinger (no waiting for a response), >0: Interrogator (ranging)
+        uint32_t reply_distance_mm = 20000;
+
+        enum Function : uint8_t {
+            FunctionDefault = 0,
+            FunctionBitArray = 1,
+            FunctionLLGeoAzimuth = 2
+        };
+
+        Function function = FunctionDefault;
+        // non-zero only if (function == FunctionBitArray)
+        // Payload bytes count is ((payload_bit_length + 7) / 8)
+        uint16_t payload_bit_length = 0;
     } __attribute__((packed));
 
     // Regular addresses
@@ -1181,6 +1596,7 @@ public:
         uint8_t address[8] = {0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     } __attribute__((packed));
 
+    // Firmware calls this USBLTransponderEnable.
     struct USBLResponseTimeout {
         static constexpr ID getId() { return ID_USBL_CONTROL; }
         static constexpr Version getVer() { return v3; }
@@ -1190,20 +1606,129 @@ public:
         uint32_t timeout_us = 0;
     } __attribute__((packed));
 
-    // Filter for incoming addresses
+    struct USBLMonitorConfig {
+        static constexpr ID getId() { return ID_USBL_CONTROL; }
+        static constexpr Version getVer() { return v7; }
+
+        uint32_t suppressSelfResponse_us = 0;
+        uint32_t suppressSelfRequest_us = 0;
+        bool receiveResponseInIdle = false;
+    } __attribute__((packed));
+
+    // Filter for incoming request addresses. Firmware calls this USBLRequestAddressFilter.
     struct USBLResponseAddressFilter {
         static constexpr ID getId() { return ID_USBL_CONTROL; }
         static constexpr Version getVer() { return v4; }
-        // 1-8 are addresses, 0: promisc address, 0xFF: disabled address slot
-        uint8_t address = 0;
+        // 0-7 are addresses, 0xFF: disabled address slot
+        uint8_t address[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     } __attribute__((packed));
 
-    void pingRequest(uint32_t timeout_us, uint8_t address);
+    // The one per-command-slot configuration. Firmware dispatches ID_USBL_CONTROL by
+    // VERSION ALONE (a flat isContextVer chain, no length discrimination anywhere), so a
+    // second struct at v6 is unreachable by construction — an earlier USBLCmdSlotConfig
+    // here was silently parsed as this struct and rejected with RespErrorPayload.
+    // One version, one struct.
+    struct USBLCmdConfig  {
+        static constexpr ID getId() { return ID_USBL_CONTROL; }
+        static constexpr Version getVer() { return v6; }
+
+        uint8_t cmd_id = 0;
+
+        enum EventFilter : uint8_t {
+            EventOnReceiveRequest = 1,
+            EventOnReceiveResponse = 2
+        } eventFilter = EventOnReceiveRequest;
+
+        enum SendBackCmdIdAction : uint8_t {
+            SendBackCmdIdIncoming = 0,
+            SendBackCmdIdReplacement = 1
+        } cmdIdAction = SendBackCmdIdIncoming;
+
+        uint8_t cmd_id_replacement = 0;
+
+        enum SendBackAddressAction : uint8_t {
+            SendBackAddressIncoming = 0,
+            SendBackAddressReplacement = 1,
+        } addressAction = SendBackAddressIncoming;
+
+        uint8_t address_replacement = 0;
+
+        enum SendBackEventAction : uint8_t {
+            SendBackEventSwaping = 0,
+            SendBackEventSame = 1,
+        } eventAction = SendBackEventSwaping;
+
+        uint8_t reserved1 = 0;
+        uint32_t reserved2 = 0;
+
+        enum Function : uint8_t {
+            FunctionDefault = 0,
+            FunctionBitArray = 1,
+            FunctionLLGeoAzimuth = 2
+        };
+
+        Function receiver_function = FunctionDefault;
+        uint16_t receive_bit_length = 0;
+        Function sender_function = FunctionDefault;
+        uint16_t sending_bit_length = 0;
+    } __attribute__((packed));
+
+    void pingRequest(uint32_t timeout_us, uint8_t address, uint8_t cmd_id = 0);
+    void pingRequest(uint32_t timeout_us, uint8_t address, uint8_t cmd_id, uint32_t reply_distance_mm, const QByteArray& payload = {});
+    void setTransponderEnable(uint32_t timeout_us);
     void setResponseTimeout(uint32_t timeout_us);
+    void setMonitorConfig(const USBLMonitorConfig& cfg);
+    void setResponseAddressFilter(const std::array<uint8_t, 8>& addresses);
     void setResponseAddressFilter(uint8_t address);
+    // sending_bit_length is derived from the payload actually written, so a truncated
+    // payload can never declare more bits than went on the wire.
+    void setCmdConfig(const USBLCmdConfig& cfg, const QByteArray& sendingPayload = {});
 
 protected:
 
+};
+
+// Receive-only: modem payloads carried back by an acoustic request/response.
+// Transmission is configured through IDBinUsblControl's command slots.
+class IDBinModemSolution : public IDBin
+{
+    Q_OBJECT
+public:
+    explicit IDBinModemSolution() : IDBin() {
+    }
+
+    ID id() override { return ID_MODEM_SOLUTION; }
+    Resp  parsePayload(FrameParser &proto) override;
+
+    struct ModemSolutionHeader {
+        static constexpr ID getId() { return ID_MODEM_SOLUTION; }
+        static constexpr Version getVer() { return v0; }
+
+        int64_t timestamp_us = 0;
+        int64_t carrier_us = 0;
+        int64_t carrier_counter = 0;
+
+        uint64_t reserved1 = 0;
+
+        enum EventFilter : uint8_t {
+            EventOnRequest = 1,
+            EventOnResponse = 2,
+        } event = EventOnRequest;
+
+        uint8_t address_from = 0;
+        uint8_t address_to = 0;
+        uint8_t cmd_id_from = 0;
+
+        uint16_t bit_length = 0;
+        // payload bytes follow
+    } __attribute__((packed));
+
+    ModemSolutionHeader header() const { return _header; }
+    QByteArray payload() const { return _payload; }
+
+protected:
+    ModemSolutionHeader _header;
+    QByteArray _payload;
 };
 
 

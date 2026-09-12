@@ -1,6 +1,8 @@
 #ifndef SONARDRIVERINTERFACE_H
 #define SONARDRIVERINTERFACE_H
 
+#include <QVariantList>
+#include <QVariantMap>
 #include "dev_driver.h"
 
 class DevQProperty : public DevDriver
@@ -54,9 +56,14 @@ public:
 
     Q_PROPERTY(QString devName READ devName NOTIFY deviceVersionChanged)
     Q_PROPERTY(int devType READ devType NOTIFY deviceVersionChanged)
+    Q_PROPERTY(int devTypeMinor READ devTypeMinor NOTIFY deviceVersionChanged)
     Q_PROPERTY(int devSN READ devSerialNumber NOTIFY deviceVersionChanged)
+    Q_PROPERTY(QString devUID READ devUID NOTIFY deviceVersionChanged)
     Q_PROPERTY(QString fwVersion READ fwVersion NOTIFY deviceVersionChanged)
+    Q_PROPERTY(QString bootVersion READ bootVersion NOTIFY deviceVersionChanged)
+    Q_PROPERTY(int bootMode READ bootMode NOTIFY deviceVersionChanged)
 
+    Q_PROPERTY(bool isBoardInited READ isBoardInited NOTIFY deviceVersionChanged)
     Q_PROPERTY(bool isSonar READ isSonar NOTIFY deviceVersionChanged)
     Q_PROPERTY(bool isRecorder READ isRecorder NOTIFY deviceVersionChanged)
     Q_PROPERTY(bool isDoppler READ isDoppler NOTIFY deviceVersionChanged)
@@ -70,10 +77,138 @@ public:
     Q_PROPERTY(bool isSoundSpeedSupport READ isSoundSpeedSupport NOTIFY deviceVersionChanged)
     Q_PROPERTY(bool isAddressSupport READ isAddressSupport NOTIFY deviceVersionChanged)
     Q_PROPERTY(bool isUpgradeSupport READ isUpgradeSupport NOTIFY deviceVersionChanged)
+
+    Q_PROPERTY(bool isServoSupport READ getServoControlState NOTIFY servoControlChanged)
+    // False until a Recorder answers the stand probe, and false again the moment it goes away.
+    // The panel kind is hidden everywhere this reads false — palette included.
+    Q_PROPERTY(bool isStandSupport READ getStandState NOTIFY standChanged)
+    Q_PROPERTY(bool servoEnabled READ servoEnabled WRITE setServoEnabled NOTIFY servoControlChanged)
+    Q_PROPERTY(bool servoReverse READ servoReverse WRITE setServoReverse NOTIFY servoControlChanged)
+    Q_PROPERTY(int servoPwmMinUs READ servoPwmMinUs WRITE setServoPwmMinUs NOTIFY servoControlChanged)
+    Q_PROPERTY(int servoPwmMaxUs READ servoPwmMaxUs WRITE setServoPwmMaxUs NOTIFY servoControlChanged)
+    Q_PROPERTY(double servoAngleRangeDeg READ servoAngleRangeDeg WRITE setServoAngleRangeDeg NOTIFY servoControlChanged)
+    Q_PROPERTY(double servoStepDeg READ servoStepDeg WRITE setServoStepDeg NOTIFY servoControlChanged)
+    Q_PROPERTY(double servoRangeDeg READ servoRangeDeg WRITE setServoRangeDeg NOTIFY servoControlChanged)
+    Q_PROPERTY(double servoCenterDeg READ servoCenterDeg WRITE setServoCenterDeg NOTIFY servoControlChanged)
+    Q_PROPERTY(double servoCurrentAngleDeg READ servoCurrentAngleDeg NOTIFY servoCurrentAngleChanged)
+
+    Q_PROPERTY(int pwmRouteOut1 READ pwmRouteOut1 WRITE setPwmRouteOut1 NOTIFY pwmRouteChanged)
+    Q_PROPERTY(int pwmRouteOut2 READ pwmRouteOut2 WRITE setPwmRouteOut2 NOTIFY pwmRouteChanged)
+    Q_PROPERTY(int pwmRouteOut3 READ pwmRouteOut3 WRITE setPwmRouteOut3 NOTIFY pwmRouteChanged)
+
+    Q_PROPERTY(bool isDevSyncSynced READ getDevSyncState NOTIFY devSyncChanged)
+    Q_PROPERTY(int  devSyncPeriodMs READ devSyncPeriodMs WRITE setDevSyncPeriodMs NOTIFY devSyncChanged)
+    Q_PROPERTY(QVariantList devSyncPorts READ devSyncPorts NOTIFY devSyncChanged)
+
+    Q_PROPERTY(bool linkConnected     READ linkConnected     NOTIFY linkStatusChanged)
+    Q_PROPERTY(bool linkReceivesData  READ linkReceivesData  NOTIFY linkStatusChanged)
+    Q_PROPERTY(bool linkNotAvailable  READ linkNotAvailable  NOTIFY linkStatusChanged)
+
+    // Recorder status (ID_RECORDER_STATUS). Field meaning: Recorder-Host-Integration-Guide.md.
+    Q_PROPERTY(bool recorderStatusValid           READ recorderStatusValid           NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderDeviceCondition       READ recorderDeviceCondition       NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderRecordingMode         READ recorderRecordingMode         NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderRecordingState        READ recorderRecordingState        NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderStatusFlags           READ recorderStatusFlags           NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderWarningFlags          READ recorderWarningFlags          NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderDegradedFlags         READ recorderDegradedFlags         NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderCriticalFlags         READ recorderCriticalFlags         NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderCurrentLogId          READ recorderCurrentLogId          NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderRecordedSize64k       READ recorderRecordedSize64k       NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderFreeSpace1m           READ recorderFreeSpace1m           NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderDurationSeconds       READ recorderDurationSeconds       NOTIFY recorderStatusChanged)
+    Q_PROPERTY(int  recorderSecondsSinceLastWrite READ recorderSecondsSinceLastWrite NOTIFY recorderStatusChanged)
 #endif
 
+    // Last modem payload received over ID_MODEM_SOLUTION. Device-scoped (a per-device
+    // test tool), unlike the USBL solution readout, which is scene telemetry and comes
+    // from Dataset.
+    Q_PROPERTY(QString modemLastPayload     READ modemLastPayload     NOTIFY modemPayloadChanged)
+    Q_PROPERTY(int modemLastAddressFrom     READ modemLastAddressFrom NOTIFY modemPayloadChanged)
+    Q_PROPERTY(int modemLastAddressTo       READ modemLastAddressTo   NOTIFY modemPayloadChanged)
+    Q_PROPERTY(int modemLastCmdId           READ modemLastCmdId       NOTIFY modemPayloadChanged)
+    Q_PROPERTY(int modemLastBitLength       READ modemLastBitLength   NOTIFY modemPayloadChanged)
+    Q_PROPERTY(int modemLastEvent           READ modemLastEvent       NOTIFY modemPayloadChanged)
 
+    int modemLastAddressFrom() const { return idModemSolution ? idModemSolution->header().address_from : 0; }
+    int modemLastAddressTo() const   { return idModemSolution ? idModemSolution->header().address_to : 0; }
+    int modemLastCmdId() const       { return idModemSolution ? idModemSolution->header().cmd_id_from : 0; }
+    int modemLastBitLength() const   { return idModemSolution ? idModemSolution->header().bit_length : 0; }
+    int modemLastEvent() const       { return idModemSolution ? (int)idModemSolution->header().event : 0; }
 
+    int devSyncPeriodMs() const { return idDevSync ? idDevSync->periodMs() : 0; }
+
+    QVariantList devSyncPorts() const {
+        QVariantList list;
+        if (!idDevSync) return list;
+        for (int i = 0; i < idDevSync->portCount(); ++i) {
+            const U1 src = idDevSync->portSource(i);
+            QVariantMap m;
+            m["index"]   = i;
+            m["source"]  = int(src);
+            m["isKnown"] = (src == IDBinDevSync::SyncOff || src == IDBinDevSync::SyncTimer);
+            list.append(m);
+        }
+        return list;
+    }
+
+    // ----- servo getters/setters (inline pass-through к IDBin*) -----
+    bool servoEnabled() const { return idServoControl ? idServoControl->enabled() : false; }
+    void setServoEnabled(bool v) { if (idServoControl) idServoControl->setEnabled(v); }
+
+    bool servoReverse() const { return idServoControl ? idServoControl->reverse() : false; }
+    void setServoReverse(bool v) { if (idServoControl) idServoControl->setReverse(v); }
+
+    int servoPwmMinUs() const { return idServoControl ? idServoControl->pwmMinUs() : 0; }
+    void setServoPwmMinUs(int v) { if (idServoControl) idServoControl->setPwmMinUs(static_cast<U2>(v)); }
+
+    int servoPwmMaxUs() const { return idServoControl ? idServoControl->pwmMaxUs() : 0; }
+    void setServoPwmMaxUs(int v) { if (idServoControl) idServoControl->setPwmMaxUs(static_cast<U2>(v)); }
+
+    double servoAngleRangeDeg() const {
+        return idServoControl ? double(idServoControl->angleRangeDeg()) / IDBinServoControl::AngleScale : 0.0;
+    }
+    void setServoAngleRangeDeg(double deg) {
+        if (idServoControl) idServoControl->setAngleRangeDeg(degToS2(deg));
+    }
+
+    double servoStepDeg() const {
+        return idServoControl ? double(idServoControl->stepDeg()) / IDBinServoControl::AngleScale : 0.0;
+    }
+    void setServoStepDeg(double deg) {
+        if (idServoControl) idServoControl->setStepDeg(degToS2(deg));
+    }
+
+    double servoRangeDeg() const {
+        return idServoControl ? double(idServoControl->rangeDeg()) / IDBinServoControl::AngleScale : 0.0;
+    }
+    void setServoRangeDeg(double deg) {
+        if (idServoControl) idServoControl->setRangeDeg(degToS2(deg));
+    }
+
+    double servoCenterDeg() const {
+        return idServoControl ? double(idServoControl->centerDeg()) / IDBinServoControl::AngleScale : 0.0;
+    }
+    void setServoCenterDeg(double deg) {
+        if (idServoControl) idServoControl->setCenterDeg(degToS2(deg));
+    }
+
+    double servoCurrentAngleDeg() const { return idAtt ? idAtt->roll() : 0.0; }
+
+    int pwmRouteOut1() const { return idPwmRoute ? idPwmRoute->target(0) : 0; }
+    void setPwmRouteOut1(int v) { if (idPwmRoute) idPwmRoute->setTarget(0, static_cast<U1>(v)); }
+    int pwmRouteOut2() const { return idPwmRoute ? idPwmRoute->target(1) : 0; }
+    void setPwmRouteOut2(int v) { if (idPwmRoute) idPwmRoute->setTarget(1, static_cast<U1>(v)); }
+    int pwmRouteOut3() const { return idPwmRoute ? idPwmRoute->target(2) : 0; }
+    void setPwmRouteOut3(int v) { if (idPwmRoute) idPwmRoute->setTarget(2, static_cast<U1>(v)); }
+
+private:
+    static S2 degToS2(double deg) {
+        double scaled = deg * IDBinServoControl::AngleScale;
+        if (scaled >  32767.0) scaled =  32767.0;
+        if (scaled < -32768.0) scaled = -32768.0;
+        return static_cast<S2>(scaled);
+    }
 };
 
 

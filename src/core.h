@@ -7,6 +7,7 @@
 #include <QQmlContext>
 #include <QThread>
 #include <QVariantList>
+#include <QHash>
 #ifdef FLASHER
 #include "flasher/deviceflasher.h"
 #endif
@@ -23,7 +24,6 @@
 #include "mosaic_view_control_menu_controller.h"
 #include "image_view_control_menu_controller.h"
 #include "map_view_control_menu_controller.h"
-#include "usbl_view_control_menu_controller.h"
 #include "point_group_control_menu_controller.h"
 #include "polygon_group_control_menu_controller.h"
 #include "mpc_filter_control_menu_controller.h"
@@ -33,6 +33,7 @@
 #include "hotkeys_controller.h"
 #include "device_manager_wrapper.h"
 #include "link_manager_wrapper.h"
+#include "device_topology_model.h"
 #include "tile_manager.h"
 #include "internet_manager.h"
 #include "data_horizon.h"
@@ -43,6 +44,7 @@
 #include <QFutureWatcher>
 
 #include "mosaic_index_provider.h"
+#include "ui_keepalive.h"
 
 
 class Core : public QObject
@@ -56,14 +58,20 @@ public:
     Q_PROPERTY(bool              isGPSAlive                   READ getIsGPSAlive                   NOTIFY isGPSAliveChanged)
     Q_PROPERTY(bool              isFactoryMode                READ isFactoryMode                   CONSTANT)
     Q_PROPERTY(ConsoleListModel* consoleList                  READ consoleList                     CONSTANT)
+    Q_PROPERTY(ConsoleListModel* consoleListApp               READ consoleListApp                  CONSTANT)
+    Q_PROPERTY(ConsoleListModel* consoleListProto             READ consoleListProto                CONSTANT)
     Q_PROPERTY(bool              loggingKlf                   READ getKlfLogging                   WRITE setKlfLogging                   NOTIFY loggingKlfChanged)
     Q_PROPERTY(bool              isKlfLogging                 READ getKlfLogging                   NOTIFY loggingKlfChanged)
     Q_PROPERTY(bool              loggingCsv                   READ getCsvLogging                   WRITE setCsvLogging                   NOTIFY loggingCsvChanged)
     Q_PROPERTY(bool              useGPS                       READ getUseGPS                       WRITE setUseGPS                       NOTIFY useGPSChanged)
+    Q_PROPERTY(bool              bringWindowToFrontEnabled    READ getBringWindowToFrontEnabled    WRITE setBringWindowToFrontEnabled    NOTIFY bringWindowToFrontEnabledChanged)
     Q_PROPERTY(bool              fixBlackStripesState         READ getFixBlackStripesState         WRITE setFixBlackStripesState         NOTIFY fixBlackStripesStateChanged)
     Q_PROPERTY(int               fixBlackStripesForwardSteps  READ getFixBlackStripesForwardSteps  WRITE setFixBlackStripesForwardSteps  NOTIFY fixBlackStripesForwardStepsChanged)
     Q_PROPERTY(int               fixBlackStripesBackwardSteps READ getFixBlackStripesBackwardSteps WRITE setFixBlackStripesBackwardSteps NOTIFY fixBlackStripesBackwardStepsChanged)
     Q_PROPERTY(QString           filePath                     READ getFilePath                     NOTIFY filePathChanged)
+    Q_PROPERTY(QString           openedFilePath               READ getOpenedFilePath               NOTIFY openedFilePathChanged)
+    Q_PROPERTY(bool              isAppendMode                 READ getIsAppendMode                 NOTIFY isAppendModeChanged)
+    Q_PROPERTY(QString           fileTitle                    READ getFileTitle                    NOTIFY fileTitleChanged)
     Q_PROPERTY(bool              isFileOpening                READ getIsFileOpening                NOTIFY sendIsFileOpening)
     Q_PROPERTY(bool              isSeparateReading            READ getIsSeparateReading            CONSTANT)
     Q_PROPERTY(QString           ch1Name                      READ getChannel1Name                 NOTIFY channelListUpdated FINAL)
@@ -73,8 +81,11 @@ public:
     Q_PROPERTY(QString           mapTileProviderName          READ getMapTileProviderName          NOTIFY mapTileProviderChanged)
     Q_PROPERTY(QVariantList      mapTileProviders             READ getMapTileProviders             CONSTANT)
     Q_PROPERTY(bool              internetAvailable            READ getInternetAvailable            NOTIFY internetAvailableChanged)
+    Q_PROPERTY(bool              metered                      READ getMetered                      NOTIFY meteredChanged)
     Q_PROPERTY(bool              mapTileLoadingEnabled        READ getMapTileLoadingEnabled        WRITE setMapTileLoadingEnabled NOTIFY mapTileLoadingEnabledChanged)
     Q_PROPERTY(bool              needForceZooming             READ getNeedForceZooming             WRITE setNeedForceZooming NOTIFY needForceZoomingChanged)
+    Q_PROPERTY(bool              posZeroing                   READ getPosZeroing                   NOTIFY posZeroingChanged)
+    Q_PROPERTY(int               bottomTrackEditTool          READ getBottomTrackEditTool          WRITE setBottomTrackEditTool          NOTIFY bottomTrackEditToolChanged)
 
     MosaicIndexProvider* getMosaicIndexProviderPtr();
     void setEngine(QQmlApplicationEngine *engine);
@@ -83,16 +94,22 @@ public:
     DataProcessor* getDataProcessorPtr() const;
     DeviceManagerWrapper* getDeviceManagerWrapperPtr() const;
     LinkManagerWrapper* getLinkManagerWrapperPtr() const;
+    DeviceTopologyModel* getDeviceTopologyModelPtr() const;
 #ifdef SEPARATE_READING
     QString getTryOpenedfilePath() const;
     void stopDeviceManagerThread() const;
 #endif
     void setConsoleOutputEnabled(bool enabled);
     bool isConsoleOutputEnabled() const { return consoleOutputEnabled_; }
-    void consoleInfo(QString msg);
-    void consoleWarning(QString msg);
+    Q_INVOKABLE void consoleInfo(QString msg);
+    Q_INVOKABLE void consoleWarning(QString msg);
+    void consoleStreamInfo(const QString& msg);
+    void consoleNotification(const QString& msg, bool isWarning);
+    void consoleProtoText(const QString& msg);
     void consoleProto(FrameParser& parser, bool isIn = true);
+    Q_INVOKABLE void setConsoleMaxRows(int rows);
     void saveLLARefToSettings();
+    Q_INVOKABLE void saveCameraViewToSettings();
     void removeLinkManagerConnections();
 #ifdef SEPARATE_READING
     void removeDeviceManagerConnections();
@@ -105,10 +122,28 @@ public:
     int  getFixBlackStripesForwardSteps() const;
     int  getFixBlackStripesBackwardSteps() const;
     bool getCsvLogging() const;
+    Q_INVOKABLE QString klfLogFilePath() const;
+    Q_INVOKABLE void    revealInFolder(const QString& path);
+    Q_INVOKABLE void    copyToClipboard(const QString& text);
+    Q_INVOKABLE QString csvLogFilePath() const;
+    Q_INVOKABLE qint64  activeLogSizeBytes() const;
+    Q_INVOKABLE int     activeLogDurationSecs() const;
+    Q_INVOKABLE void    setLogDirectory(const QString& dir);
+    Q_INVOKABLE QString logDirectory() const;
+    Q_INVOKABLE QString logDirectoryUrl() const;
+    Q_INVOKABLE bool    prepareLogDirectory(const QString& dir);
+    Q_INVOKABLE QString appLogDirectory() const;
+    Q_INVOKABLE bool    promoteAppLogStorage();
+    Q_INVOKABLE QString appLogFilePath() const;
+    Q_INVOKABLE void    revealAppLogFolder();
+    Q_INVOKABLE void    powerOffSystem();
     bool getUseGPS() const;
     bool getNeedForceZooming() const { return needForceZooming_; }
 
-public slots:    
+    void deferStartupFileOpen(const QString& filePath);
+    Q_INVOKABLE void notifyUiSettingsApplied();
+
+public slots:
     void setIsGPSAlive(bool state) { qDebug() << "Core::setIsGPSAlive" << state; isGPSAlive_ = state; emit isGPSAliveChanged(); }
 
 #ifdef SEPARATE_READING
@@ -146,6 +181,11 @@ public slots:
     bool exportUSBLToCSV(QString filePath);
     bool exportPlotAsCVS(QString filePath, const ChannelId& channelId, float decimation = 0);
     bool exportPlotAsXTF(QString filePath);
+    Q_INVOKABLE bool csvExportFieldEnabled(const QString& key) const;
+    Q_INVOKABLE void setCsvExportField(const QString& key, bool enabled);
+    Q_INVOKABLE void resetCsvExportFields();
+    Q_INVOKABLE QString defaultExportDirectory() const;
+    void refreshMosaicProcessing();
     void setPlotStartLevel(int level);
     void setPlotStopLevel(int level);
     void setTimelinePosition(double position);
@@ -162,6 +202,7 @@ public slots:
     void connectOpenedLinkAsFlasher(QString pn);
     void setFlasherData(QString data);
     void releaseFlasherLink();
+    void refreshFlasherProducts();          // refresh the factory device list
 #endif
 
     //PULSE DEMO MODE (Stage 1) — see demo_mode_plan.md.
@@ -179,11 +220,33 @@ public slots:
     Q_INVOKABLE void setDemoLoopEnabled(bool state) { demoLoopEnabled_ = state; }
 
     Q_INVOKABLE void setPosZeroing(bool state);
+    Q_INVOKABLE void setBottomTrackZeroing(bool state);
+    Q_INVOKABLE void setTgcGainNear(float val);
+    Q_INVOKABLE void setTgcGainFar(float val);
+    Q_INVOKABLE void setTgcCompensate(bool state);
+    Q_INVOKABLE void setMosaicSource(int source);
+    Q_INVOKABLE void setMosaicFakeCoordsLastN(int n);
+    Q_INVOKABLE void setMosaicFakeCoordsClearOldData(bool state);
+    bool getPosZeroing() const { return isActiveZeroing_; }
+    int  getBottomTrackEditTool() const { return bottomTrackEditTool_; }
+    Q_INVOKABLE void setBottomTrackEditTool(int tool);
     Q_INVOKABLE bool getIsFileOpening() const;
+    Q_INVOKABLE bool getIsAppendMode() const;
+    Q_INVOKABLE QString getFileTitle() const;
     Q_INVOKABLE bool getIsSeparateReading() const;
     Q_INVOKABLE int getDataProcessorState() const;
     Q_INVOKABLE QString getChannel1Name() const;
     Q_INVOKABLE QString getChannel2Name() const;
+    Q_INVOKABLE void registerPlot2D(QObject* plotObj);
+    Q_INVOKABLE void setEchogramSyncCursor(bool state);
+    Q_INVOKABLE void setEchogramSyncView(bool state);
+    Q_INVOKABLE void setAimFieldsMask(int mask);
+    bool echogramSyncCursor() const { return echogramSyncCursor_; }
+    bool echogramSyncView() const { return echogramSyncView_; }
+    void broadcastEpochCursor(qPlot2D* source, int epoch, float depth, int channel);
+    void broadcastCursorClear(qPlot2D* source);
+    Q_INVOKABLE void broadcastEchogramTime(QObject* source, double timelinePos);        // time/scroll → gated by echogramSyncCursor_
+    Q_INVOKABLE void broadcastEchogramVertical(QObject* source, double from, double to); // vertical zoom+offset → gated by echogramSyncView_
     Q_INVOKABLE void registerSyncLoupePlot(QObject* plotObj);
     Q_INVOKABLE QVariant getConvertedMousePos(int indx, int mouseX, int mouseY);
 
@@ -193,14 +256,30 @@ public slots:
     Q_INVOKABLE int getMapTileProviderId() const;
     Q_INVOKABLE QString getMapTileProviderName() const;
     Q_INVOKABLE QVariantList getMapTileProviders() const;
+    Q_INVOKABLE QVariantMap getMapTileDbInfo(int providerId) const;
     Q_INVOKABLE bool getInternetAvailable() const;
+    Q_INVOKABLE bool getMetered() const;
+    Q_INVOKABLE void setDeferTilesOnMetered(bool defer);
     Q_INVOKABLE bool getMapTileLoadingEnabled() const;
     Q_INVOKABLE void setMapTileLoadingEnabled(bool enabled);
+    Q_INVOKABLE bool getBringWindowToFrontEnabled() const;
+    Q_INVOKABLE void setBringWindowToFrontEnabled(bool enabled);
     Q_INVOKABLE void moveAppToBackground();
+    Q_INVOKABLE void requestDismissTransientUi();
+    Q_INVOKABLE void setActiveTransientUi(QObject* who);
 
 signals:
+    void appLogPathChanged();
+    void bringWindowToFrontRequested();
+    void bringWindowToFrontEnabledChanged();
+    void activeTransientUiChanged(QObject* who);
+    void csvExportFieldsReset();   // emitted by resetCsvExportFields() so UI can rebuild
     void connectionChanged(bool duplex = false);
     void filePathChanged();
+    void openedFilePathChanged();
+    void isAppendModeChanged();
+    void fileTitleChanged();
+    void fileOpenFailed(const QString& path);
     void sendIsFileOpening();
     void channelListUpdated();
     void dataProcessorStateChanged();
@@ -214,12 +293,16 @@ signals:
     void fixBlackStripesBackwardStepsChanged();
     void mapTileProviderChanged();
     void internetAvailableChanged();
+    void meteredChanged();
     void mapTileLoadingEnabledChanged();
     //PULSE demo mode
     void demoModeChanged();
     void demoPeriodChanged(int periodMs, bool isSideScan);
     void demoStopped();
     void demoLooped(int passNumber);
+    void posZeroingChanged();
+    void bottomTrackEditToolChanged();
+    void languageChanged();
 
 #ifdef SEPARATE_READING
     void sendCloseLogFile(bool onOpen = false);
@@ -236,13 +319,20 @@ private slots:
 
 private:
     /*methods*/
+    void bringWindowToFront();
+    void loadCsvExportFields();
+    void saveCsvExportFields();
+    QHash<QString, bool> csvExportFields_;   // key -> enabled (lazy-loaded from QSettings)
+    bool csvExportFieldsLoaded_ = false;
     void createMapTileManagerConnections();
     void createDatasetConnections();
     void createInternetManager();
     void destroyInternetManager();
+    void updateTileDownloadGate();
     void createDataProcessor();
     void destroyDataProcessor();
     void createScene3dConnections();
+    void bindPlot2D(qPlot2D* plot);
 
     void createDataHorizonConnections();
     void destroyDataHorizonConnections();
@@ -251,6 +341,8 @@ private:
     void resetDataProcessorConnections();
 
     ConsoleListModel* consoleList();
+    ConsoleListModel* consoleListApp();
+    ConsoleListModel* consoleListProto();
     void createControllers();
     void createDeviceManagerConnections();
     void createLinkManagerConnections();
@@ -258,12 +350,18 @@ private:
     bool isFactoryMode() const;
 
     QString getFilePath() const;
+    QString getOpenedFilePath() const;
     void fixFilePathString(QString& filePath) const;
+    void notifyFileOpened(const QString& filePath);
     void loadLLARefFromSettings();
+    void loadCameraViewFromSettings();
+    void onTgcParamsChanged();
     int loadSavedMapTileProviderId() const;
     void resetRealtimeSessionState();
     void restoreRealtimeProcessingFlags();
     void releasePlotCaches();
+    void flushStartupFileOpen();
+    void installAppLogStoragePromotion();
     QString resolveExportBasePath(const QString& basePath) const;
     QString buildExportFileStem(const QString& openedFilePath) const;
 #ifdef Q_OS_ANDROID
@@ -293,10 +391,10 @@ private:
     std::shared_ptr<PolygonGroupControlMenuController> polygonGroupControlMenuController_;
     std::shared_ptr<Scene3DControlMenuController> scene3dControlMenuController_;
     std::shared_ptr<Scene3dToolBarController> scene3dToolBarController_;
-    std::shared_ptr<UsblViewControlMenuController> usblViewControlMenuController_;
     std::unique_ptr<HotkeysController> hotkeysController_;
     std::unique_ptr<DeviceManagerWrapper> deviceManagerWrapperPtr_;
     std::unique_ptr<LinkManagerWrapper> linkManagerWrapperPtr_;
+    std::unique_ptr<DeviceTopologyModel> deviceTopologyModelPtr_;
     InternetManager* internetManager_;
     QThread* internetThread_;
     std::unique_ptr<map::TileManager> tileManager_;
@@ -317,6 +415,9 @@ private:
     ConverterXTF converterXtf_;
     Logger logger_;
     QList<qPlot2D*> plot2dList_;
+    bool echogramSyncCursor_ = true;  // default ON  (cursor/click + time/scroll sync)
+    bool echogramSyncView_ = false;   // default OFF (vertical zoom + offset sync)
+    int aimFieldsMask_ = 0xFF;
     QPointer<qPlot2D> syncLoupePlot3dPtr_;
     QList<QMetaObject::Connection> linkManagerWrapperConnections_;
     QString openedfilePath_;
@@ -326,6 +427,8 @@ private:
     QString filePath_;
     QString fChName_;
     QString sChName_;
+    QString startupFilePath_;
+    bool uiSettingsApplied_ = false;
 
     bool isFileOpening_;
     //Pulse
@@ -338,11 +441,19 @@ private:
     // Everything the pipeline needs reset for a fresh pass; shared by startDemo
     // and the loop restart so a looped pass is identical to the first one.
     void prepareDemoPipeline(const QString& localFilePath);
+    bool isAppendMode_ = false;
+    QStringList appendedFiles_;
+    QList<QUuid> openLinkOrder_;
+    QSet<QUuid> receivingLinks_; // links currently receiving data; window is raised on the empty→non-empty edge
 
     bool isGPSAlive_;
     bool isUseGPS_;
     bool internetAvailable_ = false;
+    bool internetStateKnown_ = false;
+    bool metered_ = false;
+    bool deferTilesOnMetered_ = true;
     bool mapTileLoadingEnabled_ = true;
+    bool bringWindowToFrontEnabled_ = true;
     bool needForceZooming_ = false; // debug
 
     bool fixBlackStripesState_;
@@ -350,10 +461,14 @@ private:
     int  fixBlackStripesBackwardSteps_;
 
     bool isActiveZeroing_;
+    bool isBottomTrackZeroing_;
+    int  bottomTrackEditTool_ = 0;
 
 #ifdef FLASHER
     Q_PROPERTY(QString flasherTextInfo READ flasherTextInfo NOTIFY dev_flasher_changed)
     Q_PROPERTY(int flasherIdInfo READ flasherIdInfo NOTIFY dev_flasher_changed)
+    Q_PROPERTY(QVariantList flasherProducts READ flasherProducts NOTIFY flasherProductsChanged)
+    Q_PROPERTY(bool flasherHasToken READ flasherHasToken NOTIFY flasherHasTokenChanged)
 private:
     DeviceFlasher dev_flasher_;
     int dev_flasher_msg_id_ = 0;
@@ -361,12 +476,17 @@ private:
 
     QString flasherTextInfo() { return dev_flasher_msg_; }
     int flasherIdInfo() { return dev_flasher_msg_id_; }
+    QVariantList flasherProducts() { return dev_flasher_.products(); }
+    bool flasherHasToken() { return dev_flasher_.hasToken(); }
 private slots:
     void dev_flasher_rcv(QString msg, int num);
 signals:
     void dev_flasher_changed();
+    void flasherProductsChanged();
+    void flasherHasTokenChanged();
 #endif
 
+private:   // reset access after the (signals-terminated) FLASHER block — else these leak into signals: under -DFLASHER
     QVector<QMetaObject::Connection> dataProcessorConnections_;
     QVector<QMetaObject::Connection> dataHorizonConnections_;
 
@@ -378,4 +498,6 @@ signals:
     uint8_t   lastSub2_;
 
     MosaicIndexProvider mosaicIndexProvider_;
+
+    UiKeepalive uiKeepalive_;
 };

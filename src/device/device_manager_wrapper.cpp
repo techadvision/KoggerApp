@@ -7,6 +7,7 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     QObject(parent),
     averageChartLosses_(0),
     protoBinConsoledState_(false),
+    nmeaConsoledState_(true),
     USBLBeaconDirectAskState_(false)
 {
     workerObject_ = std::make_unique<DeviceManager>();
@@ -18,6 +19,7 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     deviceManagerConnections_.append(QObject::connect(this,                &DeviceManagerWrapper::sendOpenFile,  workerObject_.get(), &DeviceManager::openFile,                      ct));
     deviceManagerConnections_.append(QObject::connect(this,                &DeviceManagerWrapper::sendCloseFile, workerObject_.get(), &DeviceManager::closeFile,                     ct));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::devChanged,           this,                &DeviceManagerWrapper::devChanged,             ct));
+    deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::standAvailableChanged, this,                &DeviceManagerWrapper::standAvailableChanged,   ct));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::streamChanged,        this,                &DeviceManagerWrapper::streamChanged,          ct));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::vruChanged,           this,                &DeviceManagerWrapper::vruChanged,             ct));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::chartLossesChanged,   this,                &DeviceManagerWrapper::calcAverageChartLosses, ct));
@@ -30,6 +32,7 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     QObject::connect(this,                &DeviceManagerWrapper::sendOpenFile,  workerObject_.get(), &DeviceManager::openFile,                      ct);
     QObject::connect(this,                &DeviceManagerWrapper::sendCloseFile, workerObject_.get(), &DeviceManager::closeFile,                     ct);
     QObject::connect(workerObject_.get(), &DeviceManager::devChanged,           this,                &DeviceManagerWrapper::devChanged,             ct);
+    QObject::connect(workerObject_.get(), &DeviceManager::standAvailableChanged, this,                &DeviceManagerWrapper::standAvailableChanged,   ct);
     QObject::connect(workerObject_.get(), &DeviceManager::streamChanged,        this,                &DeviceManagerWrapper::streamChanged,          ct);
     QObject::connect(workerObject_.get(), &DeviceManager::vruChanged,           this,                &DeviceManagerWrapper::vruChanged,             ct);
     QObject::connect(workerObject_.get(), &DeviceManager::chartLossesChanged,   this,                &DeviceManagerWrapper::calcAverageChartLosses, ct);
@@ -103,6 +106,33 @@ void DeviceManagerWrapper::initStreamList()
     QMetaObject::invokeMethod(workerObject_.get(), "initStreamList", Qt::QueuedConnection);
 #else
     workerObject_->initStreamList();
+#endif
+}
+
+void DeviceManagerWrapper::startStreamDownload(int id)
+{
+#ifdef SEPARATE_READING
+    QMetaObject::invokeMethod(workerObject_.get(), "startStreamDownload", Qt::QueuedConnection, Q_ARG(int, id));
+#else
+    workerObject_->startStreamDownload(id);
+#endif
+}
+
+void DeviceManagerWrapper::cancelStreamDownload(int id)
+{
+#ifdef SEPARATE_READING
+    QMetaObject::invokeMethod(workerObject_.get(), "cancelStreamDownload", Qt::QueuedConnection, Q_ARG(int, id));
+#else
+    workerObject_->cancelStreamDownload(id);
+#endif
+}
+
+void DeviceManagerWrapper::refreshStreamList()
+{
+#ifdef SEPARATE_READING
+    QMetaObject::invokeMethod(workerObject_.get(), "refreshStreamList", Qt::QueuedConnection);
+#else
+    workerObject_->refreshStreamList();
 #endif
 }
 

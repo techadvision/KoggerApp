@@ -24,8 +24,11 @@ public:
     bool draw(Plot2D* parent, Dataset* dataset) override;
 
     void setAngleVisibility(bool state);
+    bool getAngleVisibility() const { return angleVisibility_; }
     void setVetricalNumber(int grids) { _lines = grids; }
+    int getVetricalNumber() const { return _lines; }
     void setVelocityVisible(bool visible) { _velocityVisible = visible; }
+    bool getVelocityVisible() const { return _velocityVisible; }
     bool isFillWidth() const { return fillWidth_; }
     void setFillWidth(bool state) { fillWidth_ = state; }
     bool isInvert() const { return invert_; }
@@ -40,9 +43,10 @@ public:
     Q_INVOKABLE void setIs2DTransducer(bool is2DTransducer);
     Q_INVOKABLE int getAssessedMaxDepth();
     std::vector<int> calculateRulerTicks(int maxDepth, bool isMetric, bool is2DTransducer, bool isSideScan2DView, bool isSideScanLeftHand);
+    int lastRightTextX() const { return lastRightTextX_; }
 
 protected:
-    void drawTextWithBackdrop(QPainter* painter, int x, int baselineY, const QString& text) const;
+    void drawTextWithBackdrop(QPainter* painter, int x, int baselineY, const QString& text, bool vertical = false, bool rightAlign = false) const;
 
     bool angleVisibility_;
     bool _velocityVisible = true;
@@ -78,4 +82,5 @@ private:
     int   sp(qreal v) const;       // convert "sp" to pixels (implemented in .cpp)
     void  updateDpScale();         // recompute dpScale_ from QScreen (implemented in .cpp)
 
+    int lastRightTextX_ = 0;
 };

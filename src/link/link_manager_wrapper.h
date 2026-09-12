@@ -3,6 +3,7 @@
 #include <memory>
 #include <QObject>
 #include <QList>
+#include <QStringList>
 #include <QThread>
 #include <QPair>
 #include <QUuid>
@@ -33,9 +34,11 @@ public:
     void shutdownWorkerThread();
     QHash<QUuid, QString> getLinkNames() const;
     void openClosedLinks();
+    QByteArray exportPinnedLinksToXmlData(QString* error = nullptr);
     bool reloadPinnedLinksFromXmlData(const QByteArray& xmlData,
                                       bool allowSerialLinks = true,
                                       int* skippedSerialLinks = nullptr,
+                                      bool* infrastructureUnavailable = nullptr,
                                       QString* error = nullptr);
     QVariant baudrateModel() const;
     //Pulse
@@ -51,6 +54,8 @@ public slots:
     void openAsUdp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void createAsTcp(QString address, int sourcePort, int destinationPort);
     void openAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
+    void createAsRtsp(QString address);
+    void openAsRtsp(QUuid uuid, QString address);
     void closeLink(QUuid uuid);
     QUuid getUuidFromString (QString uuidAsString);
     void resetMyOpenLink();
@@ -66,14 +71,27 @@ public slots:
                                bool autoSpeedSelection, bool isUpgradingState);
     void deleteModelData(QUuid uuid);
     QUuid getFirstOpened() { return getWorker()->getFirstOpend(); }
+
+    Q_INVOKABLE int  linkState(const QString& uuidStr) const; // -1 absent, 0 closed, 1 ok, 2 idle, 3 unavailable
+    Q_INVOKABLE void reopenLink(const QString& uuidStr);
+    Q_INVOKABLE void updateBaudrateFor(const QString& uuidStr, int baudrate); // callers holding a uuid string (topology meta), not a model QUuid
+    Q_INVOKABLE QStringList pinnedUuids() const; // uuids of pinned links present in the model
+    Q_INVOKABLE QStringList serialUuids() const; // uuids of serial links present in the model
+
+public:
     Link* getLinkPtr(QUuid uuid) { return getWorker()->getLinkPtr(uuid); }
 
 signals:
     void modelChanged(); // Q_PROPERTY in .h
+    void linkCreatedInteractively(QUuid uuid);
+    void linkOpened(QString uuid);
+    void linkRemoved(QString uuid);
     void sendOpenAsSerial(QUuid uuid, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void sendCreateAsUdp(QString address, int sourcePort, int destinationPort);
     void sendOpenAsUdp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void sendCreateAsTcp(QString address, int sourcePort, int destinationPort);
+    void sendCreateAsRtsp(QString address);
+    void sendOpenAsRtsp(QUuid uuid, QString address);
     void sendOpenAsTcp(QUuid uuid, QString address, int sourcePort, int destinationPort, LinkAttribute attribute = LinkAttribute::kLinkAttributeNone);
     void sendCloseLink(QUuid uuid);
     QUuid sendGetUuidFromString(QString uuidAsString);

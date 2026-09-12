@@ -29,9 +29,26 @@
 #include "qPlot2D.h"
 #include "core.h"
 #include "themes.h"
+#include "ui_probe.h"
 #include "ui_state_serializer.h"
+#include "echogram_state_serializer.h"
+#include "notifications.h"
 #include "scene_object.h"
 #include "bottom_track.h"
+#include "input_device_tracker.h"
+#ifndef Q_OS_ANDROID
+#include "instance_lock.h"
+#endif
+#include "system_battery.h"
+#include "mosaic_db.h"
+#include "language_controller.h"
+#include "app_utils.h"
+#include "app_log.h"
+#include "settings_migration.h"
+//NOTE: upstream's RTSP video module (src/video, VideoStreamPool) is deliberately NOT
+//merged. video_stream.cpp includes libavcodec/libavformat directly and upstream's
+//CMakeLists has no ffmpeg find or link at all, so it cannot survive the Android
+//multi-ABI build - and streaming video belongs to Seascape, not the sounder.
 
 #if defined(Q_OS_ANDROID)
 #include <QCoreApplication>          // brings in QNativeInterface::QAndroidApplication
@@ -43,13 +60,22 @@
 #include "installtoken.h"
 #include "UiMetrics.h"
 
+// NOLINTBEGIN(bugprone-throwing-static-initialization): application-lifetime singletons; a throw here is a fatal startup failure with nothing to catch
 Core core;
+AppUtils appUtils;
 Themes theme;
 UIStateSerializer uiStateSerializer;
+EchogramStateSerializer echogramStateSerializer;
+Notifications notifications;
 QTranslator translator;
 QVector<QString> availableLanguages{"en", "ru", "pl"};
 //QObject* g_pulseRuntimeSettings = nullptr;
 //QObject* g_pulseSettings = nullptr;
+// NOLINTEND(bugprone-throwing-static-initialization)
+
+#ifndef Q_OS_ANDROID
+InstanceLock instanceLock;
+#endif
 
 constexpr int FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS = 0x80000000;
 constexpr int FLAG_TRANSLUCENT_STATUS           = 0x04000000;
@@ -115,7 +141,7 @@ void loadLanguage(QGuiApplication &app)
     QSettings settings;
     QString currentLanguage;
 
-    int savedLanguageIndex = settings.value("appLanguage", -1).toInt();
+    int savedLanguageIndex = settings.value("main/appLanguage", -1).toInt();
 
     if (savedLanguageIndex == -1) {
         currentLanguage = QLocale::system().name().split('_').first();
@@ -123,7 +149,7 @@ void loadLanguage(QGuiApplication &app)
             currentLanguage = availableLanguages.front();
         }
         else {
-            settings.setValue("appLanguage", indx);
+            settings.setValue("main/appLanguage", indx);
         }
     }
     else {
@@ -148,6 +174,44 @@ void messageHandler(QtMsgType type, const QMessageLogContext& context, const QSt
     Q_UNUSED(type);
     Q_UNUSED(context);
     core.consoleInfo(msg);
+}
+
+
+QtMessageHandler previousMessageHandler = nullptr;
+
+static bool isVideoLogMessage(const QMessageLogContext& context, const QString& msg)
+{
+    if (context.category && QByteArray(context.category).startsWith("qt.multimedia")) {
+        return true;
+    }
+    return msg.startsWith(QStringLiteral("VIDEO:"));
+}
+
+void videoLogHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
+{
+    static thread_local bool forwarding = false;
+
+    if (!isVideoLogMessage(context, msg)) {
+        AppLog::instance().write(type, context, msg);
+    }
+
+    if (!forwarding && isVideoLogMessage(context, msg)) {
+        forwarding = true;
+        const QString line = msg.startsWith(QStringLiteral("VIDEO:"))
+                                 ? msg
+                                 : QStringLiteral("VIDEO: ") + msg;
+        if (type == QtWarningMsg || type == QtCriticalMsg || type == QtFatalMsg) {
+            core.consoleWarning(line);
+        }
+        else {
+            core.consoleInfo(line);
+        }
+        forwarding = false;
+    }
+
+    if (previousMessageHandler && !isVideoLogMessage(context, msg)) {
+        previousMessageHandler(type, context, msg);
+    }
 }
 
 void setApplicationDisplayName(QGuiApplication& app)
@@ -177,6 +241,8 @@ void registerQmlMetaTypes()
 #if defined(Q_OS_WIN)
 constexpr DWORD kDwmwaUseImmersiveDarkMode = 20;
 constexpr DWORD kDwmwaUseImmersiveDarkModeLegacy = 19;
+constexpr DWORD kDwmwaCaptionColor = 35;
+constexpr DWORD kDwmwaTextColor = 36;
 
 void applyWindowsSystemTitleBarTheme(QWindow* window)
 {
@@ -184,7 +250,7 @@ void applyWindowsSystemTitleBarTheme(QWindow* window)
         return;
     }
 
-    const HWND handle = reinterpret_cast<HWND>(window->winId());
+    const HWND handle = reinterpret_cast<HWND>(window->winId()); // NOLINT(performance-no-int-to-ptr): WId is integer, HWND is a pointer; Win32 interop requires the cast
     if (!handle) {
         return;
     }
@@ -201,7 +267,11 @@ void applyWindowsSystemTitleBarTheme(QWindow* window)
         return;
     }
 
-    const BOOL useDarkCaption = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark ? TRUE : FALSE;
+    const QColor captionColor = theme.controlBackColor().darker(108);
+    const QColor captionTextColor = theme.textColor();
+    const qreal captionLuminance = captionColor.redF() * 0.299 + captionColor.greenF() * 0.587 + captionColor.blueF() * 0.114;
+
+    const BOOL useDarkCaption = captionLuminance < 0.5 ? TRUE : FALSE;
     HRESULT hr = setWindowAttribute(handle,
                                     kDwmwaUseImmersiveDarkMode,
                                     &useDarkCaption,
@@ -213,6 +283,12 @@ void applyWindowsSystemTitleBarTheme(QWindow* window)
                            sizeof(useDarkCaption));
     }
 
+    const COLORREF captionRef = RGB(captionColor.red(), captionColor.green(), captionColor.blue());
+    setWindowAttribute(handle, kDwmwaCaptionColor, &captionRef, sizeof(captionRef));
+
+    const COLORREF captionTextRef = RGB(captionTextColor.red(), captionTextColor.green(), captionTextColor.blue());
+    setWindowAttribute(handle, kDwmwaTextColor, &captionTextRef, sizeof(captionTextRef));
+
     FreeLibrary(dwmApi);
 }
 
@@ -223,7 +299,7 @@ void applyWindowsFullscreenBorderWorkaround(QWindow* window)
     }
 
     auto applyBorder = [window]() {
-        HWND handle = reinterpret_cast<HWND>(window->winId());
+        HWND handle = reinterpret_cast<HWND>(window->winId()); // NOLINT(performance-no-int-to-ptr): WId is integer, HWND is a pointer; Win32 interop requires the cast
         if (!handle) {
             return;
         }
@@ -244,14 +320,69 @@ void applyWindowsFullscreenBorderWorkaround(QWindow* window)
 
     applyBorder();
 }
+
+void bringWindowToFront(QWindow* window)
+{
+    if (!window || !instanceLock.isPrimary()) {
+        return;
+    }
+
+    window->raise();
+    window->requestActivate();
+
+    const HWND handle = reinterpret_cast<HWND>(window->winId()); // NOLINT(performance-no-int-to-ptr): WId is integer, HWND is a pointer; Win32 interop requires the cast
+    if (!handle) {
+        return;
+    }
+
+    if (IsIconic(handle)) {
+        ShowWindow(handle, SW_RESTORE);
+    }
+
+    const HWND foreground = GetForegroundWindow();
+    const DWORD foregroundThread = foreground ? GetWindowThreadProcessId(foreground, nullptr) : 0;
+    const DWORD thisThread = GetCurrentThreadId();
+    const bool attach = foregroundThread && foregroundThread != thisThread;
+
+    DWORD savedLockTimeout = 0;
+    SystemParametersInfoW(SPI_GETFOREGROUNDLOCKTIMEOUT, 0, &savedLockTimeout, 0);
+    SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, reinterpret_cast<PVOID>(static_cast<UINT_PTR>(0)), SPIF_SENDCHANGE); // NOLINT(performance-no-int-to-ptr): Win32 passes an integer value through the pvParam pointer
+
+    if (attach) {
+        AttachThreadInput(foregroundThread, thisThread, TRUE);
+    }
+    AllowSetForegroundWindow(ASFW_ANY);
+    SetForegroundWindow(handle);
+    BringWindowToTop(handle);
+    if (attach) {
+        AttachThreadInput(foregroundThread, thisThread, FALSE);
+    }
+
+    SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0,
+                          reinterpret_cast<PVOID>(static_cast<UINT_PTR>(savedLockTimeout)), SPIF_SENDCHANGE); // NOLINT(performance-no-int-to-ptr): Win32 passes an integer value through the pvParam pointer
+
+    // flash taskbar button
+    FLASHWINFO flash = {};
+    flash.cbSize = sizeof(flash);
+    flash.hwnd = handle;
+    flash.dwFlags = FLASHW_TRAY | FLASHW_TIMERNOFG;
+    FlashWindowEx(&flash);
+}
 #endif
 
 
 int main(int argc, char *argv[])
 {
 #ifdef Q_OS_ANDROID
-    qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");  // TODO: use qt scaling!
-    qputenv("QT_SCALE_FACTOR", "0.5");            //
+    // Disable Qt's automatic per-screen scaling: we drive our own DPI-aware
+    // UI sizing via Themes::resCoeff (see themes.h). QT_SCALE_FACTOR=0.5
+    // halves Qt's internal coordinate system so a high-density tablet
+    // doesn't render at the device's full pixel grid (physical px is what
+    // we then scale up via resCoeff = physicalDPI / logicalDPI). Net effect
+    // on a typical tablet (~2× density): UI sizes match the Desktop 100%
+    // baseline at manualScale=1.0.
+    qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
+    qputenv("QT_SCALE_FACTOR", "0.5");
 #endif
 
 #if defined(Q_OS_LINUX)
@@ -267,11 +398,27 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName("Pulse Echo Sounder");
     QCoreApplication::setApplicationVersion("1-1-1");
 
+    migrateSettingsSchema();
+
 #if defined(Q_OS_WIN)
     //QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::Round);
-    QLoggingCategory::setFilterRules(QStringLiteral("qt.network.info.netlistmanager.warning=false"));
 #endif
+
+    QString loggingRules;
+#if defined(Q_OS_WIN)
+    loggingRules += QStringLiteral("qt.network.info.netlistmanager.warning=false\n"
+                                   "qt.qpa.mime=false\n");
+#endif
+    QLoggingCategory::setFilterRules(loggingRules);
+
+#if defined(Q_OS_ANDROID)
+    AppLog::instance().start(AppLog::fallbackDirectory(), QStringLiteral("kogger"), 4 * 1024 * 1024, 3);
+#else
+    AppLog::instance().start(AppLog::defaultDirectory(), QStringLiteral("kogger"), 8 * 1024 * 1024, 5);
+#endif
+
+    previousMessageHandler = qInstallMessageHandler(videoLogHandler);
 
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGLRhi);
 
@@ -286,6 +433,24 @@ int main(int argc, char *argv[])
     QSurfaceFormat::setDefaultFormat(format);
 
     QGuiApplication app(argc, argv);
+
+    app.styleHints()->setMouseDoubleClickInterval(320);
+
+    // Themes global was constructed before QGuiApplication + org name — now
+    // safe to read QSettings and primaryScreen() for DPI-aware resCoeff.
+    theme.initSettings();
+
+    QQuickStyle::setStyle("Basic");
+
+#ifndef Q_OS_ANDROID
+    instanceLock.acquire();
+    appUtils.setInstanceIndex(instanceLock.index());
+    MosaicDB::setInstanceIndex(instanceLock.index());
+#endif
+
+    LanguageController langController;
+    InputDeviceTracker inputDeviceTracker;
+    SystemBattery systemBattery;
     core.initAfterApp();
 
     //qDebug() << "Lib paths:" << QCoreApplication::libraryPaths();
@@ -296,13 +461,13 @@ int main(int argc, char *argv[])
     //qputenv("QT_DEBUG_PLUGINS", "1");
     //qDebug() << "libraryPaths =" << QCoreApplication::libraryPaths();
     loadLanguage(app);
+    langController.setStartupTranslator(&translator);
     core.initStreamList();
-
-    QQuickStyle::setStyle("Basic");
 
     setApplicationDisplayName(app);
     QQmlApplicationEngine engine;
     engine.addImportPath("qrc:/");
+    engine.addImportPath("qrc:/qml");
 
 #if defined(Q_OS_ANDROID)
     // PULSE Make the singleton available in QML as "Insets"
@@ -466,9 +631,40 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("flasher", &core.getFlasherPtr);
 #endif
 
+    engine.rootContext()->setContextProperty("deviceTopology", core.getDeviceTopologyModelPtr());
     engine.rootContext()->setContextProperty("logViewer", core.getConsolePtr());
     engine.rootContext()->setContextProperty("uiStateSerializer", &uiStateSerializer);
+    engine.rootContext()->setContextProperty("echogramStateSerializer", &echogramStateSerializer);
+    engine.rootContext()->setContextProperty("notifications", &notifications);
+    engine.rootContext()->setContextProperty("inputDeviceTracker", &inputDeviceTracker);
+    engine.rootContext()->setContextProperty("systemBattery", &systemBattery);
+    engine.rootContext()->setContextProperty("langController", &langController);
+    engine.rootContext()->setContextProperty("appUtils", &appUtils);
+
+    // Machine-readable UI verification. Costs nothing unless KOGGER_UI_PROBE names an
+    // output directory; exposed to QML so an interaction test can dump at a chosen
+    // moment instead of on a timer.
+    UiProbe uiProbe;
+    engine.rootContext()->setContextProperty("uiProbe", &uiProbe);
+
+    // Expose compile-time MANUAL_TESTING flag to QML — the Settings panel
+    // shows a "Test" group (with developer-only knobs) only when this is true.
+#ifdef MANUAL_TESTING
+    engine.rootContext()->setContextProperty("manualTesting", true);
+#else
+    engine.rootContext()->setContextProperty("manualTesting", false);
+#endif
+
     uiStateSerializer.setLinkManagerWrapper(core.getLinkManagerWrapperPtr());
+
+    QObject::connect(&langController, &LanguageController::currentIndexChanged, &engine, [&engine, &app, &langController, &inputDeviceTracker]() {
+        emit langController.aboutToRetranslate();
+        engine.retranslate();
+        setApplicationDisplayName(app);
+        emit core.languageChanged();
+        emit inputDeviceTracker.currentModeChanged();
+        emit langController.retranslated();
+    });
 
     QObject::connect(&theme, &Themes::interfaceChanged, &core, []() {
         core.setConsoleOutputEnabled(theme.consoleVisible());
@@ -478,7 +674,7 @@ int main(int argc, char *argv[])
     core.consoleInfo("Run...");
     core.setEngine(&engine);
     //qDebug() << "SQL drivers =" << QSqlDatabase::drivers(); // тут должен появиться QSQLITE
-    const QUrl url(QStringLiteral("qrc:/main.qml"));
+    const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
     QPointer<QQuickWindow> mainWindow;
     QObject::connect(&engine,   &QQmlApplicationEngine::objectCreated,
                      &app,      [url](QObject *obj, const QUrl &objUrl) {
@@ -500,11 +696,19 @@ int main(int argc, char *argv[])
 #endif
 
 #ifndef Q_OS_ANDROID
-    if (argc > 1) {
-        QObject::connect(&engine,   &QQmlApplicationEngine::objectCreated,
-                         &core,     [&argv]() {
-                                        core.openLogFile(argv[1], false, true);
-                                    }, Qt::QueuedConnection);
+    {
+        const QStringList appArgs = app.arguments();
+        if (appArgs.size() > 1) {
+            const QString& startupFilePath = appArgs.at(1);
+            auto* startupConn = new QMetaObject::Connection;
+            *startupConn = QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
+                                            &core, [startupFilePath, startupConn, url](QObject* obj, const QUrl& objUrl) {
+                                                if (!obj || url != objUrl) return;
+                                                QObject::disconnect(*startupConn);
+                                                delete startupConn;
+                                                core.deferStartupFileOpen(startupFilePath);
+                                            }, Qt::QueuedConnection);
+        }
     }
 #endif
 
@@ -515,11 +719,35 @@ int main(int argc, char *argv[])
     if (!rootObjects.isEmpty()) {
         QObject* rootObject = rootObjects.constFirst();
         mainWindow = qobject_cast<QQuickWindow*>(rootObject);
+        if (mainWindow && UiProbe::isEnabled()) {
+            uiProbe.setWindow(mainWindow);
+            uiProbe.armFromEnvironment();
+        }
 #if defined(Q_OS_WIN)
         if (auto* window = qobject_cast<QWindow*>(rootObject)) {
             applyWindowsSystemTitleBarTheme(window);
             applyWindowsFullscreenBorderWorkaround(window);
+            bringWindowToFront(window);
         }
+        QObject::connect(&core, &Core::bringWindowToFrontRequested, &app, [mainWindow]() { // runtime requests, next event-loop tick
+            if (mainWindow) {
+                bringWindowToFront(mainWindow);
+            }
+        }, Qt::QueuedConnection);
+        // Same dark titlebar + fullscreen border workaround for the secondary window.
+        if (auto* secondary = rootObject->findChild<QWindow*>(QStringLiteral("secondaryAppWindow"))) {
+            applyWindowsSystemTitleBarTheme(secondary);
+            applyWindowsFullscreenBorderWorkaround(secondary);
+        }
+        QObject::connect(&theme, &Themes::changed, &app, [mainWindow]() {
+            if (!mainWindow) {
+                return;
+            }
+            applyWindowsSystemTitleBarTheme(mainWindow);
+            if (auto* secondary = mainWindow->findChild<QWindow*>(QStringLiteral("secondaryAppWindow"))) {
+                applyWindowsSystemTitleBarTheme(secondary);
+            }
+        });
 #endif
     }
     qInfo() << "App is created";
@@ -531,6 +759,8 @@ int main(int argc, char *argv[])
 #ifdef SEPARATE_READING
     core.stopDeviceManagerThread();
 #endif
+
+    AppLog::instance().stop();
 
     return retCode;
 }
