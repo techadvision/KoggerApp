@@ -62,7 +62,7 @@ Flickable {
     // ——————————————————————————————————————————————————————————
     Image {
         id: appIcon
-        source: pulseRuntimeSettings.is2DTransducer ? "./image/pulse_info_red_black_large.png" : "./image/pulse_info_blue_large.png"
+        source: pulseRuntimeSettings.uiBrand.infoImage
         /*
         source: (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ||
                  pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto)
@@ -194,7 +194,7 @@ Flickable {
                 // Transducer logo (red/blue)
                 Image {
                     id: deviceLogo
-                    source: pulseRuntimeSettings.is2DTransducer ? "./image/pulse_logo_red.png" : "./image/pulse_logo_blue.png"
+                    source: pulseRuntimeSettings.uiBrand.logo
                     fillMode: Image.PreserveAspectFit
                     width: Math.round(245 * s)//245
 
@@ -202,8 +202,9 @@ Flickable {
 
                 Image {
                     id: deviceLogoBlack
-                    visible: pulseRuntimeSettings.is2DTransducer
-                    source: "./image/pulse_logo_black.png"
+                    //Empty string on a device with no second wordmark.
+                    visible: pulseRuntimeSettings.uiBrand.logoBlack !== ""
+                    source: pulseRuntimeSettings.uiBrand.logoBlack
                     anchors.verticalCenter: deviceLogo.verticalCenter
                     fillMode: Image.PreserveAspectFit
                     width: Math.round(270 * s)//270

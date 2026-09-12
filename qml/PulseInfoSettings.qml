@@ -131,7 +131,7 @@ Flickable {
             toggle: false
             checkbox: true
             text: "Optimize to include second echo"
-            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.uiOffers.doubleEchoOptimize
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "doubleEchoOptimize"
@@ -181,7 +181,7 @@ Flickable {
         SettingRow {
             toggle: false
             text: "2D echogram screen speed (1-5)"
-            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.uiOffers.screenSpeed2D
             HorizontalControllerDoubleSettings {
                 id: speedSelector
                 //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
@@ -227,7 +227,7 @@ Flickable {
         SettingRow {
             toggle: false
             text: "Side-/downscan meters"
-            show: pulseRuntimeSettings.showCatScreen && !pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.showCatScreen && pulseRuntimeSettings.uiOffers.scanWidthMeters
             HorizontalControllerDoubleSettings {
                 id: widthSelector
                 //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
@@ -320,7 +320,7 @@ Flickable {
         SettingRow {
             checkbox: true
             text: "Include MTW (temperature) message"
-            show: pulseRuntimeSettings.showCatNmea && pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.showCatNmea && pulseRuntimeSettings.uiOffers.nmeaMtw
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "enableNmeaMtw"
@@ -481,7 +481,7 @@ Flickable {
             text: "PULSEblue: Left-hand side mount"
             toggle: false
             checkbox: true
-            show: pulseRuntimeSettings.showCatInstallation && !pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.showCatInstallation && pulseRuntimeSettings.uiOffers.sideScanMounting
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "isSideScanOnLeftHandSide"
@@ -501,7 +501,7 @@ Flickable {
             text: "PULSEblue: Cable facing front"
             toggle: false
             checkbox: true
-            show: pulseRuntimeSettings.showCatInstallation && !pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.showCatInstallation && pulseRuntimeSettings.uiOffers.sideScanMounting
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "isSideScanCableFacingFront"

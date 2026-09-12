@@ -418,9 +418,15 @@ QtObject {
     //inverted convention had been copied to samples and period as well. The clamp code
     //has always been Math.max(candidate, <lower>) then Math.min(result, <upper>); after
     //the swap those read Min then Max, which is idiomatic for the first time.
-    property int    dynamicResolutionMin:   2       // Finest sample spacing allowed, mm
-    property int    dynamicResolutionMax:   50      // Coarsest sample spacing allowed, mm (reduced from 90)
-    property int    dynamicResolutionMargin:2       // The margin resolution in m
+    //Now declared per profile, in ui.tunable.resolution. Both devices carry 2 / 50 / 2
+    //today, so this is the same three numbers arriving from a different place - but it is
+    //what lets the IP profile widen them without touching any code, since the IP link no
+    //longer pays for resolution in wireless range.
+    //Read uiProfile directly rather than through tunable(), so the binding's dependency on
+    //it is plain to see and does not rely on capture through a function call.
+    property int    dynamicResolutionMin:   (uiProfile && uiProfile.tunable && uiProfile.tunable.resolution) ? uiProfile.tunable.resolution.minMm   : 2
+    property int    dynamicResolutionMax:   (uiProfile && uiProfile.tunable && uiProfile.tunable.resolution) ? uiProfile.tunable.resolution.maxMm   : 50
+    property int    dynamicResolutionMargin:(uiProfile && uiProfile.tunable && uiProfile.tunable.resolution) ? uiProfile.tunable.resolution.marginM : 2
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property bool   dynamicResolutionInit:  false   // The initial dynamic resolution was performed
     property int    dynamicSamplesMin:      500     // When sample spacing is at its coarsest, we alter the number of samples and the period
@@ -591,6 +597,53 @@ QtObject {
     //TVG defaults fall back to false rather than guess. Same three-way as before.
     property var activeProfile: profiles[activeModel]
 
+    //WHAT THE INTERFACE OFFERS. This is the committed device's ui block, and it is the
+    //answer to "should this control exist", replacing the old habit of inferring it from
+    //is2DTransducer. Committed, not active: a chooser offers HARDWARE choices, so it must
+    //follow the transducer that is connected, never a log that happens to be playing.
+    property var uiProfile: committedProfile.ui
+
+    //PLAIN PROPERTIES for anything a QML binding depends on. Bindings capture the property
+    //reads they make, and these read uiProfile directly, so a device swap re-evaluates every
+    //control that shows or hides on them. The functions further down are for imperative use
+    //(handlers, timers), where capture does not come into it.
+    property var  uiViews:          (uiProfile && uiProfile.views) ? uiProfile.views : []
+    property var  uiCones:          (uiProfile && uiProfile.cones) ? uiProfile.cones : []
+    property var  uiViewIcons:      uiViews.map(function (e) { return e.icon })
+    property var  uiConeIcons:      uiCones.map(function (e) { return e.icon })
+    //Never offer a choice of one. A device with a single view or a single cone shows no
+    //chooser at all, which is exactly what the Red does for views and the Blue for cones.
+    property bool offersViewChoice: uiViews.length > 1
+    property bool offersConeChoice: uiCones.length > 1
+    //Named capability flags and per-device artwork, for the controls that used to ask
+    //is2DTransducer whether they should exist.
+    property var  uiOffers:         (uiProfile && uiProfile.offers) ? uiProfile.offers : ({})
+    property var  uiBrand:          (uiProfile && uiProfile.brand)  ? uiProfile.brand  : ({})
+
+    //Cone list accessors (PULSE red). Index is ecoConeIndex.
+    function coneCount()            { return uiProfile && uiProfile.cones ? uiProfile.cones.length : 0 }
+    function coneAt(i)              { var c = uiProfile && uiProfile.cones ? uiProfile.cones : []
+                                      return (i >= 0 && i < c.length) ? c[i] : null }
+    //Falls back to the profile's own transFreq, which is what a device with no cone list
+    //(the Blue) transmitted at anyway - the three legacy transFreq* properties below all
+    //read 460 on blue for exactly that reason.
+    function coneFreq(i, fallback)  { var e = coneAt(i); return e ? e.freq : fallback }
+
+    //View list accessors (PULSE blue). Index is ecoViewIndex.
+    function viewCount()            { return uiProfile && uiProfile.views ? uiProfile.views.length : 0 }
+    function viewAt(i)              { var v = uiProfile && uiProfile.views ? uiProfile.views : []
+                                      return (i >= 0 && i < v.length) ? v[i] : null }
+    //A stored ecoViewIndex can outlive the list it was chosen from - that is exactly what
+    //happened when 820 was withdrawn and left index 2 and 3 pointing at nothing. Clamp
+    //rather than trust, always.
+    function clampViewIndex(i)      { var n = viewCount(); if (n <= 0) return 0
+                                      return (i < 0) ? 0 : (i >= n ? n - 1 : i) }
+    //"down" or "side" for the selected view; "down" when there is no list, which is what a
+    //2D transducer shows.
+    function viewMode(i)            { var e = viewAt(clampViewIndex(i)); return e ? e.mode : "down" }
+
+    function tunable(name)          { return uiProfile && uiProfile.tunable ? uiProfile.tunable[name] : undefined }
+
     //PER DEVICE PROPERTIES
     property bool   settingVersion:                 committedProfile.settingVersion
     property bool   useTemperature:                 committedProfile.useTemperature
@@ -613,9 +666,12 @@ QtObject {
     property int    datasetEuler:                   committedProfile.datasetEuler
     property int    datasetTemp:                    committedProfile.datasetTemp
     property int    datasetTimestamp:               committedProfile.datasetTimestamp
-    property int    transFreqWide:                  committedProfile.transFreqWide
-    property int    transFreqMedium:                committedProfile.transFreqMedium
-    property int    transFreqNarrow:                committedProfile.transFreqNarrow
+    //Derived from the cone list so there is ONE place a frequency is written down. A device
+    //with no cone list (the Blue) falls back to its own transFreq, which is what these three
+    //held for it before: 460, 460, 460.
+    property int    transFreqWide:                  coneFreq(0, committedProfile.transFreq)
+    property int    transFreqMedium:                coneFreq(1, committedProfile.transFreq)
+    property int    transFreqNarrow:                coneFreq(2, committedProfile.transFreq)
     property int    maximumDepth:                   committedProfile.maximumDepth
     property var    doDynamicResolution:            committedProfile.doDynamicResolution
     property var    fixBlackStripesForwardSteps:    committedProfile.fixBlackStripesForwardSteps
@@ -676,9 +732,6 @@ QtObject {
         "datasetEuler":                 0,
         "datasetTemp":                  1,
         "datasetTimestamp":             0,
-        "transFreqWide":                510,
-        "transFreqMedium":              710,
-        "transFreqNarrow":              810,
         "maximumDepth":                 52,
         "processBottomTrack":           true,
         "doDynamicResolution":          true,
@@ -690,7 +743,49 @@ QtObject {
         "bottomTrackVisibleModel":      0,
         "echogramTvgEnabled":           true,
         "sideScanTvgEnabled":           false,
-        "distProcessing":               distProcPulseRed
+        "distProcessing":               distProcPulseRed,
+
+        //What the INTERFACE offers for this device. Read through uiProfile, never inferred
+        //from is2DTransducer. Adding or removing a choice here is the whole edit.
+        "ui": {
+            //The Red asks a CONE question: one frequency per cone width. The order is the
+            //order of the buttons; ecoConeIndex indexes this list.
+            "cones": [
+                { "icon": "./icons/ui/pulse_cone_510.svg", "freq": 510, "name": "wide"   },
+                { "icon": "./icons/ui/pulse_cone_710.svg", "freq": 710, "name": "medium" },
+                { "icon": "./icons/ui/pulse_cone_810.svg", "freq": 810, "name": "narrow" }
+            ],
+            //No view chooser on a 2D transducer: it has one view.
+            "views": [],
+            //WHAT THIS DEVICE'S INTERFACE OFFERS, by name. Every key exists on every
+            //profile - absent would mean "undefined", and a control that hides because a
+            //key was forgotten is the worst kind of bug to find on the water.
+            "offers": {
+                "doubleEchoOptimize":     true,   //2D only: optimize to include second echo
+                "screenSpeed2D":          true,   //2D echogram screen speed (1-5)
+                "scanWidthMeters":        false,  //side-/downscan meters
+                "nmeaMtw":                true,   //NMEA MTW (temperature) sentence
+                "sideScanMounting":       false,  //left-hand mount / cable facing front
+                "depthFilter":            true,   //expert: use depth filter + its margin
+                "depthFilterBottomTrack": false   //expert: depth filter w/bottom track
+            },
+            //Per-device artwork. A new device is a new set of images, not a new branch.
+            //logoBlack is empty when the device has no second wordmark.
+            "brand": {
+                "infoImage": "./image/pulse_info_red_black_large.png",
+                "logo":      "./image/pulse_logo_red.png",
+                "logoBlack": "./image/pulse_logo_black.png"
+            },
+            //Limits the UI must respect. resolution is live (dynamicResolution* read it).
+            //samples and period are declared but not yet consumed - there is nothing to
+            //vary between red and blue, and the IP profile in step 4 is what makes them
+            //mean something. See the note on the blue profile.
+            "tunable": {
+                "resolution": { "enabled": true,  "minMm": 2,   "maxMm": 50, "marginM": 2 },
+                "samples":    { "enabled": false, "min": 100,   "max": 1000 },
+                "period":     { "enabled": false, "minMs": 30,  "maxMs": 200 }
+            }
+        }
     }
 
 
@@ -720,9 +815,6 @@ QtObject {
         "datasetEuler":                 0,
         "datasetTemp":                  0,
         "datasetTimestamp":             0,
-        "transFreqWide":                460,
-        "transFreqMedium":              460,
-        "transFreqNarrow":              460,
         "maximumDepth":                 25,
         "processBottomTrack":           true,
         "doDynamicResolution":          false,
@@ -734,7 +826,51 @@ QtObject {
         "bottomTrackVisibleModel":      0,
         "echogramTvgEnabled":           false,
         "sideScanTvgEnabled":           true,
-        "distProcessing":               distProcPulseBlue
+        "distProcessing":               distProcPulseBlue,
+
+        //What the INTERFACE offers for this device. Read through uiProfile, never inferred
+        //from is2DTransducer. Adding or removing a choice here is the whole edit.
+        "ui": {
+            //No cone chooser on the Blue: the cone is fixed, the choice is a VIEW.
+            "cones": [],
+            //The Blue asks a VIEW question. mode drives the grid and the range call
+            //("down" = horizontal grid / plotDistanceRange2d, "side" = vertical grid /
+            //plotDistanceRange); freq is what the view is transmitted at.
+            //
+            //820 kHz LIVES HERE. It was removed because the hardware did not perform well
+            //enough, not because the code cannot do it. To bring it back, add the two
+            //entries below - the icons are already in the repo and registered in
+            //resources/icons.qrc - and nothing else changes anywhere:
+            //    { "icon": "./icons/ui/pulse_view_down_scan_820.svg", "mode": "down", "freq": 820 },
+            //    { "icon": "./icons/ui/pulse_view_side_scan_820.svg", "mode": "side", "freq": 820 }
+            //(swap the two 460 icons for their _460 variants at the same time so the
+            //buttons say which frequency they are).
+            "views": [
+                { "icon": "./icons/ui/pulse_view_down_scan.svg", "mode": "down", "freq": 460 },
+                { "icon": "./icons/ui/pulse_view_side_scan.svg", "mode": "side", "freq": 460 }
+            ],
+            //WHAT THIS DEVICE'S INTERFACE OFFERS, by name. Same key set as every other
+            //profile; only the answers differ.
+            "offers": {
+                "doubleEchoOptimize":     false,
+                "screenSpeed2D":          false,
+                "scanWidthMeters":        true,
+                "nmeaMtw":                false,
+                "sideScanMounting":       true,
+                "depthFilter":            false,
+                "depthFilterBottomTrack": true
+            },
+            "brand": {
+                "infoImage": "./image/pulse_info_blue_large.png",
+                "logo":      "./image/pulse_logo_blue.png",
+                "logoBlack": ""
+            },
+            "tunable": {
+                "resolution": { "enabled": true,  "minMm": 2,   "maxMm": 50, "marginM": 2 },
+                "samples":    { "enabled": false, "min": 500,   "max": 4000 },
+                "period":     { "enabled": false, "minMs": 50,  "maxMs": 300 }
+            }
+        }
     }
 
     property var    distProcPulseRed: [

@@ -74,7 +74,10 @@ Item {
     property string tempText:                   "-.-"
     property string depthText:                  "-.-"
     property bool   forceUpdateResolution:      false
-    property bool   enableTemperature:          pulseRuntimeSettings.is2DTransducer && pulseRuntimeSettings.pulseBetaName === "..."
+    //useTemperature is already a profile key and is what this actually meant - a device
+    //either has a temperature sensor or it does not. Same answer today (red true, blue
+    //false), but it stops being a guess derived from the transducer geometry.
+    property bool   enableTemperature:          pulseRuntimeSettings.useTemperature && pulseRuntimeSettings.pulseBetaName === "..."
 
     signal swapUnits()
     //signal pulseAutoLevelChanged(int newAutoLevel)

@@ -419,15 +419,13 @@ Item {
 
             if (showAs2DTransducer) {
                 plot2DGrid.setGridHorizontal(true)
-                //plot.setGridHorizontalNow(true)
             } else {
-                if (pulseSettings.ecoViewIndex === 0) {
-                    plot2DGrid.setGridHorizontal(true)
-                    //plot.setGridHorizontalNow(true)
-                } else {
-                    plot2DGrid.setGridHorizontal(false)
-                    //plot.setGridHorizontalNow(false)
-                }
+                //Ask the profile what the selected view IS, rather than assuming index 0 is
+                //down scan and everything else is side scan. That assumption was only true
+                //while the list had exactly two entries, and it is what would have broken
+                //the moment 820 was added back.
+                plot2DGrid.setGridHorizontal(
+                    pulseRuntimeSettings.viewMode(pulseSettings.ecoViewIndex) !== "side")
             }
 
         }
@@ -447,22 +445,16 @@ Item {
                 plot.plotDistanceRange2d(pulseSettings.maxDepthValue * 1.0)
                 //console.log("TAV: setUserInterface horizontal - pulseRed - done");
             } else {
-                if (pulseSettings.ecoViewIndex === 1) {
-                    //console.log("TAV: setUserInterface vertical - pulseBlue viewIndex 1");
+                //Same rule as reArrangeQuickChangeObject: the view's own mode decides,
+                //not its position in the list.
+                if (pulseRuntimeSettings.viewMode(pulseSettings.ecoViewIndex) === "side") {
                     plot.setVerticalNow()
-                    //plot2DGrid.setGridHorizontal(false)
                     pulseRuntimeSettings.isHorizontalGrid = false
-                    //plot.setGridHorizontalNow(false)
                     plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlue * 1.0)
-                    //console.log("TAV: setUserInterface vertical - pulseBlue viewIndex 1 - done");
                 } else {
-                    //console.log("TAV: setUserInterface horizontal - pulseBlue viewIndex 0");
                     plot.setHorizontalNow()
                     pulseRuntimeSettings.isHorizontalGrid = true
-                    //plot2DGrid.setGridHorizontal(true)
-                    //plot.setGridHorizontalNow(true)
                     plot.plotDistanceRange2d(pulseSettings.maxDepthValuePulseBlue * 1.0)
-                    //console.log("TAV: setUserInterface horizontal - pulseBlue viewIndex 0 - done");
                 }
             }
 
@@ -1317,68 +1309,38 @@ Item {
 
             HorizontalPopUpController {
                 id: themeSelector2
-                visible: !pulseRuntimeSettings.is2DTransducer
-                /* Change: No longer offer the 820 option
-                model: [
-                    "./icons/ui/pulse_view_down_scan_460.svg",
-                    "./icons/ui/pulse_view_down_scan_820.svg",
-                    "./icons/ui/pulse_view_side_scan_460.svg",
-                    "./icons/ui/pulse_view_side_scan_820.svg"
-                ]
-                */
-                model: [
-                    "./icons/ui/pulse_view_down_scan.svg",
-                    "./icons/ui/pulse_view_side_scan.svg"
-                ]
+                //The VIEW chooser. Everything about it now comes from the committed
+                //profile's ui.views: whether it exists at all, what the buttons are, and
+                //what each one does. The 820 option was removed by commenting out a second
+                //model array and a second onIconSelected here; it comes back by adding two
+                //entries to the profile.
+                visible: pulseRuntimeSettings.offersViewChoice
+                model: pulseRuntimeSettings.uiViewIcons
                 iconSource: "./icons/ui/pulse_glasses.svg"
-                /* Change: No longer offer the 820 option */
-                //selectedIndex: pulseSettings.ecoViewIndex
-                selectedIndex: {
-                    if (pulseSettings.ecoViewIndex > 1)
-                        return 1
-                    return pulseSettings.ecoViewIndex
-                }
+                //ecoViewIndex is persisted, so it can outlive the list it was chosen from -
+                //which is precisely what happened when 820 was withdrawn. Clamp, never trust.
+                selectedIndex: Math.max(0, Math.min(pulseSettings.ecoViewIndex,
+                                                    pulseRuntimeSettings.uiViews.length - 1))
 
                 hostWindow: plot ? plot : undefined
-                /* Change: No longer offer the 820 option
                 onIconSelected: {
-                    //plot.plotEchogramCompensation(selectedIndex);
                     pulseSettings.ecoViewIndex = selectedIndex
-                    //Downscan 460
-                    if (selectedIndex === 0) {
-                        setDownScan(460)
-                    }
-                    //Downscan 820
-                    if (selectedIndex === 1) {
-                        setDownScan(820)
-                    }
-                    //Sidescan 460
-                    if (selectedIndex === 2) {
-                        setSideScan(460)
-                    }
-                    //Sidescan 820
-                    if (selectedIndex === 3) {
-                        setSideScan(820)
-                    }
+                    applyView(selectedIndex)
                     plot.updatePlot()
                     quickChangeObjects.reArrangeQuickChangeObject()
-
                 }
-                */
-                onIconSelected: {
-                    //plot.plotEchogramCompensation(selectedIndex);
-                    pulseSettings.ecoViewIndex = selectedIndex
-                    //Downscan 460
-                    if (selectedIndex === 0) {
-                        setDownScan(460)
-                    }
-                    //Sidescan 460
-                    if (selectedIndex === 1) {
-                        setSideScan(460)
-                    }
-                    plot.updatePlot()
-                    quickChangeObjects.reArrangeQuickChangeObject()
 
+                //The one place a view index becomes an action. Adding a view to the profile
+                //needs no change here, because the entry carries both what it is and what
+                //frequency it runs at.
+                function applyView (index) {
+                    var v = pulseRuntimeSettings.viewAt(pulseRuntimeSettings.clampViewIndex(index))
+                    if (!v)
+                        return
+                    if (v.mode === "side")
+                        setSideScan(v.freq)
+                    else
+                        setDownScan(v.freq)
                 }
 
                 function setDownScan (frequency) {
@@ -1399,41 +1361,11 @@ Item {
                     pulseRuntimeSettings.transFreq = frequency
                 }
 
-                /* Change: No longer offer the 820 option
                 Timer {
                     id: setPulseBlueEcoViewOnAppStart
                     repeat: false
                     interval: 1000
-                    onTriggered: {
-                        if (pulseSettings.ecoViewIndex === 0) {
-                            themeSelector2.setDownScan(460)
-                        }
-                        if (pulseSettings.ecoViewIndex === 1) {
-                            themeSelector2.setDownScan(820)
-                        }
-                        if (pulseSettings.ecoViewIndex === 2) {
-                            themeSelector2.setSideScan(460)
-                        }
-                        if (pulseSettings.ecoViewIndex === 3) {
-                            themeSelector2.setSideScan(820)
-                        }
-                    }
-
-                }
-                */
-                Timer {
-                    id: setPulseBlueEcoViewOnAppStart
-                    repeat: false
-                    interval: 1000
-                    onTriggered: {
-                        if (pulseSettings.ecoViewIndex === 0) {
-                            themeSelector2.setDownScan(460)
-                        }
-                        if (pulseSettings.ecoViewIndex === 1) {
-                            themeSelector2.setSideScan(460)
-                        }
-                    }
-
+                    onTriggered: themeSelector2.applyView(pulseSettings.ecoViewIndex)
                 }
 
                 Connections {
@@ -1502,49 +1434,41 @@ Item {
 
             HorizontalPopUpController {
                 id: themeSelector3
-                visible: pulseRuntimeSettings.is2DTransducer
-
-                model: [
-                    "./icons/ui/pulse_cone_510.svg",
-                    "./icons/ui/pulse_cone_710.svg",
-                    "./icons/ui/pulse_cone_810.svg"
-                ]
+                //The CONE chooser - the same control asking a different question. Same rule
+                //as the view chooser: the profile decides whether it exists, what it shows
+                //and what each button transmits at.
+                visible: pulseRuntimeSettings.offersConeChoice
+                model: pulseRuntimeSettings.uiConeIcons
                 iconSource: "./icons/ui/pulse_glasses.svg"
-                selectedIndex: pulseSettings.ecoConeIndex
+                selectedIndex: Math.max(0, Math.min(pulseSettings.ecoConeIndex,
+                                                    pulseRuntimeSettings.uiCones.length - 1))
                 hostWindow: plot ? plot : undefined
                 //allowExpertModeByMultiTap: false
 
                 onIconSelected: {
-
-                    if (selectedIndex === 0) {
-                        pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
-                    } else if (selectedIndex === 1) {
-                        pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
-                    } else {
-                        pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
-                    }
-                    console.log("TAV: Selected echosounder cone (frequency):", pulseRuntimeSettings.transFreq);
+                    applyCone(selectedIndex)
                     pulseSettings.ecoConeIndex = selectedIndex
+                }
+
+                //Applies a cone index without writing the preference back, so it is safe to
+                //call when restoring the stored choice on a device change.
+                function applyCone (index) {
+                    var c = pulseRuntimeSettings.coneAt(index)
+                    if (!c)
+                        return
+                    pulseRuntimeSettings.transFreq = c.freq
+                    console.log("TAV: Selected echosounder cone (frequency):", pulseRuntimeSettings.transFreq)
                 }
 
                 Connections {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onUserManualSetNameChanged () {
-                        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
-                                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
-                            if (pulseSettings.ecoConeIndex === 0) {
-                                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
-                            }
-                            if (pulseSettings.ecoConeIndex === 1) {
-                                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
-                            }
-                            if (pulseSettings.ecoConeIndex === 2) {
-                                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
-                            }
+                        if (pulseRuntimeSettings.offersConeChoice) {
+                            themeSelector3.applyCone(pulseSettings.ecoConeIndex)
                             plot.updatePlot()
-                            console.log("TAV: viewSelector is 2D transducer, set the default index to", pulseSettings.ecoConeIndex);
+                            console.log("TAV: viewSelector offers cones, restored index", pulseSettings.ecoConeIndex);
                         } else {
-                            console.log("TAV: viewSelector is side scan transducer, do not set for 2D");
+                            console.log("TAV: viewSelector device has no cone choice, nothing to restore");
                        }
                     }
                 }

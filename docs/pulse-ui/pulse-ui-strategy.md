@@ -948,3 +948,142 @@ Two things to settle when it is built:
 mismatched playback that gate reads the connected transducer while the picture on screen is
 the log's. It was equally wrong before the refactor — but it was one of forty ternaries then,
 and it is a named property now.
+
+---
+
+## Device-profile rework — step 3, the `ui` block, 12 Sept 2026
+
+Branch `feature/device-profiles`. Seven QML files plus one new tool. The profile stopped
+being only *what the device is* and became *what its interface offers*.
+
+### The inventory, which was the specification
+
+`is2DTransducer` was read **61 times across 10 files**. Reading all of them showed they are
+not one thing but three, and only the first belongs in a `ui` block:
+
+| Kind | Example | Verdict |
+|---|---|---|
+| **What the UI offers** | should the cone chooser exist; should "Include MTW" appear | → `ui` block |
+| **How the picture is laid out** | which way the colour bar is drawn, where the loupe sits | stays |
+| **What the device is** | dynamic resolution only applies to a 2D transducer | stays |
+
+61 → **46** reads. The 15 that went were every one of the first kind. `is2DTransducer` is
+still there and still right — it is a fact about the transducer. It simply stopped being
+used as a stand-in for a question it was never asked.
+
+### What the `ui` block declares
+
+```qml
+"ui": {
+    "cones":   [ { icon, freq, name }, … ],   // red: 510 / 710 / 810.  blue: []
+    "views":   [ { icon, mode, freq }, … ],   // blue: down 460, side 460.  red: []
+    "offers":  { doubleEchoOptimize, screenSpeed2D, scanWidthMeters,
+                 nmeaMtw, sideScanMounting, depthFilter, depthFilterBottomTrack },
+    "brand":   { infoImage, logo, logoBlack },
+    "tunable": { resolution: {enabled,minMm,maxMm,marginM}, samples: {…}, period: {…} }
+}
+```
+
+Read through plain properties — `uiViews`, `uiCones`, `uiViewIcons`, `uiConeIcons`,
+`offersViewChoice`, `offersConeChoice`, `uiOffers`, `uiBrand` — rather than through
+functions, so that every binding's dependency on the profile is visible and a device swap
+re-evaluates it. The functions (`coneAt`, `viewAt`, `viewMode`, `clampViewIndex`) are for
+handlers and timers, where binding capture does not apply.
+
+**Every key exists on every profile.** A forgotten key reads `undefined` in QML, and a
+control that vanishes because someone did not write a line is the worst kind of thing to
+discover on the water. `tools/pulse-profile-check.js` enforces it.
+
+### The rule the chooser now follows
+
+**Never offer a choice of one.** `offersViewChoice` is `uiViews.length > 1`,
+`offersConeChoice` is `uiCones.length > 1`. That reproduces today exactly — the Red shows
+three cones and no view chooser, the Blue two views and no cone chooser — and it means a
+future device with a single fixed view simply has no button, with nothing to remember.
+
+### One latent bug found and fixed on the way
+
+Two places decided the grid and the range call from the view *index*:
+
+```qml
+if (pulseSettings.ecoViewIndex === 1) { /* side scan */ }
+```
+
+That was only true while the list had exactly two entries. In the original four-entry list
+index 1 was **down scan at 820**, and both of these would have drawn it as a side scan the
+moment 820 came back. They now ask `viewMode(index)`, which reads the entry's own `mode`.
+The stored `ecoViewIndex` is also clamped to the current list everywhere it is used, because
+a persisted index outlives the list it was chosen from — which is exactly what happened when
+820 was withdrawn and left indices 2 and 3 pointing at nothing.
+
+### Other changes worth recording
+
+- **`transFreqWide` / `transFreqMedium` / `transFreqNarrow` now derive from the cone list**
+  and were deleted from the profile records, so a frequency is written down in exactly one
+  place. A device with no cone list (the Blue) falls back to its own `transFreq` — which is
+  what those three held for it anyway: 460, 460, 460.
+- **`dynamicResolutionMin` / `Max` / `Margin` come from `ui.tunable.resolution`.** Both
+  profiles carry 2 / 50 / 2 today, so nothing changes — but the IP profile can widen them
+  without touching code, which is the whole point, since the IP link no longer pays for
+  resolution in wireless range.
+- **`enableTemperature` reads `useTemperature`**, an existing profile key, instead of
+  inferring a temperature sensor from the transducer geometry. Same answer, honest question.
+- **`DeviceItem`'s two cone→frequency mappings became one lookup each.** The guard changed
+  from "the model is red or Basic2D" to "this device offers cones". For `Basic2D` the old
+  code set `transFreq` from `transFreqWide`, which resolved through the blue profile to 460
+  — the value `transFreq` already held — so the outcome is identical; the only difference is
+  that the binding is no longer broken for nothing.
+- **`samples` and `period` in `ui.tunable` are declared but not yet consumed.** There is
+  nothing to vary between red and blue. They are the interface the IP profile needs in step
+  4, and saying so beats inventing a use for them now.
+
+### `tools/pulse-profile-check.js` — a standing check, and the acceptance test
+
+No Qt toolchain is reachable from the sandboxed shell, so the profile data is exercised
+another way: the tool reads `PulseRuntimeSettings.qml`, evaluates the two profile records as
+the JavaScript they are, transcribes the accessors QML applies to them, and asserts the lot.
+
+```
+node tools/pulse-profile-check.js
+```
+
+It checks that both records carry the same keys (and the same `ui.offers` and `ui.brand`
+keys), that all 34 `committedProfile.` / `activeProfile.` reads in the QML resolve, and that
+red and blue still produce exactly the values they produced before the rework.
+
+Then it runs **the acceptance test for this whole step**: it adds the two 820 kHz entries to
+blue's view list and asserts that the chooser grows to four buttons, that every view reports
+the right mode and frequency, and that index 3 stops being clamped — all with **no change
+anywhere but the profile**. It then cuts the list to one view and asserts the chooser
+disappears and a stale index clamps to 0. All checks pass.
+
+So: **820 kHz is now a data edit.** The two entries and the icons to use are written into the
+blue profile as a comment, and both icons are already in the repo and registered in
+`resources/icons.qrc`.
+
+### Still to verify on device
+
+Nothing here has been compiled. Static checking was: brace/paren/bracket balance unchanged on
+all seven files, every `pulseRuntimeSettings.X` reference in the whole `qml/` tree checked
+against the declared properties and functions, and the profile harness above. What a build
+has to confirm:
+
+1. **Red**: three cone buttons, each setting the frequency it used to; the 2D-only settings
+   rows (second echo, screen speed, MTW, depth filter and its margin) still present.
+2. **Blue**: two view buttons; down scan draws a horizontal grid, side scan a vertical one;
+   the blue-only rows (side-/downscan meters, both PULSEblue mounting checkboxes, depth
+   filter w/bottom track) still present.
+3. **The info page** shows the right artwork for each device, and the black wordmark appears
+   on red only.
+4. **The application output** carries no `undefined` reads — a missing profile key fails
+   silently in QML, and that is the one thing this step could get wrong.
+
+### Two pre-existing dangling references found by the sweep
+
+Neither is touched — both read a property that does not exist, which in QML is `undefined`
+rather than an error:
+
+- `DeviceItem.qml:1722` — `if (pulseRuntimeSettings.dspSmoothFactor_ok)`. There is no such
+  property, so that branch has never run.
+- `main.qml:136` — `updateBottomTrack: pulseRuntimeSettings.updateBottomTrack` broadcasts
+  `undefined` to the settings bus.

@@ -1363,7 +1363,7 @@ Flickable {
             checkbox: true
             id: activateDepthFilterToggle
             text: "Use depth filter"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.uiOffers.depthFilter
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "useDepthFilter"
@@ -1385,7 +1385,7 @@ Flickable {
             checkbox: true
             id: activateDepthFilterBottomTrackToggle
             text: "Use depth filter w/bottom track"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && !pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.uiOffers.depthFilterBottomTrack
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                 targetPropertyName: "useFilterWithBottomTrack"
@@ -1405,7 +1405,7 @@ Flickable {
         SettingRow {
             toggle: false
             text: "Filter: Fluctuation margin (m)"
-            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.is2DTransducer
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatDepthFiltering && pulseRuntimeSettings.uiOffers.depthFilter
             HorizontalControllerDoubleSettings {
                 id: kSmallAgreeMargin
                 //PULSE 2026-08-29: never write on the programmatic seed or re-sync,

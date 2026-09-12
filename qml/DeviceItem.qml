@@ -1116,18 +1116,14 @@ ColumnLayout {
             console.log("DEV_PARAM: dev is null, deferring echogram disable to completeDeviceConfigurationTimer")
         }
 
-        if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
-                || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
+        //The cone list decides, not the model name: a device offers cones or it does not,
+        //and the entry carries its own frequency. Three branches became one lookup.
+        if (pulseRuntimeSettings.offersConeChoice) {
             console.log("DEV_PARAM: pulseRuntimeSettings - cone for", pulseRuntimeSettings.userManualSetName)
-            if (pulseSettings.ecoConeIndex === 0) {
-                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
-                console.log("DEV_PARAM: pulse red wide")
-            } else if (pulseSettings.ecoConeIndex === 1) {
-                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
-                console.log("DEV_PARAM: pulse red medium")
-            } else {
-                pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
-                console.log("DEV_PARAM: pulse red narrow")
+            var setupCone = pulseRuntimeSettings.coneAt(pulseSettings.ecoConeIndex)
+            if (setupCone) {
+                pulseRuntimeSettings.transFreq = setupCone.freq
+                console.log("DEV_PARAM: cone", setupCone.name, "->", setupCone.freq)
             }
         }
 
@@ -1789,22 +1785,12 @@ ColumnLayout {
         }
 
         if (pulseRuntimeSettings.userManualSetName !== "...") {
-            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
-                    || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
-                let desiredFrequency = 0
-                if (pulseSettings.ecoConeIndex === 0) {
-                    desiredFrequency = pulseRuntimeSettings.transFreqWide
-                    console.log("DEV_PARAM: use frequency for pulse red wide")
-                } else if (pulseSettings.ecoConeIndex === 1) {
-                    desiredFrequency = pulseRuntimeSettings.transFreqMedium
-                    console.log("DEV_PARAM: use frequency for pulse red metium")
-                } else {
-                    desiredFrequency = pulseRuntimeSettings.transFreqNarrow
-                    console.log("DEV_PARAM: use frequency for pulse red narrow")
+            if (pulseRuntimeSettings.offersConeChoice) {
+                let enforceCone = pulseRuntimeSettings.coneAt(pulseSettings.ecoConeIndex)
+                if (enforceCone) {
+                    pulseRuntimeSettings.transFreq = enforceCone.freq
+                    console.log("DEV_PARAM: use frequency for cone", enforceCone.name, "->", enforceCone.freq)
                 }
-
-                pulseRuntimeSettings.transFreq = desiredFrequency
-
             } else {
                 //Pulse Blue
                 //pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
