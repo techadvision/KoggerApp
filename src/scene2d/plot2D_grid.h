@@ -46,7 +46,11 @@ public:
     int lastRightTextX() const { return lastRightTextX_; }
 
 protected:
-    void drawTextWithBackdrop(QPainter* painter, int x, int baselineY, const QString& text, bool vertical = false, bool rightAlign = false) const;
+    //PULSE: 4 parameters, as ours defines it. Upstream added `vertical` and `rightAlign`
+    //for their vertical-mode grid, which we did not take - and the union resolution of
+    //this header pulled their declaration in over ours, which no longer matched the
+    //definition in plot2D_grid.cpp.
+    void drawTextWithBackdrop(QPainter* painter, int x, int baselineY, const QString& text) const;
 
     bool angleVisibility_;
     bool _velocityVisible = true;

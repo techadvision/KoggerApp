@@ -338,6 +338,11 @@ list(APPEND APP_SOURCES
 
 # ---- src/tile_engine/tile_engine.pri ----
 list(APPEND APP_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src/tile_engine)
+
+# UPSTREAM 1.0.3: the animation engine. scene3d_view.h includes animator.h and
+# smoother.h by bare name, so the directory has to be on the include path - listing
+# the files in APP_SOURCES is not enough.
+list(APPEND APP_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src/animation)
 list(APPEND APP_HEADERS
     src/tile_engine/tile_db.h
     src/tile_engine/tile_downloader.h
