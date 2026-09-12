@@ -139,7 +139,12 @@ void Plot2DEchogram::setThemeId(int theme_id) {
 
     QVector<QColor> coloros;
     QVector<int> levels;
-    colormapFor(static_cast<int>(themeId_), coloros, levels);
+    //PULSE: the RAW parameter, not themeId_. Before upstream split the table out, the
+    //chain below was inline here and tested `theme_id` directly - so it reached the HQ
+    //branches even though the clamp above had already pinned themeId_ to ClassicTheme.
+    //Passing themeId_ instead rendered every theme above PulseTheme_rainbow as Classic:
+    //that is why the HQ profiles came back blue. See the clamp note below.
+    colormapFor(theme_id, coloros, levels);
 
     //PULSE: the apply-steps that used to sit at the foot of the theme table, before
     //upstream split the table out into the static colormapFor().
