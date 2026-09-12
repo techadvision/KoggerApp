@@ -891,3 +891,60 @@ does it which way before designing the fix.
 Note the IP link removes the constraint that motivated dynamic resolution in the first
 place — that profile can afford far more samples — so the `ui` block work in step 3 and
 this item meet each other.
+
+### 5. Re-identify the device and re-run setup when the app is wrong about it
+
+Confirmed on the tablet, 12 Sept 2026, with the profile branch:
+
+- committed **red**, play a **blue** log → the echogram renders as side scan, but the rest
+  of the app stays red (transducer cone chooser and so on)
+- committed **blue**, play a **red** log → mirror image
+
+This is the documented split working as designed, not a defect introduced by the profile
+rework — the display path follows the data, the configuration path follows the committed
+device, and `PulseRuntimeSettings.qml` has said so since the demo-mode work: *"Resolution,
+samples, ranges and dist processing still come from the committed device profile, so playing
+a log that does not match the connected transducer is still something the demonstrator has
+to be aware of — until there is a proper way to re-identify the sounder and re-run setup."*
+
+This item is that missing way. Three situations, one mechanism:
+
+1. **The user picks one device and connects another.** Today the wrong choice sticks.
+2. **The app is started before the transducer is powered on.** Same outcome by accident
+   rather than by mistake, and much more common.
+3. **Two devices in the boat, red and blue.** Powering one down and the other up should
+   either swap the profile automatically, or at minimum offer a one-tap manual swap.
+
+**Most of the machinery already exists, in two halves that are not connected to each other:**
+
+- `ConnectionViewer.selectCorrectDevice` (with `useDevTypeDetection: true`, the current
+  path) already re-commits on a board-enum change:
+  `if (model !== "" && userManualSetName !== model) userManualSetName = model`. It maps
+  `dev.devType` to a model, with a settle window so a blue unit's second channel does not
+  commit it as red first. So **detection already handles the swap.**
+- The **re-setup** lives in `DeviceItem.qml` behind `swapDeviceNow`: `resetAllSetupStates()`,
+  clear `devDetected` / `devIdentified` / `devConfigured` / `devSettingsEnforced` /
+  `appConfigured`, reset `numberOfDatasetChannels`, `forceUpdateResolution = true`. Today
+  `swapDeviceNow` is raised only by a **checkbox in expert settings**.
+
+So the gap is one wire: when the resolver commits a model different from the one already
+committed, raise `swapDeviceNow` itself instead of waiting for an expert to tick a box. That
+is a small, well-bounded change and it belongs in **step 4 of the profile work**, where the
+resolver is written — the resolver is the one place that knows a model actually changed.
+
+Two things to settle when it is built:
+
+- **A swap must not be silent.** The app reconfigures a transducer as a consequence; the
+  user should see that it happened and be able to refuse it. A toast with an undo is
+  probably the right weight — a modal is not.
+- **Playback is not a device swap.** Opening a log that disagrees with the connected
+  transducer must *not* reconfigure the hardware. The two-lookup split already draws that
+  line correctly: `activeProfile` moves for a log, `committedProfile` must not. Any
+  auto-swap has to key on the *connection*, never on `activeModel`.
+
+**One inconsistency this exposed, pre-existing and now easy to fix.** In
+`Plot2D.onActiveModelChanged` the water-body filter push is gated on
+`pulseRuntimeSettings.is2DTransducer`, which comes from `committedProfile`. During a
+mismatched playback that gate reads the connected transducer while the picture on screen is
+the log's. It was equally wrong before the refactor — but it was one of forty ternaries then,
+and it is a named property now.
