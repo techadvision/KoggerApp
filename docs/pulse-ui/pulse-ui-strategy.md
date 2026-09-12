@@ -1092,9 +1092,11 @@ rather than an error:
 
 ## Handover — where a cold session picks up (12 Sept 2026)
 
-**Repo state.** `master` is at `b3262306` (the upstream 1.0.3 merge, fast-forwarded in, 549
-commits, **not pushed** — Olav pushes via GitHub Desktop). `feature/device-profiles` is
-branched off it and holds steps 1–3:
+**Repo state (updated at session close).** Steps 1–3 were built and tested on the tablet
+during the session and are now **merged into `master`** as a fast-forward,
+`b3262306..3838ab31`. The tree is clean and `node tools/pulse-profile-check.js` passes on
+master. `master` is **555 commits ahead of `origin/master` and not pushed** — Olav pushes via
+GitHub Desktop, and that is the first thing to do.
 
 | Commit | What |
 |---|---|
@@ -1102,12 +1104,14 @@ branched off it and holds steps 1–3:
 | `a7d82b4c` | backlog: mosaic filter, TVG vs dynamic resolution |
 | `ecdb784a` | backlog: re-identify the device and re-run setup |
 | `de08df71` | step 3: the `ui` block |
+| `359a31c3` | this handover |
+| `3838ab31` | 820 correction, black-stripes backlog, the imageType 2 clash |
 
-**Before anything else, build and run it.** Steps 1–3 have never been compiled — there is no
-Qt toolchain in the sandboxed shell, so every check so far has been static plus
-`node tools/pulse-profile-check.js`. The "still to verify on device" list in the step 3
-section is the test plan; the one thing that fails silently in QML is a missing profile key,
-so the application output is where to look.
+**The first job of the next session is the `imageType == 2` clash**, not step 4 — see the
+section above. Upstream's linear TGC is shadowing `EchogramTvg`, so the 2D TVG is rendering
+the wrong gain law today. Decided: move upstream's TGC to a free image type (4), restore 2 to
+`EchogramTvg`, and compare both renders on the tablet before going further. Everything built
+on the 2D gain is standing on this.
 
 ### Step 4 — the resolver and the third profile
 
