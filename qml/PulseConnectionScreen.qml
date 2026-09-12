@@ -96,6 +96,75 @@ Item {
     // two cards on one profile, which is the whole point of the card list.
     property string chosenCardId: ""
 
+    // ---- The link, as one honest line ---------------------------------------
+    //
+    // Everything below is already computed somewhere: ConnectionViewer publishes
+    // linkIsOpen and deviceIsPresent, the device publishes devName, the channel count,
+    // the firmware and the serial, and the resolver already has the address. Nothing new
+    // is stored - one binding reads facts that four other places were reading anyway.
+    //
+    // Deliberately NOT phrased around a cable. Practically every PULSE in the field is
+    // wireless - the wifi gateway, and the IP connector from the boat onwards - so
+    // anything built on "wired" would describe almost nobody. What the owner actually has
+    // is a sounder that is not answering, and much the commonest reason is that the thing
+    // it is mounted on, a boat or a pole kit, is not switched on yet.
+    readonly property bool linkLost:
+        pulseRuntimeSettings ? (pulseRuntimeSettings.hasDeviceLostConnection
+                                && pulseRuntimeSettings.didEverReceiveData) : false
+    readonly property bool linkOpen:
+        pulseRuntimeSettings ? pulseRuntimeSettings.linkIsOpen : false
+    readonly property bool linkNamed:
+        pulseRuntimeSettings ? (pulseRuntimeSettings.devName !== "..."
+                                && pulseRuntimeSettings.devName !== "") : false
+    readonly property bool linkFound:
+        pulseRuntimeSettings ? pulseRuntimeSettings.deviceIsPresent : false
+
+    readonly property string linkState:
+          linkLost                ? "lost"
+        : (linkOpen && linkNamed) ? "talking"
+        : linkOpen                ? "identifying"
+        : linkFound               ? "found"
+        :                           "absent"
+
+    readonly property color linkColor:
+          linkState === "lost"    ? "#ffcc00"
+        : linkState === "talking" ? "#3ec46d"
+        : linkState === "absent"  ? "#6d7480"
+        :                           "#3d7fd0"
+
+    readonly property string linkHeadline:
+          linkState === "lost"        ? "Connection lost"
+        : linkState === "talking"     ? "Connected to " + pulseRuntimeSettings.devName
+        : linkState === "identifying" ? "Connected, identifying the sounder"
+        : linkState === "found"       ? "Sounder found, nothing open on it yet"
+        :                               "Not connected"
+
+    readonly property string linkDetail: {
+        if (!pulseRuntimeSettings)
+            return ""
+        if (linkState === "lost")
+            return "It stopped answering. Power and range are the usual two."
+        if (linkState === "talking") {
+            var bits = []
+            var ch = pulseRuntimeSettings.numberOfDatasetChannels
+            if (ch > 0)
+                bits.push(ch === 1 ? "1 channel" : ch + " channels")
+            if (pulseRuntimeSettings.connectionAddress !== "")
+                bits.push(pulseRuntimeSettings.connectionAddress)
+            if (pulseRuntimeSettings.rawDev_firmwareVersion !== "not set")
+                bits.push("fw " + pulseRuntimeSettings.rawDev_firmwareVersion)
+            if (pulseRuntimeSettings.rawDev_devSerialNumber >= 0)
+                bits.push("s/n " + pulseRuntimeSettings.rawDev_devSerialNumber)
+            return bits.join("   \u00b7   ")
+        }
+        if (linkState === "identifying")
+            return "Waiting for it to say what it is."
+        if (linkState === "found")
+            return "A device is listed, but nothing has been opened on it yet."
+        return "Nothing is answering yet. Power the sounder on - the boat, or the pole "
+             + "kit - and this screen closes itself the moment it is recognised."
+    }
+
     // ---- The cards ----------------------------------------------------------
     //
     // Data, not code. Two entries can share one profile: red and black are the same
@@ -292,6 +361,66 @@ Item {
             y: Math.max(0, (flick.height - height) / 2)
             spacing: Math.round(6 * connectionScreen.uiScale)
 
+            Rectangle {
+                id: linkStrip
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Math.min(content.width, Math.round(560 * connectionScreen.uiScale))
+                // The row is given an explicit width rather than anchors.fill, so the
+                // wrapping detail line can decide its own height without the height it
+                // is asked for depending on the height it produces.
+                height: stripRow.implicitHeight + Math.round(20 * connectionScreen.uiScale)
+                
+                radius: Math.round(10 * connectionScreen.uiScale)
+                color: "#141821"
+                border.width: 1
+                border.color: "#242a33"
+
+                RowLayout {
+                    id: stripRow
+                    x: Math.round(14 * connectionScreen.uiScale)
+                    y: Math.round(10 * connectionScreen.uiScale)
+                    width: linkStrip.width - Math.round(28 * connectionScreen.uiScale)
+                    spacing: Math.round(12 * connectionScreen.uiScale)
+
+                    Rectangle {
+                        Layout.alignment: Qt.AlignVCenter
+                        Layout.preferredWidth:  Math.round(10 * connectionScreen.uiScale)
+                        Layout.preferredHeight: Math.round(10 * connectionScreen.uiScale)
+                        radius: width / 2
+                        color: connectionScreen.linkColor
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Math.round(2 * connectionScreen.uiScale)
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: connectionScreen.linkHeadline
+                            color: "#e6eaf0"
+                            font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: text !== ""
+                            text: connectionScreen.linkDetail
+                            color: "#8d96a2"
+                            font.pixelSize: Math.round(12 * connectionScreen.uiScale)
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+            }
+
+            Item {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 1
+                height: Math.round(14 * connectionScreen.uiScale)
+            }
+
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Pulse Echo Sounder"
@@ -481,15 +610,6 @@ Item {
                         onClicked: connectionScreen.keepCurrent()
                     }
                 }
-            }
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                topPadding: Math.round(14 * connectionScreen.uiScale)
-                text: "This closes by itself when the sounder is recognised."
-                color: "#69727d"
-                font.pixelSize: Math.round(12 * connectionScreen.uiScale)
-                visible: connectionScreen.duH > 300
             }
         }
     }
