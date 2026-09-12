@@ -2279,3 +2279,147 @@ key can hold.
 
 The fix shape (an unbreakable binding plus an explicit override) is probably still right. What
 it must not be again is one commit with something else in it.
+
+---
+
+## Backlog items 11–13 — parked deliberately, 12 Sept 2026
+
+All three are recorded rather than fixed. The reason is the same for each: **the new UI
+replaces the thing they live in**, and tuning a control that is about to be redesigned is work
+paid for twice.
+
+### 11. The max depth selector's ceiling still follows the wrong device
+
+A blue log presented on a red-committed app can still be stepped to **52** — red's profile
+ceiling — instead of stopping at the blue swath width.
+
+The diagnosis is complete and stands: `maximumDepth` is a binding on
+`committedProfile.maximumDepth`, and **three places assign it** — `DeviceItem` configuring a
+blue, `main.qml`'s manual blue pick, and the expert dist-max control. Any one of those destroys
+the binding for the rest of the session and freezes the ceiling at whichever device was current.
+A side scan's true ceiling is the configured **swath width**, which no static profile key can
+hold, which is why those assignments exist at all.
+
+The fix shape is an unbreakable binding plus an explicit override property that the UI writes.
+**It has been attempted once and reverted** (see the correction above) — not because the shape
+was wrong but because it travelled with an unrelated change. Do it alone, or do it as part of
+the new range control, which is where it will end up anyway.
+
+### 12. The side scan ruler, and a regression nobody has explained
+
+The ruler fix in `1b27c122` — a display-model bus key with its own member in `Plot2DGrid` — is
+**unverified on device**. It is the isolated retry after the reverted attempt.
+
+What is genuinely unexplained, and worth stating plainly rather than dressing up: on one build
+the colour chooser and the layout **did** adapt to a replayed log, and on the next they did not,
+and the change in between did not touch the QML property (`displayIs2DTransducer`) that both of
+them read. Reverting that change did **not** restore the behaviour either, which rules out the
+simple story. Something in this area is order- or state-dependent in a way the code reading has
+not caught.
+
+**Do not chase it from the code.** When it next appears, one log line settles it:
+
+```
+DEV_UI: showAs2DTransducer -> <value> | active <model> | committed <model>
+```
+
+If `active` says PULSEblue and `showAs2DTransducer` says true, the profile chain is at fault. If
+`showAs2DTransducer` says false and the picture is still red, the fault is downstream of it.
+That is a five-minute answer with the log and an unbounded one without.
+
+### 13. A USB connection crashed the app, with no log
+
+Once, on a USB-connected transducer, during this run. No output was captured, so there is
+nothing to go on.
+
+**Left alone on purpose:** nobody uses USB at the moment — the field connection is the wifi
+gateway, and from the boat onwards the IP connector on `192.168.144.*`. Recorded so that if it
+recurs it is the second sighting rather than the first, and so a future session does not spend
+the exhibition window on a transport no customer is using.
+
+---
+
+## Session close — 12 Sept 2026 (second day session)
+
+**Branch `feature/device-profiles-step4`, 20 commits, clean tree, `node
+tools/pulse-profile-check.js` passes. Not merged to master and not pushed** — Olav pushes via
+GitHub Desktop, and that is the first housekeeping step.
+
+### What this session did
+
+Backlog items **7, 8, 9 and half of 10** — the demo-facing work the late-September exhibition
+put first.
+
+| | |
+|---|---|
+| **Item 8** | `committedProfileKey` resolves from the log's identity when nothing is connected, and always in demo mode. A demo presents as the log whether or not a transducer is plugged in; a plain opened file still asks. It never writes `userManualSetName`, so nothing re-commits and closing the log puts everything back. |
+| **Item 7 + 10's UI half** | `showAs2DTransducer` became a binding on a new `displayIs2DTransducer`, so the orientation and the colour chooser follow the picture. `PulseInfoColorScheme`'s six reads moved with it. |
+| **Item 9** | Stopping a demo reopens the links and re-runs identification. **Confirmed working well on device.** |
+| Along the way | The max depth *value* per device; the deferred redraw (`Qt.callLater`); the side scan palette actually being pushed to the plot; the connection facts refreshed across demo transitions. |
+
+### Verified on the tablet
+
+- A mismatched log drives the whole interface — colour chooser, view chooser, orientation — with
+  nothing connected.
+- Reconnecting to the real transducer after a demo, without a restart. *"Works really well."*
+- The gain law, the stale channel count and the 3D ruler fixes from earlier in the day.
+
+### Not verified
+
+1. **The ruler fix** (`1b27c122`) — the isolated retry, never built.
+2. **The device swap prompt** — still no hardware evidence; needs both transducers, one powered
+   down and the other up.
+3. **`PULSEblue-IP`** — blocked on the IP gateway, which arrives with the boat. Acceptance test:
+   `PROFILE: committed key -> PULSEblue-IP` in the log and **nothing** about the picture or the
+   device configuration changing.
+4. **Item 10's bench findings** — the overlay that force-reselection strands, and the swap over
+   USB, both waiting for the boat run.
+5. **`expertOnly`** — no entry carries it yet; the first real use will be 820 kHz.
+
+### The backlog, as it now stands
+
+| # | What | State |
+|---|---|---|
+| 1 | The side scan mosaic does not apply the TVG | open |
+| 2 | Shallow (<0.5 m) and on-shore depth | open — **the most important one that is not about demonstrations** |
+| 3 | The water body filter dims the bottom in the mosaic | open |
+| 4 | Resolution steps visible in the 2D TVG render | **closed** — it was the `imageType 2` clash |
+| 5 | Re-identify the device and re-run setup | **done** for a connected device (the swap); a log that disagrees is item 8's territory |
+| 6 | The TVG bypasses the black-stripes fix | open, confirmed on both devices |
+| 7 | The colour chooser followed the committed device | **done**, with item 8 |
+| 8 | A wrong-type log should adapt the whole UI | **done** |
+| 9 | Reconnect to a real transducer after a demo | **done**, confirmed on device |
+| 10 | The device swap leaves parts of the UI behind | UI half **done**; the overlay parked for the UI update; re-test waits for the boat |
+| 11 | The max depth selector's ceiling | parked — the control is being redesigned |
+| 12 | The side scan ruler, and the unexplained regression | fix unverified; chase it from the log, not the code |
+| 13 | A USB connection crashed the app, no log | parked — nobody uses USB |
+
+Smaller, still open: the demo's ghost device tripping the beta-key `forceBreakConnection`;
+echogram speed not returning to its stored value after a blue demo; `insetTop()` / `_isAndroid`
+declared on `quickChangeObjects` but used by its siblings; the dead `pulseSettingsLoader`
+reference in `closePulseSettingsTimer`; `pinch2D`'s own `isLiveView` shadowing
+`plot.isLiveView`; `HorizontalController.qml:188` branching on `devName`; and the upstream
+settings-migration module plus the `Qt.labs.settings` → `QtCore` move.
+
+### The two rules this session earned, for Stage 4 to design out
+
+1. **Anything the user judges by looking at it reads the display model.** Orientation, grid,
+   ruler, palette, range shape, range ceiling, step size. `is2DTransducer` answers "what is
+   connected"; `displayIs2DTransducer` answers "what is on screen". Nothing that draws should
+   ask the first.
+2. **A value with two sources gets one binding and one override, never an assignment.** Every
+   fault this session was a `property x: <expression>` that some handler later assigned to,
+   silently and permanently.
+
+And one about process, learned the hard way: **a commit sent to the device tests one idea.** The
+device is a slow, precious test rig; two changes in one commit cost a round trip to un-mix.
+
+### Where the next session starts
+
+**Stage 4 — the new UI**, against the design canvas and Direction A (the edge rail), built
+reading a profile rather than branching on `is2DTransducer`. The device-profile rework exists
+for exactly this.
+
+Its one prototyping gap comes first: **the connection screen was never drawn**. It carries the
+device chooser, the gray overlay from item 10, and the reconnect affordance from item 9 — three
+open things that all land on one surface. Prototype it whole before building any of them.
