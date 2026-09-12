@@ -1639,3 +1639,83 @@ was never given anywhere to be explicit **from**, so in practice it became "rest
 find the transducer" needs. Leaving demo mode and swapping device are the same operation
 wearing different clothes, and item 9 should reuse the wire step 4 built rather than grow a
 second one.
+
+---
+
+## Handover — where the next session picks up (12 Sept 2026, second session of the day)
+
+**Repo state.** Branch `feature/device-profiles-step4`, seven commits, off `master` at
+`392fd124`. Clean tree. `node tools/pulse-profile-check.js` passes. **Not merged to master
+and not pushed** — that is the first housekeeping step, via GitHub Desktop.
+
+| Commit | What |
+|---|---|
+| `91bbd63f` | the `imageType == 2` clash + the gain-law compare switch |
+| `be448012` | stable entry ids for views and cones |
+| `7bf03b69` | the resolver, `PULSEblue-IP`, detection-driven device swap |
+| `006ea7e0` | step 4 write-up |
+| `56f011bf` | the 3D ruler references, and the stale channel count |
+| `fb0339b4` | first device build: two backlog items closed, three findings |
+| `cc36dc1e` | backlog 8 and 9 |
+
+### Verified on the tablet
+
+- The 2D TVG renders through `EchogramTvg` again, and that closed backlog item 4 —
+  the resolution-dependent colour strength was upstream's sample-index ramp.
+- Black stripes are bypassed on red as well as blue (backlog item 6 question closed).
+- The `undefined` warnings are gone — they were the 3D ruler, now addressed through
+  `.ruler.`.
+- Red behaves as a red: manual selection, cone chooser, 2D render.
+
+### NOT verified, in the order it matters
+
+1. **The device swap prompt has never been exercised.** Everything tested so far went
+   through *playback*, which by design never raises it. The test needs both transducers:
+   with the app committed to one, power it down and the other up. Expect the prompt once,
+   naming both; **Keep** dismisses it and it must not come back for that device; **Switch**
+   re-runs setup and the app comes up as the other device. Then the same in reverse. This is
+   the one piece of step-4 behaviour with no hardware evidence at all.
+2. **The stale-channel-count fix.** Re-run the sequence that found it: committed red, open a
+   side scan log **first**, with nothing opened before it. It should come up as side scan
+   immediately, and the log should show `CHANNELS: 0 -> 2 ... side scan`.
+3. **The id migration.** On the first run of this build, the log should show
+   `SETTINGS: migrating ecoViewIndex n -> ecoViewId ...` **once**, and never again; the
+   chooser should come up on the view and cone that were selected before.
+4. **`PULSEblue-IP`** — blocked on reaching the IP gateway. Acceptance test: the log shows
+   `PROFILE: committed key -> PULSEblue-IP` and **nothing about the picture or the device
+   configuration changes**.
+5. **`expertOnly` has never run on a device** — no entry carries it yet. It is asserted in
+   both expert positions by the check tool, and the first real use will be 820.
+
+### Open decisions, unchanged
+
+- **Which 2D gain law wins.** The compare switch exists for this. If upstream's ramp is
+  kept it needs a control for its near/far constants; if PULSE's is kept, `imageType 4`
+  can go.
+- **The IP profile's real numbers** — resolution, samples, update period. Deliberately left
+  at blue's, so the profile is currently a no-op on the wire.
+- **Whether to bring 820 back**, now that it is a four-line data edit with two `expertOnly`
+  entries.
+
+### The backlog, in the order the late-September exhibition suggests
+
+1. **Item 8** — a wrong-type log should adapt the whole UI. Connection-aware
+   `resolveProfileKey`: with nothing connected, the log is the device.
+2. **Item 9** — reconnect to a real transducer after a demo. Establish first whether the
+   explicit reconnect path works at all, then give it an affordance and re-run detection.
+3. **Item 7** — the colour chooser following the committed device. Subsumed by 8 if 8 is
+   done properly, and worth doing as part of it rather than separately.
+4. Items 1, 2, 3, 5, 6 as previously recorded. Item 2 (shallow and on-shore depth) is still
+   the most important one that is not about demonstrations.
+
+Then **Stage 4** of the UI work — the panels built against a profile, which is what the
+whole device-profile rework was for.
+
+### Two pre-existing defects, still open and still deliberately untouched
+
+- `pulseSettingsLoader.active` referenced in `closePulseSettingsTimer`; no such id exists.
+- `pinch2D` declares its own `isLiveView` while the line beside it logs `plot.isLiveView`.
+- And the one found this session: `insetTop()` / `_isAndroid` are declared on
+  `quickChangeObjects` but used by its **siblings**, the four alert indicators. Those
+  bindings have never resolved. Fix by moving the two helpers to the root item next time
+  that file is open.
