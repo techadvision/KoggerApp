@@ -1087,3 +1087,54 @@ rather than an error:
   property, so that branch has never run.
 - `main.qml:136` — `updateBottomTrack: pulseRuntimeSettings.updateBottomTrack` broadcasts
   `undefined` to the settings bus.
+
+---
+
+## Handover — where a cold session picks up (12 Sept 2026)
+
+**Repo state.** `master` is at `b3262306` (the upstream 1.0.3 merge, fast-forwarded in, 549
+commits, **not pushed** — Olav pushes via GitHub Desktop). `feature/device-profiles` is
+branched off it and holds steps 1–3:
+
+| Commit | What |
+|---|---|
+| `7bd5edf5` | steps 1–2: the keyed profile map and the two resolvers |
+| `a7d82b4c` | backlog: mosaic filter, TVG vs dynamic resolution |
+| `ecdb784a` | backlog: re-identify the device and re-run setup |
+| `de08df71` | step 3: the `ui` block |
+
+**Before anything else, build and run it.** Steps 1–3 have never been compiled — there is no
+Qt toolchain in the sandboxed shell, so every check so far has been static plus
+`node tools/pulse-profile-check.js`. The "still to verify on device" list in the step 3
+section is the test plan; the one thing that fails silently in QML is a missing profile key,
+so the application output is where to look.
+
+### Step 4 — the resolver and the third profile
+
+1. **A resolver, not a ternary.** `committedProfile` is still
+   `(userManualSetName === modelPulseRed) ? red : blue`, which is today's fallback preserved
+   on purpose. Replace it with a resolver over detected name, channel count and connection —
+   including the address, so `192.168.144.*` picks the IP variant. Manual override still
+   wins, as it does now. `ConnectionViewer.modelForBoard()` already maps `dev.devType` to a
+   model and is the natural home for it.
+2. **`PULSEblue-IP` as a third profile entry.** One entry in `profiles`, with a `ui.tunable`
+   block that unlocks resolution, samples and update period — none of which was safe on wifi,
+   where it cost maximum wireless range, and all of which the IP link affords.
+3. **Wire the auto-swap** (backlog item 5). The resolver is the one place that knows a model
+   actually changed, so it is where `swapDeviceNow` should be raised — visibly, refusably,
+   and keyed on the connection, never on `activeModel`.
+4. **Then Stage 4 of the UI work**, building the new panels against a profile rather than
+   against `is2DTransducer`.
+
+### Open questions step 4 has to answer
+
+- **Is "anything not PULSEred is blue" the right fallback** once a third profile exists? It
+  certainly is not once there are two blues. The resolver is where that gets decided.
+- **`HorizontalController.qml:188` branches on `devName`**, not `userManualSetName` — a third
+  key source. Settle it when the resolver is written.
+- **Settings migration.** Upstream's migration module (`1c33fb9c0`, `d3d6a7111`) is now in the
+  tree, and `PulseSettings.qml` still says of its own version field: *"nothing reads
+  settingsVersion today — it is a marker, not a migration trigger."* A third profile changes
+  what stored indices mean, so this is the moment. Worth settling the
+  `Qt.labs.settings` → `QtCore` move at the same time, since both touch the same file and the
+  deprecation already warns at startup.
