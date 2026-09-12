@@ -2423,3 +2423,150 @@ for exactly this.
 Its one prototyping gap comes first: **the connection screen was never drawn**. It carries the
 device chooser, the gray overlay from item 10, and the reconnect affordance from item 9 — three
 open things that all land on one surface. Prototype it whole before building any of them.
+
+---
+
+## Stage 4 — the connection screen, prototyped (12 Sept 2026)
+
+The prototyping gap Stage 4 had to close before anything is built. Drawn on page 4
+of the design canvas, **Connection screen**, five artboards plus notes.
+
+### What it is today
+
+`echoSounderSelectorRect` in `main.qml` (2724–3115). Two `EchoSounderSelector`
+panels 450 × 800 px inside a 1000 × 800 `freeContainer`, sliding to centre over
+`hideBackground` — a full-window gray sheet with a dot pattern at 0.8 opacity —
+revealed by a 1 s `selectorDelayTimer` whenever nothing auto-selected, and faded
+out by a 3.5 s animation once something is picked.
+
+Olav's verdict: *"I was happy with it two years back. Not anymore."* Too large,
+does not fit a split screen, and it does not scale — a new model is being
+developed now, and red and black already share one profile.
+
+**Four open things land on this one surface**, which is why it was worth drawing
+whole rather than patching in three places:
+
+| | |
+|---|---|
+| the model chooser | where `userManualSetName` originates |
+| the gray overlay | backlog item 10 — force reselection strands it forever |
+| the reconnect affordance | backlog item 9 — "an explicit action" with nowhere to be explicit from |
+| the device-swap prompt | step 4, currently drawn inside `PulseAppClassic` and gated on `indx === 1` |
+
+### What it becomes
+
+**A surface you can reach, that reveals itself only when it has a question.**
+Detection still wins and still closes it without a tap — that is the common case
+and none of it changes. What changes is that the screen is reachable on purpose
+(a new **source** button at the foot of the rail), and that it can never outlive
+the question that raised it.
+
+Three rules, each one a defect designed out rather than found later:
+
+**1. The cards are data, not code.**
+
+```qml
+"cards": [
+  { id: "red",   badge: "#d81f26", art: "2d",   profile: "PULSEred"  },
+  { id: "black", badge: "#3a3a3c", art: "2d",   profile: "PULSEred"  },
+  { id: "blue",  badge: "#3d7fd0", art: "side", profile: "PULSEblue" }
+]
+```
+
+Two entries, one profile. Red and black *are* the same hardware, and the owner
+still gets to pick the one he bought — the app commits the same profile either
+way. A new model is one more entry, exactly as 820 kHz became one data edit in
+step 3, and `tools/pulse-profile-check.js` can assert the card list the same way
+it asserts the view list.
+
+**2. The scrim is a binding on one question.** Today `windowShadow` is a plain
+`property bool` written from four handlers:
+
+| | writes | where |
+|---|---|---|
+| raised | `selectorDelayTimer.onTriggered`, `onSwapDeviceNowChanged` | `main.qml:2750`, `2779` |
+| lowered | `onDevManualSelectedChanged`, `onDevConfiguredChanged` | `main.qml:2787`, `2796` |
+
+Force reselection commits nothing, so neither lowering path runs and the sheet is
+raised with nothing under it — item 10. The prototype replaces the lot with
+
+```qml
+readonly property bool chooserAsking:
+       swapDeviceNow
+    || pendingSwapModel !== ""
+    || (committedModel === "..." && graceElapsed && !isPresentingLog)
+```
+
+and the surface itself is `visible: chooserAsking`. That is rule 2 from the last
+session — *one binding and one override, never an assignment* — applied before
+the bug exists. Plus a close button whenever there is an echogram to go back to,
+so cancelling is always possible.
+
+**3. The picture the sounder makes is its identity.** Each card carries a real
+echogram — a 2D trace for red and black, a side scan swath for blue — not a
+photograph of a box. It is what `image/pulse_info_red_black_large.png` and
+`pulse_info_blue_large.png` already do, it needs no photography for hardware that
+does not exist yet, and it reads across a room at an exhibition. 272 px wide,
+wrapping, so the same screen works at 1280, at an Android split screen (cards
+become rows) and on a phone.
+
+### Seven states, one surface
+
+| state | what is on screen | the fact it binds to |
+|---|---|---|
+| Nothing identified | the cards, no dismiss | `committedModel === "..." && graceElapsed` |
+| Detection answered | nothing — it closes itself | `committedModel !== "..."` |
+| Unrecognised device | the cards, "which is it closest to" | `forceBreakConnection` |
+| A device disagrees | prompt over the running picture | `pendingSwapModel !== ""` |
+| Force reselection | the cards, **with a close button** | `swapDeviceNow` |
+| Lost connection | the wire strip turns red, offers Reconnect | `hasDeviceLostConnection && didEverReceiveData` |
+| Presenting a log | **no scrim** — a badge and Stop | `isPresentingLog` |
+
+Every one of those facts is already computed. Nothing new is stored; one binding
+reads them instead of four handlers writing a bool.
+
+The **wire strip** is the single honest line at the top: nothing on the wire /
+searching / found (with name, channel count, firmware, serial and address) /
+unrecognised / lost. It is the only thing that changes between the states, and it
+is what makes "nothing connected" a first-class state rather than something that
+looks broken — which is exactly what Olav uses this screen for.
+
+### The demo and recording indicators
+
+Olav's ask: *"we have a nice recording indicator. And we need a demo indicator.
+And a button to stop the demo that matches the new UI design, as well as a button
+to find/open the desired file."*
+
+- The **source button** at the foot of the rail is the permanent door to this
+  screen — and it is what item 9 never had. The source chip top-right is the same
+  door: what the app thinks it is, one tap to change it.
+- While a log is presenting, an indicator pill names the device the app is
+  presenting **as** — `Demo · PULSE blue` — which is item 8's claim made visible,
+  with **Stop** in the same pill. Stop already reopens the links and re-runs
+  detection (built and confirmed on device), so the pill becomes *"Finding the
+  transducer again…"* and then the live chip.
+- **Open a recording** sits on the connection screen, because that screen is the
+  answer to "there is no transducer, what am I looking at".
+- The indicator stack is one column bottom-right on side scan and top-right on a
+  2D picture, by the existing flow rule — newest pings are at the top of a side
+  scan, so overlays belong at the foot.
+
+### What this prototype does not decide
+
+- **The link panel itself.** `ConnectionViewer`'s +UDP / +TCP / MAVProxy / baud /
+  flasher rows stay where they are, behind the **Connections** button. They are
+  upstream's developer surface and nothing here needs them moved.
+- **The card artwork.** The prototype reuses the canvas's echogram images. Real
+  cards want a short, well-chosen trace per model — a small job, and one Olav
+  should pick the frames for.
+- **Whether the swap prompt keeps its own artboard or becomes a state of this
+  screen.** Drawn as a prompt over the running picture, because a swap can happen
+  mid-use and the picture must not stop. Moving it off `PulseAppClassic` does
+  retire the `indx === 1` gate — one surface above both panes cannot draw twice.
+
+### What to build first
+
+The chooser and the binding, in that order, and **on their own** — the device is
+a slow test rig and force reselection is the one state that is provably broken
+today and provably fixed in a single screenshot.
+
