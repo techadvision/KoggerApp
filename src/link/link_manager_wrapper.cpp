@@ -357,6 +357,32 @@ QStringList LinkManagerWrapper::serialUuids() const
     return retVal;
 }
 
+QString LinkManagerWrapper::linkAddress(const QString& uuidStr) const
+{
+    const QUuid uuid(uuidStr);
+    if (!model_.containsUuid(uuid))
+        return QString();
+
+    const auto linkType = static_cast<LinkType>(model_.valueForUuid(uuid, LinkListModel::Roles::LinkType).toInt());
+    if (linkType != LinkType::kLinkIPUDP && linkType != LinkType::kLinkIPTCP)
+        return QString();
+
+    return model_.valueForUuid(uuid, LinkListModel::Roles::Address).toString();
+}
+
+QString LinkManagerWrapper::openedIpAddress() const
+{
+    const auto opened = model_.getOpenedUuids();
+    for (const auto& entry : opened) {
+        if (entry.second != LinkType::kLinkIPUDP && entry.second != LinkType::kLinkIPTCP)
+            continue;
+        const QString address = model_.valueForUuid(entry.first, LinkListModel::Roles::Address).toString();
+        if (!address.isEmpty())
+            return address;
+    }
+    return QString();
+}
+
 int LinkManagerWrapper::linkState(const QString& uuidStr) const
 {
     const QUuid uuid(uuidStr);

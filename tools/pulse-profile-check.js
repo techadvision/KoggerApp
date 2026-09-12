@@ -58,11 +58,41 @@ const distProcPulseRed  = eval("(" + literal("distProcPulseRed",  "[", "]") + ")
 const distProcPulseBlue = eval("(" + literal("distProcPulseBlue", "[", "]") + ")");
 const pulseRed  = eval("(" + literal("pulseRed",  "{", "}") + ")");
 const pulseBlue = eval("(" + literal("pulseBlue", "{", "}") + ")");
-const profiles  = { PULSEred: pulseRed, PULSEblue: pulseBlue };
+
+// PULSEblue-IP is blue plus a small override set, merged exactly as
+// PulseRuntimeSettings.mergedProfile() does it: two levels, arrays replace.
+const pulseBlueIpOverrides = eval("(" + literal("pulseBlueIpOverrides", "{", "}") + ")");
+const isPlainObject = v => v !== null && typeof v === "object" && !Array.isArray(v);
+function mergedProfile(base, overrides) {
+  const out = { ...base };
+  for (const k of Object.keys(overrides)) {
+    const b = base[k], o = overrides[k];
+    out[k] = isPlainObject(b) && isPlainObject(o) ? { ...b, ...o } : o;
+  }
+  return out;
+}
+const pulseBlueIp = mergedProfile(pulseBlue, pulseBlueIpOverrides);
+const profiles  = { PULSEred: pulseRed, PULSEblue: pulseBlue, "PULSEblue-IP": pulseBlueIp };
+
+// ---- the resolver, transcribed from PulseRuntimeSettings.qml -------------
+const MODEL_RED = "PULSEred", MODEL_BLUE = "PULSEblue", MODEL_BLUE_IP = "PULSEblue-IP";
+const PROTO = "Basic2D";
+const IP_PREFIX = "192.168.144.";
+const isIpVariantAddress = a => typeof a === "string" && a.indexOf(IP_PREFIX) === 0;
+const blueKeyFor = a => (isIpVariantAddress(a) ? MODEL_BLUE_IP : MODEL_BLUE);
+function resolveProfileKey(model, address, channels) {
+  if (model === MODEL_RED) return MODEL_RED;
+  if (model === MODEL_BLUE) return blueKeyFor(address);
+  if (model !== "" && model !== "..." && model !== PROTO) {
+    if (channels === 1) return MODEL_RED;
+    if (channels >= 2) return blueKeyFor(address);
+  }
+  return blueKeyFor(address);
+}
 
 // ---- the accessors, transcribed from PulseRuntimeSettings.qml -------------
-function resolve(committedName, expertMode = false) {
-  const committedProfile = committedName === "PULSEred" ? profiles.PULSEred : profiles.PULSEblue;
+function resolve(committedKey, expertMode = false) {
+  const committedProfile = profiles[committedKey] !== undefined ? profiles[committedKey] : profiles.PULSEblue;
   const ui = committedProfile.ui || {};
   const uiViewsAll = ui.views || [];
   const uiConesAll = ui.cones || [];
@@ -124,10 +154,14 @@ const eq = (label, got, want) => {
 
 // ---- 1. the records agree with each other --------------------------------
 console.log("=== record shape ===");
-eq("same top-level keys", Object.keys(pulseRed).sort(), Object.keys(pulseBlue).sort());
-eq("same ui keys", Object.keys(pulseRed.ui).sort(), Object.keys(pulseBlue.ui).sort());
-eq("same offers keys", Object.keys(pulseRed.ui.offers).sort(), Object.keys(pulseBlue.ui.offers).sort());
-eq("same brand keys", Object.keys(pulseRed.ui.brand).sort(), Object.keys(pulseBlue.ui.brand).sort());
+const ref = Object.keys(pulseRed).sort();
+for (const [name, prof] of Object.entries(profiles)) {
+  eq(name + ": same top-level keys", Object.keys(prof).sort(), ref);
+  eq(name + ": same ui keys", Object.keys(prof.ui).sort(), Object.keys(pulseRed.ui).sort());
+  eq(name + ": same offers keys", Object.keys(prof.ui.offers).sort(), Object.keys(pulseRed.ui.offers).sort());
+  eq(name + ": same brand keys", Object.keys(prof.ui.brand).sort(), Object.keys(pulseRed.ui.brand).sort());
+  eq(name + ": same tunable keys", Object.keys(prof.ui.tunable).sort(), Object.keys(pulseRed.ui.tunable).sort());
+}
 
 // ---- 1b. entry ids: present, well formed, unique, never reused -----------
 // An id is what sits in the user's settings file, so these are promises, not tidiness.
@@ -142,15 +176,29 @@ eq("every entry has a non-empty string id",
    allEntries.filter(x => typeof x.e.id !== "string" || x.e.id === "").map(x => x.where), []);
 eq("every entry declares expertOnly",
    allEntries.filter(x => typeof x.e.expertOnly !== "boolean").map(x => x.where), []);
-const ids = allEntries.map(x => x.e.id);
-eq("no id is used twice anywhere", ids.filter((id, i) => ids.indexOf(id) !== i), []);
+// Within one profile an id must be unique — it is what a stored preference names.
+for (const [name, prof] of Object.entries(profiles)) {
+  const mine = [...(prof.ui.views || []), ...(prof.ui.cones || [])].map(e => e.id);
+  eq(name + ": ids unique within the profile", mine.filter((id, i) => mine.indexOf(id) !== i), []);
+}
+// Across profiles an id MAY repeat — a variant shares its parent's list, which is the
+// point of PULSEblue-IP — but it must never describe two different things.
+const byId = new Map();
+const conflicts = [];
+for (const { where, e } of allEntries) {
+  const seen = byId.get(e.id);
+  const shape = JSON.stringify(e);
+  if (seen === undefined) byId.set(e.id, { where, shape });
+  else if (seen.shape !== shape) conflicts.push(seen.where + " vs " + where + " (id " + e.id + ")");
+}
+eq("an id never describes two different entries", conflicts, []);
 
 // ---- 2. every profile read in the QML resolves ---------------------------
 const reads = [...new Set([
   ...[...src.matchAll(/committedProfile\.(\w+)/g)].map(m => m[1]),
   ...[...src.matchAll(/activeProfile\.(\w+)/g)].map(m => m[1])
 ])].sort();
-const missing = reads.filter(k => !(k in pulseRed) || !(k in pulseBlue));
+const missing = reads.filter(k => Object.values(profiles).some(p => !(k in p)));
 eq("every committedProfile./activeProfile. read has a key (" + reads.length + " reads)", missing, []);
 
 // ---- 3. today's answers, unchanged ---------------------------------------
@@ -179,6 +227,45 @@ eq("second wordmark hidden", B.uiBrand.logoBlack !== "", false);
 eq("a stale ecoViewIndex of 3 is clamped", [B.clampViewIndex(3), B.viewMode(3)], [1, "side"]);
 
 // ---- 4. the acceptance test ----------------------------------------------
+// ---- 3b. the resolver ----------------------------------------------------
+console.log("=== the resolver: model + address + channels -> profile key ===");
+const WIFI = "192.168.10.1", IPGW = "192.168.144.1";
+// a recognised model decides outright, and only blue looks at the address
+eq("red on wifi", resolveProfileKey(MODEL_RED, WIFI, 1), MODEL_RED);
+eq("red on the IP gateway is still red", resolveProfileKey(MODEL_RED, IPGW, 1), MODEL_RED);
+eq("blue on wifi", resolveProfileKey(MODEL_BLUE, WIFI, 2), MODEL_BLUE);
+eq("blue on the IP gateway is the IP variant", resolveProfileKey(MODEL_BLUE, IPGW, 2), MODEL_BLUE_IP);
+eq("blue on serial (no address) is plain blue", resolveProfileKey(MODEL_BLUE, "", 2), MODEL_BLUE);
+// today's behaviour, preserved exactly: nothing committed falls back to blue
+eq("nothing committed -> blue, as before", resolveProfileKey("", "", 0), MODEL_BLUE);
+eq("still inside the settle window -> blue, as before", resolveProfileKey("...", "", 1), MODEL_BLUE);
+eq("a 1-channel Basic2D is NOT resolved to red behind the settle window",
+   resolveProfileKey(PROTO, "", 1), MODEL_BLUE);
+// the only new answer: hardware this build has never heard of
+eq("unknown device, 1 channel -> red", resolveProfileKey("PULSEgreen", "", 1), MODEL_RED);
+eq("unknown device, 2 channels -> blue", resolveProfileKey("PULSEgreen", "", 2), MODEL_BLUE);
+eq("unknown device, 2 channels on the IP gateway -> IP variant",
+   resolveProfileKey("PULSEgreen", IPGW, 2), MODEL_BLUE_IP);
+eq("unknown device, no channels yet -> blue fallback", resolveProfileKey("PULSEgreen", "", 0), MODEL_BLUE);
+// the prefix is a prefix, not a substring
+eq("a wifi address that merely contains the digits is not the IP gateway",
+   resolveProfileKey(MODEL_BLUE, "10.0.192.168.144.1", 2), MODEL_BLUE);
+eq("the whole 192.168.144.* subnet counts", resolveProfileKey(MODEL_BLUE, "192.168.144.37", 2), MODEL_BLUE_IP);
+
+console.log("=== PULSEblue-IP is blue on the wire, and only its limits differ ===");
+const IP = resolve(MODEL_BLUE_IP);
+const wireKeys = Object.keys(pulseBlue).filter(k => k !== "ui");
+eq("every non-ui key is byte-identical to blue",
+   wireKeys.filter(k => JSON.stringify(pulseBlueIp[k]) !== JSON.stringify(pulseBlue[k])), []);
+eq("same views as blue", JSON.stringify(IP.uiViewsAll), JSON.stringify(pulseBlue.ui.views));
+eq("same offers as blue", IP.uiOffers, pulseBlue.ui.offers);
+eq("same brand as blue", IP.uiBrand, pulseBlue.ui.brand);
+eq("live dynamic resolution unchanged for now", IP.dyn, [2, 50, 2]);
+eq("samples become tunable", pulseBlueIp.ui.tunable.samples.enabled, true);
+eq("period becomes tunable", pulseBlueIp.ui.tunable.period.enabled, true);
+eq("and they are NOT tunable on blue",
+   [pulseBlue.ui.tunable.samples.enabled, pulseBlue.ui.tunable.period.enabled], [false, false]);
+
 // ---- 4. the migration ----------------------------------------------------
 // Transcribed from PulseRuntimeSettings.migrateViewId / migrateConeId, which resolve
 // against the profile that OWNS the list (blue for views, red for cones) rather than

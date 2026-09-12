@@ -192,7 +192,30 @@ ColumnLayout {
     // Combined with the C++ change that forwards deviceVersionChanged -> devChanged, this
     // re-runs the moment a device becomes identified, on every transport. selectCorrectDevice
     // is therefore no longer a workaround — it is the normal, deterministic selection path.
+    // PULSE (device profiles, step 4): publish the address of the open IP link so the profile
+    // resolver can tell the 5.8 GHz wifi gateway (192.168.10.*) from the IP telemetry gateway
+    // (192.168.144.*). The address is read from the link model in C++ rather than from a
+    // delegate: a ListView delegate only exists while its row is realised, so reading it
+    // there would have made the answer depend on whether the user had the panel open.
+    // "" when no IP link is open — a serial device, a log, nothing connected — which the
+    // resolver reads as "no opinion", so nothing changes for a connection it cannot see.
+    function refreshConnectionAddress (reason) {
+        if (!pulseRuntimeSettings || !linkManagerWrapper)
+            return
+        var address = linkManagerWrapper.openedIpAddress()
+        if (pulseRuntimeSettings.connectionAddress !== address) {
+            console.log("devList: connection address ->", address === "" ? "(none)" : address,
+                        "trigger =", reason ? reason : "(direct)")
+            pulseRuntimeSettings.connectionAddress = address
+        }
+    }
+
     function selectCorrectDevice (reason) {
+        // The address first: the profile key is resolved from it the moment a model is
+        // committed below, so a stale address here would commit the wrong variant and only
+        // correct itself on the next pass.
+        refreshConnectionAddress(reason)
+
         // DIAGNOSTIC: log WHO triggered selection so we can tell whether enabling the MAVLink proxy
         // (which must NOT look like a device change) ever re-runs this. Expected triggers are real-sonar
         // only: "devListChanged" (a sonar version frame changed identity) and "numberOfDatasetChannels"
@@ -261,10 +284,28 @@ ColumnLayout {
 
                 var model = modelForBoard(chosen)
                 if (model !== "" && pulseRuntimeSettings.userManualSetName !== model) {
+                    var previous = pulseRuntimeSettings.userManualSetName
                     console.log("devList: DEV_DETECT(devType): board", chosen.devType, "-> model", model,
                                 "channels", pulseRuntimeSettings.numberOfDatasetChannels,
-                                "maxCh", basic2dMaxChannels, "settled", basic2dSettleElapsed)
-                    pulseRuntimeSettings.userManualSetName = model
+                                "maxCh", basic2dMaxChannels, "settled", basic2dSettleElapsed,
+                                "| previously", previous)
+
+                    if (previous !== "" && previous !== "...") {
+                        // A DIFFERENT device from the one this app is set up for: the user
+                        // picked one and connected another, or a second transducer in the
+                        // boat was powered up. That is a re-setup, not a re-commit, so it
+                        // goes through requestDeviceSwap — which either asks the user or,
+                        // with the expert switch on, swaps straight away. Either way the
+                        // commit happens there, in acceptDeviceSwap(), AFTER the setup
+                        // state has been reset. Committing here as well would configure the
+                        // new device with the old device's state still standing.
+                        pulseRuntimeSettings.requestDeviceSwap(previous, model)
+                    } else {
+                        // Nothing committed yet — the app learning what is on the wire.
+                        // This is the ordinary path, including "started before the
+                        // transducer was powered on", and it must stay silent.
+                        pulseRuntimeSettings.userManualSetName = model
+                    }
                 }
             }
         }
@@ -312,6 +353,10 @@ ColumnLayout {
         function onConnectionChanged() {
             connectionButton.connection = core.isOpenConnection()
             dev = null
+            // A link opened or closed: the address may have appeared or gone. This is the
+            // path that covers a link the link manager opens by itself at startup, where
+            // no Open button is ever pressed.
+            refreshConnectionAddress("connectionChanged")
         }
 
         function onFilePathChanged() {
@@ -716,8 +761,12 @@ ColumnLayout {
                         onClicked: {
                             if (ConnectionStatus) {
                                 linkManagerWrapper.closeLink(Uuid)
+                                Qt.callLater(connectionViewer.refreshConnectionAddress, "linkClosed")
                             }
                             else {
+                                // callLater: the model row is updated by the worker, so the
+                                // address is only readable after this handler returns.
+                                Qt.callLater(connectionViewer.refreshConnectionAddress, "linkOpened")
                                 switch(LinkType) {
                                 case 1:
                                     core.closeLogFile();

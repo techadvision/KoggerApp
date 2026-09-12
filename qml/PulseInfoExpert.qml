@@ -1743,6 +1743,21 @@ Flickable {
             }
         }
 
+        //Step 4: detection can now raise the reselection above by itself, when it finds a
+        //different transducer from the one the app is set up for. It ASKS on screen first,
+        //because accepting re-runs the whole device setup. This turns the asking off.
+        SettingRow {
+            text: "Swap device automatically, without asking"
+            checkbox: true
+            show: pulseRuntimeSettings.showCatSwapDevice
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "deviceSwapAutomatic"
+                initialChecked: pulseRuntimeSettings.deviceSwapAutomatic
+                clearAfter: false
+            }
+        }
+
         //Category: Parameter info
 
         SettingRow {

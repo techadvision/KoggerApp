@@ -77,6 +77,12 @@ public slots:
     Q_INVOKABLE void updateBaudrateFor(const QString& uuidStr, int baudrate); // callers holding a uuid string (topology meta), not a model QUuid
     Q_INVOKABLE QStringList pinnedUuids() const; // uuids of pinned links present in the model
     Q_INVOKABLE QStringList serialUuids() const; // uuids of serial links present in the model
+    // PULSE (device profiles, step 4): the address an IP link is talking to, so the profile
+    // resolver can tell the wifi gateway from the IP telemetry gateway (192.168.144.*).
+    // Both return an empty string when the answer is not known, which the resolver reads as
+    // "no opinion" rather than as a negative.
+    Q_INVOKABLE QString linkAddress(const QString& uuidStr) const; // "" if absent or not an IP link
+    Q_INVOKABLE QString openedIpAddress() const;                   // first OPEN UDP/TCP link's address
 
 public:
     Link* getLinkPtr(QUuid uuid) { return getWorker()->getLinkPtr(uuid); }

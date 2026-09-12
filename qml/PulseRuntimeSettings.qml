@@ -10,6 +10,10 @@ QtObject {
     property string devName:                "..."           //Stores the connected device name
     property string modelPulseRed:          "PULSEred"      //Our device name for PulseRed.
     property string modelPulseBlue:         "PULSEblue"     //Our device name dor PulseBlue.
+    //A PROFILE KEY, not a model name — never written into userManualSetName. See the note on
+    //the profile map. PULSE blue on the IP telemetry link is still a PULSE blue to every
+    //comparison in the app; only its profile differs.
+    property string modelPulseBlueIp:       "PULSEblue-IP"
     property string modelPulseRedProto:     "Basic2D"        //Our device name for PulseRed. Will change!
     property string modelPulseBlueProto:    "Basic2D"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
@@ -28,6 +32,14 @@ QtObject {
     property string uuidUsbSerial:          "{2ad43efc-61d1-4321-a925-a8e0cd188cd0}"
     property string uuidProxyLink:          "{2ad43efc-61d1-4321-a925-a8e0cd188cd5}"
     property string uuidSuccessfullyOpened: ""
+    //THE CONNECTION ADDRESS, as an input to the profile resolver. Published by
+    //ConnectionViewer.refreshConnectionAddress() from LinkManagerWrapper.openedIpAddress(),
+    //which reads the address off the open UDP/TCP link in the link model. "" means no IP
+    //link is open (a serial device, a log, nothing connected) and is read as "no opinion".
+    property string connectionAddress:      ""
+    //The IP telemetry gateway's subnet. The 5.8 GHz wifi gateway is 192.168.10.*; the IP
+    //link that replaced it in June/July 2026 is 192.168.144.*, and that is the whole tell.
+    property string ipVariantPrefix:        "192.168.144."
     property int    usbSerialBaud:          921600
 
     //GENERAL SETUP STATES
@@ -61,6 +73,95 @@ QtObject {
 
     //CHANGE DEVICE STATE
     property bool   swapDeviceNow:          false   // Should reset and restart the setup
+
+    //DEVICE SWAP — the wire between detection and re-setup (backlog item 5, step 4).
+    //
+    //The two halves already existed and were never connected. ConnectionViewer already
+    //re-commits userManualSetName when the board enum changes; DeviceItem already does the
+    //whole re-setup behind swapDeviceNow. The only thing missing was something to raise
+    //swapDeviceNow other than an expert ticking a box, and the resolver is the right place
+    //because it is the one thing that knows a model actually CHANGED.
+    //
+    //Three situations, one mechanism: the user picks one device and connects another; the
+    //app is started before the transducer is powered on (the common one, by accident rather
+    //than by mistake); and both a red and a blue in the boat, one powered down and the
+    //other up.
+    //
+    //TWO RULES, and they are what keeps this safe:
+    //  * A SWAP IS NEVER SILENT. The app reconfigures a transducer as a consequence, so the
+    //    user sees it happen and can refuse. Asking, not undoing: a reconfiguration cannot
+    //    honestly be undone, so the choice comes first. deviceSwapAutomatic turns the ask
+    //    off for anyone who would rather it just happened.
+    //  * PLAYBACK IS NOT A DEVICE SWAP. Opening a log that disagrees with the connected
+    //    transducer must not reconfigure hardware. This keys on the CONNECTION — it is
+    //    called from the detection path only — and never on activeModel, which is exactly
+    //    what a log moves.
+    //A first commit is not a swap either: "..." -> blue is the app learning what is on the
+    //wire, not a device being changed under it.
+    property string pendingSwapFromModel:   ""      // "" = nothing being asked
+    property string pendingSwapToModel:     ""
+    property string declinedSwapToModel:    ""      // do not ask again for this one
+    property bool   deviceSwapAutomatic:    false   // expert: swap without asking
+    readonly property bool deviceSwapPending: pendingSwapToModel !== ""
+
+    function requestDeviceSwap(fromModel, toModel) {
+        if (toModel === "" || toModel === "..." || toModel === fromModel)
+            return
+        //Not a swap: nothing was committed yet. Let the caller commit normally.
+        if (fromModel === "" || fromModel === "...")
+            return
+        if (isInDemoMode) {
+            console.log("DEV_SWAP: ignored, demo mode")
+            return
+        }
+        //A different device from the one that was refused: the refusal was about that one.
+        if (declinedSwapToModel !== "" && declinedSwapToModel !== toModel)
+            declinedSwapToModel = ""
+        if (toModel === declinedSwapToModel) {
+            console.log("DEV_SWAP: detected", toModel, "again, but the user declined it - not asking")
+            return
+        }
+
+        pendingSwapFromModel = fromModel
+        pendingSwapToModel   = toModel
+        console.log("DEV_SWAP: detected", toModel, "while set up as", fromModel,
+                    deviceSwapAutomatic ? "- swapping automatically" : "- asking the user")
+        if (deviceSwapAutomatic)
+            acceptDeviceSwap()
+    }
+
+    //Order matters. swapDeviceNow runs DeviceItem.onSwapDeviceNowChanged SYNCHRONOUSLY,
+    //which clears every setup state and puts userManualSetName back to "...". Committing
+    //the target afterwards is therefore what starts the configuration pass for the new
+    //device; committing it first would be undone a line later.
+    function acceptDeviceSwap() {
+        var target = pendingSwapToModel
+        pendingSwapFromModel = ""
+        pendingSwapToModel   = ""
+        declinedSwapToModel  = ""
+        if (target === "")
+            return
+        console.log("DEV_SWAP: accepted -> re-running setup for", target)
+        swapDeviceNow = true
+        userManualSetName = target
+    }
+
+    function declineDeviceSwap() {
+        console.log("DEV_SWAP: declined", pendingSwapToModel, "- keeping", pendingSwapFromModel)
+        declinedSwapToModel  = pendingSwapToModel
+        pendingSwapFromModel = ""
+        pendingSwapToModel   = ""
+    }
+
+    //For anything that shows a model to a human. Falls back to the raw string so an
+    //unrecognised device is named rather than hidden.
+    function modelDisplayName(m) {
+        if (m === modelPulseRed)  return "PULSE red"
+        if (m === modelPulseBlue) return "PULSE blue"
+        if (m === modelPulseBlueIp) return "PULSE blue (IP)"
+        if (m === "" || m === "...") return "no device"
+        return m
+    }
 
     //CONFIGURATION STATES
     property bool   onDeviceVersionChanged: false
@@ -590,9 +691,17 @@ QtObject {
     //one line in the resolver below; nothing else in this file branches on the model.
     //The records themselves (pulseRed / pulseBlue) are unchanged and still further down.
     property var profiles: ({
-        "PULSEred":  pulseRed,      // = modelPulseRed
-        "PULSEblue": pulseBlue      // = modelPulseBlue
+        "PULSEred":     pulseRed,       // = modelPulseRed
+        "PULSEblue":    pulseBlue,      // = modelPulseBlue
+        "PULSEblue-IP": pulseBlueIp     // = modelPulseBlueIp — blue on the IP telemetry link
     })
+
+    //A PROFILE KEY IS NOT A MODEL. The model is what the hardware IS (PULSEred / PULSEblue)
+    //and is what userManualSetName holds and what every comparison outside this file means.
+    //A profile key is the model PLUS how it is connected, which is why "PULSEblue-IP" exists
+    //as a key and must never be written into userManualSetName: the transducer on the IP
+    //gateway is an ordinary PULSE blue and everything that asks "is this a blue" must still
+    //get yes.
 
     //TWO lookups, not one — and this is deliberate. The two paths key on different things
     //and always have (see the long note above activeModel):
@@ -608,15 +717,89 @@ QtObject {
     //put an opened log's gain curve on the connected transducer's configuration, or the
     //other way round.
 
-    //Exactly the fallback the forty ternaries had: anything that is not PULSEred resolves
-    //to blue — including "" and the Basic2D proto names. Preserved on purpose; whether it
-    //is the RIGHT fallback is a step-3 question, once a third profile exists.
-    property var committedProfile: (userManualSetName === modelPulseRed) ? profiles[modelPulseRed]
-                                                                        : profiles[modelPulseBlue]
+    //THE RESOLVER (step 4). This replaces the ternary that stood here, which read "anything
+    //that is not PULSEred is blue". It takes the three things the strategy named — the
+    //committed/detected model, the channel count, and the connection address — and answers
+    //with a profile KEY.
+    //
+    //What it deliberately does NOT do is second-guess the Basic2D settle window.
+    //ConnectionViewer holds back the commit while a single-channel Basic2D might still turn
+    //out to be a blue whose second channel is a beat late, and userManualSetName is "..."
+    //for as long as that lasts. If the resolver decided red from "one channel right now" it
+    //would configure a red transducer during exactly the window that machinery exists to
+    //protect. So the channel count is used ONLY where nothing else has an answer at all: an
+    //identified device whose name we do not recognise, which is the case that arrives with
+    //the new hardware ids. Everything known keeps the behaviour it had.
+    //
+    //Manual override still wins, as it always has: userManualSetName is written by the
+    //manual pick in main.qml as well as by detection, and this reads it first.
+    function resolveProfileKey(model, address, channels) {
+        //A recognised model decides outright.
+        if (model === modelPulseRed)
+            return modelPulseRed
+        if (model === modelPulseBlue)
+            return blueKeyFor(address)
+
+        //Unrecognised but identified: no name to go on, so the channel count answers — the
+        //same rule ConnectionViewer.modelForBoard() uses to split the Basic2D batch, and the
+        //only thing that generalises to hardware this build has never heard of. The proto
+        //names are excluded: they go through the settle window, not through here.
+        if (model !== "" && model !== "..." && model !== modelPulseRedProto && model !== modelPulseBlueProto) {
+            if (channels === 1)
+                return modelPulseRed
+            if (channels >= 2)
+                return blueKeyFor(address)
+        }
+
+        //Nothing committed, or still inside the settle window. Blue, which is what this has
+        //always fallen back to — now said out loud instead of hiding in a ternary. Still not
+        //obviously right, and still the thing to revisit when a second red-like device
+        //exists; with three profiles that are two blues and one red it remains correct.
+        return blueKeyFor(address)
+    }
+
+    //The one place the connection enters the answer. Everything blue-shaped asks this, so
+    //the IP variant can never be reached by one path and missed by another.
+    function blueKeyFor(address) {
+        return isIpVariantAddress(address) ? modelPulseBlueIp : modelPulseBlue
+    }
+
+    //The IP telemetry gateway lives on 192.168.144.*; the 5.8 GHz wifi gateway does not.
+    //An empty address means "not known" — no IP link is open, or nobody has told us — and
+    //reads as NO OPINION, never as a negative, so an unknown connection behaves exactly as
+    //this did before the IP variant existed.
+    function isIpVariantAddress(address) {
+        return typeof address === "string" && address.indexOf(ipVariantPrefix) === 0
+    }
+
+    property string committedProfileKey: resolveProfileKey(userManualSetName, connectionAddress,
+                                                           numberOfDatasetChannels)
+
+    //Unknown keys can only come from a bug, but a profile that is `undefined` fails silently
+    //in QML — every read becomes undefined and controls quietly vanish. Fall back rather
+    //than fail, and say so in the log.
+    property var committedProfile: (profiles[committedProfileKey] !== undefined)
+                                       ? profiles[committedProfileKey]
+                                       : profiles[modelPulseBlue]
 
     //undefined when nothing is identified (activeModel === ""), which is what makes the
     //TVG defaults fall back to false rather than guess. Same three-way as before.
+    //
+    //NOTE the asymmetry, and it is correct: activeModel is a MODEL, never a profile key, so
+    //this never resolves to PULSEblue-IP. A log or a demo carries a transducer's identity,
+    //not a connection — nothing about how the data reached the app changes what gain curve
+    //its samples want. The IP variant only ever affects the CONFIGURATION path.
     property var activeProfile: profiles[activeModel]
+
+    onCommittedProfileKeyChanged: {
+        console.log("PROFILE: committed key ->", committedProfileKey,
+                    "| model", userManualSetName,
+                    "| address", connectionAddress === "" ? "(none)" : connectionAddress,
+                    "| channels", numberOfDatasetChannels)
+        if (profiles[committedProfileKey] === undefined)
+            console.log("PROFILE: WARNING - no profile record for key", committedProfileKey,
+                        "- falling back to", modelPulseBlue)
+    }
 
     //WHAT THE INTERFACE OFFERS. This is the committed device's ui block, and it is the
     //answer to "should this control exist", replacing the old habit of inferring it from
@@ -998,6 +1181,62 @@ QtObject {
                 "period":     { "enabled": false, "minMs": 50,  "maxMs": 300 }
             }
         }
+    }
+
+    //PULSEblue-IP — PULSE blue reached over the IP telemetry link instead of the 5.8 GHz
+    //wifi. The transducer is the same transducer and the picture is the same picture, so
+    //this is blue's record with a small set of overrides rather than a second copy of 37
+    //keys that would then have to be kept in step with blue forever. mergedProfile() is a
+    //two-level merge: a plain object on both sides merges, anything else is replaced.
+    //
+    //WHAT IS OVERRIDDEN TODAY: only ui.tunable — what the interface is ALLOWED to offer.
+    //Nothing that is transmitted to the device changes, deliberately. chartResolution,
+    //chartSamples and ch1Period stay exactly blue's, so committing this profile is provably
+    //a no-op on the wire and the first build can prove it. The IP link affords far more
+    //than wifi did — on wifi every extra sample was paid for in maximum wireless range,
+    //which is why dynamic resolution exists at all — but what those numbers should BE is a
+    //measurement on the water, not a guess made here. Widen them when they are known; the
+    //limits below are what lets the UI expose the controls in the first place.
+    property var pulseBlueIpOverrides: {
+        "ui": {
+            "tunable": {
+                //resolution is LIVE: dynamicResolutionMin/Max/Margin read it. Left at
+                //blue's 2/50/2 for now for the same reason as above.
+                "resolution": { "enabled": true, "minMm": 2,  "maxMm": 50,  "marginM": 2 },
+                //samples and period are declared-but-unconsumed on red and blue because
+                //there was nothing to vary. This is the profile they were declared for.
+                "samples":    { "enabled": true, "min": 500,  "max": 12000 },
+                "period":     { "enabled": true, "minMs": 20, "maxMs": 300 }
+            }
+        }
+    }
+
+    property var pulseBlueIp: mergedProfile(pulseBlue, pulseBlueIpOverrides)
+
+    //Two-level merge, and two levels is the point: ui.tunable.resolution replaces as a whole
+    //object so a variant cannot accidentally inherit half a range. Arrays replace outright —
+    //a views or cones list is a list, never a patch.
+    function mergedProfile(base, overrides) {
+        var out = {}
+        var k
+        for (k in base)
+            out[k] = base[k]
+        for (k in overrides) {
+            var b = base[k], o = overrides[k]
+            if (isPlainObject(b) && isPlainObject(o)) {
+                var sub = {}
+                for (var j in b) sub[j] = b[j]
+                for (var i in o) sub[i] = o[i]
+                out[k] = sub
+            } else {
+                out[k] = o
+            }
+        }
+        return out
+    }
+
+    function isPlainObject(v) {
+        return v !== null && typeof v === "object" && !Array.isArray(v)
     }
 
     property var    distProcPulseRed: [

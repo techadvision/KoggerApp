@@ -117,6 +117,103 @@ Item {
         }
     }
 
+    //DEVICE SWAP PROMPT (step 4). Detection has found a different transducer from the one
+    //this app is configured for. Accepting re-runs the whole device setup, so it asks first
+    //rather than doing it and offering an undo - a reconfiguration cannot honestly be
+    //undone. Deliberately drawn in the same vocabulary as the two alert indicators below:
+    //this is a temporary thing to build in the classic UI, and Stage 4 replaces it along
+    //with everything else on this layer.
+    //
+    //Gated on indx === 1 so a split screen does not draw two of them; the state it reads is
+    //a singleton, so one prompt is the whole answer for both panes.
+    Rectangle {
+        id: deviceSwapPrompt
+        visible: pulseRuntimeSettings.deviceSwapPending && (plot ? plot.indx === 1 : true)
+        anchors.top: parent.top
+        //NOT `60 + insetTop()` like the indicators below, deliberately. insetTop() and
+        //_isAndroid are declared on quickChangeObjects, which is a SIBLING of those
+        //indicators, not their root - so those five bindings cannot resolve them and have
+        //never been able to. Pre-existing and reported, not copied. This block carries its
+        //own platform flag instead.
+        anchors.topMargin: 60
+        anchors.horizontalCenter: parent.horizontalCenter
+        readonly property bool onAndroid: Qt.platform.os === "android"
+        color: "#e0102030"
+        border.width: 2
+        border.color: "#ffcc00"
+        radius: 10
+        z: 100
+        property int contentMargin: 16
+        implicitWidth:  swapRow.implicitWidth + contentMargin * 2
+        implicitHeight: swapRow.implicitHeight + contentMargin * 2
+
+        RowLayout {
+            id: swapRow
+            anchors.centerIn: parent
+            spacing: 16
+
+            ColumnLayout {
+                spacing: 2
+                Text {
+                    text: pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.pendingSwapToModel) + " detected"
+                    font.pixelSize: 34
+                    font.bold: true
+                    color: "white"
+                }
+                Text {
+                    text: "The app is set up for "
+                          + pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.pendingSwapFromModel)
+                          + ". Switching re-runs the device setup."
+                    font.pixelSize: 24
+                    color: "#d0d0d0"
+                }
+            }
+
+            //Plain Rectangle buttons rather than the app's CButton: this layer has no theme
+            //in scope and the two indicators beside it are drawn the same way.
+            Rectangle {
+                Layout.preferredWidth: keepText.width + 28
+                Layout.preferredHeight: deviceSwapPrompt.onAndroid ? 72 : 56
+                color: keepArea.pressed ? "#40ffffff" : "#20ffffff"
+                border.width: 1
+                border.color: "#a0a0a0"
+                radius: height / 2
+                Text {
+                    id: keepText
+                    anchors.centerIn: parent
+                    text: "Keep " + pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.pendingSwapFromModel)
+                    font.pixelSize: 26
+                    color: "white"
+                }
+                MouseArea {
+                    id: keepArea
+                    anchors.fill: parent
+                    onClicked: pulseRuntimeSettings.declineDeviceSwap()
+                }
+            }
+
+            Rectangle {
+                Layout.preferredWidth: switchText.width + 28
+                Layout.preferredHeight: deviceSwapPrompt.onAndroid ? 72 : 56
+                color: switchArea.pressed ? "#ffdd55" : "#ffcc00"
+                radius: height / 2
+                Text {
+                    id: switchText
+                    anchors.centerIn: parent
+                    text: "Switch"
+                    font.pixelSize: 26
+                    font.bold: true
+                    color: "#102030"
+                }
+                MouseArea {
+                    id: switchArea
+                    anchors.fill: parent
+                    onClicked: pulseRuntimeSettings.acceptDeviceSwap()
+                }
+            }
+        }
+    }
+
     Rectangle {
         id: oldDataIndicator
         visible: false
