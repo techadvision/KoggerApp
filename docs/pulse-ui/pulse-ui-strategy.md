@@ -1820,3 +1820,133 @@ affordance as well. See the section above item 10's handover.
   `quickChangeObjects` but used by its **siblings**, the four alert indicators. Those
   bindings have never resolved. Fix by moving the two helpers to the root item next time
   that file is open.
+
+---
+
+## Backlog item 8 — done: with nothing connected, the log is the device (12 Sept 2026)
+
+Branch `feature/device-profiles-step4`, commit `89c1d584`. Six files. Nothing compiled here;
+static checks and `node tools/pulse-profile-check.js` below.
+
+Items **7** and **10**'s UI half are folded in, as agreed — they turned out to be one
+property, not three problems.
+
+### The change is one input to the resolver
+
+`committedProfileKey` resolved from `userManualSetName`. It now resolves from
+`presentedModel`, which is the committed model **except** while presenting a log with nothing
+connected, when it is the log's own identity:
+
+```qml
+property bool   hasConnectedDevice: linkIsOpen || deviceIsPresent
+property bool   isPresentingLog:    !hasConnectedDevice
+                                    && (isInDemoMode || wasKlfFileOpened || isOpeningKlfFile)
+                                    && activeModel !== ""
+property string presentedModel:     isPresentingLog ? activeModel : userManualSetName
+```
+
+**Either signal keeps today's behaviour.** They are two separate facts on purpose: a link can
+be open with nothing on it, and a device can be known while its link is closed — a demo closes
+live links. Requiring *both* to be false before relaxing means the relaxation only happens
+where there is provably nothing to break.
+
+- `linkIsOpen` — new `LinkManagerWrapper::hasOpenedLink()`, beside `openedIpAddress()`, reading
+  the link model in C++. Any transport, so a USB transducer counts exactly like an IP gateway.
+  Published by `ConnectionViewer.refreshConnectionAddress()`, from the same three places as the
+  address.
+- `deviceIsPresent` — the same `chosen` that `selectCorrectDevice` already acts on, so the two
+  can never disagree.
+
+**What it deliberately does not do is write `userManualSetName`.** The committed *model* is
+untouched: nothing re-commits, no configuration pass starts, and closing the log puts
+everything back. Only the *key* the UI reads moves. That is the same line step 4 drew for
+`PULSEblue-IP` — a profile key is not a model — and it is what makes this safe to leave on.
+
+**And it is why there was no 46-site sweep.** Every remaining `is2DTransducer` read hangs off
+`committedProfile`, so all of them adapt in the unconnected case without being touched. Putting
+the fix in the resolver instead of in the call sites is the whole economy of the step-1 to
+step-3 work paying out.
+
+### The claim is visible
+
+The demo badge now names the device the app is presenting as — `Demo · PULSE blue`,
+`Log · PULSE red` — and appears for a plain opened log as well as for a demo, whenever nothing
+is connected. While a transducer *is* connected it says exactly what it said before, because
+nothing has been relaxed. At a stand somebody will ask what it thinks it is; this is the
+answer, and it costs one line.
+
+### Items 7 and 10 — one property, assigned instead of bound
+
+`quickChangeObjects.showAs2DTransducer` drove **both** the echogram orientation (via
+`setUserInterface()` / `reArrangeQuickChangeObject()`) and **which colour palette is offered**
+(`themeSelectorColorSS` vs `themeSelectorColor2D`). It was a `property bool` assigned by
+`isDevice2DTransducer()`, which:
+
+- read `userManualSetName`, falling back to `devName`, and **matched neither branch while that
+  name was `"..."`** — silently keeping the previous device's answer;
+- was only ever re-run by two functions, which in turn ran on `devManualSelected` going **true**
+  — which a swap clears and never re-raises — and on any change of `appConfigured`, the first
+  of which is its reset to false.
+
+That is the whole of item 10's "not all parts of the UI responded", and item 7's colour chooser
+with it. It is now a **binding**:
+
+```qml
+property bool showAs2DTransducer: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : false
+onShowAs2DTransducerChanged: setUserInterface()
+```
+
+`displayIs2DTransducer` is the display side of `is2DTransducer`: `activeProfile.is2DTransducer`
+when anything is identified, the committed answer when nothing is. `is2DTransducer` keeps
+meaning what it meant — a fact about the committed device — because that is what its other
+forty readers want. The change handler carries the imperative half (`setHorizontalNow()`,
+`setGridHorizontal()`, the range push), which is the one thing a binding cannot do. Both
+functions now guard on `plot`, since a binding can fire before the plot exists.
+
+`PulseInfoColorScheme.qml`'s six reads moved to `displayIs2DTransducer` as well — which palette,
+which legend, which favourites are all decisions about the ramp painted on the samples on
+screen. A red-committed app replaying a side scan now offers the 6-entry blue palette it is
+actually painting with, instead of the 20-entry red one.
+
+### What a device build has to confirm
+
+1. **Nothing connected, blue log on a red-committed app** (the exhibition case). The log should
+   drive the *whole* interface: side scan orientation and grid, the blue view chooser instead of
+   the red cone chooser, the 6-entry blue palette, the blue settings rows, blue artwork. The log
+   should show `PROFILE: committed key -> PULSEblue (presenting a log, nothing connected;
+   committed PULSEred)`. Close the log: everything returns to red, and **no configuration pass
+   runs** on the way in or out.
+2. **The same with a transducer connected** — nothing must change from today. This is the
+   guard, and it is the more important of the two.
+3. **The badge** reads `Demo · PULSE blue` / `Log · PULSE red` when presenting, and plain `Demo`
+   when a device is connected.
+4. **The swap** (item 10's other half): committed red, blue powered up — the orientation and the
+   colour chooser must now follow. `DEV_UI: showAs2DTransducer ->` says when it moved and what
+   both models were.
+5. **The application output**: no new `undefined` reads, and no binding loop from
+   `onShowAs2DTransducerChanged` calling `setUserInterface()`, which writes
+   `pulseRuntimeSettings.isHorizontalGrid` — nothing `showAs2DTransducer` depends on, so it
+   should not loop, but an extracted binding is exactly where that announces itself.
+
+### The one open question
+
+**Demo mode with hardware attached.** `Core::startDemo()` closes live links, so `linkIsOpen`
+goes false — but a physically attached transducer may keep `deviceIsPresent` true, and then the
+relaxation does not happen. That is deliberate and conservative: hardware is there, so today's
+behaviour stands. It also means a demo run at a desk with a transducer plugged in behaves as it
+does now rather than as the exhibition case does.
+
+Whether demo mode should relax **regardless** of attached hardware is a real question and it is
+Olav's: demo mode already forces `devConfigured` true and silences the things that talk to the
+device, so it arguably already treats the device as absent. Against it: the settings bus would
+push the log's profile values while a transducer sits there with its link closed. Worth
+deciding once it is known whether a transducer will be connected at the stand.
+
+### Static verification
+
+No Qt toolchain in the sandboxed shell. Brace/paren/bracket balance unchanged against `HEAD` on
+all six files (the two pre-existing imbalances are still exactly where they were); every
+`pulseRuntimeSettings.X` reference in the whole `qml/` tree resolves to a declared property or
+function, save the two known dangling ones (`dspSmoothFactor_ok`, `updateBottomTrack`); no
+remaining writer of `showAs2DTransducer`, so the binding cannot be broken by an assignment; and
+`node tools/pulse-profile-check.js` passes.
