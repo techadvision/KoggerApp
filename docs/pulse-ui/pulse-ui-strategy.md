@@ -1950,3 +1950,80 @@ all six files (the two pre-existing imbalances are still exactly where they were
 function, save the two known dangling ones (`dspSmoothFactor_ok`, `updateBottomTrack`); no
 remaining writer of `showAs2DTransducer`, so the binding cannot be broken by an assignment; and
 `node tools/pulse-profile-check.js` passes.
+
+---
+
+## Item 8, first device build — three hiccups and what they were (12 Sept 2026)
+
+Commit `96765d14`. The core of item 8 worked: with nothing connected, a replayed log drove the
+colour chooser and the view/cone chooser, which is the thing that was broken. Three things did
+not, and all three are the same class of defect as item 10 — a value that is computed once, or
+a question asked of the wrong model.
+
+### 1. A demo now presents as the log whether or not a device is connected
+
+**Olav's call, and it is the right one.** Starting a playback is the explicit act: the user
+goes to the Recording tab and picks a file. `Core::startDemo()` already closes the live links
+on the way in, so nothing is being talked to whether or not a transducer is plugged in. The
+stop button in that tab is the way back, and the app returns to the connected device by itself
+— `presentedModel` falls back to `userManualSetName` the moment `isInDemoMode` goes false.
+
+This matters for the exhibition specifically: an aquarium is ordered, the stand may well have a
+transducer connected and a second Android device projecting a log, and Olav will not be there.
+The behaviour cannot depend on whether a cable happens to be in.
+
+A **plain opened file** still asks, because opening one closes no links and the configuration
+machinery keeps running — there, a connected transducer really is being talked to.
+
+### 2. Why the first playback behaved differently from every later one
+
+Reported: with nothing connected and the app set to red, the first blue log did not adapt;
+after a second playback — of either type — it did.
+
+`linkIsOpen` was published from `selectCorrectDevice`, `core.onConnectionChanged` and the
+Open/Close button. **A demo closing the links on its way in goes through none of them, and
+`stopDemo()` deliberately does not reopen them**, so the flag was stale in both directions: it
+could still read "a link is open" through the whole first demo, which blocked the relaxation.
+`ConnectionViewer` now refreshes it on every `isInDemoMode` change as well, and change 1 above
+removes the dependency for demos entirely.
+
+Not proven on hardware — it is the explanation that fits "first one fails, every later one
+works, regardless of type". `isPresentingLog` now logs both its inputs whenever it moves, so
+the next build says which it was instead of leaving it to be inferred.
+
+### 3. The max depth selector kept the previous device's number — and its step
+
+Two separate faults in one control.
+
+**The value.** `valueField.text` starts as a binding on `defaultValue`, but `setSelectorValue()`
+assigns it imperatively, and that **destroys the binding** the first time anything moves the
+control — a tap, a pinch, a programmatic set. From then on a `defaultValue` that *changes* was
+silently ignored. That is why swapping from a blue picture to a red one kept showing blue's
+20 m instead of red's own stored preference: each device does keep its own value, and the
+control had simply stopped listening. `HorizontalController` now re-seeds on
+`onDefaultValueChanged`, with an equality guard so the control's own write-back — which updates
+the stored value, and therefore `defaultValue` — cannot bounce back through it.
+
+**The step.** Side scan steps in 5 m, 2D in 1 m, and the selector branched on
+`is2DTransducer` — the **committed** device. Every question this control asks is about the
+echogram on screen, so all of it now reads `displayIs2DTransducer`: the minimum, the step,
+whether long-press is allowed, the value to show, and the auto-range paths.
+
+**And the write-back moved to the same key as the read.** It was keyed on `userManualSetName`
+while `defaultValue` read through the device type — two different questions about the same
+value, which is exactly how a number lands in one device's preference and is read back out of
+another's.
+
+### The shape all three share
+
+A binding that is overwritten, or a question asked of the committed device when the answer
+belongs to the picture. Stage 4 should treat both as things to design out rather than to find:
+every per-device value wants one owner and one key, and anything the user judges by looking at
+it reads the display model.
+
+### Still to come from this: item 9
+
+Olav's other point — *terminating the playback is a good moment to check whether a device is
+connected* — is backlog item 9, and this build has made it cheaper. Leaving demo mode already
+restores the profile by itself; what is still missing is reopening the link and re-running
+detection, plus something on screen that says the demo is over and offers it.
