@@ -1125,11 +1125,14 @@ void Core::doOpenLogFileHeavyWork(const QString &filePath,
                 scene3dViewPtr_->fitAllInView();
             }
             datasetPtr_->setRefPositionByFirstValid();
-            datasetPtr_->usblProcessing();
 
+            //UPSTREAM 1.0.3: Dataset::usblProcessing(), beaconTrack() and beaconTrack1()
+            //are gone - upstream rewrote USBL around addUsblSolution() and a usbl_layer.
+            //This block came from upstream 0.14.3 in the first place and plotted acoustic
+            //beacon tracks; USBL is not a Pulse feature. Replaced with what upstream does
+            //here now, which is to push the new LLA reference into the 3D scene.
             if (scene3dViewPtr_) {
-                scene3dViewPtr_->addPoints(datasetPtr_->beaconTrack(),  QColor(255, 0, 0), 10);
-                scene3dViewPtr_->addPoints(datasetPtr_->beaconTrack1(), QColor(0, 255, 0), 10);
+                scene3dViewPtr_->forceUpdateDatasetLlaRef();
             }
 
             onChannelsUpdated();
@@ -3248,7 +3251,7 @@ void Core::createLinkManagerConnections()
     linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkOpened,  deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLinkOpened,   linkManagerConnection));
     linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkDeleted, deviceManagerWrapperPtr_->getWorker(), &DeviceManager::onLinkDeleted,  linkManagerConnection));
 
-    linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkOpened,  this, [this](QUuid, Link* link) {
+    linkManagerWrapperConnections_.append(QObject::connect(linkManagerWrapperPtr_->getWorker(), &LinkManager::linkOpened,  this, [this](QUuid uuid, Link* link) {
                                                                                                                                      // PULSE: the hidden MAVLink proxy link must NOT be treated as a sonar data
                                                                                                                                      // connection. Otherwise enabling autopilot flips the dataset to kConnection and
                                                                                                                                      // can make the toggle look like a device (re)connect. Only real data links drive
