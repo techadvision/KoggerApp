@@ -1796,7 +1796,7 @@ ColumnLayout {
                 //pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
                 pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth //- This workaround will lower resolution but keep the data rate unchanged. Fits anglers, but not SAR
                 pulseRuntimeSettings.distMax = 1000 * pulseSettings.echogramWidth
-                pulseRuntimeSettings.maximumDepth = pulseSettings.echogramWidth
+                pulseRuntimeSettings.maximumDepthOverride = pulseSettings.echogramWidth
             }
         }
 

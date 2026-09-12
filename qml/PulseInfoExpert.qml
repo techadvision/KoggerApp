@@ -434,7 +434,9 @@ Flickable {
                     pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
                     newMaximumDepth = newMaximumDepth + 2
                 }
-                pulseRuntimeSettings.maximumDepth = newMaximumDepth
+                //The override, not maximumDepth itself: assigning the property would break
+                //its binding to the profile for the rest of the session.
+                pulseRuntimeSettings.maximumDepthOverride = newMaximumDepth
                 pulseRuntimeSettings.distMax = newValue
                 }
                 height: 80

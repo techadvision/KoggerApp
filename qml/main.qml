@@ -69,6 +69,24 @@ ApplicationWindow  {
         }
     }
 
+    //A SIDE SCAN'S RANGE CEILING IS THE CONFIGURED SWATH WIDTH, not a number in the profile
+    //record. While the picture is a side scan this drives the override that
+    //pulseRuntimeSettings.maximumDepth falls back from; when the picture is a 2D echogram the
+    //binding is inactive and the profile's own ceiling applies again. RestoreBindingOrValue
+    //puts back whatever was there before - which is how an expert's own dist-max setting for
+    //a 2D device survives a side scan log being played in between.
+    //
+    //Here rather than in PulseAppClassic on purpose: main.qml exists once, and PulseAppClassic
+    //is instantiated once per Plot2D, so two of these would fight over one property in split
+    //screen. It needs nothing from the UI layer - displayIs2DTransducer is the whole question.
+    Binding {
+        target: pulseRuntimeSettings
+        property: "maximumDepthOverride"
+        value: pulseSettings ? pulseSettings.echogramWidth : 0
+        when: pulseRuntimeSettings && pulseSettings && !pulseRuntimeSettings.displayIs2DTransducer
+        restoreMode: Binding.RestoreBindingOrValue
+    }
+
     Connections {
         target: pulseRuntimeSettings
         //User interface automated control and optional settings
@@ -76,6 +94,15 @@ ApplicationWindow  {
         function onIsSideScan2DViewChanged()        { settingsBus.updateRuntime({ isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView           }) }
         function onEchogramSpeedChanged()           { settingsBus.updateRuntime({ echogramSpeed:            pulseRuntimeSettings.echogramSpeed              }) }
         function onIs2DTransducerChanged()          { settingsBus.updateRuntime({ is2DTransducer:           pulseRuntimeSettings.is2DTransducer             }) }
+        //The DISPLAY answer, for the renderer. The scene draws the picture in front of the
+        //user, so its ruler and its auto-range shape follow the picture, not the transducer
+        //on the wire. Sent as its own key rather than by redefining is2DTransducer, which
+        //still means what it says and is what the configuration path asks.
+        function onDisplayIs2DTransducerChanged()   {
+            console.log("VALUE_CHANGE: publishing displayIs2DTransducer",
+                        pulseRuntimeSettings.displayIs2DTransducer)
+            settingsBus.updateRuntime({ displayIs2DTransducer: pulseRuntimeSettings.displayIs2DTransducer })
+        }
         function onShouldDoAutoRangeChanged()       { settingsBus.updateRuntime({ shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange          }) }
         function onAutoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel          }) }
         function onMaximumDepthChanged()            { settingsBus.updateRuntime({ maximumDepth:             pulseRuntimeSettings.maximumDepth               }) }
@@ -126,6 +153,7 @@ ApplicationWindow  {
                     isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView,
                     echogramSpeed:            pulseRuntimeSettings.echogramSpeed,
                     is2DTransducer:           pulseRuntimeSettings.is2DTransducer,
+                    displayIs2DTransducer:    pulseRuntimeSettings.displayIs2DTransducer,
                     shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange,
                     autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel,
                     maximumDepth:             pulseRuntimeSettings.maximumDepth,
@@ -3019,7 +3047,7 @@ ApplicationWindow  {
                     //This is set for a device that was configured, bit not for device manually selected. Always set it at selection?
                     pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth //- This workaround will lower resolution but keep the data rate unchanged. Fits anglers, but not SAR
                     pulseRuntimeSettings.distMax = 1000 * pulseSettings.echogramWidth
-                    pulseRuntimeSettings.maximumDepth = pulseSettings.echogramWidth
+                    pulseRuntimeSettings.maximumDepthOverride = pulseSettings.echogramWidth
                     //
                     pulseRuntimeSettings.userManualSetName = pulseRuntimeSettings.modelPulseBlue
                     echoSounderSelectorRect.selectedDevice = pulseRuntimeSettings.modelPulseBlue

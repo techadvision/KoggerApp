@@ -497,9 +497,17 @@ void Plot2DGrid::applyRuntime(const QVariantMap& m)
         isHorizontalGrid_ = m.value("isHorizontalGrid").toBool();
     if (m.contains("useMetricDepth"))
         isMetric_ = m.value("useMetricDepth").toBool();
-    if (m.contains("is2DTransducer")) {
+    // PULSE: the ruler is a DISPLAY decision - calculateRulerTicks() mirrors the ticks to
+    // both sides of a side scan and does not for a 2D echogram, and what decides that is the
+    // picture being drawn, not the transducer that happens to be connected. displayIs2DTransducer
+    // is the answer; is2DTransducer is kept as the fallback so an older snapshot, or a build
+    // that has not sent the new key yet, behaves exactly as before.
+    if (m.contains("displayIs2DTransducer")) {
+        is2DTransducer_ = m.value("displayIs2DTransducer").toBool();
+        qDebug() << "VALUE_CHANGE: grid is2DTransducer_ (display) was updated to" << is2DTransducer_;
+    } else if (m.contains("is2DTransducer")) {
         is2DTransducer_ = m.value("is2DTransducer").toBool();
-        qDebug() << "VALUE_CHANGE: is2DTransducer_ was updated to" << is2DTransducer_;
+        qDebug() << "VALUE_CHANGE: grid is2DTransducer_ (committed fallback) was updated to" << is2DTransducer_;
     }
 }
 
