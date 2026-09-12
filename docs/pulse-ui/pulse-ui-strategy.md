@@ -1237,3 +1237,189 @@ restore 2 to `EchogramTvg`, or keep upstream's and retire PULSE's deliberately. 
 almost certainly right — the PULSE TVG constant is field-tuned (`echogramTvgDbPerMeter` 0.9,
 from the Dreamlake harvest) and upstream's ramp is not the same law — but it is a decision
 about the picture, so it is Olav's, and it needs a device comparison either way.
+
+---
+
+## Step 4 session — 12 Sept 2026
+
+Branch `feature/device-profiles-step4`, off `master` at `392fd124`. Three commits,
+nothing compiled here: there is no Qt toolchain in the sandboxed shell, so every
+claim below is static plus `node tools/pulse-profile-check.js`, which passes.
+
+| Commit | What |
+|---|---|
+| `91bbd63f` | the `imageType == 2` clash, and a way to compare the two gain laws |
+| `be448012` | stable entry ids for views and cones |
+| `7bf03b69` | the resolver, `PULSEblue-IP`, and the detection-driven device swap |
+
+### 1. The live defect: upstream's TGC was shadowing `EchogramTvg`
+
+Fixed as decided. Upstream 1.0.3's linear TGC moves to **imageType 4**; **2 is
+`EchogramTvg` again**. Both laws are kept, because retiring one is a decision about
+the picture rather than a merge conflict.
+
+**How to compare on the tablet.** Expert settings → *TVG 2D settings* → **"Compare:
+upstream TGC ramp instead of PULSE TVG"**, visible only while the 2D TVG is on. It
+flips a live render between the two without touching the TVG on/off state. It is a
+runtime property, so every launch starts on PULSE's TVG — the comparison is a
+deliberate act, never a state to wake up in. With a log open, the expert
+compensation label names which law is rendering: `(tvg 2D)` or `(tgc upstream)`.
+
+Two guards had to follow the new id: the side scan TVG toggle now treats 4 as a 2D
+compensation to step aside from, and the 2D toggle resolves through
+`echogram2DGainId` rather than a literal 2.
+
+**Expect this while comparing:** `echogramTvgDbPerMeter` does nothing on upstream's
+ramp. That law has its own near/far constants (`Core::setTgcGainNear` /
+`setTgcGainFar`, defaults 0.5 and 2.5) and no PULSE UI touches them — upstream's QML
+was refused at the merge. If the ramp turns out to be worth keeping, those need a
+control before it can be tuned at all.
+
+### 2. Stable entry ids — what unblocks an expert-only 820
+
+`ecoViewIndex` / `ecoConeIndex` stored a **position**. Positions only mean anything
+while the list they came from is unchanged, and those lists are exactly what has to
+be free to change. Every entry now carries a stable `id` and an `expertOnly` flag,
+both required on every entry; `ecoViewId` / `ecoConeId` store the id.
+
+- **Migration**: one-shot, in `PulseSettings.Component.onCompleted` beside the
+  auto-filter one, for the same reason — `main.cpp` builds `pulseSettings` after
+  `pulseRuntimeSettings` and before `main.qml`, so it is the earliest point where the
+  profiles are readable and still before any chooser has seeded itself. It resolves
+  against the profile that **owns** the list (blue for views, red for cones), not
+  against `committedProfile`, because nothing is committed at startup. Idempotent;
+  the two integers stay in the file, read-only, as somebody's stored settings.
+- **The fallback is never written back.** A stored id that is not currently offered
+  resolves to the same **mode** at another frequency where there is one — `side820`
+  → `side460` when expert mode goes off — and the stored id is left alone, so turning
+  expert mode back on restores the expert's own choice. Only a tap writes.
+- `uiViews` / `uiCones` are now the **offered** lists, filtered on `expertMode`;
+  `uiViewsAll` / `uiConesAll` are what the device carries. The legacy positional
+  `transFreqWide/Medium/Narrow` read the full list so they cannot move with expert
+  mode. Because the filter reads `expertMode` as a property, the choosers grow and
+  shrink with no restart.
+
+**820 is now purely a data edit**: four entries, two of them `expertOnly`. The exact
+lines are written into the blue profile at the point where someone would otherwise
+just add them, and the check tool runs that edit as its acceptance test in **both**
+expert positions. Whether to make the edit is a hardware question, not a code one,
+so it has not been made.
+
+### 3. The resolver
+
+`resolveProfileKey(model, address, channels)` replaces
+`(userManualSetName === modelPulseRed) ? red : blue`.
+
+**A profile key is not a model.** The model is what the hardware *is* — what
+`userManualSetName` holds and what all 60-odd comparisons outside
+`PulseRuntimeSettings` mean. A key is the model **plus how it is connected**.
+`PULSEblue-IP` is a key only and is never written into `userManualSetName`, so
+everything that asks "is this a blue" still gets yes. `activeProfile` stays keyed on
+the model for the mirror reason: a log carries a transducer's identity, not a
+connection, so nothing about how the data reached the app may change its gain curve.
+
+**What it deliberately does not do** is second-guess the Basic2D settle window.
+Deciding red from "one channel right now" would configure a red transducer during
+exactly the window that machinery exists to protect. So the channel count is used
+**only** where nothing else has an answer: a device this build does not recognise by
+name — which is how the new hardware ids will arrive. Everything already known keeps
+the behaviour it had, and the tool asserts each of those cases by name.
+
+**The address** comes from C++: `LinkManagerWrapper::openedIpAddress()`, alongside
+the existing PULSE-added invokables, reading the open UDP/TCP link out of the link
+model. Not from the `ConnectionViewer` delegate — a `ListView` row only exists while
+it is realised, so the answer would have depended on whether the user had the
+connection panel open. `""` means unknown and reads as **no opinion**, never as a
+negative, so a connection the app cannot see behaves exactly as before.
+`ConnectionViewer.refreshConnectionAddress()` publishes it from three places: every
+`selectCorrectDevice` pass, `core.onConnectionChanged` (which covers a link the link
+manager opens by itself at startup), and the Open/Close button.
+
+**Answering the open question from the last handover:** *is "anything not PULSEred is
+blue" still the right fallback?* With three profiles that are two blues and one red,
+yes — and it is now said out loud in one function instead of hiding in a ternary.
+It stops being right the moment a second **red-like** device exists, and that is the
+line the resolver is written to make easy to change.
+
+### 4. `PULSEblue-IP`
+
+Blue plus overrides, merged — not a second copy of 37 keys that would then have to be
+kept in step with blue forever. `mergedProfile()` is a two-level merge; arrays replace
+outright, because a views or cones list is a list and never a patch.
+
+**Only `ui.tunable` is overridden**, and this is the part to look at:
+`samples` and `period` become tunable (they were declared for exactly this profile and
+are still unconsumed), and **nothing transmitted to the device changes** —
+`chartResolution`, `chartSamples`, `ch1Period` and the live `dynamicResolution*` limits
+stay exactly blue's. So committing the IP profile is provably a no-op on the wire and
+the first build can prove it. The IP link affords far more than wifi did, where every
+extra sample was paid for in maximum wireless range — but what those numbers should
+**be** is a measurement on the water, not a guess made in a profile record. That is the
+next decision this profile is waiting on.
+
+### 5. The device swap, wired
+
+Detection finding a different transducer no longer re-commits silently. It goes through
+`requestDeviceSwap()`, which **asks on screen**: accepting re-runs the whole device
+setup, and a reconfiguration cannot honestly be undone, so the choice comes first
+rather than an undo afterwards. Declining is remembered for that device, so it asks
+once. An expert switch — *Swap device* → **"Swap device automatically, without
+asking"** — turns the asking off.
+
+- A **first** commit is not a swap. `"..."` → blue is the app learning what is on the
+  wire; that covers "started before the transducer was powered on" and stays silent.
+- **Playback is not a swap.** This is called from the detection path only, never from
+  `activeModel`.
+- Order matters inside `acceptDeviceSwap()`: `swapDeviceNow` runs
+  `DeviceItem.onSwapDeviceNowChanged` **synchronously**, which clears every setup state
+  and puts `userManualSetName` back to `"..."`. The target is committed **after** that,
+  which is what starts the configuration pass; committing first would be undone a line
+  later.
+- The prompt is drawn in the classic UI's own alert vocabulary and gated on
+  `indx === 1`, so a split screen shows one and not two. Stage 4 replaces it along with
+  everything else on that layer.
+
+### What a device build has to confirm
+
+1. **The gain law.** 2D TVG on a red: the picture should change the moment the compare
+   switch is flipped, and PULSE's should be the one that responds to the TVG gain
+   (dB/m) stepper. This is the one that everything else built on the 2D gain is
+   standing on.
+2. **Red and blue unchanged.** Three cone buttons on red, two view buttons on blue,
+   the right grid direction for each view, the right per-device settings rows. The
+   resolver is asserted statically but a build is what proves the bindings fire.
+3. **The migration.** The startup log prints `SETTINGS: migrating ecoViewIndex n ->
+   ecoViewId ...` exactly once, on the first run after this build, and never again.
+   The chooser should come up on the view and cone that were selected before.
+4. **The swap.** Committed red, power up the blue: the prompt appears once, naming
+   both devices; **Keep** dismisses it and it does not come back for that device;
+   **Switch** re-runs setup and the app comes up as a blue. Then the same in reverse.
+5. **The IP profile.** Only reachable on the 192.168.144 gateway. `PROFILE: committed
+   key -> PULSEblue-IP` should appear in the log, and **nothing about the picture or
+   the device configuration should change** — that is what makes it safe to widen
+   later.
+6. **The application output**, as always: no `undefined` reads. A missing profile key
+   fails silently in QML, and that is still the one thing this work could get wrong.
+
+### Still open
+
+- **The IP profile's real numbers** — resolution, samples, update period. Deliberately
+  left at blue's.
+- **Which 2D gain law wins.** If upstream's ramp is kept, it needs a control for its
+  near/far constants; if PULSE's is kept, upstream's branch at 4 can go.
+- **`HorizontalController.qml:188` branches on `devName`**, not `userManualSetName` —
+  the third key source, still unsettled. It did not block the resolver, so it was left
+  alone.
+- **Settings migration**, the module that came in with upstream 1.0.3. The view/cone
+  ids migrate themselves, but `settingsVersion` still says of itself *"nothing reads it
+  today — it is a marker, not a migration trigger"*, and the `Qt.labs.settings` →
+  `QtCore` move still warns at startup. Both touch the same file.
+- Two **pre-existing** defects, both still open from Stage 1: the dead
+  `pulseSettingsLoader` reference in `closePulseSettingsTimer`, and `pinch2D`'s own
+  `isLiveView` shadowing `plot.isLiveView`.
+- **New, found on the way, not fixed**: the four alert indicators in
+  `PulseAppClassic.qml` bind `60 + insetTop()` and `_isAndroid ? 80 : 60`, but both are
+  declared on `quickChangeObjects` — their **sibling**, not their root — so those
+  bindings cannot resolve and never could, from well before the extraction. On Android
+  the indicators are drawn 60 high instead of 80 and sit under the inset. Cheap to fix
+  by moving the two helpers to the root item; worth doing next time that file is open.
