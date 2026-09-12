@@ -235,16 +235,6 @@ Item {
     // The two ways out share the foot of the panel as a CHAIN - equal air at the left
     // edge, between them, and at the right edge - so the simulation button stays centred
     // when it is alone and the pair stays balanced when it is not.
-    //
-    // Only the caption can break that: it is wider than either button, and on a narrow
-    // pane it would push the chain past the panel edge. So it gets a width budget -
-    // whatever the row has left once the other button and the three gaps are paid for -
-    // and wraps instead of shoving. No second layout and no breakpoint: it degrades by
-    // wrapping.
-    readonly property real captionMax:
-        canCancel ? Math.max(Math.round(160 * uiScale),
-                             innerW - keepPill.implicitWidth - Math.round(70 * uiScale))
-                  : innerW
 
     readonly property real artH:
         wide ? Math.min(Math.round(cardW * 0.88), Math.round(availH * 0.38))
@@ -697,45 +687,29 @@ Item {
                             Layout.preferredHeight: 1
                         }
 
-                        ColumnLayout {
+                        Rectangle {
+                            id: simPill
                             Layout.alignment: Qt.AlignTop
-                            spacing: Math.round(6 * connectionScreen.uiScale)
-
-                            Rectangle {
-                                id: simPill
-                                Layout.alignment: Qt.AlignHCenter
-                                implicitWidth:  simLabel.implicitWidth
-                                                + Math.round(40 * connectionScreen.uiScale)
-                                implicitHeight: Math.round(44 * connectionScreen.uiScale)
-                                radius: height / 2
-                                color: simArea.pressed ? "#223243" : "#182430"
-                                border.width: 1
-                                border.color: "#3d7fd0"
-
-                                Text {
-                                    id: simLabel
-                                    anchors.centerIn: parent
-                                    text: "Start a simulation"
-                                    color: "#cfe0f2"
-                                    font.pixelSize: Math.round(15 * connectionScreen.uiScale)
-                                }
-
-                                MouseArea {
-                                    id: simArea
-                                    anchors.fill: parent
-                                    onClicked: simulationFileDialog.open()
-                                }
-                            }
+                            implicitWidth:  simLabel.implicitWidth
+                                            + Math.round(40 * connectionScreen.uiScale)
+                            implicitHeight: Math.round(44 * connectionScreen.uiScale)
+                            radius: height / 2
+                            color: simArea.pressed ? "#223243" : "#182430"
+                            border.width: 1
+                            border.color: "#3d7fd0"
 
                             Text {
-                                Layout.alignment: Qt.AlignHCenter
-                                Layout.fillWidth: true
-                                Layout.maximumWidth: connectionScreen.captionMax
-                                text: "Replays a recording as if the transducer were live."
-                                color: "#69727d"
-                                font.pixelSize: Math.round(12 * connectionScreen.uiScale)
-                                wrapMode: Text.WordWrap
-                                horizontalAlignment: Text.AlignHCenter
+                                id: simLabel
+                                anchors.centerIn: parent
+                                text: "Start a simulation"
+                                color: "#cfe0f2"
+                                font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                            }
+
+                            MouseArea {
+                                id: simArea
+                                anchors.fill: parent
+                                onClicked: simulationFileDialog.open()
                             }
                         }
 
@@ -781,6 +755,25 @@ Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 1
                         }
+                    }
+
+                    // The caption is NOT in the chain. It is wider than either button, so
+                    // as a chain item it made the simulation button's slot far wider than
+                    // the button, and the three gaps came out equal between the SLOTS
+                    // while looking wrong between the buttons. Out here it costs the chain
+                    // nothing and still sits under the button it explains rather than
+                    // under the middle of a panel it is not talking about.
+                    Text {
+                        id: simCaption
+                        x: Math.max(0, Math.min(panelCol.width - width,
+                                                simPill.x + (simPill.width - width) / 2))
+                        topPadding: Math.round(6 * connectionScreen.uiScale)
+                        width: Math.min(implicitWidth, panelCol.width)
+                        text: "Replays a recording as if the transducer were live."
+                        color: "#69727d"
+                        font.pixelSize: Math.round(12 * connectionScreen.uiScale)
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
                     }
                 }
             }
