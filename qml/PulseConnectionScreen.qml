@@ -179,7 +179,7 @@ Item {
           "art":  "./image/pulse_device_red.png",
           "logo": "./image/pulse_logo_red.png",    "badge": "#d81f26",
           "profile": pulseRuntimeSettings.modelPulseRed  },
-        { "id": "black", "name": "PULSE black", "tagline": "True downscan",
+        { "id": "black", "name": "PULSE black", "tagline": "Downscan",
           "art":  "./image/pulse_device_black.png",
           "logo": "./image/pulse_logo_black.png",  "badge": "#6d7480",
           "profile": pulseRuntimeSettings.modelPulseRed  },
@@ -528,8 +528,8 @@ Item {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: connectionScreen.canCancel
-                                  ? "Choose your sounder"
-                                  : "Which sounder are you using?"
+                                  ? "Choose your transducer"
+                                  : "Which transducer are you using?"
                             color: "#9aa3ae"
                             font.pixelSize: Math.round(15 * connectionScreen.uiScale)
                         }
@@ -711,7 +711,7 @@ Item {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             topPadding: Math.round(6 * connectionScreen.uiScale)
-                            text: "Replays a recording as if the sounder were live."
+                            text: "Replays a recording as if the transducer were live."
                             color: "#69727d"
                             font.pixelSize: Math.round(12 * connectionScreen.uiScale)
                         }
