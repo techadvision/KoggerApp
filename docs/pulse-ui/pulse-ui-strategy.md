@@ -369,3 +369,42 @@ Upstream controls are **hidden, not deleted** — they stay in `Plot2D.qml` behi
 ### Branding
 
 The TECHADVISION wordmark (`image/logo_techadvision_gray.png`, already in the repo as the echogram watermark) is rotated into the foot of the edge rail at about 42% opacity, below the settings button. Visible, subtle, and nowhere near the controls — and it replaces the watermark currently sitting on the picture itself.
+
+---
+
+## Stage 1 progress — 12 Sept 2026
+
+**Done, committed on `feature/pulse-ui-separation`:**
+
+- Tag `pulse-v1.38-pre-ui-split` marks the known-good state before the move.
+- `docs/pulse-ui/` created so these documents live on disk and in git rather than only in the Claude project.
+- `qml/PulseApp.qml` created (1720 lines); `qml/Plot2D.qml` 3760 → 2095 lines; `qml/qml.qrc` updated.
+
+**The move was verified as pure motion.** 1672 of the moved lines are byte-identical to the same lines at the tag. The only edits inside the moved code were the two the analysis predicted:
+
+- `pinch2D.` → `pinch.` (2 sites)
+- `oldDataResetSeconds` → `plot.oldDataResetSeconds` (5 sites)
+
+**The seam.** Plot2D keeps the Pulse property block and the pinch area, as intended, and now reaches the UI through three members only:
+
+| Plot2D now calls | Was | Sites |
+|---|---|---|
+| `pulseUi.applyFiltering(v)` | `quickChangeObjects.applyFiltering(v)` | 2 |
+| `pulseUi.maxDepthValue` | `selectorMaxDepth.value` | 4 |
+| `pulseUi.armOldDataWarning()` | five inline statements in `mousearea` | 1 |
+
+`PulseApp` defaults its `plot` property to `parent` rather than taking a `plot: plot` binding from Plot2D, which would have self-resolved to its own property instead of the WaterFall root.
+
+**Two pre-existing oddities found and deliberately left alone**, because this stage changes nothing but location:
+
+- `pulseSettingsLoader.active` is referenced in `closePulseSettingsTimer` but no such id exists anywhere — it was already dead at the tag (`Plot2D.qml:2501`). The timer therefore does nothing.
+- `pinch2D` declares its own `property bool isLiveView`, while the line beside it logs `plot.isLiveView`. Two different values, one of them probably not the one intended.
+
+**Not yet done — this is the part that still needs a device:**
+
+- Build for Android and run against a recorded `.klf` file.
+- Screenshot the same file position at the tag and on this branch, at phone portrait, tablet landscape and split screen, and diff the images.
+- Walk the control surface once in each mode: normal and expert, 2D and side scan.
+- Check the QML console for new binding-loop and undefined-reference warnings — an extracted component surfaces those loudly, and that is the main thing this stage can get wrong.
+
+Nothing here has been compiled. The verification above is static: brace balance, identifier cross-checks and a byte comparison against the tag.
