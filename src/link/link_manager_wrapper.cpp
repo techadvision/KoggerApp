@@ -383,6 +383,11 @@ QString LinkManagerWrapper::openedIpAddress() const
     return QString();
 }
 
+bool LinkManagerWrapper::hasOpenedLink() const
+{
+    return !model_.getOpenedUuids().isEmpty();
+}
+
 int LinkManagerWrapper::linkState(const QString& uuidStr) const
 {
     const QUuid uuid(uuidStr);

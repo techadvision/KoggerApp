@@ -326,9 +326,16 @@ Item {
     //recording for live sonar. Deliberately a LABEL, not a button: as a button it
     //invited taps (it fooled its own author), and stopping belongs where the demo
     //is started — the Recording tab. No MouseArea here on purpose.
+    //
+    //BACKLOG ITEM 8: it now also names the device the app is PRESENTING as, and appears
+    //for a plain opened log as well as for a demo, whenever nothing is connected. With
+    //nothing on the wire the log decides the whole interface, so the app is claiming to be
+    //a device it is not connected to — at a stand somebody will ask, and this is the
+    //answer. It says nothing extra while a transducer is connected, because then nothing
+    //has been relaxed.
     Rectangle {
         id: demoModeBadge
-        visible: pulseRuntimeSettings.isInDemoMode
+        visible: pulseRuntimeSettings.isInDemoMode || pulseRuntimeSettings.isPresentingLog
         anchors.top: parent.top
         anchors.topMargin: 60 + insetTop()
         anchors.horizontalCenter: parent.horizontalCenter
@@ -341,7 +348,13 @@ Item {
 
         Text {
             id: demoBadgeText
-            text: qsTr("Demo")
+            text: {
+                var base = pulseRuntimeSettings.isInDemoMode ? qsTr("Demo") : qsTr("Log")
+                if (!pulseRuntimeSettings.isPresentingLog)
+                    return base
+                return base + " · " + pulseRuntimeSettings.modelDisplayName(
+                            pulseRuntimeSettings.presentedModel)
+            }
             font.pixelSize: 32
             color: "white"
             anchors.centerIn: parent
@@ -466,7 +479,17 @@ Item {
         property real quickChangeDefaultFilterValue: 1
         property bool quickChangeScanVisible: false
         property bool quickChangeConeVisible: false
-        property bool showAs2DTransducer: false
+        //Is the PICTURE a 2D echogram? Not "is the committed device a 2D transducer" —
+        //see the note further down. Everything this gates is display: the grid direction,
+        //the plot orientation, and which colour palette is offered.
+        property bool showAs2DTransducer: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer
+                                                               : false
+        onShowAs2DTransducerChanged: {
+            console.log("DEV_UI: showAs2DTransducer ->", showAs2DTransducer,
+                        "| active", pulseRuntimeSettings ? pulseRuntimeSettings.activeModel : "(none)",
+                        "| committed", pulseRuntimeSettings ? pulseRuntimeSettings.userManualSetName : "(none)")
+            setUserInterface()
+        }
         property bool isDeviceDetected: false
 
         anchors.left: parent.left
@@ -477,42 +500,23 @@ Item {
         //Pulse functions
         //***************
 
-        function isDevice2DTransducer () {
-            //console.log("TAV isDevice2DTransducer userManualSetName ===", pulseRuntimeSettings.userManualSetName)
-            if (pulseRuntimeSettings.userManualSetName !== "...") {
-                //Manually selected model
-                //console.log("TAV isDevice2DTransducer determined by manual selection");
-                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
-                        || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
-                    //console.log("TAV isDevice2DTransducer selected modelPulseRed");
-                    showAs2DTransducer = true
-                }
-                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
-                        ||pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
-                    //console.log("TAV isDevice2DTransducer selected modelPulseBlue");
-                    showAs2DTransducer = false
-                }
-            } else {
-                //Detected model
-                //console.log("TAV isDevice2DTransducer determined by automatic detection");
-                if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRed
-                        || pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseRedProto) {
-                    //console.log("TAV isDevice2DTransducer found modelPulseRed");
-                    showAs2DTransducer = true
-                }
-                if (pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlue
-                        ||pulseRuntimeSettings.devName === pulseRuntimeSettings.modelPulseBlueProto) {
-                    //console.log("TAV isDevice2DTransducer found modelPulseBlue");
-                    showAs2DTransducer = false
-                }
-            }
-            //console.log("TAV isDevice2DTransducer determined to be", showAs2DTransducer);
-        }
+        //BACKLOG ITEMS 7 AND 10 — this was a variable, and that is what made a device swap
+        //and a mismatched replay come out half-right. isDevice2DTransducer() computed it
+        //from userManualSetName (falling back to devName), matched NEITHER branch while
+        //that name was "..." — silently keeping the previous device's answer — and was only
+        //ever re-run by setUserInterface() and reArrangeQuickChangeObject(), which in turn
+        //ran on devManualSelected going TRUE (which a swap clears and never re-raises) and
+        //on any change of appConfigured, the first of which is its reset to false. A swap
+        //therefore left the echogram orientation and the colour chooser on the old device.
+        //
+        //It is now a BINDING on the display model, so both follow a swap, a replayed log
+        //and a demo by construction. The imperative side of it — setHorizontalNow(),
+        //setGridHorizontal(), the range push — is driven by the onShowAs2DTransducerChanged
+        //handler on the property above, which is the one thing a binding cannot do for us.
 
         function reArrangeQuickChangeObject () {
-
-            //console.log("TAV reArrangeQuickChangeObject ran, and isViewHorizontal is :", plot.isViewHorizontal());
-            isDevice2DTransducer()
+            if (!plot)
+                return
 
             if (showAs2DTransducer) {
                 plot2DGrid.setGridHorizontal(true)
@@ -529,9 +533,10 @@ Item {
 
 
         function setUserInterface () {
-            //console.log("TAV function setUserInterface, pulseRuntimeSettings.devName =", pulseRuntimeSettings.devName);
-
-            isDevice2DTransducer()
+            //Guarded: showAs2DTransducer is a binding now, so this can be reached before
+            //the plot exists. reArrangeQuickChangeObject() below guards for the same reason.
+            if (!plot)
+                return
 
             if (showAs2DTransducer) {
                 //console.log("TAV: setUserInterface horizontal - pulseRed");

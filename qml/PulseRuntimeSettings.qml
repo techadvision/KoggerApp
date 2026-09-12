@@ -37,6 +37,13 @@ QtObject {
     //which reads the address off the open UDP/TCP link in the link model. "" means no IP
     //link is open (a serial device, a log, nothing connected) and is read as "no opinion".
     property string connectionAddress:      ""
+    //IS THERE HARDWARE TO PROTECT? Both published by ConnectionViewer, from the link model
+    //and from the device list respectively — see hasConnectedDevice below, which is the
+    //only thing that reads them. Kept as two separate facts because they answer two
+    //different questions: a link can be open with nothing on it, and a device can be known
+    //while its link is closed (a demo closes live links).
+    property bool   linkIsOpen:             false
+    property bool   deviceIsPresent:        false
     //The IP telemetry gateway's subnet. The 5.8 GHz wifi gateway is 192.168.10.*; the IP
     //link that replaced it in June/July 2026 is 192.168.144.*, and that is the whole tell.
     property string ipVariantPrefix:        "192.168.144."
@@ -293,6 +300,31 @@ QtObject {
              : numberOfDatasetChannels === 1 ? modelPulseRed
              : committedModel)
       : committedModel
+
+    //BACKLOG ITEM 8 — with nothing connected, the log IS the device.
+    //
+    //The display/configuration split above is right whenever a transducer is connected: an
+    //opened log must never reconfigure hardware. It is wrong when nothing is connected at
+    //all, which is every demo and every exhibition laptop — there is no hardware to protect,
+    //and a side scan log wrapped in a 2D interface is simply the app being wrong about
+    //itself in front of an audience.
+    //
+    //So the CONFIGURATION path gets one more input: whether anything is connected. Either
+    //an open link or a known device is enough to keep today's behaviour — the relaxation
+    //only happens when there is neither, which is the one case where it cannot break
+    //anything. Note what this does NOT do: it never writes userManualSetName. The committed
+    //MODEL is untouched, so nothing re-commits, no configuration pass starts, and closing
+    //the log puts everything back. Only the KEY the UI reads moves. That is the same
+    //"a key is not a model" line step 4 drew for PULSEblue-IP.
+    property bool   hasConnectedDevice: linkIsOpen || deviceIsPresent
+
+    property bool   isPresentingLog: !hasConnectedDevice
+                                     && (isInDemoMode || wasKlfFileOpened || isOpeningKlfFile)
+                                     && activeModel !== ""
+
+    //What the app should present itself AS. The committed model, except while presenting a
+    //log with nothing connected, when it is the log's own identity.
+    property string presentedModel: isPresentingLog ? activeModel : userManualSetName
 
     //TVG — Stage A (display-only). See tvg_analysis_and_recommendation.md v2.
     //PER-PROFILE DEFAULT since 2026-08-29: 2D TVG and side scan TVG are never both the
@@ -772,7 +804,9 @@ QtObject {
         return typeof address === "string" && address.indexOf(ipVariantPrefix) === 0
     }
 
-    property string committedProfileKey: resolveProfileKey(userManualSetName, connectionAddress,
+    //presentedModel, not userManualSetName: with nothing connected a replayed log decides
+    //the whole interface rather than only the picture. See isPresentingLog above.
+    property string committedProfileKey: resolveProfileKey(presentedModel, connectionAddress,
                                                            numberOfDatasetChannels)
 
     //Unknown keys can only come from a bug, but a profile that is `undefined` fails silently
@@ -793,7 +827,9 @@ QtObject {
 
     onCommittedProfileKeyChanged: {
         console.log("PROFILE: committed key ->", committedProfileKey,
-                    "| model", userManualSetName,
+                    "| model", presentedModel,
+                    isPresentingLog ? "(presenting a log, nothing connected; committed "
+                                      + userManualSetName + ")" : "",
                     "| address", connectionAddress === "" ? "(none)" : connectionAddress,
                     "| channels", numberOfDatasetChannels)
         if (profiles[committedProfileKey] === undefined)
@@ -932,6 +968,18 @@ QtObject {
     property bool   settingVersion:                 committedProfile.settingVersion
     property bool   useTemperature:                 committedProfile.useTemperature
     property bool   is2DTransducer:                 committedProfile.is2DTransducer
+
+    //THE DISPLAY SIDE OF THE SAME QUESTION (backlog items 7 and 10). is2DTransducer above is
+    //a fact about the COMMITTED device and is what decides configuration and what the
+    //choosers offer. This one is a fact about the PICTURE: what is on screen right now, log
+    //or live. Anything the user judges by looking at it — the echogram orientation, the
+    //grid, which colour palette is offered — belongs on this side, because a palette is a
+    //ramp painted on the samples on screen and has nothing to do with the transducer on the
+    //wire. Falls back to the committed answer when nothing is identified, which is the same
+    //three-way activeProfile already does.
+    property bool   displayIs2DTransducer: (activeProfile !== undefined)
+                                               ? activeProfile.is2DTransducer
+                                               : is2DTransducer
     property int    chartResolution:                committedProfile.chartResolution
     property int    chartSamples:                   committedProfile.chartSamples
     property int    chartOffset:                    committedProfile.chartOffset

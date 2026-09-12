@@ -4,6 +4,13 @@ import QtQuick.Layouts 1.15
 import QtQuick.Dialogs
 import Echo.UI 1.0
 import QtQuick.Window
+
+//BACKLOG ITEM 7 — the whole colour surface follows the PICTURE, not the committed device.
+//Every is2DTransducer read in this file became displayIs2DTransducer: which palette is
+//offered, which legend is drawn and which favourites are shown are all decisions about the
+//ramp painted on the samples on screen, so they belong on the display side of the split
+//exactly like the echogram itself. A red-committed app replaying a side scan now offers the
+//6-entry blue palette it is actually painting with, instead of the 20-entry red one.
 //Pulse Plot not installed, but do we need it? Not needed!
 //import Pulse.Plot 1.0
 
@@ -100,7 +107,7 @@ Flickable {
             anchors.topMargin: Math.round(10 * s)
             //anchors.topMargin: 10
             color: "transparent"
-            visible: pulseRuntimeSettings.is2DTransducer
+            visible: pulseRuntimeSettings.displayIs2DTransducer
 
             Row {
                 anchors.top: parent.top
@@ -146,7 +153,7 @@ Flickable {
             anchors.topMargin: Math.round(10 * s)
             //anchors.topMargin: 10
             color: "transparent"
-            visible: !pulseRuntimeSettings.is2DTransducer
+            visible: !pulseRuntimeSettings.displayIs2DTransducer
 
             // helper to grab the 2D theme object by the persisted index
             function getSelectedSSTheme() {
@@ -194,7 +201,7 @@ Flickable {
             anchors.left: parent.left
             anchors.topMargin: 5
             anchors.leftMargin: Math.round(20 * s) //20
-            anchors.top: pulseRuntimeSettings.is2DTransducer ? colorBarLegend2D.bottom : colorBarLegendSS.bottom
+            anchors.top: pulseRuntimeSettings.displayIs2DTransducer ? colorBarLegend2D.bottom : colorBarLegendSS.bottom
             color: "transparent"
 
             property int themeColorCount: pulseRuntimeSettings.currentThemeColors.length
@@ -266,7 +273,7 @@ Flickable {
             anchors.top: infoLeftContainer.bottom
             //anchors.left: colorBar.left
             anchors.topMargin: Math.round(20 * s) //20
-            visible: pulseRuntimeSettings.is2DTransducer
+            visible: pulseRuntimeSettings.displayIs2DTransducer
             SettingsCheckBox {
                 target: pulseSettings ? pulseSettings : undefined
                 targetPropertyName: "useFavoriteThemes2D"
@@ -276,7 +283,7 @@ Flickable {
 
         GridView {
             id: grid
-            visible: pulseSettings.useFavoriteThemes2D && pulseRuntimeSettings.is2DTransducer
+            visible: pulseSettings.useFavoriteThemes2D && pulseRuntimeSettings.displayIs2DTransducer
             anchors.top: favoriteColors.bottom
             anchors.left: favoriteColors.left
             clip: true
@@ -304,7 +311,7 @@ Flickable {
                     anchors.leftMargin: Math.round(19 * s) //10
 
                     onCheckedChanged: {
-                        if (!pulseRuntimeSettings.is2DTransducer)
+                        if (!pulseRuntimeSettings.displayIs2DTransducer)
                             return
                         if (checked) {
                             pulseSettings.addFavorite2DNew(modelData)

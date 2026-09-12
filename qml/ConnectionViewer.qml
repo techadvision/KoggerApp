@@ -208,6 +208,16 @@ ColumnLayout {
                         "trigger =", reason ? reason : "(direct)")
             pulseRuntimeSettings.connectionAddress = address
         }
+
+        // PULSE (backlog item 8): whether ANY link is open, of any transport. Published
+        // from the same three places as the address, for the same reason — it is read
+        // off the link model in C++ rather than out of a delegate that only exists
+        // while its row is realised.
+        var open = linkManagerWrapper.hasOpenedLink()
+        if (pulseRuntimeSettings.linkIsOpen !== open) {
+            console.log("devList: link open ->", open, "trigger =", reason ? reason : "(direct)")
+            pulseRuntimeSettings.linkIsOpen = open
+        }
     }
 
     function selectCorrectDevice (reason) {
@@ -240,6 +250,16 @@ ColumnLayout {
         if (pulseRuntimeSettings)
             pulseRuntimeSettings.rawDev_devListDump = dump
         console.log("selectCorrectDevice:", dump)
+
+        // PULSE (backlog item 8): is a real device present at all? This is the same
+        // `chosen` the selection below acts on, so the two can never disagree. Together
+        // with linkIsOpen it answers "is there hardware to protect" — either one being
+        // true is enough to keep today's behaviour.
+        if (pulseRuntimeSettings && pulseRuntimeSettings.deviceIsPresent !== (chosen !== null)) {
+            console.log("devList: device present ->", chosen !== null,
+                        "trigger =", reason ? reason : "(direct)")
+            pulseRuntimeSettings.deviceIsPresent = (chosen !== null)
+        }
 
         if (chosen !== null) {
             if (dev !== chosen) {

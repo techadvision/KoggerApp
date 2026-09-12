@@ -83,6 +83,11 @@ public slots:
     // "no opinion" rather than as a negative.
     Q_INVOKABLE QString linkAddress(const QString& uuidStr) const; // "" if absent or not an IP link
     Q_INVOKABLE QString openedIpAddress() const;                   // first OPEN UDP/TCP link's address
+    // PULSE (backlog item 8): is ANY link open at all, of any transport. The profile
+    // resolver needs to know whether there is hardware to protect before it lets a
+    // replayed log decide what the app presents as. Serial included, so a USB transducer
+    // counts exactly like an IP gateway.
+    Q_INVOKABLE bool hasOpenedLink() const;                        // any open link, any transport
 
 public:
     Link* getLinkPtr(QUuid uuid) { return getWorker()->getLinkPtr(uuid); }
