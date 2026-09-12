@@ -2570,3 +2570,52 @@ The chooser and the binding, in that order, and **on their own** — the device 
 a slow test rig and force reselection is the one state that is provably broken
 today and provably fixed in a single screenshot.
 
+
+### Revision the same day — the cards carry the hardware, not the echogram
+
+Olav's verdict on the prototype: *"This is a very nice design. We will use this, it
+is a huge improvement compared to the original solution."* With three changes.
+
+**1. The card art is the product render.** Rule 3 above said the picture a sounder
+makes is its identity. That was the right instinct for a screen full of echograms
+and the wrong answer for this one: the question being asked is *which one is in
+your hand*, so the answer is a picture of the thing in your hand. Three renders
+supplied, keyed off their backgrounds, trimmed and committed as
+
+```
+image/pulse_device_red.png     116 × 229   cylinder, red band, conical element
+image/pulse_device_black.png   560 × 330   wide downscan block
+image/pulse_device_blue.png    328 × 281   side scan wedge, TECHADVISION embossed
+```
+
+The filename carries the model, so a card entry names its art without a lookup.
+They are **not in any qrc yet** — nothing references them until the screen is built.
+
+**Contained, never cropped.** A cylinder, a wide block and a wedge are three very
+different aspect ratios; `background-size: contain` on a light plate lets each keep
+its own shape at a common height. Cropping to a uniform thumbnail would cut the
+blue wedge in half and make the red one unreadable. The plate is light
+(`#f5f6f7 → #dbdde0`) because the hardware is dark grey and black — on a dark card
+the black downscan would simply disappear.
+
+**And the wordmark stays live text under the render**, never baked into the image.
+That is the direct fix for what Olav reported about today's screen: the current
+`pulse_info_*.png` artwork has *PULSE red* / *PULSE black* drawn into the pixels, so
+enlarging the card enlarges the lettering as pixels and it goes to mush. Text that
+is text survives every size — 292 px on a tablet, 100 px beside the wordmark at
+640, 84 px on a phone.
+
+**2. PULSE black is a true downscan.** Not "a second red". It runs the **same
+profile** as red — same 510 / 710 / 810 kHz, same `PULSEred` key — but the beam is a
+downscan rather than a cone, so the picture differs. The card says what it is while
+the app keys on the profile, which is exactly the two-entries-one-profile shape the
+card list was built for.
+
+> Worth watching, not deciding now: a true downscan and a conical 2D have different
+> beam geometry, so bottom track and TVG may eventually want different numbers. If
+> they ever do, black stops being a card entry and becomes a profile entry — which
+> costs one line, because that is what the keyed map is for.
+
+**3. The header names the app.** `Pulse Echo Sounder`, the official name, replaces
+the generic "Echo sounder".
+
