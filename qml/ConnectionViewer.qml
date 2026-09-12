@@ -183,6 +183,25 @@ ColumnLayout {
         function onIsInDemoModeChanged() {
             refreshConnectionAddress(pulseRuntimeSettings.isInDemoMode ? "demoStarted" : "demoStopped")
         }
+
+        //BACKLOG ITEM 9. exitDemoMode() reopens the links and asks for identification to be
+        //re-run. Once now, for a transducer that is already talking when the link comes back,
+        //and once more after a settle window, because a link takes a moment to open and the
+        //device a moment to announce itself — and neither of those necessarily produces a
+        //device-list or channel-count change, which are selectCorrectDevice's only other
+        //triggers.
+        function onRedetectRequestIdChanged() {
+            console.log("devList: re-detection requested (#" + pulseRuntimeSettings.redetectRequestId + ")")
+            selectCorrectDevice("redetectRequested")
+            redetectSettleTimer.restart()
+        }
+    }
+
+    Timer {
+        id: redetectSettleTimer
+        interval: 1500
+        repeat: false
+        onTriggered: selectCorrectDevice("redetectSettled")
     }
 
     onDevListChanged: {

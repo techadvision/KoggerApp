@@ -33,7 +33,10 @@ public:
     void startWorkerThread();
     void shutdownWorkerThread();
     QHash<QUuid, QString> getLinkNames() const;
-    void openClosedLinks();
+    //PULSE (backlog item 9): invokable so leaving demo mode can reopen the links
+    //startDemo() closed. Reconnecting stays an explicit action - the user pressing stop
+    //IS that action - but it now has something to be explicit from.
+    Q_INVOKABLE void openClosedLinks();
     QByteArray exportPinnedLinksToXmlData(QString* error = nullptr);
     bool reloadPinnedLinksFromXmlData(const QByteArray& xmlData,
                                       bool allowSerialLinks = true,

@@ -44,6 +44,10 @@ QtObject {
     //while its link is closed (a demo closes live links).
     property bool   linkIsOpen:             false
     property bool   deviceIsPresent:        false
+    //Bumped when something wants identification re-run from scratch — leaving demo mode is
+    //the one caller today. A counter rather than a flag: two requests in a row must both be
+    //heard, and there is no state to forget to clear. ConnectionViewer watches it.
+    property int    redetectRequestId:      0
     //The IP telemetry gateway's subnet. The 5.8 GHz wifi gateway is 192.168.10.*; the IP
     //link that replaced it in June/July 2026 is 192.168.144.*, and that is the whole tell.
     property string ipVariantPrefix:        "192.168.144."
@@ -580,6 +584,30 @@ QtObject {
         devName = "..."
         userManualSetName = "..."
         pulseBetaName = "..."
+
+        //BACKLOG ITEM 9 — come back to the real transducer without a restart.
+        //
+        //Core::startDemo() closes the live links and Core::stopDemo() deliberately does not
+        //reopen them, because reopening while the app still believed it was mid-configuration
+        //is what produced the "Configuring transducer..." / "Fixing transducer com link..."
+        //overlay. That reasoning was right and the note said reconnecting should stay an
+        //explicit action — but no affordance was ever given to be explicit FROM, so in
+        //practice it became "restart the app".
+        //
+        //Pressing stop IS the explicit action. The overlay it guarded against cannot appear
+        //from here: every flag that drives it — dataUpdateActive, devConfigured,
+        //unableToConfigure, devName — has just been cleared above, so the app reopens the
+        //link in the same state it would have had at a cold start with a device attached.
+        //
+        //Then ask for identification to be re-run. ConnectionViewer.selectCorrectDevice()
+        //otherwise only fires on a device-list change, a channel-count change and the
+        //Basic2D settle timer, so a link that comes back up with a transducer already
+        //talking may never produce one of those.
+        if (linkManagerWrapper) {
+            console.log("DEMO: reopening the links the demo closed")
+            linkManagerWrapper.openClosedLinks()
+        }
+        redetectRequestId += 1
     }
 
     //APP DYNAMIC CONTROLS

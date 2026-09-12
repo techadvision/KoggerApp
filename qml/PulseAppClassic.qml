@@ -484,10 +484,31 @@ Item {
         //the plot orientation, and which colour palette is offered.
         property bool showAs2DTransducer: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer
                                                                : false
+        //Qt.callLater, NOT a direct call. This property is one binding in a chain that all
+        //moves at once — activeProfile, committedProfileKey, uiProfile, uiViews — and QML
+        //gives no order within it. Called directly, setUserInterface() ran while
+        //showAs2DTransducer already said "blue" but uiViews was still the RED profile's
+        //(empty) list, so viewModeForId(ecoViewId) could not answer "side" and the echogram
+        //was drawn HORIZONTALLY for a side scan log. That is what made the first playback
+        //of a mismatched log come out wrong while every later one was right: by then the
+        //committed device had been cleared and the profile had already settled on blue.
+        //Deferring to the end of the current event processing lets the whole chain settle
+        //first, and Qt.callLater coalesces repeats, so the double call in the log goes too.
         onShowAs2DTransducerChanged: {
             console.log("DEV_UI: showAs2DTransducer ->", showAs2DTransducer,
                         "| active", pulseRuntimeSettings ? pulseRuntimeSettings.activeModel : "(none)",
                         "| committed", pulseRuntimeSettings ? pulseRuntimeSettings.userManualSetName : "(none)")
+            Qt.callLater(quickChangeObjects.applyDisplayModel)
+        }
+
+        //Everything that has to be re-run imperatively when the picture changes device.
+        //setUserInterface() carries the geometry; the theme is pushed by whichever colour
+        //selector has just become the visible one.
+        function applyDisplayModel() {
+            if (!plot)
+                return
+            console.log("DEV_UI: applying display model, 2D?", showAs2DTransducer,
+                        "| view", pulseRuntimeSettings.viewModeForId(pulseSettings.ecoViewId))
             setUserInterface()
         }
         property bool isDeviceDetected: false
@@ -1270,6 +1291,30 @@ Item {
                 selectedIndex: pulseSettings.colorMapIndexSideScan
                 hostWindow: plot ? plot : undefined
                 //allowExpertModeByMultiTap: true
+
+                //A palette is not applied by being SHOWN. This control switching to the blue
+                //list changed which swatches the user sees and nothing else, so a red-committed
+                //app replaying a side scan drew the log with the RED theme still loaded in the
+                //plot — the chooser said HQ while the picture was S-Dark. The 2D selector had a
+                //recalcSelectedIndex() on becoming visible that did push its theme; this one had
+                //no equivalent. Now it does, and both are driven the same way.
+                function applyStoredTheme() {
+                    if (!plot)
+                        return
+                    var master = pulseRuntimeSettings.themeModelBlue
+                    if (!master || master.length === 0)
+                        return
+                    var idx = pulseSettings.colorMapIndexSideScan
+                    var theme = (idx >= 0 && idx < master.length) ? master[idx] : master[0]
+                    console.log("THEME: side scan palette ->", theme.id,
+                                "(stored index", idx + ")")
+                    pulseSettings.colorMapIndexReal = theme.id
+                    plot.plotEchogramTheme(theme.id)
+                    plot.updatePlot()
+                    MosaicViewControlMenuController.onThemeChanged(theme.id)
+                }
+
+                onVisibleChanged: if (visible) applyStoredTheme()
                 onIconSelected: {
                     //console.log("TAV: colormap for:", pulseRuntimeSettings.userManualSetName);
                     pulseSettings.colorMapIndexSideScan = selectedIndex;
@@ -1335,7 +1380,11 @@ Item {
                 // survived a restart. Mirror image of what themeSelectorColorSS already
                 // does correctly from colorMapIndexSideScan.
                 function recalcSelectedIndex() {
-                    if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue)
+                    //The DISPLAY model, not the committed one: this control stands aside
+                    //whenever the picture is a side scan, including a side scan log played on
+                    //a red-committed app. Asking userManualSetName let it push the red theme
+                    //over a blue picture.
+                    if (!quickChangeObjects.showAs2DTransducer)
                         return
 
                     var master = pulseRuntimeSettings.themeModelRed
