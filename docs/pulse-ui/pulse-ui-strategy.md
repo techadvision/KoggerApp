@@ -1138,3 +1138,98 @@ so the application output is where to look.
   what stored indices mean, so this is the moment. Worth settling the
   `Qt.labs.settings` → `QtCore` move at the same time, since both touch the same file and the
   deprecation already warns at startup.
+
+---
+
+## Correction — 820 kHz was expert-gated, not removed (12 Sept 2026)
+
+The step 3 write-up said 820 was withdrawn because the hardware did not perform. Half right.
+**One professional report** found the current blue transducer has insufficient power to render
+820 properly in deeper water, so 820 was pulled from the **ordinary** chooser — experts can
+still activate it, from *"Pulse blue High/Low Frequenzy"* in the experimental expert category
+(`PulseInfoExpert.qml:166`), which writes `transFreq` and `useBlueHighFrequency` directly.
+
+That changes what "bringing 820 back" means, and step 3 as built does not cover it.
+
+**The right shape is an `expertOnly` flag on a view entry — and it needs one design decision
+first.** `ecoViewIndex` is a *position* in `ui.views`. A list that grows and shrinks with
+expert mode makes a stored position mean different things in the two modes: pick side scan as
+an expert at index 3, leave expert mode, and index 3 is now out of range or, worse, a
+different view. The clamp added in step 3 stops it crashing, not from being wrong.
+
+So: **entries need stable ids, and the preference must store the id rather than the index.**
+`ecoViewIndex` / `ecoConeIndex` become `ecoViewId` / `ecoConeId`, with a migration for the
+stored integers. That is a step 4 item, and it wants the settings-migration module that came
+in with upstream 1.0.3 anyway. Recorded in the blue profile as a comment at the point where
+someone would otherwise just add the two entries.
+
+---
+
+## Backlog item 6 — the TVG bypasses the black-stripes fix
+
+**What Olav sees.** Black stripes are missing data — always possible, especially over UDP on
+wifi. The black-stripes mechanism evaluates a window forward and back, detects the gap and
+computes the most likely render. It is an echogram-render nicety and nothing more, but users
+care about it a great deal. On PULSE blue the TVG render bypasses it; not certain whether
+red is affected too.
+
+**It is structural, and it is not only blue.** `BlackStripesProcessor::update()` patches the
+epoch's raw amplitudes in place — `amplitude[i] = ethalonVector[i].second`
+(`src/black_stripes_processor.cpp:98`). Every image type except raw renders from a **cached
+buffer derived from that amplitude vector**, and none of the caches is invalidated when the
+amplitude vector is written:
+
+| imageType | buffer | cache guard in `chartTo()` |
+|---|---|---|
+| 0 | `amplitude` | none needed — reads the patched data, so raw is the only immune path |
+| 1 | `compensated` (AGC) | `if (eg.compensated.isEmpty())` — built once, never rebuilt |
+| 2 | `tgc` / `tvgCompensated` | `isEmpty()` / a **global gain** version, not a data version |
+| 3 | `ssTvgCompensated` | `ssTvgVersion != EchogramSideScanTvg::version()` — same |
+
+`EchogramTvg::version()` and `EchogramSideScanTvg::version()` tag *which gain constants the
+buffer was built with*. They say nothing about whether the underlying samples have since
+changed. So any epoch whose derived buffer was built before the black-stripes pass patched it
+keeps rendering the stripes — and the backward pass, which repairs epochs that have already
+been drawn once, is exactly the case that goes stale.
+
+Blue shows it because blue defaults to side scan TVG (imageType 3) and has two subchannels;
+red with the 2D TVG on is on the same footing. Red only looks better where the patch happens
+to land before the first render.
+
+**The fix is small and general:** give `Echogram` a data version bumped on every write to
+`amplitude` — the black-stripes patch and the initial fill — and fold it into all four cache
+guards alongside the existing gain version. One counter, four comparisons, and the nicety
+works on every image type instead of only on raw.
+
+---
+
+## Found while diagnosing the above — a LIVE defect from the upstream merge
+
+Not a backlog item. `Epoch::chartTo()` in `src/epoch.h` has **two `else if (imageType == 2)`
+branches**:
+
+```cpp
+} else if (imageType == 2) {          // upstream 1.0.3: their linear TGC
+    if (eg.tgc.isEmpty()) eg.updateTgc();
+    src = eg.tgc.constData();
+}
+else if (imageType == 2) {            // PULSE: TVG display compensation  <-- UNREACHABLE
+    ... eg.tvgCompensated ...
+}
+```
+
+The second is dead. Upstream's TGC branch was added at imageType 2, the id PULSE's own TVG
+already used, and it shadows it. **So the 2D TVG is currently rendering upstream's linear TGC
+— a straight ramp from gain 0.5 to 2.5 across the trace — and `EchogramTvg` is not running at
+all.** `resolveEchogramCompensation()` still returns 2 and the toggle still appears to work,
+which is why it would not announce itself; the picture is simply produced by the wrong gain
+law. The side scan TVG (imageType 3) is unaffected.
+
+This is exactly what the merge notes warned about — *"upstream's side scan renders with TGC
+differently"* — landing in the 2D path instead.
+
+**Decide before building on it:** give upstream's TGC its own image type (4 is free) and
+restore 2 to `EchogramTvg`, or keep upstream's and retire PULSE's deliberately. The first is
+almost certainly right — the PULSE TVG constant is field-tuned (`echogramTvgDbPerMeter` 0.9,
+from the Dreamlake harvest) and upstream's ramp is not the same law — but it is a decision
+about the picture, so it is Olav's, and it needs a device comparison either way.

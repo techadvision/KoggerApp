@@ -837,14 +837,26 @@ QtObject {
             //("down" = horizontal grid / plotDistanceRange2d, "side" = vertical grid /
             //plotDistanceRange); freq is what the view is transmitted at.
             //
-            //820 kHz LIVES HERE. It was removed because the hardware did not perform well
-            //enough, not because the code cannot do it. To bring it back, add the two
-            //entries below - the icons are already in the repo and registered in
-            //resources/icons.qrc - and nothing else changes anywhere:
+            //820 kHz LIVES HERE - but read this before adding it back.
+            //
+            //820 was NOT withdrawn outright. One professional report found the current blue
+            //transducer has insufficient power to render 820 properly in deeper water, so it
+            //was pulled from the ORDINARY chooser only; experts can still activate it, from
+            //"Pulse blue High/Low Frequenzy" in the experimental expert category
+            //(PulseInfoExpert.qml), which writes transFreq and useBlueHighFrequency directly.
+            //
+            //So the right shape is not "add two entries", it is an "expertOnly" flag on an
+            //entry, and that needs one design decision first: ecoViewIndex is a POSITION in
+            //this list, and a list that grows and shrinks with expert mode makes a stored
+            //position mean different things in the two modes. Entries need stable ids, with
+            //the preference storing the id rather than the index, before an expert-only view
+            //can be safe. Written up as a step 4 item.
+            //
+            //The icons for it are already in the repo and registered in resources/icons.qrc:
             //    { "icon": "./icons/ui/pulse_view_down_scan_820.svg", "mode": "down", "freq": 820 },
             //    { "icon": "./icons/ui/pulse_view_side_scan_820.svg", "mode": "side", "freq": 820 }
-            //(swap the two 460 icons for their _460 variants at the same time so the
-            //buttons say which frequency they are).
+            //(swap the two 460 icons for their _460 variants at the same time so the buttons
+            //say which frequency they are).
             "views": [
                 { "icon": "./icons/ui/pulse_view_down_scan.svg", "mode": "down", "freq": 460 },
                 { "icon": "./icons/ui/pulse_view_side_scan.svg", "mode": "side", "freq": 460 }
