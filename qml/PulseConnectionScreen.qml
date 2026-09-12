@@ -232,12 +232,19 @@ Item {
     readonly property real rowW:   perRow * cardW + (perRow - 1) * gap
     readonly property real panelW: Math.min(availW, rowW + panelPad * 2)
 
-    // The way out sits BESIDE the panel, level with the simulation button, and drops
-    // under it when there is not room. It is outside the panel on purpose: the panel is
-    // the question, and leaving without answering it is not one of the answers.
-    readonly property bool keepBeside:
-        canCancel
-        && (panelW + Math.round(14 * uiScale) + keepPill.implicitWidth <= availW)
+    // The two ways out share the foot of the panel as a CHAIN - equal air at the left
+    // edge, between them, and at the right edge - so the simulation button stays centred
+    // when it is alone and the pair stays balanced when it is not.
+    //
+    // Only the caption can break that: it is wider than either button, and on a narrow
+    // pane it would push the chain past the panel edge. So it gets a width budget -
+    // whatever the row has left once the other button and the three gaps are paid for -
+    // and wraps instead of shoving. No second layout and no breakpoint: it degrades by
+    // wrapping.
+    readonly property real captionMax:
+        canCancel ? Math.max(Math.round(160 * uiScale),
+                             innerW - keepPill.implicitWidth - Math.round(70 * uiScale))
+                  : innerW
 
     readonly property real artH:
         wide ? Math.min(Math.round(cardW * 0.88), Math.round(availH * 0.38))
@@ -487,273 +494,293 @@ Item {
                 height: Math.round(12 * connectionScreen.uiScale)
             }
 
-            Item {
-                id: group
+            // THE PANEL. Everything the screen is asking lives inside it: the name of the
+            // app, the question, the cards, and both ways out of it.
+            Rectangle {
+                id: panel
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: connectionScreen.availW
-                height: connectionScreen.keepBeside
-                        ? panel.height
-                        : panel.height + (connectionScreen.canCancel
-                                          ? keepPill.height + Math.round(12 * connectionScreen.uiScale)
-                                          : 0)
+                width: connectionScreen.panelW
+                height: panelCol.height + connectionScreen.panelPad * 2
+                radius: Math.round(16 * connectionScreen.uiScale)
+                color: "#121519"
+                border.width: 1
+                border.color: "#232830"
 
-                // THE PANEL. Everything the screen is asking lives inside it: the name of
-                // the app, the question, the cards, and the other answer to "there is no
-                // transducer, what am I looking at".
-                Rectangle {
-                    id: panel
-                    x: Math.round((group.width - width) / 2)
-                    width: connectionScreen.panelW
-                    height: panelCol.height + connectionScreen.panelPad * 2
-                    radius: Math.round(16 * connectionScreen.uiScale)
-                    color: "#121519"
-                    border.width: 1
-                    border.color: "#232830"
+                Column {
+                    id: panelCol
+                    x: connectionScreen.panelPad
+                    y: connectionScreen.panelPad
+                    width: panel.width - connectionScreen.panelPad * 2
+                    spacing: Math.round(4 * connectionScreen.uiScale)
 
-                    Column {
-                        id: panelCol
-                        x: connectionScreen.panelPad
-                        y: connectionScreen.panelPad
-                        width: panel.width - connectionScreen.panelPad * 2
-                        spacing: Math.round(4 * connectionScreen.uiScale)
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "Pulse Echo Sounder"
+                        color: "#f2f4f7"
+                        font.pixelSize: Math.round(26 * connectionScreen.uiScale)
+                        font.bold: true
+                    }
 
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "Pulse Echo Sounder"
-                            color: "#f2f4f7"
-                            font.pixelSize: Math.round(26 * connectionScreen.uiScale)
-                            font.bold: true
-                        }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: connectionScreen.canCancel
+                              ? "Choose your transducer"
+                              : "Which transducer are you using?"
+                        color: "#9aa3ae"
+                        font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                    }
 
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: connectionScreen.canCancel
-                                  ? "Choose your transducer"
-                                  : "Which transducer are you using?"
-                            color: "#9aa3ae"
-                            font.pixelSize: Math.round(15 * connectionScreen.uiScale)
-                        }
+                    Item {
+                        width: 1
+                        height: Math.round(14 * connectionScreen.uiScale)
+                    }
 
-                        Item {
-                            width: 1
-                            height: Math.round(14 * connectionScreen.uiScale)
-                        }
+                    Flow {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        // NOT a plain `width` inside a ColumnLayout - a Layout
+                        // overwrites it with the implicit width, which for a Flow is
+                        // not the row width, and every card then wrapped onto its own
+                        // line however much room there was. This Column positions
+                        // children in y only, so the width below is the truth.
+                        width: Math.min(panelCol.width, connectionScreen.rowW)
+                        spacing: connectionScreen.gap
 
-                        Flow {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            // NOT a plain `width` inside a ColumnLayout - a Layout
-                            // overwrites it with the implicit width, which for a Flow is
-                            // not the row width, and every card then wrapped onto its own
-                            // line however much room there was. This Column positions
-                            // children in y only, so the width below is the truth.
-                            width: Math.min(panelCol.width, connectionScreen.rowW)
-                            spacing: connectionScreen.gap
+                        Repeater {
+                            model: connectionScreen.cards
 
-                            Repeater {
-                                model: connectionScreen.cards
+                            delegate: Rectangle {
+                                id: card
 
-                                delegate: Rectangle {
-                                    id: card
+                                readonly property var rec: modelData
+                                readonly property bool isChosen: connectionScreen.chosenCardId === rec.id
 
-                                    readonly property var rec: modelData
-                                    readonly property bool isChosen: connectionScreen.chosenCardId === rec.id
+                                width:  connectionScreen.cardW
+                                height: cardCol.height + connectionScreen.pad
+                                radius: Math.round(12 * connectionScreen.uiScale)
+                                color:  cardArea.pressed ? "#1e232b" : "#15181d"
+                                border.width: Math.max(1, Math.round(1.5 * connectionScreen.uiScale))
+                                border.color: (card.isChosen || cardArea.pressed) ? rec.badge : "#2b3038"
 
-                                    width:  connectionScreen.cardW
-                                    height: cardCol.height + connectionScreen.pad
-                                    radius: Math.round(12 * connectionScreen.uiScale)
-                                    color:  cardArea.pressed ? "#1e232b" : "#15181d"
-                                    border.width: Math.max(1, Math.round(1.5 * connectionScreen.uiScale))
-                                    border.color: (card.isChosen || cardArea.pressed) ? rec.badge : "#2b3038"
+                                Column {
+                                    id: cardCol
+                                    anchors.centerIn: parent
+                                    width: card.width - connectionScreen.pad
+                                    spacing: Math.round(8 * connectionScreen.uiScale)
 
-                                    Column {
-                                        id: cardCol
-                                        anchors.centerIn: parent
-                                        width: card.width - connectionScreen.pad
-                                        spacing: Math.round(8 * connectionScreen.uiScale)
+                                    Rectangle {
+                                        width:  parent.width
+                                        height: connectionScreen.plateH
+                                        radius: Math.round(8 * connectionScreen.uiScale)
+                                        clip: true
+                                        gradient: Gradient {
+                                            GradientStop { position: 0.0; color: "#f5f6f7" }
+                                            GradientStop { position: 1.0; color: "#dbdde0" }
+                                        }
 
-                                        Rectangle {
-                                            width:  parent.width
-                                            height: connectionScreen.plateH
-                                            radius: Math.round(8 * connectionScreen.uiScale)
-                                            clip: true
-                                            gradient: Gradient {
-                                                GradientStop { position: 0.0; color: "#f5f6f7" }
-                                                GradientStop { position: 1.0; color: "#dbdde0" }
+                                        GridLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: connectionScreen.platePad
+                                            anchors.bottomMargin: connectionScreen.platePad
+                                                                  + connectionScreen.badgeH
+                                            columns: connectionScreen.stacked ? 1 : 2
+                                            columnSpacing: connectionScreen.innerGap
+                                            rowSpacing:    connectionScreen.innerGap
+
+                                            // The hardware, contained and never
+                                            // cropped. A cylinder, a wide block and a
+                                            // wedge are three very different aspect
+                                            // ratios, so each keeps its own shape at a
+                                            // common height.
+                                            Image {
+                                                Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                                                Layout.preferredHeight: connectionScreen.artH
+                                                Layout.fillWidth: connectionScreen.stacked
+                                                Layout.preferredWidth: connectionScreen.stacked
+                                                                       ? 1
+                                                                       : Math.round(connectionScreen.artH * 1.35)
+                                                source: card.rec.art
+                                                fillMode: Image.PreserveAspectFit
+                                                smooth: true
+                                                mipmap: true
+                                                // Three small PNGs out of the qrc.
+                                                // Decoding them on the loading thread
+                                                // is what made the screen assemble
+                                                // itself after it was already up.
+                                                asynchronous: false
+                                                cache: true
                                             }
 
-                                            GridLayout {
-                                                anchors.fill: parent
-                                                anchors.margins: connectionScreen.platePad
-                                                anchors.bottomMargin: connectionScreen.platePad
-                                                                      + connectionScreen.badgeH
-                                                columns: connectionScreen.stacked ? 1 : 2
-                                                columnSpacing: connectionScreen.innerGap
-                                                rowSpacing:    connectionScreen.innerGap
+                                            Item {
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: connectionScreen.logoH
+                                                Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
 
-                                                // The hardware, contained and never
-                                                // cropped. A cylinder, a wide block and a
-                                                // wedge are three very different aspect
-                                                // ratios, so each keeps its own shape at a
-                                                // common height.
                                                 Image {
-                                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                                                    Layout.preferredHeight: connectionScreen.artH
-                                                    Layout.fillWidth: connectionScreen.stacked
-                                                    Layout.preferredWidth: connectionScreen.stacked
-                                                                           ? 1
-                                                                           : Math.round(connectionScreen.artH * 1.35)
-                                                    source: card.rec.art
+                                                    id: logoImage
+                                                    anchors.fill: parent
+                                                    source: card.rec.logo
                                                     fillMode: Image.PreserveAspectFit
+                                                    horizontalAlignment: Image.AlignHCenter
+                                                    verticalAlignment: Image.AlignVCenter
                                                     smooth: true
                                                     mipmap: true
-                                                    // Three small PNGs out of the qrc.
-                                                    // Decoding them on the loading thread
-                                                    // is what made the screen assemble
-                                                    // itself after it was already up.
                                                     asynchronous: false
                                                     cache: true
                                                 }
 
-                                                Item {
-                                                    Layout.fillWidth: true
-                                                    Layout.preferredHeight: connectionScreen.logoH
-                                                    Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-
-                                                    Image {
-                                                        id: logoImage
-                                                        anchors.fill: parent
-                                                        source: card.rec.logo
-                                                        fillMode: Image.PreserveAspectFit
-                                                        horizontalAlignment: Image.AlignHCenter
-                                                        verticalAlignment: Image.AlignVCenter
-                                                        smooth: true
-                                                        mipmap: true
-                                                        asynchronous: false
-                                                        cache: true
-                                                    }
-
-                                                    // A card must still name its device if
-                                                    // the artwork is missing: a new model
-                                                    // arrives as a data edit, and its logo
-                                                    // file can land a commit later.
-                                                    Text {
-                                                        anchors.centerIn: parent
-                                                        visible: logoImage.status !== Image.Ready
-                                                        text: card.rec.name
-                                                        color: "#1c2026"
-                                                        font.pixelSize: Math.round(19 * connectionScreen.uiScale)
-                                                        font.bold: true
-                                                    }
+                                                // A card must still name its device if
+                                                // the artwork is missing: a new model
+                                                // arrives as a data edit, and its logo
+                                                // file can land a commit later.
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    visible: logoImage.status !== Image.Ready
+                                                    text: card.rec.name
+                                                    color: "#1c2026"
+                                                    font.pixelSize: Math.round(19 * connectionScreen.uiScale)
+                                                    font.bold: true
                                                 }
                                             }
-
-                                            Rectangle {
-                                                anchors.left: parent.left
-                                                anchors.right: parent.right
-                                                anchors.bottom: parent.bottom
-                                                height: connectionScreen.badgeH
-                                                color: card.rec.badge
-                                            }
                                         }
 
-                                        Text {
-                                            width: parent.width
-                                            text: card.rec.tagline
-                                            color: "#8d96a2"
-                                            font.pixelSize: Math.round(13 * connectionScreen.uiScale)
-                                            elide: Text.ElideRight
-                                            horizontalAlignment: connectionScreen.stacked
-                                                                 ? Text.AlignHCenter : Text.AlignLeft
+                                        Rectangle {
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.bottom: parent.bottom
+                                            height: connectionScreen.badgeH
+                                            color: card.rec.badge
                                         }
                                     }
 
-                                    MouseArea {
-                                        id: cardArea
-                                        anchors.fill: parent
-                                        onClicked: connectionScreen.commitCard(card.rec)
+                                    Text {
+                                        width: parent.width
+                                        text: card.rec.tagline
+                                        color: "#8d96a2"
+                                        font.pixelSize: Math.round(13 * connectionScreen.uiScale)
+                                        elide: Text.ElideRight
+                                        horizontalAlignment: connectionScreen.stacked
+                                                             ? Text.AlignHCenter : Text.AlignLeft
                                     }
                                 }
+
+                                MouseArea {
+                                    id: cardArea
+                                    anchors.fill: parent
+                                    onClicked: connectionScreen.commitCard(card.rec)
+                                }
+                            }
+                        }
+                    }
+
+                    Item {
+                        width: 1
+                        height: Math.round(20 * connectionScreen.uiScale)
+                    }
+
+                    // THE ACTION CHAIN. Three stretching gaps and two buttons: with
+                    // one button the outer two split the room and it sits centred;
+                    // with both, all three share it and the pair is balanced against
+                    // the panel's edges. One arrangement covers both cases, so there
+                    // is no "where does this go when the other one appears" left to
+                    // get wrong.
+                    //
+                    // Keep is INSIDE the panel now. It was outside on the argument
+                    // that leaving is not one of the answers - true, and it still
+                    // read as a button that had fallen off the box it belongs to.
+                    RowLayout {
+                        id: actionRow
+                        width: panelCol.width
+                        spacing: 0
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                        }
+
+                        ColumnLayout {
+                            Layout.alignment: Qt.AlignTop
+                            spacing: Math.round(6 * connectionScreen.uiScale)
+
+                            Rectangle {
+                                id: simPill
+                                Layout.alignment: Qt.AlignHCenter
+                                implicitWidth:  simLabel.implicitWidth
+                                                + Math.round(40 * connectionScreen.uiScale)
+                                implicitHeight: Math.round(44 * connectionScreen.uiScale)
+                                radius: height / 2
+                                color: simArea.pressed ? "#223243" : "#182430"
+                                border.width: 1
+                                border.color: "#3d7fd0"
+
+                                Text {
+                                    id: simLabel
+                                    anchors.centerIn: parent
+                                    text: "Start a simulation"
+                                    color: "#cfe0f2"
+                                    font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                                }
+
+                                MouseArea {
+                                    id: simArea
+                                    anchors.fill: parent
+                                    onClicked: simulationFileDialog.open()
+                                }
+                            }
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.fillWidth: true
+                                Layout.maximumWidth: connectionScreen.captionMax
+                                text: "Replays a recording as if the transducer were live."
+                                color: "#69727d"
+                                font.pixelSize: Math.round(12 * connectionScreen.uiScale)
+                                wrapMode: Text.WordWrap
+                                horizontalAlignment: Text.AlignHCenter
                             }
                         }
 
                         Item {
-                            width: 1
-                            height: Math.round(18 * connectionScreen.uiScale)
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            visible: connectionScreen.canCancel
                         }
 
+                        // Cancelling is possible whenever there is something to go
+                        // back to. On a cold start there is not, and the screen
+                        // correctly offers no way out but a choice.
                         Rectangle {
-                            id: simPill
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            implicitWidth:  simLabel.implicitWidth + Math.round(40 * connectionScreen.uiScale)
+                            id: keepPill
+                            visible: connectionScreen.canCancel
+                            Layout.alignment: Qt.AlignTop
+                            implicitWidth:  keepLabel.implicitWidth
+                                            + Math.round(36 * connectionScreen.uiScale)
                             implicitHeight: Math.round(44 * connectionScreen.uiScale)
-                            width:  Math.min(implicitWidth, panelCol.width)
-                            height: implicitHeight
                             radius: height / 2
-                            color: simArea.pressed ? "#223243" : "#182430"
+                            color: keepArea.pressed ? "#2a303a" : "#1b1f26"
                             border.width: 1
-                            border.color: "#3d7fd0"
+                            border.color: "#3a414b"
 
                             Text {
-                                id: simLabel
+                                id: keepLabel
                                 anchors.centerIn: parent
-                                text: "Start a simulation"
-                                color: "#cfe0f2"
+                                text: "Keep " + (pulseRuntimeSettings
+                                                 ? pulseRuntimeSettings.modelDisplayName(connectionScreen.lastCommittedModel)
+                                                 : "")
+                                color: "#dfe4ea"
                                 font.pixelSize: Math.round(15 * connectionScreen.uiScale)
                             }
 
                             MouseArea {
-                                id: simArea
+                                id: keepArea
                                 anchors.fill: parent
-                                onClicked: simulationFileDialog.open()
+                                onClicked: connectionScreen.keepCurrent()
                             }
                         }
 
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            topPadding: Math.round(6 * connectionScreen.uiScale)
-                            text: "Replays a recording as if the transducer were live."
-                            color: "#69727d"
-                            font.pixelSize: Math.round(12 * connectionScreen.uiScale)
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
                         }
-                    }
-                }
-
-                // Cancelling is possible whenever there is something to go back to. On a
-                // cold start there is not, and the screen correctly offers no way out but
-                // a choice - which is why this sits OUTSIDE the panel.
-                Rectangle {
-                    id: keepPill
-                    visible: connectionScreen.canCancel
-                    implicitWidth:  keepLabel.implicitWidth + Math.round(36 * connectionScreen.uiScale)
-                    implicitHeight: Math.round(44 * connectionScreen.uiScale)
-                    width:  Math.min(implicitWidth, group.width)
-                    height: implicitHeight
-                    x: connectionScreen.keepBeside
-                       ? panel.x + panel.width + Math.round(14 * connectionScreen.uiScale)
-                       : Math.round((group.width - width) / 2)
-                    y: connectionScreen.keepBeside
-                       ? panel.y + panelCol.y + simPill.y
-                         + Math.round((simPill.height - height) / 2)
-                       : panel.height + Math.round(12 * connectionScreen.uiScale)
-                    radius: height / 2
-                    color: keepArea.pressed ? "#2a303a" : "#1b1f26"
-                    border.width: 1
-                    border.color: "#3a414b"
-
-                    Text {
-                        id: keepLabel
-                        anchors.centerIn: parent
-                        text: "Keep " + (pulseRuntimeSettings
-                                         ? pulseRuntimeSettings.modelDisplayName(connectionScreen.lastCommittedModel)
-                                         : "")
-                        color: "#dfe4ea"
-                        font.pixelSize: Math.round(15 * connectionScreen.uiScale)
-                    }
-
-                    MouseArea {
-                        id: keepArea
-                        anchors.fill: parent
-                        onClicked: connectionScreen.keepCurrent()
                     }
                 }
             }
