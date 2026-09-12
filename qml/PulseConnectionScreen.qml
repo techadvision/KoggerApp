@@ -169,25 +169,16 @@ Item {
 
     // ---- The cards ----------------------------------------------------------
     //
-    // Data, not code. Two entries can share one profile: red and black are the same
-    // hardware at 510 / 710 / 810 kHz, and the owner still gets to pick the one he
-    // bought. A new model is one more entry. In step 2 this list moves into the profile
-    // map beside ui.views / ui.cones, in exactly this shape, and pulse-profile-check.js
-    // asserts it the way it already asserts the view list.
-    readonly property var cards: !pulseRuntimeSettings ? [] : [
-        { "id": "red",   "name": "PULSE red",   "tagline": "2D echo sounder",
-          "art":  "./image/pulse_device_red.png",
-          "logo": "./image/pulse_logo_red.png",    "badge": "#d81f26",
-          "profile": pulseRuntimeSettings.modelPulseRed  },
-        { "id": "black", "name": "PULSE black", "tagline": "Downscan",
-          "art":  "./image/pulse_device_black.png",
-          "logo": "./image/pulse_logo_black.png",  "badge": "#6d7480",
-          "profile": pulseRuntimeSettings.modelPulseRed  },
-        { "id": "blue",  "name": "PULSE blue",  "tagline": "Side scan",
-          "art":  "./image/pulse_device_blue.png",
-          "logo": "./image/pulse_logo_blue.png",   "badge": "#3d7fd0",
-          "profile": pulseRuntimeSettings.modelPulseBlue }
-    ]
+    // Data, not code, and the data is not here: it lives in the profile map beside
+    // ui.views / ui.cones, one list per record, in the record each card commits to. This
+    // screen reads it the way the choosers read theirs, and a new model is one more entry
+    // in a profile record with nothing to change in this file.
+    //
+    // Every entry arrives in the same shape - id, name, tagline, art, logo, badge,
+    // profile - with `logo` already resolved from that record's own ui.brand wordmark.
+    // Two entries can still share one profile: red and black are the same hardware at
+    // 510 / 710 / 810 kHz, and the owner gets to pick the one he bought.
+    readonly property var cards: pulseRuntimeSettings ? pulseRuntimeSettings.uiCards : []
 
     // ---- Layout -------------------------------------------------------------
     //

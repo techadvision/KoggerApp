@@ -19,6 +19,11 @@
 //   * adding 820 kHz back to blue's view list is a DATA edit: the chooser grows,
 //     every view still reports the right mode and frequency, and nothing else
 //     has to change
+//   * the connection screen's card list assembles out of the records: every card
+//     commits a MODEL and never a profile key, a variant offers none of its own,
+//     each card's logo resolves to a wordmark its record already names, every
+//     card's artwork is on disk and in images.qrc, and a FOURTH card is a data
+//     edit inside one profile record with nothing else to change
 //   * expert-only entries do what they promise: hidden with expert mode off,
 //     a stored id that is not offered falls back to the same MODE without the
 //     stored preference being rewritten, and the choice returns when expert
@@ -53,6 +58,17 @@ function literal(name, open, close) {
   }
   throw new Error("unterminated literal for " + name);
 }
+
+// The records name the models by property, not by string, so the check has to know
+// them before it can eval a record — and reading them here rather than retyping them
+// is what keeps this file honest if one is ever renamed.
+function stringProp(name) {
+  const m = new RegExp("property string\\s+" + name + ":\\s*\"([^\"]*)\"").exec(src);
+  if (!m) throw new Error("could not find property string " + name);
+  return m[1];
+}
+const modelPulseRed  = stringProp("modelPulseRed");
+const modelPulseBlue = stringProp("modelPulseBlue");
 
 const distProcPulseRed  = eval("(" + literal("distProcPulseRed",  "[", "]") + ")");
 const distProcPulseBlue = eval("(" + literal("distProcPulseBlue", "[", "]") + ")");
@@ -144,6 +160,37 @@ function resolve(committedKey, expertMode = false) {
     dyn: [res.minMm, res.maxMm, res.marginM]
   };
 }
+
+// ---- the card assembly, transcribed from PulseRuntimeSettings.qml -------
+// cardsFromProfiles() walks the WHOLE map, because the card list is the question
+// asked when nothing is committed; cardForScreen() is the one place the shape the
+// screen reads is stated, and where `wordmark` becomes a path out of the record's
+// own brand block.
+function cardForScreen(card, brand) {
+  return {
+    id:      card.id,
+    name:    card.name,
+    tagline: card.tagline,
+    art:     card.art,
+    logo:    brand && brand[card.wordmark] !== undefined ? brand[card.wordmark] : "",
+    badge:   card.badge,
+    profile: card.profile
+  };
+}
+function cardsFromProfiles(map) {
+  const out = [];
+  for (const key of Object.keys(map)) {
+    const prof = map[key];
+    if (!prof || prof.devName !== key) continue;      // a variant is not a model
+    const ui = prof.ui;
+    if (!ui || !ui.cards) continue;
+    for (const c of ui.cards) out.push(cardForScreen(c, ui.brand));
+  }
+  return out;
+}
+// A record offers cards only when its key IS its model. That is the same rule the
+// QML applies, and it is what keeps "PULSEblue-IP" out of userManualSetName.
+const modelKeys = Object.keys(profiles).filter(k => profiles[k].devName === k);
 
 let fails = 0;
 const eq = (label, got, want) => {
@@ -266,6 +313,69 @@ eq("period becomes tunable", pulseBlueIp.ui.tunable.period.enabled, true);
 eq("and they are NOT tunable on blue",
    [pulseBlue.ui.tunable.samples.enabled, pulseBlue.ui.tunable.period.enabled], [false, false]);
 
+// ---- 3c. the connection screen's cards -----------------------------------
+// The list the chooser draws is data in the profile records, assembled across them.
+// A card is a promise about hardware the owner bought, so each field is checked, not
+// assumed — a card with no artwork or a card that commits a profile key would both
+// pass a build and fail on the water.
+console.log("=== the connection screen's card list ===");
+eq("only the two models offer cards", modelKeys, [modelPulseRed, modelPulseBlue]);
+
+const cardEntries = [];
+for (const key of modelKeys)
+  (profiles[key].ui.cards || []).forEach((c, i) =>
+    cardEntries.push({ where: key + ".cards[" + i + "]", c, brand: profiles[key].ui.brand }));
+
+const badField = f => cardEntries.filter(x => typeof x.c[f] !== "string" || x.c[f] === "").map(x => x.where);
+for (const f of ["id", "name", "tagline", "art", "wordmark", "badge", "profile"])
+  eq("every card has a non-empty " + f, badField(f), []);
+eq("every badge is a hex colour",
+   cardEntries.filter(x => !/^#[0-9a-fA-F]{6}$/.test(x.c.badge)).map(x => x.where), []);
+// The point of `wordmark`: the path is never repeated, so it has to name a real one.
+eq("every wordmark names a wordmark its own record carries",
+   cardEntries.filter(x => typeof x.brand[x.c.wordmark] !== "string" || x.brand[x.c.wordmark] === "")
+              .map(x => x.where + " -> " + x.c.wordmark), []);
+eq("no card repeats a brand path of its own",
+   cardEntries.filter(x => /image\//.test(x.c.wordmark)).map(x => x.where), []);
+// A CARD COMMITS A MODEL. userManualSetName holds what the hardware IS; a profile key
+// is the model plus how it is connected, and writing one there breaks every
+// "is this a blue" comparison in the app.
+eq("every card commits a model, never a profile key",
+   cardEntries.filter(x => !modelKeys.includes(x.c.profile)).map(x => x.where + " -> " + x.c.profile), []);
+// Ids are what chosenCardId holds while the screen is up, so two cards cannot share one.
+const cardIds = cardEntries.map(x => x.c.id);
+eq("card ids unique across every record", cardIds.filter((id, i) => cardIds.indexOf(id) !== i), []);
+
+console.log("=== the assembled list, as the screen reads it ===");
+const CARDS = cardsFromProfiles(profiles);
+eq("three cards, in record order", CARDS.map(c => c.id), ["red", "black", "blue"]);
+eq("the variant offers none of its own — blue is not drawn twice",
+   CARDS.filter(c => c.id === "blue").length, 1);
+// Two cards on one profile is the whole point of a card list being separate from a
+// profile map: red and black are the same hardware and the owner picks what he bought.
+eq("red and black are two cards on one profile",
+   CARDS.filter(c => c.profile === modelPulseRed).map(c => c.id), ["red", "black"]);
+eq("blue is the only card on blue",
+   CARDS.filter(c => c.profile === modelPulseBlue).map(c => c.id), ["blue"]);
+eq("every card arrives in exactly the shape the screen reads",
+   [...new Set(CARDS.map(c => Object.keys(c).join(",")))],
+   ["id,name,tagline,art,logo,badge,profile"]);
+eq("each logo resolved out of its record's brand, not repeated in the card",
+   CARDS.map(c => c.logo),
+   [pulseRed.ui.brand.logo, pulseRed.ui.brand.logoBlack, pulseBlue.ui.brand.logo]);
+
+// Artwork is half of what a card IS. A missing file shows an empty plate on the one
+// screen that has to work before anything else does.
+const assetOk = rel => {
+  const f = rel.replace(/^\.\//, "");
+  return fs.existsSync(path.join(repo, f)) && qrc.includes("<file>" + f + "</file>");
+};
+const qrc = fs.readFileSync(path.join(repo, "images.qrc"), "utf8");
+eq("every card's render is on disk and in images.qrc",
+   CARDS.filter(c => !assetOk(c.art)).map(c => c.id + " -> " + c.art), []);
+eq("every card's wordmark is on disk and in images.qrc",
+   CARDS.filter(c => !assetOk(c.logo)).map(c => c.id + " -> " + c.logo), []);
+
 // ---- 4. the migration ----------------------------------------------------
 // Transcribed from PulseRuntimeSettings.migrateViewId / migrateConeId, which resolve
 // against the profile that OWNS the list (blue for views, red for cones) rather than
@@ -325,6 +435,29 @@ eq("no cone chooser at all", R0.offersConeChoice, false);
 eq("coneForId returns null rather than a wrong cone", R0.coneForId("wide"), null);
 eq("legacy transFreq wide/medium/narrow still read the full list",
    [R0.transFreqWide, R0.transFreqMedium, R0.transFreqNarrow], [510, 710, 810]);
+
+// ---- 6. the card acceptance test -----------------------------------------
+// The same promise the 820 kHz test makes about views, made about cards: a FOURTH
+// card is one more entry inside one profile record. Nothing below touches the screen,
+// the assembly, the resolver or any other record — if this passes, the edit is data.
+console.log("=== a fourth card is a data edit inside one profile record ===");
+const cardsBefore = JSON.stringify(CARDS);
+pulseRed.ui.cards = [
+  ...pulseRed.ui.cards,
+  { id: "amber", name: "PULSE amber", tagline: "2D echo sounder",
+    art: "./image/pulse_device_red.png", wordmark: "logoBlack",
+    badge: "#e0a021", profile: modelPulseRed }
+];
+const CARDS4 = cardsFromProfiles(profiles);
+eq("the screen is handed four cards", CARDS4.map(c => c.id), ["red", "black", "amber", "blue"]);
+eq("the new card keeps its record's order, ahead of the next record's", CARDS4[2].id, "amber");
+eq("its logo resolves the same way as every other", CARDS4[2].logo, pulseRed.ui.brand.logoBlack);
+eq("it commits a model", modelKeys.includes(CARDS4[2].profile), true);
+eq("it arrives in the same shape", Object.keys(CARDS4[2]).join(","), "id,name,tagline,art,logo,badge,profile");
+eq("and the three that were there are untouched",
+   JSON.stringify(CARDS4.filter(c => c.id !== "amber")), cardsBefore);
+console.log("        the only edit above is one entry in pulseRed.ui.cards — no accessor,");
+console.log("        no resolver line and no second record had to change.");
 
 console.log(fails === 0 ? "\nALL CHECKS PASSED" : "\n" + fails + " CHECK(S) FAILED");
 process.exit(fails === 0 ? 0 : 1);

@@ -915,6 +915,50 @@ QtObject {
     property var  uiOffers:         (uiProfile && uiProfile.offers) ? uiProfile.offers : ({})
     property var  uiBrand:          (uiProfile && uiProfile.brand)  ? uiProfile.brand  : ({})
 
+    //THE CARD LIST, and it is the one ui.* list that does NOT read the committed profile.
+    //Every accessor above answers "what does the transducer on the wire offer", so it reads
+    //committedProfile. This one is the question asked when nothing is committed and there
+    //may be nothing on the wire at all, so it spans the whole map and the connection screen
+    //reads it whole.
+    //
+    //A VARIANT IS NOT A MODEL. PULSEblue-IP is blue's record plus overrides, so it inherits
+    //blue's cards; offering them again would draw the blue card twice and hand a profile KEY
+    //to userManualSetName, which must never happen. A record offers its cards only when its
+    //key IS its model - which is exactly what devName says - so a variant contributes none.
+    readonly property var uiCards: cardsFromProfiles(profiles)
+
+    function cardsFromProfiles(map) {
+        var out = []
+        for (var key in map) {
+            var prof = map[key]
+            if (!prof || prof.devName !== key)
+                continue
+            var ui = prof.ui
+            if (!ui || !ui.cards)
+                continue
+            for (var i = 0; i < ui.cards.length; i++)
+                out.push(cardForScreen(ui.cards[i], ui.brand))
+        }
+        return out
+    }
+
+    //THE SHAPE THE SCREEN READS, stated once and in one place: id, name, tagline, art, logo,
+    //badge, profile. The record carries `wordmark` instead of `logo` - the name of one of
+    //the two wordmarks in its own brand block - and this is where that name becomes the path
+    //the Image loads. A record with no second wordmark resolves to "", and the screen
+    //already falls back to the live-text name when an image does not load.
+    function cardForScreen(card, brand) {
+        return {
+            "id":      card.id,
+            "name":    card.name,
+            "tagline": card.tagline,
+            "art":     card.art,
+            "logo":    (brand && brand[card.wordmark] !== undefined) ? brand[card.wordmark] : "",
+            "badge":   card.badge,
+            "profile": card.profile
+        }
+    }
+
     //Cone list accessors (PULSE red). Index is a position in the OFFERED list, which is
     //what the chooser hands back; the stored preference is an id, never a position.
     function coneCount()            { return uiCones.length }
@@ -1139,6 +1183,26 @@ QtObject {
             ],
             //No view chooser on a 2D transducer: it has one view.
             "views": [],
+            //WHAT THIS RECORD OFFERS ON THE CONNECTION SCREEN. One entry per card the
+            //owner can point at before anything is connected, and a new model is one more
+            //entry here and nothing anywhere else.
+            //
+            //TWO CARDS, ONE PROFILE. Red and black are the same hardware at 510/710/810 kHz
+            //and black is a true downscan, so `profile` is written in the card rather than
+            //inferred from the record holding it: what a card commits is a MODEL, never a
+            //profile key. (If bottom track or TVG ever want different numbers for black, it
+            //stops being a card here and becomes a record of its own.)
+            //
+            //`wordmark` names an entry in `brand` below - "logo" or "logoBlack" - instead of
+            //repeating its path, so renaming a model's artwork stays one edit.
+            "cards": [
+                { "id": "red",   "name": "PULSE red",   "tagline": "2D echo sounder",
+                  "art": "./image/pulse_device_red.png",   "wordmark": "logo",
+                  "badge": "#d81f26", "profile": modelPulseRed },
+                { "id": "black", "name": "PULSE black", "tagline": "Downscan",
+                  "art": "./image/pulse_device_black.png", "wordmark": "logoBlack",
+                  "badge": "#6d7480", "profile": modelPulseRed }
+            ],
             //WHAT THIS DEVICE'S INTERFACE OFFERS, by name. Every key exists on every
             //profile - absent would mean "undefined", and a control that hides because a
             //key was forgotten is the worst kind of bug to find on the water.
@@ -1251,6 +1315,13 @@ QtObject {
             "views": [
                 { "id": "down460", "expertOnly": false, "icon": "./icons/ui/pulse_view_down_scan.svg", "mode": "down", "freq": 460 },
                 { "id": "side460", "expertOnly": false, "icon": "./icons/ui/pulse_view_side_scan.svg", "mode": "side", "freq": 460 }
+            ],
+            //One card: the Blue is one piece of hardware. See red's list for what the
+            //keys mean and why `profile` and `wordmark` are written the way they are.
+            "cards": [
+                { "id": "blue",  "name": "PULSE blue",  "tagline": "Side scan",
+                  "art": "./image/pulse_device_blue.png",  "wordmark": "logo",
+                  "badge": "#3d7fd0", "profile": modelPulseBlue }
             ],
             //WHAT THIS DEVICE'S INTERFACE OFFERS, by name. Same key set as every other
             //profile; only the answers differ.
