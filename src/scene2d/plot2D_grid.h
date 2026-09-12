@@ -62,6 +62,15 @@ protected:
     bool isSideScanOnLeftHandSide_ = false;
     bool isSideScan2DView_   = false;
     bool is2DTransducer_   = true;
+    // PULSE: the DISPLAY answer to "is this a 2D echogram", which is the one the ruler wants -
+    // calculateRulerTicks() mirrors the ticks to both sides of a side scan and does not for a
+    // 2D echogram, and that follows the picture being drawn rather than the transducer that
+    // happens to be connected. Kept as its own member rather than sharing is2DTransducer_:
+    // the settings bus sends PARTIAL maps, so one variable written by two keys ends up holding
+    // whichever of them arrived last. Unset until the key is first seen, so a build or a
+    // snapshot that does not carry it behaves exactly as before.
+    bool displayIs2DTransducer_     = true;
+    bool hasDisplayIs2DTransducer_  = false;
     int assessedMaxDepth_ = 0;
     QColor _lineColor = QColor(255, 255, 255, 255);
 

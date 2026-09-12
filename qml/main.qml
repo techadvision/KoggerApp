@@ -76,6 +76,14 @@ ApplicationWindow  {
         function onIsSideScan2DViewChanged()        { settingsBus.updateRuntime({ isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView           }) }
         function onEchogramSpeedChanged()           { settingsBus.updateRuntime({ echogramSpeed:            pulseRuntimeSettings.echogramSpeed              }) }
         function onIs2DTransducerChanged()          { settingsBus.updateRuntime({ is2DTransducer:           pulseRuntimeSettings.is2DTransducer             }) }
+        //The DISPLAY answer, published as its OWN key and consumed only by the ruler. The
+        //scene draws what is on screen, so its scale follows the picture; is2DTransducer above
+        //still means "what is connected" and everything else keeps asking that.
+        function onDisplayIs2DTransducerChanged()   {
+            console.log("VALUE_CHANGE: publishing displayIs2DTransducer",
+                        pulseRuntimeSettings.displayIs2DTransducer)
+            settingsBus.updateRuntime({ displayIs2DTransducer:  pulseRuntimeSettings.displayIs2DTransducer      })
+        }
         function onShouldDoAutoRangeChanged()       { settingsBus.updateRuntime({ shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange          }) }
         function onAutoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel          }) }
         function onMaximumDepthChanged()            { settingsBus.updateRuntime({ maximumDepth:             pulseRuntimeSettings.maximumDepth               }) }
@@ -126,6 +134,7 @@ ApplicationWindow  {
                     isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView,
                     echogramSpeed:            pulseRuntimeSettings.echogramSpeed,
                     is2DTransducer:           pulseRuntimeSettings.is2DTransducer,
+                    displayIs2DTransducer:    pulseRuntimeSettings.displayIs2DTransducer,
                     shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange,
                     autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel,
                     maximumDepth:             pulseRuntimeSettings.maximumDepth,

@@ -232,7 +232,11 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
         return band.left() + int(std::lround(rel * (band.width() - 1)));
     };
 
-    std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, is2DTransducer_, isSideScan2DView_, isSideScanOnLeftHandSide_);
+    // The ruler follows the PICTURE: a side scan gets ticks mirrored either side of the centre
+    // line, a 2D echogram gets one set. Falls back to the committed answer only while the
+    // display key has never arrived.
+    const bool rulerIs2D = hasDisplayIs2DTransducer_ ? displayIs2DTransducer_ : is2DTransducer_;
+    std::vector<int> tickValues = calculateRulerTicks(static_cast<int>(logicalMaxDepth), isMetric_, rulerIs2D, isSideScan2DView_, isSideScanOnLeftHandSide_);
 
     //CREATE DEPTH LABELS AND LINES
     int linesCountNew = static_cast<int>(tickValues.size()) + 1; // +1 for final bottom value
@@ -500,6 +504,11 @@ void Plot2DGrid::applyRuntime(const QVariantMap& m)
     if (m.contains("is2DTransducer")) {
         is2DTransducer_ = m.value("is2DTransducer").toBool();
         qDebug() << "VALUE_CHANGE: is2DTransducer_ was updated to" << is2DTransducer_;
+    }
+    if (m.contains("displayIs2DTransducer")) {
+        displayIs2DTransducer_    = m.value("displayIs2DTransducer").toBool();
+        hasDisplayIs2DTransducer_ = true;
+        qDebug() << "VALUE_CHANGE: displayIs2DTransducer_ was updated to" << displayIs2DTransducer_;
     }
 }
 
