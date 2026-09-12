@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Controls 2.15
 
 // THE CONNECTION SCREEN - step 1 of the Stage 4 build.
 // See docs/pulse-ui/pulse-ui-strategy.md, "Prototyping complete - where the build starts".
@@ -10,7 +11,8 @@ import QtQuick.Layouts 1.15
 // above both Plot2D panes - which is what lets step 3 move the swap prompt here and
 // retire its `indx === 1` gate, since one surface above both panes cannot draw twice.
 //
-// WHAT THIS STEP DELIBERATELY DOES NOT DO (they each want their own device build):
+// STEP 1 IS THE SELECTION ONLY. The wire strip, the swap prompt, the source chip and the
+// demo/recording pills are all drawn in the prototype and all belong to later steps:
 //   step 2  the card list moves into the profile map, asserted by pulse-profile-check.js
 //   step 3  the swap prompt moves off PulseAppClassic, and the wire strip gets its states
 //   step 4  the rail's source button and the demo indicator, which wait for PulseAppV2
@@ -28,8 +30,20 @@ Item {
     anchors.fill: parent
     z: 9000
 
-    // main.qml passes mainview.s. Defaulted so the file is usable on its own.
-    property real uiScale: 1.0
+    // main.qml passes mainview.s and the Android insets.
+    property real uiScale:   1.0
+    property real safeTop:    0
+    property real safeBottom: 0
+    property real safeLeft:   0
+    property real safeRight:  0
+
+    // main.qml's insetTop() answers 0 unless DeX is on, because the app deliberately
+    // draws full-bleed under the status bar. That is right for an echogram and wrong for
+    // a title: in the split-screen report the header sat under the clock. This screen
+    // keeps a floor under it on Android and nowhere else.
+    readonly property bool onAndroid: Qt.platform.os === "android"
+    readonly property real topInset:
+        Math.max(safeTop, onAndroid ? Math.round(34 * uiScale) : 0)
 
     // ---- The question -------------------------------------------------------
 
@@ -91,31 +105,40 @@ Item {
 
     // ---- Layout -------------------------------------------------------------
     //
-    // Must fit an Android split screen and must scale, because more models are coming.
-    // The card width decides the column count, the column count and the available
-    // height decide whether the render sits above the wordmark or beside it.
-    readonly property real pad:      Math.round(24 * uiScale)
-    readonly property real gap:      Math.round(14 * uiScale)
-    readonly property real availW:   Math.max(0, width  - pad * 2)
-    readonly property real availH:   Math.max(0, height - pad * 2)
-    readonly property real minCardW: Math.round(186 * uiScale)
-    readonly property real maxCardW: Math.round(272 * uiScale)
+    // Two shapes, one breakpoint, and it always scrolls if it has to. The breakpoint is
+    // measured in DESIGN units (pixels divided by uiScale), so it means the same thing on
+    // a phone, on a tablet and in an Android split screen - which is what "adapt to the
+    // available size" has to mean when the same app runs on all three.
+    //
+    //   wide    render above the wordmark, as many cards per row as fit
+    //   narrow  render beside the wordmark, one card per row
+    //
+    // Nothing is ever clipped: the whole thing lives in a Flickable that centres its
+    // content when it fits and scrolls when it does not. The split screen in the report
+    // cut PULSE blue in half; a phone in portrait would have been worse.
+    readonly property real pad: Math.round(18 * uiScale)
+    readonly property real gap: Math.round(12 * uiScale)
 
-    readonly property int columns:
-        Math.max(1, Math.min(cards.length,
-                             Math.floor((availW + gap) / (minCardW + gap))))
+    readonly property real availW: Math.max(0, width  - safeLeft - safeRight - pad * 2)
+    readonly property real availH: Math.max(0, height - topInset - safeBottom - pad * 2)
+
+    readonly property real duW: uiScale > 0 ? availW / uiScale : availW
+    readonly property real duH: uiScale > 0 ? availH / uiScale : availH
+
+    readonly property bool wide: duW >= 620 && duH >= 340
+    readonly property bool stacked: wide
+
+    readonly property int perRow:
+        wide ? Math.max(1, Math.min(cards.length, Math.floor(duW / 212))) : 1
 
     readonly property real cardW:
-        columns === 1 ? Math.min(availW, Math.round(420 * uiScale))
-                      : Math.min(maxCardW, (availW - (columns - 1) * gap) / columns)
-
-    // Render above the wordmark when there is room for it; beside it otherwise.
-    readonly property bool stacked: columns > 1 && availH >= Math.round(400 * uiScale)
+        wide ? Math.min(Math.round(260 * uiScale), (availW - (perRow - 1) * gap) / perRow)
+             : Math.min(availW, Math.round(420 * uiScale))
 
     readonly property real artH:
-        stacked ? Math.min(Math.round(cardW * 0.92), Math.round(availH * 0.40))
-                : Math.max(Math.round(56 * uiScale),
-                           Math.min(Math.round(100 * uiScale), Math.round(availH * 0.18)))
+        wide ? Math.min(Math.round(cardW * 0.88), Math.round(availH * 0.38))
+             : Math.max(Math.round(52 * uiScale),
+                        Math.min(Math.round(92 * uiScale), Math.round(availH * 0.16)))
 
     // ---- Behaviour ----------------------------------------------------------
 
@@ -149,6 +172,9 @@ Item {
                     "| presentingLog", pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : "?",
                     "| canCancel", canCancel)
     }
+
+    Component.onCompleted:
+        console.log("CONN_SCREEN: built", cards.length, "cards | uiScale", uiScale)
 
     // Committing a card writes userManualSetName and nothing else, so the whole
     // configuration path behaves exactly as it did through the old selectors.
@@ -203,177 +229,216 @@ Item {
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
-        hoverEnabled: true
         onWheel: wheel.accepted = true
     }
 
-    ColumnLayout {
-        anchors.centerIn: parent
-        width: connectionScreen.availW
-        spacing: Math.round(6 * connectionScreen.uiScale)
+    Flickable {
+        id: flick
 
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: "Pulse Echo Sounder"
-            color: "#f2f4f7"
-            font.pixelSize: Math.round(26 * connectionScreen.uiScale)
-            font.bold: true
-        }
+        anchors.fill: parent
+        anchors.topMargin:    connectionScreen.topInset   + connectionScreen.pad
+        anchors.bottomMargin: connectionScreen.safeBottom + connectionScreen.pad
+        anchors.leftMargin:   connectionScreen.safeLeft   + connectionScreen.pad
+        anchors.rightMargin:  connectionScreen.safeRight  + connectionScreen.pad
 
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.bottomMargin: Math.round(10 * connectionScreen.uiScale)
-            text: connectionScreen.canCancel ? "Choose your sounder"
-                                             : "Which sounder are you using?"
-            color: "#9aa3ae"
-            font.pixelSize: Math.round(15 * connectionScreen.uiScale)
-        }
+        clip: true
+        flickableDirection: Flickable.VerticalFlick
+        boundsBehavior: Flickable.StopAtBounds
+        contentWidth: width
+        // Centres the content when it fits (content.y > 0 pushes it down and the two
+        // margins make contentHeight equal the viewport, so there is nothing to scroll)
+        // and scrolls when it does not (content.y clamps to 0).
+        contentHeight: content.height + content.y * 2
 
-        Flow {
-            Layout.alignment: Qt.AlignHCenter
-            width: connectionScreen.columns * connectionScreen.cardW
-                   + (connectionScreen.columns - 1) * connectionScreen.gap
-            spacing: connectionScreen.gap
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-            Repeater {
-                model: connectionScreen.cards
-
-                delegate: Rectangle {
-                    id: card
-
-                    readonly property var rec: modelData
-                    readonly property bool isChosen: connectionScreen.chosenCardId === rec.id
-
-                    width:  connectionScreen.cardW
-                    height: cardGrid.implicitHeight + connectionScreen.pad
-                    radius: Math.round(12 * connectionScreen.uiScale)
-                    color:  cardArea.pressed ? "#1e232b" : "#15181d"
-                    border.width: Math.max(1, Math.round(1.5 * connectionScreen.uiScale))
-                    border.color: (card.isChosen || cardArea.pressed) ? rec.badge : "#2b3038"
-
-                    GridLayout {
-                        id: cardGrid
-                        anchors.centerIn: parent
-                        width: card.width - connectionScreen.pad
-                        columns: connectionScreen.stacked ? 1 : 2
-                        columnSpacing: Math.round(12 * connectionScreen.uiScale)
-                        rowSpacing:    Math.round(10 * connectionScreen.uiScale)
-
-                        // The hardware, contained and never cropped. A cylinder, a wide
-                        // block and a wedge are three very different aspect ratios, so
-                        // each keeps its own shape at a common height. The plate is light
-                        // because the hardware is dark grey and black - on a dark card the
-                        // downscan block would simply disappear.
-                        Rectangle {
-                            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                            Layout.preferredHeight: connectionScreen.artH
-                            Layout.preferredWidth: connectionScreen.stacked
-                                                   ? cardGrid.width
-                                                   : Math.round(connectionScreen.artH * 1.35)
-                            radius: Math.round(8 * connectionScreen.uiScale)
-                            clip: true
-                            gradient: Gradient {
-                                GradientStop { position: 0.0; color: "#f5f6f7" }
-                                GradientStop { position: 1.0; color: "#dbdde0" }
-                            }
-
-                            Image {
-                                anchors.fill: parent
-                                anchors.margins: Math.round(8 * connectionScreen.uiScale)
-                                anchors.bottomMargin: Math.round(12 * connectionScreen.uiScale)
-                                source: card.rec.art
-                                fillMode: Image.PreserveAspectFit
-                                smooth: true
-                                mipmap: true
-                                asynchronous: true
-                            }
-
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: Math.max(3, Math.round(4 * connectionScreen.uiScale))
-                                color: card.rec.badge
-                            }
-                        }
-
-                        // The wordmark stays LIVE TEXT, never baked into the image. The
-                        // old pulse_info_* artwork had the lettering in the pixels, so
-                        // enlarging a card enlarged the lettering as pixels and it went to
-                        // mush. Text that is text survives every size.
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Math.round(2 * connectionScreen.uiScale)
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: card.rec.name
-                                color: "#f2f4f7"
-                                font.pixelSize: Math.round(19 * connectionScreen.uiScale)
-                                font.bold: true
-                                elide: Text.ElideRight
-                                horizontalAlignment: connectionScreen.stacked
-                                                     ? Text.AlignHCenter : Text.AlignLeft
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: card.rec.tagline
-                                color: "#8d96a2"
-                                font.pixelSize: Math.round(13 * connectionScreen.uiScale)
-                                elide: Text.ElideRight
-                                horizontalAlignment: connectionScreen.stacked
-                                                     ? Text.AlignHCenter : Text.AlignLeft
-                            }
-                        }
-                    }
-
-                    MouseArea {
-                        id: cardArea
-                        anchors.fill: parent
-                        onClicked: connectionScreen.commitCard(card.rec)
-                    }
-                }
-            }
-        }
-
-        // Cancelling is possible whenever there is something to go back to. On a cold
-        // start there is not, and the screen correctly offers no way out but a choice.
-        Rectangle {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: Math.round(18 * connectionScreen.uiScale)
-            visible: connectionScreen.canCancel
-            implicitWidth:  keepLabel.implicitWidth + Math.round(36 * connectionScreen.uiScale)
-            implicitHeight: Math.round(44 * connectionScreen.uiScale)
-            radius: height / 2
-            color: keepArea.pressed ? "#2a303a" : "#1b1f26"
-            border.width: 1
-            border.color: "#3a414b"
+        Column {
+            id: content
+            width: flick.width
+            y: Math.max(0, (flick.height - height) / 2)
+            spacing: Math.round(6 * connectionScreen.uiScale)
 
             Text {
-                id: keepLabel
-                anchors.centerIn: parent
-                text: "Keep " + (pulseRuntimeSettings
-                                 ? pulseRuntimeSettings.modelDisplayName(connectionScreen.lastCommittedModel)
-                                 : "")
-                color: "#dfe4ea"
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Pulse Echo Sounder"
+                color: "#f2f4f7"
+                font.pixelSize: Math.round(26 * connectionScreen.uiScale)
+                font.bold: true
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                bottomPadding: Math.round(10 * connectionScreen.uiScale)
+                text: connectionScreen.canCancel ? "Choose your sounder"
+                                                 : "Which sounder are you using?"
+                color: "#9aa3ae"
                 font.pixelSize: Math.round(15 * connectionScreen.uiScale)
             }
 
-            MouseArea {
-                id: keepArea
-                anchors.fill: parent
-                onClicked: connectionScreen.keepCurrent()
-            }
-        }
+            Flow {
+                anchors.horizontalCenter: parent.horizontalCenter
+                // NOT a plain `width` inside a ColumnLayout - a Layout overwrites it with
+                // the implicit width, which for a Flow is not the row width, and every
+                // card then wrapped onto its own line however much room there was. This
+                // Column positions children in y only, so the width below is the truth.
+                width: Math.min(content.width,
+                                connectionScreen.perRow * connectionScreen.cardW
+                                + (connectionScreen.perRow - 1) * connectionScreen.gap)
+                spacing: connectionScreen.gap
 
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: Math.round(14 * connectionScreen.uiScale)
-            text: "This closes by itself when the sounder is recognised."
-            color: "#69727d"
-            font.pixelSize: Math.round(12 * connectionScreen.uiScale)
-            visible: connectionScreen.availH > Math.round(320 * connectionScreen.uiScale)
+                Repeater {
+                    model: connectionScreen.cards
+
+                    delegate: Rectangle {
+                        id: card
+
+                        readonly property var rec: modelData
+                        readonly property bool isChosen: connectionScreen.chosenCardId === rec.id
+
+                        width:  connectionScreen.cardW
+                        height: cardGrid.implicitHeight + connectionScreen.pad
+                        radius: Math.round(12 * connectionScreen.uiScale)
+                        color:  cardArea.pressed ? "#1e232b" : "#15181d"
+                        border.width: Math.max(1, Math.round(1.5 * connectionScreen.uiScale))
+                        border.color: (card.isChosen || cardArea.pressed) ? rec.badge : "#2b3038"
+
+                        GridLayout {
+                            id: cardGrid
+                            anchors.centerIn: parent
+                            width: card.width - connectionScreen.pad
+                            columns: connectionScreen.stacked ? 1 : 2
+                            columnSpacing: Math.round(12 * connectionScreen.uiScale)
+                            rowSpacing:    Math.round(10 * connectionScreen.uiScale)
+
+                            // The hardware, contained and never cropped. A cylinder, a
+                            // wide block and a wedge are three very different aspect
+                            // ratios, so each keeps its own shape at a common height. The
+                            // plate is light because the hardware is dark grey and black -
+                            // on a dark card the downscan block would simply disappear.
+                            Rectangle {
+                                Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+                                Layout.preferredHeight: connectionScreen.artH
+                                Layout.preferredWidth: connectionScreen.stacked
+                                                       ? cardGrid.width
+                                                       : Math.round(connectionScreen.artH * 1.35)
+                                radius: Math.round(8 * connectionScreen.uiScale)
+                                clip: true
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: "#f5f6f7" }
+                                    GradientStop { position: 1.0; color: "#dbdde0" }
+                                }
+
+                                Image {
+                                    anchors.fill: parent
+                                    anchors.margins: Math.round(8 * connectionScreen.uiScale)
+                                    anchors.bottomMargin: Math.round(12 * connectionScreen.uiScale)
+                                    source: card.rec.art
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    mipmap: true
+                                    // Three small PNGs out of the qrc. Decoding them on
+                                    // the loading thread is what made the screen assemble
+                                    // itself after it was already on top of the echogram.
+                                    asynchronous: false
+                                    cache: true
+                                }
+
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    height: Math.max(3, Math.round(4 * connectionScreen.uiScale))
+                                    color: card.rec.badge
+                                }
+                            }
+
+                            // The wordmark stays LIVE TEXT, never baked into the image.
+                            // The old pulse_info_* artwork had the lettering in the
+                            // pixels, so enlarging a card enlarged the lettering as pixels
+                            // and it went to mush. Text that is text survives every size.
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: Math.round(2 * connectionScreen.uiScale)
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: card.rec.name
+                                    color: "#f2f4f7"
+                                    font.pixelSize: Math.round(19 * connectionScreen.uiScale)
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    horizontalAlignment: connectionScreen.stacked
+                                                         ? Text.AlignHCenter : Text.AlignLeft
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: card.rec.tagline
+                                    color: "#8d96a2"
+                                    font.pixelSize: Math.round(13 * connectionScreen.uiScale)
+                                    elide: Text.ElideRight
+                                    horizontalAlignment: connectionScreen.stacked
+                                                         ? Text.AlignHCenter : Text.AlignLeft
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: cardArea
+                            anchors.fill: parent
+                            onClicked: connectionScreen.commitCard(card.rec)
+                        }
+                    }
+                }
+            }
+
+            // Cancelling is possible whenever there is something to go back to. On a cold
+            // start there is not, and the screen correctly offers no way out but a choice.
+            Item {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: connectionScreen.canCancel
+                width:  keepPill.width
+                height: connectionScreen.canCancel
+                        ? keepPill.height + Math.round(18 * connectionScreen.uiScale) : 0
+
+                Rectangle {
+                    id: keepPill
+                    anchors.bottom: parent.bottom
+                    implicitWidth:  keepLabel.implicitWidth + Math.round(36 * connectionScreen.uiScale)
+                    implicitHeight: Math.round(44 * connectionScreen.uiScale)
+                    width:  implicitWidth
+                    height: implicitHeight
+                    radius: height / 2
+                    color: keepArea.pressed ? "#2a303a" : "#1b1f26"
+                    border.width: 1
+                    border.color: "#3a414b"
+
+                    Text {
+                        id: keepLabel
+                        anchors.centerIn: parent
+                        text: "Keep " + (pulseRuntimeSettings
+                                         ? pulseRuntimeSettings.modelDisplayName(connectionScreen.lastCommittedModel)
+                                         : "")
+                        color: "#dfe4ea"
+                        font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                    }
+
+                    MouseArea {
+                        id: keepArea
+                        anchors.fill: parent
+                        onClicked: connectionScreen.keepCurrent()
+                    }
+                }
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                topPadding: Math.round(14 * connectionScreen.uiScale)
+                text: "This closes by itself when the sounder is recognised."
+                color: "#69727d"
+                font.pixelSize: Math.round(12 * connectionScreen.uiScale)
+                visible: connectionScreen.duH > 300
+            }
         }
     }
 }

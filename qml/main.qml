@@ -2891,7 +2891,11 @@ ApplicationWindow  {
     // the windowShadow sheet. Everything it shows hangs off one binding, chooserAsking.
     PulseConnectionScreen {
         id: pulseConnectionScreen
-        uiScale: mainview.s
+        uiScale:    mainview.s
+        safeTop:    mainview.insetTop()
+        safeBottom: mainview.insetBottom()
+        safeLeft:   mainview.insetLeft()
+        safeRight:  mainview.insetRight()
     }
 
 }
