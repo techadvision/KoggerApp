@@ -2703,3 +2703,141 @@ reached the way it is reached today.
   track or TVG ever want different numbers for it, black stops being a card entry and
   becomes a profile entry. One line, which is what the keyed map is for.
 
+
+---
+
+## Stage 4, step 1 — the connection screen, built (12 Sept 2026)
+
+Signed off on device: *"Perfect."* Eleven commits across seven device builds, on
+branch `feature/device-profiles-step4` — now 38 commits, of which 30 are not yet
+on `origin/feature/device-profiles-step4`. (`master` and `origin/master` are
+level, so the branch is the only thing outstanding.)
+
+`qml/PulseConnectionScreen.qml` (registered in `qml/qml.qrc`) is instantiated once
+in `main.qml` above both `Plot2D` panes. Out of `main.qml` went
+`echoSounderSelectorRect`, its 1 s `selectorDelayTimer`, `freeContainer`, both
+`EchoSounderSelector` panels, the `selectedRed`/`selectedBlue` states with their
+slide transitions and 3.5 s fade, `hideBackground`, and `windowShadow` — 3121
+lines down to 2898.
+
+| Commit | What |
+|---|---|
+| `4d6a4c14` | the chooser and the one binding; the old chooser out of `main.qml` |
+| `3760e373` | it fits the screen it is on, and scrolls |
+| `623a4c37` | it opens at once when nothing can answer it |
+| `32304000` | the cards wear the real wordmark |
+| `76522080` | a status strip that says what the link is doing |
+| `aaa8cc9e` | start a simulation |
+| `eea40a7d` | a panel of its own |
+| `aa7dd484` | transducer, and Downscan |
+| `9581b284` | the two buttons chained across the foot of the panel |
+| `8b5b941c` | the caption out of the chain, so the gaps are equal |
+| `043883bf` | the strip identifies a transducer |
+
+### The one binding, and the defect underneath it
+
+`windowShadow` was a plain bool written by four handlers. Force reselection
+commits nothing, so neither lowering path ran and the sheet was raised with
+nothing under it — backlog item 10. All four writers are gone:
+
+```qml
+chooserAsking = swapDeviceNow
+             || (userManualSetName === "..." && !isPresentingLog
+                 && (graceElapsed || !somethingMayStillAnswer))
+```
+
+**Item 10's root cause, found and fixed.** `main.qml`'s `onSwapDeviceNowChanged`
+cleared `swapDeviceNow`. That `Connections` object is created at load and
+`DeviceItem`'s later, so main's handler ran **first**, and clearing the flag there
+re-entered the signal and left `DeviceItem`'s handler looking at a flag that was
+already false — so the reset it exists to perform never ran at all. That is both
+the stranded sheet on force reselection *and* the bench symptom where an accepted
+swap kept the previous device's orientation and colours. `main.qml` now keeps only
+`devManualSelected = false` (which `resetAllSetupStates()` does not do) and lets
+`DeviceItem` own the flag, which is the order `acceptDeviceSwap()` always
+documented.
+
+`graceElapsed` is a 1.2 s latch, applied only when `somethingMayStillAnswer`
+(`hasConnectedDevice || lastCommittedModel !== ""`). With nothing connected and
+nothing ever committed, nothing is going to answer, so the screen opens at once.
+
+### Layout
+
+Two shapes and one breakpoint, measured in **design units** (pixels ÷ `uiScale`)
+so it means the same thing on a phone, a tablet and an Android split screen:
+`wide` (≥ 620 × 340 du) puts the render above the wordmark, as many cards per row
+as fit; `narrow` puts it beside the wordmark, one card per row and a card ~150 px
+tall instead of ~420. Everything lives in a `Flickable` that centres its content
+when it fits and scrolls when it does not (`contentHeight = content.height +
+content.y * 2`).
+
+The **panel** is the measure: the card row sets its width, and the strip above it
+takes the same one. Every other width derives from the width *inside* the panel,
+so the cards can never be wider than the box holding them.
+
+The two buttons sit in a **chain** across the foot — a `RowLayout` of five
+children where the three *spacers* carry `Layout.fillWidth` and the buttons do
+not. Alone, the outer two gaps split the room and the simulation button is
+centred; with `Keep` present, all three share it. The caption is deliberately
+*outside* the chain, positioned under the button it explains, because as a chain
+item it made that button's slot far wider than the button and the gaps came out
+equal between slots while looking wrong between buttons.
+
+### Three QML rules this step paid for
+
+1. **Never set a plain `width`/`height` on a direct child of a Layout.** A Layout
+   overwrites it with the implicit size. The cards never went side by side because
+   the `Flow` holding them sat in a `ColumnLayout` with a plain `width`, and a
+   `Flow`'s implicit width is not its row width. Use `Layout.preferredWidth`, or
+   do not use a Layout. (A `Column`/`Row` positioner is not a Layout — `width` is
+   fine there.)
+2. **A chain distributes between items, not between the things you can see.** If
+   an item is wider than its visible content, the equal gaps will not look equal.
+3. **Wrapping text needs a width that does not depend on its height.** The strip's
+   row is given an explicit width rather than `anchors.fill`, so the detail line
+   can decide its own height.
+
+### The cards, and the artwork
+
+Data, in the shape step 2 moves into the profile map — `id`, `name`, `tagline`,
+`art`, `logo`, `badge`, `profile`. Red and black are two cards on one profile.
+
+The wordmark is `pulse_logo_red/_black/_blue`, the same 500 × 99 files the profile
+map already names as `ui.brand.logo` / `ui.brand.logoBlack`. They are dark ink
+drawn for a light ground, so the light plate grew to carry the render *and* the
+wordmark and the dark card below keeps only the tagline. This does not undo the
+prototyping rule about baked-in lettering: that was about `pulse_info_*.png`,
+where the letters share pixels with the artwork. A live-text name remains as the
+fallback when an image does not load, so a new model can arrive as a data edit
+with its logo a commit behind.
+
+### Behaviour that must not regress
+
+- Committing a card writes `userManualSetName` and `devManualSelected` exactly as
+  the old selectors did, with blue's three-line `chartResolution` / `distMax` /
+  `maximumDepth` seed carried over verbatim and in the same order.
+- Every way out of the screen commits a model, so it cannot strand itself. With
+  nothing ever committed there is no dismiss, by design.
+- `Start a simulation` calls `enterDemoMode()` — the Recording tab's demo path,
+  not its browse path. That makes `isPresentingLog` true, so the screen closes
+  itself the same way detection closes it. Stopping is still the Recording tab's
+  button, which already reopens the links and re-runs detection (item 9).
+
+### Confirmed on device
+
+Force reselection shows the cards and can be cancelled; stopping a simulation
+raises the screen again; nothing detected shows the cards with no dismiss;
+detection still closes the screen by itself; the narrow layout adapts in an
+Android split screen; and the screen is up as fast as the echogram.
+
+### Left open, on purpose
+
+- **Wording, for the finalisation pass.** The strip still says "sounder" in
+  *"Sounder found, nothing open on it yet"* and *"Power the sounder on"*. And
+  *"Not connected"* was observed while the tablet was on a wifi network with
+  nothing answering on it — Olav's call whether that is describing the right
+  thing.
+- `qml/EchoSounderSelector.qml` is dead code, left on disk and in `qml.qrc` on
+  purpose for these builds. It goes with the step 3 wire strip.
+- Backlog 11 / 12 / 13 stay parked. The boat run still covers the swap prompt on
+  hardware, item 10's bench re-test and `PULSEblue-IP`.
