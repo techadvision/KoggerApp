@@ -2976,3 +2976,201 @@ connection screen at all.
 What the numbers should BE is still a measurement, exactly as blue's are. The
 limits are what let the UI expose the control in the first place; the period the
 echogram actually runs at is decided on the water.
+
+
+---
+
+## Stage 4, step 3 — the swap prompt moved, and what the move exposed (13 Sept 2026)
+
+Two commits on `feature/device-profiles-step4`: `468d3c68` the prompt becomes a
+mode of the connection screen, `7cf9d7d8` `EchoSounderSelector.qml` off disk and
+out of `qml.qrc`. The branch is 35 commits ahead of
+`origin/feature/device-profiles-step4`.
+
+### What the device confirmed
+
+Blue committed by hand, then the wifi joined with a red already powered on. The
+connection screen came up carrying the swap question — *"Connected to PULSE
+red"*, switch or keep — instead of a banner over the echogram. That is the step,
+and it works.
+
+### What it was standing in front of
+
+Everything else in the run is one family, and Olav's reading of it was right:
+*"they likely all originate from previous parked items."* They do. The move did
+not cause them; it put them on a screen where they are unmissable, which is what
+a full-bleed surface does with state that was previously only half-visible
+behind a running picture.
+
+---
+
+### Defect A — an accepted swap moves the model and not the presentation
+
+Accepting red gave a screen that was *initially correct* and then, in Olav's
+words, *"all of a sudden"* became mostly blue:
+
+| what appeared | what it should be | the value behind it |
+|---|---|---|
+| the horizontal side scan view, bottom half only on a one-channel device | red's 2D view | `ecoViewId` / the view applied at configure time |
+| HQ, blue's preferred colour map | S dark, red's preference | `pulseSettings.colorMapIndexReal` |
+| max depth stepped by 5, ceiling 25 | red's hardware ceiling, 52 | `maximumDepth` — **backlog item 11** |
+| temperature shown | correct for red, off by default on blue | the datasetTemp path |
+
+And: *"Behaviour is not always consistent though."* That sentence is the
+diagnosis. Inconsistency between runs is the signature of a value written by
+assignment from more than one place — which answer you get depends on which
+handler ran last, and that ordering is not stable.
+
+**The mechanism, stated once.** `resetAllSetupStates()` resets the *device
+parameter handshake* — twenty-odd `*_ok` acknowledgement flags, the four
+category flags, `devConfigured`, the dynamic-resolution pair. It touches nothing
+on the presentation side, because in the shape the app had when it was written
+there was nothing on the presentation side to touch.
+
+Presentation state today is in two classes:
+
+* **a binding on the profile.** It follows a swap by construction and needs no
+  reset at all. This is what backlog items 7 and 10 produced when
+  `isDevice2DTransducer()` became `displayIs2DTransducer`, and it is why
+  orientation and the colour *chooser* now follow a swap correctly.
+* **a shared value written by assignment from per-model preferences.** It
+  freezes at whichever model wrote it last, and a swap re-runs none of the
+  assignments.
+
+All four rows in the table are the second class. `colorMapIndexReal` is the
+clearest: the two real preferences are `colorMapIndex2D` and
+`colorMapIndexSideScan`, and `colorMapIndexReal` is the shared value actually
+pushed to the renderer — assigned in five places in `PulseAppClassic.qml`, each
+from whichever model happened to be current. `maximumDepth` is the same shape
+with three writers, which is item 11 exactly, and the ceiling of 25 is blue's
+`pulseSettings.echogramWidth` still standing after the swap to red.
+
+**So the fix is not a bigger reset.** It is rule 2 — *a value with two sources
+gets one binding and one override, never an assignment* — applied to the
+presentation state as a whole, the way item 7/10 applied it to the display
+model. A value that is a binding on the committed profile has nothing to reset,
+so "how do we properly reset on a swap" stops being a question rather than
+getting a longer answer. That is the Stage 4 work these symptoms belong to, and
+it is bigger than one commit.
+
+---
+
+### Defect B — the app auto-selects a device that is no longer there
+
+Bench sequence, no boat needed: wifi off, echogram stops, then the expert force
+reselection. The connection screen comes up. About ten seconds later the app
+commits red on its own and shows the frozen echogram again. Nothing is connected
+at all.
+
+**Nothing in the app is a liveness fact.** Every fact detection relies on was
+learned once and never expires:
+
+* `linkIsOpen` stays true — a UDP socket does not close because the wifi went
+  away.
+* the device stays in `devList` with `devType` and a name, so
+  `selectCorrectDevice()`'s `chosen` is still non-null and `deviceIsPresent`
+  stays true.
+* `devName` survives the reselection: `DeviceItem.onSwapDeviceNowChanged` has
+  `//pulseRuntimeSettings.devName = "..."` commented out. (`exitDemoMode()`, by
+  contrast, *does* clear it — the three resets in this app are three hand-copied
+  lists that have drifted, and the swap one is the thinnest.)
+* `hasDeviceLostConnection` **cannot** become true here. `lostConnectionTimer`
+  requires `didEverReceiveData`, and the reselection had just set that false;
+  nothing re-raises it, because it is raised by `onDevNameChanged` and the name
+  never changed.
+
+So after the reselection the app holds a complete, confident, entirely stale
+identity — and `selectCorrectDevice()`'s *"nothing committed yet"* branch fires
+on exactly that state, because the reselection is what puts `userManualSetName`
+back to `"..."`:
+
+```qml
+if (previous !== "" && previous !== "...") {
+    pulseRuntimeSettings.requestDeviceSwap(previous, model)
+} else {
+    pulseRuntimeSettings.userManualSetName = model   // no test that anything is answering
+}
+```
+
+The guard that would have asked — `previous !== "..."` — is the very thing a
+force reselection destroys. **A force reselection is therefore the one state in
+which the app is guaranteed to answer its own question from stale facts.**
+
+The root of it is below QML: a dead link reports itself open and a dead device
+stays in the list. Olav's instinct that the C++ is to blame is right about the
+root. But the app does not have to act on it, and there is one true liveness
+signal already wired: `dataset.onDataUpdate`, which restarts the 2.5 s
+`lostConnectionTimer`. That pair is "data arrived within the last 2.5 s", and
+nothing reads it as a fact today.
+
+---
+
+### Defect C — the strip claims a connection that does not exist
+
+Same run: the strip said *"Connected to PULSE red"* with nothing on the wire.
+`linkState` reaches `talking` on `linkIsOpen && linkNamed`, and both are stale
+for the reasons above, while its `lost` state is unreachable because it is built
+on `hasDeviceLostConnection`, which defect B shows cannot be raised after a
+reset. The strip is not lying on its own account; it is reporting the app's own
+best facts faithfully, and they are wrong.
+
+This is the same root as the open wording note from step 1 — *"Not connected"*
+observed on a wifi network with nothing answering. Both are the link state
+machine describing a socket rather than a transducer. The wording pass should
+not be attempted until the states underneath it are true.
+
+---
+
+### The one fix proposed now
+
+Deliberately small, one idea, and testable on the bench without the boat.
+
+**1. A real liveness latch.** `isAnswering` in `PulseRuntimeSettings`, raised in
+`DeviceItem`'s `dataset.onDataUpdate` and lowered unconditionally at the top of
+`lostConnectionTimer` — above its `didEverReceiveData` and `devName` guards,
+which is what makes it survivable across a reset. One raiser, one lowerer, in
+the shape `graceElapsed` already uses. A log or a demo also produces
+`onDataUpdate`, so the latch is not on its own a statement about hardware.
+
+**2. A first commit is instant; a re-commit must prove the device is still
+there.**
+
+```qml
+// A FIRST commit is the app learning what is on the wire, and it must stay
+// instant - that path is every cold start. A LATER one, after something wiped
+// the commit, has to prove the device is still answering: the devList keeps a
+// dead device and the link stays "open" when the wifi goes away, so an identity
+// is not evidence of a transducer.
+if (!pulseRuntimeSettings.everCommittedModel || pulseRuntimeSettings.isAnswering)
+    pulseRuntimeSettings.userManualSetName = model
+```
+
+`everCommittedModel` is the same fact `PulseConnectionScreen` already keeps as
+`lastCommittedModel`; it belongs in `PulseRuntimeSettings`, and the screen
+should read it rather than keep its own copy — but that is a second commit and
+not this one.
+
+**What this deliberately does not do.** It adds no new trigger for
+`selectCorrectDevice()`. Detection re-runs on a device-list change, a redetect
+request and the Basic2D settle window, and on none of those after a force
+reselection with a live device — which is exactly why *"force reselection shows
+the cards and can be cancelled"* works today. Making data arrival a trigger
+would close the screen on the next frame and undo a confirmed step-1 behaviour.
+The cold start is untouched for the same reason: the gate is not applied to a
+first commit, so there is no path where the app waits for data it will only
+receive after it configures.
+
+**Acceptance, on the bench.** Wifi off, force reselection: the screen comes up
+and *stays* up, and no model is committed. Wifi on with a transducer: cold start
+still commits as fast as it does today, and a force reselection still shows the
+cards and still cancels.
+
+### Not being done now, on purpose
+
+* Defect A in full — it is rule 2 across the presentation state, and item 11 is
+  one of its four known instances.
+* The strip's states (defect C), and the wording pass that waits on them.
+* Backlog 11 / 12 / 13, still parked.
+* The rail's source button and the demo indicator — step 4, waiting for
+  `PulseAppV2`.
+* The IP variant for red and black, recorded as a requirement.
