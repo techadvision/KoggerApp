@@ -2218,3 +2218,64 @@ neither can recur:
    opening a blue log. The log says `VALUE_CHANGE: publishing displayIs2DTransducer false`
    followed by `VALUE_CHANGE: grid is2DTransducer_ (display) was updated to false`.
 3. **Nothing changed for a live device of either kind**, which is the guard as always.
+
+---
+
+## CORRECTION — the third build's change was reverted (12 Sept 2026)
+
+**The section above is what was attempted, not what is in the tree.** On device it made things
+worse: the colour chooser and the layout stopped adapting to a replayed log — behaviour that
+had been confirmed working the build before — the ruler was still wrong, and the max depth step
+went back to 1 m on a side scan.
+
+`5393eb4f` is reverted by `b187cc31`. The tree is back to `b5f74f1a`, the build Olav confirmed
+as *"now we are talking"*, plus the ruler fix alone (`1b27c122`).
+
+### What went wrong, honestly
+
+**One commit carried two unrelated changes** — the `maximumDepth` binding-plus-override
+restructure and the display-model bus key — so when the build came back worse there was no way
+to tell which half did it without another round trip. That is the process error, and it is the
+one worth not repeating: the device is a slow, precious test rig, and a commit sent to it should
+test one idea.
+
+**One defect in it is provable.** Both bus keys were made to write the *same* member through an
+`if / else if`:
+
+```cpp
+if (m.contains("displayIs2DTransducer")) is2DTransducer_ = …;
+else if (m.contains("is2DTransducer"))   is2DTransducer_ = …;
+```
+
+The settings bus sends **partial maps** — `onIs2DTransducerChanged` sends one key,
+`onDisplayIs2DTransducerChanged` the other — so that variable ended up holding whichever key
+arrived last. A coin flip between the committed and the display answer, re-tossed on every
+change. That alone could keep the ruler wrong.
+
+**The colour and step regression is not explained by the code.** Both read
+`pulseRuntimeSettings.displayIs2DTransducer` in QML, which the reverted commit did not touch.
+If it recurs, the log settles it: `DEV_UI: showAs2DTransducer ->` says what the UI believes and
+what both models were at that moment.
+
+### What is in the tree now
+
+The ruler, isolated:
+
+- `main.qml` publishes `displayIs2DTransducer` as its **own** bus key.
+- `Plot2DGrid` keeps it in its **own** member with a "seen it" flag, so the two keys can never
+  overwrite each other, and falls back to the committed answer only while the display key has
+  never arrived.
+- Only `calculateRulerTicks()`'s mirroring reads it. `plot2D.cpp` is untouched;
+  `reRangeDistance()` keeps asking the question it always asked.
+
+### Still open, and to be done on its own
+
+**The range ceiling.** The diagnosis stands and is worth keeping: `maximumDepth` is a binding on
+`committedProfile.maximumDepth` that three places assign to — `DeviceItem` configuring a blue,
+`main.qml`'s manual blue pick, and the expert dist-max control — and any one of them freezes the
+ceiling at whichever device was current, which is why a presented blue log can still be stepped
+to red's 52. A side scan's true ceiling is the configured swath width, which no static profile
+key can hold.
+
+The fix shape (an unbreakable binding plus an explicit override) is probably still right. What
+it must not be again is one commit with something else in it.
