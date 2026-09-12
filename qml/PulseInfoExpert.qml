@@ -757,6 +757,25 @@ Flickable {
             }
         }
 
+        //PULSE 2026-09-12: 2D gain-law comparison. Upstream 1.0.3's linear TGC ramp was
+        //merged in at the image type PULSE's own TVG already used and shadowed it, so the
+        //2D TVG had been rendering upstream's law since the merge. Both laws now exist
+        //(2 = EchogramTvg, 4 = upstream TGC) and this switches a live render between them.
+        //Not persistent — every launch starts on PULSE's TVG.
+        SettingRow {
+            toggle: false
+            checkbox: true
+            id: tvgLawToggle
+            text: "Compare: upstream TGC ramp instead of PULSE TVG"
+            show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg && pulseRuntimeSettings.echogramTvgEnabled
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "echogram2DUpstreamTgc"
+                initialChecked: pulseRuntimeSettings.echogram2DUpstreamTgc
+                clearAfter: false
+            }
+        }
+
 
         //PULSE side scan TVG (side scan phase): its own category. Log-law range
         //gain for the side scan waterfall (imageType 3) and optionally the map

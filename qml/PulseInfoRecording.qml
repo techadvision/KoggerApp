@@ -533,6 +533,7 @@ Rectangle {
             if (comp === 1) return "(sidescan)"
             if (comp === 2) return "(tvg 2D)"
             if (comp === 3) return "(sidescan tvg)"
+            if (comp === 4) return "(tgc upstream)"   // 2026-09-12: upstream 1.0.3 linear ramp, comparison only
             return "()"
         }
 

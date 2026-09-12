@@ -160,8 +160,8 @@ public:
             ssTvgVersion = EchogramSideScanTvg::version();
         }
 
-        //UPSTREAM 1.0.3: their linear TGC buffer, kept alongside ours. See rule 3 -
-        //which of the two drives the mosaic is a decision, not a merge.
+        //UPSTREAM 1.0.3: their linear TGC buffer (imageType 4), kept alongside ours.
+        //See rule 3 - which of the two drives the mosaic is a decision, not a merge.
         QVector<uint8_t> tgc;
 
         static inline std::atomic<float> gTgcGainNear  { 0.5f };  // дефолт 50%
@@ -599,16 +599,7 @@ public:
                 return zeroOut();
             }
             src = eg.compensated.constData();
-        } else if (imageType == 2) {
-            if (eg.tgc.isEmpty()) {
-                eg.updateTgc();
-            }
-            if (eg.tgc.isEmpty()) {
-                return zeroOut();
-            }
-            src = eg.tgc.constData();
-        }
-        else if (imageType == 2) { // PULSE: TVG display compensation
+        } else if (imageType == 2) { // PULSE: TVG display compensation
             if (eg.tvgCompensated.size() != rawSize || eg.tvgVersion != EchogramTvg::version()) {
                 eg.updateTvgCompensated();
             }
@@ -626,10 +617,27 @@ public:
             }
             // else: fail-safe — keep rendering the raw amplitude
         }
+        else if (imageType == 4) { // UPSTREAM 1.0.3: their linear TGC ramp
+            // This branch arrived with the upstream merge WRITTEN AS imageType 2 — the id
+            // PULSE's own TVG already used — and being earlier in the chain it shadowed it.
+            // For as long as that stood, every "2D TVG" render was actually upstream's
+            // straight ramp from gTgcGainNear to gTgcGainFar and EchogramTvg never ran.
+            // Moved to 4 (2026-09-12) so both gain laws exist and are selectable; 2 is
+            // PULSE's field-tuned EchogramTvg again. Selected from QML by the expert
+            // switch pulseRuntimeSettings.echogram2DUpstreamTgc, which exists so the two
+            // renders can be compared on the water before either is retired.
+            if (eg.tgc.isEmpty()) {
+                eg.updateTgc();
+            }
+            if (eg.tgc.isEmpty()) {
+                return zeroOut();
+            }
+            src = eg.tgc.constData();
+        }
 
         // PULSE Stage B: water-body display filter (column dim + surface soft-knee).
         // Applies on top of EVERY image type — raw (0), side-scan AGC (1),
-        // TVG (2) and side scan TVG (3) — whenever the expert toggle is on
+        // PULSE TVG (2), side scan TVG (3) and upstream TGC (4) — whenever the expert toggle is on
         // (decoupled from the TVG toggles, 2026-08-17). Off by default, so
         // the validated option-1 render is unchanged unless requested.
         // Fail-safe inside apply(): epochs without a bottom track render unfiltered.

@@ -128,7 +128,7 @@ QtObject {
     property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
     property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
-    property int    echogramCompensationFile:0      // EXPERIMENTAL: 0 (raw), 1 (side scan) or 2 (TVG)
+    property int    echogramCompensationFile:0      // 0 raw, 1 side scan AGC, 2 PULSE 2D TVG, 3 side scan TVG, 4 upstream TGC ramp
 
     //Water-body filter — Stage B (display-only). When enabled the Pulse
     //filter control drives the new water-column/surface filter instead of the upstream
@@ -204,6 +204,26 @@ QtObject {
                                                                         : false
     property double echogramTvgDbPerMeter:  0.9     // Net decay constant in dB/m (Dreamlake harvest: 0.66-1.11, mean ~0.9)
 
+    //WHICH 2D GAIN LAW RENDERS — comparison switch, 2026-09-12.
+    //
+    //The upstream 1.0.3 merge brought in a linear TGC ramp (gain gTgcGainNear -> gTgcGainFar
+    //straight across the trace) and it was written into Epoch::chartTo() at imageType 2, the
+    //id PULSE's own EchogramTvg already held. Being first in the chain it shadowed ours, so
+    //every "2D TVG" render since the merge was in fact upstream's ramp and EchogramTvg never
+    //ran at all. Upstream's branch now lives at imageType 4 and 2 is EchogramTvg again.
+    //
+    //Both laws are kept because retiring one is a decision about the picture, not a merge
+    //conflict: PULSE's constant is field-tuned (echogramTvgDbPerMeter 0.9, from the Dreamlake
+    //harvest) and upstream's ramp is not the same law. This switch is how they are compared
+    //on the water — flip it with the 2D echogram on screen and the picture changes under you.
+    //
+    //NOT PERSISTENT (nothing in this file is), so every launch starts on PULSE's TVG. That is
+    //deliberate: the comparison is a deliberate act, never a state to wake up in. Note that
+    //echogramTvgDbPerMeter does nothing while this is on — upstream's ramp has its own
+    //constants (Core.setTgcGainNear / setTgcGainFar), which no PULSE UI touches today.
+    property bool   echogram2DUpstreamTgc:  false
+    readonly property int echogram2DGainId: echogram2DUpstreamTgc ? 4 : 2
+
     //Side scan TVG — side scan phase (expert-gated, display-only). Log-law range
     //gain (imageType 3) validated offline on SS_pulse_log_2026.07.20: consistent
     //intensity over range (brightness = bottom hardness) instead of the AGC's
@@ -218,8 +238,9 @@ QtObject {
     property bool   sideScanTvgMosaicEnabled:false  // mosaic renders TVG buffer instead of AGC (rebuild applied on switch)
 
     // Single source of truth for the echogram compensation id.
-    // 2D uses TVG (2) when enabled, else raw (0); side scan uses side scan
-    // TVG (3) when enabled, else AGC (1).
+    // 2D uses the selected gain law (echogram2DGainId: 2 = PULSE EchogramTvg,
+    // 4 = upstream's linear TGC ramp) when enabled, else raw (0); side scan uses
+    // side scan TVG (3) when enabled, else AGC (1).
     //
     // Keyed on activeModel, NOT on is2DTransducer: is2DTransducer is derived from the
     // same red/blue binding and therefore reads "side scan" whenever nothing is committed.
@@ -230,7 +251,7 @@ QtObject {
         if (activeModel === "") {
             return 0
         }
-        return (activeModel === modelPulseRed) ? (echogramTvgEnabled  ? 2 : 0)
+        return (activeModel === modelPulseRed) ? (echogramTvgEnabled  ? echogram2DGainId : 0)
                                                : (sideScanTvgEnabled ? 3 : 1)
     }
 

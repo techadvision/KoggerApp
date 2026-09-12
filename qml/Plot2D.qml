@@ -254,10 +254,34 @@ WaterFall {
                 console.log("EchogramCompensation: TVG toggle ignored, side scan compensation active (", cur, ")")
                 return
             }
-            let comp = pulseRuntimeSettings.echogramTvgEnabled ? 2 : 0
+            let comp = pulseRuntimeSettings.echogramTvgEnabled ? pulseRuntimeSettings.echogram2DGainId : 0
             console.log("EchogramCompensation: Plot2D onEchogramTvgEnabledChanged, resolved", comp)
             plot.plotEchogramCompensation(comp)
             pulseRuntimeSettings.echogramCompensationFile = comp
+        }
+
+        // PULSE 2026-09-12: the 2D gain-law comparison switch. Flips a live 2D render
+        // between PULSE's EchogramTvg (2) and upstream 1.0.3's linear TGC ramp (4)
+        // without touching the TVG on/off state, so the two pictures can be compared
+        // on the water on the same data. Ignores every side scan id and raw, exactly
+        // like the TVG toggle above: with TVG off there is no gain law to choose.
+        function onEchogram2DUpstreamTgcChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            let cur = plot.getEchogramCompensation()
+            if (cur !== 2 && cur !== 4) {
+                console.log("EchogramCompensation: 2D gain-law switch ignored, current compensation", cur)
+                return
+            }
+            // Push PULSE's decay constant first so C++ matches QML before the id moves,
+            // the same belt-and-braces the TVG toggle does.
+            plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+            let comp = pulseRuntimeSettings.echogram2DGainId
+            console.log("EchogramCompensation: Plot2D onEchogram2DUpstreamTgcChanged, resolved", comp,
+                        pulseRuntimeSettings.echogram2DUpstreamTgc ? "(upstream TGC ramp)" : "(PULSE EchogramTvg)")
+            plot.plotEchogramCompensation(comp)
+            pulseRuntimeSettings.echogramCompensationFile = comp
+            plot.updatePlot()
         }
 
         // PULSE TVG: live tuning of the decay constant (dB/m); the C++ side
@@ -282,8 +306,9 @@ WaterFall {
             plot.setSsTvgNoiseFloor(pulseRuntimeSettings.sideScanTvgNoiseFloor)
             plot.setSsTvgBoost(pulseRuntimeSettings.sideScanTvgBoost)
             let cur = plot.getEchogramCompensation()
-            if (cur === 0 || cur === 2) {
-                console.log("EchogramCompensation: side scan TVG toggle ignored, 2D compensation active")
+            // 4 is a 2D id too since the gain-law split (2026-09-12) — upstream's TGC ramp.
+            if (cur === 0 || cur === 2 || cur === 4) {
+                console.log("EchogramCompensation: side scan TVG toggle ignored, 2D compensation active (", cur, ")")
                 return
             }
             let comp = pulseRuntimeSettings.sideScanTvgEnabled ? 3 : 1
