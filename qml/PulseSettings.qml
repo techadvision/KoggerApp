@@ -30,8 +30,22 @@ Settings {
     //anyone who has ever moved the filter slider keeps their own value.
     property int    filterDisplayValue:         8
     property int    filterRealValue:            20
-    property int    ecoViewIndex:               0
-    property int    ecoConeIndex:               0
+    //THE VIEW AND CONE PREFERENCES, as stable entry ids (step 4, 2026-09-12).
+    //
+    //ecoViewIndex / ecoConeIndex stored a POSITION in the profile's ui.views / ui.cones
+    //list. A position only means anything while the list it came from is unchanged, and
+    //those lists are exactly what must be free to change: an expert-only 820 kHz view
+    //appears and disappears with expert mode, hardware gets withdrawn, a new device brings
+    //its own entries. The same stored number then quietly means a different view.
+    //
+    //The id strings below are what is read and written now. The two integers are KEPT,
+    //read-only, purely so an existing install can be migrated once in Component.onCompleted
+    //below - nothing writes them any more. Do not delete them: they are somebody's settings
+    //file. An id is a promise; see the note on the profile entries in PulseRuntimeSettings.
+    property string ecoViewId:                  ""      //"" = not migrated yet
+    property string ecoConeId:                  ""      //"" = not migrated yet
+    property int    ecoViewIndex:               0       //LEGACY, migration source only
+    property int    ecoConeIndex:               0       //LEGACY, migration source only
     property bool   useMetricValues:            true  //Not used anymore
     property bool   useMetricDepth:             true  //Metric split for depth and temperature
     property bool   useMetricTemperature:       true  //Metric split for depth and temperature
@@ -204,6 +218,35 @@ Settings {
             console.log("AUTO FILTER: retired — clearing stored autoFilter; keeping the user's manual filter of",
                         filterDisplayValue, "(real", filterRealValue + ")")
             autoFilter = false
+        }
+
+        //ONE-SHOT MIGRATION: positional view/cone preference -> stable entry id.
+        //
+        //Safe to run on every start: it only ever writes when the id is still empty, and
+        //the value it writes comes from the profile's own list rather than from a constant
+        //here, so the two cannot drift apart. A fresh install has ecoViewIndex 0 and lands
+        //on the first entry, which is the declared default either way.
+        //
+        //This is in PulseSettings for the same reason the auto-filter migration is: main.cpp
+        //creates pulseRuntimeSettings BEFORE this object and main.qml after both, so this is
+        //the earliest point where the profiles are readable and still before any chooser has
+        //seeded itself from the stored value.
+        if (typeof pulseRuntimeSettings !== "undefined" && pulseRuntimeSettings !== null) {
+            var vId = pulseRuntimeSettings.migrateViewId(ecoViewId, ecoViewIndex)
+            if (vId !== "") {
+                console.log("SETTINGS: migrating ecoViewIndex", ecoViewIndex, "-> ecoViewId", vId)
+                ecoViewId = vId
+            }
+            var cId = pulseRuntimeSettings.migrateConeId(ecoConeId, ecoConeIndex)
+            if (cId !== "") {
+                console.log("SETTINGS: migrating ecoConeIndex", ecoConeIndex, "-> ecoConeId", cId)
+                ecoConeId = cId
+            }
+        } else {
+            //Never expected — pulseRuntimeSettings is published first. Say so rather than
+            //failing silently, because the ids would then stay empty and every chooser
+            //would fall back to its first entry.
+            console.log("SETTINGS: pulseRuntimeSettings not reachable, view/cone id migration SKIPPED")
         }
     }
 

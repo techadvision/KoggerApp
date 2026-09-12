@@ -425,7 +425,7 @@ Item {
                 //while the list had exactly two entries, and it is what would have broken
                 //the moment 820 was added back.
                 plot2DGrid.setGridHorizontal(
-                    pulseRuntimeSettings.viewMode(pulseSettings.ecoViewIndex) !== "side")
+                    pulseRuntimeSettings.viewModeForId(pulseSettings.ecoViewId) !== "side")
             }
 
         }
@@ -447,7 +447,7 @@ Item {
             } else {
                 //Same rule as reArrangeQuickChangeObject: the view's own mode decides,
                 //not its position in the list.
-                if (pulseRuntimeSettings.viewMode(pulseSettings.ecoViewIndex) === "side") {
+                if (pulseRuntimeSettings.viewModeForId(pulseSettings.ecoViewId) === "side") {
                     plot.setVerticalNow()
                     pulseRuntimeSettings.isHorizontalGrid = false
                     plot.plotDistanceRange(pulseSettings.maxDepthValuePulseBlue * 1.0)
@@ -465,7 +465,9 @@ Item {
         function getFilterForDepth (depth) {
             //var autoFilter = pulseRuntimeSettings.autoFilterPulseRed;
 
-            if (pulseSettings.ecoConeIndex === 0) {
+            //The WIDE cone by id, not by position: "the first button" stops being the
+            //wide one the moment a list gains an entry above it.
+            if (pulseRuntimeSettings.resolveConeId(pulseSettings.ecoConeId) === "wide") {
                 var autoFilterWide = pulseRuntimeSettings.autoFilterPulseRedWide;
                 for (var i = 0; i < autoFilterWide.length; i++) {
                     if (depth >= autoFilterWide[i].min && depth < autoFilterWide[i].max) {
@@ -598,7 +600,7 @@ Item {
                     //quickChangeObjects.setUserInterface();
                     console.log("TAV: onDevIdentifiedChanged true, is this a 2D transducer?", pulseRuntimeSettings.is2DTransducer);
                     if (pulseRuntimeSettings.is2DTransducer) {
-                        if (pulseSettings.ecoConeIndex === 0) {
+                        if (pulseRuntimeSettings.resolveConeId(pulseSettings.ecoConeId) === "wide") {
                             pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
                         } else {
                             pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
@@ -1317,14 +1319,18 @@ Item {
                 visible: pulseRuntimeSettings.offersViewChoice
                 model: pulseRuntimeSettings.uiViewIcons
                 iconSource: "./icons/ui/pulse_glasses.svg"
-                //ecoViewIndex is persisted, so it can outlive the list it was chosen from -
-                //which is precisely what happened when 820 was withdrawn. Clamp, never trust.
-                selectedIndex: Math.max(0, Math.min(pulseSettings.ecoViewIndex,
-                                                    pulseRuntimeSettings.uiViews.length - 1))
+                //The preference is an ENTRY ID; this turns it into a position in the list
+                //being shown right now. A stored id that is not currently offered (an
+                //expert-only view with expert mode off) resolves to the same mode at another
+                //frequency without the stored id being touched, so the expert's own choice
+                //survives the round trip. Re-evaluates on expertMode, which is what lets the
+                //list grow and shrink with no restart.
+                selectedIndex: pulseRuntimeSettings.viewIndexForId(pulseSettings.ecoViewId)
 
                 hostWindow: plot ? plot : undefined
                 onIconSelected: {
-                    pulseSettings.ecoViewIndex = selectedIndex
+                    //A real tap is the ONLY thing that writes the preference.
+                    pulseSettings.ecoViewId = pulseRuntimeSettings.viewIdAt(selectedIndex)
                     applyView(selectedIndex)
                     plot.updatePlot()
                     quickChangeObjects.reArrangeQuickChangeObject()
@@ -1334,7 +1340,18 @@ Item {
                 //needs no change here, because the entry carries both what it is and what
                 //frequency it runs at.
                 function applyView (index) {
-                    var v = pulseRuntimeSettings.viewAt(pulseRuntimeSettings.clampViewIndex(index))
+                    applyViewEntry(pulseRuntimeSettings.viewAt(pulseRuntimeSettings.clampViewIndex(index)))
+                }
+
+                //By stored id — what restoring a preference should use. Resolution happens
+                //inside viewForId(), so an expert-only view that is hidden right now applies
+                //the visible view of the same mode instead of transmitting at a frequency
+                //the chooser is not showing.
+                function applyViewId (id) {
+                    applyViewEntry(pulseRuntimeSettings.viewForId(id))
+                }
+
+                function applyViewEntry (v) {
                     if (!v)
                         return
                     if (v.mode === "side")
@@ -1365,7 +1382,7 @@ Item {
                     id: setPulseBlueEcoViewOnAppStart
                     repeat: false
                     interval: 1000
-                    onTriggered: themeSelector2.applyView(pulseSettings.ecoViewIndex)
+                    onTriggered: themeSelector2.applyViewId(pulseSettings.ecoViewId)
                 }
 
                 Connections {
@@ -1440,20 +1457,29 @@ Item {
                 visible: pulseRuntimeSettings.offersConeChoice
                 model: pulseRuntimeSettings.uiConeIcons
                 iconSource: "./icons/ui/pulse_glasses.svg"
-                selectedIndex: Math.max(0, Math.min(pulseSettings.ecoConeIndex,
-                                                    pulseRuntimeSettings.uiCones.length - 1))
+                //Same as the view chooser: the preference is an id, this is its position
+                //in the list being shown.
+                selectedIndex: pulseRuntimeSettings.coneIndexForId(pulseSettings.ecoConeId)
                 hostWindow: plot ? plot : undefined
                 //allowExpertModeByMultiTap: false
 
                 onIconSelected: {
                     applyCone(selectedIndex)
-                    pulseSettings.ecoConeIndex = selectedIndex
+                    pulseSettings.ecoConeId = pulseRuntimeSettings.coneIdAt(selectedIndex)
                 }
 
                 //Applies a cone index without writing the preference back, so it is safe to
                 //call when restoring the stored choice on a device change.
                 function applyCone (index) {
-                    var c = pulseRuntimeSettings.coneAt(index)
+                    applyConeEntry(pulseRuntimeSettings.coneAt(index))
+                }
+
+                //By stored id — what restoring a preference should use.
+                function applyConeId (id) {
+                    applyConeEntry(pulseRuntimeSettings.coneForId(id))
+                }
+
+                function applyConeEntry (c) {
                     if (!c)
                         return
                     pulseRuntimeSettings.transFreq = c.freq
@@ -1464,9 +1490,9 @@ Item {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onUserManualSetNameChanged () {
                         if (pulseRuntimeSettings.offersConeChoice) {
-                            themeSelector3.applyCone(pulseSettings.ecoConeIndex)
+                            themeSelector3.applyConeId(pulseSettings.ecoConeId)
                             plot.updatePlot()
-                            console.log("TAV: viewSelector offers cones, restored index", pulseSettings.ecoConeIndex);
+                            console.log("TAV: viewSelector offers cones, restored", pulseSettings.ecoConeId);
                         } else {
                             console.log("TAV: viewSelector device has no cone choice, nothing to restore");
                        }

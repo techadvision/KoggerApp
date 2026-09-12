@@ -1120,7 +1120,7 @@ ColumnLayout {
         //and the entry carries its own frequency. Three branches became one lookup.
         if (pulseRuntimeSettings.offersConeChoice) {
             console.log("DEV_PARAM: pulseRuntimeSettings - cone for", pulseRuntimeSettings.userManualSetName)
-            var setupCone = pulseRuntimeSettings.coneAt(pulseSettings.ecoConeIndex)
+            var setupCone = pulseRuntimeSettings.coneForId(pulseSettings.ecoConeId)
             if (setupCone) {
                 pulseRuntimeSettings.transFreq = setupCone.freq
                 console.log("DEV_PARAM: cone", setupCone.name, "->", setupCone.freq)
@@ -1786,7 +1786,7 @@ ColumnLayout {
 
         if (pulseRuntimeSettings.userManualSetName !== "...") {
             if (pulseRuntimeSettings.offersConeChoice) {
-                let enforceCone = pulseRuntimeSettings.coneAt(pulseSettings.ecoConeIndex)
+                let enforceCone = pulseRuntimeSettings.coneForId(pulseSettings.ecoConeId)
                 if (enforceCone) {
                     pulseRuntimeSettings.transFreq = enforceCone.freq
                     console.log("DEV_PARAM: use frequency for cone", enforceCone.name, "->", enforceCone.freq)

@@ -628,8 +628,18 @@ QtObject {
     //reads they make, and these read uiProfile directly, so a device swap re-evaluates every
     //control that shows or hides on them. The functions further down are for imperative use
     //(handlers, timers), where capture does not come into it.
-    property var  uiViews:          (uiProfile && uiProfile.views) ? uiProfile.views : []
-    property var  uiCones:          (uiProfile && uiProfile.cones) ? uiProfile.cones : []
+    //WHAT THE PROFILE CARRIES vs WHAT THE INTERFACE OFFERS. An entry may be expertOnly, so
+    //these are two different lists and confusing them is how a stored choice goes wrong.
+    //  *All  - every entry the device has. Migration and the legacy positional transFreq*
+    //          readers use these, because they must not move when expert mode does.
+    //  ui*   - what the chooser shows RIGHT NOW. Everything the user touches uses these.
+    //Reading expertMode here is deliberate: it is a property, so the choosers grow and
+    //shrink the moment it is toggled, with no restart. That is requirement 1 of the
+    //forward-looking list, in this one corner.
+    property var  uiViewsAll:       (uiProfile && uiProfile.views) ? uiProfile.views : []
+    property var  uiConesAll:       (uiProfile && uiProfile.cones) ? uiProfile.cones : []
+    property var  uiViews:          uiViewsAll.filter(function (e) { return !e.expertOnly || expertMode })
+    property var  uiCones:          uiConesAll.filter(function (e) { return !e.expertOnly || expertMode })
     property var  uiViewIcons:      uiViews.map(function (e) { return e.icon })
     property var  uiConeIcons:      uiCones.map(function (e) { return e.icon })
     //Never offer a choice of one. A device with a single view or a single cone shows no
@@ -641,27 +651,97 @@ QtObject {
     property var  uiOffers:         (uiProfile && uiProfile.offers) ? uiProfile.offers : ({})
     property var  uiBrand:          (uiProfile && uiProfile.brand)  ? uiProfile.brand  : ({})
 
-    //Cone list accessors (PULSE red). Index is ecoConeIndex.
-    function coneCount()            { return uiProfile && uiProfile.cones ? uiProfile.cones.length : 0 }
-    function coneAt(i)              { var c = uiProfile && uiProfile.cones ? uiProfile.cones : []
-                                      return (i >= 0 && i < c.length) ? c[i] : null }
+    //Cone list accessors (PULSE red). Index is a position in the OFFERED list, which is
+    //what the chooser hands back; the stored preference is an id, never a position.
+    function coneCount()            { return uiCones.length }
+    function coneAt(i)              { return (i >= 0 && i < uiCones.length) ? uiCones[i] : null }
     //Falls back to the profile's own transFreq, which is what a device with no cone list
     //(the Blue) transmitted at anyway - the three legacy transFreq* properties below all
-    //read 460 on blue for exactly that reason.
-    function coneFreq(i, fallback)  { var e = coneAt(i); return e ? e.freq : fallback }
+    //read 460 on blue for exactly that reason. Reads the FULL list: those three are legacy
+    //positional readers and must not move when an expert-only entry appears.
+    function coneFreq(i, fallback)  { var c = uiConesAll
+                                      return (i >= 0 && i < c.length) ? c[i].freq : fallback }
 
-    //View list accessors (PULSE blue). Index is ecoViewIndex.
-    function viewCount()            { return uiProfile && uiProfile.views ? uiProfile.views.length : 0 }
-    function viewAt(i)              { var v = uiProfile && uiProfile.views ? uiProfile.views : []
-                                      return (i >= 0 && i < v.length) ? v[i] : null }
-    //A stored ecoViewIndex can outlive the list it was chosen from - that is exactly what
-    //happened when 820 was withdrawn and left index 2 and 3 pointing at nothing. Clamp
-    //rather than trust, always.
+    //View list accessors (PULSE blue). Same rule: index = position in the offered list.
+    function viewCount()            { return uiViews.length }
+    function viewAt(i)              { return (i >= 0 && i < uiViews.length) ? uiViews[i] : null }
+    //A position can always outlive the list it came from - a shorter list after an entry is
+    //withdrawn, a longer one in expert mode. Clamp rather than trust, always.
     function clampViewIndex(i)      { var n = viewCount(); if (n <= 0) return 0
                                       return (i < 0) ? 0 : (i >= n ? n - 1 : i) }
-    //"down" or "side" for the selected view; "down" when there is no list, which is what a
-    //2D transducer shows.
+    //"down" or "side" for a view POSITION; "down" when there is no list, which is what a
+    //2D transducer shows. Prefer viewModeForId() at anything that reads the preference.
     function viewMode(i)            { var e = viewAt(clampViewIndex(i)); return e ? e.mode : "down" }
+
+    //-- STABLE ENTRY IDS ---------------------------------------------------------------
+    //
+    //ecoViewId / ecoConeId store an entry's `id`, never its position. A position means a
+    //different thing in every list it outlives; an id means the same thing forever, which
+    //is what lets a list grow with expert mode, shrink when hardware is withdrawn, or gain
+    //a new device's entries without rewriting anybody's stored preference.
+    //
+    //THE FALLBACK IS NEVER WRITTEN BACK. resolve*Id() answers "what should be showing" for
+    //a stored id that is not currently offered - the same MODE at another frequency where
+    //there is one (side820 -> side460 on leaving expert mode), otherwise the first entry.
+    //The stored id keeps the user's own choice, so turning expert mode back on restores it.
+    //Only a real tap on the chooser writes the preference.
+    function idAt(list, i)          { return (i >= 0 && i < list.length) ? list[i].id : "" }
+    function indexOfId(list, id)    { for (var i = 0; i < list.length; i++)
+                                          if (list[i].id === id) return i
+                                      return -1 }
+    function entryForId(list, id)   { var i = indexOfId(list, id); return i >= 0 ? list[i] : null }
+    function resolveId(list, id, allList) {
+        if (list.length <= 0)
+            return ""
+        if (indexOfId(list, id) >= 0)
+            return id
+        //Not offered. If the entry exists on the device but is hidden right now, keep the
+        //user in the same mode rather than throwing them to the top of the list.
+        var hidden = entryForId(allList, id)
+        if (hidden && hidden.mode !== undefined) {
+            for (var i = 0; i < list.length; i++)
+                if (list[i].mode === hidden.mode)
+                    return list[i].id
+        }
+        return list[0].id
+    }
+
+    function viewIdAt(i)            { return idAt(uiViews, i) }
+    function coneIdAt(i)            { return idAt(uiCones, i) }
+    function resolveViewId(id)      { return resolveId(uiViews, id, uiViewsAll) }
+    function resolveConeId(id)      { return resolveId(uiCones, id, uiConesAll) }
+    function viewIndexForId(id)     { var i = indexOfId(uiViews, resolveViewId(id)); return i < 0 ? 0 : i }
+    function coneIndexForId(id)     { var i = indexOfId(uiCones, resolveConeId(id)); return i < 0 ? 0 : i }
+    function viewForId(id)          { return entryForId(uiViews, resolveViewId(id)) }
+    function coneForId(id)          { return entryForId(uiCones, resolveConeId(id)) }
+    function viewModeForId(id)      { var e = viewForId(id); return e ? e.mode : "down" }
+
+    //ONE-SHOT MIGRATION from the positional preferences, called once from
+    //PulseSettings.Component.onCompleted. Returns the id to store, or "" to leave alone.
+    //
+    //Deliberately NOT resolved against the committed profile: nothing is committed at
+    //startup, so committedProfile would fall back to blue and a red user's stored cone
+    //index would be read against an empty list. Views only ever existed on the Blue and
+    //cones only on the Red, so each migrates against the profile that owns it, and the
+    //answer does not depend on what happens to be plugged in.
+    function migrateViewId(storedId, legacyIndex) {
+        if (storedId !== "")
+            return ""
+        var all = (pulseBlue.ui && pulseBlue.ui.views) ? pulseBlue.ui.views : []
+        if (all.length <= 0)
+            return ""
+        var i = (legacyIndex < 0) ? 0 : (legacyIndex >= all.length ? all.length - 1 : legacyIndex)
+        return all[i].id
+    }
+    function migrateConeId(storedId, legacyIndex) {
+        if (storedId !== "")
+            return ""
+        var all = (pulseRed.ui && pulseRed.ui.cones) ? pulseRed.ui.cones : []
+        if (all.length <= 0)
+            return ""
+        var i = (legacyIndex < 0) ? 0 : (legacyIndex >= all.length ? all.length - 1 : legacyIndex)
+        return all[i].id
+    }
 
     function tunable(name)          { return uiProfile && uiProfile.tunable ? uiProfile.tunable[name] : undefined }
 
@@ -771,10 +851,15 @@ QtObject {
         "ui": {
             //The Red asks a CONE question: one frequency per cone width. The order is the
             //order of the buttons; ecoConeIndex indexes this list.
+            //id is the STABLE handle: it is what ecoConeId stores, and it must never be
+            //reused or renamed once shipped. A cone is a beam width, so the width names it
+            //and the frequency is how the width is achieved - retuning 710 must not move
+            //anybody's stored choice. expertOnly exists on every entry; see the Blue's
+            //view list for what it is for.
             "cones": [
-                { "icon": "./icons/ui/pulse_cone_510.svg", "freq": 510, "name": "wide"   },
-                { "icon": "./icons/ui/pulse_cone_710.svg", "freq": 710, "name": "medium" },
-                { "icon": "./icons/ui/pulse_cone_810.svg", "freq": 810, "name": "narrow" }
+                { "id": "wide",   "expertOnly": false, "icon": "./icons/ui/pulse_cone_510.svg", "freq": 510, "name": "wide"   },
+                { "id": "medium", "expertOnly": false, "icon": "./icons/ui/pulse_cone_710.svg", "freq": 710, "name": "medium" },
+                { "id": "narrow", "expertOnly": false, "icon": "./icons/ui/pulse_cone_810.svg", "freq": 810, "name": "narrow" }
             ],
             //No view chooser on a 2D transducer: it has one view.
             "views": [],
@@ -858,29 +943,38 @@ QtObject {
             //("down" = horizontal grid / plotDistanceRange2d, "side" = vertical grid /
             //plotDistanceRange); freq is what the view is transmitted at.
             //
-            //820 kHz LIVES HERE - but read this before adding it back.
+            //820 kHz LIVES HERE, and as of step 4 it is a DATA EDIT - nothing else.
             //
-            //820 was NOT withdrawn outright. One professional report found the current blue
-            //transducer has insufficient power to render 820 properly in deeper water, so it
-            //was pulled from the ORDINARY chooser only; experts can still activate it, from
-            //"Pulse blue High/Low Frequenzy" in the experimental expert category
-            //(PulseInfoExpert.qml), which writes transFreq and useBlueHighFrequency directly.
+            //820 was never withdrawn outright. One professional report found the current
+            //blue transducer has insufficient power to render 820 properly in deeper water,
+            //so it was pulled from the ORDINARY chooser only; experts can still reach it
+            //from "Pulse blue High/Low Frequenzy" in the experimental expert category
+            //(PulseInfoExpert.qml), which writes transFreq and useBlueHighFrequency direct.
             //
-            //So the right shape is not "add two entries", it is an "expertOnly" flag on an
-            //entry, and that needs one design decision first: ecoViewIndex is a POSITION in
-            //this list, and a list that grows and shrinks with expert mode makes a stored
-            //position mean different things in the two modes. Entries need stable ids, with
-            //the preference storing the id rather than the index, before an expert-only view
-            //can be safe. Written up as a step 4 item.
+            //That is what expertOnly is for: the entry exists in the profile always, and
+            //appears in the chooser only while expertMode is on. What used to make this
+            //unsafe was ecoViewIndex storing a POSITION - a list that grows and shrinks with
+            //expert mode would make the same stored number mean a different view in the two
+            //modes. The preference now stores the entry's `id`, so a list that changes size
+            //cannot change what a stored choice means. Leaving expert mode while an
+            //expert-only view is selected falls back to the same MODE at another frequency
+            //(side820 -> side460) and does NOT overwrite the stored id, so turning expert
+            //mode back on restores the expert's own choice.
             //
-            //The icons for it are already in the repo and registered in resources/icons.qrc:
-            //    { "icon": "./icons/ui/pulse_view_down_scan_820.svg", "mode": "down", "freq": 820 },
-            //    { "icon": "./icons/ui/pulse_view_side_scan_820.svg", "mode": "side", "freq": 820 }
-            //(swap the two 460 icons for their _460 variants at the same time so the buttons
-            //say which frequency they are).
+            //To put 820 back, replace the two entries below with these four. Both icons are
+            //already in the repo and registered in resources/icons.qrc, and the _460
+            //variants exist too, so the buttons say which frequency they are:
+            //    { "id": "down460", "expertOnly": false, "icon": "./icons/ui/pulse_view_down_scan_460.svg", "mode": "down", "freq": 460 },
+            //    { "id": "down820", "expertOnly": true,  "icon": "./icons/ui/pulse_view_down_scan_820.svg", "mode": "down", "freq": 820 },
+            //    { "id": "side460", "expertOnly": false, "icon": "./icons/ui/pulse_view_side_scan_460.svg", "mode": "side", "freq": 460 },
+            //    { "id": "side820", "expertOnly": true,  "icon": "./icons/ui/pulse_view_side_scan_820.svg", "mode": "side", "freq": 820 }
+            //tools/pulse-profile-check.js runs exactly that edit as its acceptance test.
+            //
+            //An id is a PROMISE: it is what sits in the user's settings file. Never rename
+            //one and never reuse a retired one for a different view.
             "views": [
-                { "icon": "./icons/ui/pulse_view_down_scan.svg", "mode": "down", "freq": 460 },
-                { "icon": "./icons/ui/pulse_view_side_scan.svg", "mode": "side", "freq": 460 }
+                { "id": "down460", "expertOnly": false, "icon": "./icons/ui/pulse_view_down_scan.svg", "mode": "down", "freq": 460 },
+                { "id": "side460", "expertOnly": false, "icon": "./icons/ui/pulse_view_side_scan.svg", "mode": "side", "freq": 460 }
             ],
             //WHAT THIS DEVICE'S INTERFACE OFFERS, by name. Same key set as every other
             //profile; only the answers differ.
