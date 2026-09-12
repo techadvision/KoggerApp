@@ -2619,3 +2619,87 @@ card list was built for.
 **3. The header names the app.** `Pulse Echo Sounder`, the official name, replaces
 the generic "Echo sounder".
 
+
+---
+
+## Prototyping complete — where the build starts (12 Sept 2026, session close)
+
+**The connection screen is signed off.** *"Excellent. We will use this."* The design
+canvas now carries it as page 4, and the Stage 4 prototyping gap is closed. Nothing
+about the app has been built yet — every commit in this session is documentation or
+assets.
+
+The three renders are registered in `images.qrc` alongside the other `image/` assets
+(this supersedes the "not in any qrc yet" note above). 22 entries, no duplicates,
+every entry present on disk, and the file is already listed in `CMakeLists.txt:156`.
+`node tools/pulse-profile-check.js` still passes.
+
+### Repo state
+
+Branch `feature/device-profiles-step4`, **25 commits, 17 ahead of origin, not
+pushed** — Olav pushes via GitHub Desktop, and that is the first housekeeping step.
+This session added four:
+
+| Commit | What |
+|---|---|
+| `72bfae7b` | the connection-screen prototype, written up |
+| `e3da8c23` | the three product renders, named by model |
+| `2ac4fd2f` | the revision — hardware on the cards, black is a true downscan |
+| `2e590bd3` | the renders registered in `images.qrc` |
+
+### The build order, and why
+
+**1. `PulseConnectionScreen.qml` — the chooser and the binding, alone.**
+
+A new `PulseApp*`-level component, not a `main.qml` addition: one surface above both
+`Plot2D` panes, which is what retires the `indx === 1` gate the swap prompt carries
+today. It reads a `cards` list from the profile map, exactly as the choosers read
+`ui.views` and `ui.cones`, and it is shown by one binding:
+
+```qml
+readonly property bool chooserAsking:
+       swapDeviceNow
+    || pendingSwapModel !== ""
+    || (committedModel === "..." && graceElapsed && !isPresentingLog)
+```
+
+Then `windowShadow` and its four writers go, and `echoSounderSelectorRect`,
+`freeContainer` and both `EchoSounderSelector` instances come out of `main.qml`
+(~390 lines, 2724–3115). **Nothing else in the same commit.** Force reselection is
+the one state that is provably broken today and provably fixed in one screenshot, so
+that is the whole acceptance test for the first device build:
+
+- Force reselection shows the cards **and can be cancelled**. Today it strands a
+  gray sheet with nothing under it.
+- Nothing detected → the cards, no dismiss. Detection answers → the screen closes
+  itself, with no tap and no change from today.
+- Committing a card still writes `userManualSetName` and nothing else, so the whole
+  configuration path behaves exactly as it does now.
+
+**2. The card list into the profile map.** `cards` beside `ui.views` / `ui.cones`,
+with red / black / blue, and `pulse-profile-check.js` extended to assert it the way
+it already asserts the view list — including the acceptance test that a fourth entry
+appears with no change outside the profile record.
+
+**3. The swap prompt and the wire strip.** Move the prompt out of
+`PulseAppClassic` onto the new surface, and give the strip its five states from the
+facts that already exist (`linkIsOpen`, `deviceIsPresent`, `devName`,
+`numberOfDatasetChannels`, `connectionAddress`, `forceBreakConnection`,
+`hasDeviceLostConnection`).
+
+**4. The rail's source button and the demo indicator.** These belong to
+`PulseAppV2`, so they wait for the rail itself. Until then the connection screen is
+reached the way it is reached today.
+
+### Still open, unchanged
+
+- **The boat run**: the swap prompt has never been exercised on hardware, item 10's
+  bench findings need re-testing, and `PULSEblue-IP` is still blocked on the IP
+  gateway. One session on the water covers all three.
+- **Backlog 11 / 12 / 13** stay parked.
+- **Backlog 2** — shallow and on-shore depth — remains the most important item that
+  is not about demonstrations.
+- **Black's beam geometry**: a true downscan shares red's profile today. If bottom
+  track or TVG ever want different numbers for it, black stops being a card entry and
+  becomes a profile entry. One line, which is what the keyed map is for.
+
