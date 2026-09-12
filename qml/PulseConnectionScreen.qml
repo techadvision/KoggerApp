@@ -1,6 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
+import QtQuick.Dialogs
+import QtCore
 
 // THE CONNECTION SCREEN - step 1 of the Stage 4 build.
 // See docs/pulse-ui/pulse-ui-strategy.md, "Prototyping complete - where the build starts".
@@ -308,6 +310,47 @@ Item {
         pulseRuntimeSettings.devManualSelected = true
     }
 
+    // START A SIMULATION.
+    //
+    // This screen is the answer to "there is no sounder - what am I looking at", so it is
+    // where the other answer belongs. enterDemoMode() is the Recording tab's demo path,
+    // not its browse path: a paced replay the app experiences as a live connection, which
+    // is what a stand or a kitchen table needs. Starting one makes isPresentingLog true,
+    // so this screen closes itself the same way detection closes it, and the Recording
+    // tab's stop button is still the way back. Step 4 gives the demo its own pill on the
+    // rail; until then nothing about stopping changes.
+    property var lastLogFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
+
+    Settings {
+        //Its own key rather than ConnectionViewer's logFolder: two Settings aliases onto
+        //one key is two writers onto one value, which is the thing this screen exists to
+        //stop doing.
+        property alias connectionScreenLogFolder: connectionScreen.lastLogFolder
+    }
+
+    FileDialog {
+        id: simulationFileDialog
+        title: "Choose a recording to replay"
+        currentFolder: connectionScreen.lastLogFolder
+        nameFilters: ["Kogger log files (*.plog *.PLOG)"]
+
+        onCurrentFolderChanged: connectionScreen.lastLogFolder = currentFolder
+
+        onAccepted: {
+            const file = simulationFileDialog.selectedFile
+            if (!file) {
+                console.log("CONN_SCREEN: simulation - the dialog returned nothing")
+                return
+            }
+            connectionScreen.lastLogFolder = simulationFileDialog.currentFolder
+            const fileStr = file.toString()
+            const localPath = fileStr.replace("file:///",
+                                              Qt.platform.os === "windows" ? "" : "/")
+            console.log("CONN_SCREEN: simulation ->", localPath)
+            pulseRuntimeSettings.enterDemoMode(localPath)
+        }
+    }
+
     // Cancel means "I meant to keep what I had". A force reselection has already cleared
     // every setup state, so keeping it re-commits the same model and re-runs the same
     // configuration pass the card would have - it is a choice, not an undo.
@@ -573,6 +616,49 @@ Item {
                 }
             }
 
+            Item {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 1
+                height: Math.round(18 * connectionScreen.uiScale)
+            }
+
+            // Stacked rather than side by side on purpose: two centred pills never
+            // overflow a narrow split pane, and the Flickable only scrolls vertically.
+            Rectangle {
+                id: simPill
+                anchors.horizontalCenter: parent.horizontalCenter
+                implicitWidth:  simLabel.implicitWidth + Math.round(40 * connectionScreen.uiScale)
+                implicitHeight: Math.round(44 * connectionScreen.uiScale)
+                width:  Math.min(implicitWidth, content.width)
+                height: implicitHeight
+                radius: height / 2
+                color: simArea.pressed ? "#223243" : "#182430"
+                border.width: 1
+                border.color: "#3d7fd0"
+
+                Text {
+                    id: simLabel
+                    anchors.centerIn: parent
+                    text: "Start a simulation"
+                    color: "#cfe0f2"
+                    font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                }
+
+                MouseArea {
+                    id: simArea
+                    anchors.fill: parent
+                    onClicked: simulationFileDialog.open()
+                }
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                topPadding: Math.round(4 * connectionScreen.uiScale)
+                text: "Replays a recording as if the sounder were live."
+                color: "#69727d"
+                font.pixelSize: Math.round(12 * connectionScreen.uiScale)
+            }
+
             // Cancelling is possible whenever there is something to go back to. On a cold
             // start there is not, and the screen correctly offers no way out but a choice.
             Item {
@@ -580,14 +666,14 @@ Item {
                 visible: connectionScreen.canCancel
                 width:  keepPill.width
                 height: connectionScreen.canCancel
-                        ? keepPill.height + Math.round(18 * connectionScreen.uiScale) : 0
+                        ? keepPill.height + Math.round(14 * connectionScreen.uiScale) : 0
 
                 Rectangle {
                     id: keepPill
                     anchors.bottom: parent.bottom
                     implicitWidth:  keepLabel.implicitWidth + Math.round(36 * connectionScreen.uiScale)
                     implicitHeight: Math.round(44 * connectionScreen.uiScale)
-                    width:  implicitWidth
+                    width:  Math.min(implicitWidth, content.width)
                     height: implicitHeight
                     radius: height / 2
                     color: keepArea.pressed ? "#2a303a" : "#1b1f26"
