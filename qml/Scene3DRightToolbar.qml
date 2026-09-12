@@ -91,7 +91,7 @@ Item {
 
             Component.onCompleted: {
                 if (root.view) {
-                    checked = root.view.rulerEnabled
+                    checked = root.view.ruler.enabled
                 }
                 Scene3dToolBarController.onRulerModeChanged(checked)
             }
@@ -104,8 +104,8 @@ Item {
         Connections {
             target: root.view
             function onRulerEnabledChanged() {
-                if (root.view && rulerToolButton.checked !== root.view.rulerEnabled) {
-                    rulerToolButton.checked = root.view.rulerEnabled
+                if (root.view && rulerToolButton.checked !== root.view.ruler.enabled) {
+                    rulerToolButton.checked = root.view.ruler.enabled
                 }
             }
         }

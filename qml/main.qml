@@ -228,6 +228,25 @@ ApplicationWindow  {
             pulseRuntimeSettings.isOpeningKlfFile = isFileOpening
             if (isFileOpening) {
                 pulseRuntimeSettings.wasKlfFileOpened = true
+                // A NEW LOG MUST NOT BE CLASSIFIED BY THE PREVIOUS ONE'S CHANNEL COUNT.
+                // activeModel classifies an opened file from numberOfDatasetChannels, and
+                // onChannelListUpdated below only ever ASSIGNS it — it returns early while
+                // the list is still just the placeholder, and never clears it. So the count
+                // left over from the last log (or from a live device) stood until the new
+                // log produced a full list, and until then the new log was displayed as
+                // whatever the last one was. Observed 12 Sept 2026: committed red, open a
+                // side scan log -> rendered as 2D; open a red log, then the side scan again
+                // -> correct. Clearing here makes the stale value unreachable; 0 means
+                // "not known yet", which activeModel already falls back to committedModel for.
+                //
+                // Safe for the live path: ConnectionViewer's Basic2D window latches the
+                // MAXIMUM channel count seen (basic2dMaxChannels), so a transient 0 cannot
+                // lower it, and onNumberOfDatasetChannelsChanged does nothing at 0.
+                if (pulseRuntimeSettings.numberOfDatasetChannels !== 0) {
+                    console.log("FILE OPENING: clearing the previous log's channel count of",
+                                pulseRuntimeSettings.numberOfDatasetChannels)
+                    pulseRuntimeSettings.numberOfDatasetChannels = 0
+                }
             }
         }
 
@@ -352,12 +371,12 @@ ApplicationWindow  {
             }
         }
 
-        if (renderer.rulerDrawing) {
-            renderer.rulerCancelDrawing()
+        if (renderer.ruler.drawing) {
+            renderer.ruler.cancelDrawing()
             return true
         }
 
-        if (renderer.rulerEnabled || renderer.rulerSelected || renderer.rulerHasGeometry) {
+        if (renderer.ruler.enabled || renderer.ruler.selected || renderer.ruler.hasGeometry) {
             renderer.clearRuler()
             return true
         }
@@ -1285,7 +1304,7 @@ ApplicationWindow  {
                                     }
                                 }
                                 if (renderer.longPressTriggered && !wasMoved) {
-                                    if (renderer.geoJsonEnabled || renderer.rulerEnabled || renderer.rulerHasGeometry) {
+                                    if (renderer.geoJsonEnabled || renderer.ruler.enabled || renderer.ruler.hasGeometry) {
                                         vertexMode = true
                                     } else {
                                         if (!vertexMode) {
@@ -1326,7 +1345,7 @@ ApplicationWindow  {
                             if (mouse.button === Qt.RightButton || (Qt.platform.os === "android" && vertexMode)) {
                                 if (renderer.geoJsonEnabled) {
                                     geoMenuBlock.position(mouse.x, mouse.y)
-                                } else if (renderer.rulerEnabled || renderer.rulerSelected) {
+                                } else if (renderer.ruler.enabled || renderer.ruler.selected) {
                                     rulerMenuBlock.position(mouse.x, mouse.y)
                                 } else {
                                     // PULSE TRIAL: bottom-track edit mini-menu (down/up/eraser/x)
@@ -1832,10 +1851,10 @@ ApplicationWindow  {
                         backColor: theme.controlBackColor
                         checkable: false
                         implicitWidth: theme.controlHeight
-                        visible: renderer.rulerEnabled && renderer.rulerDrawing
+                        visible: renderer.ruler.enabled && renderer.ruler.drawing
 
                         onClicked: {
-                            renderer.rulerFinishDrawing()
+                            renderer.ruler.finishDrawing()
                             rulerMenuBlock.visible = false
                         }
                     }
@@ -1845,11 +1864,11 @@ ApplicationWindow  {
                         backColor: theme.controlBackColor
                         checkable: false
                         implicitWidth: theme.controlHeight
-                        visible: renderer.rulerEnabled || renderer.rulerSelected
+                        visible: renderer.ruler.enabled || renderer.ruler.selected
 
                         onClicked: {
-                            if (renderer.rulerDrawing) {
-                                renderer.rulerCancelDrawing()
+                            if (renderer.ruler.drawing) {
+                                renderer.ruler.cancelDrawing()
                             }
                             rulerMenuBlock.visible = false
                         }
@@ -1860,10 +1879,10 @@ ApplicationWindow  {
                         backColor: theme.controlBackColor
                         checkable: false
                         implicitWidth: theme.controlHeight
-                        visible: !renderer.rulerDrawing && renderer.rulerSelected
+                        visible: !renderer.ruler.drawing && renderer.ruler.selected
 
                         onClicked: {
-                            renderer.rulerDeleteSelected()
+                            renderer.ruler.deleteSelected()
                             rulerMenuBlock.visible = false
                         }
                     }
@@ -2891,11 +2910,22 @@ ApplicationWindow  {
             function onChannelListUpdated() {
                 let list = []
                 list = dataset.channelsNameList()
-                if (list.length < 2)
+                // Diagnostic: this is the ONLY thing that classifies an opened log as 2D or
+                // side scan (activeModel reads the count), and it was silent. Log every
+                // update, including the ones that return early, so a misclassified replay
+                // says why in the application output instead of having to be reproduced.
+                if (list.length < 2) {
+                    console.log("CHANNELS: list not ready yet (length", list.length,
+                                ") - keeping", pulseRuntimeSettings.numberOfDatasetChannels)
                     return
+                }
 
-                pulseRuntimeSettings.numberOfDatasetChannels = list.length -1
-
+                var channels = list.length - 1
+                if (pulseRuntimeSettings.numberOfDatasetChannels !== channels)
+                    console.log("CHANNELS:", pulseRuntimeSettings.numberOfDatasetChannels, "->", channels,
+                                "| list", JSON.stringify(list),
+                                "|", channels >= 2 ? "side scan" : "2D")
+                pulseRuntimeSettings.numberOfDatasetChannels = channels
             }
         }
 
