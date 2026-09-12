@@ -408,3 +408,51 @@ The TECHADVISION wordmark (`image/logo_techadvision_gray.png`, already in the re
 - Check the QML console for new binding-loop and undefined-reference warnings — an extracted component surfaces those loudly, and that is the main thing this stage can get wrong.
 
 Nothing here has been compiled. The verification above is static: brace balance, identifier cross-checks and a byte comparison against the tag.
+
+---
+
+## Stage status
+
+**Stage 1 — extract `PulseApp.qml`: COMPLETE and verified on device (12 Sept 2026).**
+
+Built and run on the tablet test device. Verified by loading a `plog` file in demo
+mode as a playback, which exercises most of the app; no issues found. Branch
+`feature/pulse-ui-separation`, pushed via GitHub Desktop.
+
+Commits: `cd3a11e5` docs · `45f67d7c` the extraction · `64d52bdc` stage notes.
+
+Two pre-existing defects were found during the move and deliberately left alone,
+because Stage 1 changed location only. Both are still open:
+
+- `pulseSettingsLoader.active` is referenced in `closePulseSettingsTimer` but no
+  such id exists anywhere. Already dead at the tag. That timer does nothing.
+- `pinch2D` declares its own `property bool isLiveView` while the line beside it
+  logs `plot.isLiveView`. Two different values; one of them is probably not the
+  one intended.
+
+### What is next, and the one open decision
+
+Stage 1 was the prerequisite for everything else. Two candidates for the next
+stage, and they are genuinely a choice:
+
+**A — Take the upstream merge now.** Upstream was 537 commits ahead when this work
+started. The whole argument for doing the extraction first was that it makes this
+merge cheap: upstream's `Plot2D.qml` changes and the Pulse UI no longer touch the
+same lines. It will never be cheaper than it is right now, and everything built
+after it would be built on current upstream instead of needing a second painful
+merge later. Against it: it is a large, unglamorous chunk with real risk, and it
+produces nothing visible.
+
+**B — Do the device-profile rework.** Self-contained, well understood, and the
+thing that unblocks four separate requirements at once (820 kHz returning, the IP
+connector variant, new hardware IDs, per-view settings). The new panels should be
+written reading a profile rather than branching on `is2DTransducer`, so this wants
+to happen before the UI work regardless.
+
+The recommendation is **A, then B**. The merge only gets more expensive, and doing
+it while the extraction is fresh means any conflict is still in living memory. But
+B is the better choice if visible progress matters more right now than paying the
+cheapest possible price for the merge.
+
+After those: the `uiVariant` switch (small), then building the new UI against the
+design canvas, then the phone layouts.
