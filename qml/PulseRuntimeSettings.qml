@@ -318,9 +318,26 @@ QtObject {
     //"a key is not a model" line step 4 drew for PULSEblue-IP.
     property bool   hasConnectedDevice: linkIsOpen || deviceIsPresent
 
-    property bool   isPresentingLog: !hasConnectedDevice
-                                     && (isInDemoMode || wasKlfFileOpened || isOpeningKlfFile)
+    //DEMO MODE DOES NOT ASK. Starting a playback is the explicit act: the user went to the
+    //Recording tab and chose a file, and Core::startDemo() closes the live links on the way
+    //in, so there is nothing being talked to whether or not a transducer is plugged in. The
+    //stop button in that tab is the way back, and the app returns to the connected device on
+    //its own because presentedModel falls back to userManualSetName the moment isInDemoMode
+    //goes false. A stand with the transducer in an aquarium and a log on the projector is
+    //exactly this case, and it must not depend on whether a cable happens to be in.
+    //
+    //A plain OPENED FILE still asks, because opening one closes no links and configuration
+    //keeps running: there, a connected transducer really is being talked to.
+    property bool   isPresentingLog: (isInDemoMode
+                                      || ((wasKlfFileOpened || isOpeningKlfFile) && !hasConnectedDevice))
                                      && activeModel !== ""
+
+    onIsPresentingLogChanged: {
+        console.log("PROFILE: presenting a log ->", isPresentingLog,
+                    "| presenting", presentedModel, "| committed", userManualSetName,
+                    "| demo", isInDemoMode, "| fileView", wasKlfFileOpened || isOpeningKlfFile,
+                    "| linkOpen", linkIsOpen, "| devicePresent", deviceIsPresent)
+    }
 
     //What the app should present itself AS. The committed model, except while presenting a
     //log with nothing connected, when it is the log's own identity.

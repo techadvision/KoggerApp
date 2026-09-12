@@ -174,6 +174,17 @@ ColumnLayout {
         setImportTrackPath(importTrackPathSource)
     }
 
+    //A demo closes the live links on its way in and deliberately does not reopen them on its
+    //way out, and neither move goes through devListChanged. Without this the published
+    //linkIsOpen stays as it was before the demo started — stale in both directions, which is
+    //what made the FIRST playback after a start behave differently from every later one.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        function onIsInDemoModeChanged() {
+            refreshConnectionAddress(pulseRuntimeSettings.isInDemoMode ? "demoStarted" : "demoStopped")
+        }
+    }
+
     onDevListChanged: {
         selectCorrectDevice("devListChanged")
     }

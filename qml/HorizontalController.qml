@@ -587,6 +587,22 @@ Item {
     // Initial state sync
     // ---------------------------------------------------------------------
 
+    //The displayed value starts as a binding on defaultValue, but setSelectorValue() assigns
+    //valueField.text imperatively and that destroys the binding the first time anything moves
+    //the control — a tap, a pinch, a programmatic set. From then on a defaultValue that
+    //CHANGES was silently ignored, which is why swapping from a blue picture to a red one kept
+    //showing blue's 20 m instead of red's own stored preference. defaultValue only changes when
+    //the device being shown changes, so re-seeding on it is right; the equality guard stops the
+    //controller's own write-back (which updates the stored value, and therefore defaultValue)
+    //from bouncing back through here.
+    onDefaultValueChanged: {
+        if (root.currentNumericValue() === root.defaultValue)
+            return
+        console.log("CONTROL:", root.controleName, "default ->", root.defaultValue,
+                    "(was showing", root.currentNumericValue() + ")")
+        root.setSelectorValue(root.defaultValue)
+    }
+
     Component.onCompleted: {
         root.quickChangeMaxRangeValue = root.defaultValue
 

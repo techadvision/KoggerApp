@@ -771,8 +771,14 @@ Item {
             Layout.preferredWidth: Math.round (260 * s)
             Layout.alignment: Qt.AlignBottom
             controleName: "selectorMaxDepth"
+            //THE PICTURE, NOT THE COMMITTED DEVICE. Every question this control asks — how
+            //deep can it go, in what steps, may it be held down, and what value should it be
+            //showing — is about the echogram on screen, so all of it reads
+            //displayIs2DTransducer. A side scan steps in 5 m and a 2D in 1 m; switching from
+            //one picture to the other has to switch the stepping with it, which it did not
+            //when these branched on the committed device.
             minValue: {
-                if (pulseRuntimeSettings.is2DTransducer) {
+                if (pulseRuntimeSettings.displayIs2DTransducer) {
                     return 1
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
@@ -788,7 +794,7 @@ Item {
             }
             maxValue: pulseRuntimeSettings.maximumDepth
             step: {
-                if (pulseRuntimeSettings.is2DTransducer) {
+                if (pulseRuntimeSettings.displayIs2DTransducer) {
                     return 1
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
@@ -799,7 +805,7 @@ Item {
                 }
             }
             allowLongPressControl: {
-                if (pulseRuntimeSettings.is2DTransducer) {
+                if (pulseRuntimeSettings.displayIs2DTransducer) {
                     return true
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
@@ -809,16 +815,26 @@ Item {
                     }
                 }
             }
-            defaultValue: pulseRuntimeSettings.is2DTransducer ? pulseSettings.maxDepthValue : pulseSettings.maxDepthValuePulseBlue
+            //Each device keeps its own preferred max depth. Reading it through the display
+            //model is what makes the stored value come back when the picture changes instead
+            //of the previous device's number staying on screen.
+            defaultValue: pulseRuntimeSettings.displayIs2DTransducer ? pulseSettings.maxDepthValue
+                                                                     : pulseSettings.maxDepthValuePulseBlue
             //defaultValue: pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed ? pulseSettings.maxDepthValue : pulseSettings.maxDepthValuePulseBlue
             iconSource: "./icons/ui/pulse_ruler.svg"
 
             onSelectorValueChanged: {
                 //console.log("EchogramWidth: max depth onSelectorValueChanged: ", value);
                 plot.quickChangeMaxRangeValue = value;
-                if (pulseRuntimeSettings.userManualSetName === "...")
+                //Write back into the SAME slot defaultValue reads from, keyed the same way.
+                //These two disagreeing is how a value lands in one device's preference and is
+                //read out of the other's. presentedModel rather than userManualSetName for
+                //the same reason: while a log is being presented, its device is the one whose
+                //preference the user is adjusting.
+                if (pulseRuntimeSettings.presentedModel === "..."
+                        || pulseRuntimeSettings.presentedModel === "")
                     return
-                if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
+                if (pulseRuntimeSettings.displayIs2DTransducer) {
                     pulseSettings.maxDepthValue = value;
                 } else {
                     if (pulseRuntimeSettings.isSideScan2DView) {
@@ -840,7 +856,7 @@ Item {
             }
 
             onDistanceAutoRangeRequested: {
-                if (!pulseRuntimeSettings.is2DTransducer)
+                if (!pulseRuntimeSettings.displayIs2DTransducer)
                     return
                 plot.plotDistanceAutoRange(0)
                 pulseSettings.autoRange = true
@@ -904,7 +920,7 @@ Item {
                 //console.log("EchogramWidth: max depth Component.onComplete")
                 if (pulseSettings.autoRange) {
                     console.log("EchogramWidth: max depth Component.onComplete autoRange")
-                    if (pulseRuntimeSettings.is2DTransducer) {
+                    if (pulseRuntimeSettings.displayIs2DTransducer) {
                         //console.log("EchogramWidth: Component.onComplete autoRange for is2DTransducer")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         pulseRuntimeSettings.shouldDoAutoRange = true
@@ -914,7 +930,7 @@ Item {
                     console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     pulseRuntimeSettings.shouldDoAutoRange = false
                     plot.plotDistanceAutoRange(-1);
-                    if (pulseRuntimeSettings.is2DTransducer) {
+                    if (pulseRuntimeSettings.displayIs2DTransducer) {
                         //console.log("EchogramWidth: max depth Component.onComplete not autoRange")
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange(pulseSettings.maxDepthValue * 1.0)
@@ -968,7 +984,7 @@ Item {
                 interval: 500
                 repeat: false
                 onTriggered: {
-                    if (pulseRuntimeSettings.is2DTransducer) {
+                    if (pulseRuntimeSettings.displayIs2DTransducer) {
                     //if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
                         plot.plotDistanceRange2d(pulseSettings.maxDepthValue)
                         //console.log("FILE OPENING: A file was opened for pulse red, execute plot.plotDistanceRange2d with value", pulseSettings.maxDepthValue)
