@@ -2103,12 +2103,15 @@ ColumnLayout {
         repeat: false
         running: false
         onTriggered: {
-            //THE ONLY LOWERER, and it is deliberately above everything below it -
-            //including the demo return. 2.5 s with no onDataUpdate is 2.5 s with no data,
-            //which is true whatever else is going on, and the guards below exist to decide
-            //whether to call that a LOST CONNECTION. That is a different question, and it
-            //is the one this fact had to stop depending on: didEverReceiveData is cleared
-            //by every reset, so hasDeviceLostConnection cannot be raised after one.
+            //WAS DATA ARRIVING UNTIL JUST NOW? That is the whole question, and it is the
+            //one thing this timer is in a position to answer: it is restarted by every
+            //onDataUpdate, so reaching a timeout with isAnswering still raised means data
+            //was flowing 2.5 s ago and has stopped. Captured before it is lowered.
+            var wasAnswering = pulseRuntimeSettings.isAnswering
+
+            //THE ONLY LOWERER, and deliberately above everything below it - including the
+            //demo return. 2.5 s with no onDataUpdate is 2.5 s with no data, whatever else
+            //is going on.
             pulseRuntimeSettings.isAnswering = false
 
             //DEMO MODE: during playback data keeps arriving so this never fires,
@@ -2118,17 +2121,31 @@ ColumnLayout {
             if (pulseRuntimeSettings.isInDemoMode) {
                 return
             }
-            if (pulseRuntimeSettings.didEverReceiveData) {
+
+            //WAS didEverReceiveData, AND THAT IS WHAT BROKE THE RECOVERY. Every reset
+            //clears that flag, and only onDevNameChanged raises it - so after a
+            //reselection, with the same transducer keeping the same name, it stayed false
+            //for the rest of the run and this branch became unreachable.
+            //
+            //It matters far beyond a warning label: DeviceItem's onHasDeviceLostConnection-
+            //Changed is where recovery lives, and its "regained" arm is the ONLY thing that
+            //restarts completeDeviceConfigurationTimer. No raise means no fall, no fall
+            //means the configuration never resumes - so a link broken at the moment of
+            //commit left the echogram switched off, with the app's own expert panel still
+            //reporting it on, because that panel reads the WANTED value and not the
+            //device's.
+            //
+            //wasAnswering cannot be wiped by a reset, because only arriving data raises it.
+            if (wasAnswering) {
                 if (pulseRuntimeSettings.devName !== "...") {
                     pulseRuntimeSettings.isReceivingData = false;
                     pulseRuntimeSettings.hasDeviceLostConnection = true
                     dataUpdateDidChange = false
-                    //console.log("TAV: lost connection will be triggered for device", pulseRuntimeSettings.devName);
+                    console.log("DEV_PARAM: no data for 2.5 s from", pulseRuntimeSettings.devName,
+                                "- calling the connection lost")
                 } else {
-                    //console.log("TAV: We do not loose connection for an unknown device", pulseRuntimeSettings.devNam);
+                    //Nothing identified: there is no connection to have lost.
                 }
-            } else {
-                //console.log("TAV: We do not loose connection when we never received any data");
             }
         }
     }
