@@ -4080,6 +4080,15 @@ cut off that.
 | `80de2e28` | the source button's icon is white like the rest of the rail |
 | `f477a318` | the rail takes its width from the picture rather than covering it |
 | `5dead674` | the escape-hatch confirmation restored, and the commit trail noted |
+| `bea0207f` | this section |
+| `f7940d10` | the link's one honest line becomes a fact of the app |
+| `b6870c50` | the source button shows what the link is doing |
+| `949113a2` | the setup card respects the rail's width |
+| `9550f366` | the pill says what the echogram is, and how to leave it |
+| `34afc57f` | recording asks, in both directions |
+| `a86338e8` | the Record button was drawing black on a black rail |
+| `2bcee29c` | collapse and its drawer tab were invisible for the same reason |
+| `8e98e48a` | `tools/pulse-icon-check.js`, so that class is static too |
 
 ### The fork is answered: the late-September exhibition runs on the CLASSIC UI
 
@@ -4137,14 +4146,20 @@ V2**: they come off the shelf inside the control they belong to, and not before.
 
 The rail, tier 1 only: Colours · View/Cone · Max range · Intensity · Water body filter ·
 Pause & inspect · Record, then the source button, Settings, collapse, the way back to
-classic, and the wordmark. Every tier-1 button emits and logs; **the panel they open is
-4 (b)**, the larger half. Drawn but inert rather than omitted, because this slice is the
-surface and its geometry, and a rail missing two buttons has the wrong proportions to judge
-on a device.
+classic, and the wordmark. **The panel the tier-1 buttons open is 4 (b)**, the larger half,
+so five of them emit and log. Drawn but inert rather than omitted, because this slice is the
+surface and its geometry, and a rail missing buttons has the wrong proportions to judge on a
+device.
+
+**Two are live, and neither needed a panel.** The source button is the permanent door to the
+connection screen. Record is the other, because it has no value to set - only a state to
+enter - and it asks rather than toggles. The pill column carries the rest: what the echogram
+IS, and the way out of it.
 
 Not in it: the settings panel and every tier-2/3 group; split screen and the "Both, split
-screen" view option; per-pane range and the per-pane state object; the indicator pill column
-(next commit); compression of the echogram by anything other than the rail.
+screen" view option; per-pane range and the per-pane state object; compression of the
+echogram by anything other than the rail; the paused-and-inspect mode, which is mostly
+`plot2d_aim` and `plot2d_zoom` in C++ rather than QML.
 
 ### The rail's two masters, named rather than blurred
 
@@ -4281,6 +4296,31 @@ a one-line import bump in a file PULSE does not own and belongs with the next up
 Recorded in `KNOWN` at the top of the checker rather than fixed, so the tool stays usable as
 a gate.
 
+**5. Three controls were invisible, not missing.** *"I do not think I have a record button at
+all."* It was there the whole time, and tappable. **An SVG that states neither `fill` nor
+`stroke` draws BLACK**, because that is SVG's default - and on a `#cc0f1317` rail that is not
+a wrong colour, it is a control nobody can see. `pulse_recording_inactive.svg` is one such
+file; hunting it turned up `pulse_setting_collapse` and `pulse_setting_show` in the same
+state, which is exactly why neither the collapse button nor its drawer tab had been reported:
+neither could be seen to be tried.
+
+The Record button now uses `pulse_recording_mini` (white) and keeps the red
+`pulse_recording_active` for when it IS recording. Collapse and the tab get
+`pulse_rail_hide` / `pulse_rail_show` - white, and pointing sideways, which is the direction
+a rail on the left edge actually moves; the old pair pointed up and down.
+
+`node tools/pulse-icon-check.js` asks one question of every icon the dark-surface QML names:
+does it say what colour it draws in? Not WHICH colour - white on the rail, red while
+recording and the coloured device badges are all correct; only silence is wrong. It is scoped
+to the dark surfaces on purpose, because the settings popup draws on a light ground where
+black is right, and six of its icons are colourless and always have been fine there.
+
+Worth recording how close that tool came to being useless: the first draft matched only
+`fill="..."` and called two thirds of the icon set broken, because the Fabric.js exports in
+this repo state their colours in `style=`. **A checker that cries wolf is worse than none**,
+and the test that saved it was the same one the version checker has - it must fail on the
+exact file that failed on the device, and pass on everything that did not.
+
 ### Two smaller things, recorded rather than fixed
 
 - `resources/icons.qrc` lists `icons/app/kogger_app.png` and `icons/ui/tool.svg` twice.
@@ -4290,40 +4330,30 @@ a gate.
   recording is toggled; it only looks fine because the assignment happens to write the same
   value. It is also a one-tap stop with no question — which is the control the pill replaces.
 
-### What comes next, in order
+### Confirmed on device
 
-**The link strip becomes a fact of the app.** `linkState` / `linkColor` / `linkHeadline` /
-`linkDetail` move from `PulseConnectionScreen` onto `pulseRuntimeSettings`; the screen reads
-them instead of computing them. Pure motion, and the acceptance test is that the screen looks
-and behaves exactly as before. Then the source button gets its state dot — one computation,
-two readers, so the rail can never disagree with the screen it opens. It carries no dot until
-then, on purpose: recomputing the link in the rail would be the second opinion that screen
-exists to stop.
+Five builds, in this order, and every line below is Olav's verdict rather than an
+expectation.
 
-**The pill column**, `displayIs2D ? top-right : bottom-right` by the flow rule:
+- **The rail, the source button, the tier-1 logging.** *"Great start."* Every button tap
+  produced its own "panel arrives in stage 4 (b)" line.
+- **The insets, and the echogram taking the rest of the width.** Both passed on the rebuild.
+- **The source screen and the dot.** *"The source page behaves like it did. The dot for the
+  source button works like it should (at least green and yellow/amber)."* The hoist was
+  invisible, which is what a pure motion commit is supposed to be.
+- **The setup card respecting the rail.** Passed.
+- **The pills.** *"Pill demo and pill file open: Works. Closing both sets up the live
+  transducer again."* That last clause is the one that mattered: `exitFileView()` is not a
+  copy of the demo path, and closing a file puts the picture straight back on a live,
+  configured transducer without sending it round the setup pass again.
+- **Recording, both questions.** *"Works as agreed. Nice to have the question and ability to
+  abort when wrongly pressed."*
+- **Hide and show the rail.** Works.
 
-- `Demo · PULSE blue` with **Stop** → `exitDemoMode()`, which already reopens the links and
-  re-runs detection. The source dot goes blue-identifying and then green with no latch, no
-  timer and no new state anywhere.
-- `Log · PULSE blue` with **✕** → a new `exitFileView()`. Olav's rule for it: *"similar
-  behavior as stopping a demo — if the transducer is connected then let us talk to it. This
-  is a consistent way to operate, people will understand."*
-
-  **It must not copy `exitDemoMode()`.** Opening a file closes no links — that is exactly why
-  a plain opened file still asks about a swap, and why `showLostConnection()` returns early
-  for it. So `exitFileView()` is `core.closeLogFile()`, clear `wasKlfFileOpened` /
-  `isOpeningKlfFile` / `klfFilePath`, and bump `redetectRequestId` so `committedProfileKey`
-  goes back to the transducer instead of the log's identity. It does **not** clear `devName`
-  or `userManualSetName` the way the demo path does: the transducer was never forgotten, the
-  links stayed open and the configuration machinery kept running underneath. Copying the demo
-  path wholesale would throw away a live, configured device.
-
-**Recording, with a question in both directions.** Olav: *"Even I have pressed recording on
-multiple occasions when I should not have, and I made the UI. It is needed!"* A confirm cuff
-— one component anchored to whatever raised it, never the settings panel: it does not scroll,
-does not compress, and closes on any other rail tap. Rail Record → *"Record the echogram
-now?"*; pill ✕ → *"Stop recording the echogram now?"*. It is also the pattern 4 (b) inherits
-for *destructive confirms in the row, never a dialog*.
+**Still unproven, and cheap to fold into the next run:** the GREY dot, which needs a log
+carrying the picture with nothing committed - force reselection, then Start a simulation from
+the screen it raises. It is nearly unreachable otherwise, because grey means nothing is
+committed and that is also when the connection screen is up covering the rail.
 
 ### Backlog, added this session
 
