@@ -3174,3 +3174,138 @@ cards and still cancels.
 * The rail's source button and the demo indicator — step 4, waiting for
   `PulseAppV2`.
 * The IP variant for red and black, recorded as a requirement.
+
+---
+
+## What the logcat showed, and the B fix built from it (13 Sept 2026)
+
+The run was captured end to end. Two things came out of it that were not
+visible from the code alone.
+
+### The ten seconds, named
+
+```
+CONN_SCREEN: asking -> true | committed PULSEred | swapNow true | ...
+DEV_RESELECT: raised in main - clearing devManualSelected; DeviceItem owns the reset
+...
+devList: selectCorrectDevice trigger = unableToConfigure
+devList: observed device PULSEred SN 139 baud 115200
+selectCorrectDevice: 1 dev(s): [0]t=128/sn=139*
+devList: DEV_DETECT(devType): board 128 -> model PULSEred channels 0 maxCh 0 settled false | previously ...
+```
+
+The trigger is not a device-list change. It is **`unableToConfigure`**, and the
+chain is exact:
+
+1. the force reselection puts `userManualSetName` back to `"..."`;
+2. configuration cannot start — the log says so plainly: *"onUserManualSetNameChanged
+   observed, but devName is ... so nothing will happen"*;
+3. so `PulseAppClassic`'s *"Configuring transducer…"* overlay stays visible, and
+   its `breakAndReconnectLinkTimer` — `interval: 10000` — elapses. That is Olav's
+   ten seconds, to the second;
+4. `unableToConfigure` goes true, `ConnectionViewer.onUnableToConfigureChanged`
+   re-runs `selectCorrectDevice()`;
+5. the dead PULSEred is still in `devList` with its board enum and serial, and
+   `previously` is `"..."`, so the silent-commit branch fires.
+
+`channels 0` on that line is the whole indictment: nothing had arrived at all,
+and the app committed a transducer anyway.
+
+**`unableToConfigure` is being asked a question it cannot answer.** It means
+"configuration is taking too long", which is a sensible reason to re-run
+selection when a model IS committed and the device is not co-operating. With
+nothing committed, configuration was never attempted, so the same flag means
+only "you have not been told which device this is yet" — and re-running
+selection then is the app answering the user's open question on their behalf.
+
+### The blue window — the root of defect A
+
+This is the one the code did not show, and it is worse than the symptom list
+suggested. Between the reset and the re-commit, with `userManualSetName === "..."`:
+
+```
+EchogramCompensation: Plot2D onActiveModelChanged -> (none committed)
+PROFILE: committed key -> PULSEblue | model ...  | address 192.168.10.1 | channels 0
+DEV_PARAM: dev.chartResolution set to pulseRuntimeSettings.chartResolution 25
+Detected pulseRuntimeSettings.distMax got new value  25000
+Detected pulseRuntimeSettings.transBoost got new value  1
+```
+
+and ten seconds later, after red is committed:
+
+```
+PROFILE: committed key -> PULSEred | model PULSEred | address 192.168.10.1 | channels 0
+DEV_PARAM: dev.chartResolution set to pulseRuntimeSettings.chartResolution 2
+Detected pulseRuntimeSettings.distMax got new value  50000
+Detected pulseRuntimeSettings.transBoost got new value  0
+```
+
+**`"..."` is not a neutral state. It is blue.** `resolveProfileKey()` falls
+through to `blueKeyFor(address)` for an uncommitted model, so every binding on
+`committedProfile` snaps to blue's numbers, and those are not merely read — they
+are *written to the transducer*. A red device spends the whole window being
+configured as a side scan: resolution 25 instead of 2, 25 m instead of 50, boost
+on instead of off.
+
+That resolver line already carried the warning — *"Still not obviously right,
+and still the thing to revisit when a second red-like device exists"*. It turns
+out not to need a second red-like device. The fallback is right for an
+**unrecognised device**, which is a thing on the wire with a name this build does
+not know. `"..."` is not that. It is **no device**, and it has been borrowing
+blue's answers all along.
+
+This is the root of every symptom in defect A. The view, the colour map, the max
+depth ceiling and the temperature are not four independent regressions; they are
+four values that were read or assigned during a window in which the whole app
+believed it was a blue. It also explains *"the screen was initially set up as it
+should… and all of a sudden"* — the swap is instant, the blue window starts a
+moment later.
+
+**Proposed, not built.** `"..."` should hold the last committed profile rather
+than fall back to blue, because "I have not been told yet" is a reason to change
+nothing, not a reason to guess. With nothing ever committed there is nothing to
+hold and blue remains the right guess, so the cold start is unaffected. One
+change at the resolver, and it removes the window that every one of defect A's
+symptoms lives in — which is a great deal cheaper than the rule-2 sweep across
+the presentation state, and probably has to happen before that sweep can be
+judged at all.
+
+### What was built — `f2aafa11`
+
+Olav's criterion, and it is the right one: *"A device present should show itself
+by the fact that it is sending data."*
+
+* **`isAnswering`** in `PulseRuntimeSettings` — raised only by
+  `dataset.onDataUpdate`, lowered only at the top of the 2.5 s
+  `lostConnectionTimer` that the same signal restarts, *above* its
+  `didEverReceiveData` and demo guards so it owes nothing to any reset. It says
+  data is flowing, not "hardware is present"; a replayed log produces
+  `onDataUpdate` too, which is why the one place that reads it also requires a
+  device in the list.
+* **`everCommittedModel`** — has this run ever learned what is on the wire. It
+  survives every reset on purpose: it separates "still finding out for the first
+  time" from "being asked to find out again", and those deserve different
+  confidence.
+* Detection's silent-commit branch requires one or the other. A first commit
+  stays instant — that path is every cold start, and gating it would mean
+  waiting for data the device may only send once configured. A re-commit has to
+  see data.
+
+**What it deliberately does not change**, on Olav's instruction: a wifi drop
+during ordinary use. The commit is not cleared there, so detection's
+`model !== userManualSetName` guard already skips the branch entirely — the
+echogram keeps its screen and resumes on its own when the transducer answers
+again. Losing a wireless link is normal and must never throw the user back to
+the connection screen. No new trigger for `selectCorrectDevice()` either: making
+data arrival one would close the screen on the next frame after a force
+reselection and undo a confirmed step 1 behaviour.
+
+### Still open, and worth a decision rather than a fix
+
+A force reselection with a **live** device still auto-commits after those same
+ten seconds — `isAnswering` is true, so the new gate lets it through, exactly as
+today. That may be wrong on its own terms: a force reselection is a request to
+be asked, and answering it automatically ten seconds later is the same
+overreach in a case where the app happens to be right. The narrower fix is that
+`unableToConfigure` should not trigger a re-selection at all while nothing is
+committed. It is a behaviour question, not a defect, so it waits for Olav.
