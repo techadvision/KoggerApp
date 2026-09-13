@@ -142,6 +142,8 @@
         <file>icons/ui/pulse_setting_show.svg</file>
         <file>icons/ui/pulse_settings.svg</file>
         <file>icons/ui/pulse_source.svg</file>
+        <file>icons/ui/pulse_rail_hide.svg</file>
+        <file>icons/ui/pulse_rail_show.svg</file>
         <file>icons/ui/pulse_sidescan.svg</file>
         <file>icons/ui/pulse_sun.svg</file>
         <file>icons/ui/pulse_view_down_scan.svg</file>

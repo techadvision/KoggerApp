@@ -140,7 +140,7 @@ Item {
             anchors.horizontalCenterOffset: Math.round(showTab.radius / 2)
             width:  Math.round(20 * rail.uiScale)
             height: width
-            source: "./icons/ui/pulse_setting_show.svg"
+            source: "./icons/ui/pulse_rail_show.svg"
             fillMode: Image.PreserveAspectFit
             smooth: true
             opacity: 0.9
@@ -314,11 +314,16 @@ Item {
         // COLLAPSE, not "back". The first device build proved these two read as one thing
         // when they share a glyph: the arrow was tapped expecting the rail to get out of
         // the way, and it left the whole UI instead.
+        //
+        // pulse_setting_collapse / _show were a colourless chevron PAIR pointing up and
+        // down - so they drew black on a black rail, and they pointed the wrong way for a
+        // control that moves sideways. pulse_rail_hide / _show are white and point the way
+        // the rail actually goes.
         PulseRailButton {
             uiScale: rail.uiScale
             buttonId: "collapse"
             label: "Hide the rail"
-            iconSource: "./icons/ui/pulse_setting_collapse.svg"
+            iconSource: "./icons/ui/pulse_rail_hide.svg"
             onActivated: rail.collapseToggled()
         }
 
