@@ -455,13 +455,6 @@ ColumnLayout {
     Connections {
         target: pulseRuntimeSettings
 
-        function onUnableToConfigureChanged () {
-            if (!pulseRuntimeSettings.unableToConfigure)
-                return
-            //pulseRuntimeSettings.unableToConfigure = false
-            selectCorrectDevice("unableToConfigure")
-        }
-
         // EXPERIMENT: for the Basic2D batch the model can only be decided once channels are known,
         // so re-run detection when the channel count arrives.
         function onNumberOfDatasetChannelsChanged () {

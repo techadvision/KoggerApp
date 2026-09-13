@@ -290,7 +290,6 @@ QtObject {
     property bool   onSoundChanged:         true    // Sound is complete. Let's not configure this
     property bool   soundSpeed_ok:          true    // soundSpeed parameter is OK. Let's not configure this
     // problem
-    property bool   unableToConfigure:      false   // Used to signal that config takes too much time
 
     //TRAFFIC STATES
     //IS ANYTHING ACTUALLY ARRIVING, right now. The one fact this app did not have.
@@ -554,7 +553,6 @@ QtObject {
         onSoundChanged          = true
         soundSpeed_ok           = true
 
-        unableToConfigure       = false
 
         console.log("DEMO: setConfigStatesForDemo(", inDemo, ") applied")
     }
@@ -668,16 +666,16 @@ QtObject {
         setConfigStatesForDemo(false)
 
         // Leave nothing behind that makes the app think it should configure a
-        // device. dataUpdateActive in particular drives Plot2D's
-        // "Configuring transducer..." overlay, which after 10 s escalates to
-        // "Fixing transducer com link...".
+        // device. The "Configuring transducer..." overlay now keys on isAnswering
+        // rather than dataUpdateActive, so it cannot linger over a dead link by
+        // itself; clearing the rest still matters, because devConfigured and
+        // devName decide whether the app believes it is mid-setup.
         // Stage 2 replaces this with the consolidated resetAppToFreshState().
         didEverReceiveData = false
         hasDeviceLostConnection = false
         isReceivingData = false
         dataUpdateActive = false
         devConfigured = false
-        unableToConfigure = false
         devDetected = false
         devIdentified = false
         appConfigured = false
@@ -690,15 +688,15 @@ QtObject {
         //
         //Core::startDemo() closes the live links and Core::stopDemo() deliberately does not
         //reopen them, because reopening while the app still believed it was mid-configuration
-        //is what produced the "Configuring transducer..." / "Fixing transducer com link..."
-        //overlay. That reasoning was right and the note said reconnecting should stay an
-        //explicit action — but no affordance was ever given to be explicit FROM, so in
-        //practice it became "restart the app".
+        //is what produced the stuck "Configuring transducer..." overlay. That reasoning was
+        //right and the note said reconnecting should stay an explicit action — but no
+        //affordance was ever given to be explicit FROM, so in practice it became "restart
+        //the app".
         //
         //Pressing stop IS the explicit action. The overlay it guarded against cannot appear
-        //from here: every flag that drives it — dataUpdateActive, devConfigured,
-        //unableToConfigure, devName — has just been cleared above, so the app reopens the
-        //link in the same state it would have had at a cold start with a device attached.
+        //from here: every flag that drives it — devConfigured and devName — has just been
+        //cleared above, so the app reopens the link in the same state it would have had at
+        //a cold start with a device attached.
         //
         //Then ask for identification to be re-run. ConnectionViewer.selectCorrectDevice()
         //otherwise only fires on a device-list change, a channel-count change and the

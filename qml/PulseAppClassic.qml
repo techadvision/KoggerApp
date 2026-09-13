@@ -277,8 +277,16 @@ Item {
         // DEMO MODE: never offer to configure a device that is not there. During
         // a demo devConfigured is forced true anyway, but this also covers the
         // moment right after a demo ends.
+        //
+        // isAnswering, NOT dataUpdateActive. dataUpdateActive is raised by the first frame
+        // of the run and lowered by nothing at all, so it means "data flowed at some
+        // point" while reading like a live state - and this is its ONLY reader. With the
+        // link dead it stayed true, so an unconfigurable device showed "Configuring
+        // transducer..." indefinitely, and that overlay becoming visible is what used to
+        // start the ten-second timer below. Configuring requires a transducer that is
+        // answering; when one stops, the honest thing is to stop claiming to configure it.
         visible: !pulseRuntimeSettings.devConfigured
-                 && pulseRuntimeSettings.dataUpdateActive
+                 && pulseRuntimeSettings.isAnswering
                  && !pulseRuntimeSettings.isInDemoMode
         anchors.top: parent.top
         anchors.topMargin: 60 + insetTop()
@@ -307,45 +315,16 @@ Item {
                     return ""
                 if (pulseRuntimeSettings.isInDemoMode)
                     return ""
-                if (pulseRuntimeSettings.unableToConfigure) {
-                    return "Fixing transducer com link..."
-                } else {
-                    return "Configuring transducer..."
-                }
+                return "Configuring transducer..."
             }
             font.pixelSize: 40
             color: "white"
             anchors.centerIn: parent
         }
 
-        // Start/stop the timer when visibility changes
-            onVisibleChanged: {
-                if (visible) {
-                    // ensure a fresh countdown each time it becomes visible
-                    console.log("LinkManager: configure transducer, let us keep track and see if successful")
-                    breakAndReconnectLinkTimer.stop()
-                    breakAndReconnectLinkTimer.start()
-                } else {
-                    breakAndReconnectLinkTimer.stop()
-                    pulseRuntimeSettings.unableToConfigure = false
-                }
-            }
-
-            // Handle the case where we start already visible
-            Component.onCompleted: {
-                if (visible) {
-                    breakAndReconnectLinkTimer.stop()
-                    breakAndReconnectLinkTimer.start()
-                }
-            }
-    }
-
-    Timer {
-        id: breakAndReconnectLinkTimer
-        repeat: false
-        interval: 10000
-        onTriggered: {
-            pulseRuntimeSettings.unableToConfigure = true
+        onVisibleChanged: {
+            if (visible)
+                console.log("DEV_PARAM: configuring the transducer, overlay up")
         }
     }
 
