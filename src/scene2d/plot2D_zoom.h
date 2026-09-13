@@ -32,6 +32,13 @@ public:
         bool           isDualSideScan = false;
         bool           isMetric = true;     // User may have a metric or an imperial preference
         bool           captureTile = false; // User wants to  capture tile image
+
+        // PULSE V2 (Stage 4 b) - the rebuilt loupe. When false EVERY line below the
+        // dispatch in draw() is the loupe exactly as it shipped, because the classic UI
+        // is still the fallback the uiVariant switch falls back TO and it is not this
+        // commit's job to move it. Drop the flag, and the classic path with it, once V2
+        // is the only UI.
+        bool           v2Style = false;
     };
 
     struct Output {
@@ -49,6 +56,12 @@ public:
     Output draw(QPainter* p, const Input& in) const;
 
 private:
+    // THE V2 LOUPE, a whole separate method rather than branches inside draw(). Two
+    // reasons, and the second is the one that matters: the layouts share no band, so
+    // interleaving them would be two designs in one function; and a separate method is
+    // the only way to PROVE the classic loupe is untouched.
+    Output drawV2(QPainter* p, const Input& in) const;
+
     void drawOutlinedDepth(QPainter* p, const QRect& zoomRect,
                            const QFont& font, int titlePad, int scale,
                            double depthMeters) const;

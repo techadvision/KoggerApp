@@ -1544,6 +1544,13 @@ QtObject {
     property bool   displayIs2DTransducer: (activeProfile !== undefined)
                                                ? activeProfile.is2DTransducer
                                                : is2DTransducer
+
+    //WHICH UI IS UP, as ONE binding, published to C++ on the runtime bus. The aim layer
+    //needs it to know which loupe to paint, and C++ cannot read pulseSettings.uiVariant.
+    //It lives here rather than as a second `=== "v2"` test beside every reader for the
+    //same reason displayThemeId does: a string compared in several places is a string
+    //that will be spelt differently in one of them.
+    readonly property bool uiVariantIsV2:   pulseSettings.uiVariant === "v2"
     property int    chartResolution:                committedProfile.chartResolution
     property int    chartSamples:                   committedProfile.chartSamples
     property int    chartOffset:                    committedProfile.chartOffset

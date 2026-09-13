@@ -56,6 +56,10 @@ private:
     bool  touchMovedDuringPress_ = false;
     bool  onlySendIfArmed_ = true;
     bool  isMetric_ = true;
+    // PULSE V2 (Stage 4 b): which loupe to draw. Arrives on the runtime bus as
+    // uiVariantIsV2 and is handed straight to Plot2DZoom::Input - this layer owns the
+    // aim, not its appearance, so it decides nothing about the panel beyond which one.
+    bool  isUiVariantV2_ = false;
 
     struct Candidate {
         bool   active = false;

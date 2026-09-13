@@ -109,6 +109,10 @@ ApplicationWindow  {
         function onMaximumDepthChanged()            { settingsBus.updateRuntime({ maximumDepth:             pulseRuntimeSettings.maximumDepth               }) }
         function onIsHorizontalGridChanged()        { settingsBus.updateRuntime({ isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid           }) }
         function onUseMetricDepthChanged()          { settingsBus.updateRuntime({ useMetricDepth:           pulseRuntimeSettings.useMetricDepth             }) }
+        //WHICH UI IS UP. Consumed only by the aim layer, which paints the rebuilt loupe
+        //for v2 and the original one for classic - the classic UI is still what uiVariant
+        //falls back TO, so its loupe is not this commit's to move.
+        function onUiVariantIsV2Changed()           { settingsBus.updateRuntime({ uiVariantIsV2:            pulseRuntimeSettings.uiVariantIsV2              }) }
         //function onAutoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoRange:                pulseRuntimeSettings.autoDepthMaxLevel          }) }
         //Note: The onAutoDepthMaxLevelChanged above was initialluy onautoDepthMaxLevelChanged (ona..., non existing. May influence some missing behavior
         //Bottom track
@@ -160,6 +164,7 @@ ApplicationWindow  {
                     maximumDepth:             pulseRuntimeSettings.maximumDepth,
                     isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid,
                     useMetricDepth:           pulseRuntimeSettings.useMetricDepth,
+                    uiVariantIsV2:            pulseRuntimeSettings.uiVariantIsV2,
                     //uuidIpGateway:            pulseRuntimeSettings.uuidIpGateway,
                     //uuidUsbSerial:            pulseRuntimeSettings.uuidUsbSerial,
                     updateBottomTrack:        pulseRuntimeSettings.updateBottomTrack,
@@ -479,7 +484,12 @@ ApplicationWindow  {
             "and validateSalt", pulseSettings.validateSalt, "for code", pulseSettings.keyCode
         )
         settingsBus.updateRuntime({
-            devName:                "..."
+            devName:                "...",
+            //AT STARTUP TOO, not only when it changes. The bulk push below lives inside
+            //onUserManualSetNameChanged and so waits for a model to be committed; the aim
+            //layer can be asked to draw before that, and a loupe that came up classic in
+            //v2 until the first commit would be a defect nobody could reproduce twice.
+            uiVariantIsV2:          pulseRuntimeSettings.uiVariantIsV2
         })
         settingsBus.updatePersistent({
             udpGateway:              pulseSettings.udpGateway,

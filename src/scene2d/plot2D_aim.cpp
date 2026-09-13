@@ -340,6 +340,7 @@ void Plot2DAim::applyRuntime(const QVariantMap& m)
     if (m.contains("isSideScan2DView"))    isSideScan2DView_   = m.value("isSideScan2DView").toBool();
     if (m.contains("useMetricDepth"))      isMetric_           = m.value("useMetricDepth").toBool();
     if (m.contains("echogramSpeed"))       echogramSpeed_      = m.value("echogramSpeed").toDouble();
+    if (m.contains("uiVariantIsV2"))       isUiVariantV2_      = m.value("uiVariantIsV2").toBool();
 }
 
 bool Plot2DAim::isTapInsideZoom(Plot2D* parent, int devX, int devY) const
@@ -777,8 +778,12 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         zin.showAddBtn     = cand_.haveTarget;
         zin.rotateForView  = !parent->isHorizontal();
         zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);
-        zin.boxSizePx      = 250;
+        // THE ONE KNOB FOR ZOOM BOX SIZE, per variant. Olav's phone note - "we may
+        // distinguish size of zoom box with phone when we get into that" - is this
+        // number and nothing else; the V2 panel derives every band from it.
+        zin.boxSizePx      = isUiVariantV2_ ? 320 : 250;
         zin.zoomFactor     = 3;
+        zin.v2Style        = isUiVariantV2_;
         zin.dirSide        = cand_.tapSide;
         zin.isDualSideScan = (isSideScan && !isSideScan2DView_);
         zin.isMetric       = isMetric_;
@@ -1144,8 +1149,12 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         zin.showAddBtn     = cand_.haveTarget;
         zin.rotateForView  = !parent->isHorizontal();
         zin.flipForLeftHand= (isSideScan2DView_ && isSideScanLeftHand_);
-        zin.boxSizePx      = 250;
+        // THE ONE KNOB FOR ZOOM BOX SIZE, per variant. Olav's phone note - "we may
+        // distinguish size of zoom box with phone when we get into that" - is this
+        // number and nothing else; the V2 panel derives every band from it.
+        zin.boxSizePx      = isUiVariantV2_ ? 320 : 250;
         zin.zoomFactor     = 3;
+        zin.v2Style        = isUiVariantV2_;
         zin.dirSide        = cand_.tapSide;
         zin.isDualSideScan = (isSideScan && !isSideScan2DView_);
         zin.isMetric       = isMetric_;
