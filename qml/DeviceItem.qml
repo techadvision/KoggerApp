@@ -1604,19 +1604,46 @@ ColumnLayout {
         }
 
         // datasetChart (let us do this as the very last parameter)
+        //
+        // TELL IT TO ENABLE THE ECHOGRAM, AND DO NOT TRUST IT UNTIL IT ACTUALLY IS.
+        //
+        // This one step is verified against datasetChart_Copy rather than dev.datasetChart,
+        // and the difference is the whole bug. dev.datasetChart takes our write
+        // OPTIMISTICALLY, so comparing against it asks "did we write what we wanted", which
+        // is always yes on the next tick - even into a dead link. _Copy is refreshed from
+        // the DEVICE's own dataset report (the dev onDatasetChanged handler at the top of
+        // this file), so it answers the question that matters: is the chart actually on.
+        //
+        // Olav found it in his own expert panel. The handshake had logged "datasetChart OK
+        // as 1" and "devConfigured complete", and the copy value beside it read Show chart =
+        // OFF. The transducer never got the write, and a transducer with its chart off sends
+        // NOTHING - which is why nothing could recover it: every recovery path waits for
+        // data. His words: "Do not trust it is enabled until it actually is."
+        //
+        // Not completing is now the safe failure. The loop keeps telling the device, the
+        // overlay keeps saying it is setting up and names this group, and part 2's
+        // "Start anyway" is what turns that into a choice. Completing while the echogram is
+        // dead is the outcome that cannot be recovered from, and it is the one this removes.
+        //
+        // Deliberately only this parameter. Every other step compares the same optimistic
+        // way and so carries the same doubt - _Copy is the general answer whenever we want
+        // to spend the round trips - but datasetChart is the one whose failure is both
+        // catastrophic and self-concealing, because it silences the evidence.
         if (!pulseRuntimeSettings.datasetChart_ok) {
-            if (dev.datasetChart === pulseRuntimeSettings.datasetChart) {
-                pulseRuntimeSettings.datasetChart_Copy = dev.datasetChart
+            if (pulseRuntimeSettings.datasetChart_Copy === pulseRuntimeSettings.datasetChart) {
                 pulseRuntimeSettings.datasetChart_ok = true
-                console.log("DEV_PARAM datasetChart OK as", dev.datasetChart)
+                console.log("DEV_PARAM datasetChart CONFIRMED BY THE DEVICE as",
+                            pulseRuntimeSettings.datasetChart_Copy)
             } else {
-                console.log("DEV_PARAM onDatasetChanged datasetChart set to", pulseRuntimeSettings.datasetChart)
+                console.log("DEV_PARAM datasetChart: device reports",
+                            pulseRuntimeSettings.datasetChart_Copy,
+                            "- telling it", pulseRuntimeSettings.datasetChart, "again")
                 pulseRuntimeSettings.echogramEnabledByConfig = true
                 dev.datasetChart = pulseRuntimeSettings.datasetChart
                 return
             }
         } else {
-            console.log("DEV_PARAM datasetChart_ok accepted as", dev.datasetChart)
+            console.log("DEV_PARAM datasetChart_ok accepted as", pulseRuntimeSettings.datasetChart_Copy)
         }
 
         // Verify all
