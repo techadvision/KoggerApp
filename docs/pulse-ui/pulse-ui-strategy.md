@@ -4458,3 +4458,241 @@ THEME: display theme -> <id> | 2D or side scan | stored index <i>
   device's key, and a wrong index survives a restart. That is a migration, not a binding.
 
 Either way the answer starts from one log line rather than from the code.
+
+## Stage 4 (b), steps 2–5 — the rest of tier 1 (13 Sept 2026)
+
+Five commits finished the seven tier-1 rail buttons. Each was built, put on the device, and
+confirmed by Olav before the next one started; the notes below are what each one found, not
+what it intended.
+
+| Commit | What |
+|---|---|
+| `a0148596` | intensity and the water body filter, on the rail |
+| `5be418eb` | view and cone entries carry their own name |
+| `23620ae6` | the view and cone chooser |
+| `3a4a1284` | max range, and backlog item 11 with it |
+| `db2a42d4` | paused is its own mode, with a way out of it |
+
+### The slider row, and a control that did nothing at all
+
+`PulseSliderRow.qml` is the first of the canvas's seven row types and the last new primitive
+tier 1 needed. Two rules from the canvas are built into it rather than applied to it: **the
+allowed range is always on screen** under the label — several of today's bounds survive only
+as a magic number inside a label, `Dist confidence adjust (14)`, and a limit discovered by
+hitting it is a limit nobody knew about — and **units sit with the value, not the label**.
+There is no Apply button: every move acts, and the host drops duplicates so dragging across
+one step does not write the same value forty times.
+
+Building it found that **V2's water body filter did nothing whatsoever**. `applyFiltering()`
+was a deliberate no-op left from the variant split, so the control existed, moved, stored its
+value and changed no picture. It was not reported as a defect because nothing in V2 had ever
+called it.
+
+### A name is profile data, not a lookup table
+
+The chooser needed a human name for each view and each cone. The shape that suggests itself —
+a switch in the chooser mapping `sideScanRaw` to "Side scan" — is the shape that guarantees a
+profile edit and a chooser edit have to happen together, which is exactly how `PULSEblue-IP`
+came to be half-supported in the first place. So `title` was added to **every** view and cone
+entry in the profile map, and the chooser reads it. `tools/pulse-profile-check.js` was run
+after the change, per the standing rule.
+
+`PulseChoiceGroup.qml` is a list rather than a segmented control even at three entries,
+against the canvas's own four-or-fewer rule, and on purpose: the entries carry a frequency,
+and **510 kHz beside "Wide" is the whole point** of moving this out of a 76 px pop-up. A
+segment wide enough to hold both is a row.
+
+### Max range — one key named once, and backlog item 11 with it
+
+The classic selector **reads two preferences and writes three**. A blue in side scan writes
+`maxDepthValuePulseBlueFixed` and reads `maxDepthValuePulseBlue` back, while `setSideScan()`
+applies `…Fixed` — three names for one number, and which one you get depends on the path you
+took to the control. V2 names the key **once**:
+
+```qml
+readonly property string displayMaxRangeKey:
+      displayIs2DTransducer ? "maxDepthValue"
+    : isSideScan2DView      ? "maxDepthValuePulseBlue"
+    :                         "maxDepthValuePulseBlueFixed"
+readonly property int displayMaxRange: pulseSettings[displayMaxRangeKey]
+function storeDisplayMaxRange(v) { ... }
+```
+
+One binding to read, one function to write, and the key chosen in one place — rule 2 applied
+to a value with three sources instead of two.
+
+**Backlog item 11 came out of the park because the control it belongs to was being built**,
+which is the condition Olav set for it. `maximumDepth` is a binding that three places assign
+to, so the first assignment freezes it and the ceiling stops tracking the device. V2 does not
+assign: it reads the hardware limit for a 2D transducer and live `echogramWidth` for a side
+scan, with `maxRangeCeilingOverride` as the single, explicit escape.
+
+**A third defect surfaced while testing it.** `PulseAppV2.maxDepthValue` was a *binding* that
+`Plot2D` assigns to on every pinch — so a pinch changed the range and immediately forgot it.
+It is now a plain property routed through `storeDisplayMaxRange()`. This is rule 2 catching
+something that had already shipped in V2 and had not been noticed.
+
+Olav on the result: *"the drag handles compared to my old plus and minus buttons are far more
+efficient to use. So I am happy with this design choice."*
+
+### Paused is its own mode
+
+`PulsePausedGutter.qml` replaces the rail while the picture is frozen, rather than adding a
+state to it. The reasoning is in the file: while the picture is frozen you are **inspecting**
+it, and nothing on the rail helps with that — you are not choosing a palette with a crosshair
+in your other hand. One button gets out and it is the largest thing on the surface, because a
+frozen echogram with no obvious way back is the kind of thing a user reports as a crash.
+
+It takes the rail's own width deliberately, so the echogram does not **jump** the moment you
+pause it. The word PAUSED is set down the gutter rather than in a corner pill: classic puts it
+top right, which is where the V2 indicator stack now lives, and two things claiming one corner
+is how a corner stops being read at all. Olav: *"Love the 'PAUSED' in the rail also."*
+
+---
+
+## Session close — 13 Sept 2026, the rail and panel session
+
+### What is achieved
+
+Stage 4 (a) and the whole of Stage 4 (b) tier 1. **V2 is now a usable UI**, not a shell: seven
+rail buttons, a sliding panel that compresses rather than covers, and a paused mode. Branch
+`feature/pulse-ui-v2-rail`, **28 commits, unpushed** — Olav pushes via GitHub Desktop.
+
+Eight new QML files (`PulseRail`, `PulseRailButton`, `PulsePillColumn`, `PulsePanel`,
+`PulseColourGroup`, `PulseSliderRow`, `PulseChoiceGroup`, `PulsePausedGutter`), three new
+white icons, and two new static checkers — `tools/pulse-qml-version-check.js` and
+`tools/pulse-icon-check.js` — joining `tools/pulse-profile-check.js`. All three exist because
+the sandbox has no Qt: **static checking is what substitutes for compiling**, and each was
+written the moment a class of defect reached the device that a check could have caught first.
+
+### The decisions, and why each was taken
+
+**The rail lives in `main.qml`, not in `PulseAppV2`.** Olav's first instinct was the opposite —
+*"if I put it into the PulseAppV2 then I mess as little as possible with the main.qml"* — and
+he reversed it on seeing the build: *"It is a separate section anyway that the upstream author
+cannot hamper."* The forcing reason is physical: `qPlot2D` paints the echogram across its
+**entire item**, so anything that takes width from the picture must be the panes' **sibling**.
+A rail inside `PulseAppV2` can only ever cover the echogram, and Olav had already ruled that
+out: *"Must be avoided, echogram to cover the remaining part of the screen."*
+
+Two numbers carry the whole of the compression, and neither guesses about the other:
+
+```qml
+readonly property real pulseRailInset: ...
+readonly property real pulsePanelInset: pulsePanel.visible ? pulsePanel.inset : 0
+```
+
+**Hiding the rail and leaving V2 are different glyphs.** They were the same arrow, and the
+arrow was tapped expecting the rail to hide — it left V2 and returned to classic. Two icons
+now, `pulse_rail_hide.svg` and `pulse_rail_show.svg`.
+
+**Every control reports; nothing stores.** `PulseSliderRow`, `PulseColourGroup` and
+`PulseChoiceGroup` are all handed a value and emit a signal. A control that owns its own copy
+of a value is a control that can disagree with the picture.
+
+**Cross-file reach goes through `pulseRuntimeSettings`, never through an id.** QML ids do not
+cross files; the rail could not see `pulseConnectionScreen`, so the connection screen's
+visibility became `connectionScreenRequested` — one binding, one override, rule 2 again.
+
+**Tablet first, colours first**, on Olav's call. Phone portrait is carried as design drafts
+rather than built.
+
+### Shortcomings — what is not done, and what is known to be wrong
+
+**Not built yet (tier 1 remainder and beyond):**
+
+1. **The aim / zoom.** The next task. Research is done — see below — but no design has been
+   presented and no code written.
+2. **Settings, regular and expert.** Tier 2 is seven groups, tier 3 is seventeen expert
+   groups, and **six of the seven row types are still unwritten** — only the slider row exists.
+3. **Depth and temperature on the echogram.** Belongs to `PulseAppV2`: lower left on a side
+   scan, top left on a 2D picture, by the flow rule.
+4. **`armOldDataWarning()` is still a no-op in V2.** Deliberate at the split, and still a
+   real gap — classic warns, V2 does not.
+
+**Known defective, deferred by Olav's call** (*"my test work will become easier the more
+features I have available… so I suggest we move ahead and handle the problems at the end"*):
+
+5. **Blue is getting red's colour choices and favourites.** Half-diagnosed: the V2 path is
+   ruled out by construction, and the `THEME:` log line tells the two remaining causes apart
+   without a build. Full reasoning in the step 1 section above.
+6. **The grey source dot is unproven.** Green and amber confirmed on device; grey needs a log
+   carrying the picture with nothing committed.
+7. **A demo for red, after the app has been behaving like a blue, draws a single-channel side
+   scan flowing from the top.** Olav's words, and one of several such quirks he intends to
+   write down himself at the end of 4 (b).
+8. **Classic's `recordingOnScreen` has `visible: isRecordingKlf` AND a handler that assigns
+   `visible`** — a live rule-2 violation, in classic, found while working on the rail.
+9. **`resources/icons.qrc` lists two files twice.**
+10. **`Scene3DToolbar.qml`'s HoverHandler needs an import bump** — it is the sole entry in the
+    `KNOWN` list of `pulse-qml-version-check.js`, i.e. a suppressed true positive.
+
+**Wanted, not started:** burst playback to remove the file-open freeze. Olav's idea, in his
+words: *"utilize the method set for playback… burst through and then let the echogram grow
+really fast with far less time than one epoch per 50 ms. That will eliminate the waiting time
+for the user as echogram starts emerging incrementally."*
+
+### The aim — research done, so the next session does not repeat it
+
+**The C++ is already there and already `Q_INVOKABLE`.** `src/scene2d/qPlot2D.h`:
+`setZoomPreviewMode(bool)`, `setZoomPreviewSourceSize(int)`,
+`setZoomPreviewReferenceDepthPixels(int)`, `setZoomPreviewSourceByEpochDepth(int, float)`,
+`setZoomPreviewFlipY(bool)`, `notifyAimTouchEnd()`, `getAimEpochIndex()`,
+`setAimEpochIndex(int)`. **`main.qml:1505-1508` and `:1560` are a working call pattern** — the
+3D sync loupe already drives all of it.
+
+**`setZoomPreviewSourceSize` is the single knob** that answers Olav's phone note: *"we may
+distinguish size of zoom box with phone when we get into that."* Zoom box size is one number,
+not a rebuild.
+
+**The contact data is `Q_PROPERTY`, not signals:** `contactVisible`, `contactLat`,
+`contactLon`, `contactDepth`, `contactIsActive`, `contactPositionX/Y`, `contactIndx`.
+`contactDialog` (`main.qml` ~1672, `Plot2D.qml` ~1964) is the **waypoint-naming dialog**, not
+the loupe.
+
+**The green pause button, and why V2 will not copy it.** `HorizontalCheckController.qml:110-113`
+paints the play/pause checkbox green when `pulseRuntimeSettings.mavlinkDetected` is true; the
+flag is set at `Plot2D.qml:159` from `deviceManagerWrapper.mavlinkDetected`, and `main.qml`
+already gates on `mavlinkDetected || (core.filePath && core.filePath.length > 0)`. Olav's own
+verdict on it: *"an easy way to give a signal to the user. But not intuitive at all. Somehow
+we should signal it, at least when we are inside the pause screen."*
+
+So V2 states the **consequence** rather than the technology — while paused, a line on the
+picture reading roughly *"Long press to add a waypoint"* against *"No position data — a
+waypoint cannot be placed here."* **The exact wording is Olav's to confirm**, like the four
+per-group consequence sentences on the setup card; it is not to be assumed.
+
+Note that the position test is `mavlinkDetected` **or a loaded log file** — a waypoint can be
+placed on a recording, and a design that only asks about live telemetry gets that wrong.
+
+### Standing constraints, restated so a cold session inherits them
+
+- **Patch this document by anchored replacement, never by rewriting it whole.** `7b7c4beb` was
+  an exact inverse of `cc05867c` for this file and silently deleted a handover section; the
+  mechanism was a full-file rewrite from a stale copy.
+- **One idea per commit.** The device is a slow test rig and mixed commits cost a round trip.
+- **Show the design before building**, as with the connection screen and the setup card.
+- **Run `node tools/pulse-profile-check.js` after any profile change.**
+- **Nothing under `build/` is touched.** Ask for folder access and delete permission before any
+  branch switch or file removal.
+- **Split screen and the "Both, split screen" view option are not to be touched** — per-pane
+  range has nowhere to live yet and the per-pane state object is an open decision.
+- **Backlog 12 and 13 stay parked**; they are parked *on V2*, so they are raised only when the
+  control they belong to is being built. (11 came out under exactly that rule.)
+- The three design rules, which are designed out rather than swept afterwards: anything judged
+  by **looking** reads `displayIs2DTransducer`, never `is2DTransducer`; a value with two
+  sources gets **one binding and one override, never an assignment**; and **never a plain
+  width or height on a direct child of a Layout**.
+
+### Still with Olav, and blocking nothing
+
+The boat run with two transducers, the real swap, the PULSEblue-IP acceptance test, and the
+four per-group consequence sentences for the setup card — *"mine to write — ask me when the
+card is next touched, not before."*
+
+### Two things outside this branch
+
+- **`feature/device-profiles-step4` still has to be merged to master.**
+- **The late-September aquarium exhibition: classic UI or V2?** Asked at the start of this
+  session and still unanswered. It is the one open question that could reorder everything
+  above, because it sets whether V2 needs to be presentable in two weeks or merely correct.
