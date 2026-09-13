@@ -1207,6 +1207,26 @@ ColumnLayout {
                 return
             }
 
+            //NOTHING IS ARRIVING, SO NOTHING WE WRITE CAN BE ACKNOWLEDGED. Keep ticking and
+            //do nothing: the moment data returns, the next tick carries on from where this
+            //left off.
+            //
+            //Without this the handshake runs happily over a dead link and marks its own
+            //writes as acknowledged - a log caught it declaring "datasetChart OK as 1" and
+            //then "devConfigured complete" while the wifi was already gone. The device
+            //never received that 1, so it stayed with its chart OFF, and a transducer with
+            //its chart off sends nothing at all. Which deadlocks the recovery: the
+            //"regained" arm needs data, and data needs the very setting only that arm would
+            //re-assert. Olav had to toggle the expert echogram box twice to break it.
+            //
+            //Data does keep arriving while the chart is paused for configuration - the same
+            //log shows the setup overlay still up, which requires isAnswering, 2.5 s after
+            //"disable echogram" - so this does not stall an ordinary setup.
+            if (!pulseRuntimeSettings.isAnswering) {
+                //console.log("DEV_PARAM: nothing is answering, holding the handshake")
+                return
+            }
+
             console.log("DEV_PARAM Repeating setup for", pulseRuntimeSettings.userManualSetName)
 
             /*
@@ -2007,6 +2027,14 @@ ColumnLayout {
             if (pulseRuntimeSettings.hasDeviceLostConnection) {
                 console.log("DEV_PARAM alerted that device connection was lost")
                 resetAllSetupStates()
+                //AND START THE TIMER, because the reset above is not enough on its own.
+                //completeDeviceConfigurationTimer has `repeat: !devConfigured`, so it STOPS
+                //after the tick that completes a configuration. resetAllSetupStates() puts
+                //devConfigured back to false but cannot restart a stopped timer, and the
+                //only other restart is the "regained" arm below - which needs data. With
+                //the guard above it costs nothing to have it ticking: it does nothing at
+                //all until the transducer answers again.
+                completeDeviceConfigurationTimer.start()
             } else {
                 console.log("DEV_PARAM alerted that device connection was regained (after being lost)")
                 completeDeviceConfigurationTimer.start()
