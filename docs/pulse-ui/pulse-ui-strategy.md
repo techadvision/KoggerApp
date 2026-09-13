@@ -3588,3 +3588,54 @@ alone while a genuinely stuck one is caught quickly.
   while" line first.
 - Whether the marker is dismissible, and whether accepting should be remembered
   for that device or asked again each session.
+
+### Settled on the mockup (13 Sept 2026)
+
+Four states drawn over the echogram and reviewed: *"The principles are OK…
+I think we have a solution!"*
+
+**The card grows as it has more to say, and collapses to a pill when it is only
+reporting.** Quiet while setting up, a named progress list when it is slow, a
+question with two answers when something will not go through, a standing pill
+afterwards. The same principle as measuring progress rather than elapsed time:
+the interface gets talkative exactly when it is struggling and no sooner.
+
+**The wording, approved in principle.** *"Setting up PULSE red"* rather than
+"Configuring transducer" — configuring is what we do, setting up is what a
+person recognises. *"The picture is paused for a moment so the settings get
+through"* — a frozen echogram looks like a fault unless the halt is explained.
+*"One setting did not get through"* as the headline, then what still works, then
+what to distrust, in that order, because someone at the water wants "can I fish"
+answered before "what broke". *"Start anyway"* and *"Keep waiting"*, with *"It
+keeps trying either way"* underneath, because it does.
+
+**The mark on the control is a rule, not a drawing.** Olav: *"the inability to
+change it should be visible as suggested, but not exactly like in the mock up…
+we will have a different way to set it compared to my current UI design with
+pill controls."* So what carries forward is the treatment and not the shape:
+
+> A setting that did not get through shows the value the TRANSDUCER is using,
+> never the one that was asked for, and the control carries a mark saying it
+> could not be set.
+
+The new UI settles what that control looks like. A surveyor logging a swath at
+the wrong frequency while the screen reads 710 is worse off than one with no
+echogram, which is why this survives whatever the control becomes.
+
+**The standing marker is dismissible, and counts rather than names.** Olav:
+*"let us also allow the user to dismiss it so he have less clutter on the
+echogram screen… There may be more problems than just the cone."* So it reads
+*"PULSE red · 2 settings not set"*, tapping it opens the list, and an × puts it
+away.
+
+Dismissing it is safe for one reason, and only that reason: **it dismisses the
+reminder, not the truth.** The marks on the controls stay, so the reading can
+never quietly become wrong because a pill was closed. Dismissal lasts until the
+next setup pass — a swap or a reconfigure brings it back, because that is a new
+claim about a new configuration.
+
+**Still Olav's to write**: the four group names (Depth range · Picture quality ·
+Cone · Echogram and readings as drafted — and "Cone" is right for red and black
+but wrong for blue, so the name belongs in the profile record exactly as the
+cards do), the no-progress interval, and whether accepting is remembered per
+device or asked each session.
