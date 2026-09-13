@@ -271,62 +271,15 @@ Item {
         }
     }
 
-    Rectangle {
-        id: configurationInProgressIndicator
-        // start hidden.
-        // DEMO MODE: never offer to configure a device that is not there. During
-        // a demo devConfigured is forced true anyway, but this also covers the
-        // moment right after a demo ends.
-        //
-        // isAnswering, NOT dataUpdateActive. dataUpdateActive is raised by the first frame
-        // of the run and lowered by nothing at all, so it means "data flowed at some
-        // point" while reading like a live state - and this is its ONLY reader. With the
-        // link dead it stayed true, so an unconfigurable device showed "Configuring
-        // transducer..." indefinitely, and that overlay becoming visible is what used to
-        // start the ten-second timer below. Configuring requires a transducer that is
-        // answering; when one stops, the honest thing is to stop claiming to configure it.
-        visible: !pulseRuntimeSettings.devConfigured
-                 && pulseRuntimeSettings.isAnswering
-                 && !pulseRuntimeSettings.isInDemoMode
-        anchors.top: parent.top
-        anchors.topMargin: 60 + insetTop()
-        anchors.left: parent.left
-        anchors.leftMargin: 50
-
-        // styling: semi-transparent black, rounded corners
-        color: "#80000000"
-        //opacity: 0.6
-        radius: height / 2
-
-        // padding around the text
-        property int contentMargin: 12
-
-        // size to fit the text + padding
-        // (reference the Text's width, NOT the Rectangle's own width — the latter
-        //  defaults back to implicitWidth and causes a binding loop)
-        implicitWidth: completeDeviceConfigurationTimer.width + contentMargin*2
-        implicitHeight: _isAndroid ? 80 : 60 //configurationInProgressText.height + contentMargin*2
-
-        // the actual label
-        Text {
-            id: completeDeviceConfigurationTimer
-            text: {
-                if (pulseRuntimeSettings.isOpeningKlfFile || pulseRuntimeSettings.wasKlfFileOpened)
-                    return ""
-                if (pulseRuntimeSettings.isInDemoMode)
-                    return ""
-                return "Configuring transducer..."
-            }
-            font.pixelSize: 40
-            color: "white"
-            anchors.centerIn: parent
-        }
-
-        onVisibleChanged: {
-            if (visible)
-                console.log("DEV_PARAM: configuring the transducer, overlay up")
-        }
-    }
+    //THE CONFIGURATION OVERLAY HAS MOVED (Stage 4, step 6). It is
+    //qml/PulseSetupOverlay.qml now, instantiated ONCE in main.qml above both Plot2D panes.
+    //
+    //PulseApp is instantiated inside Plot2D, so this block existed once per pane and a
+    //split screen drew two of them - the same defect the swap prompt carried, without even
+    //the `indx === 1` that hid it there. It also bound `60 + insetTop()` and
+    //`_isAndroid ? 80 : 60`, both declared on quickChangeObjects - a SIBLING of this block,
+    //not its root - so neither could ever resolve. The new component takes the insets as
+    //properties, so that is gone by construction.
 
     //End of additiona - On Screen Alerts
     //***********************************

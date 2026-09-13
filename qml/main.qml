@@ -2902,4 +2902,17 @@ ApplicationWindow  {
         safeRight:  mainview.insetRight()
     }
 
+    // THE SETUP OVERLAY (Stage 4, step 6). One instance, above both Plot2D panes, for the
+    // same reason the chooser is: PulseApp is instantiated inside Plot2D, so the block this
+    // replaces - configurationInProgressIndicator in PulseAppClassic - was drawn once per
+    // pane, with no gate at all.
+    PulseSetupOverlay {
+        id: pulseSetupOverlay
+        uiScale:    mainview.s
+        safeTop:    mainview.insetTop()
+        safeBottom: mainview.insetBottom()
+        safeLeft:   mainview.insetLeft()
+        safeRight:  mainview.insetRight()
+    }
+
 }
