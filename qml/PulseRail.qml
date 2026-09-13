@@ -36,8 +36,15 @@ Item {
     property bool offersCone: false
 
     // --- app state the rail shows ---
-    property bool recording:     false
-    property bool presentingLog: false
+    property bool recording: false
+
+    // WHETHER RECORDING IS EVEN POSSIBLE, not whether a log is playing. The Recording tab
+    // has always refused to record a replay - a second-generation log is a confusing
+    // artefact - and it refuses an opened file and a file still being opened for the same
+    // reason. `isPresentingLog` is the wrong test for it: with a transducer connected AND a
+    // file open that flag is false, and the button would come back over a picture that is
+    // still a file. So the host passes the real condition and this file does not guess.
+    property bool canRecord: true
 
     // THE SOURCE BUTTON'S STATE. Read, never recomputed: the derivation lives on
     // pulseRuntimeSettings and the connection screen reads the same one. The rail can
@@ -215,14 +222,13 @@ Item {
             onActivated: rail.buttonActivated(buttonId)
         }
 
-        // RECORDING A REPLAY would produce a confusing second-generation log, which is why
-        // the Recording tab has always refused it. Here the button is absent rather than
-        // dead, and the pill on the picture says why: it reads "Demo - PULSE blue".
+        // Absent rather than dead when recording is impossible, and the pill on the picture
+        // says why: it reads "Demo - PULSE blue" or "Viewing recording - PULSE blue".
         PulseRailButton {
             uiScale: rail.uiScale
             buttonId: "record"
             label: "Record"
-            visible: !rail.presentingLog
+            visible: rail.canRecord
             active: rail.recording
             iconSource: rail.recording ? "./icons/ui/pulse_recording_active.svg"
                                        : "./icons/ui/pulse_recording_inactive.svg"

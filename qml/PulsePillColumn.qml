@@ -27,8 +27,33 @@ Item {
     property bool   isDemo:         false
     property string presentedName:  ""
 
+    property bool   recording:      false
+
     signal stopDemo()
     signal closeFile()
+    signal startRecording()
+    signal stopRecording()
+
+    // ---- THE RECORDING QUESTION ---------------------------------------------
+    //
+    // Olav, who wrote the control this replaces: "Even I have pressed recording on multiple
+    // occasions when I should not have, and I made the UI. It is needed!" So recording asks
+    // in BOTH directions, and the question is a pill in this column rather than a dialog.
+    //
+    // WHY HERE AND NOT BESIDE THE RAIL BUTTON THAT RAISES IT. One subject, one place:
+    // whether the app is recording already lives in this column, so the question about it
+    // belongs next to the answer rather than in a second surface the eye has to learn. The
+    // tap is acknowledged where it happened - the rail's Record button lights - and this
+    // column sits in the corner the picture's own flow already points the user at.
+    //
+    // A PLAIN STATE PROPERTY with exactly one writer and no binding on it. That is not the
+    // shape rule 2 forbids: rule 2 is about a value with TWO sources, where a binding gets
+    // destroyed by a handler. Nothing binds this.
+    property string asking: ""        // "" | "start" | "stop"
+
+    function askRecordStart() { asking = "start" }
+    function askRecordStop()  { asking = "stop" }
+    function dismissQuestion(){ asking = "" }
 
     // Same floor as the rail and the connection screen: main.qml's insetTop() answers 0
     // unless DeX is on, because the app draws full-bleed under the status bar. Right for
@@ -125,6 +150,166 @@ Item {
                             else
                                 pillColumn.closeFile()
                         }
+                    }
+                }
+            }
+        }
+
+        // RECORDING, AND THE WAY TO STOP IT. The control this replaces was a one-tap stop
+        // with no question - and a live example of the defect V2 exists to prevent, since
+        // it carried `visible: isRecordingKlf` AND a handler that assigned that same
+        // `visible`, destroying the binding the first time recording was toggled.
+        Rectangle {
+            id: recordingPill
+
+            visible: pillColumn.recording && pillColumn.asking !== "stop"
+            height:  Math.round(46 * pillColumn.uiScale)
+            width:   recordingRow.width + Math.round(28 * pillColumn.uiScale)
+            radius:  height / 2
+
+            color: "#cc0f1317"
+            border.width: 1
+            border.color: "#d81f26"
+
+            Row {
+                id: recordingRow
+                anchors.centerIn: parent
+                spacing: Math.round(12 * pillColumn.uiScale)
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width:  Math.round(12 * pillColumn.uiScale)
+                    height: width
+                    radius: width / 2
+                    color: "#d81f26"
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: qsTr("Recording")
+                    color: "#eaf1f8"
+                    font.pixelSize: Math.round(17 * pillColumn.uiScale)
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width:  1
+                    height: Math.round(24 * pillColumn.uiScale)
+                    color: "#30ffffff"
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width:  recordingStopLabel.width + Math.round(26 * pillColumn.uiScale)
+                    height: Math.round(34 * pillColumn.uiScale)
+                    radius: height / 2
+                    color: recordingStopArea.pressed ? "#8f1a20" : "#3a1418"
+                    border.width: 1
+                    border.color: "#d81f26"
+
+                    Text {
+                        id: recordingStopLabel
+                        anchors.centerIn: parent
+                        text: qsTr("Stop")
+                        color: "#f2cfd2"
+                        font.pixelSize: Math.round(16 * pillColumn.uiScale)
+                        font.bold: true
+                    }
+
+                    MouseArea {
+                        id: recordingStopArea
+                        anchors.fill: parent
+                        // ASKS. It does not stop.
+                        onClicked: pillColumn.askRecordStop()
+                    }
+                }
+            }
+        }
+
+        // THE QUESTION. One pill, both directions, so there is one thing to recognise
+        // rather than two. It replaces the recording pill while it is up - two red pills
+        // saying different things about the same subject would be worse than one.
+        Rectangle {
+            id: questionPill
+
+            visible: pillColumn.asking !== ""
+            height:  Math.round(56 * pillColumn.uiScale)
+            width:   questionRow.width + Math.round(28 * pillColumn.uiScale)
+            radius:  Math.round(14 * pillColumn.uiScale)
+
+            color: "#ee141a1f"
+            border.width: 1
+            border.color: "#d8a21f"
+
+            Row {
+                id: questionRow
+                anchors.centerIn: parent
+                spacing: Math.round(12 * pillColumn.uiScale)
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: pillColumn.asking === "start"
+                          ? qsTr("Record the echogram now?")
+                          : qsTr("Stop recording the echogram now?")
+                    color: "#f4ead6"
+                    font.pixelSize: Math.round(17 * pillColumn.uiScale)
+                }
+
+                // THE ANSWER THAT CHANGES SOMETHING is filled and amber, the one that
+                // changes nothing is an outline - the same pairing the setup card's escape
+                // hatch uses, so a second question in this app reads like the first.
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width:  confirmLabel.width + Math.round(28 * pillColumn.uiScale)
+                    height: Math.round(38 * pillColumn.uiScale)
+                    radius: height / 2
+                    color: confirmArea.pressed ? "#b8860b" : "#d8a21f"
+
+                    Text {
+                        id: confirmLabel
+                        anchors.centerIn: parent
+                        text: pillColumn.asking === "start" ? qsTr("Record") : qsTr("Stop")
+                        color: "#1a1400"
+                        font.pixelSize: Math.round(16 * pillColumn.uiScale)
+                        font.bold: true
+                    }
+
+                    MouseArea {
+                        id: confirmArea
+                        anchors.fill: parent
+                        onClicked: {
+                            var wasAsking = pillColumn.asking
+                            pillColumn.dismissQuestion()
+                            if (wasAsking === "start")
+                                pillColumn.startRecording()
+                            else if (wasAsking === "stop")
+                                pillColumn.stopRecording()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width:  dismissLabel.width + Math.round(28 * pillColumn.uiScale)
+                    height: Math.round(38 * pillColumn.uiScale)
+                    radius: height / 2
+                    color: dismissArea.pressed ? "#2a303a" : "transparent"
+                    border.width: 1
+                    border.color: "#6d7480"
+
+                    Text {
+                        id: dismissLabel
+                        anchors.centerIn: parent
+                        text: pillColumn.asking === "start" ? qsTr("Not now")
+                                                           : qsTr("Keep recording")
+                        color: "#cfd6de"
+                        font.pixelSize: Math.round(16 * pillColumn.uiScale)
+                    }
+
+                    MouseArea {
+                        id: dismissArea
+                        anchors.fill: parent
+                        onClicked: pillColumn.dismissQuestion()
                     }
                 }
             }

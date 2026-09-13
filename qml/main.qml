@@ -2151,8 +2151,19 @@ ApplicationWindow  {
                     offersView:  pulseRuntimeSettings ? pulseRuntimeSettings.offersViewChoice : false
                     offersCone:  pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
 
-                    recording:     pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf  : false
-                    presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
+                    recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
+
+                    // THE CONDITION THE RECORDING TAB HAS ALWAYS USED, not isPresentingLog.
+                    // A replay records as a confusing second-generation log; an opened file,
+                    // or one still opening, is not live data to record at all. With a
+                    // transducer connected AND a file open, isPresentingLog is false - so it
+                    // would have let the button back over a picture that is still a file.
+                    canRecord: pulseRuntimeSettings
+                               ? (!pulseRuntimeSettings.wasKlfFileOpened
+                                  && !pulseRuntimeSettings.isOpeningKlfFile
+                                  && !pulseRuntimeSettings.isInDemoMode
+                                  && !core.isFileOpening)
+                               : false
 
                     // The link strip, read rather than recomputed. Same derivation the
                     // connection screen reads, so the button and the screen it opens can
@@ -2185,6 +2196,23 @@ ApplicationWindow  {
                     }
 
                     onButtonActivated: function (id) {
+                        // RECORD IS THE FIRST TIER-1 BUTTON THAT DOES SOMETHING, because it
+                        // is the only one that needs no settings panel - it has no value to
+                        // set, only a state to enter. It does not toggle: it ASKS, in the
+                        // pill column where the recording state already lives.
+                        if (id === "record") {
+                            if (pulseRuntimeSettings.isRecordingKlf)
+                                pulsePillColumn.askRecordStop()
+                            else
+                                pulsePillColumn.askRecordStart()
+                            return
+                        }
+
+                        // Any other rail tap answers an open question with "not now". A
+                        // question left standing while the user has plainly moved on is
+                        // clutter, and the next tap is how they said so.
+                        pulsePillColumn.dismissQuestion()
+
                         if (id === "settings")
                             console.log("RAIL:", id, "- the settings panel arrives in stage 4 (b)")
                         else
@@ -2226,9 +2254,37 @@ ApplicationWindow  {
                         console.log("PILL: stopping the demo")
                         pulseRuntimeSettings.exitDemoMode()
                     }
+
+                    // A QUESTION MUST NEVER OUTLIVE WHAT IT IS ABOUT. If recording stops or
+                    // starts by any other route - the Recording tab is still there, and an
+                    // opened file or a demo makes recording impossible - a standing question
+                    // about it is stale, and answering it would act on a state that has
+                    // already moved.
+                    Connections {
+                        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                        function onIsRecordingKlfChanged() { pulsePillColumn.dismissQuestion() }
+                        function onIsInDemoModeChanged()   { pulsePillColumn.dismissQuestion() }
+                        function onWasKlfFileOpenedChanged(){ pulsePillColumn.dismissQuestion() }
+                    }
                     onCloseFile: {
                         console.log("PILL: closing the file view")
                         pulseRuntimeSettings.exitFileView()
+                    }
+
+                    recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
+
+                    // The same two lines the Recording tab writes, in the same order. This
+                    // is the only place V2 writes them, and it is reached only through a
+                    // question that has already been answered.
+                    onStartRecording: {
+                        console.log("PILL: recording confirmed - starting")
+                        pulseRuntimeSettings.isRecordingKlf = true
+                        core.loggingKlf = true
+                    }
+                    onStopRecording: {
+                        console.log("PILL: stop confirmed - stopping")
+                        pulseRuntimeSettings.isRecordingKlf = false
+                        core.loggingKlf = false
                     }
                 }
 
