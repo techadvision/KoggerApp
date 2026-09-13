@@ -2737,17 +2737,21 @@ ApplicationWindow  {
         }
 
         function onHasDeviceLostConnectionChanged() {
-            if (pulseRuntimeSettings.didEverReceiveData) {
-                //console.log("TAV: hasDeviceLostConnection");
-                if (pulseRuntimeSettings.hasDeviceLostConnection) {
-                    //console.log("TAV: hasDeviceLostConnection, show alert");
-                    showLostConnection()
-                } else {
-                    //console.log("TAV: hasDeviceLostConnection, remove alert");
-                    removeLostConnection()
-                    pulseRuntimeSettings.hasDeviceLostConnection = false
-                }
-            }
+            //NO didEverReceiveData GATE, and its absence is the whole fix. BOTH arms used to
+            //sit behind that flag - the show AND the remove - and every reset clears it
+            //while only onDevNameChanged raises it. So the overlay could be put up while the
+            //flag happened to be true, and then a reselection wiped it and this handler went
+            //silent for the rest of the run: the box stayed on screen forever, through a
+            //regained connection, a new choice and a complete reconfiguration.
+            //
+            //The gate was never needed here either. hasDeviceLostConnection is now raised
+            //only when data WAS arriving and stopped, so by the time this runs the question
+            //"did we ever receive anything" has already been answered by the thing that
+            //raised it. showLostConnection() keeps its own guards for a file view and a demo.
+            if (pulseRuntimeSettings.hasDeviceLostConnection)
+                showLostConnection()
+            else
+                removeLostConnection()
         }
 
         function onDevNameChanged () {
