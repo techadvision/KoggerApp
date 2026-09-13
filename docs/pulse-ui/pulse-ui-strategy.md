@@ -4004,11 +4004,54 @@ is the right one: *"There may be more problems than just the cone."* The marker
 has done its job once it has been read; after that it is clutter, and clutter on
 the echogram screen costs more than the reminder is worth.
 
+### Confirmed on device, and the test rig Olav built to do it
+
+*"This seems to be 100 % according to the design!"*
+
+The hatch had no honest test: breaking the wifi stalls everything at once, which
+is not the case the hatch is for. Olav made the real one by **commenting out a
+single acknowledgement** in `datasetSetup()`:
+
+```qml
+pulseRuntimeSettings.ch1Period_Copy = dev.ch1Period
+// TEST CASE - FAILED SETUP: disable this to trigger a failed setup
+//pulseRuntimeSettings.ch1Period_ok = true
+console.log("DEV_PARAM ch1Period OK as", dev.ch1Period)
+```
+
+One parameter never acknowledges on a **healthy** link, while every other group
+completes normally — which is exactly the situation the escape hatch was
+designed for and the only way to reach it deliberately. **This is the rig for
+every future change to the card.** Any of the sixteen `*_ok` lines works; the
+group it belongs to is the group the card names.
+
+All four behaviours confirmed in one run: the question appears; **Start anyway**
+starts the echogram; **Keep waiting** returns to waiting and the question comes
+back; accepting leaves the marker top-left; the × dismisses it. And Olav's last
+observation is the one that proves `runUnconfirmed` is honest rather than a
+shortcut — *"my timer keeps banging trying to fix the problem"*. That is
+`completeDeviceConfigurationTimer` still pushing the unacknowledged parameter
+underneath a running echogram, which is precisely what *"It keeps trying either
+way"* promises the user.
+
+### A note on the commit trail
+
+`7b7c4beb` — *"docs(pulse-ui): handover — V2 starts here, and one correction"* —
+**carries no handover.** For this file its diff is an exact inverse of `cc05867c`:
+same thirty-three lines, every sign flipped. It removed the section above rather
+than adding anything, and the write-up its message promises never reached disk.
+
+The mechanism that fits is a full-file rewrite from a copy taken before `cc05867c`
+landed — everything written in between disappears silently, and if the new text
+also fails to make it in, the net commit is a pure revert wearing a misleading
+message. On a document this long that is invisible in review.
+
+**So: patch this file by anchored replacement, never by rewriting it whole.** And
+the rig above is deliberately written down twice — here, and as a comment in
+`DeviceItem.qml`'s `datasetSetup()` — because it was lost once already.
+
 ### What part 2 still owes
 
-- **Testable only by stalling a real parameter**, which is harder than the rest
-  of step 6. The route that works today is to break the wifi during
-  configuration.
 - Whether "Start anyway" should be **remembered per device** or asked again each
   session — still open, and deliberately not decided by this commit.
 - The **per-group consequence wording**. One sentence covers all four groups
