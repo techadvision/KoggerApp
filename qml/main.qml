@@ -2008,6 +2008,18 @@ ApplicationWindow  {
 
                 GridLayout {
                     anchors.fill: parent
+
+                    // THE EDGE RAIL TAKES ITS WIDTH FROM THE PICTURE RATHER THAN COVERING IT.
+                    // This one line is the whole of it, and it has to be here: the rail cannot
+                    // do it from inside Plot2D, because qPlot2D paints the echogram across its
+                    // entire item and PulseApp is that item's CHILD. Anything that takes width
+                    // from the picture has to be the panes' SIBLING - which is also true of the
+                    // sliding panel stage 4 (b) brings.
+                    //
+                    // Zero in the classic UI and zero while the rail is collapsed, both through
+                    // the rail's own `inset`, so there is no second mechanism to keep in step.
+                    anchors.leftMargin: pulseRail.visible ? pulseRail.inset : 0
+
                     rows    : 2
                     columns : 1
                     columnSpacing: 0
@@ -2094,6 +2106,78 @@ ApplicationWindow  {
                         }
                     }
                 }
+
+
+                // THE EDGE RAIL (Stage 4 a). ONE instance above both panes, for the same
+                // reason PulseConnectionScreen and PulseSetupOverlay are: PulseApp is built
+                // inside Plot2D, so anything living there is drawn once per pane.
+                //
+                // It sits inside plotsContainer rather than at the foot of this file because
+                // anchors only reach a parent or a sibling - and because plotsContainer is
+                // exactly the 2D area, so the rail never intrudes on the 3D pane.
+                //
+                // Everything it needs is read here and passed in; the rail itself holds no
+                // app state. `collapsed` is ONE binding on the persisted setting and the
+                // handler writes the SETTING, never the property - assigning it would destroy
+                // the binding and the rail would stop following the stored value.
+                PulseRail {
+                    id: pulseRail
+
+                    visible: pulseSettings.uiVariant === "v2"
+                    enabled: visible
+
+                    anchors.left:   parent.left
+                    anchors.top:    parent.top
+                    anchors.bottom: parent.bottom
+
+                    uiScale:    mainview.s
+                    safeTop:    mainview.insetTop()
+                    safeBottom: mainview.insetBottom()
+                    safeLeft:   mainview.insetLeft()
+
+                    // RULE 1. What is DRAWN about the picture reads the display model;
+                    // is2DTransducer answers "what is connected" and nothing that draws may
+                    // ask it. What the interface OFFERS reads the committed profile, because
+                    // a chooser offers hardware choices and never follows a log.
+                    displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
+                    offersView:  pulseRuntimeSettings ? pulseRuntimeSettings.offersViewChoice : false
+                    offersCone:  pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
+
+                    recording:     pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf  : false
+                    presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
+
+                    collapsed: pulseSettings.v2RailCollapsed
+                    onCollapseToggled: {
+                        pulseSettings.v2RailCollapsed = !pulseSettings.v2RailCollapsed
+                        console.log("RAIL:", pulseSettings.v2RailCollapsed ? "collapsed" : "shown")
+                    }
+
+                    // THE OVERRIDE on the connection screen's one visibility binding. It goes
+                    // through pulseRuntimeSettings rather than through pulseConnectionScreen's
+                    // id because the rail is a component in its own file - and keeping the
+                    // route the same from wherever the rail is hosted is worth more than the
+                    // one line it saves here.
+                    onSourceActivated: {
+                        console.log("RAIL: source - opening the connection screen")
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.connectionScreenRequested = true
+                    }
+
+                    // Scaffolding until 4 (b): the switch that turns v2 on lives in the expert
+                    // settings inside the CLASSIC UI, and uiVariant is persisted.
+                    onBackToClassic: {
+                        console.log("PULSE UI: v2 - returning to classic")
+                        pulseSettings.uiVariant = "classic"
+                    }
+
+                    onButtonActivated: function (id) {
+                        if (id === "settings")
+                            console.log("RAIL:", id, "- the settings panel arrives in stage 4 (b)")
+                        else
+                            console.log("RAIL:", id, "- its panel arrives in stage 4 (b)")
+                    }
+                }
+
             }
         }
 
