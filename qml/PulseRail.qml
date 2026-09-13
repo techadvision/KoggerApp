@@ -106,19 +106,28 @@ Item {
     Rectangle {
         id: showTab
         visible: rail.collapsed
+        // ROUNDED ON THE RIGHT ONLY, without per-corner radii. topRightRadius and
+        // bottomRightRadius are Qt 6.7 additions and this file declares `import QtQuick
+        // 2.15`, which pins the TYPE version whatever Qt the app is built with - so they
+        // are not available here and the whole QML tree fails to load if they are used.
+        // Instead the tab is a plain rounded rectangle pushed left by its own radius, so
+        // its left corners sit off the screen edge and only the right pair is ever seen.
         anchors.left: parent.left
-        anchors.leftMargin: rail.safeLeft
+        anchors.leftMargin: rail.safeLeft - radius
         anchors.verticalCenter: parent.verticalCenter
-        width:  Math.round(30 * rail.uiScale)
+        width:  Math.round(30 * rail.uiScale) + radius
         height: Math.round(64 * rail.uiScale)
-        topRightRadius: Math.round(8 * rail.uiScale)
-        bottomRightRadius: Math.round(8 * rail.uiScale)
+        radius: Math.round(8 * rail.uiScale)
         color: showArea.pressed ? "#dd2a3644" : "#cc0f1317"
         border.width: 1
         border.color: "#20ffffff"
 
         Image {
-            anchors.centerIn: parent
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.horizontalCenter: parent.horizontalCenter
+            // Centred on the VISIBLE part, not on the item: the item is wider than what
+            // can be seen by exactly the radius it was pushed out by.
+            anchors.horizontalCenterOffset: Math.round(showTab.radius / 2)
             width:  Math.round(20 * rail.uiScale)
             height: width
             source: "./icons/ui/pulse_setting_show.svg"
