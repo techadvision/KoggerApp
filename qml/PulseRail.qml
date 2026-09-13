@@ -252,13 +252,15 @@ Item {
                 border.color: "#28ffffff"
             }
 
-            // PLACEHOLDER GLYPH. device-transducer.svg is upstream's, so it is not drawn in
-            // the PULSE icon family the rest of this rail uses. Worth one of Olav's own.
+            // device-transducer.svg was upstream's, and it carries stroke="currentColor" -
+            // a CSS idea with nothing to resolve it in a QML Image, so it drew dark against
+            // a dark rail while every PULSE icon beside it is white. pulse_source.svg is the
+            // same geometry with the stroke stated, named for what the button does.
             Image {
                 anchors.centerIn: parent
                 width:  Math.round(34 * rail.uiScale)
                 height: width
-                source: "./icons/ui/device-transducer.svg"
+                source: "./icons/ui/pulse_source.svg"
                 fillMode: Image.PreserveAspectFit
                 smooth: true
             }
