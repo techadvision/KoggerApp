@@ -4060,3 +4060,285 @@ the rig above is deliberately written down twice — here, and as a comment in
 - The marker's **name for the group** is the display name, so blue's missing cone
   choice lands here too: the user-facing group name belongs in the profile
   record, the same move the cards made in step 2.
+
+---
+
+## Stage 4 (a) — the control surface, built (13 Sept 2026)
+
+`feature/device-profiles-step4` merged to `master` as a fast-forward first — 71 commits,
+`392fd124..3b0a9abe`, all device-confirmed — and this work is `feature/pulse-ui-v2-rail`
+cut off that.
+
+| Commit | What |
+|---|---|
+| `3b0a9abe` | the failed-setup rig, kept as a comment in `datasetSetup()` |
+| `418b023e` | the rail, its tier-1 buttons and the source button |
+| `3fa3ea49` | the rail keeps a floor under the Android status bar |
+| `f165d46c` | the rail collapses, and comes back |
+| `f4e05e07` | the collapsed tab used Qt 6.7 per-corner radii — the crash |
+| `d30511b7` | `tools/pulse-qml-version-check.js`, so that class of crash is static |
+| `80de2e28` | the source button's icon is white like the rest of the rail |
+| `f477a318` | the rail takes its width from the picture rather than covering it |
+| `5dead674` | the escape-hatch confirmation restored, and the commit trail noted |
+
+### The fork is answered: the late-September exhibition runs on the CLASSIC UI
+
+This reverses the recommendation the previous session recorded, and it is worth saying why,
+because the reversal is not a change of judgement — it is a premise that turned out to be
+false.
+
+The old argument was: *if the stand runs classic, the demo indicator, the stop button and
+the file-open have to be built into `PulseAppClassic` and then thrown away.* They do not.
+All three already exist on the classic path:
+
+- the demo indicator is `demoModeBadge` in `PulseAppClassic.qml`, and since backlog item 8
+  it already names the presented device — `Demo · PULSE blue`, the exhibition claim made
+  visible;
+- file-open is **"Start a simulation"** on `PulseConnectionScreen`, built and confirmed;
+- stop is the Recording tab, and `exitDemoMode()` — reopen the links, re-run detection — is
+  the part that was hard, and it works.
+
+What V2 (a) adds over that is **vocabulary, not capability**. At an unattended stand nobody
+is admiring the vocabulary. With the premise gone, the rest follows:
+
+1. *"Risk is bounded, `uiVariant` falls back to classic"* needs a person. It is a one-switch
+   recovery and the switch lives in expert settings inside the UI that would be
+   misbehaving. Olav will not be there. A bound that depends on a hand is not a bound at
+   this stand.
+2. **4 (a) is the control surface with no settings panel.** On V2 nobody at the stand could
+   change colour, range, intensity or filter. An aquarium exhibit where a visitor cannot
+   touch the range is a worse exhibit than one where they can.
+3. **The device time between now and late September is already spoken for** — the boat run
+   covers the swap prompt, item 10's re-test and the `PULSEblue-IP` acceptance test. Putting
+   V2 on the stand makes every remaining V2 commit exhibition-critical, which is exactly the
+   pressure that produces the mixed commits this process exists to prevent.
+
+The honest case for V2 is that the stand is the publicity moment and the new UI is the
+differentiator against Garmin. But what sells a new UI is a person driving it, and there
+isn't one; unattended, the stand mostly shows a moving echogram, and classic moves it just
+as well. **What follows: V2 is built on its own branch with no deadline on it, which is the
+condition under which one-idea-per-commit actually holds.**
+
+**One exhibition risk stays, and it belongs to classic rather than to V2.** If a parameter
+group stalls at an unattended stand, the setup card asks *"Start anyway / Keep waiting"* and
+nobody answers it — the echogram stays halted for the rest of the day. Worth deciding
+whether that question should take itself after a few minutes. Recorded, not scheduled.
+
+### The correction that still stands
+
+The **rule-2 presentation sweep is not a task to schedule** — it is a constraint on how V2
+is written. The assignment sites that cause defect A live in the controls V2 replaces
+(`colorMapIndexReal` is assigned six times inside the classic colour chooser; the max-depth
+ceiling is backlog item 11). One binding on the profile plus one explicit override, never an
+assignment, applied as each control is built. Same reason **items 11 and 12 stay parked on
+V2**: they come off the shelf inside the control they belong to, and not before.
+
+### What 4 (a) contains
+
+The rail, tier 1 only: Colours · View/Cone · Max range · Intensity · Water body filter ·
+Pause & inspect · Record, then the source button, Settings, collapse, the way back to
+classic, and the wordmark. Every tier-1 button emits and logs; **the panel they open is
+4 (b)**, the larger half. Drawn but inert rather than omitted, because this slice is the
+surface and its geometry, and a rail missing two buttons has the wrong proportions to judge
+on a device.
+
+Not in it: the settings panel and every tier-2/3 group; split screen and the "Both, split
+screen" view option; per-pane range and the per-pane state object; the indicator pill column
+(next commit); compression of the echogram by anything other than the rail.
+
+### The rail's two masters, named rather than blurred
+
+This is rule 1 as it applies to a control surface, and getting it wrong here is how defect
+A's whole family recurs.
+
+- **Which buttons exist** reads the **committed** profile — `offersViewChoice` /
+  `offersConeChoice`. A chooser offers HARDWARE choices; you cannot change the cone of a
+  transducer you do not have. Absent rather than greyed out, which the profile map already
+  says by never offering a choice of one.
+- **Everything drawn about the picture** reads `displayIs2DTransducer`. With a blue log
+  presenting on a committed red, the rail must not say "cone" over a side scan.
+
+Nothing in `PulseRail.qml`, `PulseRailButton.qml` or `PulseAppV2.qml` reads `is2DTransducer`,
+and nothing in them should ever start to.
+
+### One binding, one override — and the third way out
+
+The connection screen's visibility now has two sources: the app's own `chooserAsking`, and
+the user, because the source button is the permanent door that backlog item 9 never had. So
+it is ONE binding over both and ONE override, and **nothing anywhere assigns `visible`**:
+
+```qml
+readonly property bool userAsked:
+    pulseRuntimeSettings ? pulseRuntimeSettings.connectionScreenRequested : false
+readonly property bool screenShowing: chooserAsking || userAsked
+visible: screenShowing
+enabled: screenShowing
+```
+
+The override lives on `pulseRuntimeSettings` rather than on the screen, for the reason
+`enterDemoMode()` lives there too: `PulseConnectionScreen` is instantiated in `main.qml` and
+**QML ids do not cross files**, so a root context property is the only route from anywhere
+else.
+
+**There are three ways out, not two.** `commitCard()` and `keepCurrent()` were the obvious
+pair. Starting a simulation is the third — it is on that screen — and left alone, a screen
+the source button raised would have stayed up over the replay it had just started.
+`enterDemoMode()` clears the flag beside `awaitingUserChoice`, which is the same class of
+thing for the same reason: starting a simulation is an answer.
+
+**`canGoBack`, beside `canCancel`.** The case `canCancel` cannot answer is the screen opened
+by hand over a running demo with nothing ever committed: `canCancel` is false, so there was
+no cancel button, and the source button would have been a trap. `canGoBack` is
+`canCancel || (userAsked && !chooserAsking)` — gated on `!chooserAsking` deliberately, so
+when the app genuinely needs an answer there is still no way out but a choice, and no button
+appears that would leave the screen up.
+
+### Where the control surface lives, and why it could not stay in `PulseAppV2`
+
+It was built inside `PulseAppV2` and moved to `main.qml` on the first device build, and the
+reason generalises well past the rail.
+
+**`qPlot2D` paints the echogram across its entire item, and `PulseApp` is that item's
+child.** There is no render-rect or margin property on it. So nothing built inside `Plot2D`
+can take width from the picture — it can only cover it. **Everything the edge-rail direction
+does by compressing the echogram rather than covering it must therefore be the panes'
+SIBLING**, and that is as true of the sliding panel in 4 (b) as it is of the rail. Better to
+learn it from sixteen lines now than from the panel later.
+
+The whole of the compression is one line on the pane `GridLayout` inside `plotsContainer`:
+
+```qml
+anchors.leftMargin: pulseRail.visible ? pulseRail.inset : 0
+```
+
+Zero in classic and zero while collapsed, both through the rail's own `inset`, so there is no
+second mechanism to keep in step. Two things came free: the per-pane gate goes — one rail
+above both panes, the way `PulseConnectionScreen` and `PulseSetupOverlay` already are, so a
+split screen stops drawing two of them without anything about split screen being touched —
+and because the rail sits *inside* `plotsContainer` rather than at the foot of `main.qml`
+(anchors reach only a parent or a sibling), it never intrudes on the 3D pane.
+
+Olav's first instinct was to keep `main.qml` untouched for upstream-merge safety, and then
+his own correction: *"It is a separate section anyway that the upstream author cannot
+hamper."*
+
+**`PulseAppV2` now draws nothing.** It keeps the variant contract and the platform helpers,
+because what lands there next is everything that genuinely belongs ON the picture and takes
+no width from it: the readout, the indicator stack, and the paused crosshair and loupe. The
+helpers are declared on the ROOT of that file on purpose — the pre-existing defect in
+`PulseAppClassic`, where four alert blocks bind `insetTop()` from outside the sibling that
+declares it, cannot recur by construction.
+
+### What the device found
+
+**1. The insets.** The top rail button sat half under the Android clock. `safeTop` arrives
+as zero on an ordinary tablet because `main.qml`'s `insetTop()` answers 0 unless DeX is on —
+the app draws full-bleed under the status bar deliberately, since an echogram wants every
+pixel. Right for the picture, wrong for a control. Same floor and the same 34 du constant as
+`PulseConnectionScreen`, which met this first when its header sat under the clock in a split
+screen. The two surfaces must agree or the rail and the screen it opens sit at different
+heights.
+
+**2. The rail covered the picture.** Olav: *"Must be avoided, echogram to cover the remaining
+part of the screen."* That is the compression above. His own scoping of the cost is worth
+keeping: *"Having the entire echogram available albeit some controls on the screen is
+valuable. The SAR users tend to use huge tablet hardware anyway."* — **phone size in portrait
+is another matter entirely**, and it is the open half of the rail question. The canvas
+already answers it differently: portrait drops the rail for a dock plus a bottom sheet at two
+heights, because 76 du off a 390 dp screen is a real bite and because the drop-back rule
+needs vertical space, not horizontal. Nothing built so far commits either way — `PulseRail`
+takes its geometry entirely from properties.
+
+**3. Collapse and leave read as one thing when they share a glyph.** The arrow at the foot
+was tapped expecting the rail to get out of the way; it left V2 entirely. They no longer
+share one: `pulse_setting_collapse` hides the rail, `pulse_arrow_left` still returns to
+classic. Collapsed, the rail is 30 du of drawer handle vertically centred on the left edge —
+without it, collapsing would not hide the rail but lose it, because the state is persisted
+and the only way back would be a restart. `pulseSettings.v2RailCollapsed` is its own key
+rather than `areUiControlsVisible`: that one hides the classic quick controls, and one value
+driving two interfaces is how a user ends up in classic wondering where his controls went.
+
+**4. The app would not start** — and this is the one worth keeping.
+
+```
+qrc:/PulseRail.qml:115: "Rectangle.bottomRightRadius" is not available in QtQuick 2.15.
+```
+
+**`import QtQuick 2.15` pins the TYPE version whatever Qt the app is built with.** A Qt 6.7
+property on a 2.15 `Rectangle` does not warn — the type fails to load, and every file that
+instantiates it fails with it, up to `main.qml`. The QML root object is null and the app
+dies at startup.
+
+Nothing the sandboxed shell was doing could catch that: braces balanced, the qrc parsed,
+every icon was on disk. So `node tools/pulse-qml-version-check.js` now reads each file's own
+declared import and flags version-gated API against it. It fails on the exact two lines that
+died, which is the only test that matters for a checker. **Run it beside
+`pulse-profile-check.js` after any QML change.**
+
+It also found one pre-existing case: `Scene3DToolbar.qml:111` uses `HoverHandler` (2.15)
+under `import QtQuick 2.12`. The app starts today, so Qt is not refusing it there; the fix is
+a one-line import bump in a file PULSE does not own and belongs with the next upstream merge.
+Recorded in `KNOWN` at the top of the checker rather than fixed, so the tool stays usable as
+a gate.
+
+### Two smaller things, recorded rather than fixed
+
+- `resources/icons.qrc` lists `icons/app/kogger_app.png` and `icons/ui/tool.svg` twice.
+- The classic on-screen recording indicator is a live example of the defect V2 is designed to
+  make impossible: `recordingOnScreen` has `visible: isRecordingKlf` **and** a `Connections`
+  handler that assigns `recordingOnScreen.visible`. The binding is destroyed the first time
+  recording is toggled; it only looks fine because the assignment happens to write the same
+  value. It is also a one-tap stop with no question — which is the control the pill replaces.
+
+### What comes next, in order
+
+**The link strip becomes a fact of the app.** `linkState` / `linkColor` / `linkHeadline` /
+`linkDetail` move from `PulseConnectionScreen` onto `pulseRuntimeSettings`; the screen reads
+them instead of computing them. Pure motion, and the acceptance test is that the screen looks
+and behaves exactly as before. Then the source button gets its state dot — one computation,
+two readers, so the rail can never disagree with the screen it opens. It carries no dot until
+then, on purpose: recomputing the link in the rail would be the second opinion that screen
+exists to stop.
+
+**The pill column**, `displayIs2D ? top-right : bottom-right` by the flow rule:
+
+- `Demo · PULSE blue` with **Stop** → `exitDemoMode()`, which already reopens the links and
+  re-runs detection. The source dot goes blue-identifying and then green with no latch, no
+  timer and no new state anywhere.
+- `Log · PULSE blue` with **✕** → a new `exitFileView()`. Olav's rule for it: *"similar
+  behavior as stopping a demo — if the transducer is connected then let us talk to it. This
+  is a consistent way to operate, people will understand."*
+
+  **It must not copy `exitDemoMode()`.** Opening a file closes no links — that is exactly why
+  a plain opened file still asks about a swap, and why `showLostConnection()` returns early
+  for it. So `exitFileView()` is `core.closeLogFile()`, clear `wasKlfFileOpened` /
+  `isOpeningKlfFile` / `klfFilePath`, and bump `redetectRequestId` so `committedProfileKey`
+  goes back to the transducer instead of the log's identity. It does **not** clear `devName`
+  or `userManualSetName` the way the demo path does: the transducer was never forgotten, the
+  links stayed open and the configuration machinery kept running underneath. Copying the demo
+  path wholesale would throw away a live, configured device.
+
+**Recording, with a question in both directions.** Olav: *"Even I have pressed recording on
+multiple occasions when I should not have, and I made the UI. It is needed!"* A confirm cuff
+— one component anchored to whatever raised it, never the settings panel: it does not scroll,
+does not compress, and closes on any other rail tap. Rail Record → *"Record the echogram
+now?"*; pill ✕ → *"Stop recording the echogram now?"*. It is also the pattern 4 (b) inherits
+for *destructive confirms in the row, never a dialog*.
+
+### Backlog, added this session
+
+**Opening a file freezes the UI, and playback already knows how not to.** Olav's idea:
+`core.openLogFile` blocks while playback ships one epoch at a time at a set pace — so burst
+through at far less than one epoch per 50 ms and let the echogram emerge incrementally
+instead of making the user wait on a frozen screen. *"But as a next step, to be considered."*
+
+### Still open, unchanged
+
+- **The boat run**: the swap prompt on hardware, item 10's bench re-test, and the
+  `PULSEblue-IP` acceptance test. One session on the water covers all three.
+- **The per-pane state object** — still the only thing blocking split screen and the
+  "Both, split screen" view option, and still undecided.
+- **The four per-group consequence sentences** for the setup card. Olav's to write, and the
+  right moment to ask is when the card is next touched.
+- **Phone portrait**, per finding 2 above.
+- Backlog 11, 12 and 13 stay parked.
