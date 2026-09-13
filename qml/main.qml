@@ -52,6 +52,13 @@ ApplicationWindow  {
     // everything - PulseConnectionScreen at z 9000 - must not: it covers the rail too.
     readonly property real pulseRailInset: pulseRail.visible ? pulseRail.inset : 0
 
+    // AND WHAT THE PANEL TAKES. Two numbers, one per thing that takes width, and neither
+    // guesses about the other. Only the pane layout adds both; the setup card adds only the
+    // rail's, because the panel slides over the space the card would use rather than beside
+    // it - and a card that jumped sideways every time a group opened would be worse than one
+    // the panel covers.
+    readonly property real pulsePanelInset: pulsePanel.visible ? pulsePanel.inset : 0
+
     readonly property int _rightBarWidth:                360
     readonly property int _activeObjectParamsMenuHeight: 500
     readonly property int _sceneObjectsListHeight:       300
@@ -2026,7 +2033,7 @@ ApplicationWindow  {
                     //
                     // Zero in the classic UI and zero while the rail is collapsed, both through
                     // the rail's own `inset`, so there is no second mechanism to keep in step.
-                    anchors.leftMargin: mainview.pulseRailInset
+                    anchors.leftMargin: mainview.pulseRailInset + mainview.pulsePanelInset
 
                     rows    : 2
                     columns : 1
@@ -2175,6 +2182,11 @@ ApplicationWindow  {
                     onCollapseToggled: {
                         pulseSettings.v2RailCollapsed = !pulseSettings.v2RailCollapsed
                         console.log("RAIL:", pulseSettings.v2RailCollapsed ? "collapsed" : "shown")
+                        // A PANEL WITHOUT ITS RAIL IS STRANDED. Its own close button still
+                        // works, but the button that opened it has just gone, so the two
+                        // move together.
+                        if (pulseSettings.v2RailCollapsed)
+                            pulsePanel.openGroup = ""
                     }
 
                     // THE OVERRIDE on the connection screen's one visibility binding. It goes
@@ -2195,6 +2207,8 @@ ApplicationWindow  {
                         pulseSettings.uiVariant = "classic"
                     }
 
+                    openGroup: pulsePanel.openGroup
+
                     onButtonActivated: function (id) {
                         // RECORD IS THE FIRST TIER-1 BUTTON THAT DOES SOMETHING, because it
                         // is the only one that needs no settings panel - it has no value to
@@ -2213,10 +2227,101 @@ ApplicationWindow  {
                         // clutter, and the next tap is how they said so.
                         pulsePillColumn.dismissQuestion()
 
+                        // TAPPING THE BUTTON THAT OPENED A GROUP CLOSES IT, and one group is
+                        // open at a time. Both fall out of comparing the id with openGroup
+                        // rather than out of a rule written twice.
+                        if (id === "colours") {
+                            pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
+                            console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
+                            return
+                        }
+
                         if (id === "settings")
-                            console.log("RAIL:", id, "- the settings panel arrives in stage 4 (b)")
+                            console.log("RAIL:", id, "- the settings list arrives with tier 2")
                         else
-                            console.log("RAIL:", id, "- its panel arrives in stage 4 (b)")
+                            console.log("RAIL:", id, "- its panel arrives later in stage 4 (b)")
+                    }
+                }
+
+                // THE SLIDING PANEL (Stage 4 b). Beside the rail, and anchored past it, so
+                // the two insets add up rather than overlap.
+                PulsePanel {
+                    id: pulsePanel
+
+                    visible: pulseSettings.uiVariant === "v2" && openGroup !== ""
+                    enabled: visible
+
+                    anchors.left: parent.left
+                    anchors.leftMargin: mainview.pulseRailInset
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+
+                    uiScale:    mainview.s
+                    safeTop:    mainview.insetTop()
+                    safeBottom: mainview.insetBottom()
+
+                    announceEchogramStop: pulseSettings.stopEchogramToConfigure
+
+                    onCloseRequested: openGroup = ""
+
+                    // ---- Colours ------------------------------------------------
+                    //
+                    // THE LIST FOLLOWS THE DISPLAY MODEL, and so does the key a tap writes.
+                    // Neither chooser can reach the other device's stored preference, which
+                    // is the whole of the fix: the classic 2D selector read the SHARED
+                    // applied id, found the blue's theme inside the red list and wrote that
+                    // position into colorMapIndex2D, destroying red's own preference.
+                    readonly property var fullThemeList:
+                        pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeModel : []
+
+                    themeEntries: favouritesFilter ? pulseSettings.favoriteThemes2DNew
+                                                   : fullThemeList
+                    currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
+
+                    offerFavourites: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer
+                                                          : false
+                    favouritesFilter: offerFavourites && pulseSettings.useFavoriteThemes2D
+                    favouriteIds: pulseSettings.favoriteThemes2DNew.map(function (t) { return t.id })
+
+                    // THE ONLY PLACE A COLOUR KEY IS WRITTEN in v2, and it writes exactly
+                    // one - the one belonging to the model on screen. displayThemeId is a
+                    // binding on these, so the picture follows without being told.
+                    onThemeChosen: function (id) {
+                        var is2D  = pulseRuntimeSettings.displayIs2DTransducer
+                        var model = is2D ? pulseRuntimeSettings.themeModelRed
+                                         : pulseRuntimeSettings.themeModelBlue
+                        var idx = model.findIndex(function (e) { return e.id === id })
+                        if (idx < 0) {
+                            console.log("THEME: chosen id", id, "is not in the", is2D ? "2D" : "side scan", "list")
+                            return
+                        }
+                        console.log("THEME: chosen", id, "-> storing index", idx,
+                                    "in", is2D ? "colorMapIndex2D" : "colorMapIndexSideScan")
+                        if (is2D)
+                            pulseSettings.colorMapIndex2D = idx
+                        else
+                            pulseSettings.colorMapIndexSideScan = idx
+                    }
+
+                    // The two favourite functions already exist and already keep the list in
+                    // master order. removeFavorite2DNew also moves colorMapIndex2D when it
+                    // drops the current theme, which is exactly what v2 needs - and its write
+                    // to colorMapIndexReal is harmless here, because the index move
+                    // re-evaluates displayThemeId and the apply handler rewrites it.
+                    onFavouriteToggled: function (id) {
+                        var entry = pulseRuntimeSettings.themeModelRed.find(function (e) { return e.id === id })
+                        if (!entry)
+                            return
+                        if (pulseSettings.favoriteThemes2DNew.find(function (x) { return x.id === id }))
+                            pulseSettings.removeFavorite2DNew(entry)
+                        else
+                            pulseSettings.addFavorite2DNew(entry)
+                    }
+
+                    onFavouritesFilterToggled: {
+                        pulseSettings.useFavoriteThemes2D = !pulseSettings.useFavoriteThemes2D
+                        console.log("THEME: favourites filter",
+                                    pulseSettings.useFavoriteThemes2D ? "on" : "off")
                     }
                 }
 

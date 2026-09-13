@@ -67,6 +67,11 @@ Item {
     // rail would stop following the stored value for the rest of the run.
     property bool collapsed: false
 
+    // WHICH GROUP THE PANEL IS SHOWING, "" when it is closed. The rail does not own the
+    // panel and does not decide anything about it - it only wears the state, so the button
+    // that opened a group is the one lit while it is open.
+    property string openGroup: ""
+
     signal buttonActivated(string id)
     signal sourceActivated()
     signal backToClassic()
@@ -168,6 +173,7 @@ Item {
             uiScale: rail.uiScale
             buttonId: "colours"
             label: "Colours"
+            pending: rail.openGroup === "colours"
             iconSource: "./icons/ui/pulse_color_choice.svg"
             onActivated: rail.buttonActivated(buttonId)
         }
