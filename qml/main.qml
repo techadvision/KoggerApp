@@ -50,7 +50,13 @@ ApplicationWindow  {
     //
     // Anything that draws ON the echogram must add this. Anything full-bleed ABOVE
     // everything - PulseConnectionScreen at z 9000 - must not: it covers the rail too.
-    readonly property real pulseRailInset: pulseRail.visible ? pulseRail.inset : 0
+    // WHICHEVER EDGE CONTROL IS SHOWING. The rail and the paused gutter are never both up,
+    // and they are the same width on purpose, so pausing does not make the echogram jump
+    // sideways at the moment you are trying to read something on it.
+    readonly property real pulseRailInset:
+          pulsePausedGutter.visible ? pulsePausedGutter.inset
+        : pulseRail.visible         ? pulseRail.inset
+        :                             0
 
     // AND WHAT THE PANEL TAKES. Two numbers, one per thing that takes width, and neither
     // guesses about the other. Only the pane layout adds both; the setup card adds only the
@@ -2138,7 +2144,10 @@ ApplicationWindow  {
                 PulseRail {
                     id: pulseRail
 
+                    // PAUSED IS ITS OWN MODE, so the rail is not merely disabled while the
+                    // picture is frozen - it is gone, and the gutter takes its place.
                     visible: pulseSettings.uiVariant === "v2"
+                             && !pulseRuntimeSettings.echogramPause
                     enabled: visible
 
                     anchors.left:   parent.left
@@ -2214,6 +2223,14 @@ ApplicationWindow  {
                         // is the only one that needs no settings panel - it has no value to
                         // set, only a state to enter. It does not toggle: it ASKS, in the
                         // pill column where the recording state already lives.
+                        // PAUSE NEEDS NO PANEL EITHER. Like Record it has no value to set,
+                        // only a mode to enter - and unlike Record it is not destructive, so
+                        // it does not ask.
+                        if (id === "pause") {
+                            mainview.setEchogramPaused(true)
+                            return
+                        }
+
                         if (id === "record") {
                             if (pulseRuntimeSettings.isRecordingKlf)
                                 pulsePillColumn.askRecordStop()
@@ -2439,6 +2456,26 @@ ApplicationWindow  {
                     }
                 }
 
+                // THE PAUSED GUTTER (Stage 4 b). Takes the rail's place, never beside it.
+                PulsePausedGutter {
+                    id: pulsePausedGutter
+
+                    visible: pulseSettings.uiVariant === "v2"
+                             && pulseRuntimeSettings.echogramPause
+                    enabled: visible
+
+                    anchors.left:   parent.left
+                    anchors.top:    parent.top
+                    anchors.bottom: parent.bottom
+
+                    uiScale:    mainview.s
+                    safeTop:    mainview.insetTop()
+                    safeBottom: mainview.insetBottom()
+                    safeLeft:   mainview.insetLeft()
+
+                    onResumeRequested: mainview.setEchogramPaused(false)
+                }
+
                 // THE INDICATOR PILLS (Stage 4 a). Beside the rail and for the same reason:
                 // what they report is app-wide rather than pane-wide, so one instance above
                 // both panes. They draw ON the picture and take no width from it, so unlike
@@ -2446,7 +2483,10 @@ ApplicationWindow  {
                 PulsePillColumn {
                     id: pulsePillColumn
 
+                    // The pills step aside with the rail. What the echogram IS matters while
+                    // it is running; while it is frozen what matters is what is ON it.
                     visible: pulseSettings.uiVariant === "v2"
+                             && !pulseRuntimeSettings.echogramPause
                     enabled: visible
 
                     anchors.fill: parent
@@ -3426,6 +3466,38 @@ ApplicationWindow  {
     // while the chooser is not showing it.
     // THE MAX RANGE, applied. The stored preference is the only input; the plot is told once,
     // on both panes, and the call depends on which way the picture runs.
+    // ENTERING AND LEAVING THE PAUSE, in one place. The classic control does this inside a
+    // checkbox handler, mixed in with the old-data warning machinery that lives beside it.
+    //
+    // THE SPEED SWAP IS THE PART THAT MATTERS. A 2D echogram scrolls at a configured speed;
+    // while it is frozen that speed means nothing, so it goes to 1.0 and comes back from
+    // pulseSettings on resume. Classic asks is2DTransducer - the COMMITTED device - and this
+    // asks displayIs2DTransducer, which is a deliberate correction: echogram speed is about
+    // the picture that is frozen, not about what is plugged in, and a blue log presenting on
+    // a committed red would otherwise swap a speed that does not apply.
+    function setEchogramPaused(paused) {
+        if (pulseSettings.uiVariant !== "v2")
+            return
+        if (pulseRuntimeSettings.echogramPause === paused)
+            return
+
+        if (paused) {
+            if (pulseRuntimeSettings.displayIs2DTransducer)
+                pulseRuntimeSettings.echogramSpeed = 1.0
+        } else {
+            if (pulseRuntimeSettings.displayIs2DTransducer)
+                pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
+        }
+
+        // A PANEL OVER A FROZEN PICTURE IS WRONG, and the button that opened it has just
+        // gone with the rail. Same rule the rail's own collapse follows.
+        if (paused)
+            pulsePanel.openGroup = ""
+
+        console.log("PAUSE:", paused ? "paused - inspecting" : "resumed")
+        pulseRuntimeSettings.echogramPause = paused
+    }
+
     function applyMaxRange() {
         if (pulseSettings.uiVariant !== "v2")
             return

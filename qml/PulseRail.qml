@@ -72,6 +72,8 @@ Item {
     // that opened a group is the one lit while it is open.
     property string openGroup: ""
 
+    property bool paused: false
+
     signal buttonActivated(string id)
     signal sourceActivated()
     signal backToClassic()
@@ -224,6 +226,10 @@ Item {
             uiScale: rail.uiScale
             buttonId: "pause"
             label: "Pause and inspect"
+            // Never true while the rail is showing - pausing replaces the rail with the
+            // gutter - but the property is what a later "pause is pending" state would use,
+            // and a button that cannot show its own state is a button to fix later.
+            active: rail.paused
             iconSource: "./icons/ui/pulse_play_pause.svg"
             onActivated: rail.buttonActivated(buttonId)
         }
