@@ -1545,6 +1545,9 @@ ColumnLayout {
         if (!pulseRuntimeSettings.ch1Period_ok) {
             if (dev.ch1Period === pulseRuntimeSettings.ch1Period) {
                 pulseRuntimeSettings.ch1Period_Copy = dev.ch1Period
+                // TEST CASE - FAILED SETUP:
+                // Comment out the line below to trigger failure of setup for one parameter group.
+                // Remember to restore the code line to regain normal operation
                 pulseRuntimeSettings.ch1Period_ok = true
                 console.log("DEV_PARAM ch1Period OK as", dev.ch1Period)
             } else {
