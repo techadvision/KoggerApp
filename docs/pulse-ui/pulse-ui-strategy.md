@@ -3904,3 +3904,116 @@ It stays for now only because it is the classic UI's one signal, and removing it
 before the replacement exists would leave nothing. The replacement is two things,
 both already designed: the strip's amber **"Connection lost"** for the connection
 screen, and a new warning over the echogram for a drop during use.
+
+---
+
+## Step 6 — the setup screen, built in two halves (13 Sept 2026)
+
+### Part 1 — the card says what it is doing — `2c66a3c5`
+
+`PulseSetupOverlay.qml` is a new component, registered in `qml/qml.qrc` and
+instantiated **once in `main.qml`**. That placement is the point. The thing it
+replaces, `configurationInProgressIndicator`, lived inside `PulseAppClassic.qml`,
+which `Plot2D.qml` instantiates **per pane** — so a split view drew two of them,
+one over the other, both animating. Lifting it to `main.qml` fixes a latent
+double-draw and two inset bindings that could not be resolved from inside a pane.
+
+The four groups Olav named are read straight off the category flags; nothing new
+is computed. Progress is the count of the sixteen `*_ok` acknowledgements.
+
+The card **earns its words**. Quiet for the first `talkativeAfterMs: 2500` — most
+setups are over before it says anything at all — then the named list, and only
+after `stalledAfterMs: 6000` **with no acknowledgement arriving** does it name
+the group that is not answering. Six seconds of silence, not six seconds
+elapsed: a slow link making steady progress is left alone, which is the whole
+reason `breakAndReconnectLinkTimer`'s ten-second clock had to go.
+
+Confirmed on device, together with the first reproduction of the failure below:
+*"The newly built part works."* Two notes taken: **the fonts and sizes are a
+little tight and want a phone test**, and — the real value — *"we may finally
+have insight in what CAN happen in case of wifi loss during setup."* The screen
+that was built to explain a stall was what made the next defect visible.
+
+### The echogram that would not restart, and what it taught — `785405c0`, `22dee3bf`, `f522a4b4`
+
+Break the link **during** configuration and the echogram never came back. Three
+commits, and the first two were wrong in the same instructive way.
+
+`785405c0` guarded the pause on `isAnswering` and restarted
+`completeDeviceConfigurationTimer` when the link was lost. Necessary, not
+sufficient.
+
+`22dee3bf` applied what looked like the established rule — do not trust a
+parameter until the device confirms it — and verified `datasetChart` against
+`datasetChart_Copy`. Olav's log killed it:
+
+```
+device reports 0 - telling it 1 again
+... link dies ...
+CONFIRMED BY THE DEVICE as 1
+```
+
+**The confirmation is an echo one signal later, not proof.** And the guard built
+on it was holding the circle shut: the app was waiting for a confirmation that
+could only arrive on data that the app was refusing to ask for.
+
+`f522a4b4` is three lines and does one thing: **into silence, keep telling the
+transducer to send the echogram, and nothing else.** Olav: *"Works."*
+
+The finding underneath is worth more than the fix. **No property on the app side
+proves the echogram is on.** `dev.datasetChart` takes the write immediately;
+`datasetChart_Copy` follows one signal later, which on a dying link is one signal
+that may never come. In this one direction **the data IS the acknowledgement** —
+frames arriving is the only honest proof.
+
+That matters because it is the same rule the escape hatch below is built on:
+*show the DEVICE's value for anything unconfirmed*. The rule is right, and it
+still cost two commits here, because `datasetChart_Copy` looks exactly like a
+device value and is not one. Where the device's answer is the data itself, no
+copy property can stand in for it.
+
+### Part 2 — the escape hatch — `82db3303`
+
+Six seconds of silence turns the card from narration into a question: **"One
+setting did not get through"** — or *"Some settings…"* for more than one — with
+the consequence in the user's terms, not ours:
+
+> You will still get the echogram, the depth and the temperature. That setting
+> stays as the transducer last had it, so what the screen shows may not be what
+> is in the water.
+
+**Start anyway** (amber) and **Keep waiting** (outline, which simply restarts the
+stall timer), under one line that removes the fear of choosing wrong: *"It keeps
+trying either way."*
+
+`runUnconfirmed` means exactly one thing — **stop halting the echogram while we
+wait**. It is not a configured state: `devConfigured` stays false, every `*_ok`
+stays where it was, and the timer keeps pushing in the background, so a parameter
+that lands later simply lands. The only change in `DeviceItem.qml` is that the
+pause branch is skipped and `datasetChart` kept asserted.
+
+**A fresh setup never inherits it.** `configurePulseDevice()` clears
+`runUnconfirmed` before anything else, so the next transducer, the next
+reselection and the next reconfigure all start from waiting again. The choice is
+about this situation, not about this user.
+
+Afterwards the card is replaced by a standing marker — `PULSE red · Cone not
+set`, or `PULSE red · 2 settings not set` — carrying the caveat onto the echogram
+screen rather than hiding it. Olav asked for it to be dismissible, and his reason
+is the right one: *"There may be more problems than just the cone."* The marker
+has done its job once it has been read; after that it is clutter, and clutter on
+the echogram screen costs more than the reminder is worth.
+
+### What part 2 still owes
+
+- **Testable only by stalling a real parameter**, which is harder than the rest
+  of step 6. The route that works today is to break the wifi during
+  configuration.
+- Whether "Start anyway" should be **remembered per device** or asked again each
+  session — still open, and deliberately not decided by this commit.
+- The **per-group consequence wording**. One sentence covers all four groups
+  today. What a failed `transFreq` costs a SAR crew is not what it costs an
+  angler, and only Olav can write those four lines.
+- The marker's **name for the group** is the display name, so blue's missing cone
+  choice lands here too: the user-facing group name belongs in the profile
+  record, the same move the cards made in step 2.
