@@ -2230,7 +2230,8 @@ ApplicationWindow  {
                         // TAPPING THE BUTTON THAT OPENED A GROUP CLOSES IT, and one group is
                         // open at a time. Both fall out of comparing the id with openGroup
                         // rather than out of a rule written twice.
-                        if (id === "colours" || id === "intensity" || id === "filter") {
+                        if (id === "colours" || id === "intensity" || id === "filter"
+                                || id === "view" || id === "cone") {
                             pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
                             console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
                             return
@@ -2381,6 +2382,38 @@ ApplicationWindow  {
                             return
                         pulseSettings.filterDisplayValue = v
                         pulseSettings.filterRealValue    = Math.round(v * 2.5)
+                    }
+
+                    // ---- View / cone --------------------------------------------
+                    //
+                    // COMMITTED, not display. A chooser offers HARDWARE choices - you cannot
+                    // change the cone of a transducer you do not have - so this follows what
+                    // is connected and never a log that happens to be playing.
+                    readonly property bool showingCone:
+                        pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
+
+                    choiceEntries: !pulseRuntimeSettings ? []
+                                 : showingCone ? pulseRuntimeSettings.uiCones
+                                               : pulseRuntimeSettings.uiViews
+                    choiceCurrentId: !pulseRuntimeSettings ? ""
+                                   : showingCone ? pulseRuntimeSettings.resolveConeId(pulseSettings.ecoConeId)
+                                                 : pulseRuntimeSettings.resolveViewId(pulseSettings.ecoViewId)
+                    choiceCaption: showingCone
+                                   ? qsTr("A narrower cone sees less of the bottom and sees it more sharply.")
+                                   : qsTr("What the transducer looks at. The frequency follows the view.")
+
+                    // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE - classic's own
+                    // rule, kept. Applying is what happens when the preference moves.
+                    onChoiceMade: function (id) {
+                        if (showingCone) {
+                            if (id === pulseSettings.ecoConeId)
+                                return
+                            pulseSettings.ecoConeId = id
+                        } else {
+                            if (id === pulseSettings.ecoViewId)
+                                return
+                            pulseSettings.ecoViewId = id
+                        }
                     }
                 }
 
@@ -3280,6 +3313,21 @@ ApplicationWindow  {
 
         function onIntensityRealValueChanged() { mainview.applyIntensity() }
         function onFilterRealValueChanged()    { mainview.applyWaterBodyFilter() }
+
+        function onEcoViewIdChanged() { mainview.applyViewId(pulseSettings.ecoViewId) }
+        function onEcoConeIdChanged() { mainview.applyConeId(pulseSettings.ecoConeId) }
+    }
+
+    // AND WHEN THE DEVICE CHANGES UNDER THE PREFERENCE. The stored id has not moved, so
+    // neither handler above fires - but a newly committed transducer has to be told what it
+    // is set to, which is what classic's onUserManualSetNameChanged did for both choosers.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        enabled: pulseSettings.uiVariant === "v2"
+        function onUserManualSetNameChanged() {
+            mainview.applyViewId(pulseSettings.ecoViewId)
+            mainview.applyConeId(pulseSettings.ecoConeId)
+        }
     }
 
     // The filter's OTHER input. Turning the water body filter on or off changes which of the
@@ -3330,6 +3378,77 @@ ApplicationWindow  {
             }
         }
         MosaicViewControlMenuController.onLevelChanged(real, pulseSettings.intensityRealValue)
+    }
+
+    // THE VIEW AND THE CONE - the committed device's own question, and the one tier-1 control
+    // that writes to the TRANSDUCER rather than to the picture.
+    //
+    // The classic chooser applies inside onIconSelected, AND from a Connections on
+    // userManualSetNameChanged, AND from a one-second startup timer - three call sites that
+    // each have to remember the whole sequence. Here the stored id is the only input and
+    // applying is what happens when it, or the committed device, moves.
+    //
+    // BY ID, NOT BY INDEX, and that is deliberate: viewForId() resolves an expert-only entry
+    // that is hidden right now to the visible entry of the same MODE, so an expert's stored
+    // 820 kHz choice survives leaving and re-entering expert mode without being transmitted
+    // while the chooser is not showing it.
+    function applyViewId(id) {
+        if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersViewChoice)
+            return
+        var v = pulseRuntimeSettings.viewForId(id)
+        if (!v)
+            return
+
+        console.log("VIEW: applying", v.id, "-", v.mode, v.freq, "kHz")
+
+        // Carried over verbatim from the classic applier. The mode decides the grid and the
+        // range call; the frequency is a device parameter and DeviceItem picks it up.
+        if (v.mode === "side") {
+            pulseRuntimeSettings.isSideScan2DView = false
+            pulseRuntimeSettings.isHorizontalGrid = false
+            waterViewFirst.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
+            plotDistanceRangeV2Timer.restart()
+        } else {
+            pulseRuntimeSettings.isSideScan2DView = true
+            pulseRuntimeSettings.isHorizontalGrid = true
+            pulseRuntimeSettings.chartOffset = 0
+            plotDistanceRange2dV2Timer.restart()
+        }
+        pulseRuntimeSettings.transFreq = v.freq
+    }
+
+    function applyConeId(id) {
+        if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersConeChoice)
+            return
+        var c = pulseRuntimeSettings.coneForId(id)
+        if (!c)
+            return
+        console.log("CONE: applying", c.id, "-", c.freq, "kHz")
+        pulseRuntimeSettings.transFreq = c.freq
+    }
+
+    // THE TEN MILLISECONDS ARE THE CLASSIC ONES. The property writes above have to land
+    // before the plot is told to re-range, or it ranges against the grid it is leaving.
+    Timer {
+        id: plotDistanceRangeV2Timer
+        repeat: false
+        interval: 10
+        onTriggered: {
+            waterViewFirst.setVerticalNow()
+            waterViewFirst.plotDistanceRange(waterViewFirst.quickChangeMaxRangeValue * 1.0)
+            waterViewFirst.updatePlot()
+        }
+    }
+
+    Timer {
+        id: plotDistanceRange2dV2Timer
+        repeat: false
+        interval: 10
+        onTriggered: {
+            waterViewFirst.setHorizontalNow()
+            waterViewFirst.plotDistanceRange2d(waterViewFirst.quickChangeMaxRangeValue * 1.0)
+            waterViewFirst.updatePlot()
+        }
     }
 
     function applyDisplayTheme() {

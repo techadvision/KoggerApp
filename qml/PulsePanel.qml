@@ -56,6 +56,13 @@ Item {
     signal intensityMoved(int v)
     signal filterMoved(int v)
 
+    // ---- The view / cone chooser --------------------------------------------
+    property var    choiceEntries:   []
+    property string choiceCurrentId: ""
+    property string choiceCaption:   ""
+
+    signal choiceMade(string id)
+
     visible: isOpen
     width: panelWidth
 
@@ -66,6 +73,8 @@ Item {
           openGroup === "colours"   ? qsTr("Colours")
         : openGroup === "intensity" ? qsTr("Intensity")
         : openGroup === "filter"    ? qsTr("Water body filter")
+        : openGroup === "view"      ? qsTr("View")
+        : openGroup === "cone"      ? qsTr("Cone")
         : openGroup === ""        ? ""
         :                           openGroup
 
@@ -244,6 +253,19 @@ Item {
             valueText: panel.filterValue
 
             onMoved: function (v) { panel.filterMoved(v) }
+        }
+
+        PulseChoiceGroup {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "view" || panel.openGroup === "cone"
+            uiScale: panel.uiScale
+
+            entries:   panel.choiceEntries
+            currentId: panel.choiceCurrentId
+            caption:   panel.choiceCaption
+
+            onChosen: function (id) { panel.choiceMade(id) }
         }
         }
     }
