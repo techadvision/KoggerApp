@@ -2276,6 +2276,29 @@ ApplicationWindow  {
 
                     themeEntries: favouritesFilter ? pulseSettings.favoriteThemes2DNew
                                                    : fullThemeList
+
+                    // THE COLOUR TABLES, ASKED FOR ONCE. qPlot2D::echogramThemeStops(id) is
+                    // Q_INVOKABLE and has been in the tree unused; it returns the renderer's
+                    // own table for ANY id, so every row can draw the palette it will get.
+                    //
+                    // Built once rather than bound: these tables are compiled in and cannot
+                    // change while the app runs, and twenty invokes per repaint would be
+                    // twenty invokes too many.
+                    property var themeStopsById: ({})
+
+                    Component.onCompleted: {
+                        var out = {}
+                        var all = pulseRuntimeSettings.themeModelRed
+                                      .concat(pulseRuntimeSettings.themeModelBlue)
+                        for (var i = 0; i < all.length; ++i) {
+                            var id = all[i].id
+                            if (out[id] !== undefined)
+                                continue
+                            out[id] = waterViewFirst.echogramThemeStops(id)
+                        }
+                        themeStopsById = out
+                        console.log("THEME: colour tables read for", Object.keys(out).length, "themes")
+                    }
                     currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
 
                     offerFavourites: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer

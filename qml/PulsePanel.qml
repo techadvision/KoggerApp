@@ -39,6 +39,7 @@ Item {
     // ---- Colours, the only group in step 1 ----------------------------------
     property var  themeEntries:      []
     property int  currentThemeId:    -1
+    property var  themeStopsById:    ({})
     property bool offerFavourites:   false
     property bool favouritesFilter:  false
     property var  favouriteIds:      []
@@ -186,6 +187,7 @@ Item {
             uiScale: panel.uiScale
 
             entries:          panel.themeEntries
+            stopsById:        panel.themeStopsById
             currentId:        panel.currentThemeId
             offerFavourites:  panel.offerFavourites
             favouritesFilter: panel.favouritesFilter

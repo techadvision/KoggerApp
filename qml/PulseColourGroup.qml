@@ -22,6 +22,11 @@ Item {
     property int  currentId: -1
 
     // Favourites are a 2D idea: blue has six themes and never needed them.
+    // id -> [{pos, color}], supplied by the host. The stops come from the C++ colour table
+    // itself, so a row shows the palette the renderer will actually use rather than a
+    // picture of it.
+    property var  stopsById: ({})
+
     property bool offerFavourites:  false
     property bool favouritesFilter: false
     property var  favouriteIds:     []
@@ -106,28 +111,78 @@ Item {
                 border.width: isCurrent ? 2 : 1
                 border.color: isCurrent ? "#3d7fd0" : "#20ffffff"
 
-                // THE RAMP. Stretched on purpose - the source art is a square diagonal
-                // gradient, and pulling it to 3:1 turns it into the left-to-right ramp the
-                // eye reads a palette as. If the diagonal ever looks wrong stretched, this
-                // is one word: PreserveAspectCrop.
+                // THE RAMP, and it is the real one. qPlot2D::echogramThemeStops(id) is
+                // Q_INVOKABLE, already written, and was never called from QML: it hands back
+                // the colour table the renderer itself uses, as {pos, color} stops. So the
+                // row shows the palette rather than a picture of it, and there is no aspect
+                // ratio to preserve - a ramp is supposed to fill its frame.
+                //
+                // The art these rows carried before is a BADGE, not a gradient: an oval with
+                // the vendor's initials in it. Stretching one to 3:1 squashed the oval, which
+                // is what Olav caught. The badge survives as the fallback below, for an id
+                // the colour table does not know.
                 Rectangle {
                     id: rampFrame
                     anchors.left: parent.left
                     anchors.leftMargin: Math.round(12 * group.uiScale)
                     anchors.verticalCenter: parent.verticalCenter
-                    width:  Math.round(120 * group.uiScale)
+                    width:  Math.round(100 * group.uiScale)
                     height: Math.round(40 * group.uiScale)
                     radius: Math.round(6 * group.uiScale)
-                    color: "transparent"
+                    color: "#0b0d11"
                     border.width: 1
                     border.color: "#30ffffff"
                     clip: true
 
-                    Image {
+                    readonly property var stops:
+                        (group.stopsById && group.stopsById[modelData.id]) ? group.stopsById[modelData.id] : []
+
+                    Canvas {
+                        id: rampCanvas
                         anchors.fill: parent
                         anchors.margins: 1
+                        visible: rampFrame.stops.length > 0
+
+                        Connections {
+                            target: rampFrame
+                            function onStopsChanged() { rampCanvas.requestPaint() }
+                        }
+
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.reset()
+
+                            var stops = rampFrame.stops
+                            if (!stops || stops.length === 0)
+                                return
+
+                            var g = ctx.createLinearGradient(0, 0, width, 0)
+
+                            // addColorStop refuses a position that goes backwards, and a
+                            // table is data - it is not this file's job to assume it arrives
+                            // sorted. Clamp, and never move backwards.
+                            var last = -1
+                            for (var i = 0; i < stops.length; ++i) {
+                                var p = Math.max(0, Math.min(1, stops[i].pos))
+                                if (p < last)
+                                    p = last
+                                last = p
+                                g.addColorStop(p, String(stops[i].color))
+                            }
+
+                            ctx.fillStyle = g
+                            ctx.fillRect(0, 0, width, height)
+                        }
+                    }
+
+                    // FALLBACK: the vendor badge, aspect preserved, for a theme whose id the
+                    // colour table does not answer for.
+                    Image {
+                        anchors.fill: parent
+                        anchors.margins: Math.round(4 * group.uiScale)
+                        visible: rampFrame.stops.length === 0
                         source: modelData.icon
-                        fillMode: Image.Stretch
+                        fillMode: Image.PreserveAspectFit
                         smooth: true
                     }
                 }
