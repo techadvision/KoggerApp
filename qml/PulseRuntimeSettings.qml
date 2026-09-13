@@ -53,6 +53,11 @@ QtObject {
         requestDeviceChoice()
     }
 
+    //THE LAST MODEL THIS RUN ACTUALLY KNEW ABOUT. Survives every reset on purpose - it is
+    //what lets "nothing is committed" mean "do not change anything" instead of "guess".
+    //See resolveProfileKey().
+    property string lastKnownModel: ""
+
     onUserManualSetNameChanged: {
         //A model is committed, so the question is answered however it was answered - by a
         //card, by Keep, or by detection. One place rather than one per exit, so a new way
@@ -61,6 +66,8 @@ QtObject {
             console.log("DEV_CHOICE: answered ->", userManualSetName)
             awaitingUserChoice = false
         }
+        if (userManualSetName !== "..." && userManualSetName !== "")
+            lastKnownModel = userManualSetName
     }
 
     //CHOOSE A DIFFERENT TRANSDUCER - the third of the three intents, and the only one that
@@ -927,10 +934,39 @@ QtObject {
                 return blueKeyFor(address)
         }
 
-        //Nothing committed, or still inside the settle window. Blue, which is what this has
-        //always fallen back to — now said out loud instead of hiding in a ternary. Still not
-        //obviously right, and still the thing to revisit when a second red-like device
-        //exists; with three profiles that are two blues and one red it remains correct.
+        //NOTHING IS COMMITTED, and that is not a question this function should answer with
+        //a guess. "..." is not an unrecognised device - it is NO device, and the honest
+        //response to "I have not been told yet" is to change nothing.
+        //
+        //It used to fall through to blue, and the log showed what that cost. Between a
+        //reset and the next commit:
+        //
+        //  PROFILE: committed key -> PULSEblue | model ...  | channels 0
+        //  dev.chartResolution set to 25   distMax 25000   transBoost 1
+        //
+        //A red transducer spent the whole window being configured as a side scan - 25 m
+        //instead of 50, resolution 25 instead of 2 - because every binding on
+        //committedProfile snapped to blue, and those are not merely read, they are WRITTEN
+        //to the device. It is also the root of the four symptoms after an accepted swap:
+        //the view, the colour map, the max depth ceiling and the temperature were not four
+        //regressions but four values read or assigned inside a window in which the whole
+        //app believed it was a blue.
+        //
+        //Holding the last model changes nothing on the wire, because that model is what the
+        //device is already configured for. The recursion terminates at once: lastKnownModel
+        //is only ever a real model.
+        if (model === "" || model === "...") {
+            if (lastKnownModel !== "" && lastKnownModel !== "...")
+                return resolveProfileKey(lastKnownModel, address, channels)
+            //Nothing has ever been committed this run, so there is nothing to hold and no
+            //device to misconfigure. Blue stays the right guess, exactly as before.
+            return blueKeyFor(address)
+        }
+
+        //Still inside the Basic2D settle window: an identified device whose model is not
+        //decided yet. Blue, which is what this has always fallen back to. Still the thing
+        //to revisit when a second red-like device exists; with three profiles that are two
+        //blues and one red it remains correct.
         return blueKeyFor(address)
     }
 
