@@ -3493,3 +3493,98 @@ above means the app no longer *acts* on that, which is enough for every symptom
 seen so far — but `linkIsOpen` and `deviceIsPresent` remain facts nothing
 retracts, and the status strip will keep having to work around them until
 something does. Recorded, not scheduled.
+
+---
+
+## The configuration state, and the escape hatch (13 Sept 2026)
+
+Settled with Olav: the three user intents above, plus a requirement for the new
+UI. *"Today we have 'configuring transducer…' only. A bit more information would
+be great. Especially if there are struggles… if he is at the water right now
+then something is better than nothing."*
+
+### The app already knows everything the screen should say
+
+The handshake is twenty acknowledgements in five groups, and it knows, at every
+moment, exactly which parameter has not come back. The log prints it already:
+
+```
+DEV_PARAM checking transSetup
+DEV_PARAM transFreq OK as 710
+DEV_PARAM transPulse OK as 10
+DEV_PARAM transBoost OK as 0
+DEV_PARAM onTransChanged is OK, let's move on
+```
+
+All of that is thrown away at the UI, which shows one string. Nothing new has to
+be computed to say considerably more — group progress, and on a stall the name
+of the group that is not answering.
+
+### What a stall should say
+
+Four groups carry anything a user would recognise (`dspSetup` and `soundSpeed`
+are acknowledged by default):
+
+| group | parameters | plain name — TO BE CORRECTED BY OLAV | what failing costs |
+|---|---|---|---|
+| `distSetup` | distMax, distDeadZone, distConfidence | Depth range | how deep it looks |
+| `chartSetup` | chartSamples, chartResolution, chartOffset | Echogram detail | resolution and scale |
+| `transSetup` | transFreq, transPulse, transBoost | Transducer | the cone / frequency |
+| `datasetSetup` | ch1Period, datasetChart, datasetDist, datasetSDDBT, datasetTemp, datasetEuler, datasetTimestamp | What it sends | echogram, depth, temperature |
+
+Only Olav can write the second and third columns properly — what a failed
+`transFreq` costs a SAR crew is not what it costs an angler.
+
+### The escape hatch
+
+**"Use it anyway."** Offered when the app has enough acknowledged to draw a
+picture — `datasetChart` acknowledged and data arriving — and what it forfeits is
+whatever is still unacknowledged. If `datasetChart` itself is what will not go
+through there is no echogram to offer, and the honest answer is to say so.
+
+Mechanically it is small: leave the `*_ok` flags exactly as they are, stop
+halting the echogram, and let `completeDeviceConfigurationTimer` keep retrying
+quietly underneath. A parameter that lands later simply lands.
+
+`devConfigured` stays FALSE, because it is the truth. The new fact is that the
+user has accepted running without it.
+
+### The rule that makes it safe rather than misleading
+
+**An unacknowledged parameter means the app does not know what the device is
+using.** So for anything unacknowledged the UI must show the DEVICE's value, not
+the wanted one. If `transFreq` never lands, the cone selector must not read 710
+while the transducer transmits at whatever it had — a surveyor logging a swath
+at the wrong frequency, believing the number on screen, is a worse outcome than
+no echogram at all.
+
+That is the two rules again: the wanted value and the actual value are two
+sources, so one of them gets the binding and the interface reads the one that is
+true.
+
+And it does not end at the overlay. Having accepted, the user keeps a quiet
+standing marker — the same shape as the demo pill step 4 is getting, saying what
+the app is rather than nagging:
+
+```
+Demo · PULSE blue                    PULSE red · 1 setting unconfirmed
+```
+
+### When to offer it
+
+Not on a fixed timeout. `breakAndReconnectLinkTimer`'s ten seconds measured
+elapsed time, which punishes a slow link that is making steady progress — and a
+weak link is exactly the case the halt-the-echogram rule exists to protect.
+
+Measure **progress, not time**: offer the hatch after N seconds in which no
+acknowledgement has arrived. Same idea as `isAnswering` — movement rather than a
+clock — and it means a Skydroid link crawling through the handshake is left
+alone while a genuinely stuck one is caught quickly.
+
+### Still open
+
+- The plain names and the consequence wording, above.
+- N, and whether the offer appears on its own or behind a "this is taking a
+  while" line first.
+- Whether the marker is dismissible, and whether accepting should be remembered
+  for that device or asked again each session.
