@@ -1067,17 +1067,31 @@ QtObject {
     //
     //DISPLAY, not committed - rule 1. A palette is the plainest thing on screen that is
     //judged by looking at it.
+    //QUALIFIED, and that is not a style point. colorMapIndex2D and colorMapIndexSideScan
+    //live on pulseSettings, NOT here - and an unqualified name that this object does not
+    //own resolves to nothing, so both terms arrived as `undefined`, themeIdAt fell back to
+    //model[0], and the whole binding sat on the FIRST entry of whichever list was showing.
+    //Choosing a theme wrote its key correctly and changed nothing, because nothing was
+    //reading the key.
     readonly property int displayThemeId: displayIs2DTransducer
-        ? themeIdAt(themeModelRed,  colorMapIndex2D)
-        : themeIdAt(themeModelBlue, colorMapIndexSideScan)
+        ? themeIdAt(themeModelRed,  pulseSettings.colorMapIndex2D)
+        : themeIdAt(themeModelBlue, pulseSettings.colorMapIndexSideScan)
 
     //A stored index that is out of range can only come from a build that shortened a list,
     //so fall back to the first entry rather than let every reader get undefined.
+    //
+    //AND SAY SO. The silent version of this fallback hid a whole broken binding for a device
+    //build: an unqualified property name resolved to `undefined`, undefined failed the range
+    //test, and every call quietly answered model[0]. A fallback that cannot be seen in the
+    //log is a fallback that cannot be debugged.
     function themeIdAt(model, index) {
         if (!model || model.length === 0)
             return 0
-        var e = (index >= 0 && index < model.length) ? model[index] : model[0]
-        return e.id
+        if (index >= 0 && index < model.length)
+            return model[index].id
+        console.log("THEME: index", index, "is not in a list of", model.length,
+                    "- falling back to the first entry")
+        return model[0].id
     }
 
     function themeEntryAt(model, index) {
@@ -1089,8 +1103,9 @@ QtObject {
     //The list the chooser SHOWS, and the key it writes. Both follow the display model for
     //the same reason the id above does.
     readonly property var  displayThemeModel: displayIs2DTransducer ? themeModelRed : themeModelBlue
-    readonly property int  displayThemeIndex: displayIs2DTransducer ? colorMapIndex2D
-                                                                    : colorMapIndexSideScan
+    readonly property int  displayThemeIndex: displayIs2DTransducer
+        ? pulseSettings.colorMapIndex2D
+        : pulseSettings.colorMapIndexSideScan
 
     //Favourites are a 2D idea only - blue has six themes and never needed them.
     readonly property bool displayThemeFavouritesActive:
