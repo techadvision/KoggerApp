@@ -158,6 +158,9 @@ ColumnLayout {
     property string transducerName: "not_determined"
     property bool shouldLookForDevice: false
     property bool dataUpdateDidChange: false
+
+    //Logs the silent-link retry once per silence rather than twice a second.
+    property bool silentRetryLogged: false
     property var lostConnectionAlert: null
     property bool showLostConnection: false
     //TODO: reduce delayTimerRepeat to 200 ms when we have SSS transducer with a unique value and not ECHO20
@@ -1207,25 +1210,35 @@ ColumnLayout {
                 return
             }
 
-            //NOTHING IS ARRIVING, SO NOTHING WE WRITE CAN BE ACKNOWLEDGED. Keep ticking and
-            //do nothing: the moment data returns, the next tick carries on from where this
-            //left off.
+            //NOTHING IS ARRIVING. Almost nothing is worth writing into that, because
+            //nothing written can be acknowledged - but there is exactly ONE exception, and
+            //it is the whole reason this state is recoverable at all.
             //
-            //Without this the handshake runs happily over a dead link and marks its own
-            //writes as acknowledged - a log caught it declaring "datasetChart OK as 1" and
-            //then "devConfigured complete" while the wifi was already gone. The device
-            //never received that 1, so it stayed with its chart OFF, and a transducer with
-            //its chart off sends nothing at all. Which deadlocks the recovery: the
-            //"regained" arm needs data, and data needs the very setting only that arm would
-            //re-assert. Olav had to toggle the expert echogram box twice to break it.
+            //A TRANSDUCER WITH ITS CHART OFF SENDS NOTHING. So if the echogram enable is
+            //the thing that did not land, no evidence can ever arrive to say so: the
+            //"regained" arm waits for data, the dataArrived trigger waits for data,
+            //isAnswering waits for data, and the one write that would produce data is the
+            //one being withheld. That is a closed circle, and holding the whole handshake
+            //back kept it closed - which is what a repeat of Olav's test showed.
             //
-            //Data does keep arriving while the chart is paused for configuration - the same
-            //log shows the setup overlay still up, which requires isAnswering, 2.5 s after
-            //"disable echogram" - so this does not stall an ordinary setup.
+            //So: into silence, keep telling it to send the echogram, and nothing else.
+            //Every other parameter waits for evidence, because every other parameter can
+            //afford to. When one of these writes finally lands, the device starts sending,
+            //isAnswering goes true, and the handshake resumes from where it stopped.
             if (!pulseRuntimeSettings.isAnswering) {
-                //console.log("DEV_PARAM: nothing is answering, holding the handshake")
+                if (dev !== null && pulseRuntimeSettings.datasetChart !== 0) {
+                    pulseRuntimeSettings.datasetChart_ok = false
+                    pulseRuntimeSettings.echogramEnabledByConfig = true
+                    dev.datasetChart = pulseRuntimeSettings.datasetChart
+                    if (!silentRetryLogged) {
+                        silentRetryLogged = true
+                        console.log("DEV_PARAM: nothing is answering - telling the transducer",
+                                    "to send the echogram, and repeating until it does")
+                    }
+                }
                 return
             }
+            silentRetryLogged = false
 
             console.log("DEV_PARAM Repeating setup for", pulseRuntimeSettings.userManualSetName)
 
@@ -1607,28 +1620,22 @@ ColumnLayout {
         //
         // TELL IT TO ENABLE THE ECHOGRAM, AND DO NOT TRUST IT UNTIL IT ACTUALLY IS.
         //
-        // This one step is verified against datasetChart_Copy rather than dev.datasetChart,
-        // and the difference is the whole bug. dev.datasetChart takes our write
-        // OPTIMISTICALLY, so comparing against it asks "did we write what we wanted", which
-        // is always yes on the next tick - even into a dead link. _Copy is refreshed from
-        // the DEVICE's own dataset report (the dev onDatasetChanged handler at the top of
-        // this file), so it answers the question that matters: is the chart actually on.
+        // Checked against datasetChart_Copy rather than dev.datasetChart. dev.datasetChart
+        // takes our write immediately, so comparing against it asks "did we write what we
+        // wanted", which is always yes on the very next tick. _Copy is one signal further
+        // back - it is refreshed in the dev onDatasetChanged handler at the top of this
+        // file - so it costs a tick and gives the device's report a chance to land first.
         //
-        // Olav found it in his own expert panel. The handshake had logged "datasetChart OK
-        // as 1" and "devConfigured complete", and the copy value beside it read Show chart =
-        // OFF. The transducer never got the write, and a transducer with its chart off sends
-        // NOTHING - which is why nothing could recover it: every recovery path waits for
-        // data. His words: "Do not trust it is enabled until it actually is."
+        // BUT IT IS NOT PROOF, and a log settled that: "device reports 0 - telling it 1
+        // again", the link dying on the very next line, and "CONFIRMED BY THE DEVICE as 1"
+        // one tick later, when the transducer could not possibly have answered. The handler
+        // fires on the local property changing, so the confirmation follows our own write
+        // too - just one step behind. It is better than the direct comparison and it is
+        // still an echo.
         //
-        // Not completing is now the safe failure. The loop keeps telling the device, the
-        // overlay keeps saying it is setting up and names this group, and part 2's
-        // "Start anyway" is what turns that into a choice. Completing while the echogram is
-        // dead is the outcome that cannot be recovered from, and it is the one this removes.
-        //
-        // Deliberately only this parameter. Every other step compares the same optimistic
-        // way and so carries the same doubt - _Copy is the general answer whenever we want
-        // to spend the round trips - but datasetChart is the one whose failure is both
-        // catastrophic and self-concealing, because it silences the evidence.
+        // THE ONLY REAL PROOF THAT THE ECHOGRAM IS ON IS ECHOGRAM DATA ARRIVING, which is
+        // why the silent-link retry above exists rather than any cleverness here. This
+        // check buys a tick; that retry is what actually recovers.
         if (!pulseRuntimeSettings.datasetChart_ok) {
             if (pulseRuntimeSettings.datasetChart_Copy === pulseRuntimeSettings.datasetChart) {
                 pulseRuntimeSettings.datasetChart_ok = true
