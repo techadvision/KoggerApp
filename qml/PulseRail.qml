@@ -230,8 +230,13 @@ Item {
             label: "Record"
             visible: rail.canRecord
             active: rail.recording
+            // pulse_recording_inactive.svg declares NEITHER fill NOR stroke, so SVG's default
+            // applies and it draws BLACK - invisible on a #cc0f1317 rail. The button was
+            // there and tappable the whole time; nothing could be seen to tap. Every other
+            // icon on this rail states #ffffff or #FFFFF0, and pulse_recording_mini is the
+            // white one of this pair. Red when it IS recording, which the pill echoes.
             iconSource: rail.recording ? "./icons/ui/pulse_recording_active.svg"
-                                       : "./icons/ui/pulse_recording_inactive.svg"
+                                       : "./icons/ui/pulse_recording_mini.svg"
             onActivated: rail.buttonActivated(buttonId)
         }
 
