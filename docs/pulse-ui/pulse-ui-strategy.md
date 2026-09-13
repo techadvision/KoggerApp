@@ -4372,3 +4372,89 @@ instead of making the user wait on a frozen screen. *"But as a next step, to be 
   right moment to ask is when the card is next touched.
 - **Phone portrait**, per finding 2 above.
 - Backlog 11, 12 and 13 stay parked.
+
+---
+
+## Stage 4 (b), step 1 — the panel, and Colours (13 Sept 2026)
+
+Tablet first and Colours first, on Olav's call: *"that will give a good impression of how
+everything will work."* Phone comes after, and the drafts for it are carried in the design
+as we go rather than built.
+
+| Commit | What |
+|---|---|
+| `cd072551` | the palette becomes one binding and one writer |
+| `d6c85cde` | the panel, and Colours in it |
+| `d772a847` | `displayThemeId` read two keys it does not own |
+| `dc6684d3` | the colour rows draw the real ramp |
+
+### Three colour keys, six writers, seven handlers
+
+The research before the design is what made this step worth doing at all.
+
+| Key | What it is |
+|---|---|
+| `colorMapIndexSideScan` | **blue's own preference** — an index into `themeModelBlue` (6) |
+| `colorMapIndex2D` | **red's own preference** — an index into the master `themeModelRed` (20) |
+| `colorMapIndexReal` | the **shared applied theme id**, published to the C++ over the settings bus |
+
+The classic chooser assigns that third key from **six** places and needs **seven** handlers to
+keep it honest. V2 replaces all of it with `displayThemeId` — ONE binding over the two stored
+preferences and the display model — and one handler in `main.qml` that acts on it and is the
+only writer of `colorMapIndexReal`. None of the seven has an equivalent: nothing has to be
+visible for the value to be true, the display model changing re-evaluates the binding, and
+neither chooser can reach the other's key.
+
+It also talks to **both panes**, which classic never did — the classic chooser lives inside
+`Plot2D` and speaks to its own `plot`, so a second pane kept the previous palette.
+
+### Two defects this step produced, and what each cost
+
+**1. A binding that read two keys it does not own.** `colorMapIndex2D` and
+`colorMapIndexSideScan` live on `pulseSettings`, not on `pulseRuntimeSettings`, and were
+written unqualified. An unqualified name an object does not own resolves to nothing, so both
+terms arrived `undefined`, the range test failed, and the binding sat permanently on
+`model[0]`. Olav's screenshot said so exactly: *"Blue"* is `themeModelBlue[0]`, highlighted
+and immovable. **`themeIdAt` now logs when it falls back** — the silent version is what hid a
+completely dead binding for a whole device build.
+
+**2. The rows were stretching a badge.** The theme art is not a ramp; it is an oval with the
+vendor's initials in it, and pulling one to 3:1 squashed the oval. Olav: *"Need to keep the
+aspect ratio of the bullets. Or — optional, as suggested in a design render, to offer the
+color spectrum."*
+
+**The spectrum, and it needed no new C++.** `qPlot2D::echogramThemeStops(int id)` is already
+`Q_INVOKABLE`, returns the renderer's own colour table for ANY id as `{pos, color}` stops, and
+had never been called from QML. Every row now paints that table, so it shows the palette the
+echogram will be drawn in rather than a picture of it — and there is no aspect ratio left to
+preserve, because a ramp is supposed to fill its frame. The badge survives as the fallback for
+an id the table does not answer for. The tables are read once at startup: they are compiled in
+and cannot change while the app runs.
+
+### Open — blue is getting red's themes and favourites
+
+Olav, on the working build: *"the pulse blue gets the pulse red color choices and favorites.
+Legacy solution had separate colors for blue. In preparations for the UI changes that got
+messed up along the way."* Deferred by his call, to keep the rail and panel growing while the
+testing is cheap.
+
+**What the deferral should NOT look for, because it is already answered.** The V2 path cannot
+cause this: `pulseBlue` carries `is2DTransducer: false`, so `displayIs2DTransducer` is false
+for a blue, `displayThemeModel` resolves to `themeModelBlue`, `offerFavourites` is false, and
+`colorMapIndexSideScan` has exactly ONE writer in `main.qml` — gated on the same term. Neither
+chooser can reach the other device's key by construction.
+
+So it is one of two things, and **the log line added with the fallback fix tells them apart**
+without a build:
+
+```
+THEME: display theme -> <id> | 2D or side scan | stored index <i>
+```
+
+- If a connected blue says **2D**, the display model is answering wrong and the fault is
+  upstream of colours entirely — it would equally affect the pill's corner and the ruler.
+- If it says **side scan** and the picture is still red's palette, the STORED value is
+  corrupted: the legacy 2D selector used to write a position from the red list into the other
+  device's key, and a wrong index survives a restart. That is a migration, not a binding.
+
+Either way the answer starts from one log line rather than from the code.
