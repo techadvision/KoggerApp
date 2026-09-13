@@ -186,8 +186,8 @@ Item {
             return "Waiting for it to say what it is."
         if (linkState === "found")
             return "A device is listed, but nothing has been opened on it yet."
-        return "Nothing is answering yet. Power the sounder on - the boat, or the pole "
-             + "kit - and this screen closes itself the moment it is recognised."
+        return "Nothing is answering yet. Power the sounder on and this screen closes "
+             + "itself the moment it is recognised."
     }
 
     // ---- The cards ----------------------------------------------------------
