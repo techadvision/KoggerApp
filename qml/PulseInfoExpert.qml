@@ -1743,6 +1743,23 @@ Flickable {
             }
         }
 
+        //RE-PUSH, NOT RE-SELECT. Added beside the reselection rather than replacing it:
+        //this is the honest action for "the app and the transducer have drifted apart",
+        //and it leaves the committed model alone, so the connection screen stays down and
+        //the echogram keeps its picture. The reselection above stays for now - it is what
+        //becomes "Choose a different transducer" when awaitingUserChoice is built.
+        SettingRow {
+            text: "Reconfigure the transducer"
+            checkbox: true
+            show: pulseRuntimeSettings.showCatSwapDevice
+            SettingsCheckBox {
+                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                targetPropertyName: "reconfigureNow"
+                initialChecked: pulseRuntimeSettings.reconfigureNow
+                clearAfter: true
+            }
+        }
+
         //Step 4: detection can now raise the reselection above by itself, when it finds a
         //different transducer from the one the app is set up for. It ASKS on screen first,
         //because accepting re-runs the whole device setup. This turns the asking off.

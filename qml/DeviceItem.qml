@@ -1911,6 +1911,41 @@ ColumnLayout {
             }
         }
 
+        //RECONFIGURE THE TRANSDUCER. Re-push the whole profile to the device that is
+        //already committed - the handshake starts over, the echogram is halted for it
+        //exactly as on a first setup, and NOTHING is un-committed. No "..." window, so
+        //the connection screen never appears, detection is never re-asked, and the
+        //profile resolver never falls back to blue behind the user's back.
+        //
+        //Cleared FIRST, before any work: clearing re-enters this handler with the flag
+        //false, which returns at once, and it cannot be left stuck if configuring throws.
+        function onReconfigureNowChanged () {
+            if (!pulseRuntimeSettings.reconfigureNow)
+                return
+            pulseRuntimeSettings.reconfigureNow = false
+
+            //DEMO MODE: writes go nowhere, there is no device to re-push to.
+            if (pulseRuntimeSettings.isInDemoMode) {
+                console.log("DEV_RECONFIG: ignored, demo mode")
+                return
+            }
+            //Nothing committed means there is no profile to push. That is the connection
+            //screen's question, not this one's.
+            if (pulseRuntimeSettings.userManualSetName === "...") {
+                console.log("DEV_RECONFIG: ignored, nothing is committed to re-push")
+                return
+            }
+            if (dev === null) {
+                console.log("DEV_RECONFIG: ignored, no device bound")
+                return
+            }
+
+            console.log("DEV_RECONFIG: re-pushing the profile for",
+                        pulseRuntimeSettings.userManualSetName)
+            resetAllSetupStates()
+            configurePulseDevice()
+        }
+
         function onSwapDeviceNowChanged () {
             //DEMO MODE: there is no device to swap to.
             if (pulseRuntimeSettings.isInDemoMode) {

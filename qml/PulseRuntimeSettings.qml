@@ -101,6 +101,28 @@ QtObject {
     //CHANGE DEVICE STATE
     property bool   swapDeviceNow:          false   // Should reset and restart the setup
 
+    //RECONFIGURE IS NOT A SWAP, and conflating them is what made the force reselection
+    //dangerous. Three different intents used to go through swapDeviceNow:
+    //
+    //  * "push my settings to the transducer again"  - the same device, nothing to decide
+    //  * "restart the transducer"                    - the same device, via the hardware
+    //  * "let me choose a different transducer"      - a question for the user
+    //
+    //Only the third has any business un-committing a model, and swapDeviceNow un-commits
+    //ALWAYS: DeviceItem's handler puts userManualSetName back to "...". That is what drags
+    //the connection screen up over a working echogram, re-opens a detection question
+    //nobody asked, lets a stale device list answer it, and - because "..." resolves to
+    //blue - spends the whole window configuring a red as a side scan.
+    //
+    //A re-push needs none of that. This flag re-runs the parameter handshake on the model
+    //that is ALREADY committed, so there is no window at all.
+    //
+    //EXACTLY ONE HANDLER MAY READ IT, in DeviceItem, and it clears the flag before doing
+    //any work. Backlog item 10 was two handlers on swapDeviceNow where the first cleared
+    //it and re-entered the signal, leaving the second looking at a flag already false -
+    //so the reset it existed to perform never ran at all.
+    property bool   reconfigureNow:         false   // Re-push the profile to the committed device
+
     //DEVICE SWAP — the wire between detection and re-setup (backlog item 5, step 4).
     //
     //The two halves already existed and were never connected. ConnectionViewer already
