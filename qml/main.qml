@@ -3084,6 +3084,58 @@ ApplicationWindow  {
     // 'dev' -> stuck "Configuring transducer") is now handled in selectCorrectDevice; the manual
     // expert reboot remains the only reboot path.
 
+    // THE PALETTE, APPLIED ONCE (Stage 4 b). pulseRuntimeSettings.displayThemeId is ONE
+    // binding over blue's stored preference, red's stored preference and the display model;
+    // this is the only thing that acts on it, and the only writer of colorMapIndexReal.
+    //
+    // BOTH PANES. The classic chooser lives inside Plot2D and talks to its own `plot`, so a
+    // second pane keeps the previous palette - a split-screen defect nobody has had to look
+    // at yet because the chooser is drawn twice there too. From here there is one theme and
+    // two plots.
+    //
+    // GATED ON v2, because the classic chooser is still doing all of this its own way and
+    // two writers of the same value is the thing being retired, not repeated.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        enabled: pulseSettings.uiVariant === "v2"
+        function onDisplayThemeIdChanged() { mainview.applyDisplayTheme() }
+    }
+
+    Connections {
+        target: pulseSettings ? pulseSettings : undefined
+        // Switching INTO v2 has to apply what v2 believes; classic may have left something
+        // else in the plot, and nothing else would push it until a theme changed.
+        function onUiVariantChanged() {
+            if (pulseSettings.uiVariant === "v2")
+                mainview.applyDisplayTheme()
+        }
+    }
+
+    function applyDisplayTheme() {
+        if (pulseSettings.uiVariant !== "v2")
+            return
+
+        var id = pulseRuntimeSettings.displayThemeId
+        console.log("THEME: applying", id, "to the panes")
+
+        waterViewFirst.plotEchogramTheme(id)
+        waterViewFirst.updatePlot()
+        if (waterViewSecond.enabled) {
+            waterViewSecond.plotEchogramTheme(id)
+            waterViewSecond.updatePlot()
+        }
+
+        // The 3D side-scan mosaic follows the echogram, as it does in classic.
+        // onThemeChanged() applies themeId+1 internally, which matches the mosaic's
+        // PlotColorTable enum offset. Ids 0-4 are shared; HQ Orange (26) has no mosaic
+        // equivalent yet and the mosaic keeps its previous colour there.
+        MosaicViewControlMenuController.onThemeChanged(id)
+
+        // THE ONE WRITER of the shared key, which main.qml publishes to the C++ over the
+        // settings bus. Six writers is what made it untrustworthy.
+        pulseSettings.colorMapIndexReal = id
+    }
+
     // THE CONNECTION SCREEN (Stage 4, step 1). One instance, above both Plot2D panes.
     // Replaces echoSounderSelectorRect, freeContainer, both EchoSounderSelector panels and
     // the windowShadow sheet. Everything it shows hangs off one binding, chooserAsking.

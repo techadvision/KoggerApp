@@ -1041,6 +1041,67 @@ QtObject {
 
     property var    currentThemeColors: []
 
+    //WHAT THE PICTURE SHOULD BE DRAWN IN. One binding over the two stored preferences and
+    //the DISPLAY model, and nothing anywhere assigns it.
+    //
+    //THE THREE KEYS, because two of them are constantly confused for each other:
+    //  colorMapIndexSideScan  blue's OWN preference - an index into themeModelBlue
+    //  colorMapIndex2D        red's OWN preference  - an index into the master themeModelRed
+    //  colorMapIndexReal      the SHARED applied theme id, and what main.qml publishes to
+    //                         the C++ over the settings bus
+    //
+    //The classic chooser assigns that third key from SIX places, and the damage is on
+    //record: the 2D selector read it as its source of truth, found the blue's theme inside
+    //the red list - themeModelRed is a superset, it carries ids 0-4 and 26 as well - and
+    //wrote that position back into colorMapIndex2D. The red's own preference was not
+    //displayed wrong, it was DESTROYED, which is why it survived a restart. The side scan
+    //selector had the mirror fault: nothing applied its stored theme until the control was
+    //shown, so a red-committed app replaying a side scan drew the log with the red theme
+    //still loaded in the plot.
+    //
+    //Seven handlers keep that honest today. This binding needs none of them:
+    //  - nothing has to be VISIBLE for the value to be true, so there is no apply-on-show;
+    //  - the display model changing re-evaluates it, so no onUserManualSetNameChanged;
+    //  - the selected swatch is a binding on the stored index, so nothing recalculates it;
+    //  - and neither chooser can reach the other's key, so choosing a blue cannot touch red.
+    //
+    //DISPLAY, not committed - rule 1. A palette is the plainest thing on screen that is
+    //judged by looking at it.
+    readonly property int displayThemeId: displayIs2DTransducer
+        ? themeIdAt(themeModelRed,  colorMapIndex2D)
+        : themeIdAt(themeModelBlue, colorMapIndexSideScan)
+
+    //A stored index that is out of range can only come from a build that shortened a list,
+    //so fall back to the first entry rather than let every reader get undefined.
+    function themeIdAt(model, index) {
+        if (!model || model.length === 0)
+            return 0
+        var e = (index >= 0 && index < model.length) ? model[index] : model[0]
+        return e.id
+    }
+
+    function themeEntryAt(model, index) {
+        if (!model || model.length === 0)
+            return null
+        return (index >= 0 && index < model.length) ? model[index] : model[0]
+    }
+
+    //The list the chooser SHOWS, and the key it writes. Both follow the display model for
+    //the same reason the id above does.
+    readonly property var  displayThemeModel: displayIs2DTransducer ? themeModelRed : themeModelBlue
+    readonly property int  displayThemeIndex: displayIs2DTransducer ? colorMapIndex2D
+                                                                    : colorMapIndexSideScan
+
+    //Favourites are a 2D idea only - blue has six themes and never needed them.
+    readonly property bool displayThemeFavouritesActive:
+        displayIs2DTransducer && pulseSettings.useFavoriteThemes2D
+        && pulseSettings.favoriteThemes2DNew.length > 0
+
+    onDisplayThemeIdChanged: console.log("THEME: display theme ->", displayThemeId,
+                                         "|", displayIs2DTransducer ? "2D" : "side scan",
+                                         "| stored index", displayThemeIndex)
+
+
     //DISPLAY SETTINGS
 
     property bool   echogramVisible:                true
