@@ -871,6 +871,40 @@ QtObject {
     }
 
 
+    //LEAVING A FILE VIEW - the pill's Close, and deliberately NOT a copy of exitDemoMode().
+    //
+    //OPENING A FILE CLOSES NO LINKS. That is exactly why a plain opened file still asks
+    //about a device swap, and why showLostConnection() returns early for it: with a
+    //transducer connected the app really is still talking to it underneath the picture.
+    //So there is nothing to reopen here, and - the part that matters - nothing to forget.
+    //Clearing devName and userManualSetName the way the demo path does would throw away a
+    //live, configured device and send it round the whole setup pass again.
+    //
+    //What DOES have to move is the key the interface reads. committedProfileKey resolves
+    //from presentedModel, which is the log's identity while a log is showing; dropping the
+    //file puts presentedModel back to userManualSetName by itself. The redetect request is
+    //for the other case - nothing committed either - so detection gets a fresh chance to
+    //answer instead of the app sitting on "...".
+    //
+    //Olav's rule for it: "similar behavior as stopping a demo - if the transducer is
+    //connected then let us talk to it. This is a consistent way to operate, people will
+    //understand."
+    function exitFileView() {
+        if (!wasKlfFileOpened && !isOpeningKlfFile) {
+            console.log("FILE VIEW: nothing open to close")
+            return
+        }
+
+        console.log("FILE VIEW: closing", klfFilePath === "" ? "(no path)" : klfFilePath)
+        core.closeLogFile()
+
+        wasKlfFileOpened = false
+        isOpeningKlfFile = false
+        klfFilePath      = ""
+
+        redetectRequestId += 1
+    }
+
     //APP DYNAMIC CONTROLS
     //NUMERIC convention since 2026-08-29: Min is always the SMALLER number, whatever the
     //quantity means. These six bounds used to be named after resolution QUALITY (finer

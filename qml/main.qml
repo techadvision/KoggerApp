@@ -2192,6 +2192,46 @@ ApplicationWindow  {
                     }
                 }
 
+                // THE INDICATOR PILLS (Stage 4 a). Beside the rail and for the same reason:
+                // what they report is app-wide rather than pane-wide, so one instance above
+                // both panes. They draw ON the picture and take no width from it, so unlike
+                // the setup card they owe the rail nothing - they sit on the right.
+                PulsePillColumn {
+                    id: pulsePillColumn
+
+                    visible: pulseSettings.uiVariant === "v2"
+                    enabled: visible
+
+                    anchors.fill: parent
+
+                    uiScale:    mainview.s
+                    safeTop:    mainview.insetTop()
+                    safeBottom: mainview.insetBottom()
+                    safeRight:  mainview.insetRight()
+
+                    // RULE 1. Which corner is a question about the PICTURE: a side scan
+                    // flows downward so its overlays belong at the foot, a 2D picture the
+                    // other way up.
+                    displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
+
+                    presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
+                    isDemo:        pulseRuntimeSettings ? pulseRuntimeSettings.isInDemoMode    : false
+                    presentedName: pulseRuntimeSettings
+                                   ? pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.presentedModel)
+                                   : ""
+
+                    // Both already exist and both end the same way - the picture goes back
+                    // to the transducer. Neither is reimplemented here.
+                    onStopDemo: {
+                        console.log("PILL: stopping the demo")
+                        pulseRuntimeSettings.exitDemoMode()
+                    }
+                    onCloseFile: {
+                        console.log("PILL: closing the file view")
+                        pulseRuntimeSettings.exitFileView()
+                    }
+                }
+
             }
         }
 
