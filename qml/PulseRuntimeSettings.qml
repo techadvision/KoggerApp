@@ -42,6 +42,19 @@ QtObject {
     //one exit from the connection screen that commits nothing.
     property bool   awaitingUserChoice:     false
 
+    //THE USER ASKED FOR THE CONNECTION SCREEN. The rail's source button in PulseAppV2 is
+    //the permanent door to it, and this is how that door reaches it: PulseConnectionScreen
+    //is instantiated in main.qml and QML IDS DO NOT CROSS FILES, so the only route from a
+    //component inside Plot2D is a root context property - which is what enterDemoMode()
+    //lives here for as well.
+    //
+    //It is an OVERRIDE, not a second opinion. The screen holds ONE binding,
+    //    visible: chooserAsking || userAsked
+    //and nothing anywhere assigns `visible`. commitCard() and keepCurrent() clear this
+    //again, and both commit a model, so the screen still cannot strand itself behind a
+    //raised sheet.
+    property bool   connectionScreenRequested: false
+
     //The expert control's affordance. SettingsCheckBox writes a bool; this turns that into
     //the action, and clears itself so the box can be ticked again.
     property bool   chooseDeviceNow:        false
@@ -633,6 +646,15 @@ QtObject {
         if (awaitingUserChoice) {
             console.log("DEV_CHOICE: answered by starting a simulation")
             awaitingUserChoice = false
+        }
+
+        //AND SO IS THE USER'S OWN REQUEST FOR THE SCREEN. Starting a simulation from the
+        //connection screen is a way OUT of it, exactly like committing a card, so the
+        //override has to fall here too - otherwise the screen the rail's source button
+        //raised would stay up over the replay it just started.
+        if (connectionScreenRequested) {
+            console.log("DEV_CHOICE: the connection screen request is answered by the simulation")
+            connectionScreenRequested = false
         }
 
         // Starting a demo on top of an opened file view is allowed — the open has

@@ -111,8 +111,27 @@ Item {
     // answers settle a model, so the screen still cannot strand itself behind a raised
     // sheet.
 
-    visible: chooserAsking
-    enabled: chooserAsking
+    // ---- Who is asking ------------------------------------------------------
+    //
+    // TWO SOURCES, ONE BINDING, ONE OVERRIDE. chooserAsking is the app's own reason for
+    // being here. userAsked is the user's: the rail's source button in PulseAppV2 is the
+    // permanent door to this screen, and it raises the flag on pulseRuntimeSettings
+    // because QML ids do not cross files and this component lives in main.qml.
+    //
+    // `visible` stays ONE binding over both and is never assigned by anything. That is the
+    // whole point: an assignment would destroy the binding permanently the first time a
+    // handler ran, which is the defect class this UI is being rewritten to make impossible
+    // rather than to keep fixing.
+    //
+    // Both ways out of this screen clear the override, and both commit a model, so it
+    // still cannot strand itself behind a raised sheet.
+    readonly property bool userAsked:
+        pulseRuntimeSettings ? pulseRuntimeSettings.connectionScreenRequested : false
+
+    readonly property bool screenShowing: chooserAsking || userAsked
+
+    visible: screenShowing
+    enabled: screenShowing
 
     // ---- What can be gone back to -------------------------------------------
 
@@ -121,6 +140,14 @@ Item {
     // commits a model, so `nothingIdentified` cannot stay true behind a raised sheet.
     property string lastCommittedModel: ""
     readonly property bool canCancel: lastCommittedModel !== ""
+
+    // AND WHAT THE USER'S OWN REQUEST CAN GO BACK TO. Opening this screen from the rail's
+    // source button while a demo is running is the case canCancel cannot answer: nothing
+    // has ever been committed, so canCancel is false, yet there IS something behind the
+    // screen to return to. The second term is deliberately gated on !chooserAsking - when
+    // the app genuinely needs an answer there is no way back, and offering a button that
+    // would leave the screen up is worse than offering none.
+    readonly property bool canGoBack: canCancel || (userAsked && !chooserAsking)
 
     // Which CARD was tapped. Not derivable from the committed model - red and black are
     // two cards on one profile, which is the whole point of the card list.
@@ -374,6 +401,9 @@ Item {
         if (!pulseRuntimeSettings || !card)
             return
 
+        // The user's own request is answered by any commit, however the screen was raised.
+        pulseRuntimeSettings.connectionScreenRequested = false
+
         chosenCardId = card.id
 
         // Carried over VERBATIM from the old blue selector's onSelected, including the
@@ -461,6 +491,11 @@ Item {
     function keepCurrent() {
         if (!pulseRuntimeSettings)
             return
+
+        // ABOVE EVERYTHING, including the canCancel guard below: a screen the user opened
+        // by hand must close on cancel even in a state where there is nothing to cancel
+        // back to. Leave it under the guard and the source button becomes a trap.
+        pulseRuntimeSettings.connectionScreenRequested = false
 
         // DECLINING COMES FIRST, and deliberately ABOVE the canCancel guard: it is the
         // only thing on this screen that clears pendingSwapToModel, and chooserAsking now
@@ -901,16 +936,17 @@ Item {
                         Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 1
-                            visible: connectionScreen.canCancel || connectionScreen.swapPending
+                            visible: connectionScreen.canGoBack || connectionScreen.swapPending
                         }
 
                         // Cancelling is possible whenever there is something to go
                         // back to. On a cold start there is not, and the screen
                         // correctly offers no way out but a choice. A pending swap
-                        // always has one - the model it says the app is set up for.
+                        // always has one - the model it says the app is set up for,
+                        // and so does a screen the user opened himself.
                         Rectangle {
                             id: keepPill
-                            visible: connectionScreen.canCancel || connectionScreen.swapPending
+                            visible: connectionScreen.canGoBack || connectionScreen.swapPending
                             Layout.alignment: Qt.AlignTop
                             implicitWidth:  keepLabel.implicitWidth
                                             + Math.round(36 * connectionScreen.uiScale)

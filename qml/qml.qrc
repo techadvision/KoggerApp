@@ -106,6 +106,8 @@
         <file>PulseAppClassic.qml</file>
         <file>PulseSetupOverlay.qml</file>
         <file>PulseAppV2.qml</file>
+        <file>PulseRail.qml</file>
+        <file>PulseRailButton.qml</file>
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>LocationExtraSettings.qml</file>

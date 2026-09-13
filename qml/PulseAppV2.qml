@@ -3,19 +3,17 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window
 
-// The new Pulse UI - the edge-rail design decided on 11 Sept 2026.
+// THE NEW PULSE UI - the edge-rail design decided on 11 Sept 2026.
 //
-// This is a PLACEHOLDER. Stage 2 built the switch; Stage 4 builds what is behind
-// it. Everything real still lives in PulseAppClassic.qml, and the switch that got
-// you here lives in the expert settings inside that UI - which is why this screen
-// carries its own way back. Without it, turning the variant on would strand you,
-// because pulseSettings.uiVariant is persisted and survives a restart.
+// Stage 4 (a): the CONTROL SURFACE. The rail with its tier-1 buttons, the source button
+// at its foot, and the way back to the classic UI. The settings panel is stage 4 (b) and
+// is the larger half; until it exists every tier-1 button logs and does nothing.
 //
-// It satisfies the variant contract declared at the top of PulseApp.qml and does
-// nothing else. applyFiltering() and armOldDataWarning() are deliberate no-ops:
-// while this variant is showing, the water-body filter and the old-data warning
-// are not driven by anything, and that is expected rather than a fault.
-
+// It still satisfies the variant contract declared at the top of PulseApp.qml.
+// applyFiltering() and armOldDataWarning() are still deliberate no-ops: while this
+// variant is showing, the water-body filter and the old-data warning are driven by
+// nothing, and that is expected rather than a fault. Both arrive with the controls that
+// own them in 4 (b).
 Item {
     id: pulseAppV2
 
@@ -30,93 +28,120 @@ Item {
     property real maxDepthValue: plot && plot.quickChangeMaxRangeValue ? plot.quickChangeMaxRangeValue : 0
 
     function applyFiltering(value) {
-        // no-op until Stage 4
+        // no-op until stage 4 (b) builds the filter control
     }
 
     function armOldDataWarning() {
-        // no-op until Stage 4
+        // no-op until stage 4 (b) builds the readout
     }
 
-    // -------------------------------------------------------------------------
+    // ---- Platform helpers, ON THE ROOT --------------------------------------
+    //
+    // Deliberately here rather than on a child. In PulseAppClassic these live on
+    // `quickChangeObjects`, and four alert blocks bind `insetTop()` and `_isAndroid`
+    // from OUTSIDE it - quickChangeObjects is their SIBLING, not their root, so those
+    // bindings never resolved and never could. Declaring them on the root is the fix by
+    // construction, and it is why nothing in this file needs the insets passed in.
+    readonly property bool _isAndroid: Qt.platform.os === "android"
+    function _hasInsets()  { return _isAndroid && (typeof Insets !== "undefined"); }
+    function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top : 0; }
+    function insetBottom() { return _hasInsets() ? Insets.bottom : 0; }
+    function insetLeft()   { return _hasInsets() ? Insets.left   : 0; }
+    function insetRight()  { return _hasInsets() ? Insets.right  : 0; }
 
     readonly property real shortSide: Math.min(Screen.width, Screen.height)
     readonly property real s: Math.max(1.0, shortSide / 1100)
 
-    Rectangle {
-        id: card
+    // ---- Rule 1: which model answers which question -------------------------
+    //
+    // The ONE display-side read in this file. Anything the user judges by LOOKING at it
+    // comes from here; is2DTransducer answers "what is connected" and nothing that draws
+    // may ask it.
+    readonly property bool displayIs2D:
+        pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
 
-        anchors.centerIn: parent
-        width:  Math.min(parent.width  - Math.round(40 * s), Math.round(620 * s))
-        height: Math.min(parent.height - Math.round(40 * s), column.implicitHeight + Math.round(56 * s))
+    // ---- ONE RAIL, and why it is gated --------------------------------------
+    //
+    // PulseApp is instantiated INSIDE Plot2D, so this file is built once per pane and a
+    // split screen would draw two rails - the same defect the swap prompt carried and the
+    // connection screen and the setup overlay were moved to main.qml to escape.
+    //
+    // The rail's final home is beside the panes in main.qml, and that one move buys two
+    // things at once: a single rail above both panes, and a rail that COMPRESSES the
+    // echogram instead of overlaying it (the canvas's "costs 76px of width" - which
+    // cannot happen from in here, because this Item fills Plot2D and the WaterFall renders
+    // underneath it). That move is blocked on the per-pane state object that blocks split
+    // screen, and it touches main.qml's visualisation layout - so it waits, and until then
+    // main.qml is untouched, which is what keeps the next upstream merge readable.
+    //
+    // Pane one only. `indx` is 1 for waterViewFirst and 2 for waterViewSecond.
+    readonly property bool ownsTheRail: !plot || plot.indx !== 2
 
-        radius: Math.round(12 * s)
-        color: "#dd101418"
-        border.width: 1
-        border.color: "#5affffff"
+    PulseRail {
+        id: rail
 
-        // Swallow touches on the card only. The echogram around it stays live and
-        // pinchable, which is the point of building the new UI over a real picture.
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {}
+        anchors.left:   parent.left
+        anchors.top:    parent.top
+        anchors.bottom: parent.bottom
+
+        visible: pulseAppV2.ownsTheRail
+        enabled: pulseAppV2.ownsTheRail
+
+        uiScale:    pulseAppV2.s
+        safeTop:    pulseAppV2.insetTop()
+        safeBottom: pulseAppV2.insetBottom()
+        safeLeft:   pulseAppV2.insetLeft()
+
+        displayIs2D: pulseAppV2.displayIs2D
+
+        // COMMITTED, not display: a chooser offers hardware choices. These are the same
+        // two properties the classic choosers show and hide on.
+        offersView: pulseRuntimeSettings ? pulseRuntimeSettings.offersViewChoice : false
+        offersCone: pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
+
+        recording:     pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
+        presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
+
+        // THE OVERRIDE, and the only writer of it.
+        //
+        // It goes through pulseRuntimeSettings rather than through the screen itself for
+        // the reason enterDemoMode() lives there too: PulseConnectionScreen is instantiated
+        // in main.qml and QML IDS DO NOT CROSS FILES, so this rail cannot reach it. A root
+        // context property can be reached from everywhere, which is what awaitingUserChoice
+        // and swapDeviceNow already are.
+        //
+        // The screen holds
+        //     visible: chooserAsking || userAsked
+        // as ONE binding over two sources, with connectionScreenRequested as the override
+        // and nothing anywhere assigning `visible`. The two ways out of that screen -
+        // commitCard() and keepCurrent() - clear the flag again, and both commit a model,
+        // so the screen still cannot strand itself.
+        onSourceActivated: {
+            console.log("RAIL: source - opening the connection screen")
+            if (pulseRuntimeSettings)
+                pulseRuntimeSettings.connectionScreenRequested = true
         }
 
-        ColumnLayout {
-            id: column
-            anchors.centerIn: parent
-            width: parent.width - Math.round(56 * s)
-            spacing: Math.round(16 * s)
+        // Scaffolding until 4 (b). The switch that turns v2 on lives in the expert settings
+        // inside the CLASSIC UI, and uiVariant is persisted across restarts, so this is the
+        // only way back while the new settings panel does not exist.
+        onBackToClassic: {
+            console.log("PULSE UI: v2 - returning to classic")
+            pulseSettings.uiVariant = "classic"
+        }
 
-            Text {
-                Layout.fillWidth: true
-                text: "PULSE UI v2"
-                color: "#8ad3ff"
-                font.pixelSize: Math.round(30 * s)
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: "Nothing is built here yet.\n\n"
-                    + "This variant exists so the switch can be tested end to end: "
-                    + "the edge rail, the sliding panel and the phone sheet arrive in Stage 4. "
-                    + "Until then the classic UI is the one that works."
-                color: "#eeffffff"
-                font.pixelSize: Math.round(19 * s)
-                wrapMode: Text.WordWrap
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            Button {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredHeight: Math.round(64 * s)
-                Layout.preferredWidth:  Math.round(360 * s)
-
-                text: "Back to the classic UI"
-
-                background: Rectangle {
-                    radius: Math.round(8 * s)
-                    color: parent.pressed ? "#2f7fb5" : "#3f9fd5"
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    color: "white"
-                    font.pixelSize: Math.round(20 * s)
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                onClicked: {
-                    console.log("PULSE UI: v2 placeholder - returning to classic")
-                    pulseSettings.uiVariant = "classic"
-                }
-            }
+        // Stage 4 (b) owns every one of these. They log rather than do nothing silently,
+        // so one device run says whether every target is reachable one-thumb-from-shore.
+        onButtonActivated: function (id) {
+            if (id === "settings")
+                console.log("RAIL:", id, "- the settings panel arrives in stage 4 (b)")
+            else
+                console.log("RAIL:", id, "- its panel arrives in stage 4 (b)")
         }
     }
 
-    Component.onCompleted: console.log("PULSE UI: v2 placeholder shown; plot is",
-                                       plot ? "set" : "NULL")
+    Component.onCompleted: console.log("PULSE UI: v2 rail shown on pane",
+                                       plot ? plot.indx : "?",
+                                       "| plot is", plot ? "set" : "NULL",
+                                       "| display is", displayIs2D ? "2D" : "side scan")
 }
