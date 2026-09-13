@@ -3699,3 +3699,88 @@ The strip's detail line reads `192.168.10.1   fw   s/n 139` — an empty firmwar
 version. `linkDetail` skips the field only when `rawDev_firmwareVersion` is the
 string `"not set"`, so an empty value prints the label with nothing after it.
 One line, whenever the strip is next touched.
+
+---
+
+## Reconfigure the transducer, and the zero it uncovered (13 Sept 2026)
+
+The first of the six agreed changes, built alone on Olav's instruction — one
+commit to the device, one idea to judge.
+
+### What it is — `f22593a2`
+
+`reconfigureNow` re-runs the parameter handshake on the model that is **already
+committed**: `resetAllSetupStates()` and then `configurePulseDevice()`, which
+halts the echogram for the handshake exactly as a first setup does. Nothing is
+un-committed, so there is no `"..."` window — no connection screen over a
+working echogram, no re-opened detection question, no stale device list
+answering it, and no blue window. Defect B's path is not guarded against here;
+it does not exist.
+
+Exactly one handler reads the flag and it clears it **before** doing any work.
+Item 10 was two handlers on `swapDeviceNow` where the first cleared it and
+re-entered the signal, leaving the second looking at a flag already false.
+
+Added **beside** "Force reselection of device" rather than replacing it: that
+control is what becomes "Choose a different transducer" when
+`awaitingUserChoice` is built, and taking it away now would remove the one
+control the bench testing runs through.
+
+### The first device run failed, and the second did not — `74bb45bd`
+
+Same action, two runs, identical through the entire handshake, differing in one
+number:
+
+```
+run 1 (broke)   chartResolution OK as 0 . We set it dynamically for 2D anyway
+run 2 (worked)  chartResolution OK for PULSEred as 2
+```
+
+and run 1 carried, before anything else:
+
+```
+chartResolution: dev.chartResolution !== pulseRuntimeSettings.dynamicResolution. Enforce!
+```
+
+**`resetAllSetupStates()` writes `dynamicResolution = 0` on every reset**,
+meaning *nothing has been computed yet*. That write fires
+`onDynamicResolutionChanged`, which finds `dev.chartResolution` (2) different
+from `dynamicResolution` (0) and enforces the zero onto the transducer. A chart
+resolution of zero stops the echogram dead.
+
+**Two things kept it hidden.** The swap path clears `doDynamicResolution`
+*before* resetting, so its early return swallows the zero — which is exactly why
+run 2 worked, a force reselection having just turned dynamic resolution off. And
+`chartSetup()` accepts any `dev.chartResolution` while dynamic resolution is on
+(*"we set it dynamically for 2D transducers anyway"*), so the handshake blesses
+the zero instead of catching it: `DEV_PARAM_COMPLETE` then reports
+`chartResolution is 0` as a successful setup.
+
+`f22593a2` did not introduce this. It was the first caller to reset while
+dynamic resolution was still running, which was all it took.
+
+The guard is on the **enforcer**, not on any caller: every reset passes through
+that handler, so a guard there covers the callers that exist and any future one.
+
+**Confirmed on device**: reconfigure works, and separately — writing a real
+resolution from the expert settings brought a stuck echogram back **without a
+power cycle**. Worth knowing in the field: a dead echogram after a bad
+configuration may only need a resolution written.
+
+### Left open by this pair
+
+- **`chartSetup()` cannot catch a bad chart resolution at all** while dynamic
+  resolution is on. That blanket accept is the reason a zero was reported as
+  success, and it is a second defect and a second commit.
+- **A force reselection with a live transducer still jumps straight back into
+  the echogram.** Not a new break: `f2aafa11`'s gate lets a re-commit through
+  when the device is answering, and after a reselection with a live device it
+  is. `awaitingUserChoice` is what fixes it, and it is next in the order.
+- **The expert checkbox needed two taps once.** If it repeats, the auto-clear
+  timing on `SettingsCheckBox` is the suspect.
+- **The setup is a fan-out, not a function.** `configurePulseDevice()` is one of
+  several subscribers to `onUserManualSetNameChanged` — DistProcessing, the
+  fixBlackStripes trio, HorizontalController's auto function, Plot2D's
+  EchogramCompensation and the cone/view restore are others. Reconfigure calls
+  only the one. It is sufficient for a parameter re-push, which is what this
+  action promises, but "re-run the whole setup" would need its own broadcast.
