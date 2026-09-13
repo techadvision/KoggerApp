@@ -753,6 +753,124 @@ QtObject {
         redetectRequestId += 1
     }
 
+    // "..." is the app's own word for "nothing is identified" - what DeviceItem puts
+    // userManualSetName back to on a swap or a force reselection, and what a cold start
+    // begins with. Stated once here because the strip's two silences turn on it.
+    readonly property bool nothingIdentified: userManualSetName === "..."
+
+    // ---- THE LINK, AS ONE HONEST LINE ---------------------------------------
+    //
+    // HOISTED here from PulseConnectionScreen (13 Sept 2026) because it has a second
+    // reader: the rail's source button shows the same state as a coloured dot. Computing
+    // it twice would be a second opinion about the same facts, which is exactly what that
+    // screen was built to stop - and QML ids do not cross files, so a root context property
+    // is the only place both can read it. ONE COMPUTATION, TWO READERS.
+    //
+    // Everything below is already computed somewhere: ConnectionViewer publishes
+    // linkIsOpen and deviceIsPresent, the device publishes devName, the channel count,
+    // the firmware and the serial, and the resolver already has the address. Nothing new
+    // is stored - one binding reads facts that four other places were reading anyway.
+    //
+    // Deliberately NOT phrased around a cable. Practically every PULSE in the field is
+    // wireless - the wifi gateway, and the IP connector from the boat onwards - so
+    // anything built on "wired" would describe almost nobody. What the owner actually has
+    // is a transducer that is not answering, and much the commonest reason is that the thing
+    // it is mounted on, a boat or a pole kit, is not switched on yet.
+    // GREEN IS A CLAIM ABOUT NOW, so it needs data arriving now and nothing else.
+    //
+    // It used to be built on linkIsOpen and devName, and a screenshot caught what that
+    // costs: wifi off, the red "Lost connection" box in the corner, and this strip still
+    // green with "Connected to PULSEred, 192.168.10.1, s/n 139". A UDP socket does not
+    // close because the wifi went away and devName survives every reset, so both terms
+    // were stale - while the "lost" branch was unreachable, because it was built on
+    // didEverReceiveData, which every reset clears.
+    readonly property bool linkAnswering:
+        isAnswering
+    readonly property bool linkNamed:
+        devName !== "..." && devName !== ""
+    readonly property bool linkFound:
+        deviceIsPresent
+
+    // THE TWO SILENCES ARE DIFFERENT QUESTIONS, and this is the whole of the change.
+    //
+    //   a model is committed and the data stopped  -> we expect it back. "Connection
+    //      lost", amber, identity retained. This is the ordinary wifi drop, and the
+    //      echogram keeps its screen while it waits.
+    //   nothing is committed and the data stopped  -> the identity is HISTORY, not a
+    //      claim. "Was connected to PULSE red", gray. Olav's past tense, and the state
+    //      the old machine could not express at all.
+    //
+    // Which one you are in is decided by what is committed, so the strip needs no state
+    // of its own - it reads facts three other things already read.
+    readonly property bool linkCommitted: !nothingIdentified
+
+    readonly property string linkState:
+          (linkAnswering && linkNamed) ? "talking"
+        : linkAnswering                ? "identifying"
+        : linkCommitted                ? "lost"
+        : lastKnownModel !== ""         ? "wasConnected"
+        : linkFound                    ? "found"
+        :                                "absent"
+
+    readonly property color linkColor:
+          linkState === "lost"    ? "#ffcc00"
+        : linkState === "talking" ? "#3ec46d"
+        : linkState === "absent"  ? "#6d7480"
+        : linkState === "wasConnected" ? "#6d7480"
+        :                           "#3d7fd0"
+
+    // modelDisplayName, not the raw devName: it turns PULSEred into "PULSE red" and falls
+    // back to the raw string for anything this build does not recognise, so an unknown
+    // device is still named rather than hidden.
+    readonly property string linkHeadline:
+          linkState === "talking"      ? "Connected to "
+                                         + modelDisplayName(devName)
+        : linkState === "identifying"  ? "Connected, identifying the transducer"
+        : linkState === "lost"         ? "Connection lost"
+        : linkState === "wasConnected" ? "Was connected to "
+                                         + modelDisplayName(lastKnownModel)
+        : linkState === "found"        ? "Transducer found, nothing open on it yet"
+        :                                "Not connected"
+
+    readonly property string linkDetail: {
+        if (linkState === "lost")
+            return "It stopped answering. Power and range are the usual two."
+        if (linkState === "talking") {
+            var bits = []
+            var ch = numberOfDatasetChannels
+            if (ch > 0)
+                bits.push(ch === 1 ? "1 channel" : ch + " channels")
+            if (connectionAddress !== "")
+                bits.push(connectionAddress)
+            // An EMPTY firmware version printed the label with nothing after it - the
+            // screenshot reads "192.168.10.1   fw   s/n 139". The guard only excluded the
+            // string "not set".
+            if (rawDev_firmwareVersion !== "not set"
+                    && rawDev_firmwareVersion !== "")
+                bits.push("fw " + rawDev_firmwareVersion)
+            if (rawDev_devSerialNumber >= 0)
+                bits.push("s/n " + rawDev_devSerialNumber)
+            return bits.join("   \u00b7   ")
+        }
+        if (linkState === "identifying")
+            return "Waiting for it to say what it is."
+        if (linkState === "wasConnected") {
+            // What it WAS, stated as history. The address and serial are worth keeping:
+            // they are how the owner recognises which one it was.
+            var was = ["Nothing is answering now."]
+            if (connectionAddress !== "")
+                was.push(connectionAddress)
+            if (rawDev_devSerialNumber >= 0)
+                was.push("s/n " + rawDev_devSerialNumber)
+            return was.join("   \u00b7   ")
+        }
+        if (linkState === "found")
+            return "A device is listed, but nothing has been opened on it yet."
+        return "Nothing is answering yet. Power the transducer on and this screen closes "
+             + "itself the moment it is recognised."
+    }
+
+
     //APP DYNAMIC CONTROLS
     //NUMERIC convention since 2026-08-29: Min is always the SMALLER number, whatever the
     //quantity means. These six bounds used to be named after resolution QUALITY (finer

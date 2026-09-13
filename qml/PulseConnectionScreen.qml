@@ -57,7 +57,7 @@ Item {
     // puts userManualSetName back to on a swap or a force reselection, and what a cold
     // start begins with.
     readonly property bool nothingIdentified:
-        pulseRuntimeSettings ? pulseRuntimeSettings.userManualSetName === "..." : false
+        pulseRuntimeSettings ? pulseRuntimeSettings.nothingIdentified : false
 
     // WHEN THE GRACE WINDOW IS NEEDED, AND WHEN IT IS IN THE WAY.
     //
@@ -152,119 +152,6 @@ Item {
     // Which CARD was tapped. Not derivable from the committed model - red and black are
     // two cards on one profile, which is the whole point of the card list.
     property string chosenCardId: ""
-
-    // ---- The link, as one honest line ---------------------------------------
-    //
-    // Everything below is already computed somewhere: ConnectionViewer publishes
-    // linkIsOpen and deviceIsPresent, the device publishes devName, the channel count,
-    // the firmware and the serial, and the resolver already has the address. Nothing new
-    // is stored - one binding reads facts that four other places were reading anyway.
-    //
-    // Deliberately NOT phrased around a cable. Practically every PULSE in the field is
-    // wireless - the wifi gateway, and the IP connector from the boat onwards - so
-    // anything built on "wired" would describe almost nobody. What the owner actually has
-    // is a transducer that is not answering, and much the commonest reason is that the thing
-    // it is mounted on, a boat or a pole kit, is not switched on yet.
-    // GREEN IS A CLAIM ABOUT NOW, so it needs data arriving now and nothing else.
-    //
-    // It used to be built on linkIsOpen and devName, and a screenshot caught what that
-    // costs: wifi off, the red "Lost connection" box in the corner, and this strip still
-    // green with "Connected to PULSEred, 192.168.10.1, s/n 139". A UDP socket does not
-    // close because the wifi went away and devName survives every reset, so both terms
-    // were stale - while the "lost" branch was unreachable, because it was built on
-    // didEverReceiveData, which every reset clears.
-    readonly property bool linkAnswering:
-        pulseRuntimeSettings ? pulseRuntimeSettings.isAnswering : false
-    readonly property bool linkNamed:
-        pulseRuntimeSettings ? (pulseRuntimeSettings.devName !== "..."
-                                && pulseRuntimeSettings.devName !== "") : false
-    readonly property bool linkFound:
-        pulseRuntimeSettings ? pulseRuntimeSettings.deviceIsPresent : false
-
-    // What the app was last talking to, whether or not it is committed now.
-    readonly property string lastKnownName:
-        pulseRuntimeSettings ? pulseRuntimeSettings.lastKnownModel : ""
-
-    // THE TWO SILENCES ARE DIFFERENT QUESTIONS, and this is the whole of the change.
-    //
-    //   a model is committed and the data stopped  -> we expect it back. "Connection
-    //      lost", amber, identity retained. This is the ordinary wifi drop, and the
-    //      echogram keeps its screen while it waits.
-    //   nothing is committed and the data stopped  -> the identity is HISTORY, not a
-    //      claim. "Was connected to PULSE red", gray. Olav's past tense, and the state
-    //      the old machine could not express at all.
-    //
-    // Which one you are in is decided by what is committed, so the strip needs no state
-    // of its own - it reads facts three other things already read.
-    readonly property bool linkCommitted: !nothingIdentified
-
-    readonly property string linkState:
-          (linkAnswering && linkNamed) ? "talking"
-        : linkAnswering                ? "identifying"
-        : linkCommitted                ? "lost"
-        : lastKnownName !== ""         ? "wasConnected"
-        : linkFound                    ? "found"
-        :                                "absent"
-
-    readonly property color linkColor:
-          linkState === "lost"    ? "#ffcc00"
-        : linkState === "talking" ? "#3ec46d"
-        : linkState === "absent"  ? "#6d7480"
-        : linkState === "wasConnected" ? "#6d7480"
-        :                           "#3d7fd0"
-
-    // modelDisplayName, not the raw devName: it turns PULSEred into "PULSE red" and falls
-    // back to the raw string for anything this build does not recognise, so an unknown
-    // device is still named rather than hidden.
-    readonly property string linkHeadline:
-          linkState === "talking"      ? "Connected to "
-                                         + pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.devName)
-        : linkState === "identifying"  ? "Connected, identifying the transducer"
-        : linkState === "lost"         ? "Connection lost"
-        : linkState === "wasConnected" ? "Was connected to "
-                                         + pulseRuntimeSettings.modelDisplayName(lastKnownName)
-        : linkState === "found"        ? "Transducer found, nothing open on it yet"
-        :                                "Not connected"
-
-    readonly property string linkDetail: {
-        if (!pulseRuntimeSettings)
-            return ""
-        if (linkState === "lost")
-            return "It stopped answering. Power and range are the usual two."
-        if (linkState === "talking") {
-            var bits = []
-            var ch = pulseRuntimeSettings.numberOfDatasetChannels
-            if (ch > 0)
-                bits.push(ch === 1 ? "1 channel" : ch + " channels")
-            if (pulseRuntimeSettings.connectionAddress !== "")
-                bits.push(pulseRuntimeSettings.connectionAddress)
-            // An EMPTY firmware version printed the label with nothing after it - the
-            // screenshot reads "192.168.10.1   fw   s/n 139". The guard only excluded the
-            // string "not set".
-            if (pulseRuntimeSettings.rawDev_firmwareVersion !== "not set"
-                    && pulseRuntimeSettings.rawDev_firmwareVersion !== "")
-                bits.push("fw " + pulseRuntimeSettings.rawDev_firmwareVersion)
-            if (pulseRuntimeSettings.rawDev_devSerialNumber >= 0)
-                bits.push("s/n " + pulseRuntimeSettings.rawDev_devSerialNumber)
-            return bits.join("   \u00b7   ")
-        }
-        if (linkState === "identifying")
-            return "Waiting for it to say what it is."
-        if (linkState === "wasConnected") {
-            // What it WAS, stated as history. The address and serial are worth keeping:
-            // they are how the owner recognises which one it was.
-            var was = ["Nothing is answering now."]
-            if (pulseRuntimeSettings.connectionAddress !== "")
-                was.push(pulseRuntimeSettings.connectionAddress)
-            if (pulseRuntimeSettings.rawDev_devSerialNumber >= 0)
-                was.push("s/n " + pulseRuntimeSettings.rawDev_devSerialNumber)
-            return was.join("   \u00b7   ")
-        }
-        if (linkState === "found")
-            return "A device is listed, but nothing has been opened on it yet."
-        return "Nothing is answering yet. Power the transducer on and this screen closes "
-             + "itself the moment it is recognised."
-    }
 
     // ---- The cards ----------------------------------------------------------
     //
@@ -592,7 +479,7 @@ Item {
                         Layout.preferredWidth:  Math.round(10 * connectionScreen.uiScale)
                         Layout.preferredHeight: Math.round(10 * connectionScreen.uiScale)
                         radius: width / 2
-                        color: connectionScreen.linkColor
+                        color: pulseRuntimeSettings.linkColor
                     }
 
                     ColumnLayout {
@@ -601,7 +488,7 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: connectionScreen.linkHeadline
+                            text: pulseRuntimeSettings.linkHeadline
                             color: "#e6eaf0"
                             font.pixelSize: Math.round(15 * connectionScreen.uiScale)
                             font.bold: true
@@ -611,7 +498,7 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             visible: text !== ""
-                            text: connectionScreen.linkDetail
+                            text: pulseRuntimeSettings.linkDetail
                             color: "#8d96a2"
                             font.pixelSize: Math.round(12 * connectionScreen.uiScale)
                             wrapMode: Text.WordWrap
