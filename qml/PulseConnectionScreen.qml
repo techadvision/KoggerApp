@@ -131,7 +131,7 @@ Item {
     // Deliberately NOT phrased around a cable. Practically every PULSE in the field is
     // wireless - the wifi gateway, and the IP connector from the boat onwards - so
     // anything built on "wired" would describe almost nobody. What the owner actually has
-    // is a sounder that is not answering, and much the commonest reason is that the thing
+    // is a transducer that is not answering, and much the commonest reason is that the thing
     // it is mounted on, a boat or a pole kit, is not switched on yet.
     readonly property bool linkLost:
         pulseRuntimeSettings ? (pulseRuntimeSettings.hasDeviceLostConnection
@@ -161,7 +161,7 @@ Item {
           linkState === "lost"        ? "Connection lost"
         : linkState === "talking"     ? "Connected to " + pulseRuntimeSettings.devName
         : linkState === "identifying" ? "Connected, identifying the transducer"
-        : linkState === "found"       ? "Sounder found, nothing open on it yet"
+        : linkState === "found"       ? "Transducer found, nothing open on it yet"
         :                               "Not connected"
 
     readonly property string linkDetail: {
@@ -186,7 +186,7 @@ Item {
             return "Waiting for it to say what it is."
         if (linkState === "found")
             return "A device is listed, but nothing has been opened on it yet."
-        return "Nothing is answering yet. Power the sounder on and this screen closes "
+        return "Nothing is answering yet. Power the transducer on and this screen closes "
              + "itself the moment it is recognised."
     }
 
@@ -350,7 +350,7 @@ Item {
 
     // START A SIMULATION.
     //
-    // This screen is the answer to "there is no sounder - what am I looking at", so it is
+    // This screen is the answer to "there is no transducer - what am I looking at", so it is
     // where the other answer belongs. enterDemoMode() is the Recording tab's demo path,
     // not its browse path: a paced replay the app experiences as a live connection, which
     // is what a stand or a kitchen table needs. Starting one makes isPresentingLog true,
