@@ -2024,6 +2024,8 @@ ColumnLayout {
         //Data update restarts the lostConnectionTimer to avoid it being triggered
         function onDataUpdate () {
             lostConnectionTimer.restart();
+            //The only raiser. See isAnswering in PulseRuntimeSettings.
+            pulseRuntimeSettings.isAnswering = true
             if (!pulseRuntimeSettings.devSettingsEnforced) {
                 pulseRuntimeSettings.devSettingsEnforced = true
                 //configurePulseDevice()
@@ -2049,6 +2051,14 @@ ColumnLayout {
         repeat: false
         running: false
         onTriggered: {
+            //THE ONLY LOWERER, and it is deliberately above everything below it -
+            //including the demo return. 2.5 s with no onDataUpdate is 2.5 s with no data,
+            //which is true whatever else is going on, and the guards below exist to decide
+            //whether to call that a LOST CONNECTION. That is a different question, and it
+            //is the one this fact had to stop depending on: didEverReceiveData is cleared
+            //by every reset, so hasDeviceLostConnection cannot be raised after one.
+            pulseRuntimeSettings.isAnswering = false
+
             //DEMO MODE: during playback data keeps arriving so this never fires,
             //but the gap at demo stop (and at every loop boundary in Stage 2)
             //would otherwise raise a "lost connection" for a device that was

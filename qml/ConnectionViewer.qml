@@ -350,11 +350,35 @@ ColumnLayout {
                         // state has been reset. Committing here as well would configure the
                         // new device with the old device's state still standing.
                         pulseRuntimeSettings.requestDeviceSwap(previous, model)
-                    } else {
+                    } else if (pulseRuntimeSettings.everCommittedModel === ""
+                               || pulseRuntimeSettings.isAnswering) {
                         // Nothing committed yet — the app learning what is on the wire.
                         // This is the ordinary path, including "started before the
                         // transducer was powered on", and it must stay silent.
                         pulseRuntimeSettings.userManualSetName = model
+                    } else {
+                        // A RE-COMMIT HAS TO PROVE THE DEVICE IS STILL THERE, and the only
+                        // honest proof is data.
+                        //
+                        // Nothing in this app expires. A UDP socket does not close because
+                        // the wifi went away, so linkIsOpen stays true; the dead device
+                        // stays in devList, so `chosen` above is still non-null and still
+                        // carries its board enum and serial; devName survives a reselection.
+                        // The app therefore holds a complete, confident, entirely stale
+                        // identity — and the guard that would have ASKED rather than
+                        // committed, `previous !== "..."`, is the very thing a force
+                        // reselection destroys. Ten seconds later breakAndReconnectLinkTimer
+                        // raises unableToConfigure, that re-runs this function, and the app
+                        // answers its own open question from facts about a transducer that
+                        // is switched off.
+                        //
+                        // A first commit is exempt on purpose: gating it would mean waiting
+                        // for data the device may only send once configured, and every cold
+                        // start goes through there.
+                        console.log("devList: DEV_DETECT(devType): holding", model,
+                                    "- nothing has answered since the last reset",
+                                    "| everCommitted", pulseRuntimeSettings.everCommittedModel,
+                                    "| channels", pulseRuntimeSettings.numberOfDatasetChannels)
                     }
                 }
             }

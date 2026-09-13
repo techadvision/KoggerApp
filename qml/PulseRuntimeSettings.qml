@@ -17,6 +17,22 @@ QtObject {
     property string modelPulseRedProto:     "Basic2D"        //Our device name for PulseRed. Will change!
     property string modelPulseBlueProto:    "Basic2D"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
+
+    //HAS THIS RUN EVER LEARNED WHAT IS ON THE WIRE. Not "what is committed now" - every
+    //reset puts userManualSetName back to "..." and this deliberately survives that, for
+    //the rest of the run, because it answers a different question: is the app still
+    //finding out for the first time, or is it being asked to find out AGAIN?
+    //
+    //The two deserve different confidence. A FIRST commit is the ordinary cold start and
+    //must stay instant. A LATER one happens only after something wiped the commit - a
+    //force reselection, a demo ending - and by then the app is holding an identity it
+    //learned earlier, which may describe a transducer that is no longer there.
+    property string everCommittedModel: ""
+
+    onUserManualSetNameChanged: {
+        if (userManualSetName !== "..." && userManualSetName !== "")
+            everCommittedModel = userManualSetName
+    }
     //EXPERIMENT toggle: when true, model detection is driven by dev.devType (board enum, transport-agnostic)
     //in ConnectionViewer.selectCorrectDevice, and the old devName-string path in main.qml is disabled.
     //Set false to fall back to the previous main.qml onDevNameChanged detection.
@@ -215,6 +231,20 @@ QtObject {
     property bool   unableToConfigure:      false   // Used to signal that config takes too much time
 
     //TRAFFIC STATES
+    //IS ANYTHING ACTUALLY ARRIVING, right now. The one fact this app did not have.
+    //
+    //Everything else here is about an IDENTITY that was learned once: isReceivingData and
+    //didEverReceiveData are both raised by onDevNameChanged, not by data, and
+    //hasDeviceLostConnection needs didEverReceiveData - which every reset clears and
+    //nothing re-raises while the name stays put. So after a reset with the wifi gone, the
+    //app holds a complete and entirely stale picture of a connected transducer.
+    //
+    //This one is raised ONLY by dataset.onDataUpdate and lowered ONLY by the 2.5 s
+    //lostConnectionTimer, which that same signal restarts. One raiser, one lowerer, and it
+    //owes nothing to any reset. It says DATA IS FLOWING and not "hardware is present": a
+    //replayed log produces onDataUpdate too, which is why the one place that reads it also
+    //requires a device in the list.
+    property bool   isAnswering:            false   // Data arrived within the last 2.5 s
     property bool   isReceivingData:        false   // When data is received, true
     property bool   didEverReceiveData:     false   // When data is received at least at some point, true
     property bool   hasDeviceLostConnection:false   // if didEverReceiveData = true, and isReceivingData = false
