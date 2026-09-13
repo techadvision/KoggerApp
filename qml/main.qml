@@ -44,6 +44,14 @@ ApplicationWindow  {
         //height: Insets.dexEnabled ? Insets.top : 0
     }
 
+    // WHAT THE RAIL TAKES FROM THE PICTURE, named once so everything drawn on the echogram
+    // can respect it with one read. Zero in the classic UI and zero while the rail is
+    // collapsed, both through the rail's own `inset`.
+    //
+    // Anything that draws ON the echogram must add this. Anything full-bleed ABOVE
+    // everything - PulseConnectionScreen at z 9000 - must not: it covers the rail too.
+    readonly property real pulseRailInset: pulseRail.visible ? pulseRail.inset : 0
+
     readonly property int _rightBarWidth:                360
     readonly property int _activeObjectParamsMenuHeight: 500
     readonly property int _sceneObjectsListHeight:       300
@@ -2018,7 +2026,7 @@ ApplicationWindow  {
                     //
                     // Zero in the classic UI and zero while the rail is collapsed, both through
                     // the rail's own `inset`, so there is no second mechanism to keep in step.
-                    anchors.leftMargin: pulseRail.visible ? pulseRail.inset : 0
+                    anchors.leftMargin: mainview.pulseRailInset
 
                     rows    : 2
                     columns : 1
@@ -3001,7 +3009,12 @@ ApplicationWindow  {
         uiScale:    mainview.s
         safeTop:    mainview.insetTop()
         safeBottom: mainview.insetBottom()
-        safeLeft:   mainview.insetLeft()
+        // THE CARD AND THE MARKER DRAW ON THE ECHOGRAM, and the echogram no longer starts
+        // at the screen edge. Both are placed at `safeLeft + 28`, so adding the rail's
+        // width here is the whole fix - nothing inside that file has to know the rail
+        // exists. The connection screen deliberately does NOT do this: it is full-bleed
+        // above everything and covers the rail as well.
+        safeLeft:   mainview.insetLeft() + mainview.pulseRailInset
         safeRight:  mainview.insetRight()
     }
 
