@@ -1731,14 +1731,19 @@ Flickable {
             }
         }
 
+        //THE THIRD INTENT, and the only one that is a question for the user. It used to
+        //write swapDeviceNow raw, which un-commits the model and nothing more - so
+        //detection was free to answer the question ten seconds later from a stale device
+        //list. requestDeviceChoice() raises awaitingUserChoice first and then does the same
+        //tear-down, so the screen comes up and STAYS up until a person answers it.
         SettingRow {
-            text: "Force reselection of device"
+            text: "Choose a different transducer"
             checkbox: true
             show: pulseRuntimeSettings.showCatSwapDevice
             SettingsCheckBox {
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "swapDeviceNow"
-                initialChecked: pulseRuntimeSettings.swapDeviceNow
+                targetPropertyName: "chooseDeviceNow"
+                initialChecked: pulseRuntimeSettings.chooseDeviceNow
                 clearAfter: true
             }
         }

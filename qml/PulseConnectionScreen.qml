@@ -94,7 +94,12 @@ Item {
             : ""
 
     readonly property bool chooserAsking:
-           (pulseRuntimeSettings ? pulseRuntimeSettings.swapDeviceNow : false)
+           // THE USER IS CHOOSING. This term used to read swapDeviceNow, which was reaching
+           // for exactly this meaning and could not carry it: DeviceItem clears that flag
+           // synchronously, so by the time anything read it, it was false and the screen
+           // was being held up by nothingIdentified instead. awaitingUserChoice is the
+           // honest version, and it is also what stops detection answering underneath.
+           (pulseRuntimeSettings ? pulseRuntimeSettings.awaitingUserChoice : false)
         || swapPending
         || (nothingIdentified
             && !(pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false)

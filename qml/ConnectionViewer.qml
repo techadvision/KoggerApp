@@ -204,6 +204,25 @@ ColumnLayout {
         onTriggered: selectCorrectDevice("redetectSettled")
     }
 
+    //DATA ARRIVING IS A TRIGGER, and it is what turns detection from a set of events into
+    //a rule. Every other trigger here is about the device LIST or an explicit request;
+    //none of them fires when a transducer that went quiet starts talking again, which is
+    //why a returning device was never re-identified - selectCorrectDevice simply was not
+    //run, so the gate was never even consulted.
+    //
+    //This was deliberately held back until awaitingUserChoice existed. Without it, the
+    //first frame after a reselection would re-commit and close the screen, undoing the
+    //confirmed step 1 behaviour "force reselection shows the cards and can be cancelled".
+    //With it, the rule refuses on its own terms and the trigger is safe.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        function onIsAnsweringChanged() {
+            if (!pulseRuntimeSettings.isAnswering)
+                return
+            selectCorrectDevice("dataArrived")
+        }
+    }
+
     onDevListChanged: {
         selectCorrectDevice("devListChanged")
     }
@@ -350,34 +369,29 @@ ColumnLayout {
                         // state has been reset. Committing here as well would configure the
                         // new device with the old device's state still standing.
                         pulseRuntimeSettings.requestDeviceSwap(previous, model)
-                    } else if (pulseRuntimeSettings.everCommittedModel === ""
-                               || pulseRuntimeSettings.isAnswering) {
+                    } else if (pulseRuntimeSettings.isAnswering
+                               && !pulseRuntimeSettings.awaitingUserChoice) {
                         // Nothing committed yet — the app learning what is on the wire.
                         // This is the ordinary path, including "started before the
                         // transducer was powered on", and it must stay silent.
                         pulseRuntimeSettings.userManualSetName = model
                     } else {
-                        // A RE-COMMIT HAS TO PROVE THE DEVICE IS STILL THERE, and the only
-                        // honest proof is data.
+                        // THE TWO REASONS NOT TO COMMIT, and they are different questions.
                         //
-                        // Nothing in this app expires. A UDP socket does not close because
-                        // the wifi went away, so linkIsOpen stays true; the dead device
-                        // stays in devList, so `chosen` above is still non-null and still
-                        // carries its board enum and serial; devName survives a reselection.
-                        // The app therefore holds a complete, confident, entirely stale
-                        // identity — and the guard that would have ASKED rather than
-                        // committed, `previous !== "..."`, is the very thing a force
-                        // reselection destroys. Ten seconds later breakAndReconnectLinkTimer
-                        // raises unableToConfigure, that re-runs this function, and the app
-                        // answers its own open question from facts about a transducer that
-                        // is switched off.
+                        // NOT ANSWERING: nothing in this app expires. A UDP socket does not
+                        // close because the wifi went away, so linkIsOpen stays true; the
+                        // dead device stays in devList, so `chosen` above is still non-null
+                        // and still carries its board enum and serial; devName survives a
+                        // reselection. The app holds a complete, confident, entirely stale
+                        // identity, and only data proves a transducer is really there.
                         //
-                        // A first commit is exempt on purpose: gating it would mean waiting
-                        // for data the device may only send once configured, and every cold
-                        // start goes through there.
+                        // THE USER IS CHOOSING: the guard that would have ASKED rather than
+                        // committed, `previous !== "..."`, is the very thing a reselection
+                        // destroys - so without a flag saying so, the app answers its own
+                        // open question. It did, ten seconds later, every time.
                         console.log("devList: DEV_DETECT(devType): holding", model,
-                                    "- nothing has answered since the last reset",
-                                    "| everCommitted", pulseRuntimeSettings.everCommittedModel,
+                                    "| answering", pulseRuntimeSettings.isAnswering,
+                                    "| userChoosing", pulseRuntimeSettings.awaitingUserChoice,
                                     "| channels", pulseRuntimeSettings.numberOfDatasetChannels)
                     }
                 }

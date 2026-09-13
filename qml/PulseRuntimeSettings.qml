@@ -18,20 +18,60 @@ QtObject {
     property string modelPulseBlueProto:    "Basic2D"       //Our device name dor PulseBlue. Will change!
     property string userManualSetName:      "..."           //Stores the manually selected name when not automatically detected in main
 
-    //HAS THIS RUN EVER LEARNED WHAT IS ON THE WIRE. Not "what is committed now" - every
-    //reset puts userManualSetName back to "..." and this deliberately survives that, for
-    //the rest of the run, because it answers a different question: is the app still
-    //finding out for the first time, or is it being asked to find out AGAIN?
+    //THE USER IS CHOOSING, AND DETECTION MUST NOT ANSWER.
     //
-    //The two deserve different confidence. A FIRST commit is the ordinary cold start and
-    //must stay instant. A LATER one happens only after something wiped the commit - a
-    //force reselection, a demo ending - and by then the app is holding an identity it
-    //learned earlier, which may describe a transducer that is no longer there.
-    property string everCommittedModel: ""
+    //This is the fact the app never had, and it is the whole knot. "The app does not know
+    //what is on the wire" and "the user has asked to decide" were the SAME state -
+    //userManualSetName === "..." - and they want opposite behaviour. A transducer that
+    //comes back after a dropped link should be identified at once; a deliberate
+    //reselection must not be answered ten seconds later by the app itself.
+    //
+    //With the two separated, detection is one rule instead of five racing handlers:
+    //
+    //  commit a model when a device is identified in the list
+    //    AND data is arriving        (isAnswering - the device is really there)
+    //    AND nothing is committed    (userManualSetName === "...")
+    //    AND the user is not choosing (this flag)
+    //
+    //It also replaces everCommittedModel, which existed only because a first commit could
+    //not safely wait for data. The transducer free-runs - confirmed on device, with the
+    //echogram moving while nothing was committed - so the rule needs no exemption.
+    //
+    //RAISED in one place, requestDeviceChoice(). CLEARED wherever the question is actually
+    //answered: a model being committed (below), and starting a simulation, which is the
+    //one exit from the connection screen that commits nothing.
+    property bool   awaitingUserChoice:     false
+
+    //The expert control's affordance. SettingsCheckBox writes a bool; this turns that into
+    //the action, and clears itself so the box can be ticked again.
+    property bool   chooseDeviceNow:        false
+
+    onChooseDeviceNowChanged: {
+        if (!chooseDeviceNow)
+            return
+        chooseDeviceNow = false
+        requestDeviceChoice()
+    }
 
     onUserManualSetNameChanged: {
-        if (userManualSetName !== "..." && userManualSetName !== "")
-            everCommittedModel = userManualSetName
+        //A model is committed, so the question is answered however it was answered - by a
+        //card, by Keep, or by detection. One place rather than one per exit, so a new way
+        //out of the screen cannot forget to clear it and strand the app asking.
+        if (awaitingUserChoice && userManualSetName !== "..." && userManualSetName !== "") {
+            console.log("DEV_CHOICE: answered ->", userManualSetName)
+            awaitingUserChoice = false
+        }
+    }
+
+    //CHOOSE A DIFFERENT TRANSDUCER - the third of the three intents, and the only one that
+    //is a question for the user. The order matters: raise the flag BEFORE the tear-down,
+    //so that everything reacting to the un-commit already knows nobody should answer it.
+    //swapDeviceNow keeps its real job here - it is the mechanism that resets the setup and
+    //puts userManualSetName back to "..." - but it is no longer asked to MEAN anything.
+    function requestDeviceChoice() {
+        console.log("DEV_CHOICE: the user is choosing a transducer - detection will not answer")
+        awaitingUserChoice = true
+        swapDeviceNow = true
     }
     //EXPERIMENT toggle: when true, model detection is driven by dev.devType (board enum, transport-agnostic)
     //in ConnectionViewer.selectCorrectDevice, and the old devName-string path in main.qml is disabled.
@@ -565,6 +605,15 @@ QtObject {
         }
 
         console.log("DEMO: entering demo mode with", path)
+
+        //Starting a simulation is an answer to "which transducer", and the only one that
+        //commits no model - so the clear on userManualSetName cannot cover it. Without
+        //this, awaitingUserChoice would still be raised when the demo stops and item 9's
+        //re-detection would be refused by the rule.
+        if (awaitingUserChoice) {
+            console.log("DEV_CHOICE: answered by starting a simulation")
+            awaitingUserChoice = false
+        }
 
         // Starting a demo on top of an opened file view is allowed — the open has
         // already finished, we were only rendering it. But wasKlfFileOpened MUST be
