@@ -138,36 +138,66 @@ Item {
     // anything built on "wired" would describe almost nobody. What the owner actually has
     // is a transducer that is not answering, and much the commonest reason is that the thing
     // it is mounted on, a boat or a pole kit, is not switched on yet.
-    readonly property bool linkLost:
-        pulseRuntimeSettings ? (pulseRuntimeSettings.hasDeviceLostConnection
-                                && pulseRuntimeSettings.didEverReceiveData) : false
-    readonly property bool linkOpen:
-        pulseRuntimeSettings ? pulseRuntimeSettings.linkIsOpen : false
+    // GREEN IS A CLAIM ABOUT NOW, so it needs data arriving now and nothing else.
+    //
+    // It used to be built on linkIsOpen and devName, and a screenshot caught what that
+    // costs: wifi off, the red "Lost connection" box in the corner, and this strip still
+    // green with "Connected to PULSEred, 192.168.10.1, s/n 139". A UDP socket does not
+    // close because the wifi went away and devName survives every reset, so both terms
+    // were stale - while the "lost" branch was unreachable, because it was built on
+    // didEverReceiveData, which every reset clears.
+    readonly property bool linkAnswering:
+        pulseRuntimeSettings ? pulseRuntimeSettings.isAnswering : false
     readonly property bool linkNamed:
         pulseRuntimeSettings ? (pulseRuntimeSettings.devName !== "..."
                                 && pulseRuntimeSettings.devName !== "") : false
     readonly property bool linkFound:
         pulseRuntimeSettings ? pulseRuntimeSettings.deviceIsPresent : false
 
+    // What the app was last talking to, whether or not it is committed now.
+    readonly property string lastKnownName:
+        pulseRuntimeSettings ? pulseRuntimeSettings.lastKnownModel : ""
+
+    // THE TWO SILENCES ARE DIFFERENT QUESTIONS, and this is the whole of the change.
+    //
+    //   a model is committed and the data stopped  -> we expect it back. "Connection
+    //      lost", amber, identity retained. This is the ordinary wifi drop, and the
+    //      echogram keeps its screen while it waits.
+    //   nothing is committed and the data stopped  -> the identity is HISTORY, not a
+    //      claim. "Was connected to PULSE red", gray. Olav's past tense, and the state
+    //      the old machine could not express at all.
+    //
+    // Which one you are in is decided by what is committed, so the strip needs no state
+    // of its own - it reads facts three other things already read.
+    readonly property bool linkCommitted: !nothingIdentified
+
     readonly property string linkState:
-          linkLost                ? "lost"
-        : (linkOpen && linkNamed) ? "talking"
-        : linkOpen                ? "identifying"
-        : linkFound               ? "found"
-        :                           "absent"
+          (linkAnswering && linkNamed) ? "talking"
+        : linkAnswering                ? "identifying"
+        : linkCommitted                ? "lost"
+        : lastKnownName !== ""         ? "wasConnected"
+        : linkFound                    ? "found"
+        :                                "absent"
 
     readonly property color linkColor:
           linkState === "lost"    ? "#ffcc00"
         : linkState === "talking" ? "#3ec46d"
         : linkState === "absent"  ? "#6d7480"
+        : linkState === "wasConnected" ? "#6d7480"
         :                           "#3d7fd0"
 
+    // modelDisplayName, not the raw devName: it turns PULSEred into "PULSE red" and falls
+    // back to the raw string for anything this build does not recognise, so an unknown
+    // device is still named rather than hidden.
     readonly property string linkHeadline:
-          linkState === "lost"        ? "Connection lost"
-        : linkState === "talking"     ? "Connected to " + pulseRuntimeSettings.devName
-        : linkState === "identifying" ? "Connected, identifying the transducer"
-        : linkState === "found"       ? "Transducer found, nothing open on it yet"
-        :                               "Not connected"
+          linkState === "talking"      ? "Connected to "
+                                         + pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.devName)
+        : linkState === "identifying"  ? "Connected, identifying the transducer"
+        : linkState === "lost"         ? "Connection lost"
+        : linkState === "wasConnected" ? "Was connected to "
+                                         + pulseRuntimeSettings.modelDisplayName(lastKnownName)
+        : linkState === "found"        ? "Transducer found, nothing open on it yet"
+        :                                "Not connected"
 
     readonly property string linkDetail: {
         if (!pulseRuntimeSettings)
@@ -181,7 +211,11 @@ Item {
                 bits.push(ch === 1 ? "1 channel" : ch + " channels")
             if (pulseRuntimeSettings.connectionAddress !== "")
                 bits.push(pulseRuntimeSettings.connectionAddress)
-            if (pulseRuntimeSettings.rawDev_firmwareVersion !== "not set")
+            // An EMPTY firmware version printed the label with nothing after it - the
+            // screenshot reads "192.168.10.1   fw   s/n 139". The guard only excluded the
+            // string "not set".
+            if (pulseRuntimeSettings.rawDev_firmwareVersion !== "not set"
+                    && pulseRuntimeSettings.rawDev_firmwareVersion !== "")
                 bits.push("fw " + pulseRuntimeSettings.rawDev_firmwareVersion)
             if (pulseRuntimeSettings.rawDev_devSerialNumber >= 0)
                 bits.push("s/n " + pulseRuntimeSettings.rawDev_devSerialNumber)
@@ -189,6 +223,16 @@ Item {
         }
         if (linkState === "identifying")
             return "Waiting for it to say what it is."
+        if (linkState === "wasConnected") {
+            // What it WAS, stated as history. The address and serial are worth keeping:
+            // they are how the owner recognises which one it was.
+            var was = ["Nothing is answering now."]
+            if (pulseRuntimeSettings.connectionAddress !== "")
+                was.push(pulseRuntimeSettings.connectionAddress)
+            if (pulseRuntimeSettings.rawDev_devSerialNumber >= 0)
+                was.push("s/n " + pulseRuntimeSettings.rawDev_devSerialNumber)
+            return was.join("   \u00b7   ")
+        }
         if (linkState === "found")
             return "A device is listed, but nothing has been opened on it yet."
         return "Nothing is answering yet. Power the transducer on and this screen closes "
