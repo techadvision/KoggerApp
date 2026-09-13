@@ -3784,3 +3784,123 @@ configuration may only need a resolution written.
   EchogramCompensation and the cone/view restore are others. Reconfigure calls
   only the one. It is sufficient for a parameter re-push, which is what this
   action promises, but "re-run the whole setup" would need its own broadcast.
+
+---
+
+## Steps 2 to 5, built and confirmed (13 Sept 2026)
+
+One idea per device build, on Olav's instruction. Five of the six are in.
+
+### Step 2 — the user is choosing, and detection must not answer — `d369d98f`
+
+`awaitingUserChoice` separates the two states that were one. "The app does not
+know what is on the wire" and "the user has asked to decide" were both
+`userManualSetName === "..."`, and they want opposite behaviour.
+
+> commit a model when a device is identified in the list, **and** data is
+> arriving, **and** nothing is committed, **and** the user is not choosing.
+
+**Data arriving became a trigger, and that is the half `f2aafa11` was missing.**
+Its gate was never wrong — it was never *consulted*, because nothing re-ran
+`selectCorrectDevice()` when a quiet transducer started talking again. That is
+why the echogram was visibly moving behind the scrim with nothing committed. The
+trigger was held back until `awaitingUserChoice` existed; without it the first
+frame after a reselection would have re-committed and closed the screen.
+
+`everCommittedModel` is gone — the transducer free-runs, so the rule needs no
+exemption. The expert control became **"Choose a different transducer"**, and
+`swapDeviceNow` is no longer asked to MEAN anything.
+
+Confirmed: *"All seems to be working."* Plus a cold start still auto-selecting,
+and a wifi drop with a model committed recovering by itself with no screen.
+
+### Step 3 — the band-aid retires — `89b7d2c6`
+
+One mechanism, so one commit: the overlay's visibility is what ARMED the ten
+second timer. `dataUpdateActive` — a one-way latch never lowered, named like a
+live state, with this overlay as its only reader — became `isAnswering`. Gone
+with it: `breakAndReconnectLinkTimer`, the *"Fixing transducer com link…"*
+escalation, `ConnectionViewer`'s `onUnableToConfigureChanged` trigger, and the
+`unableToConfigure` flag.
+
+Confirmed: the overlay appears briefly and goes, with no escalation. That string
+never showed again.
+
+### Two defects the testing found
+
+**A lost connection is data stopping — `0e2e6ef4`.** Break the wifi at the
+moment of commit and the echogram stayed off. `hasDeviceLostConnection` was
+raised only if `didEverReceiveData`, which every reset clears and only
+`onDevNameChanged` raises — so after a reselection, same transducer, same name,
+it stayed false. And `onHasDeviceLostConnectionChanged`'s "regained" arm is the
+**only** thing that restarts `completeDeviceConfigurationTimer`. No raise, no
+fall, no resumed configuration. Now keyed on data having been arriving, which no
+reset can wipe.
+
+The tell was in Olav's own report: the runs that recovered showed the
+lost-connection warning, and the failing one never did.
+
+**The box can be taken down again — `a0f44ff9`.** Both arms of that handler sat
+behind the same flag — the show *and* the remove — so a reselection after the box
+went up left it on screen through a regained connection, a new choice and a
+complete reconfiguration.
+
+**Not reproducible afterwards**, and recorded as *may still exist*: four
+attempts at the original failure all recovered. Olav's own theory is the likeliest
+— with the transducer never power-cycled, every value is already correct and the
+handshake runs too fast to catch.
+
+### Step 4 — `"..."` is not blue, it is no device — `957032cc`
+
+The root of defect A, and only the log showed it. Between a reset and the next
+commit the resolver fell through to blue, so every binding on `committedProfile`
+snapped to blue's numbers — and those are written to the transducer. A red spent
+the window configured as a side scan at 25 m instead of 50.
+
+So the four symptoms after an accepted swap were never four regressions. They
+were four values read or assigned inside a window in which the whole app believed
+it was a blue.
+
+`"..."` is not an unrecognised device — that case is a real question worth
+guessing at, and keeps its channel-count fallback. `"..."` is NO device, and the
+honest answer to "I have not been told yet" is to change nothing, so it holds the
+last model this run knew about. The cold start is untouched: nothing to hold, and
+blue remains the right guess.
+
+Confirmed from the log, which is the only place it shows:
+`PROFILE: committed key -> PULSEred | model ...` where it used to say `PULSEblue`.
+
+### Step 5 — the strip has two silences — `655c3aff`
+
+Green is a claim about now, so it reads `isAnswering` and nothing else. And the
+two silences are different questions: a model committed and the data stopped is
+**"Connection lost"** (amber, we expect it back); nothing committed and the data
+stopped is **"Was connected to PULSE red"** (gray, the identity is history).
+
+Confirmed on device: green while live; gray when the wifi goes before or during
+the connection screen; back to green when it returns with the screen still up;
+*"Not connected"* on a cold start with nothing powered.
+
+**Amber has one reachable route today, and that is worth knowing**: the screen
+only shows while it is asking something, and the only question it asks with a
+model still committed is a pending device swap. So amber needs two transducers
+until the rail's source button exists — and then it becomes the common case,
+because that button is a door into this screen with a model committed. It is
+built for a door that has not been hung yet.
+
+A lost connection does NOT raise this screen, and must not: `chooserAsking` has
+no lost-connection term. Coming here deliberately with the link down is the gray
+state, which is what Olav observed.
+
+### Decided: the spinner does not come with us
+
+The `LostConnectionOverlay` — the red spinning wheel and its three strings,
+*"Hang on ...."*, *"Lost connection"* and *"Unknown device"* — is part of the old
+struggle-to-configure machinery and is not carried into the new UI. Olav: *"We
+already have a design to reveal to the user what is going on during setup and
+potential problems. So this should go away anyway."*
+
+It stays for now only because it is the classic UI's one signal, and removing it
+before the replacement exists would leave nothing. The replacement is two things,
+both already designed: the strip's amber **"Connection lost"** for the connection
+screen, and a new warning over the echogram for a drop during use.
