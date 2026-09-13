@@ -3639,3 +3639,63 @@ Cone · Echogram and readings as drafted — and "Cone" is right for red and bla
 but wrong for blue, so the name belongs in the profile record exactly as the
 cards do), the no-progress interval, and whether accepting is remembered per
 device or asked each session.
+
+### The group names, and the strip's four states (13 Sept 2026)
+
+**The names, settled by Olav — each one IS a category flag**, which is what
+makes them cheap: the handshake already raises exactly these four.
+
+| shown | flag |
+|---|---|
+| Depth range | `onDistSetupChanged` |
+| Image quality | `onChartSetupChanged` |
+| Cone | `onTransChanged` |
+| Echogram settings | `onDatasetChanged` |
+
+One thing left in it: blue has no cone choice, so "Cone" is wrong for a blue.
+That puts the user-facing name in the profile record — the same move the cards
+made in step 2, and for the same reason.
+
+### The strip, proved wrong by a screenshot
+
+Wifi off, the red *"Lost connection"* indicator up in the corner, and the strip
+still green: *"Connected to PULSEred, 192.168.10.1, s/n 139"*. Olav: *"we do
+know that an existing dataflow has stopped, and that this kind of is not
+matching a green 'Connected to…' rather than a gray 'Was connected to…'"*
+
+**Two indicators on one screen disagreeing, reading two different facts.** The
+corner overlay reads `hasDeviceLostConnection`. The strip reads
+
+```qml
+linkLost: hasDeviceLostConnection && didEverReceiveData
+```
+
+and the force reselection had just cleared `didEverReceiveData`. So the strip's
+"lost" branch was unreachable, it fell through to `linkOpen && linkNamed` — both
+stale — and reported a live connection over a dead link. Exactly the drift the
+analysis predicted, caught on a screenshot rather than argued from the code.
+
+**Four states, and Olav's past tense is the one that was missing.**
+
+| | when | dot |
+|---|---|---|
+| Connected to PULSE red | data arriving now | green |
+| Connection lost | a model is committed and the data stopped — we expect it back | amber |
+| Was connected to PULSE red | the data stopped and nothing is committed — the identity is history, not a claim | gray |
+| Not connected | nothing has presented itself this run | gray |
+
+Green is a claim about NOW, so it needs `isAnswering` and nothing else. The two
+middle rows are the two silences: which one you are in is decided by
+`committedModel` and `awaitingUserChoice`, so the strip still needs no state of
+its own.
+
+The third row is the one the old machine could not express, and it is the better
+answer to the step 1 wording note as well — *"Not connected"* was never wrong
+about the socket, it was wrong about what the owner had.
+
+### Noticed in the same screenshot
+
+The strip's detail line reads `192.168.10.1   fw   s/n 139` — an empty firmware
+version. `linkDetail` skips the field only when `rawDev_firmwareVersion` is the
+string `"not set"`, so an empty value prints the label with nothing after it.
+One line, whenever the strip is next touched.
