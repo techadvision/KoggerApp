@@ -3309,3 +3309,187 @@ be asked, and answering it automatically ten seconds later is the same
 overreach in a case where the app happens to be right. The narrower fix is that
 `unableToConfigure` should not trigger a re-selection at all while nothing is
 committed. It is a behaviour question, not a defect, so it waits for Olav.
+
+---
+
+## Detection and configuration — how it should be (13 Sept 2026)
+
+An analysis, not a change. Nothing below is built.
+
+Olav's statement of intent, which is the right one and has never been written
+down in the code:
+
+> 1. When data is flowing in, figure out what device is actually sending data.
+> 2. Show the echogram screen, but also configure that device to behave like we
+>    want (apply profile).
+> 3. Make sure the user understands that we are in a configuration state. And
+>    halt the echogram while we configure to reduce the network traffic while
+>    configuring, to increase the chance of success on a weak link.
+
+And his account of how it got where it is: *"The configure device comm link
+alert was specifically a workaround to fix a fact that I was not at all trying
+to configure the correct device (device list problem)."*
+
+### The observation that forced this
+
+With `f2aafa11` on the device: wifi off, force reselection — the screen came up
+and stayed up, which is right. Then the wifi came back, the device reconnected,
+**the echogram was visibly moving behind the scrim** — and no automatic
+selection happened.
+
+The new gate is not what held it. `selectCorrectDevice()` was never run again.
+Its triggers are a device-list change, a redetect request, the Basic2D settle
+window, and `unableToConfigure` — and that last one had already gone true at the
+ten-second mark and does not fire a second time, because `onUnableToConfigureChanged`
+only acts on the rising edge. The list did not change. So the gate was not
+consulted; nothing asked the question at all.
+
+**Detection is a set of events, and it needs to be a rule.** Every defect in
+this area is a missing or spurious edge on one of five unrelated signals, and no
+amount of adding edges converges.
+
+That observation also settles a question the gate was written around: **the
+transducer free-runs.** Data was arriving with no model committed and no
+configuration performed. So waiting for data before committing cannot deadlock,
+and the `everCommittedModel` exemption in `f2aafa11` — a first commit is exempt
+because the device might only send data once configured — is unnecessary. The
+rule can be uniform.
+
+### What the app actually knows
+
+Sorted by what each boolean *means*, not by what it is called.
+
+**Traffic — five names, one real fact.**
+
+| | raised by | lowered by | what it really means |
+|---|---|---|---|
+| `isAnswering` | `dataset.onDataUpdate` | 2.5 s `lostConnectionTimer` | **data arrived within 2.5 s** — the only true one, and new |
+| `isReceivingData` | `onDevNameChanged` | `onDevNameChanged`, `lostConnectionTimer` | the device has a NAME |
+| `didEverReceiveData` | `onDevNameChanged` | every reset | the device has announced a name since the last reset — neither "ever" nor "data" |
+| `dataUpdateActive` | `onDataUpdate` | **nothing**, except `exitDemoMode()` | data has flowed at some point this run |
+| `hasDeviceLostConnection` | `lostConnectionTimer`, gated on `didEverReceiveData` | several | unreachable after any reset, by construction |
+
+`dataUpdateActive` is the load-bearing one and the most misleading: a one-way
+latch named like a live state. It has exactly one reader —
+`configurationInProgressIndicator.visible` — and that reader is the origin of
+defect B, because the overlay becoming visible is what starts
+`breakAndReconnectLinkTimer`. With the latch never lowered, the overlay is
+visible whenever the device is not configured, *forever*, whether or not
+anything is connected.
+
+**Identity — two real facts and three ghosts.**
+
+* `userManualSetName` — the committed MODEL. One meaning, well kept.
+* `devName` — the selected device's raw name. Real, but survives a reselection.
+* `devIdentified` — raised in two places with two different meanings: in
+  `onDevNameChanged` for "we know its name", and at the end of
+  `configurePulseDevice()` for "we have finished setting it up".
+* `devDetected` — **never set true anywhere.** Its one reader,
+  `quickChangeObjects.isDeviceDetected`, has therefore always been false.
+* `appConfigured` — written in four places and **read nowhere**.
+* `devManualSelected` — set by the manual pick, cleared by a swap, never
+  re-raised; it now means "the last commit was a manual one, and no swap has
+  happened since", which is not what any of its three readers want.
+
+**Configuration — this part is sound.** The twenty `*_ok` acknowledgements, the
+four category flags and `devConfigured` are a real handshake: set a parameter,
+wait for the device to echo it back, move on. It is the one mechanism here that
+does what its name says, and nothing below proposes touching it.
+
+### What it should be
+
+**Three facts about the transducer on the wire, and only three.**
+
+1. `isAnswering` — data arrived within the last 2.5 s. Already built.
+2. `committedModel` — which model the app is configured for; `"..."` for none.
+   This is `userManualSetName` and needs no change.
+3. `awaitingUserChoice` — **the user has asked to decide, and detection must not
+   answer.** This is the fact the app has never had.
+
+Everything else is derived:
+
+```
+silent        = !isAnswering
+undecided     = committedModel === "..."
+configuring   = !undecided && !devConfigured
+ready         = devConfigured
+```
+
+**The third fact is the whole knot.** Today, "the app does not know" and "the
+user is choosing" are the same state — `userManualSetName === "..."` — and they
+want opposite behaviour. A returning device should be identified immediately; a
+force reselection must not be answered automatically ten seconds later. With one
+flag to distinguish them, detection becomes a single rule:
+
+> Commit a model when a device is identified in the list, **and** data is
+> arriving, **and** nothing is committed, **and** the user is not choosing.
+
+Re-evaluated whenever any term changes — which is what makes it a rule rather
+than five handlers racing. It covers the cold start, the device returning after
+a dropped link, and the force reselection, with no special cases and no timers.
+
+It also explains why `chooserAsking` opens with `swapDeviceNow ||`: that term is
+reaching for "the user is choosing", but `swapDeviceNow` is cleared
+synchronously by `DeviceItem`, so it cannot carry that meaning and the
+`nothingIdentified` term has to cover for it. `awaitingUserChoice` is the honest
+version of what that binding was already trying to say.
+
+**Purpose 3, honestly.** The overlay should say "configuring" when the app is
+configuring — `configuring && isAnswering` — and not when a latch says data once
+flowed. That single substitution makes it disappear when the link dies, which is
+correct (you are not configuring, you are disconnected), and with it the ten
+second timer never starts.
+
+**And the band-aid retires on Olav's own argument.** `breakAndReconnectLinkTimer`,
+`unableToConfigure` and *"Fixing transducer com link…"* exist because the app
+used to configure a device it had never properly selected. `selectCorrectDevice()`
+fixed that at the source. This is precisely the reasoning already written into
+`main.qml` when the auto-reboot dataflow guard was removed — *"a band-aid for
+the old stuck-configuring state caused by never binding a real 'dev'; that is
+now handled at the source"* — and it applies here word for word. A configuration
+that genuinely stalls should keep saying *"Configuring transducer…"*, which is
+true, rather than escalate into an action that re-opens a settled question.
+
+### Proposed order, one idea each
+
+Each is bench-testable with a wifi toggle; none needs the boat.
+
+**1. The overlay tells the truth.** `configurationInProgressIndicator.visible`
+reads `isAnswering` in place of `dataUpdateActive` — one term, one reader, no
+other site touched. Bench: wifi off, the overlay disappears instead of
+escalating; and defect B's ten-second trigger never starts, because the timer is
+started by that overlay becoming visible.
+
+**2. Detection follows data.** `awaitingUserChoice`, raised by the force
+reselection and cleared by any commit, and the rule above. This is the one that
+fixes the observation at the top: the device comes back, data arrives, the model
+is committed, without a force reselection ever being auto-answered. The
+`everCommittedModel` exemption from `f2aafa11` comes out at the same time — the
+transducer free-runs, so it is not needed.
+
+**3. Retire the band-aid.** `breakAndReconnectLinkTimer`, `unableToConfigure`,
+the *"Fixing transducer com link…"* string and `ConnectionViewer`'s
+`onUnableToConfigureChanged` trigger. Deliberately after 1 and 2, so that if a
+real stall ever did depend on it, that shows up while the mechanism is still in
+the tree.
+
+**4. `"..."` holds the last profile.** The blue window, from the previous
+section. Independent of 1–3 and could go first; it is the root of defect A's
+symptom list.
+
+**5. The ghosts.** `devDetected` (never true), `appConfigured` (never read),
+`devManualSelected` (means something no reader wants), and the naming of
+`isReceivingData` / `didEverReceiveData` / `dataUpdateActive`, which describe a
+name and a latch rather than traffic. A cleanup commit, not mixed into any of
+the above.
+
+**6. The presentation sweep** — rule 2 across the values defect A exposed, which
+should only be judged once 4 has removed the window they were being measured in.
+
+### What still belongs to the C++
+
+A dead link reports itself open and a dead device stays in the list. The rule
+above means the app no longer *acts* on that, which is enough for every symptom
+seen so far — but `linkIsOpen` and `deviceIsPresent` remain facts nothing
+retracts, and the status strip will keep having to work around them until
+something does. Recorded, not scheduled.
