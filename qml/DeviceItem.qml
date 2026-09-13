@@ -263,6 +263,23 @@ ColumnLayout {
 
                     function onDynamicResolutionChanged () {
                         console.log("DEV_PARAM: onDynamicResolutionChanged")
+                        //ZERO IS NOT A RESOLUTION. It is "nothing has been computed yet", and
+                        //resetAllSetupStates() writes it on EVERY reset - so every reset passes
+                        //through this handler with a 0 in hand. Enforcing it sets the device's
+                        //chart resolution to zero, which stops the echogram dead and needs the
+                        //transducer power-cycled to come back.
+                        //
+                        //It went unseen because the swap path happens to clear doDynamicResolution
+                        //before the reset, so the early return below catches it there; and because
+                        //chartSetup() accepts ANY dev.chartResolution while dynamic resolution is
+                        //on ("we set it dynamically anyway"), so the handshake blesses the zero
+                        //rather than catching it. Reconfigure was simply the first caller to reset
+                        //with dynamic resolution still running.
+                        if (pulseRuntimeSettings.dynamicResolution <= 0) {
+                            console.log("DEV_PARAM: dynamicResolution is", pulseRuntimeSettings.dynamicResolution,
+                                        "- nothing computed yet, leaving dev.chartResolution alone")
+                            return
+                        }
                         if (pulseRuntimeSettings.hasDeviceLostConnection) {
                             console.log("DEV_PARAM: no need to set resolution dynamically when connection is lost")
                             return
