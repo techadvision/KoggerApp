@@ -1577,9 +1577,9 @@ QtObject {
             //anybody's stored choice. expertOnly exists on every entry; see the Blue's
             //view list for what it is for.
             "cones": [
-                { "id": "wide",   "expertOnly": false, "icon": "./icons/ui/pulse_cone_510.svg", "freq": 510, "name": "wide"   },
-                { "id": "medium", "expertOnly": false, "icon": "./icons/ui/pulse_cone_710.svg", "freq": 710, "name": "medium" },
-                { "id": "narrow", "expertOnly": false, "icon": "./icons/ui/pulse_cone_810.svg", "freq": 810, "name": "narrow" }
+                { "id": "wide",   "expertOnly": false, "icon": "./icons/ui/pulse_cone_510.svg", "freq": 510, "name": "wide",   "title": "Wide"   },
+                { "id": "medium", "expertOnly": false, "icon": "./icons/ui/pulse_cone_710.svg", "freq": 710, "name": "medium", "title": "Medium" },
+                { "id": "narrow", "expertOnly": false, "icon": "./icons/ui/pulse_cone_810.svg", "freq": 810, "name": "narrow", "title": "Narrow" }
             ],
             //No view chooser on a 2D transducer: it has one view.
             "views": [],
@@ -1704,17 +1704,17 @@ QtObject {
             //To put 820 back, replace the two entries below with these four. Both icons are
             //already in the repo and registered in resources/icons.qrc, and the _460
             //variants exist too, so the buttons say which frequency they are:
-            //    { "id": "down460", "expertOnly": false, "icon": "./icons/ui/pulse_view_down_scan_460.svg", "mode": "down", "freq": 460 },
-            //    { "id": "down820", "expertOnly": true,  "icon": "./icons/ui/pulse_view_down_scan_820.svg", "mode": "down", "freq": 820 },
-            //    { "id": "side460", "expertOnly": false, "icon": "./icons/ui/pulse_view_side_scan_460.svg", "mode": "side", "freq": 460 },
-            //    { "id": "side820", "expertOnly": true,  "icon": "./icons/ui/pulse_view_side_scan_820.svg", "mode": "side", "freq": 820 }
+            //    { "id": "down460", "expertOnly": false, "icon": "./icons/ui/pulse_view_down_scan_460.svg", "mode": "down", "freq": 460, "title": "Down scan" },
+            //    { "id": "down820", "expertOnly": true,  "icon": "./icons/ui/pulse_view_down_scan_820.svg", "mode": "down", "freq": 820, "title": "Down scan" },
+            //    { "id": "side460", "expertOnly": false, "icon": "./icons/ui/pulse_view_side_scan_460.svg", "mode": "side", "freq": 460, "title": "Side scan" },
+            //    { "id": "side820", "expertOnly": true,  "icon": "./icons/ui/pulse_view_side_scan_820.svg", "mode": "side", "freq": 820, "title": "Side scan" }
             //tools/pulse-profile-check.js runs exactly that edit as its acceptance test.
             //
             //An id is a PROMISE: it is what sits in the user's settings file. Never rename
             //one and never reuse a retired one for a different view.
             "views": [
-                { "id": "down460", "expertOnly": false, "icon": "./icons/ui/pulse_view_down_scan.svg", "mode": "down", "freq": 460 },
-                { "id": "side460", "expertOnly": false, "icon": "./icons/ui/pulse_view_side_scan.svg", "mode": "side", "freq": 460 }
+                { "id": "down460", "expertOnly": false, "icon": "./icons/ui/pulse_view_down_scan.svg", "mode": "down", "freq": 460, "title": "Down scan" },
+                { "id": "side460", "expertOnly": false, "icon": "./icons/ui/pulse_view_side_scan.svg", "mode": "side", "freq": 460, "title": "Side scan" }
             ],
             //One card: the Blue is one piece of hardware. See red's list for what the
             //keys mean and why `profile` and `wordmark` are written the way they are.

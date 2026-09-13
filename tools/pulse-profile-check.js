@@ -223,6 +223,14 @@ eq("every entry has a non-empty string id",
    allEntries.filter(x => typeof x.e.id !== "string" || x.e.id === "").map(x => x.where), []);
 eq("every entry declares expertOnly",
    allEntries.filter(x => typeof x.e.expertOnly !== "boolean").map(x => x.where), []);
+
+// EVERY ENTRY CARRIES ITS OWN USER-FACING NAME. The chooser used to be a strip of icons in
+// a 76 px pop-up, where an icon was all that fit and the panel could leave the meaning to
+// it. In a 360 px panel there is room to NAME the thing - and the name is data, in the
+// record that owns the entry, for exactly the reason the card list moved here in step 2: a
+// new frequency or a new view is one entry and nothing anywhere else.
+eq("every entry declares a title",
+   allEntries.filter(x => typeof x.e.title !== "string" || x.e.title.length === 0).map(x => x.where), []);
 // Within one profile an id must be unique — it is what a stored preference names.
 for (const [name, prof] of Object.entries(profiles)) {
   const mine = [...(prof.ui.views || []), ...(prof.ui.cones || [])].map(e => e.id);
