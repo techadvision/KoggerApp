@@ -56,6 +56,17 @@ Item {
     signal sourceActivated()
     signal backToClassic()
 
+    // THE APP DRAWS FULL-BLEED UNDER THE STATUS BAR, on purpose - an echogram wants every
+    // pixel - so main.qml's insetTop() answers 0 unless DeX is on, and safeTop arrives as
+    // zero on an ordinary tablet. That is right for the picture and wrong for a control:
+    // the first device build put the top button half under the Android clock.
+    //
+    // Same floor, same constant as PulseConnectionScreen, which met this first and for the
+    // same reason. The two surfaces must agree, or the rail and the screen it opens sit at
+    // different heights.
+    readonly property bool onAndroid: Qt.platform.os === "android"
+    readonly property real topInset: Math.max(safeTop, onAndroid ? Math.round(34 * uiScale) : 0)
+
     readonly property real railWidth: Math.round(76 * uiScale) + safeLeft
 
     // A plain width is correct here: the rail is ANCHORED by its parent, not a Layout child.
@@ -79,7 +90,7 @@ Item {
 
         anchors.fill: parent
         anchors.leftMargin:   rail.safeLeft
-        anchors.topMargin:    Math.round(10 * rail.uiScale) + rail.safeTop
+        anchors.topMargin:    Math.round(10 * rail.uiScale) + rail.topInset
         anchors.bottomMargin: Math.round(10 * rail.uiScale) + rail.safeBottom
 
         spacing: Math.round(8 * rail.uiScale)
