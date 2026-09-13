@@ -94,6 +94,15 @@ Item {
 
         displayIs2D: pulseAppV2.displayIs2D
 
+        // ONE BINDING on the persisted value; the handler below writes the SETTING and
+        // never this property. Assigning `collapsed` would destroy the binding, and the
+        // rail would stop following the stored state for the rest of the run.
+        collapsed: pulseSettings.v2RailCollapsed
+        onCollapseToggled: {
+            pulseSettings.v2RailCollapsed = !pulseSettings.v2RailCollapsed
+            console.log("RAIL:", pulseSettings.v2RailCollapsed ? "collapsed" : "shown")
+        }
+
         // COMMITTED, not display: a chooser offers hardware choices. These are the same
         // two properties the classic choosers show and hide on.
         offersView: pulseRuntimeSettings ? pulseRuntimeSettings.offersViewChoice : false

@@ -52,9 +52,15 @@ Item {
     // panel exists, v2 must carry its own way back or turning it on strands the app.
     property bool showBackToClassic: true
 
+    // COLLAPSED. One binding on the persisted setting, set by the host; the toggle writes
+    // the SETTING, never this property - assigning here would destroy the binding and the
+    // rail would stop following the stored value for the rest of the run.
+    property bool collapsed: false
+
     signal buttonActivated(string id)
     signal sourceActivated()
     signal backToClassic()
+    signal collapseToggled()
 
     // THE APP DRAWS FULL-BLEED UNDER THE STATUS BAR, on purpose - an echogram wants every
     // pixel - so main.qml's insetTop() answers 0 unless DeX is on, and safeTop arrives as
@@ -68,12 +74,19 @@ Item {
     readonly property real topInset: Math.max(safeTop, onAndroid ? Math.round(34 * uiScale) : 0)
 
     readonly property real railWidth: Math.round(76 * uiScale) + safeLeft
+    readonly property real tabWidth:  Math.round(30 * uiScale) + safeLeft
+
+    // WHAT THE PICTURE OWES THE RAIL. Zero when collapsed - the echogram takes the whole
+    // screen and the tab floats over it - and the rail's full width otherwise. This is the
+    // one number a host has to read to give the echogram the rest of the screen.
+    readonly property real inset: collapsed ? 0 : railWidth
 
     // A plain width is correct here: the rail is ANCHORED by its parent, not a Layout child.
-    width: railWidth
+    width: collapsed ? tabWidth : railWidth
 
     Rectangle {
         anchors.fill: parent
+        visible: !rail.collapsed
         color: "#cc0f1317"
     }
 
@@ -81,13 +94,50 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
+        visible: !rail.collapsed
         width: 1
         color: "#20ffffff"
+    }
+
+    // THE WAY BACK. Collapsing has to be reversible from the picture itself, or the rail
+    // is not collapsed but gone - and the only way back would be a restart, because the
+    // state is persisted. A drawer handle on the edge the rail left from, vertically
+    // centred, which is the easiest place on the screen to reach one-thumb from shore.
+    Rectangle {
+        id: showTab
+        visible: rail.collapsed
+        anchors.left: parent.left
+        anchors.leftMargin: rail.safeLeft
+        anchors.verticalCenter: parent.verticalCenter
+        width:  Math.round(30 * rail.uiScale)
+        height: Math.round(64 * rail.uiScale)
+        topRightRadius: Math.round(8 * rail.uiScale)
+        bottomRightRadius: Math.round(8 * rail.uiScale)
+        color: showArea.pressed ? "#dd2a3644" : "#cc0f1317"
+        border.width: 1
+        border.color: "#20ffffff"
+
+        Image {
+            anchors.centerIn: parent
+            width:  Math.round(20 * rail.uiScale)
+            height: width
+            source: "./icons/ui/pulse_setting_show.svg"
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            opacity: 0.9
+        }
+
+        MouseArea {
+            id: showArea
+            anchors.fill: parent
+            onClicked: rail.collapseToggled()
+        }
     }
 
     ColumnLayout {
         id: column
 
+        visible: !rail.collapsed
         anchors.fill: parent
         anchors.leftMargin:   rail.safeLeft
         anchors.topMargin:    Math.round(10 * rail.uiScale) + rail.topInset
@@ -217,6 +267,17 @@ Item {
             label: "Settings"
             iconSource: "./icons/ui/pulse_settings.svg"
             onActivated: rail.buttonActivated(buttonId)
+        }
+
+        // COLLAPSE, not "back". The first device build proved these two read as one thing
+        // when they share a glyph: the arrow was tapped expecting the rail to get out of
+        // the way, and it left the whole UI instead.
+        PulseRailButton {
+            uiScale: rail.uiScale
+            buttonId: "collapse"
+            label: "Hide the rail"
+            iconSource: "./icons/ui/pulse_setting_collapse.svg"
+            onActivated: rail.collapseToggled()
         }
 
         PulseRailButton {

@@ -60,6 +60,12 @@ Settings {
     //experiment can never start the app without an interface. Persisted on purpose: a
     //comparison on the water has to survive the app being closed between runs.
     property string uiVariant:                  "classic"
+    //THE RAIL IS COLLAPSED. Direction C's "minimise promoted to a proper collapse
+    //affordance", which the canvas kept as worth borrowing. Its own key rather than
+    //areUiControlsVisible: that one hides the classic quick controls, and one value
+    //driving two different interfaces is how a user ends up in classic wondering where
+    //his controls went.
+    property bool   v2RailCollapsed:            false
     property int    bottomCompositionAddition:  0
     property bool   doubleEchoOptimize:         false
     property double echogramSpeed:              1.0
