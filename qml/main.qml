@@ -2146,6 +2146,12 @@ ApplicationWindow  {
                     recording:     pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf  : false
                     presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
 
+                    // The link strip, read rather than recomputed. Same derivation the
+                    // connection screen reads, so the button and the screen it opens can
+                    // never disagree.
+                    sourceState: pulseRuntimeSettings ? pulseRuntimeSettings.linkState : "absent"
+                    sourceColor: pulseRuntimeSettings ? pulseRuntimeSettings.linkColor : "#6d7480"
+
                     collapsed: pulseSettings.v2RailCollapsed
                     onCollapseToggled: {
                         pulseSettings.v2RailCollapsed = !pulseSettings.v2RailCollapsed

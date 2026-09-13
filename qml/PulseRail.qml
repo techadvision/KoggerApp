@@ -39,13 +39,16 @@ Item {
     property bool recording:     false
     property bool presentingLog: false
 
-    // THE SOURCE BUTTON CARRIES NO STATE YET, on purpose. The link's one honest line -
-    // talking / identifying / lost / wasConnected / found / absent, and its colour - is
-    // derived inside PulseConnectionScreen, and QML ids do not cross files, so this rail
-    // cannot read it from there. Recomputing it here would be a second opinion about the
-    // same facts, which is precisely what that screen was built to stop. The next commit
-    // hoists the derivation onto pulseRuntimeSettings - one computation, two readers - and
-    // this button gets its dot then.
+    // THE SOURCE BUTTON'S STATE. Read, never recomputed: the derivation lives on
+    // pulseRuntimeSettings and the connection screen reads the same one. The rail can
+    // therefore never disagree with the screen it opens - which is the whole reason the
+    // strip was hoisted out of that screen rather than copied into this one.
+    //
+    // A dot, not a word. At 76 du there is no room for "Connected, identifying the
+    // transducer", and the screen one tap away says it in full; what the rail owes the
+    // user from across a boat is whether the source is answering, not what it is called.
+    property string sourceState: "absent"
+    property color  sourceColor: "#6d7480"
 
     // SCAFFOLDING, removed by stage 4 (b). The switch that turns v2 on lives in the expert
     // settings INSIDE the classic UI, and uiVariant is persisted - so until the settings
@@ -257,12 +260,29 @@ Item {
             // a dark rail while every PULSE icon beside it is white. pulse_source.svg is the
             // same geometry with the stroke stated, named for what the button does.
             Image {
-                anchors.centerIn: parent
-                width:  Math.round(34 * rail.uiScale)
+                id: sourceGlyph
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -Math.round(5 * rail.uiScale)
+                width:  Math.round(32 * rail.uiScale)
                 height: width
                 source: "./icons/ui/pulse_source.svg"
                 fillMode: Image.PreserveAspectFit
                 smooth: true
+            }
+
+            // GREEN IS A CLAIM ABOUT NOW - it is `talking`, which needs data arriving now
+            // and nothing else. Amber is the ordinary wifi drop with the identity retained;
+            // gray is history, or nothing at all. The screen behind this button spells all
+            // six out in words.
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: sourceGlyph.bottom
+                anchors.topMargin: Math.round(3 * rail.uiScale)
+                width:  Math.round(8 * rail.uiScale)
+                height: width
+                radius: width / 2
+                color: rail.sourceColor
             }
 
             MouseArea {
