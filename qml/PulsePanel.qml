@@ -48,6 +48,14 @@ Item {
     signal favouriteToggled(int id)
     signal favouritesFilterToggled()
 
+    // ---- The two slider groups ----------------------------------------------
+    property int intensityValue: 0
+    property int filterValue:    0
+    property string filterHint:  ""
+
+    signal intensityMoved(int v)
+    signal filterMoved(int v)
+
     visible: isOpen
     width: panelWidth
 
@@ -55,7 +63,9 @@ Item {
     readonly property real topInset: Math.max(safeTop, onAndroid ? Math.round(34 * uiScale) : 0)
 
     readonly property string title:
-          openGroup === "colours" ? qsTr("Colours")
+          openGroup === "colours"   ? qsTr("Colours")
+        : openGroup === "intensity" ? qsTr("Intensity")
+        : openGroup === "filter"    ? qsTr("Water body filter")
         : openGroup === ""        ? ""
         :                           openGroup
 
@@ -174,14 +184,21 @@ Item {
         anchors.bottomMargin: panel.safeBottom + Math.round(12 * panel.uiScale)
 
         clip: true
-        contentHeight: colourGroup.height
+        contentHeight: body.height
         boundsBehavior: Flickable.StopAtBounds
+
+        // A Column, so a group that is not showing takes no height and contentHeight is the
+        // one that is. Adding a group is adding a child with its own `visible`.
+        Column {
+        id: body
+        width: parent.width
+        spacing: 0
 
         PulseColourGroup {
             id: colourGroup
 
             width: parent.width
-            height: implicitHeight
+            height: visible ? implicitHeight : 0
             visible: panel.openGroup === "colours"
 
             uiScale: panel.uiScale
@@ -196,6 +213,38 @@ Item {
             onThemeChosen:            function (id) { panel.themeChosen(id) }
             onFavouriteToggled:       function (id) { panel.favouriteToggled(id) }
             onFavouritesFilterToggled: panel.favouritesFilterToggled()
+        }
+
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "intensity"
+            uiScale: panel.uiScale
+
+            label: qsTr("Intensity")
+            minValue: 0
+            maxValue: 20
+            value: panel.intensityValue
+            valueText: panel.intensityValue
+
+            onMoved: function (v) { panel.intensityMoved(v) }
+        }
+
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "filter"
+            uiScale: panel.uiScale
+
+            label: qsTr("Water body filter")
+            hint: panel.filterHint
+            minValue: 0
+            maxValue: 20
+            value: panel.filterValue
+            valueText: panel.filterValue
+
+            onMoved: function (v) { panel.filterMoved(v) }
+        }
         }
     }
 }

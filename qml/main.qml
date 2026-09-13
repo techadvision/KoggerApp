@@ -2230,7 +2230,7 @@ ApplicationWindow  {
                         // TAPPING THE BUTTON THAT OPENED A GROUP CLOSES IT, and one group is
                         // open at a time. Both fall out of comparing the id with openGroup
                         // rather than out of a rule written twice.
-                        if (id === "colours") {
+                        if (id === "colours" || id === "intensity" || id === "filter") {
                             pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
                             console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
                             return
@@ -2298,6 +2298,13 @@ ApplicationWindow  {
                         }
                         themeStopsById = out
                         console.log("THEME: colour tables read for", Object.keys(out).length, "themes")
+
+                        // The stored values have to reach the renderer at least once, or v2
+                        // starts on whatever the plot happened to have. The classic controls
+                        // did this from their own Component.onCompleted; v2 has no control to
+                        // hang it on until a panel is opened, so it happens here.
+                        mainview.applyIntensity()
+                        mainview.applyWaterBodyFilter()
                     }
                     currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
 
@@ -2345,6 +2352,35 @@ ApplicationWindow  {
                         pulseSettings.useFavoriteThemes2D = !pulseSettings.useFavoriteThemes2D
                         console.log("THEME: favourites filter",
                                     pulseSettings.useFavoriteThemes2D ? "on" : "off")
+                    }
+
+                    // ---- Intensity and the water body filter --------------------
+                    //
+                    // DISPLAY IN, REAL OUT, and both stored - exactly as the classic controls
+                    // do it. The row shows the display number; the apply functions above read
+                    // the real one. The duplicate guard matters: a drag emits on every pixel
+                    // and one step is many pixels wide.
+                    intensityValue: pulseSettings.intensityDisplayValue
+                    filterValue:    pulseSettings.filterDisplayValue
+
+                    // What the filter is currently doing, since the same slider means two
+                    // different things depending on the expert switch beside it.
+                    filterHint: pulseRuntimeSettings && pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+                                ? qsTr("0 – 20   ·   water column only")
+                                : qsTr("0 – 20   ·   whole picture")
+
+                    onIntensityMoved: function (v) {
+                        if (v === pulseSettings.intensityDisplayValue)
+                            return
+                        pulseSettings.intensityDisplayValue = v
+                        pulseSettings.intensityRealValue    = Math.round(120 - (v * 4))
+                    }
+
+                    onFilterMoved: function (v) {
+                        if (v === pulseSettings.filterDisplayValue)
+                            return
+                        pulseSettings.filterDisplayValue = v
+                        pulseSettings.filterRealValue    = Math.round(v * 2.5)
                     }
                 }
 
@@ -3231,12 +3267,69 @@ ApplicationWindow  {
 
     Connections {
         target: pulseSettings ? pulseSettings : undefined
-        // Switching INTO v2 has to apply what v2 believes; classic may have left something
-        // else in the plot, and nothing else would push it until a theme changed.
+
+        // Switching INTO v2 has to apply everything v2 believes; classic may have left
+        // something else in the plot, and nothing would push it until a value changed.
         function onUiVariantChanged() {
-            if (pulseSettings.uiVariant === "v2")
-                mainview.applyDisplayTheme()
+            if (pulseSettings.uiVariant !== "v2")
+                return
+            mainview.applyDisplayTheme()
+            mainview.applyIntensity()
+            mainview.applyWaterBodyFilter()
         }
+
+        function onIntensityRealValueChanged() { mainview.applyIntensity() }
+        function onFilterRealValueChanged()    { mainview.applyWaterBodyFilter() }
+    }
+
+    // The filter's OTHER input. Turning the water body filter on or off changes which of the
+    // two calls carries the value, so the same function has to run again - the value did not
+    // move, the meaning of it did.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        enabled: pulseSettings.uiVariant === "v2"
+        function onEchogramWaterBodyFilterEnabledChanged() { mainview.applyWaterBodyFilter() }
+    }
+
+    // INTENSITY AND THE WATER BODY FILTER, applied the same way the palette is: one function,
+    // both panes, gated on v2. Each stored value is a DISPLAY number the user moves and a
+    // REAL number the renderer wants, and the two conversions are carried over verbatim from
+    // the classic controls - real intensity is 120 - display*4, real filter is display*2.5.
+    //
+    // PulseAppV2.applyFiltering() is a deliberate no-op, which meant the water body filter
+    // did nothing at all in v2. Plot2D calls that seam on a pinch; the filter's own value is
+    // applied from here, so both routes end in the same place.
+    function applyIntensity() {
+        if (pulseSettings.uiVariant !== "v2")
+            return
+        var real = pulseSettings.intensityRealValue
+        waterViewFirst.setIntensityValue(real * 1.0)
+        if (waterViewSecond.enabled)
+            waterViewSecond.setIntensityValue(real * 1.0)
+        MosaicViewControlMenuController.onLevelChanged(pulseSettings.filterRealValue, real)
+    }
+
+    // THE BRANCH IS THE CLASSIC ONE, not a simplification of it. With the water body filter
+    // enabled the strength is floored at echogramWaterBodyMinRealValue - a tester upgrading
+    // into the default-on build can arrive with the slider at 0, which would leave the
+    // filter inactive while the switch reads "on" - and the old global low cut is set to
+    // zero. With it disabled the two swap over.
+    function applyWaterBodyFilter() {
+        if (pulseSettings.uiVariant !== "v2")
+            return
+        var real = pulseSettings.filterRealValue
+        var panes = waterViewSecond.enabled ? [waterViewFirst, waterViewSecond] : [waterViewFirst]
+        for (var i = 0; i < panes.length; ++i) {
+            if (pulseRuntimeSettings.echogramWaterBodyFilterEnabled) {
+                var wbf = Math.max(real, pulseRuntimeSettings.echogramWaterBodyMinRealValue)
+                panes[i].setFilteringValue(0)
+                panes[i].setWaterBodyFilter(wbf / 50.0)
+            } else {
+                panes[i].setWaterBodyFilter(0.0)
+                panes[i].setFilteringValue(real)
+            }
+        }
+        MosaicViewControlMenuController.onLevelChanged(real, pulseSettings.intensityRealValue)
     }
 
     function applyDisplayTheme() {

@@ -111,6 +111,7 @@
         <file>PulsePillColumn.qml</file>
         <file>PulsePanel.qml</file>
         <file>PulseColourGroup.qml</file>
+        <file>PulseSliderRow.qml</file>
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>LocationExtraSettings.qml</file>
