@@ -26,7 +26,20 @@ Item {
 
     // ---- Variant contract (see PulseApp.qml) --------------------------------
 
-    property real maxDepthValue: plot && plot.quickChangeMaxRangeValue ? plot.quickChangeMaxRangeValue : 0
+    // THE PINCH. Plot2D writes this through PulseApp.setMaxDepth() when the picture is
+    // pinched, and it was a BINDING on plot.quickChangeMaxRangeValue - so the first pinch
+    // destroyed the binding and nothing stored the result. A pinch in v2 changed the range
+    // and forgot it.
+    //
+    // A plain property with one handler instead, routing to the same writer the panel's
+    // slider uses. Which of the three keys it lands in is the runtime object's business,
+    // and it is the same answer either way in.
+    property real maxDepthValue: 0
+
+    onMaxDepthValueChanged: {
+        if (maxDepthValue > 0 && pulseRuntimeSettings)
+            pulseRuntimeSettings.storeDisplayMaxRange(Math.round(maxDepthValue))
+    }
 
     function applyFiltering(value) {
         // no-op until stage 4 (b) builds the filter control

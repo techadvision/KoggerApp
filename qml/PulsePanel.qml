@@ -63,6 +63,15 @@ Item {
 
     signal choiceMade(string id)
 
+    // ---- Max range ----------------------------------------------------------
+    property int    rangeValue:   0
+    property int    rangeFloor:   1
+    property int    rangeCeiling: 52
+    property int    rangeStep:    1
+    property string rangeHint:    ""
+
+    signal rangeMoved(int v)
+
     visible: isOpen
     width: panelWidth
 
@@ -73,6 +82,7 @@ Item {
           openGroup === "colours"   ? qsTr("Colours")
         : openGroup === "intensity" ? qsTr("Intensity")
         : openGroup === "filter"    ? qsTr("Water body filter")
+        : openGroup === "range"     ? qsTr("Max range")
         : openGroup === "view"      ? qsTr("View")
         : openGroup === "cone"      ? qsTr("Cone")
         : openGroup === ""        ? ""
@@ -253,6 +263,23 @@ Item {
             valueText: panel.filterValue
 
             onMoved: function (v) { panel.filterMoved(v) }
+        }
+
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "range"
+            uiScale: panel.uiScale
+
+            label: qsTr("Max range")
+            hint: panel.rangeHint
+            minValue: panel.rangeFloor
+            maxValue: panel.rangeCeiling
+            stepSize: panel.rangeStep
+            value: panel.rangeValue
+            valueText: panel.rangeValue + " m"
+
+            onMoved: function (v) { panel.rangeMoved(v) }
         }
 
         PulseChoiceGroup {

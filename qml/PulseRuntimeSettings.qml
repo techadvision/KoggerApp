@@ -905,6 +905,81 @@ QtObject {
         redetectRequestId += 1
     }
 
+    // ---- THE MAX RANGE, AND ITS CEILING (backlog item 11) -------------------
+    //
+    // ONE KEY NAME, BOTH DIRECTIONS. There are three stored preferences, and the classic
+    // selector READS two of them and WRITES three:
+    //
+    //     read : displayIs2DTransducer ? maxDepthValue : maxDepthValuePulseBlue
+    //     write: displayIs2DTransducer ? maxDepthValue
+    //          : isSideScan2DView      ? maxDepthValuePulseBlue
+    //          :                         maxDepthValuePulseBlueFixed
+    //
+    // So a blue in SIDE SCAN writes ...Fixed and reads ...PulseBlue back - while setSideScan()
+    // applies ...Fixed to the plot. The control shows one number and the picture uses another.
+    // That is the same class of fault the doc already records twice: a write-back keyed
+    // differently from the read is how a value lands in one preference and is read out of
+    // another. Naming the key ONCE and using it for both makes it impossible rather than
+    // fixed.
+    //
+    // (isSideScan2DView reads backwards and is not renamed here: TRUE means the blue is in
+    // DOWN scan. setDownScan() sets it true, setSideScan() sets it false.)
+    readonly property string displayMaxRangeKey:
+          displayIs2DTransducer ? "maxDepthValue"
+        : isSideScan2DView      ? "maxDepthValuePulseBlue"
+        :                         "maxDepthValuePulseBlueFixed"
+
+    readonly property int displayMaxRange: pulseSettings[displayMaxRangeKey]
+
+    // THE ONE WRITER, and both callers reach it: the panel's slider and a pinch on the
+    // picture. A preference is never written while nothing is identified - with no device
+    // and no log there is no device whose preference this is.
+    function storeDisplayMaxRange(v) {
+        if (presentedModel === "..." || presentedModel === "")
+            return
+        if (pulseSettings[displayMaxRangeKey] === v)
+            return
+        console.log("RANGE: storing", v, "in", displayMaxRangeKey)
+        pulseSettings[displayMaxRangeKey] = v
+    }
+
+    // THE CEILING, as backlog item 11 says it should be.
+    //
+    // `maximumDepth` above is a binding on committedProfile.maximumDepth that THREE places
+    // assign to - DeviceItem, the connection screen's blue seed, and the expert dist-max
+    // control - so the first assignment destroys it and it freezes at whichever device was
+    // current. Item 11 was parked precisely because this control was being redesigned.
+    //
+    // A 2D transducer's ceiling is HARDWARE: red's 52 is its 50 m dist max plus two, and
+    // nothing assigns it. A side scan's ceiling is the configured SWATH WIDTH, which no
+    // static profile key can hold - and echogramWidth is exactly what all three of those
+    // assigners were copying into maximumDepth anyway. So read the live value instead of a
+    // copy of it, and the freeze cannot happen.
+    //
+    // ONE OVERRIDE, for the expert dist-max control when tier 3 reaches the panel. It writes
+    // THIS, never the binding - which is the whole shape rule 2 asks for. Nothing writes it
+    // yet, and zero means "no override".
+    property int maxRangeCeilingOverride: 0
+
+    readonly property int displayMaxRangeCeiling:
+          maxRangeCeilingOverride > 0 ? maxRangeCeilingOverride
+        : displayIs2DTransducer       ? committedProfile.maximumDepth
+        :                               pulseSettings.echogramWidth
+
+    // The floor and the step are the picture's questions too - a side scan steps in 5 m and
+    // everything else in 1 - so all of it reads the display model, exactly as the classic
+    // control was corrected to do.
+    readonly property int displayMaxRangeFloor:
+          displayIs2DTransducer ? 1
+        : isSideScan2DView      ? 1
+        : expertMode            ? 5
+        :                         10
+
+    readonly property int displayMaxRangeStep:
+          displayIs2DTransducer ? 1
+        : isSideScan2DView      ? 1
+        :                         5
+
     //APP DYNAMIC CONTROLS
     //NUMERIC convention since 2026-08-29: Min is always the SMALLER number, whatever the
     //quantity means. These six bounds used to be named after resolution QUALITY (finer

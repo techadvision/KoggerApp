@@ -2231,7 +2231,7 @@ ApplicationWindow  {
                         // open at a time. Both fall out of comparing the id with openGroup
                         // rather than out of a rule written twice.
                         if (id === "colours" || id === "intensity" || id === "filter"
-                                || id === "view" || id === "cone") {
+                                || id === "view" || id === "cone" || id === "range") {
                             pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
                             console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
                             return
@@ -2306,6 +2306,7 @@ ApplicationWindow  {
                         // hang it on until a panel is opened, so it happens here.
                         mainview.applyIntensity()
                         mainview.applyWaterBodyFilter()
+                        mainview.applyMaxRange()
                     }
                     currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
 
@@ -2404,6 +2405,27 @@ ApplicationWindow  {
 
                     // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE - classic's own
                     // rule, kept. Applying is what happens when the preference moves.
+                    // ---- Max range ----------------------------------------------
+                    //
+                    // Every term is the DISPLAY model's, including the ceiling: backlog item
+                    // 11 in the one place it belongs. A 2D transducer's ceiling is hardware,
+                    // a side scan's is the configured swath width, and neither is a copy that
+                    // can freeze.
+                    rangeValue:   pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRange        : 0
+                    rangeFloor:   pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeFloor   : 1
+                    rangeCeiling: pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeCeiling : 52
+                    rangeStep:    pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeStep    : 1
+                    rangeHint: pulseRuntimeSettings
+                               ? (pulseRuntimeSettings.displayMaxRangeFloor + " – "
+                                  + pulseRuntimeSettings.displayMaxRangeCeiling + " m"
+                                  + (pulseRuntimeSettings.displayMaxRangeStep > 1
+                                     ? "   ·   " + pulseRuntimeSettings.displayMaxRangeStep + " m steps" : ""))
+                               : ""
+
+                    // ONE WRITER, shared with the pinch on the picture, and it is the runtime
+                    // object's - because the key it writes is the key displayMaxRange reads.
+                    onRangeMoved: function (v) { pulseRuntimeSettings.storeDisplayMaxRange(v) }
+
                     onChoiceMade: function (id) {
                         if (showingCone) {
                             if (id === pulseSettings.ecoConeId)
@@ -3318,6 +3340,16 @@ ApplicationWindow  {
         function onEcoConeIdChanged() { mainview.applyConeId(pulseSettings.ecoConeId) }
     }
 
+    // THE RANGE FOLLOWS ITS STORED VALUE, whichever of the three keys the picture is using -
+    // so it also follows the PICTURE changing, because that changes which key displayMaxRange
+    // reads. A blue going from down scan to side scan gets side scan's own number back
+    // without anything having to remember to restore it.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        enabled: pulseSettings.uiVariant === "v2"
+        function onDisplayMaxRangeChanged() { mainview.applyMaxRange() }
+    }
+
     // AND WHEN THE DEVICE CHANGES UNDER THE PREFERENCE. The stored id has not moved, so
     // neither handler above fires - but a newly committed transducer has to be told what it
     // is set to, which is what classic's onUserManualSetNameChanged did for both choosers.
@@ -3392,6 +3424,29 @@ ApplicationWindow  {
     // that is hidden right now to the visible entry of the same MODE, so an expert's stored
     // 820 kHz choice survives leaving and re-entering expert mode without being transmitted
     // while the chooser is not showing it.
+    // THE MAX RANGE, applied. The stored preference is the only input; the plot is told once,
+    // on both panes, and the call depends on which way the picture runs.
+    function applyMaxRange() {
+        if (pulseSettings.uiVariant !== "v2")
+            return
+
+        var v = pulseRuntimeSettings.displayMaxRange
+        if (v <= 0)
+            return
+
+        pulseRuntimeSettings.manualSetLevel = v * 1.0
+
+        var panes = waterViewSecond.enabled ? [waterViewFirst, waterViewSecond] : [waterViewFirst]
+        for (var i = 0; i < panes.length; ++i) {
+            panes[i].quickChangeMaxRangeValue = v
+            if (panes[i].isViewHorizontal())
+                panes[i].plotDistanceRange2d(v * 1.0)
+            else
+                panes[i].plotDistanceRange(v * 1.0)
+            panes[i].updatePlot()
+        }
+    }
+
     function applyViewId(id) {
         if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersViewChoice)
             return
