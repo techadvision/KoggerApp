@@ -62,7 +62,7 @@ Item {
                && !pulseRuntimeSettings.wasKlfFileOpened)
             : false
 
-    visible: configuring
+    visible: showCard || showMarker
 
     readonly property string deviceName:
         pulseRuntimeSettings
@@ -105,6 +105,48 @@ Item {
     readonly property string currentName:
         (currentIndex >= 0 && currentIndex < groups.length) ? groups[currentIndex].name : ""
 
+    readonly property int unfinished: {
+        var c = 0
+        for (var i = 0; i < groups.length; i++)
+            if (!groups[i].done)
+                c++
+        return c
+    }
+
+    // One outstanding group is worth naming; more than one is worth counting. Naming it is
+    // what tells the user WHICH reading to distrust, which is the whole point of saying
+    // anything at all.
+    readonly property string unfinishedLabel:
+          unfinished === 1 ? currentName.toLowerCase() + " not set"
+        : unfinished > 1   ? unfinished + " settings not set"
+        :                    ""
+
+    // THE USER CHOSE THE PICTURE OVER CERTAINTY - see runUnconfirmed in
+    // PulseRuntimeSettings. The card becomes a pill: it stops asking and starts standing
+    // quietly, saying what the app IS rather than nagging about what it wanted.
+    readonly property bool accepted:
+        pulseRuntimeSettings ? pulseRuntimeSettings.runUnconfirmed : false
+
+    // DISMISSING THE PILL DISMISSES THE REMINDER, NOT THE TRUTH. Olav: "let us also allow
+    // the user to dismiss it so he have less clutter on the echogram screen". It is safe to
+    // let it go because the marks on the controls stay - and it comes back on the next
+    // setup pass, because that is a new claim about a new configuration.
+    property bool markerDismissed: false
+
+    readonly property bool showCard:   configuring && !accepted
+    readonly property bool showMarker: configuring && accepted && !markerDismissed
+
+    // START ANYWAY. It does not pretend anything was configured - devConfigured stays
+    // false and the handshake keeps trying underneath. It stops halting the picture.
+    function startAnyway() {
+        if (!pulseRuntimeSettings)
+            return
+        console.log("SETUP: start anyway -", unfinished, "group(s) unconfirmed, waiting on",
+                    currentName)
+        markerDismissed = false
+        pulseRuntimeSettings.runUnconfirmed = true
+    }
+
     // PROGRESS, NOT ELAPSED TIME. Sixteen acknowledgements, and every one that comes back
     // is movement. The old ten-second timer measured the clock, which punishes a weak link
     // making steady progress - and a weak link is the case the halt-the-echogram rule
@@ -139,6 +181,7 @@ Item {
     onConfiguringChanged: {
         talkative = false
         stalled   = false
+        markerDismissed = false
         if (configuring) {
             console.log("SETUP: configuring", deviceName)
             talkativeTimer.restart()
@@ -188,6 +231,7 @@ Item {
     Rectangle {
         id: card
 
+        visible: setupOverlay.showCard
         x: setupOverlay.safeLeft + Math.round(28 * setupOverlay.uiScale)
         y: setupOverlay.topInset + Math.round(28 * setupOverlay.uiScale)
         width:  body.width  + Math.round(40 * setupOverlay.uiScale)
@@ -217,7 +261,12 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Setting up " + setupOverlay.deviceName
+                    // It reports until it has to ask.
+                    text: !setupOverlay.stalled
+                          ? "Setting up " + setupOverlay.deviceName
+                          : setupOverlay.unfinished > 1
+                            ? "Some settings did not get through"
+                            : "One setting did not get through"
                     color: "#f2f4f7"
                     font.pixelSize: Math.round(18 * setupOverlay.uiScale)
                     font.bold: true
@@ -301,6 +350,166 @@ Item {
                         : "The picture is paused for a moment so the settings get through."
                 color: "#8d96a2"
                 font.pixelSize: Math.round(14 * setupOverlay.uiScale)
+            }
+
+            // WHAT IT COSTS, and then the choice. Only once it is stuck: until then there
+            // is nothing to decide.
+            Column {
+                visible: setupOverlay.stalled
+                spacing: Math.round(12 * setupOverlay.uiScale)
+
+                Text {
+                    width: Math.round(300 * setupOverlay.uiScale)
+                    wrapMode: Text.WordWrap
+                    // DELIBERATELY GENERAL. What a failed cone costs a SAR crew is not what
+                    // it costs an angler, and that wording is Olav's to write per group.
+                    // What is true of all of them is this: the app does not know what the
+                    // device is using, so nothing on screen can be trusted to name it.
+                    text: "You will still get the echogram, the depth and the temperature. "
+                          + "That setting stays as the transducer last had it, so what the "
+                          + "screen shows may not be what is in the water."
+                    color: "#c3cad3"
+                    font.pixelSize: Math.round(14 * setupOverlay.uiScale)
+                }
+
+                Row {
+                    spacing: Math.round(12 * setupOverlay.uiScale)
+
+                    Rectangle {
+                        width:  startLabel.implicitWidth + Math.round(40 * setupOverlay.uiScale)
+                        height: Math.round(44 * setupOverlay.uiScale)
+                        radius: height / 2
+                        color: startArea.pressed ? "#ffdd55" : "#ffcc00"
+
+                        Text {
+                            id: startLabel
+                            anchors.centerIn: parent
+                            text: "Start anyway"
+                            color: "#102030"
+                            font.pixelSize: Math.round(15 * setupOverlay.uiScale)
+                            font.bold: true
+                        }
+                        MouseArea {
+                            id: startArea
+                            anchors.fill: parent
+                            onClicked: setupOverlay.startAnyway()
+                        }
+                    }
+
+                    Rectangle {
+                        width:  waitLabel.implicitWidth + Math.round(36 * setupOverlay.uiScale)
+                        height: Math.round(44 * setupOverlay.uiScale)
+                        radius: height / 2
+                        color: waitArea.pressed ? "#2a303a" : "#1b1f26"
+                        border.width: 1
+                        border.color: "#3a414b"
+
+                        Text {
+                            id: waitLabel
+                            anchors.centerIn: parent
+                            text: "Keep waiting"
+                            color: "#dfe4ea"
+                            font.pixelSize: Math.round(15 * setupOverlay.uiScale)
+                        }
+                        MouseArea {
+                            id: waitArea
+                            anchors.fill: parent
+                            // Puts the question away and lets it come back if it is still
+                            // stuck. Nothing else changes - it was always going to keep
+                            // trying.
+                            onClicked: {
+                                setupOverlay.stalled = false
+                                stallTimer.restart()
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: "It keeps trying either way."
+                    color: "#69727d"
+                    font.pixelSize: Math.round(13 * setupOverlay.uiScale)
+                }
+            }
+        }
+    }
+
+    // THE STANDING MARKER. Same shape as the demo pill: it says what the app IS, rather
+    // than nagging about what it wanted. It counts rather than names when there is more
+    // than one, and it goes away by itself the moment the handshake finishes.
+    Rectangle {
+        id: marker
+
+        visible: setupOverlay.showMarker
+        x: setupOverlay.safeLeft + Math.round(28 * setupOverlay.uiScale)
+        y: setupOverlay.topInset + Math.round(28 * setupOverlay.uiScale)
+        height: Math.round(44 * setupOverlay.uiScale)
+        width:  markerRow.width + Math.round(28 * setupOverlay.uiScale)
+        radius: height / 2
+        color: "#ee121519"
+        border.width: 1
+        border.color: "#4a4223"
+
+        Row {
+            id: markerRow
+            anchors.verticalCenter: parent.verticalCenter
+            x: Math.round(18 * setupOverlay.uiScale)
+            spacing: Math.round(10 * setupOverlay.uiScale)
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width:  Math.round(9 * setupOverlay.uiScale)
+                height: width
+                radius: width / 2
+                color: "#ffcc00"
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: setupOverlay.deviceName + "   \u00b7   " + setupOverlay.unfinishedLabel
+                color: "#e6eaf0"
+                font.pixelSize: Math.round(15 * setupOverlay.uiScale)
+            }
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 1
+                height: Math.round(20 * setupOverlay.uiScale)
+                color: "#2e343d"
+            }
+
+            Item {
+                anchors.verticalCenter: parent.verticalCenter
+                width:  Math.round(30 * setupOverlay.uiScale)
+                height: Math.round(30 * setupOverlay.uiScale)
+
+                Canvas {
+                    anchors.fill: parent
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.reset()
+                        ctx.strokeStyle = "#8d96a2"
+                        ctx.lineWidth = Math.max(2, width * 0.09)
+                        ctx.lineCap = "round"
+                        ctx.beginPath()
+                        ctx.moveTo(width * 0.30, height * 0.30)
+                        ctx.lineTo(width * 0.70, height * 0.70)
+                        ctx.moveTo(width * 0.70, height * 0.30)
+                        ctx.lineTo(width * 0.30, height * 0.70)
+                        ctx.stroke()
+                    }
+                }
+
+                MouseArea {
+                    // At least 44 design units to hit, whatever the glyph measures.
+                    anchors.centerIn: parent
+                    width:  Math.round(44 * setupOverlay.uiScale)
+                    height: Math.round(44 * setupOverlay.uiScale)
+                    onClicked: {
+                        console.log("SETUP: marker dismissed -", setupOverlay.unfinishedLabel)
+                        setupOverlay.markerDismissed = true
+                    }
+                }
             }
         }
     }

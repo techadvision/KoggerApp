@@ -1123,6 +1123,10 @@ ColumnLayout {
             return
         }
 
+        //A FRESH SETUP NEVER INHERITS "Start anyway". The user accepted the last one, for
+        //the last device, with the last set of unconfirmed settings.
+        pulseRuntimeSettings.runUnconfirmed = false
+
         //Disable the echogram before any parameters are changed;
         console.log("DEV_PARAM: disable echogram")
         // Null-protect: configurePulseDevice can be triggered by manual device
@@ -1252,17 +1256,28 @@ ColumnLayout {
             if (ifSetupCompleted()) {
                 return
             }
-            if (!pulseRuntimeSettings.echogramPausedForConfig) {
-                console.log("DEV_PARAM echogram not paused, let's do this first")
-                disableEchogram()
-                return
+            //THE USER CHOSE THE PICTURE OVER CERTAINTY. Everything below still runs - the
+            //handshake keeps trying every unacknowledged parameter, and devConfigured stays
+            //false because it is not configured - but the echogram is never paused again.
+            //Holding the picture back is only worth it while the user is waiting for the
+            //setup to finish; once they have said they would rather have it, waiting costs
+            //them the thing they asked for.
+            if (pulseRuntimeSettings.runUnconfirmed) {
+                if (dev.datasetChart !== pulseRuntimeSettings.datasetChart)
+                    dev.datasetChart = pulseRuntimeSettings.datasetChart
             } else {
-                console.log("DEV_PARAM echogram is paused, let's move on")
-            }
-            if (dev.datasetChart === 1 && !pulseRuntimeSettings.echogramEnabledByConfig) {
-                console.log("DEV_PARAM something turned on the echogram before we were ready, let us pause it again")
-                disableEchogram()
-                return
+                if (!pulseRuntimeSettings.echogramPausedForConfig) {
+                    console.log("DEV_PARAM echogram not paused, let's do this first")
+                    disableEchogram()
+                    return
+                } else {
+                    console.log("DEV_PARAM echogram is paused, let's move on")
+                }
+                if (dev.datasetChart === 1 && !pulseRuntimeSettings.echogramEnabledByConfig) {
+                    console.log("DEV_PARAM something turned on the echogram before we were ready, let us pause it again")
+                    disableEchogram()
+                    return
+                }
             }
 
             //Speed up by detecting the actual difference between profile and the actual device

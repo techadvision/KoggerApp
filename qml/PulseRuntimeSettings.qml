@@ -298,6 +298,21 @@ QtObject {
     property bool   soundSpeed_ok:          true    // soundSpeed parameter is OK. Let's not configure this
     // problem
 
+    //THE USER CHOSE THE PICTURE OVER CERTAINTY.
+    //
+    //Set by "Start anyway" on the setup overlay when a setting will not go through. It does
+    //NOT mean the device is configured - devConfigured stays false, because that is the
+    //truth, and the handshake keeps trying underneath. It means one thing only: stop
+    //halting the echogram while we wait.
+    //
+    //Olav's reason, and it is the right one: "There may be some hickup in the data flow or
+    //an error in the hardware. Maybe the user is in need of a service. But if he is at the
+    //water right now then something is better than nothing."
+    //
+    //Cleared whenever a fresh configuration starts, so it is never inherited by a device or
+    //a session that never asked for it.
+    property bool   runUnconfirmed:         false
+
     //TRAFFIC STATES
     //IS ANYTHING ACTUALLY ARRIVING, right now. The one fact this app did not have.
     //
