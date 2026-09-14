@@ -5019,6 +5019,10 @@ volume.
 4. **Settings, tier 2 and tier 3.** Seven regular groups and seventeen expert groups, and
    **six of the seven row types are still unwritten** — only the slider row exists. The
    largest remaining piece by far.
+
+   > **Tier 2 done — 14 Sept 2026.** All seven row types written, five categories, two of
+   > the seven dropped. See *Stage 4 (b), tier 2* at the end of this document. Tier 3 is
+   > still ahead.
 5. **Split screen, and a button on the rail to reveal it.** A decision that changes the rail
    rather than adding to it: offering screen options **kills the need for the side/down view
    chooser on PULSE blue**, because the layout choice subsumes it. The button count therefore
@@ -5187,3 +5191,202 @@ re-test has not been done and is still owed.**
 `Plot2D.qml:533` gates the speed pinch on `is2DTransducer`, the **committed** device, where
 every other display question now reads `displayIs2DTransducer`. Classic code, one word, not
 changed here.
+
+
+---
+
+## Stage 4 (b), tier 2 — the settings list (14 Sept 2026)
+
+Olav kept this in the same chat rather than opening its own, and it ran to seven commits.
+**`feature/pulse-ui-v2-rail`, 53 commits, unpushed.**
+
+| Commit | What |
+|---|---|
+| `60469149` | the settings list, and a setting that looks like it belongs to its category |
+| `49837335` | the choice row, and two categories closed out |
+| `47e0ea7e` | the stepper row, Installation and Connection |
+| `46fb70c4` | the read-only row, and NMEA output |
+| `2adb3175` | View a file, and no Recording category |
+| `13aa18bd` | the action row, and Troubleshooting |
+| `c870fdb1` | the text row, the key code, and one rule instead of two |
+
+### The hierarchy, and the one rule it rests on
+
+The list as first drawn told a category apart from a setting by a chevron and nothing else.
+Olav, on the Android Wi-Fi list in dark mode: a combination of blue and white fonts over a
+slightly brighter grey makes it *"super readable"*. Three treatments were drawn at the
+panel's real 360 px width — colour alone, colour and indent, colour and indent and a
+brighter card — and he chose the middle one: *"Color and indent is the most intuitive
+way."*
+
+The colour rule is worth stating once because **it is not new**:
+
+> **Blue is what varies; white is what is fixed.**
+
+A closed category is only a label, so it is white. Open it and its name turns blue, because
+it is now the thing you are inside. Every value in the panel was already blue for that
+reason. The panel gains no new meaning for blue — it applies the one it had.
+
+The indent is one step and one only: 6 px of gap, a 2 px rule, then 16. There is no second
+level of nesting to distinguish, and a second step would invent a hierarchy that does not
+exist. **The rule runs the height of the CHILDREN rather than of the group**, so it stops
+where the last row stops instead of trailing into the gap before the next category. One
+category is open at a time, which is the rule the panel already followed for rail groups.
+
+The chevron is **drawn** from two rectangles rotating about a shared vertex rather than
+loaded, so there is no new SVG that could ship without a stated colour and draw black on a
+black panel — which is how three rail controls went missing on 13 Sept.
+
+### Reads are bindings, writes go through one signal
+
+Every row binds its value straight to `pulseSettings` or `pulseRuntimeSettings` and reports
+a change; `main.qml` assigns it and nothing else does. A property-and-signal pair per
+setting would be a hundred of each by the time tier 3 lands, and the rule they exist to
+protect — one writer per key — is kept exactly as well by one.
+
+Writing by string key works because it is an **assignment**; a **binding cannot be formed on
+a string key**, which is why the rows bind their reads explicitly instead of the list being
+described as data. Three signals, not one: `settingChanged(target, key, value)` for a value,
+`actionRequested(id)` for a button that carries none, and `keyCodeEntered(code)` for the one
+thing that is neither.
+
+**Absent rather than greyed, at both levels.** A row the profile does not offer takes no
+height; a category whose rows are all absent is not offered at all. Connection is the live
+case — both its rows are expert or beta, so an ordinary user never sees the category.
+
+### The trap that was not walked into
+
+The obvious shape for the category is `default property alias content: kids.data`. Aliasing
+the **default** property redirects every child declared under the root — including the
+header and body declared in the same file — into `kids`, which lives inside `body`, so the
+component tries to contain itself. There is no compiler in this shell to catch that. A named
+alias instead, with rows assigned as a list and taking their width from the group's
+`contentWidth` rather than from `parent`, **which is not their parent until after they are
+reparented**.
+
+### The seven row types
+
+| Type | File | Where it landed, and what it decided |
+|---|---|---|
+| Slider | `PulseSliderRow` | existed since tier 1; the echogram speed rides it as tenths, 10–50, so the row needs no float mode it would use once |
+| Switch | `PulseSwitchRow` | the knob's x follows `checked` through a Behavior; nothing assigns it |
+| Choice | `PulseSegmentRow` | options carry `{ value, title }` — the row never maps an INDEX onto a meaning, which is the mistake `ecoViewIndex` made |
+| Stepper | `PulseStepperRow` | press-and-hold, ten steps at a time after ~2 s; snaps to the step grid rather than accumulating |
+| Read-only | `PulseReadOnlyRow` | dim, no border, no target — it must not look like the rows that respond |
+| Action | `PulseActionRow` | confirms **in the row**; the question stands where the hint was, so the row does not change height |
+| Text | `PulseTextRow` | two elements, not one field in two modes — see below |
+
+**Segmented or stepper** is decided by what the options are: segmented when they are answers
+with **names** (metres or feet, 25 m or 35 m), a stepper when they are points on a **ladder**
+(UDP port 3000–3500). Six four-digit segments at panel width is a squeeze that only gets
+worse on a phone.
+
+**The text row is two elements because of rule 2.** A `TextInput` whose `text` is bound to
+the stored value cannot also be typed into: beginning an edit would have to assign it, and
+the first assignment destroys the binding for good — after which the row shows whatever it
+last held rather than what is stored. So the resting element binds and is never written, the
+editor is written and never binds, and Cancel costs nothing because nothing outside the
+editor ever saw the draft. It is a `TextInput` rather than Controls' `TextField` so it does
+not arrive wearing whichever Controls style the app is built with.
+
+### The categories, and the two that went away
+
+**Screen & echogram** · **Installation** · **NMEA output** · **Connection** ·
+**Troubleshooting**.
+
+**Position source became a row inside Installation.** The document promised three sources and
+`PulseSettings.qml` does declare all three keys, but only `positionSourceAutoPilot` is ever
+READ — `DeviceItem.qml:1892` and `:1933`, and nothing in any `.qml` or `.cpp` touches the
+other two. Olav: no urgent plan to offer the others, and *"it will be more intuitive to add
+it under the installation category"*, where the boat is rigged. A category of one is a
+category that should have been a row.
+
+**Recording is gone entirely.** Its tab had three jobs and the new surface has taken all
+three — the rail's Record starts, the pill asks before stopping, the connection screen
+starts a demo. Olav: *"All redundant... But in settings we do not need this as a category."*
+The job with no home was **opening a file**, and he put it on the connection screen beside
+Start a simulation and before the Keep button, reading **"View a file"**. Its own
+`FileDialog`, because the two acts are different machinery: `core.openLogFile()` renders the
+whole recording and sets `wasKlfFileOpened`, `enterDemoMode()` closes the live links and
+paces it — and they accept different file types. Both make `isPresentingLog` true, so the
+screen closes itself either way.
+
+**No "choose a different transducer" row** in Troubleshooting, though the document lists one:
+the rail's source button opens the connection screen, which is that action with a picture of
+every device on it. Repeating it would be the duplicated ability tier 3 needs cleaning of,
+arriving fresh in tier 2.
+
+**Reconfigure is offered to everyone**, where classic keeps it under the expert Device swap
+group. Olav agreed: *"the judgement to expose the reconfigure: Agreed!"* It is the honest
+answer to "the app and the transducer have drifted apart", which is not an expert's problem.
+
+### Wording, where a label was explaining the widget
+
+Two rows said what the control was rather than what the setting means.
+
+- Classic's unit row is a checkbox whose **label changes** — "Metric depth (checked)" /
+  "Imperial depth (unchecked)". Olav: the extra words existed only *"to explain how the old
+  checkbox would work"*. Two buttons, Metres and Feet, and the explanation is unnecessary.
+  His verdict: *"much better"*.
+- "DBT message interval ms" with a value of 250 became **How often** with **4 / s**. Nobody
+  thinks in milliseconds between depth sentences.
+
+### The key code: one rule instead of two
+
+Entering a code rewrites four keys and two access levels, and that logic lived inside
+`KeyCodeInput.qml` — a **classic** control the v2 list cannot reach. It is
+`pulseRuntimeSettings.applyKeyCode(code, salt)` now, called by both, and classic's copy is
+**deleted rather than left beside it**. The salt is an argument rather than a read of
+`installToken`: `main.cpp`'s creation order has already cost one session eleven
+ReferenceErrors, and a function that takes what it needs cannot be caught by it.
+
+The row is masked at rest and plain while typing — a secret worth not showing over a
+shoulder at a stand, and a field you cannot read while typing into it is a field you cannot
+correct. It says what the code **bought** rather than showing two small badges: "Expert —
+every setting is shown", "Beta tester", or that the code grants nothing.
+
+### Two things found while wiring tier 2
+
+**A mirror only classic had.** `isSideScanLeftHand` is the runtime key the bus carries to
+`Plot2D` and the grid; `isSideScanOnLeftHandSide` is the persistent one. `main.qml` copied it
+at startup and on a link event, but the only **on-change** mirror lived in
+`PulseInfoSettings.qml` and `PulseAppClassic.qml` — both classic — so under v2 the mounting
+switch would have stored a value the picture never heard about. One handler in `main.qml`
+now answers for both variants.
+
+**A row that states an address it does not read.** Classic's "NMEA send to IP" draws the
+literal string `255.255.255.255` while `NMEASender` reads
+`pulseSettings.nmeaBroadcastAddress`, which `main.qml:143` overwrites from the runtime key.
+Right until the day it is not. The v2 read-only row binds the key.
+
+### Sound speed — the design, settled but not built
+
+`pulseRuntimeSettings.soundSpeed` is `property int soundSpeed: committedProfile.soundSpeed`,
+a **binding**, and classic's controls in `PulseInfoSettings.qml` and `PulseInfoExpert.qml`
+assign to it — destroying it permanently, so after one touch the sound speed stops
+following a device swap for the rest of the run. Rule 2, live in the tree.
+
+Olav's reasoning for what it should be: the generic profile value is proper for many
+situations, but *"a professional would prefer to be able to measure and make up his own mind.
+And in THAT case, the pulseRuntimeSetting is the better choice. The value is kept for the
+usage session, but not set for the next."*
+
+So it takes the one-binding-one-override shape that backlog item 11 used for the range
+ceiling: the profile supplies the default, an expert override wins while it is set, and
+**nothing ever assigns the bound property**. Because the override lives on the runtime object
+it dies with the app on its own — no new persistent key.
+
+**And the override survives a device swap**, confirmed by Olav: *"Sound of speed is water
+dependent and not transducer dependent. Meaning should I change to another transducer then my
+changed speed value in the setting should win over the profile sound of speed."*
+
+It is expert-only, so it lands with tier 3, alongside the expert dist-max control which needs
+the same treatment.
+
+### What tier 3 inherits
+
+Seventeen expert groups, all seven row types already written, and Olav's own note on them:
+*"For expert we may need to clean up a little, and also to avoid duplicated abilities. I have
+no time to properly clean up before implementation though."* A duplicate usually shows up as
+two rows of the same type writing the same key, which is easier to see once every expert row
+has had to declare which type it is.
