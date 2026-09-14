@@ -52,6 +52,23 @@ QtObject {
                         : "STILL NOT WIRED")
     }
 
+    //READING A PERSISTENT SETTING THAT MAY NOT BE THERE YET.
+    //
+    //Every binding in this file evaluates once BEFORE main.cpp injects the settings object
+    //above, and an `int` binding handed `undefined` logs "Unable to assign [undefined] to
+    //int" - three of those at startup, on displayMaxRange, the max range ceiling and the
+    //theme index. The value is right a moment later, when injection re-runs the binding;
+    //the warning is what is left over, and a warning nobody can act on is a warning that
+    //teaches people to ignore the log.
+    //
+    //So the int reads go through here and name their own floor. Dependency tracking is
+    //unaffected: the property reads happen inside the binding's evaluation, so both
+    //`pulseSettings` and the key it reads are captured exactly as before.
+    function psInt(key, fallback) {
+        var v = pulseSettings[key]
+        return (v === undefined || v === null || isNaN(v)) ? fallback : v
+    }
+
     //DEVICES
     property string devName:                "..."           //Stores the connected device name
     property string modelPulseRed:          "PULSEred"      //Our device name for PulseRed.
@@ -975,7 +992,7 @@ QtObject {
         : isSideScan2DView      ? "maxDepthValuePulseBlue"
         :                         "maxDepthValuePulseBlueFixed"
 
-    readonly property int displayMaxRange: pulseSettings[displayMaxRangeKey]
+    readonly property int displayMaxRange: psInt(displayMaxRangeKey, 0)
 
     // THE ONE WRITER, and both callers reach it: the panel's slider and a pinch on the
     // picture. A preference is never written while nothing is identified - with no device
@@ -1010,7 +1027,7 @@ QtObject {
     readonly property int displayMaxRangeCeiling:
           maxRangeCeilingOverride > 0 ? maxRangeCeilingOverride
         : displayIs2DTransducer       ? committedProfile.maximumDepth
-        :                               pulseSettings.echogramWidth
+        :                               psInt("echogramWidth", 0)
 
     // The floor and the step are the picture's questions too - a side scan steps in 5 m and
     // everything else in 1 - so all of it reads the display model, exactly as the classic
@@ -1225,8 +1242,8 @@ QtObject {
     //the same reason the id above does.
     readonly property var  displayThemeModel: displayIs2DTransducer ? themeModelRed : themeModelBlue
     readonly property int  displayThemeIndex: displayIs2DTransducer
-        ? pulseSettings.colorMapIndex2D
-        : pulseSettings.colorMapIndexSideScan
+        ? psInt("colorMapIndex2D", 0)
+        : psInt("colorMapIndexSideScan", 0)
 
     //Favourites are a 2D idea only - blue has six themes and never needed them.
     readonly property bool displayThemeFavouritesActive:

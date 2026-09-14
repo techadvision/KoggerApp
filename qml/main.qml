@@ -233,11 +233,26 @@ ApplicationWindow  {
         //function onUsbSerialBaudChanged ()          { pulseRuntimeSettings.usbSerialBaud = pulseSettings.usbSerialBaud                             }
     }
 
+    // KEYS THE QML SIDE OWNS, which the loop below must READ PAST rather than write back.
+    //
+    // The bus echoes every key it is handed, including the ones that only ever travel QML ->
+    // C++. Those are readonly bindings here, and assigning to a readonly property throws -
+    // "TypeError: Cannot assign to read-only property" on every push, which is what
+    // uiVariantIsV2 did the moment it joined the bus.
+    //
+    // A named list rather than a try/catch, for two reasons: a swallowed exception hides the
+    // day a genuinely writable key stops being writable, and a one-way key ought to have to
+    // declare itself. Add to this list when you publish something the QML side computes.
+    readonly property var runtimeKeysQmlOwns: ["uiVariantIsV2"]
+
     Connections {
         target: settingsBus
         function onRuntimeChanged(m) {
             //dumpMap("settingsBus.runtimeChanged", m)
             for (var k in m) {
+                if (mainview.runtimeKeysQmlOwns.indexOf(k) !== -1) {
+                    continue
+                }
                 if (k in pulseRuntimeSettings) {
                     pulseRuntimeSettings[k] = m[k]
                     //console.log("applied -> pulseRuntimeSettings." + k, "=", toStr(m[k]))
