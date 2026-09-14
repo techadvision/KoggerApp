@@ -2494,12 +2494,22 @@ ApplicationWindow  {
                     // the one that flows sideways and so wants its gutter at the foot.
                     alongFoot: pulseRuntimeSettings.isHorizontalGrid
 
-                    // Three anchors either way, and the fourth is the one that changes.
-                    // The unanchored axis falls back to the gutter's implicit size.
+                    // TWO ANCHORS THAT NEVER CHANGE, AND THE SIZE CARRIES THE ORIENTATION.
+                    //
+                    // The first version toggled anchors.top and anchors.right with
+                    // `undefined`, and that is a trap: isHorizontalGrid DEFAULTS TO TRUE, so
+                    // the gutter was born along the foot with anchors.right set - and
+                    // assigning undefined to an anchor does NOT clear one that is already
+                    // there. Flipping to a side scan then added the top anchor and kept the
+                    // right, the gutter had all four, and it filled the window. Which is
+                    // exactly what the device showed: 2D correct, side scan covering the
+                    // picture with its panel and its controls centred on the screen.
+                    //
+                    // An anchor that is only ever set, never cleared, cannot get stuck.
                     anchors.left:   parent.left
                     anchors.bottom: parent.bottom
-                    anchors.top:    alongFoot ? undefined : parent.top
-                    anchors.right:  alongFoot ? parent.right : undefined
+                    width:  alongFoot ? parent.width : inset
+                    height: alongFoot ? inset        : parent.height
 
                     uiScale:    mainview.s
                     safeTop:    mainview.insetTop()

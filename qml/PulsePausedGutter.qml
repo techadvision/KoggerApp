@@ -60,10 +60,11 @@ Item {
     // left margin or a bottom margin; the gutter does not know which, and should not.
     readonly property real inset: gutterThickness
 
-    // Sized on BOTH axes as an IMPLICIT size, so main.qml can anchor whichever axis the
-    // orientation calls for and the other falls back to this. An explicit width AND a
-    // left+right anchor would be a conflict, and a conditional `width: undefined` is the
-    // kind of line that works until somebody reads it.
+    // A natural size on both axes, for a host that sets neither. main.qml sets the two it
+    // needs explicitly - the gutter is anchored at the left and the bottom and NOTHING
+    // else, so the orientation is carried by width and height rather than by anchors that
+    // appear and disappear. See the comment at the instantiation: a conditional anchor is
+    // set but never cleared, so the first orientation the gutter is born in sticks.
     implicitWidth:  gutterThickness
     implicitHeight: gutterThickness
 
