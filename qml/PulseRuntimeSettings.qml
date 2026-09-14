@@ -6,6 +6,52 @@ import QtQuick 2.15
 QtObject {
     id: pulseRuntimeSettings
 
+    //THE PERSISTENT SETTINGS OBJECT, INJECTED RATHER THAN LOOKED UP (14 Sept 2026)
+    //
+    //Eleven ReferenceErrors at startup, on every line in this file that reads persistent
+    //settings:
+    //
+    //  qrc:/PulseRuntimeSettings.qml:1553: ReferenceError: pulseSettings is not defined
+    //  ...932, 967, 1153, 1183 likewise
+    //
+    //THE CAUSE IS CREATION ORDER, not spelling. src/main.cpp creates THIS object first and
+    //publishes `pulseRuntimeSettings`, and only THEN creates PulseSettings.qml and
+    //publishes `pulseSettings`. So while every binding in this file is evaluating for the
+    //first time, the context property it wants does not exist yet. In Qt 6 a context
+    //property added after a context has been used to create objects does not reliably
+    //re-resolve names that already failed, which is why the errors are not merely noise:
+    //whichever of these bindings is never re-triggered keeps the value it computed from
+    //`undefined`.
+    //
+    //A CAPITAL `PulseSettings` DOES NOT FIX IT. That is a type name, and a type name only
+    //yields an object if the type is a singleton. PulseSettings.qml has its `pragma
+    //Singleton` COMMENTED OUT, qml/qmldir is empty, and qmldir is not in any .qrc - so
+    //there is no singleton to reach, and `PulseSettings.colorMapIndex2D` would read a
+    //property off a type rather than an instance.
+    //
+    //So the object is handed in. main.cpp sets this property as soon as PulseSettings
+    //exists, and because it IS a property, every binding that reads it depends on it and
+    //re-evaluates the moment it arrives - which is the part a context property could not
+    //promise. It deliberately carries the SAME NAME the rest of this file already uses: an
+    //object's own property outranks a context property in QML scope resolution, so all
+    //thirteen existing reads keep working untouched.
+    //
+    //It starts as an empty object rather than null so the reads before injection answer
+    //`undefined` - the value they answer today - instead of throwing a different exception
+    //in the same place.
+    property var pulseSettings: ({})
+
+    //AND SAY WHEN IT ARRIVES. A silent injection is a wire nobody can prove is connected,
+    //and this file has been bitten by exactly that before - an unqualified name resolved to
+    //undefined, undefined failed a range test, and every theme call quietly answered
+    //model[0] for a whole device build.
+    onPulseSettingsChanged: {
+        console.log("SETTINGS: persistent settings injected into pulseRuntimeSettings ->",
+                    (pulseSettings && pulseSettings.uiVariant !== undefined)
+                        ? ("ok, uiVariant " + pulseSettings.uiVariant)
+                        : "STILL NOT WIRED")
+    }
+
     //DEVICES
     property string devName:                "..."           //Stores the connected device name
     property string modelPulseRed:          "PULSEred"      //Our device name for PulseRed.

@@ -535,6 +535,17 @@ int main(int argc, char *argv[])
     publish("pulseSettings", ps);
     //g_pulseSettings = ps;
 
+    // HAND THE SETTINGS OBJECT TO pulseRuntimeSettings EXPLICITLY.
+    //
+    // It was created above, BEFORE `pulseSettings` existed as a context property, so every
+    // binding in PulseRuntimeSettings.qml that reads persistent settings first evaluated
+    // against a name that was not there yet - eleven ReferenceErrors at startup, and in Qt
+    // 6 a context property added after the fact does not reliably re-resolve them. Setting
+    // it as a PROPERTY does: the bindings depend on the property, so they re-evaluate the
+    // moment it is assigned. The name matches the one that file already uses, because an
+    // object's own property outranks a context property in QML scope resolution.
+    rt->setProperty("pulseSettings", QVariant::fromValue(ps));
+
     //Hit the link manager in time to get the proper values avalable for testers and experts
     {
         QVariantMap p;
