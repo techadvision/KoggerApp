@@ -50,6 +50,7 @@ Item {
     readonly property bool offersTemp:       pulseRuntimeSettings ? pulseRuntimeSettings.useTemperature : false
 
     readonly property bool offersMounting:   offers && offers.sideScanMounting === true
+    readonly property bool offersMtw:        offers && offers.nmeaMtw === true
     readonly property bool expertOnly:       pulseRuntimeSettings ? pulseRuntimeSettings.expertMode : false
     readonly property bool betaOrExpert:
         pulseRuntimeSettings ? (pulseRuntimeSettings.expertMode || pulseRuntimeSettings.betaMode) : false
@@ -282,8 +283,97 @@ Item {
             ]
         }
 
-        Repeater { model: [ { id: "nmea", title: qsTr("NMEA output") } ]
-                   delegate: stubCategory }
+        // ---- NMEA output ------------------------------------------------------
+
+        PulseSettingsGroup {
+            id: nmeaGroup
+
+            width: parent.width
+            uiScale: list.uiScale
+            title: qsTr("NMEA output")
+            open: list.openId === "nmea"
+            onToggled: list.toggle("nmea")
+
+            content: [
+                PulseSwitchRow {
+                    width: nmeaGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Send depth over UDP")
+                    hint:  qsTr("the DBT sentence, to anything listening on the network")
+                    checked: pulseSettings ? pulseSettings.enableNmeaDbt : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("persistent", "enableNmeaDbt", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: nmeaGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.offersMtw
+                    uiScale: list.uiScale
+
+                    label: qsTr("Send temperature too")
+                    hint:  qsTr("the MTW sentence")
+                    checked: pulseSettings ? pulseSettings.enableNmeaMtw : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("persistent", "enableNmeaMtw", v)
+                    }
+                },
+
+                PulseSegmentRow {
+                    width: nmeaGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("How often")
+                    options: [ { value: 250,  title: qsTr("4 / s") },
+                               { value: 500,  title: qsTr("2 / s") },
+                               { value: 1000, title: qsTr("1 / s") } ]
+                    current: pulseSettings ? pulseSettings.nmeaSendPerMilliSec : 500
+
+                    onChosen: function (v) {
+                        list.settingChanged("persistent", "nmeaSendPerMilliSec", v)
+                    }
+                },
+
+                // A LADDER, NOT A SET OF NAMED ALTERNATIVES, so it is a stepper rather than
+                // six segments. Segmented is right when the options are answers with names -
+                // metres or feet, 25 m or 35 m; six four-digit port numbers in a row are
+                // points on a scale, and at panel width six cells of "3000" is a squeeze
+                // that gets worse on a phone.
+                PulseStepperRow {
+                    width: nmeaGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Send to UDP port")
+                    hint:  qsTr("3000 \u2013 3500")
+                    minValue: 3000
+                    maxValue: 3500
+                    stepSize: 100
+                    decimals: 0
+                    value: pulseSettings ? pulseSettings.nmeaPort : 3000
+
+                    onStepped: function (v) {
+                        list.settingChanged("persistent", "nmeaPort", v)
+                    }
+                },
+
+                // READ-ONLY, AND BOUND TO THE KEY THE SENDER ACTUALLY READS. Classic prints
+                // the literal "255.255.255.255" here while NMEASender reads
+                // pulseSettings.nmeaBroadcastAddress, which main.qml:143 overwrites from the
+                // runtime key - so the label is right until the day it is not.
+                PulseReadOnlyRow {
+                    width: nmeaGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Send to")
+                    hint:  qsTr("broadcast - every device on the network hears it")
+                    value: pulseSettings ? pulseSettings.nmeaBroadcastAddress : ""
+                }
+            ]
+        }
 
         // ---- Connection -------------------------------------------------------
         //
