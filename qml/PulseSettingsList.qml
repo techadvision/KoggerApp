@@ -1193,18 +1193,12 @@ Item {
                     }
                 },
 
-                PulseSwitchRow {
-                    width: fakeDepthGroup.contentWidth
-                    uiScale: list.uiScale
-
-                    label: qsTr("Write it into the recording too")
-                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.pushFakeDepth : false
-
-                    onToggled: function (v) {
-                        list.settingChanged("runtime", "pushFakeDepth", v)
-                    }
-                },
-
+                // NO "PUSH FAKE DEPTH TO KLF VIEW" ROW. Olav: "We actually do not need this
+                // setting at all. This was used to modify the depth value when we made
+                // screenshots of a file opened. Now we can make screenshots running demo,
+                // and then depth value is always correct." Classic's row and the
+                // pushFakeDepth key are left alone - removing them is a cleanup, not a
+                // settings decision.
                 PulseActionRow {
                     width: fakeDepthGroup.contentWidth
                     uiScale: list.uiScale

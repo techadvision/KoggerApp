@@ -2360,9 +2360,27 @@ ApplicationWindow  {
                             pulseRuntimeSettings.echoSounderReboot = true
                             return
                         }
+                        // RESET DOES THE WORK RATHER THAN RAISING A FLAG.
+                        //
+                        // The flag was copied from classic, where the behaviour lives in a
+                        // Connections block INSIDE PulseInfoExpert.qml - a classic control
+                        // v2 never instantiates - so under v2 the flag went up and nothing
+                        // watched it.
+                        //
+                        // And classic's version does not work either, for a different
+                        // reason: it sets fakeDepthAddition to 0, which re-syncs the
+                        // control's thumb, but the control has emitOnUserActionOnly so
+                        // dataset.setFakeDepthAddition(0) is never called and the C++
+                        // offset stays. It also raises resetBottomTrackActive, which is
+                        // declared once in PulseRuntimeSettings and read NOWHERE in any
+                        // .qml or .cpp. Both halves are dead.
+                        //
+                        // So this clears the number where the number actually lives.
                         if (id === "resetFakeDepth") {
-                            console.log("SETTINGS: action - clearing the fake depth")
-                            pulseRuntimeSettings.resetFakeDepth = true
+                            console.log("SETTINGS: action - back to the real depth")
+                            pulseRuntimeSettings.fakeDepthAddition = 0
+                            if (dataset)
+                                dataset.setFakeDepthAddition(0)
                             return
                         }
                         if (id === "reconfigure") {
@@ -2383,6 +2401,16 @@ ApplicationWindow  {
                             return
                         console.log("SETTINGS:", target, key, "->", value)
                         obj[key] = value
+
+                        // THE ONE KEY WHOSE CONSUMER IS A CALL, NOT A BINDING.
+                        // pulseRuntimeSettings.fakeDepthAddition is read by nothing -
+                        // dataset._fakeDepthAddition is what actually shifts the depth, and
+                        // classic's control sets the property AND calls the setter. Writing
+                        // the property alone, as the generic path does, changed a number
+                        // nobody reads. Handled here rather than in the row, because this
+                        // is the side that can see `dataset`.
+                        if (key === "fakeDepthAddition" && dataset)
+                            dataset.setFakeDepthAddition(value)
                     }
 
                     // ---- Colours ------------------------------------------------
