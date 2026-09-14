@@ -1148,17 +1148,40 @@ ApplicationWindow  {
             readonly property int splitGripMainSize: Math.max(38, Math.round(48 * theme.resCoeff))
             readonly property int splitGripCrossSize: Math.max(14, Math.round(16 * theme.resCoeff))
             readonly property int splitGripRadius: Math.max(5, Math.round(7 * theme.resCoeff))
-            // ── PULSE TRIAL (feature/enable-3d-mosaic): full-screen ECHOGRAM ⇄ 3D toggle ──────
-            // Pulse does NOT use upstream's draggable 50/50 split. Instead the screen shows EITHER
-            // the full-width echogram (default, always at launch) OR the full-screen 3D/mosaic view.
-            // The sceneSplitHandle below is repurposed as a single tap toggle (the green oval):
-            //   • echogram full  -> oval sits at the LEFT edge; tap -> 3D takes the whole screen
-            //   • 3D full        -> oval sits at the RIGHT edge; tap -> back to the echogram
-            // mosaicViewActive is the single source of truth. It is intentionally NOT persisted, so
-            // every launch starts on the echogram (per product requirement "always full echogram").
-            // The GraphicsScene3dView object stays instantiated (renderer.visible follows this flag)
-            // so Core::UILoad's findChild<GraphicsScene3dView*>() wiring stays intact.
-            property bool mosaicViewActive: false
+            // ── WHICH PICTURES ARE ON SCREEN (14 Sept 2026) ──────────────────────────────────
+            //
+            // The screen preference is the single source of truth, and it is a BINDING rather
+            // than a flag somebody sets. That was not possible a commit ago: the green pill
+            // assigned mosaicViewActive, so a binding on the same value would have been
+            // destroyed the first time it was tapped. Removing the pill is what allows the
+            // rule this project keeps - one binding, one override, never an assignment - to be
+            // kept here at last.
+            //
+            // The pill itself was never Pulse's control. It is upstream's draggable split
+            // divider, repurposed as a tap toggle and painted green. Its geometry survives
+            // below - splitRatio, the snap ratios, the preview band - because the splits it
+            // was written for are exactly what arrives now.
+            //
+            // The GraphicsScene3dView object stays instantiated whatever this says
+            // (renderer.visible follows it) so Core::UILoad's findChild wiring stays intact.
+            //
+            // NOTHING TRIGGERS THE MOSAIC. Olav: "I need do nothing to trigger mosaic. Simply
+            // need to show it and mosaic will paint. First with history before it catches up
+            // the live data." So showing the pane IS the feature; there is no start call to
+            // make and no state to arm.
+            readonly property var screenEntry:
+                (pulseSettings.uiVariant === "v2" && pulseRuntimeSettings
+                 && pulseRuntimeSettings.offersScreenChoice)
+                ? pulseRuntimeSettings.screenForId(pulseSettings.screenViewId)
+                : null
+
+            readonly property bool wantsMosaic:
+                screenEntry ? (screenEntry.top === "mosaic" || screenEntry.bottom === "mosaic")
+                            : false
+            readonly property bool wantsEchogram:
+                screenEntry ? (screenEntry.top !== "mosaic"
+                               || (screenEntry.bottom !== "" && screenEntry.bottom !== "mosaic"))
+                            : true
 
             // Toggle is only offered when the 3D/mosaic view is meaningful: a side-scan transducer
             // is attached (NOT a 2D/downscan-only model) AND we have position data — live MAVLink
@@ -1168,18 +1191,10 @@ ApplicationWindow  {
                 !pulseRuntimeSettings.is2DTransducer
                 && (pulseRuntimeSettings.mavlinkDetected || (core.filePath && core.filePath.length > 0))
 
-            // Force back to the echogram if the toggle becomes unavailable (e.g. file closed),
-            // and - since 14 Sept - let the stored screen preference have its say when it
-            // becomes available again. A user whose preference is the mosaic asked for the
-            // mosaic; they should get it when the fix arrives rather than having to ask twice.
-            // applyScreenId is a no-op outside the v2 variant, so this changes nothing in
-            // classic.
-            onView3dToggleAvailableChanged: {
-                if (!view3dToggleAvailable)
-                    mosaicViewActive = false
-                else
-                    mainview.applyScreenId(pulseSettings.screenViewId)
-            }
+            // NO HANDLER. has3DView reads view3dToggleAvailable directly, so losing the fix
+            // drops the mosaic and regaining it brings the mosaic back, both without anything
+            // being told. The handler this replaces had to force a flag false and then ask the
+            // applier to run again, which is two mechanisms for one fact.
 
             // THE CONTROL SURFACE TAKES ITS WIDTH FROM THE PICTURE RATHER THAN COVERING IT,
             // and now it takes it from BOTH pictures. This was one anchors.leftMargin on the
@@ -1191,14 +1206,24 @@ ApplicationWindow  {
             readonly property real controlInset: mainview.pulseRailInset + mainview.pulsePanelInset
             readonly property real contentWidth: Math.max(0, width - controlInset)
 
-            readonly property bool has3DView: mosaicViewActive
-            readonly property bool has2DView: !mosaicViewActive
-            readonly property bool splitActive: has3DView && has2DView // always false now (no split) — kept for the geometry below
+            // THE MOSAIC IS NOT ALWAYS POSSIBLE - it wants a side scan transducer and a
+            // position - so availability is ANDed in here rather than checked at the point of
+            // choosing. A stored preference for the mosaic then costs nothing while there is
+            // no fix and takes effect the moment one arrives, with no handler to run.
+            readonly property bool has3DView: wantsMosaic && view3dToggleAvailable
+            // AND THE ECHOGRAM HOLDS THE SCREEN when the mosaic was asked for and cannot be
+            // drawn. Never nothing at all.
+            readonly property bool has2DView: wantsEchogram || !has3DView
+            readonly property bool splitActive: has3DView && has2DView
             readonly property real primaryLength: landscapeMode ? contentWidth : height
             readonly property real splitLength: Math.max(0, primaryLength)
+            // THE FIRST PANE IS THE ECHOGRAM NOW, where it used to be the 3D scene. "Side scan
+            // first" survives the axis rule as LEADING POSITION rather than as "top": top in
+            // portrait, left in landscape. Everything below measures from the first pane, so
+            // this one line is the swap.
             readonly property real firstPaneLength: splitActive
                                                     ? Math.round(splitLength * splitRatio)
-                                                    : (has3DView ? primaryLength : 0)
+                                                    : (has2DView ? primaryLength : 0)
             readonly property real handlePaneLength: splitActive
                                                      ? Math.round(splitLength * (splitDragging ? dragRatio : splitRatio))
                                                      : firstPaneLength
@@ -1298,20 +1323,22 @@ ApplicationWindow  {
                 // Object stays instantiated when hidden (Core::UILoad findChild requirement).
                 visible: visualisationLayout.has3DView
                 objectName: "GraphicsScene3dView"
-                // AFTER THE RAIL, the same as the echogram. The mosaic is a picture the user
-                // adjusts, so the controls compress it rather than sit on top of it.
+                // THE SECOND PANE, and after the rail. The mosaic is a picture the user
+                // adjusts, so the controls compress it rather than sit on top of it, and the
+                // echogram leads - left in landscape, top in portrait.
+                //
+                // firstPaneLength is the whole content when the echogram is alone, zero when
+                // the mosaic is alone, and the split position when both are up. So these four
+                // lines cover all three cases with no case in them.
                 x: visualisationLayout.controlInset
-                y: 0
+                   + (visualisationLayout.landscapeMode ? visualisationLayout.firstPaneLength : 0)
+                y: visualisationLayout.landscapeMode ? 0 : visualisationLayout.firstPaneLength
                 width: visualisationLayout.landscapeMode
-                       ? (visualisationLayout.splitActive
-                          ? visualisationLayout.firstPaneLength
-                          : (visualisationLayout.has3DView ? visualisationLayout.contentWidth : 0))
+                       ? Math.max(0, visualisationLayout.primaryLength - visualisationLayout.firstPaneLength)
                        : visualisationLayout.contentWidth
                 height: visualisationLayout.landscapeMode
                         ? visualisationLayout.height
-                        : (visualisationLayout.splitActive
-                           ? visualisationLayout.firstPaneLength
-                           : (visualisationLayout.has3DView ? visualisationLayout.height : 0))
+                        : Math.max(0, visualisationLayout.primaryLength - visualisationLayout.firstPaneLength)
                 focus:             true
 
                 property bool longPressTriggered: false
@@ -2015,100 +2042,19 @@ ApplicationWindow  {
                 z: 9995
             }
 
-            // ── PULSE TRIAL: ECHOGRAM ⇄ 3D toggle (the green oval) ───────────────────────────
-            // Repurposed from upstream's draggable split divider into a single TAP toggle.
-            // Bigger hit area + green fill so it is easy to find and press on a tablet.
-            // Sits at the LEFT edge while the echogram is full (tap pulls the 3D view in), and at
-            // the RIGHT edge while the 3D view is full (tap returns to the echogram). Portrait uses
-            // top/bottom edges. Shown only when view3dToggleAvailable.
-            Item {
-                id: sceneSplitHandle
-                visible: visualisationLayout.view3dToggleAvailable
-                z: 10000
-
-                readonly property int edgeMargin: Math.max(4, Math.round(6 * theme.resCoeff))
-                readonly property int gripThin: Math.max(26, Math.round(30 * theme.resCoeff)) // tap thickness
-                readonly property int gripLong: Math.max(64, Math.round(78 * theme.resCoeff)) // length along edge
-
-                width:  visualisationLayout.landscapeMode ? gripThin : gripLong
-                height: visualisationLayout.landscapeMode ? gripLong : gripThin
-
-                // Landscape: left edge when echogram full, right edge when 3D full.
-                // Portrait:  top edge  when echogram full, bottom edge when 3D full.
-                // SHIFTED PAST THE RAIL like everything else that sits on a picture. At the
-                // left edge it would otherwise be under the rail and unreachable - which is a
-                // regression the rail's move would have introduced silently, on the one
-                // control that is the only way out of the mosaic until the chooser replaces it.
-                x: visualisationLayout.controlInset
-                   + (visualisationLayout.landscapeMode
-                      ? (visualisationLayout.mosaicViewActive
-                         ? (visualisationLayout.contentWidth - width - edgeMargin)
-                         : edgeMargin)
-                      : Math.round((visualisationLayout.contentWidth - width) / 2))
-                y: visualisationLayout.landscapeMode
-                   ? Math.round((visualisationLayout.height - height) / 2)
-                   : (visualisationLayout.mosaicViewActive
-                      ? (visualisationLayout.height - height - edgeMargin)
-                      : edgeMargin)
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Math.round(Math.min(parent.width, parent.height) / 2)
-                    color: sceneSplitHandleMouse.pressed ? "#2EE06A" : "green"
-                    opacity: sceneSplitHandleMouse.pressed ? 1.0 : 0.85
-                    border.color: "#1B5E20"
-                    border.width: 1
-                }
-
-                Image {
-                    anchors.centerIn: parent
-                    source: "qrc:/icons/ui/direction_horizontal.svg"
-                    fillMode: Image.PreserveAspectFit
-                    width: Math.round(parent.width * 0.6)
-                    height: Math.round(parent.height * 0.6)
-                    transformOrigin: Item.Center
-                    rotation: visualisationLayout.landscapeMode ? 0 : 90
-                    opacity: 0.95
-                }
-
-                MouseArea {
-                    id: sceneSplitHandleMouse
-                    anchors.fill: parent
-                    anchors.margins: -8 // enlarge touch area beyond the visible oval
-                    acceptedButtons: Qt.LeftButton
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-
-                    onClicked: {
-                        visualisationLayout.mosaicViewActive = !visualisationLayout.mosaicViewActive
-                    }
-                }
-            }
-
             Item {
                 id: plotsContainer
                 visible: visualisationLayout.has2DView
+                // THE FIRST PANE. It starts at the rail and runs for firstPaneLength, which is
+                // the whole content area when it is alone and zero when the mosaic is.
                 x: visualisationLayout.controlInset
-                   + (visualisationLayout.landscapeMode
-                      ? (visualisationLayout.splitActive
-                         ? visualisationLayout.firstPaneLength
-                         : 0)
-                      : 0)
-                y: visualisationLayout.landscapeMode
-                   ? 0
-                   : (visualisationLayout.splitActive
-                      ? visualisationLayout.firstPaneLength
-                      : 0)
+                y: 0
                 width: visualisationLayout.landscapeMode
-                       ? (visualisationLayout.splitActive
-                          ? Math.max(0, visualisationLayout.contentWidth - visualisationLayout.firstPaneLength)
-                          : visualisationLayout.contentWidth)
+                       ? visualisationLayout.firstPaneLength
                        : visualisationLayout.contentWidth
                 height: visualisationLayout.landscapeMode
                         ? visualisationLayout.height
-                        : (visualisationLayout.splitActive
-                           ? Math.max(0, visualisationLayout.height - visualisationLayout.firstPaneLength)
-                           : visualisationLayout.height)
+                        : visualisationLayout.firstPaneLength
 
                 GridLayout {
                     anchors.fill: parent
@@ -3858,27 +3804,18 @@ ApplicationWindow  {
         console.log("SCREEN: applying", e.id, "- top", e.top,
                     e.bottom === "" ? "(full screen)" : "+ bottom " + e.bottom)
 
-        if (e.bottom !== "")
-            return
-
-        if (e.top === "mosaic") {
-            // THE MOSAIC IS NOT ALWAYS POSSIBLE - it wants a side scan transducer AND a
-            // position, live or from a log. The stored preference is NOT written back when
-            // it is not: the user chose the mosaic and gets it the moment the fix arrives,
-            // which is what the re-apply on view3dToggleAvailable is for. Meanwhile the
-            // echogram's own mode is left exactly as it was rather than guessed at.
-            if (!visualisationLayout.view3dToggleAvailable) {
-                console.log("SCREEN: mosaic is stored but not available yet",
-                            "(needs a side scan transducer and a position) - holding the echogram")
-                visualisationLayout.mosaicViewActive = false
-                return
-            }
-            visualisationLayout.mosaicViewActive = true
-            return
-        }
-
-        visualisationLayout.mosaicViewActive = false
-        applyEchogramMode(e.top)
+        // WHICH PANES ARE UP IS NOT THIS FUNCTION'S BUSINESS ANY MORE. visualisationLayout
+        // binds them straight to this preference, so a layout with a mosaic in it needs
+        // nothing done to it - showing the pane is the whole of the feature.
+        //
+        // What is left is the echogram's own mode, because that is a device-side write and a
+        // re-range rather than a piece of geometry. A layout with no echogram in it leaves
+        // the mode exactly as it was rather than guessing at one.
+        var mode = (e.top !== "mosaic")
+                   ? e.top
+                   : ((e.bottom !== "" && e.bottom !== "mosaic") ? e.bottom : "")
+        if (mode !== "")
+            applyEchogramMode(mode)
     }
 
     // THE MODE HALF, lifted out of applyViewId unchanged. The property writes decide the grid
