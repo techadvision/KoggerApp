@@ -2576,6 +2576,13 @@ ApplicationWindow  {
                     // other way up.
                     displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
 
+                    // THE SPEED, IN ITS TWO JOBS. The runtime key is what the picture runs
+                    // at and so what the pill says; the persistent key is what the user
+                    // set and is the trigger only. PulsePillColumn explains why they are
+                    // not one property.
+                    echogramSpeed:        pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeed : 1.0
+                    echogramSpeedSetting: pulseSettings        ? pulseSettings.echogramSpeed        : 1.0
+
                     presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
                     isDemo:        pulseRuntimeSettings ? pulseRuntimeSettings.isInDemoMode    : false
                     presentedName: pulseRuntimeSettings
@@ -3175,8 +3182,13 @@ ApplicationWindow  {
 
 
 
-    // Echogram speed change indication
-
+    // Echogram speed change indication - CLASSIC ONLY.
+    //
+    // V2 says this in PulsePillColumn, in the family the rest of its overlays use, and
+    // without this gate both would appear. The two are not the same indicator either:
+    // this one triggers on the RUNTIME key, so under v2 it also popped up every time the
+    // echogram was paused or resumed, announcing the 1.0 that setEchogramPaused writes to
+    // freeze the horizontal scale. Nobody asked it anything.
     Rectangle {
         id: zoomIndicator
         // start hidden
@@ -3221,6 +3233,9 @@ ApplicationWindow  {
         Connections {
             target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
             function onEchogramSpeedChanged () {
+                // CLASSIC ONLY - see the comment on zoomIndicator.
+                if (pulseSettings.uiVariant === "v2")
+                    return
                 // Do NOT assign zoomText.text here. zoomText.text is a declarative
                 // binding on pulseSettings.echogramSpeed (above); an imperative
                 // assignment destroys that binding on the first change, after which the

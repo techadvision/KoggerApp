@@ -29,6 +29,26 @@ Item {
 
     property bool   recording:      false
 
+    // ---- ECHOGRAM SPEED, AND WHY IT IS TWO PROPERTIES ------------------------
+    //
+    // echogramSpeed is pulseRuntimeSettings' - what the PICTURE is running at, and so
+    // what this pill SAYS, by rule 1. echogramSpeedSetting is pulseSettings' - what the
+    // user has set, and it is the TRIGGER and nothing else.
+    //
+    // They are not the same number and splitting the two jobs between them is what keeps
+    // the pill honest at both edges. setEchogramPaused writes 1.0 into the runtime one on
+    // pause and restores it on resume: triggering on the runtime value would flash "1.0x"
+    // as the picture freezes and "1.8x" again as it thaws, neither of which anyone asked
+    // for. Triggering on the persistent one shows the pill exactly when a person changed
+    // the speed.
+    //
+    // And when the two genuinely disagree - main.qml forces the runtime speed to 1 for a
+    // blue profile and nothing puts it back when the profile returns to red - the pill
+    // reports what the picture is doing rather than what the setting still says. That
+    // defect is not fixed here; this makes it visible instead of hiding it.
+    property real   echogramSpeed:        1.0
+    property real   echogramSpeedSetting: 1.0
+
     signal stopDemo()
     signal closeFile()
     signal startRecording()
@@ -50,6 +70,33 @@ Item {
     // shape rule 2 forbids: rule 2 is about a value with TWO sources, where a binding gets
     // destroyed by a handler. Nothing binds this.
     property string asking: ""        // "" | "start" | "stop"
+
+    // A PLAIN STATE PROPERTY with one writer, the same shape as `asking` below and for the
+    // same reason: nothing binds it.
+    property bool speedShown: false
+
+    // Bindings evaluate once on the way up, and the stored speed arriving after the 1.0
+    // default is a change like any other. Without this the pill greets every launch.
+    property bool _speedArmed: false
+    Component.onCompleted: _speedArmed = true
+
+    onEchogramSpeedSettingChanged: {
+        if (!_speedArmed)
+            return
+        // RULE 1 AGAIN: the speed only applies to a picture that flows sideways. On a side
+        // scan the number is real but it is not what the user is looking at.
+        if (!displayIs2D)
+            return
+        speedShown = true
+        speedHideTimer.restart()
+    }
+
+    Timer {
+        id: speedHideTimer
+        interval: 1500
+        repeat: false
+        onTriggered: pillColumn.speedShown = false
+    }
 
     function askRecordStart() { asking = "start" }
     function askRecordStop()  { asking = "stop" }
@@ -311,6 +358,55 @@ Item {
                         anchors.fill: parent
                         onClicked: pillColumn.dismissQuestion()
                     }
+                }
+            }
+        }
+
+        // ECHOGRAM SPEED. The family's capsule with nothing to press, because there is
+        // nothing to undo - it reports a gesture that has already happened and then goes
+        // away. Blue: informational, the same accent the demo pill wears.
+        //
+        // LAST IN THE COLUMN on purpose. It is the only pill that comes and goes on its
+        // own, and a transient item above stable ones would shuffle them every time the
+        // picture is pinched. Last, nothing above it moves on a 2D picture - which is the
+        // only picture it appears on.
+        //
+        // The label is dim and the value is not, so the eye lands on the number. Classic
+        // prints "Echogram speed: 1.3" in the top centre of the screen; the words are
+        // Olav's and they stay, and the bare number gains the x that says it is a factor -
+        // the same correction the loupe's magnification got.
+        Rectangle {
+            id: speedPill
+
+            visible: pillColumn.speedShown
+            height:  Math.round(46 * pillColumn.uiScale)
+            width:   speedRow.width + Math.round(28 * pillColumn.uiScale)
+            radius:  height / 2
+
+            color: "#cc0f1317"
+            border.width: 1
+            border.color: "#3d7fd0"
+
+            Row {
+                id: speedRow
+                anchors.centerIn: parent
+                spacing: Math.round(12 * pillColumn.uiScale)
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: qsTr("Echogram speed")
+                    color: "#9fb3c8"
+                    font.pixelSize: Math.round(17 * pillColumn.uiScale)
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    // THE RUNTIME VALUE - what the picture is running at. See the two
+                    // properties at the top of this file for why it is not the other one.
+                    text: pillColumn.echogramSpeed.toFixed(1) + "\u00D7"
+                    color: "#eaf1f8"
+                    font.pixelSize: Math.round(19 * pillColumn.uiScale)
+                    font.bold: true
                 }
             }
         }
