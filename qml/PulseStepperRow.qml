@@ -35,9 +35,37 @@ Item {
     property real stepSize: 0.01
     property int  decimals: 2
 
+    // A LADDER THAT IS NOT EVENLY SPACED. Most of the expert values are lists like
+    // [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0] - ordered, but with no single step
+    // between them, so min/max/step cannot describe them. Set `values` and the stepper
+    // walks the list by index instead; leave it empty and it walks the arithmetic ladder.
+    //
+    // A STEPPER RATHER THAN A LONG LIST OF SEGMENTS, which is what the canvas's "a list in
+    // the same panel" would have been. Fourteen segments do not fit a 360 px panel at all,
+    // and a scrolling list inside a scrolling panel is two scrolls fighting over one
+    // finger. The value is ordered, so stepping it is the natural gesture - and press-and-
+    // hold already crosses a long one.
+    property var  values: []
+
+    readonly property bool listMode: values && values.length > 0
+
     property real value: 0
 
     signal stepped(real v)
+
+    // NEAREST, NOT indexOf. A stored value can come from somewhere other than this list -
+    // a profile default, an older build's list, a device report - and indexOf would answer
+    // -1 and strand the control at one end. Nearest always has an answer and is right
+    // whenever exact would have been.
+    function _nearestIndex() {
+        var best = 0
+        var bestDelta = Infinity
+        for (var i = 0; i < values.length; ++i) {
+            var d = Math.abs(Number(values[i]) - value)
+            if (d < bestDelta) { bestDelta = d; best = i }
+        }
+        return best
+    }
 
     implicitHeight: Math.round((hint === "" ? 22 : 40) * uiScale)
                     + Math.round(44 * uiScale)
@@ -47,6 +75,9 @@ Item {
     readonly property string valueText:
         value.toFixed(decimals) + (unit === "" ? "" : " " + unit)
 
+    readonly property real _floor: listMode ? Number(values[0])                 : minValue
+    readonly property real _ceil:  listMode ? Number(values[values.length - 1]) : maxValue
+
     // ---- The one place a step is worked out ---------------------------------
 
     property int  _dir:    0
@@ -55,6 +86,16 @@ Item {
     function _step(multiplier) {
         if (_dir === 0)
             return
+
+        if (listMode) {
+            var at = _nearestIndex()
+            var to = Math.max(0, Math.min(values.length - 1, at + _dir * multiplier))
+            var next = Number(values[to])
+            if (next !== value)
+                stepperRow.stepped(next)
+            return
+        }
+
         var by = stepSize * multiplier * _dir
         var raw = value + by
         // Snap to the step grid rather than accumulating: repeated float addition of 0.01
@@ -143,7 +184,7 @@ Item {
             height: Math.round(44 * stepperRow.uiScale)
             radius: Math.round(8 * stepperRow.uiScale)
 
-            readonly property bool atBound: stepperRow.value <= stepperRow.minValue
+            readonly property bool atBound: stepperRow.value <= stepperRow._floor
 
             color: minusTouch.pressed ? "#1f4a6b" : "transparent"
             border.width: 1
@@ -183,7 +224,7 @@ Item {
             height: Math.round(44 * stepperRow.uiScale)
             radius: Math.round(8 * stepperRow.uiScale)
 
-            readonly property bool atBound: stepperRow.value >= stepperRow.maxValue
+            readonly property bool atBound: stepperRow.value >= stepperRow._ceil
 
             color: plusTouch.pressed ? "#1f4a6b" : "transparent"
             border.width: 1

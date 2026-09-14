@@ -641,13 +641,231 @@ Item {
             ]
         }
 
-        // The seven remaining manipulation groups. USB baud rate is NOT among them: it
+        // ---- Water body filter ------------------------------------------------
+
+        PulseSettingsGroup {
+            id: waterBodyGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Water body filter")
+            open: list.openId === "waterbody"
+            onToggled: list.toggle("waterbody")
+
+            content: [
+                PulseSwitchRow {
+                    width: waterBodyGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Water body filtering")
+                    hint:  qsTr("the rail's filter drives this instead of the global low cut")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.echogramWaterBodyFilterEnabled : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "echogramWaterBodyFilterEnabled", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: waterBodyGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Bottom margin")
+                    hint:  qsTr("how far above the bottom the filter stops")
+                    unit:  qsTr("m")
+                    decimals: 2
+                    values: [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.echogramWaterBodyBottomMargin : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "echogramWaterBodyBottomMargin", v)
+                    }
+                }
+            ]
+        }
+
+        // ---- TVG 2D -----------------------------------------------------------
+
+        PulseSettingsGroup {
+            id: tvg2dGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("TVG 2D")
+            open: list.openId === "tvg2d"
+            onToggled: list.toggle("tvg2d")
+
+            content: [
+                PulseSwitchRow {
+                    width: tvg2dGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Depth compensation")
+                    hint:  qsTr("gain computed from range in metres, so resolution changes do not shift it")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgEnabled : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "echogramTvgEnabled", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: tvg2dGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Gain")
+                    unit:  qsTr("dB/m")
+                    decimals: 1
+                    values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
+                             1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgDbPerMeter : 1.0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "echogramTvgDbPerMeter", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: tvg2dGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Compare with the upstream ramp")
+                    hint:  qsTr("gain over sample index instead - moves when resolution does")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.echogram2DUpstreamTgc : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "echogram2DUpstreamTgc", v)
+                    }
+                }
+            ]
+        }
+
+        // ---- TVG side scan ----------------------------------------------------
+
+        PulseSettingsGroup {
+            id: tvgSideGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("TVG side scan")
+            open: list.openId === "tvgside"
+            onToggled: list.toggle("tvgside")
+
+            content: [
+                PulseSwitchRow {
+                    width: tvgSideGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Side scan TVG")
+                    hint:  qsTr("the waterfall")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "sideScanTvgEnabled", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: tvgSideGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Use it for the mosaic too")
+                    hint:  qsTr("the mosaic is brighter at the centre of the line without it")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgMosaicEnabled : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "sideScanTvgMosaicEnabled", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: tvgSideGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Noise floor subtraction")
+                    decimals: 2
+                    values: [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgNoiseFloor : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "sideScanTvgNoiseFloor", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: tvgSideGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Spreading")
+                    unit:  qsTr("dB/decade")
+                    decimals: 1
+                    values: [0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgSpreading : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "sideScanTvgSpreading", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: tvgSideGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Absorption")
+                    unit:  qsTr("dB/m")
+                    decimals: 2
+                    values: [0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.8, 1.0]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgAbsorption : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "sideScanTvgAbsorption", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: tvgSideGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Reference range")
+                    unit:  qsTr("m")
+                    decimals: 0
+                    values: [2, 5, 10, 15, 20, 30, 50]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgRefRange : 10
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "sideScanTvgRefRange", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: tvgSideGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Detail boost")
+                    decimals: 1
+                    values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgBoost : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "sideScanTvgBoost", v)
+                    }
+                }
+            ]
+        }
+
+        // The four manipulation groups still to come. USB baud rate is NOT among them: it
         // lives in Connection now, and tier 3 arriving with its own copy is exactly the
         // duplicated ability this tier is being cleaned of.
-        Repeater { model: [ { id: "waterbody",   title: qsTr("Water body filter")  },
-                            { id: "tvg2d",       title: qsTr("TVG 2D")             },
-                            { id: "tvgside",     title: qsTr("TVG side scan")      },
-                            { id: "bottomtrack", title: qsTr("Bottom track")       },
+        Repeater { model: [ { id: "bottomtrack", title: qsTr("Bottom track")       },
                             { id: "depthfilter", title: qsTr("Depth filter")       },
                             { id: "stripes",     title: qsTr("Black stripes")      },
                             { id: "fakedepth",   title: qsTr("Depth manipulation") } ]
