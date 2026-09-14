@@ -2576,6 +2576,15 @@ ApplicationWindow  {
                     // other way up.
                     displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
 
+                    // OLD DATA, AS A BINDING ON THE ONE HOLDER OF THE POSITION.
+                    // historyTimeLineScroll is assigned from both panes and is what the
+                    // paused gutter already binds to, so there is no second idea of where
+                    // the timeline is. Suppressed for an opened file, where scrolling is
+                    // the point rather than a mistake - classic's own condition.
+                    scrolledBack: pulseRuntimeSettings
+                                  && !pulseRuntimeSettings.wasKlfFileOpened
+                                  && historyTimeLineScroll.timeLineScrollerPosition < 0.999
+
                     // THE SPEED, IN ITS TWO JOBS. The runtime key is what the picture runs
                     // at and so what the pill says; the persistent key is what the user
                     // set and is the trigger only. PulsePillColumn explains why they are
@@ -2594,6 +2603,16 @@ ApplicationWindow  {
                     onStopDemo: {
                         console.log("PILL: stopping the demo")
                         pulseRuntimeSettings.exitDemoMode()
+                    }
+
+                    // BACK TO LIVE - the same three things, in the same order, that a move
+                    // of the history bar does. resetAim() matters for the same reason: the
+                    // crosshair is anchored to an epoch, and the head is a different one.
+                    onGoLive: {
+                        console.log("PILL: back to live from a scrolled-back echogram")
+                        historyTimeLineScroll.timeLineScrollerPosition = 1
+                        core.setTimelinePosition(1)
+                        core.resetAim()
                     }
 
                     // A QUESTION MUST NEVER OUTLIVE WHAT IT IS ABOUT. If recording stops or

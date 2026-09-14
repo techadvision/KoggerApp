@@ -29,6 +29,19 @@ Item {
 
     property bool   recording:      false
 
+    // ---- OLD DATA -----------------------------------------------------------
+    //
+    // A BINDING, NOT AN ARMING. Classic arms this from a drag handler, runs a 6 s
+    // countdown and two timers, and then drags the picture back to live by itself.
+    // Olav: "The 6 Sec countdown can then be removed. User can decide for himself,
+    // and the warning is anyway on the screen." So there is no countdown, no auto
+    // return and no timer in this file - the pill is simply up while the timeline is
+    // off the head, and it goes when the timeline returns. One value, one holder,
+    // nothing to keep in step.
+    property bool   scrolledBack:   false
+
+    signal goLive()
+
     // ---- ECHOGRAM SPEED, AND WHY IT IS TWO PROPERTIES ------------------------
     //
     // echogramSpeed is pulseRuntimeSettings' - what the PICTURE is running at, and so
@@ -122,6 +135,76 @@ Item {
         anchors.bottomMargin: pillColumn.safeBottom  + Math.round(14 * pillColumn.uiScale)
 
         spacing: Math.round(10 * pillColumn.uiScale)
+
+        // OLD DATA. Olav's sentence, and the demo pill's pattern in a warning accent -
+        // same capsule, same body, same divider, same word in the action slot. What
+        // separates them is the colour and the fact that this one is about to be acted
+        // on: "Stop" ends a demo, "Live now" ends a scroll.
+        //
+        // FIRST IN THE COLUMN. It is the most urgent thing the column can say, and the
+        // arithmetic works in its favour: a Column anchored at its BOTTOM - which is
+        // where this column sits on a side scan - grows upward when a first child
+        // appears, so nothing below it moves.
+        //
+        // NO BUTTON THAT ONLY WAITS. The action does exactly what classic's timer did
+        // after six seconds, at the moment the user asks for it instead.
+        Rectangle {
+            id: oldDataPill
+
+            visible: pillColumn.scrolledBack
+            height:  Math.round(46 * pillColumn.uiScale)
+            width:   oldDataRow.width + Math.round(28 * pillColumn.uiScale)
+            radius:  height / 2
+
+            color: "#cc0f1317"
+            border.width: 1
+            border.color: "#d8a21f"
+
+            Row {
+                id: oldDataRow
+                anchors.centerIn: parent
+                spacing: Math.round(12 * pillColumn.uiScale)
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: qsTr("You scrolled back")
+                    color: "#f4ead6"
+                    font.pixelSize: Math.round(17 * pillColumn.uiScale)
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width:  1
+                    height: Math.round(24 * pillColumn.uiScale)
+                    color: "#30ffffff"
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width:  oldDataActionLabel.width + Math.round(26 * pillColumn.uiScale)
+                    height: Math.round(34 * pillColumn.uiScale)
+                    radius: height / 2
+                    color: oldDataActionArea.pressed ? "#8f7318" : "#3a2f14"
+                    border.width: 1
+                    border.color: "#d8a21f"
+
+                    Text {
+                        id: oldDataActionLabel
+                        anchors.centerIn: parent
+                        text: qsTr("Live now")
+                        color: "#f4dfae"
+                        font.pixelSize: Math.round(16 * pillColumn.uiScale)
+                        font.bold: true
+                    }
+
+                    MouseArea {
+                        id: oldDataActionArea
+                        anchors.fill: parent
+                        onClicked: pillColumn.goLive()
+                    }
+                }
+            }
+        }
 
         // WHAT THE APP IS PRESENTING AS. This is backlog item 8's claim made visible: with
         // nothing connected, the log decides the whole interface, so the app is calling

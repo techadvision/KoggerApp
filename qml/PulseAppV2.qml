@@ -45,8 +45,32 @@ Item {
         // no-op until stage 4 (b) builds the filter control
     }
 
+    // THE WARNING ITSELF IS NOT HERE, and that is the point. Whether the echogram is off
+    // the head is one app-wide fact - main.qml's historyTimeLineScroll holds it, both panes
+    // write it - so the pill binds to that in PulsePillColumn and no pane has to announce
+    // anything. What IS per-pane is the hold, because it is a call on THIS plot.
+    //
+    // WHAT THE HOLD DOES: plot2D.cpp's followLive drags the picture back to the head on
+    // every ping unless something says otherwise, and echogramHoldHistory_ is that
+    // something. Without it a scrolled-back echogram is yanked live again before the user
+    // can read it. Classic ties the hold to its indicator's visibility; here it is the one
+    // job this function has left. (followLive is 32-bit-only today, so on a 64-bit build
+    // the hold changes nothing - it is still wrong to leave unset.)
     function armOldDataWarning() {
-        // no-op until stage 4 (b) builds the readout
+        if (plot)
+            plot.setHoldHistory(true)
+    }
+
+    Connections {
+        target: plot ? plot : undefined
+
+        // AND RELEASED WHEN THE PICTURE IS BACK AT THE HEAD, by whatever route - the
+        // pill's Live now, the history bar, or the user dragging forward. One release,
+        // one condition, so the hold cannot be left on.
+        function onTimelinePositionChanged() {
+            if (plot && plot.timelinePosition >= 0.999)
+                plot.setHoldHistory(false)
+        }
     }
 
     // ---- Platform helpers, ON THE ROOT --------------------------------------
