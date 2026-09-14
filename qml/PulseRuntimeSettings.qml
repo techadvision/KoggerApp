@@ -1619,18 +1619,110 @@ QtObject {
     //same reason displayThemeId does: a string compared in several places is a string
     //that will be spelt differently in one of them.
     readonly property bool uiVariantIsV2:   pulseSettings.uiVariant === "v2"
-    property int    chartResolution:                committedProfile.chartResolution
-    property int    chartSamples:                   committedProfile.chartSamples
-    property int    chartOffset:                    committedProfile.chartOffset
-    property int    distMax:                        committedProfile.distMax
+
+    // ======================================================================
+    // THE LIVE DEVICE PARAMETER STATE
+    //
+    // WHAT WAS WRONG. Sixteen of these values were plain bindings on committedProfile that
+    // something ASSIGNED - the expert panel, DeviceItem's configuration pass, the classic
+    // cone chooser, the connection screen. An assignment destroys a binding permanently, so
+    // after the first touch the value stopped following the committed profile. That is why
+    // swapping transducers left the new device wearing the old one's numbers: nothing
+    // changed, so none of DeviceItem's onXChanged handlers fired, so the device was never
+    // told anything.
+    //
+    // WHAT THIS IS. Not an "expert override" - Olav's question is what named it correctly.
+    // DeviceItem writes chartSamples from the depth engine on every resolution step, so the
+    // same store holds engine output, configuration output and an expert's experiment. It
+    // is the LIVE PARAMETER STATE, kept per profile, seeded from the profile:
+    //
+    //     the profile record           the default for this device
+    //            |
+    //     liveParams[profileKey]       whatever anyone has set on top
+    //            |
+    //     the property (readonly)      what everything reads
+    //
+    // Three rules fall out of that with no special cases. It is RUNTIME, so every app start
+    // returns to profile defaults - Olav: an expert experimenting with samples on a new
+    // device "will need to start from scratch at app start". It is KEYED BY PROFILE, so a
+    // red's state and a blue's never mix, and swapping away and back within a session finds
+    // the experiment still there. And it is READONLY, so the binding cannot be destroyed by
+    // a stray assignment ever again.
+    //
+    // THE C++ STILL GETS TOLD. DeviceItem watches the property's CHANGE SIGNAL -
+    // `function onChartSamplesChanged() { dev.chartSamples = ... }` - and a readonly
+    // property with a binding emits that signal exactly as an assigned one did. QML does not
+    // distinguish "changed because someone assigned it" from "changed because the binding
+    // re-evaluated", so all ten handlers keep working untouched.
+    //
+    // SOUND SPEED IS DELIBERATELY NOT IN HERE. Everything in this map is per-device, and
+    // sound speed is a property of the water - see soundSpeedOverride further down.
+    property var liveParams: ({})
+
+    function _paramsForCommitted() {
+        var mine = liveParams[committedProfileKey]
+        return mine ? mine : ({})
+    }
+
+    // ONE READER for every managed key. Reading committedProfile[name] rather than a named
+    // property is what lets this be one function instead of sixteen - and the binding still
+    // tracks correctly, because the QML properties it reads are liveParams,
+    // committedProfileKey and committedProfile, all of which it touches on every call.
+    function paramValue(name) {
+        var mine = _paramsForCommitted()
+        return (mine[name] !== undefined) ? mine[name] : committedProfile[name]
+    }
+
+    // ONE WRITER, AND IT BUILDS A NEW OBJECT EVERY TIME.
+    //
+    // This is the whole mechanism's single point of failure, so it does not rely on a
+    // guess. Mutating the map in place and assigning it back to itself may not emit
+    // liveParamsChanged at all - a `var` property handed the SAME reference has no reason
+    // to think anything changed - and without that signal no binding re-evaluates and the
+    // feature silently does nothing. A fresh object cannot be mistaken for the old one.
+    //
+    // It is also the same mistake one level down that let the old controls edit the
+    // profile's own array: reusing a reference someone else is holding.
+    function _copyOf(obj) {
+        var out = ({})
+        if (obj)
+            for (var k in obj)
+                out[k] = obj[k]
+        return out
+    }
+
+    function setParam(name, value) {
+        if (paramValue(name) === value)
+            return
+        var all  = _copyOf(liveParams)
+        var mine = _copyOf(all[committedProfileKey])
+        mine[name] = value
+        all[committedProfileKey] = mine
+        liveParams = all
+        console.log("PARAM:", committedProfileKey, name, "->", value)
+    }
+
+    // Back to what the profile says, for this device. Nothing calls it yet; it is the
+    // honest answer to "put the experiment back" and it costs four lines.
+    function clearParams() {
+        var all = _copyOf(liveParams)
+        delete all[committedProfileKey]
+        liveParams = all
+        console.log("PARAM:", committedProfileKey, "- back to the profile defaults")
+    }
+
+    readonly property int chartResolution:           paramValue("chartResolution")
+    readonly property int chartSamples:              paramValue("chartSamples")
+    readonly property int chartOffset:               paramValue("chartOffset")
+    readonly property int distMax:                   paramValue("distMax")
     property int    distDeadZone:                   committedProfile.distDeadZone
-    property int    distConfidence:                 committedProfile.distConfidence
-    property int    transPulse:                     committedProfile.transPulse
-    property int    transFreq:                      committedProfile.transFreq
-    property int    transBoost:                     committedProfile.transBoost
+    readonly property int distConfidence:            paramValue("distConfidence")
+    readonly property int transPulse:                paramValue("transPulse")
+    readonly property int transFreq:                 paramValue("transFreq")
+    readonly property int transBoost:                paramValue("transBoost")
     property int    dspHorSmooth:                   committedProfile.dspHorSmooth
-    property int    ch1Period:                      committedProfile.ch1Period
-    property int    datasetChart:                   committedProfile.datasetChart
+    readonly property int ch1Period:                 paramValue("ch1Period")
+    readonly property int datasetChart:              paramValue("datasetChart")
     property int    datasetDist:                    committedProfile.datasetDist
     property int    datasetSDDBT:                   committedProfile.datasetSDDBT
     property int    datasetEuler:                   committedProfile.datasetEuler
@@ -1642,15 +1734,15 @@ QtObject {
     property int    transFreqWide:                  coneFreq(0, committedProfile.transFreq)
     property int    transFreqMedium:                coneFreq(1, committedProfile.transFreq)
     property int    transFreqNarrow:                coneFreq(2, committedProfile.transFreq)
-    property int    maximumDepth:                   committedProfile.maximumDepth
-    property var    doDynamicResolution:            committedProfile.doDynamicResolution
-    property var    fixBlackStripesForwardSteps:    committedProfile.fixBlackStripesForwardSteps
-    property var    fixBlackStripesBackwardSteps:   committedProfile.fixBlackStripesBackwardSteps
+    readonly property int maximumDepth:              paramValue("maximumDepth")
+    readonly property var doDynamicResolution:       paramValue("doDynamicResolution")
+    readonly property var fixBlackStripesForwardSteps:  paramValue("fixBlackStripesForwardSteps")
+    readonly property var fixBlackStripesBackwardSteps: paramValue("fixBlackStripesBackwardSteps")
     property var    fixBlackStripesState:           committedProfile.fixBlackStripesState
     property var    temperatureCorrection:          committedProfile.temperatureCorrection
-    property var    bottomTrackVisible:             committedProfile.bottomTrackVisible
+    readonly property var bottomTrackVisible:        paramValue("bottomTrackVisible")
     property var    bottomTrackVisibleModel:        committedProfile.bottomTrackVisibleModel
-    property bool   processBottomTrack:             committedProfile.processBottomTrack
+    readonly property bool processBottomTrack:       paramValue("processBottomTrack")
     // ---- TWO VALUES THE PROFILE SUPPLIES AND AN EXPERT MAY OVERRIDE ---------
     //
     // Both were plain bindings on committedProfile that the expert controls ASSIGNED, which
@@ -1685,24 +1777,14 @@ QtObject {
         console.log("SOUND SPEED: override ->", next, "(profile says", committedProfile.soundSpeed + ")")
     }
 
-    // BOTTOM TRACK PROCESSING, and the opposite rule on a swap. These ARE transducer
-    // parameters - a window and a gain slope tuned for a red say nothing about a blue - so
-    // the override is dropped when the committed profile changes and the new device's own
-    // numbers take over. That is the whole difference between this and the sound speed
-    // above, and it is why they are two separate mechanisms rather than one.
-    property var    distProcessingOverride:        null
-    readonly property var distProcessing:
-        distProcessingOverride ? distProcessingOverride : committedProfile.distProcessing
+    // BOTTOM TRACK PROCESSING lives in the map like every other device parameter, which is
+    // why it needs no clear-on-swap handler of its own: stored under the red's key, it is
+    // simply not found when a blue is committed, and the blue reads its own profile.
+    readonly property var distProcessing:          paramValue("distProcessing")
 
-    onCommittedProfileChanged: {
-        if (distProcessingOverride !== null) {
-            console.log("BOTTOM TRACK: profile changed - dropping the expert override")
-            distProcessingOverride = null
-        }
-    }
-
-    // COPIES BEFORE IT WRITES. slice() is the whole point of this function: without it the
-    // assignment lands in the profile's array and the default is gone for the run.
+    // COPIES BEFORE IT WRITES. slice() is the whole point: the binding hands back the
+    // PROFILE'S OWN array, so writing into it edits distProcPulseRed itself and the default
+    // is gone for the run. Five expert rows did exactly that.
     function setDistProcessingAt(index, value) {
         var current = distProcessing
         if (!current || index < 0 || index >= current.length)
@@ -1711,8 +1793,7 @@ QtObject {
             return
         var next = current.slice()
         next[index] = value
-        distProcessingOverride = next
-        console.log("BOTTOM TRACK: distProcessing[" + index + "] ->", value)
+        setParam("distProcessing", next)
     }
 
     //ACTUAL DEVICE PARAMETER VALUE COPY

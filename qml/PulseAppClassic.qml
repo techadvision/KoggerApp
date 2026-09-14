@@ -566,9 +566,9 @@ Item {
                     console.log("TAV: onDevIdentifiedChanged true, is this a 2D transducer?", pulseRuntimeSettings.is2DTransducer);
                     if (pulseRuntimeSettings.is2DTransducer) {
                         if (pulseRuntimeSettings.resolveConeId(pulseSettings.ecoConeId) === "wide") {
-                            pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqWide
+                            pulseRuntimeSettings.setParam("transFreq", pulseRuntimeSettings.transFreqWide)
                         } else {
-                            pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqNarrow
+                            pulseRuntimeSettings.setParam("transFreq", pulseRuntimeSettings.transFreqNarrow)
                         }
                         console.log("TAV: Preferred echosounder 2D cone:", pulseRuntimeSettings.transFreq);
                     }
@@ -1374,9 +1374,9 @@ Item {
                     pulseRuntimeSettings.isHorizontalGrid = true
                      plotDistanceRange2dTimer.start()
                     //Set the offset
-                    pulseRuntimeSettings.chartOffset = 0
+                    pulseRuntimeSettings.setParam("chartOffset", 0)
                     //Set the frequency
-                    pulseRuntimeSettings.transFreq = frequency
+                    pulseRuntimeSettings.setParam("transFreq", frequency)
                 }
                 function setSideScan (frequency) {
                     pulseRuntimeSettings.isSideScan2DView = false
@@ -1384,7 +1384,7 @@ Item {
                     plot.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
                     plotDistanceRangeTimer.start()
 
-                    pulseRuntimeSettings.transFreq = frequency
+                    pulseRuntimeSettings.setParam("transFreq", frequency)
                 }
 
                 Timer {
@@ -1491,7 +1491,7 @@ Item {
                 function applyConeEntry (c) {
                     if (!c)
                         return
-                    pulseRuntimeSettings.transFreq = c.freq
+                    pulseRuntimeSettings.setParam("transFreq", c.freq)
                     console.log("TAV: Selected echosounder cone (frequency):", pulseRuntimeSettings.transFreq)
                 }
 

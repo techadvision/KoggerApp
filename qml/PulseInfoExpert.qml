@@ -121,10 +121,14 @@ Flickable {
             text: "Use echogram"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatExperimental
             SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "datasetChart"
+                //A MANAGED DEVICE PARAMETER, written through setParam() rather than by
+                //the generic target write-back: the property is readonly now, so an
+                //assignment would only produce a warning. See "THE LIVE DEVICE PARAMETER
+                //STATE" in PulseRuntimeSettings.qml.
                 initialChecked: pulseRuntimeSettings.datasetChart
                 clearAfter: false
+                writeBackOnUserActionOnly: true
+                onToggled: pulseRuntimeSettings.setParam("datasetChart", checked)
             }
         }
 
@@ -141,7 +145,7 @@ Flickable {
 
                 //onPulsePreferenceValueChanged: pulseRuntimeSettings.transBoost = newValue
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.transBoost = newValue
+                    pulseRuntimeSettings.setParam("transBoost", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -175,7 +179,7 @@ Flickable {
                 values: [460, 820]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.transFreq = newValue
+                    pulseRuntimeSettings.setParam("transFreq", newValue)
                     console.log("Expert changed frequency for Pulse Blue to", newValue)
                     if (newValue === 820) {
                         pulseRuntimeSettings.useBlueHighFrequency = true
@@ -217,7 +221,7 @@ Flickable {
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                     21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
 
-                onPulsePreferenceValueChanged: pulseRuntimeSettings.chartOffset = newValue
+                pulseRuntimeSettings.setParam("chartOffset", newValue)
                 height: 80
                 Layout.preferredWidth: 280
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
@@ -259,7 +263,7 @@ Flickable {
 
                 //onPulsePreferenceValueChanged: pulseRuntimeSettings.transFreq = newValue
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.transFreq = newValue
+                    pulseRuntimeSettings.setParam("transFreq", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -316,7 +320,7 @@ Flickable {
                 onDeviceValueChanged: currentValue = deviceValue
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.ch1Period = newValue
+                    pulseRuntimeSettings.setParam("ch1Period", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -361,7 +365,7 @@ Flickable {
                 onDeviceValueChanged: currentValue = deviceValue
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.chartSamples = newValue
+                    pulseRuntimeSettings.setParam("chartSamples", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -406,7 +410,7 @@ Flickable {
                 onDeviceValueChanged: currentValue = deviceValue
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.chartResolution = newValue
+                    pulseRuntimeSettings.setParam("chartResolution", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -434,8 +438,8 @@ Flickable {
                     pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto) {
                     newMaximumDepth = newMaximumDepth + 2
                 }
-                pulseRuntimeSettings.maximumDepth = newMaximumDepth
-                pulseRuntimeSettings.distMax = newValue
+                pulseRuntimeSettings.setParam("maximumDepth", newMaximumDepth)
+                pulseRuntimeSettings.setParam("distMax", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -489,7 +493,7 @@ Flickable {
                     91, 92, 93, 94, 95, 96, 97, 98, 99, 100]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.distConfidence = newValue
+                    pulseRuntimeSettings.setParam("distConfidence", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -531,7 +535,7 @@ Flickable {
                     41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.transPulse = newValue
+                    pulseRuntimeSettings.setParam("transPulse", newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -1107,9 +1111,13 @@ Flickable {
             text: "Use bottom track depth"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "processBottomTrack"
+                //A MANAGED DEVICE PARAMETER, written through setParam() rather than by
+                //the generic target write-back: the property is readonly now, so an
+                //assignment would only produce a warning. See "THE LIVE DEVICE PARAMETER
+                //STATE" in PulseRuntimeSettings.qml.
                 initialChecked: pulseRuntimeSettings.processBottomTrack
+                writeBackOnUserActionOnly: true
+                onToggled: pulseRuntimeSettings.setParam("processBottomTrack", checked)
             }
             Connections {
                 target: pulseRuntimeSettings
@@ -1133,9 +1141,13 @@ Flickable {
             text: "Show visible bottom tracks"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatBottomTrack
             SettingsCheckBox {
-                target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "bottomTrackVisible"
+                //A MANAGED DEVICE PARAMETER, written through setParam() rather than by
+                //the generic target write-back: the property is readonly now, so an
+                //assignment would only produce a warning. See "THE LIVE DEVICE PARAMETER
+                //STATE" in PulseRuntimeSettings.qml.
                 initialChecked: pulseRuntimeSettings.bottomTrackVisible
+                writeBackOnUserActionOnly: true
+                onToggled: pulseRuntimeSettings.setParam("bottomTrackVisible", checked)
             }
         }
 
@@ -1337,7 +1349,7 @@ Flickable {
                 }
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.fixBlackStripesForwardSteps  = newValue
+                    pulseRuntimeSettings.setParam("fixBlackStripesForwardSteps", newValue)
                     core.fixBlackStripesForwardSteps  = newValue
                 }
             }
@@ -1365,7 +1377,7 @@ Flickable {
                 }
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.fixBlackStripesBackwardSteps = newValue
+                    pulseRuntimeSettings.setParam("fixBlackStripesBackwardSteps", newValue)
                     core.fixBlackStripesBackwardSteps = newValue
                 }
             }

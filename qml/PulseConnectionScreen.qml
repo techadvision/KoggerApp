@@ -298,9 +298,9 @@ Item {
         // the configuration pass. (The maximumDepth assignment here is the third of the
         // three writers named in backlog item 11 - parked on purpose, not touched here.)
         if (card.profile === pulseRuntimeSettings.modelPulseBlue) {
-            pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth
-            pulseRuntimeSettings.distMax         = 1000 * pulseSettings.echogramWidth
-            pulseRuntimeSettings.maximumDepth    = pulseSettings.echogramWidth
+            pulseRuntimeSettings.setParam("chartResolution", pulseSettings.echogramWidth)
+            pulseRuntimeSettings.setParam("distMax", 1000 * pulseSettings.echogramWidth)
+            pulseRuntimeSettings.setParam("maximumDepth", pulseSettings.echogramWidth)
         }
 
         // With a device attached DeviceItem has already cleared this synchronously. With

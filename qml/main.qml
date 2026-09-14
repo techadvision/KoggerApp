@@ -146,7 +146,7 @@ ApplicationWindow  {
             //No need to do this for Experts only anymore - we use bottom track for everyone!!!
             /*
             if (pulseRuntimeSettings.expertMode && pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed) {
-                pulseRuntimeSettings.processBottomTrack = true
+                pulseRuntimeSettings.setParam("processBottomTrack", true)
             }
             */
 
@@ -2392,6 +2392,18 @@ ApplicationWindow  {
                     }
 
                     onSettingChanged: function (target, key, value) {
+                        // A THIRD TARGET, and it is not a third object. "param" is a
+                        // MANAGED DEVICE PARAMETER: readonly, living in the per-profile
+                        // live parameter map, and reachable only through setParam(). The
+                        // row declares which kind of key it is writing, so this handler
+                        // does not have to carry a list of which names are special - a
+                        // list that would fall out of step the first time one is added.
+                        if (target === "param") {
+                            if (pulseRuntimeSettings)
+                                pulseRuntimeSettings.setParam(key, value)
+                            return
+                        }
+
                         var obj = (target === "runtime") ? pulseRuntimeSettings : pulseSettings
                         if (!obj) {
                             console.log("SETTINGS: no", target, "object for", key)
@@ -3745,10 +3757,10 @@ ApplicationWindow  {
         } else {
             pulseRuntimeSettings.isSideScan2DView = true
             pulseRuntimeSettings.isHorizontalGrid = true
-            pulseRuntimeSettings.chartOffset = 0
+            pulseRuntimeSettings.setParam("chartOffset", 0)
             plotDistanceRange2dV2Timer.restart()
         }
-        pulseRuntimeSettings.transFreq = v.freq
+        pulseRuntimeSettings.setParam("transFreq", v.freq)
     }
 
     function applyConeId(id) {
@@ -3758,7 +3770,7 @@ ApplicationWindow  {
         if (!c)
             return
         console.log("CONE: applying", c.id, "-", c.freq, "kHz")
-        pulseRuntimeSettings.transFreq = c.freq
+        pulseRuntimeSettings.setParam("transFreq", c.freq)
     }
 
     // THE TEN MILLISECONDS ARE THE CLASSIC ONES. The property writes above have to land

@@ -249,9 +249,14 @@ for (const { where, e } of allEntries) {
 eq("an id never describes two different entries", conflicts, []);
 
 // ---- 2. every profile read in the QML resolves ---------------------------
+// COMMENTS ARE NOT READS. This scanned the raw source, so a `committedProfile.X` written
+// inside a comment - a diagram in PulseRuntimeSettings explaining the lookup - failed the
+// check with a key named X. A commented-out line reads nothing, so stripping line comments
+// makes the check mean what its name says.
+const scanned = src.replace(/^\s*\/\/[^\n]*$/gm, "").replace(/\/\/[^\n]*/g, "");
 const reads = [...new Set([
-  ...[...src.matchAll(/committedProfile\.(\w+)/g)].map(m => m[1]),
-  ...[...src.matchAll(/activeProfile\.(\w+)/g)].map(m => m[1])
+  ...[...scanned.matchAll(/committedProfile\.(\w+)/g)].map(m => m[1]),
+  ...[...scanned.matchAll(/activeProfile\.(\w+)/g)].map(m => m[1])
 ])].sort();
 const missing = reads.filter(k => Object.values(profiles).some(p => !(k in p)));
 eq("every committedProfile./activeProfile. read has a key (" + reads.length + " reads)", missing, []);

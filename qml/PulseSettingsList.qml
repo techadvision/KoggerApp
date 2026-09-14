@@ -881,18 +881,11 @@ Item {
             onToggled: list.toggle("bottomtrack")
 
             content: [
-                // FOUR ROWS IN THIS COMMIT WRITE A PROFILE-BOUND KEY DIRECTLY, and that
-                // is a known defect being matched rather than introduced: processBottomTrack
-                // and bottomTrackVisible here, and both black-stripe steps below, are
-                // `property X: committedProfile.X` - so assigning one destroys its binding
-                // and it stops following a device swap for the rest of the run.
-                //
-                // Classic already writes all four, so v2 changes nothing about whether the
-                // defect exists. It is NOT given the soundSpeed/distProcessing treatment
-                // here because sixteen of the thirty profile-bound keys are assigned
-                // somewhere in the tree - including transFreq from eleven places - and four
-                // hand-written override pairs would be work a proper sweep throws away. The
-                // sweep wants ONE mechanism, and it belongs in the bug-fixing chat.
+                // FOUR ROWS HERE WRITE A MANAGED DEVICE PARAMETER - processBottomTrack
+                // and bottomTrackVisible in this group, both black-stripe steps below - so
+                // they use the "param" target rather than "runtime". Those properties are
+                // readonly now and live in the per-profile parameter map; see "THE LIVE
+                // DEVICE PARAMETER STATE" in PulseRuntimeSettings.qml.
                 PulseSwitchRow {
                     width: bottomTrackGroup.contentWidth
                     uiScale: list.uiScale
@@ -902,7 +895,7 @@ Item {
                     checked: pulseRuntimeSettings ? pulseRuntimeSettings.processBottomTrack : false
 
                     onToggled: function (v) {
-                        list.settingChanged("runtime", "processBottomTrack", v)
+                        list.settingChanged("param", "processBottomTrack", v)
                     }
                 },
 
@@ -914,7 +907,7 @@ Item {
                     checked: pulseRuntimeSettings ? pulseRuntimeSettings.bottomTrackVisible : false
 
                     onToggled: function (v) {
-                        list.settingChanged("runtime", "bottomTrackVisible", v)
+                        list.settingChanged("param", "bottomTrackVisible", v)
                     }
                 },
 
@@ -1137,7 +1130,7 @@ Item {
                     value: pulseRuntimeSettings ? pulseRuntimeSettings.fixBlackStripesForwardSteps : 0
 
                     onStepped: function (v) {
-                        list.settingChanged("runtime", "fixBlackStripesForwardSteps", v)
+                        list.settingChanged("param", "fixBlackStripesForwardSteps", v)
                     }
                 },
 
@@ -1151,7 +1144,7 @@ Item {
                     value: pulseRuntimeSettings ? pulseRuntimeSettings.fixBlackStripesBackwardSteps : 0
 
                     onStepped: function (v) {
-                        list.settingChanged("runtime", "fixBlackStripesBackwardSteps", v)
+                        list.settingChanged("param", "fixBlackStripesBackwardSteps", v)
                     }
                 }
             ]

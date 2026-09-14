@@ -353,7 +353,7 @@ ColumnLayout {
                         if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue) {
                             return
                         }
-                        pulseRuntimeSettings.chartSamples = pulseRuntimeSettings.dynamicSamples
+                        pulseRuntimeSettings.setParam("chartSamples", pulseRuntimeSettings.dynamicSamples)
                         //console.log("DYNAMIC: received onDynamicSamplesChanged value ", pulseRuntimeSettings.dynamicSamples)
                     }
                 }
@@ -800,7 +800,7 @@ ColumnLayout {
                         }
                     }
                     function onDynamicPeriodChanged () {
-                        pulseRuntimeSettings.ch1Period = pulseRuntimeSettings.dynamicPeriod
+                        pulseRuntimeSettings.setParam("ch1Period", pulseRuntimeSettings.dynamicPeriod)
                     }
                 }
             }
@@ -1146,7 +1146,7 @@ ColumnLayout {
             console.log("DEV_PARAM: pulseRuntimeSettings - cone for", pulseRuntimeSettings.userManualSetName)
             var setupCone = pulseRuntimeSettings.coneForId(pulseSettings.ecoConeId)
             if (setupCone) {
-                pulseRuntimeSettings.transFreq = setupCone.freq
+                pulseRuntimeSettings.setParam("transFreq", setupCone.freq)
                 console.log("DEV_PARAM: cone", setupCone.name, "->", setupCone.freq)
             }
         }
@@ -1877,15 +1877,15 @@ ColumnLayout {
             if (pulseRuntimeSettings.offersConeChoice) {
                 let enforceCone = pulseRuntimeSettings.coneForId(pulseSettings.ecoConeId)
                 if (enforceCone) {
-                    pulseRuntimeSettings.transFreq = enforceCone.freq
+                    pulseRuntimeSettings.setParam("transFreq", enforceCone.freq)
                     console.log("DEV_PARAM: use frequency for cone", enforceCone.name, "->", enforceCone.freq)
                 }
             } else {
                 //Pulse Blue
                 //pulseRuntimeSettings.transFreq = pulseRuntimeSettings.transFreqMedium
-                pulseRuntimeSettings.chartResolution = pulseSettings.echogramWidth //- This workaround will lower resolution but keep the data rate unchanged. Fits anglers, but not SAR
-                pulseRuntimeSettings.distMax = 1000 * pulseSettings.echogramWidth
-                pulseRuntimeSettings.maximumDepth = pulseSettings.echogramWidth
+                pulseRuntimeSettings.setParam("chartResolution", pulseSettings.echogramWidth) //- This workaround will lower resolution but keep the data rate unchanged. Fits anglers, but not SAR
+                pulseRuntimeSettings.setParam("distMax", 1000 * pulseSettings.echogramWidth)
+                pulseRuntimeSettings.setParam("maximumDepth", pulseSettings.echogramWidth)
             }
         }
 
@@ -1918,11 +1918,11 @@ ColumnLayout {
                 return
 
             let newResoultion = pulseSettings.echogramWidth
-            pulseRuntimeSettings.chartResolution = newResoultion
+            pulseRuntimeSettings.setParam("chartResolution", newResoultion)
             console.log("Got a new resolution from echogramWidth:", pulseSettings.echogramWidth," let's change chartResolution")
 
             let newMaxDepth = newResoultion * 1000
-            pulseRuntimeSettings.distMax = newMaxDepth
+            pulseRuntimeSettings.setParam("distMax", newMaxDepth)
         }
 
         function onPositionSourceAutoPilotChanged () {
@@ -1965,7 +1965,7 @@ ColumnLayout {
             pulseRuntimeSettings.numberOfDatasetChannels = 0
             pulseRuntimeSettings.forceUpdateResolution = true
             pulseRuntimeSettings.pulseBlueResSetOnce = false
-            pulseRuntimeSettings.doDynamicResolution = false
+            pulseRuntimeSettings.setParam("doDynamicResolution", false)
             pulseRuntimeSettings.swapDeviceNow = false
             pulseRuntimeSettings.reconnectAfterLogView = false
             core.closeLogFile()
@@ -2057,7 +2057,7 @@ ColumnLayout {
                 pulseRuntimeSettings.numberOfDatasetChannels = 0
                 pulseRuntimeSettings.forceUpdateResolution = true
                 pulseRuntimeSettings.pulseBlueResSetOnce = false
-                pulseRuntimeSettings.doDynamicResolution = false
+                pulseRuntimeSettings.setParam("doDynamicResolution", false)
                 pulseRuntimeSettings.swapDeviceNow = false
                 //settingsCompleted = false
                 //deviceIdentified = false
