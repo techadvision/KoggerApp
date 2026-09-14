@@ -1168,11 +1168,17 @@ ApplicationWindow  {
                 !pulseRuntimeSettings.is2DTransducer
                 && (pulseRuntimeSettings.mavlinkDetected || (core.filePath && core.filePath.length > 0))
 
-            // Force back to the echogram if the toggle becomes unavailable (e.g. file closed).
+            // Force back to the echogram if the toggle becomes unavailable (e.g. file closed),
+            // and - since 14 Sept - let the stored screen preference have its say when it
+            // becomes available again. A user whose preference is the mosaic asked for the
+            // mosaic; they should get it when the fix arrives rather than having to ask twice.
+            // applyScreenId is a no-op outside the v2 variant, so this changes nothing in
+            // classic.
             onView3dToggleAvailableChanged: {
-                if (!view3dToggleAvailable) {
+                if (!view3dToggleAvailable)
                     mosaicViewActive = false
-                }
+                else
+                    mainview.applyScreenId(pulseSettings.screenViewId)
             }
 
             readonly property bool has3DView: mosaicViewActive
@@ -2483,6 +2489,7 @@ ApplicationWindow  {
                         mainview.applyIntensity()
                         mainview.applyWaterBodyFilter()
                         mainview.applyMaxRange()
+                        mainview.applyScreenId(pulseSettings.screenViewId)
                     }
                     currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
 
@@ -3634,7 +3641,7 @@ ApplicationWindow  {
         function onIntensityRealValueChanged() { mainview.applyIntensity() }
         function onFilterRealValueChanged()    { mainview.applyWaterBodyFilter() }
 
-        function onEcoViewIdChanged() { mainview.applyViewId(pulseSettings.ecoViewId) }
+        function onScreenViewIdChanged() { mainview.applyScreenId(pulseSettings.screenViewId) }
         function onEcoConeIdChanged() { mainview.applyConeId(pulseSettings.ecoConeId) }
     }
 
@@ -3655,7 +3662,7 @@ ApplicationWindow  {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
         function onUserManualSetNameChanged() {
-            mainview.applyViewId(pulseSettings.ecoViewId)
+            mainview.applyScreenId(pulseSettings.screenViewId)
             mainview.applyConeId(pulseSettings.ecoConeId)
         }
     }
@@ -3777,6 +3784,83 @@ ApplicationWindow  {
         }
     }
 
+    // THE SCREEN PREFERENCE REACHES THE PICTURE (Stage 4 b). This is what applyViewId below
+    // used to do, minus the half that was never the screen's business.
+    //
+    // ONLY THE THREE FULL SCREENS ACT TODAY, on Olav's own sequencing: "The first ability to
+    // implemented could be the three full screen options as the top three choices." They are
+    // also exactly what the green pill does - "that is the only way I can swap between mosaic
+    // and the side scan view I have" - which is why the pill stays until these are proven on
+    // the water. Removing his only route to the mosaic before the replacement works would
+    // leave him with no route at all.
+    //
+    // A SPLIT CHANGES NOTHING YET, and that is declined rather than missing: the row is
+    // chosen, the preference is stored, and the picture holds whatever full screen it had.
+    // The split axis is still an open question - see the note in the strategy document.
+    //
+    // THE PILL IS STILL ITS OWN WRITER in the meantime, so tapping it moves the picture
+    // without moving the preference. Deliberately not fixed here: the pill is not gated on
+    // the v2 variant, so teaching it to write screenViewId would change the classic UI too.
+    function applyScreenId(id) {
+        if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersScreenChoice)
+            return
+        var e = pulseRuntimeSettings.screenForId(id)
+        if (!e)
+            return
+
+        console.log("SCREEN: applying", e.id, "- top", e.top,
+                    e.bottom === "" ? "(full screen)" : "+ bottom " + e.bottom)
+
+        if (e.bottom !== "")
+            return
+
+        if (e.top === "mosaic") {
+            // THE MOSAIC IS NOT ALWAYS POSSIBLE - it wants a side scan transducer AND a
+            // position, live or from a log. The stored preference is NOT written back when
+            // it is not: the user chose the mosaic and gets it the moment the fix arrives,
+            // which is what the re-apply on view3dToggleAvailable is for. Meanwhile the
+            // echogram's own mode is left exactly as it was rather than guessed at.
+            if (!visualisationLayout.view3dToggleAvailable) {
+                console.log("SCREEN: mosaic is stored but not available yet",
+                            "(needs a side scan transducer and a position) - holding the echogram")
+                visualisationLayout.mosaicViewActive = false
+                return
+            }
+            visualisationLayout.mosaicViewActive = true
+            return
+        }
+
+        visualisationLayout.mosaicViewActive = false
+        applyEchogramMode(e.top)
+    }
+
+    // THE MODE HALF, lifted out of applyViewId unchanged. The property writes decide the grid
+    // and which range call is made; the ten milliseconds in the timers are the classic ones,
+    // because the writes have to land before the plot is told to re-range or it ranges
+    // against the grid it is leaving.
+    //
+    // WHAT DID NOT COME WITH IT is setParam("transFreq", ...). A screen layout is not a
+    // frequency and never was the screen's business - the view chooser answered two questions
+    // at once, and this is the half that is genuinely about the screen. Nothing is lost today
+    // because every view blue offers is 460 kHz; a frequency chooser returns when power is
+    // fixed.
+    function applyEchogramMode(mode) {
+        if (mode === "side") {
+            pulseRuntimeSettings.isSideScan2DView = false
+            pulseRuntimeSettings.isHorizontalGrid = false
+            waterViewFirst.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
+            plotDistanceRangeV2Timer.restart()
+        } else {
+            pulseRuntimeSettings.isSideScan2DView = true
+            pulseRuntimeSettings.isHorizontalGrid = true
+            pulseRuntimeSettings.setParam("chartOffset", 0)
+            plotDistanceRange2dV2Timer.restart()
+        }
+    }
+
+    // DEAD FROM THIS COMMIT, and kept only until the view chooser is removed with the rest of
+    // what it belonged to. Nothing calls it: the rail opens "screen" rather than "view", so
+    // ecoViewId can no longer be written and its change handler is gone.
     function applyViewId(id) {
         if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersViewChoice)
             return
