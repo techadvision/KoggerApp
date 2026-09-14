@@ -87,11 +87,34 @@ Item {
     // SIBLING. The same move also retires the per-pane gate this file carried: one rail
     // above both panes, the way PulseConnectionScreen and PulseSetupOverlay already are.
     //
-    // WHAT STILL LANDS HERE is everything that genuinely belongs ON the picture and takes
-    // no width from it: the depth and temperature readout, the demo / log / recording
-    // indicator stack, and the paused crosshair and loupe. That is why displayIs2D and the
-    // inset helpers above stay - the indicator stack is the next commit, and it chooses its
-    // corner by the flow rule, top right on a 2D picture and bottom right on a side scan.
+    // WHAT LANDS HERE is what genuinely belongs ON the picture and takes no width from it.
+    // The indicator stack turned out not to be one of those after all - it reports app-wide
+    // facts, so it is one PulsePillColumn in main.qml on the right edge. The depth and
+    // temperature readout IS one: it is about the water under this pane, it is read
+    // continuously rather than glanced at, and it is the left edge's answer to the pills.
+
+    // DEPTH AND TEMPERATURE - the first thing this file has ever drawn.
+    //
+    // NEVER HIDDEN EXCEPT WHILE PAUSED, which is one binding and no handler. While the
+    // picture is frozen what matters is what is ON it: the loupe prints the depth under
+    // the crosshair, and a second live depth beside a frozen echogram would be two
+    // answers to one question.
+    PulseDepthReadout {
+        id: pulseDepthReadout
+
+        anchors.fill: parent
+
+        visible: !(pulseRuntimeSettings && pulseRuntimeSettings.echogramPause)
+
+        uiScale:     pulseAppV2.s
+        safeTop:     pulseAppV2.insetTop()
+        safeBottom:  pulseAppV2.insetBottom()
+        safeLeft:    pulseAppV2.insetLeft()
+
+        // RULE 1, handed down rather than asked again - the one display-side read in this
+        // file stays the one display-side read in this file.
+        displayIs2D: pulseAppV2.displayIs2D
+    }
 
     Component.onCompleted: console.log("PULSE UI: v2 on pane", plot ? plot.indx : "?",
                                        "| plot is", plot ? "set" : "NULL",
