@@ -49,6 +49,18 @@ Item {
     //
     // The gutter REPORTS and does not store, like every other V2 control: the position is
     // handed in and a move is a signal. main.qml stays the only thing that talks to core.
+    //
+    // AND IT IS A BINDING ALL THE WAY DOWN, with NO setPosition() anywhere. `value` on each
+    // slider binds to this property and nothing ever assigns to it. The first cut called
+    // setPosition() on visibility - which writes slider.value through the alias, DESTROYS
+    // that binding on the first pause, and leaves a pill that can never move again. That is
+    // rule 2, broken by the person who wrote the rule down.
+    //
+    // TimeLineShifter lives with the same hazard and pays for it: it pushes setPosition()
+    // from three handlers, because its own binding is destroyed the same way. The gutter
+    // needs no push handler, because it never breaks the binding in the first place.
+    // Neither slider writes its own value while being dragged - the note at the top of
+    // TimelineSliderVertical.qml says so - so there is nothing else to keep in step.
     property real timelinePosition: 1.0
     signal timelineMovedByUser(real pos)
 
@@ -185,7 +197,6 @@ Item {
             value: gutter.timelinePosition
 
             onPositionChangedByUser: function (pos) { gutter.timelineMovedByUser(pos) }
-            onVisibleChanged: if (visible) setPosition(gutter.timelinePosition)
         }
     }
 
@@ -272,7 +283,6 @@ Item {
             value: gutter.timelinePosition
 
             onPositionChangedByUser: function (pos) { gutter.timelineMovedByUser(pos) }
-            onVisibleChanged: if (visible) setPosition(gutter.timelinePosition)
         }
     }
 }
