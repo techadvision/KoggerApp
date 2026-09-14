@@ -1659,6 +1659,22 @@ QtObject {
     // sound speed is a property of the water - see soundSpeedOverride further down.
     property var liveParams: ({})
 
+    // THE MANAGED SET, WRITTEN DOWN ONCE. Anything that needs to know whether a key is one
+    // of these asks here rather than keeping its own list - main.qml's runtime-bus echo is
+    // the first caller, and a second list would fall out of step the first time a parameter
+    // is added.
+    readonly property var managedParamKeys: [
+        "chartResolution", "chartSamples", "chartOffset", "distMax", "distConfidence",
+        "transPulse", "transFreq", "transBoost", "ch1Period", "datasetChart",
+        "maximumDepth", "doDynamicResolution",
+        "fixBlackStripesForwardSteps", "fixBlackStripesBackwardSteps",
+        "bottomTrackVisible", "processBottomTrack", "distProcessing"
+    ]
+
+    function isManagedParam(name) {
+        return managedParamKeys.indexOf(name) !== -1
+    }
+
     function _paramsForCommitted() {
         var mine = liveParams[committedProfileKey]
         return mine ? mine : ({})

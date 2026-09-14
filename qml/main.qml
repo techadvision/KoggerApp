@@ -260,6 +260,22 @@ ApplicationWindow  {
                 if (mainview.runtimeKeysQmlOwns.indexOf(k) !== -1) {
                     continue
                 }
+                // AND A MANAGED DEVICE PARAMETER IS QML-OWNED TOO, by a different
+                // mechanism. These are readonly and live in the per-profile parameter map,
+                // so this write-back can only produce "Cannot assign to read-only property"
+                // - which is exactly what maximumDepth did on the first build after the
+                // conversion, from a DYNAMIC write by string that no static scan could
+                // find.
+                //
+                // Skipping loses nothing: the C++ never pushes one of these. It publishes
+                // devName and a few uuid keys and nothing else, so every managed key on
+                // this signal is a value QML sent out and is being handed back.
+                //
+                // Asked of pulseRuntimeSettings rather than listed here, so the managed set
+                // is written down once.
+                if (pulseRuntimeSettings && pulseRuntimeSettings.isManagedParam(k)) {
+                    continue
+                }
                 if (k in pulseRuntimeSettings) {
                     pulseRuntimeSettings[k] = m[k]
                     //console.log("applied -> pulseRuntimeSettings." + k, "=", toStr(m[k]))
