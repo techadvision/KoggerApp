@@ -5014,6 +5014,10 @@ volume.
 > **Done — 14 Sept 2026.** All three, plus the depth engine none of them could work
 > without. See *Stage 4 (b), step 7* at the end of this document.
 
+> **Settings are done as of 14 Sept** — tier 2 complete, tier 3's manipulation half
+> complete, its four information groups still placeholders. **Split screen is next**, and it
+> grew: see *Where the next session picks up* at the very end of this document.
+
 **Then, in their own chats:**
 
 4. **Settings, tier 2 and tier 3.** Seven regular groups and seventeen expert groups, and
@@ -5023,6 +5027,10 @@ volume.
    > **Tier 2 done — 14 Sept 2026.** All seven row types written, five categories, two of
    > the seven dropped. See *Stage 4 (b), tier 2* at the end of this document. Tier 3 is
    > still ahead.
+   >
+   > **Tier 3 settings done too — 14 Sept 2026.** Eight manipulation groups under an
+   > *Expert settings* title; the four information groups are still placeholders. See
+   > *Stage 4 (b), tier 3* at the end.
 5. **Split screen, and a button on the rail to reveal it.** A decision that changes the rail
    rather than adding to it: offering screen options **kills the need for the side/down view
    chooser on PULSE blue**, because the layout choice subsumes it. The button count therefore
@@ -5390,3 +5398,253 @@ Seventeen expert groups, all seven row types already written, and Olav's own not
 no time to properly clean up before implementation though."* A duplicate usually shows up as
 two rows of the same type writing the same key, which is easier to see once every expert row
 has had to declare which type it is.
+
+
+---
+
+## Stage 4 (b), tier 3 — the expert section, and the defect it uncovered (14 Sept 2026)
+
+**`feature/pulse-ui-v2-rail`, 62 commits, unpushed.**
+
+| Commit | What |
+|---|---|
+| `09e0dc00` | the expert section, under two titles |
+| `33ed0c04` | the three picture-tuning expert groups, and a stepper that walks a list |
+| `bc752b14` | the profile stops being edited by the controls that read it |
+| `5eeba3ba` | the last four manipulation groups |
+| `c57820a4` | a row is as tall as its content |
+| `c2f17129` | depth manipulation actually changes the depth |
+| `0608cef4` | **device parameters have one source of truth** |
+| `61bf8824` | the runtime bus stops handing managed parameters back |
+
+### Two titles, and the code already knew which group was which
+
+Tier 3 adds twelve categories to tier 2's five. Olav: *"the volume of headers become more
+manageable"* under a title, and there are two kinds — manipulations and pure information.
+The split needed no judgement: under **Expert settings**, every row of all eight groups is a
+control; under **Expert info**, every row of all four — forty-eight of them — is a `Text`
+with nothing beside it.
+
+The title is a LABEL, not a container. It does not open, does not indent what follows, and
+nothing hangs off it. Dimmer than a category on purpose: a category name is a thing you tap.
+
+**"Device swap" is gone**, and its three rows are all accounted for rather than dropped with
+it — reconfigure and *swap without asking* went to Troubleshooting, and *choose a different
+transducer* is the rail's source button. **The expert switch moved into Experimental
+settings**, which reads the ENTITLEMENT (`pulseSettings.isExpert`) while every other expert
+category reads `expertMode` — so turning expert off leaves exactly one category on screen,
+which is the way back. Classic's is `visible: expertMode` and hides itself.
+
+Olav on the remaining edge: switching expert off *and* returning to v1 needs an app restart,
+because expert mode hides the expert tab in the old UI. *"This is fine, do not change it."*
+
+### The stepper learned an uneven ladder
+
+Almost every expert value is a list like `[0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]`:
+ordered, but with no single step, so min/max/step cannot describe it. Set `values` and the
+stepper walks the list by index. A stepper rather than the canvas's *"a list in the same
+panel"* — fourteen segments do not fit a 360 px panel, and a scrolling list inside a
+scrolling panel is two scrolls fighting over one finger.
+
+**Nearest, not `indexOf`.** A stored value can arrive from a profile default or an older
+build's list, and `indexOf` would answer −1 and strand the control at one end.
+
+### A row is as tall as its content
+
+Three collisions on the device, one bug in seven files. Every row type added up a one-line
+label, a one-line hint and its control and called that its height — so any hint long enough
+to **wrap** overflowed and was overlapped by the next row. Depth filter, Black stripes and
+Depth manipulation are exactly the rows whose hints are sentences.
+
+A guessed height is right until the words change, and the words change in every translation.
+Every row now measures. The slider row had the same fault with the opposite shape — track
+pinned to `parent.bottom` inside a fixed 104 du — so all seven now obey one rule.
+
+### Depth manipulation, and two dead halves in classic
+
+`pulseRuntimeSettings.fakeDepthAddition` **is read by nothing**. `dataset::_fakeDepthAddition`
+is what shifts the picture, and classic's control sets the property *and* calls
+`dataset.setFakeDepthAddition()`. The generic settings path wrote the property alone.
+
+And **classic's "Reset false depth" does not work either**: it zeroes `fakeDepthAddition`,
+which re-syncs the thumb, but the control carries `emitOnUserActionOnly` so
+`setFakeDepthAddition(0)` is never called and the C++ offset stays. It also raises
+`resetBottomTrackActive`, declared once and read **nowhere** in any `.qml` or `.cpp`. Both
+halves dead — the button has been clearing the displayed number and nothing else.
+
+*Push fake depth to KLF view* is gone from v2. Olav: *"We actually do not need this setting
+at all... Now we can make screenshots running demo, and then depth value is always
+correct."*
+
+Classic's bottom-track *min depth evaluation* list reads `[0.0, 0.5, 0.10, 0.15, ...]` —
+`0.5` where `0.05` was meant, second in a list that continues at `0.10`. Olav: *"That 0.5 was
+clearly a typo."* v2 uses the corrected ascending list; classic still has it.
+
+---
+
+## The live device parameter state (14 Sept 2026, `0608cef4`)
+
+The largest change of the day, and it came out of wiring one expert group.
+
+### What was wrong
+
+Thirty runtime values are `property X: committedProfile.X`. **Sixteen of them were assigned
+somewhere** — forty sites across `DeviceItem`, `PulseAppClassic`, `PulseConnectionScreen`,
+`PulseInfoExpert` and `main.qml`; `transFreq` alone from eleven places. An assignment
+destroys a binding permanently, so **after the first touch the value stopped following the
+committed profile.** Nothing changed on a swap, so none of `DeviceItem`'s `onXChanged`
+handlers fired, so the new device was never told anything.
+
+`distProcessing` was worse. The binding hands back the **profile's own array**, so
+`distProcessing[5] = v` edited `distProcPulseRed` in place — the control rewriting the record
+it reads its own default from, for every later read including one after swapping back.
+
+### What it is, and the question that named it
+
+Called an "expert override" first. Olav's question corrected it: `DeviceItem` writes
+`chartSamples` from the depth engine on every resolution step, so the same store holds engine
+output, configuration output and an expert's experiment. It is the **live parameter state**,
+kept per profile, seeded from the profile.
+
+```
+the profile record           the default for this device
+       |
+liveParams[profileKey]       whatever anyone has set on top
+       |
+the property (readonly)      what everything reads
+```
+
+Three rules fall out with no special cases, and they are exactly the three Olav asked for:
+
+- **Runtime**, so every app start returns to profile defaults — an expert trying samples on a
+  new SIYI device *"will need to start from scratch at app start"*.
+- **Keyed by profile**, so a red's state and a blue's never mix — *"the modifications should
+  be for the (either) blue or red"* — and swapping away and back within a session finds the
+  experiment still there.
+- **Readonly**, so no stray assignment can destroy a binding again.
+
+### The question that decided whether it works at all
+
+Olav: *"The C++ needs to be told we change a lot of these parameters in QML. DeviceItem
+typically surveils the pulseRuntimeSettings and then writes using the linked methods."*
+
+It keeps working, untouched. Those handlers watch the property's **change signal** —
+`function onChartSamplesChanged() { dev.chartSamples = ... }` — and a readonly property with
+a binding emits that exactly as an assigned one did. QML does not distinguish *changed
+because someone assigned it* from *changed because the binding re-evaluated*. All ten
+handlers are untouched, and a swap now makes the values actually change, so the device
+finally gets configured.
+
+### Three things worth knowing before touching it
+
+**`setParam` builds a new object** rather than mutating the map and assigning it back. A
+`var` property handed the same reference has no reason to emit its change signal, and without
+that signal nothing re-evaluates and the whole mechanism silently does nothing while looking
+correct. It is the same mistake one level down that let the old controls edit the profile's
+array: reusing a reference someone else holds.
+
+**`soundSpeed` is deliberately outside the map.** Everything in it is per-device; sound speed
+is a property of the water. Olav: *"should I change to another transducer then my changed
+speed value in the setting should win over the profile sound of speed."* It has its own
+`soundSpeedOverride`, runtime, and nothing clears it.
+
+**The runtime bus had a dynamic writer no scan could find.** `main.qml:264` writes every
+echoed key back by string, which produced `Cannot assign to read-only property
+"maximumDepth"` on the first build. Managed keys are skipped there now, the same way
+`uiVariantIsV2` is — and it loses nothing, because the C++ publishes only `devName` and a few
+uuid keys onto that bus, so every managed key on it is a value QML sent out.
+
+### What it did NOT fix
+
+Confirmed on the device: **the device-change problems are not fixed.** Olav: *"I have lived
+with these issues through series of builds now, and while the app behaves partly terrible I
+think we can fix fairly efficient."* It is the last step before phone sizing.
+
+The colour half was never going to be this: `colorMapIndexSideScan` and `colorMapIndex2D` are
+stored preferences, not profile-bound. That remains the deferred **blue gets red's colour
+choices and favourites**, and **the re-test after the `a98fe9e9` injection fix is still
+owed** — along with the logcat check for `SETTINGS: persistent settings injected into
+pulseRuntimeSettings -> ok`.
+
+
+---
+
+## Where the next session picks up — the view chooser and split screen (14 Sept 2026)
+
+Olav's scope, given at the close of the settings session. **This is the feature the upstream
+author has and the Pulse app never had**, and it replaces a control rather than adding one.
+
+### What it replaces
+
+**The side/down view chooser is totally redundant** once this exists — the layout choice
+subsumes it, which is the decision already recorded under the roadmap above: the rail's
+button count does not grow.
+
+**The old green pill is to be removed.** It swapped between side/down scan and the mosaic;
+upstream has a draggable handle where the Pulse legacy control simply moved the split between
+0 and 100 %. It appears to have been gone for some time already. Neither survives.
+
+### The six views
+
+**A 2D transducer needs none of this** — there is one picture and no second pane to offer.
+Everything below is a side scan.
+
+| | Top | Bottom |
+|---|---|---|
+| Single | down scan | — |
+| Single | side scan | — |
+| Single | mosaic | — |
+| Split | side scan | down scan |
+| Split | side scan | mosaic |
+| Split | down scan | mosaic |
+
+**The choice is persisted.** A screen preference is exactly the kind of thing a user sets
+once for how they work, so it is a `pulseSettings` key, not a runtime one — the opposite of
+the live parameter state.
+
+### The open design question, and Olav's own steer
+
+*"We need some way to illustrate these options, like other echo sounders have. Maybe we could
+use our current icons to illustrate side and down? For mosaic perhaps a sweep with pattern?
+Maybe check how others do this first and offer some suggestions?"*
+
+So the next session **researches before designing**: how Garmin, Humminbird and Lowrance draw
+their screen-layout chooser — they all have one and it is a solved convention — then offers
+suggestions rather than picking one. `pulse_view_down_scan.svg` and `pulse_view_side_scan.svg`
+already exist and are candidates for the two halves of each tile; the mosaic has no icon yet.
+
+**Design first, as with the connection screen, the setup card, the loupe and the settings
+hierarchy.** The hierarchy was settled from three treatments drawn at the panel's real width,
+which cost one message and no device build; the same approach fits here, where the question is
+entirely visual.
+
+### What this unparks
+
+The per-pane state object, and backlog items 12 and 13 with it. They were parked **on V2**, to
+be raised when the control they belong to is built — and this is that control. `pulseSettings`
+and `pulseRuntimeSettings` are global singletons, so **per-pane range has nowhere to live**;
+the minimal shape is a small per-pane state object owned by `PulseApp.qml` with everything
+else still reading the singletons. Settle it before the split-screen behaviour is touched.
+
+From the market scan: **per-pane controls with the active pane outlined** (Lowrance states it
+explicitly) is the established answer to "which pane am I adjusting". Shared across panes:
+colour, intensity, water body filter, pause, record. Per pane: range only.
+
+### And the order after it
+
+1. **The four Expert info groups** — forty-eight read-only rows, mechanical, and the place
+   duplicated abilities will show up as a value displayed in one group and set in another.
+2. **Split screen** — this section.
+3. **Bug fixing**, which Olav wants as the last step before phone sizing. The device-change
+   problems survived the live-parameter-state work: *"I have lived with these issues through
+   series of builds now, and while the app behaves partly terrible I think we can fix fairly
+   efficient."*
+4. **Phone size**, deliberately last.
+
+**Still owed and now several sessions old:** the logcat check for `SETTINGS: persistent
+settings injected into pulseRuntimeSettings -> ok` with no ReferenceError above it, and the
+re-test of whether PULSE blue still takes red's colour choices and favourites.
+
+**Still with Olav and blocking nothing:** the boat run with two transducers, the real swap,
+the PULSEblue-IP acceptance test. And `feature/device-profiles-step4` has still not been
+merged to master, with `feature/pulse-ui-v2-rail` now **62 commits unpushed**.
