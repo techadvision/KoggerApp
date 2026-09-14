@@ -26,6 +26,11 @@ Item {
 
     implicitHeight: column.height
 
+    // ONE LINE THAT ANSWERS "DID THIS EVEN LOAD". A group that fails to build takes the
+    // whole panel with it - PulsePanel is its parent - and the symptom is every rail button
+    // doing nothing, which looks nothing like a QML error unless the log is read.
+    Component.onCompleted: console.log("SCREEN: chooser built with", entries.length, "layouts")
+
     Column {
         id: column
         width: group.width
@@ -56,6 +61,7 @@ Item {
         Repeater {
             model: group.entries
 
+
             Rectangle {
                 id: row
 
@@ -66,7 +72,14 @@ Item {
                 // A ROW IS AS TALL AS ITS CONTENT. The mark and the two lines of text are
                 // both candidates for the tallest thing in the row, so the row asks them
                 // rather than being told 72 - which is what it comes to at uiScale 1.
-                height: Math.max(mark.height, text.height) + 2 * Math.round(16 * group.uiScale)
+                //
+                // implicitHeight, NOT height, and that is the whole difference between this
+                // working and a binding loop. `label` is centred on this row, so its `height`
+                // is downstream of the row's - reading it here would ask the row how tall it
+                // is in order to answer how tall it is. implicitHeight comes only from the
+                // Column's own children and is upstream of both.
+                height: Math.max(mark.height, label.implicitHeight)
+                        + 2 * Math.round(16 * group.uiScale)
                 radius: Math.round(10 * group.uiScale)
 
                 color: rowArea.pressed ? "#2a3644" : (isCurrent ? "#16232e" : "transparent")
@@ -88,7 +101,7 @@ Item {
                 }
 
                 Column {
-                    id: text
+                    id: label
 
                     anchors.left: mark.right
                     anchors.leftMargin: row.pad
@@ -112,7 +125,10 @@ Item {
                     Text {
                         width: parent.width
                         text: modelData.subtitle !== undefined ? modelData.subtitle : ""
-                        visible: text !== ""
+                        // The ENTRY, not this element's own `text`. Asking `text !== ""`
+                        // inside a Text reads its own property, which is the sort of thing
+                        // that works until the day it does not.
+                        visible: modelData.subtitle !== undefined && modelData.subtitle !== ""
                         elide: Text.ElideRight
                         color: "#8a929c"
                         font.pixelSize: Math.round(14 * group.uiScale)
