@@ -5618,6 +5618,8 @@ hierarchy.** The hierarchy was settled from three treatments drawn at the panel'
 which cost one message and no device build; the same approach fits here, where the question is
 entirely visual.
 
+> **ANSWERED below** — see *The screen chooser, and the row that should not have been there*.
+
 ### What this unparks
 
 The per-pane state object, and backlog items 12 and 13 with it. They were parked **on V2**, to
@@ -5647,4 +5649,128 @@ re-test of whether PULSE blue still takes red's colour choices and favourites.
 
 **Still with Olav and blocking nothing:** the boat run with two transducers, the real swap,
 the PULSEblue-IP acceptance test. And `feature/device-profiles-step4` has still not been
-merged to master, with `feature/pulse-ui-v2-rail` now **62 commits unpushed**.
+merged to master, with `feature/pulse-ui-v2-rail` now **64 commits unpushed**.
+
+
+---
+
+## The screen chooser, and the row that should not have been there (14 Sept 2026)
+
+**`feature/pulse-ui-v2-rail`, 64 commits, unpushed.**
+
+| Commit | What |
+|---|---|
+| `71a415a9` | the screen chooser, and what it took the place of |
+
+### The market scan, which settled the shape before any drawing
+
+All three benchmarks answer this the same way, and it is not the obvious way: **the layout
+and its contents are one choice, shown as one picture of the resulting screen.** Nobody asks
+"how many panes" and then "what goes in each" on the everyday path.
+
+- **Lowrance HDS Live** — press and hold an application button on the Home page and you get
+  its *quick split pages*: "Each full screen application has several pre-configured quick
+  split pages. They show the selected application combined with one of the other panels."
+  They are fixed: "The number of quick split pages cannot be changed, and the pages cannot be
+  customized or deleted." That is Olav's six views exactly.
+- **Humminbird HELIX** — a flat list of named views, model-determined, cycled with the VIEW
+  key. Combos are presets, not composable: "The available combo views are determined by your
+  Humminbird model."
+- **Garmin echoMAP** — Combos are named preset pages. The two-question wizard
+  (`Combos > Customize > Add`, first function, second function, "Select **Split** to choose
+  the direction of the split screen") is the CUSTOMISING path, not the everyday one.
+
+So the six views were never a compromise; they are the convention.
+
+**And the per-pane answer was already written down.** Lowrance states it outright: "In a
+multiple panel page, only one panel can be active at a time. **The active panel is outlined
+with a border.** You can only access the page menu of an active panel." Tap a panel to
+activate it. Humminbird calls the same thing the Active Side.
+
+### Three treatments, and the one that fits the menu already there
+
+Drawn at the panel's real 360 px, as with the connection screen, the setup card, the loupe
+and the settings hierarchy — a 2×3 tile grid, a six-row list, and three-and-three under
+Single/Split headings. Olav chose the **list**: *"should fit well with our current fall out
+menu."* `PulseScreenGroup` is `PulseChoiceGroup`'s row with a screen picture where the icon
+was, so the panel gains no new row shape and scrolls in the Flickable it already has.
+
+### The marks are drawn, not loaded, and that is the point
+
+Three new SVGs for the three halves would be three more files that could ship declaring no
+colour and draw black on a black panel — how three rail controls went missing on 13 Sept.
+`PulseScreenMark` is a `Canvas` and every fill in it is a named colour **in that file**, so
+`tools/pulse-icon-check.js` has nothing to find and nothing to miss. The settings chevron was
+drawn from two rectangles for the same reason.
+
+A Canvas rather than Rectangles because the mosaic is a trapezoid and the bottom is a curve;
+rotating a rectangle into place would be a worse lie than drawing the shape.
+
+Of three mosaic candidates — a tiled swath in plan view, a sweep with a dotted pattern, and
+the 3D ground receding in perspective — the **tiled swath** was chosen. It says what the
+mosaic IS rather than what the sonar does to make it.
+
+### The rail's button count does not grow, and the model it reads changed
+
+The screen chooser took the **view chooser's place**, which is the decision already recorded
+under the roadmap. One button, two questions, exactly as before: a **Cone** on red, a
+**Screen** on blue.
+
+But it does not read what the view chooser read:
+
+> A view or a cone is a **hardware** choice — you cannot change the cone of a transducer you
+> do not have — so those follow the committed profile. A screen layout is a thing you judge
+> by **looking** at it, so `offersScreenChoice` reads `displayIs2DTransducer`, and a side
+> scan log played back on a red device keeps its layouts.
+
+That is rule 1 applied, not a new rule.
+
+### The frequency the view chooser was also answering
+
+The old chooser answered two questions at once — what the **transducer** does (mode and
+frequency, through `setParam("transFreq", v.freq)`) and what the **screen** shows. The screen
+chooser answers only the second. Nothing is lost today because **every view blue offers is
+460 kHz**; the 820 kHz pair is commented out. Olav: *"Now we only offer 460 for most. Let us
+keep it like that. We should allow a frequency chooser later when power is fixed."*
+
+### Side over down, and the row that has no data behind it
+
+Asked whether the device gives side and down at once, Olav: *"Not really. It is, right now,
+no true downscan. Right now it is a single channel of choice only. But people want it. We
+should work with interpolating the two channels into one view for downscan."*
+
+The honest answer to that is to leave the row out — absent rather than greyed, the rule the
+settings list already follows. **That is not the answer he gave:** *"Allow downscan view
+already now. We use the same source as for downscan today. Fix it later."*
+
+So the split draws **both panes from the one channel**, as the full-screen down scan already
+does, and the difference between the halves is the grid and the range rather than the data.
+`offersSplitSideDown` is the one place that knows, so the row can be withdrawn in one edit if
+the stand-in reads worse on the water than no row at all. When the interpolated down scan
+exists it replaces the bottom pane's source and the entry table does not change.
+
+### Splits are horizontal, in landscape too
+
+*"Side scan on top in landscape."* `visualisationLayout` splits **left/right** in landscape
+today and top/bottom in portrait. That is the one existing behaviour the applying commit has
+to change, and `PulseScreenMark` already draws every split as top-over-bottom so the chooser
+is not promising something the screen will not do.
+
+### What this unparks after all
+
+The row Olav put back is the row that needs a second echogram pane, so **the per-pane state
+object is back on** — and with it backlog items 12 and 13. Only `split_side_down` needs it:
+every other split is one echogram pane plus the mosaic, and the mosaic has no range.
+
+Shared across panes: colour, intensity, water body filter, pause, record. **Per pane: range
+only**, which is not a nicety — the side half's range is swath width and the down half's is
+depth, and they are different numbers for the same water.
+
+### Where the next session picks up
+
+1. **Settle the per-pane range shape**, then apply the preference — the five-plus-one layouts
+   onto `numPlots` / `visualisationLayout` / grid, and landscape to top-over-bottom.
+2. **Remove what it replaced** — the `ecoViewId` applier and the rail's view branch, and the
+   green pill.
+3. Then the order Olav set: the four Expert info groups, **bug fixing** (the device-change
+   problems, still not fixed), and phone size last.
