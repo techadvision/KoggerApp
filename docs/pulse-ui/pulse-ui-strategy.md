@@ -5011,6 +5011,9 @@ volume.
 3. **An echogram-speed indication**, in a similar form and look, taken while the pattern is
    open.
 
+> **Done — 14 Sept 2026.** All three, plus the depth engine none of them could work
+> without. See *Stage 4 (b), step 7* at the end of this document.
+
 **Then, in their own chats:**
 
 4. **Settings, tier 2 and tier 3.** Seven regular groups and seventeen expert groups, and
@@ -5029,3 +5032,158 @@ volume.
 screen should be cared for** — *"likely there may be multiple things to adjust."* The rail,
 the panel, the setup card, the paused gutter and the loupe all take width or height from a
 pane, and in a split each pane is roughly half.
+
+
+---
+
+## Stage 4 (b), step 7 — three overlays, one vocabulary (14 Sept 2026)
+
+Olav asked for them in one chat "because they are one design, not three". They are, and the
+design turned out to be a sentence already written: **the left edge says what the water is,
+the right edge says what the picture is**, and both pick their corner by the flow.
+**`feature/pulse-ui-v2-rail`, 45 commits, unpushed.**
+
+| Commit | What |
+|---|---|
+| `9969a0e1` | the depth engine V2 never had |
+| `d8cfd50b` | depth and temperature on the V2 echogram |
+| `ef39945c` | the echogram speed says what the picture is doing |
+| `c8435f89` | temperature stays gated on the beta name — it was not a leftover |
+| `a1d92690` | you scrolled back, and the way back to live |
+
+### The finding that came before the design — V2 has been running the sounder blind
+
+`DepthAndTemperature.qml` was never a readout. Two hundred of its 640 lines drew something;
+the rest took the depth off the dataset, ran the auto display level, and computed the
+dynamic resolution — writing `dynamicSamples` and `dynamicPeriod`, which `DeviceItem.qml`
+turns into `chartSamples` and `ch1Period` **on the transducer**, and `autoDepthMaxLevel`,
+which the display range follows.
+
+All of it was reachable only by instantiating the readout, and `PulseAppV2` does not
+instantiate it. **Nothing else in any `.qml` writes those three keys.** So under the new UI
+the sounder has been running at the defaults — 500 samples, 50 ms period — at every depth,
+for the whole of stage 4. Not a cosmetic gap behind a missing number: the resolution
+behaviour the classic UI depends on was simply absent, and no one would have found it by
+looking at the picture.
+
+It is `PulseDepthEngine.qml` now, **one instance above both panes** — the move the
+connection screen, the setup overlay and the pill column already made, for the same reason:
+one dataset, one transducer, one set of runtime keys. Per-pane it ran *twice* in a split
+screen, two 100 ms timers writing the same keys from two copies of `lastStableDepth`.
+
+The readouts get one key, `pulseRuntimeSettings.depthMeters`. **The rule for choosing the
+depth lives in the engine alone** — bottom track first, the rangefinder when bottom track
+is not initiated, never a NaN — so the classic readout and the v2 one cannot show different
+sources. The `bottomTrackMinDepth` crossover is still not implemented; it has to key off the
+*rangefinder* value to know which side of the threshold it is on.
+
+### The vocabulary, which was not invented here
+
+V2 already had exactly two families and the job was to put each overlay in the right one.
+
+- **The readout family** — large white numerals, `Text.Outline`, no container. For a value
+  read continuously. A capsule here would hide the echogram it sits on.
+- **The pill family** — capsule, body `#cc0f1317`, 1 px accent border, 17 px text, hairline
+  divider, then a **word** in the action slot. For something transient. The accent carries
+  the class: blue `#3d7fd0` what the picture is, red `#d81f26` recording, amber `#d8a21f`
+  something is wrong or is being asked.
+
+So the depth readout goes left and opposite the pills, at the same height, and the two new
+indications are pills in the existing column. Nothing to learn twice.
+
+### The readout, and the anchor lesson taken further
+
+`PulseDepthReadout.qml`, hosted by `PulseAppV2` — the first thing that file has ever drawn.
+Inside the pane by construction, so it owes the rail and the panel no arithmetic.
+
+**No anchors on the moving part.** Step 6 cost a round trip to an anchor set for one
+orientation that could not be cleared for the other. The strongest form of *an anchor that is
+only ever set cannot get stuck* is not to use one: the block's position is `x` and `y`, and
+the flow changes one number. The only anchors are baselines between siblings in a line.
+
+**No MouseArea.** Classic absorbs every press over a 350×200 patch of picture, which eats
+the pinch there and, while paused, would eat the aim. Units are a settings question.
+
+Damping is classic's, kept rather than reinvented — 250 ms for depth, 1 s for temperature,
+last good value held.
+
+### The temperature clause that looked like scaffolding
+
+`enableTemperature` ANDs `pulseRuntimeSettings.pulseBetaName === "..."`, hiding temperature
+on every device carrying a beta name. It was read as a debug leftover and dropped, and Olav
+corrected it: **beta devices of the red ("basic 2D") can have the temperature hidden, and as
+many as twenty customers are on that hardware.** Dropping it would have printed a number
+nothing behind it can measure.
+
+It is blunt — it answers "beta" where the real question is "this beta build has no
+temperature sensor" — and a **profile key would say it properly**. That is a change to the
+profile records, not to a readout, and it is on the todo rather than made here.
+
+### The speed is two numbers doing two jobs
+
+`pulseRuntimeSettings.echogramSpeed` is what the picture runs at and is the **only one that
+reaches C++** (`settingsBus` → `Plot2D::applyRuntime` → `echogramSpeed_`).
+`pulseSettings.echogramSpeed` is what the user set and is persistence; `main.qml:231`
+mirrors it into the runtime key. Olav on why there are two: *"there are (at least were) some
+duplicated settings in pulseSettings and pulseRuntimeSettings to overcome problems to
+communicate to C++."*
+
+The pill **says the runtime value and triggers on the persistent one**, and that split falls
+straight out of rule 1 while dodging both edges for nothing: `setEchogramPaused` writes 1.0
+into the runtime key on pause and restores it on resume, so triggering on the runtime key
+would flash `1.0×` as the picture freezes and `1.8×` again as it thaws — which is exactly
+what classic's top-centre indicator has been doing under V2. That indicator is now gated to
+classic, with the `Echogram speed: New value X (persistent Y)` log line left outside the
+gate because it belongs to neither variant.
+
+And what the setting actually does, in Olav's words: *"Echogram speed setter affects the
+size of the getImage in C++. The speed increase is an illusion, echogram is stretched making
+the pixels flow faster over the screen."* `plot2D.cpp:441` — `painter->scale(echogramSpeed_,
+1.0)`, horizontal pictures only, and only above 1.0.
+
+### Old data: a binding, not an arming
+
+Classic arms the warning from a drag handler, runs a 6 s countdown across two timers and a
+third for the hide, and then **drags the picture back to live by itself**. Olav removed that
+whole mechanism: *"The 6 Sec countdown can then be removed. User can decide for himself, and
+the warning is anyway on the screen."*
+
+So the pill is up while the timeline is off the head and gone when it is back — bound to
+`historyTimeLineScroll`, the one holder of the position, which both panes already write and
+the paused gutter already binds to. **No timer in the file at all.** His sentence is *"You
+scrolled back"*, and the demo pill's action slot carries **Live now**, which does at the
+user's moment what the timer used to do at its own.
+
+`armOldDataWarning()` stops being a no-op and keeps the one job that genuinely belongs to a
+pane: **the hold**. `plot2D.cpp:1531`'s `followLive` drags the picture back to the head on
+every ping unless `echogramHoldHistory_` says otherwise, so without it a scrolled-back
+echogram is yanked live before it can be read. Armed by the drag, released the moment the
+timeline is back at the head by any route, so it cannot be left on. (`followLive` is
+32-bit-only today, so on a 64-bit build the hold changes nothing — still wrong to leave
+unset.)
+
+### Olav's own list, for the bug-fixing chat
+
+Reported this session and deliberately **not** touched here.
+
+1. **Mix and match across user choices** — colour palette, max distance, intensity, water
+   filter. A stored choice for one device showing up under another.
+2. **A red that has seen a blue demo keeps a vertical running 2D view, irreversibly.** This
+   is almost certainly the same shape as the speed defect below: state written on entering a
+   blue profile and never unwritten on leaving it.
+3. **The runtime speed never returns from a blue profile.** `main.qml:192` forces
+   `pulseRuntimeSettings.echogramSpeed = 1` for blue and nothing restores it when the
+   profile goes back to red. The stored 1.3 is intact; the picture is never told. One line.
+4. **A slider whose value is correct but is not applied to the echogram.**
+5. And more that Olav is collecting.
+
+The `a98fe9e9` injection fix is a live candidate for several of 1 — *"this explains a lot of
+problems with wrong choice of colors, max depths ++"* — and the deferred **blue gets red's
+colour choices and favourites** should be re-tested before anyone debugs it further. **That
+re-test has not been done and is still owed.**
+
+### One more for rule 1
+
+`Plot2D.qml:533` gates the speed pinch on `is2DTransducer`, the **committed** device, where
+every other display question now reads `displayIs2DTransducer`. Classic code, one word, not
+changed here.
