@@ -4696,3 +4696,161 @@ card is next touched, not before."*
 - **The late-September aquarium exhibition: classic UI or V2?** Asked at the start of this
   session and still unanswered. It is the one open question that could reorder everything
   above, because it sets whether V2 needs to be presentable in two weeks or merely correct.
+
+---
+
+## Stage 4 (b), step 6 — the aim / zoom (14 Sept 2026)
+
+Three commits finished the last tier-1 control. **`feature/pulse-ui-v2-rail`, 32 commits,
+still unpushed.**
+
+| Commit | What |
+|---|---|
+| `50b5fa63` | the loupe rebuilt, and the green pause button answered inside it |
+| `bbc9eef1` | the paused gutter follows the flow |
+| `73e1bdc4` | the history bar comes off the picture and into the gutter |
+
+### The exhibition question, answered — and then de-fanged
+
+**V2 runs at the aquarium.** But it is not a deadline: *"do not fear the exhibition. My
+partner who builds the echo sounder is the one on the stand. I am not worried about the
+exhibition at all."* His partner brings several devices, some carrying the **production
+release**; this build is for internal testers, and if V2 is not right he simply uses the
+old version. So V2 being presentable is the **direction**, not a two-week gate — the
+deferred defects stay deferred and nothing is reordered on the exhibition's account.
+
+### The route: the loupe stayed in C++, and the research explains why only half of it could move
+
+The session-close research established that the zoom-preview API is entirely `Q_INVOKABLE`
+and that `main.qml:1505-1508` drives it. Both true. What it did not reach is that **the
+loupe's values are not reachable from QML at all**: `Plot2DAim::cand_`
+(`plot2D_aim.h:60-84`) privately holds `depth`, `crossMeters`, `lat`, `lon`, `anchorPx`,
+`crossDev`, the three hit rects and `haveTarget`, and none of it is a `Q_PROPERTY`. A QML
+loupe therefore needs a C++ **exposure layer** before it can print one number — a different
+C++ change, not the absence of one.
+
+Against that, the panel to be rebuilt is already one self-contained function:
+`Plot2DZoom::draw()`, 305 lines, taking `boxSizePx` and `zoomFactor` and returning its own
+hit rects. And the deciding argument is those hit rects: **the buttons and their tap targets
+come out of the same code in the same coordinate space.** A QML overlay over a
+C++-managed crosshair puts the picture and the touch target in two coordinate systems that
+must agree across `deviceScale_`, which on a slow test rig is a three-round-trip class of
+bug.
+
+So `draw()` dispatches on `Input::v2Style` in its first three lines and everything below
+them is the loupe exactly as it shipped. **Classic's loupe is untouched by construction** —
+it is still what `uiVariant` falls back *to*.
+
+Two corrections to the research while we are here. The box is **250** design px at both call
+sites, not 180, so "three times the area" was measured against something else; V2 is 320 and
+the panel roughly doubles because the bands sit outside the tile. And the phone knob on this
+route is **`Input::boxSizePx`**, not `setZoomPreviewSourceSize` — that one belongs to the
+QML route. The percent `loupeZoom` slider in settings drives `setLoupeZoom`, which is
+**upstream's** loupe and a different thing entirely, so there was no contradiction to fix.
+
+### What the loupe rebuild actually fixes
+
+Three of the four changes are defects rather than styling.
+
+**The two values were painted ON the data** — `D: 12.3` and `v: 4.5` inside the top of the
+zoom image, over the patch of echogram you magnified in order to read them. Labelling them
+in place would only widen the obstruction, so they come out into their own band. Rows rather
+than a left/right pair, so the numbers align on their right edge; and the second row's
+**label** is what changes on a dual side scan — `Lateral left` / `Lateral right` — where the
+old panel swapped the value's prefix for a bare `<` or `>`.
+
+**Dismiss and Add were two equal grey halves** told apart by an icon alone: a destructive
+action and a constructive one at identical weight. Ghost and filled now, unequal, below the
+tile. With no position the Add button is **absent rather than greyed**, the rail's own rule,
+and Dismiss takes the whole width.
+
+**The magnification was invisible.** It is in the header, reading the same `zoomFactor` field
+the crop divides by rather than a second constant.
+
+**And the green pause button is answered here rather than on the picture.** Classic greens
+the play/pause checkbox on `mavlinkDetected`: the technology, announced before anyone asked,
+in a corner with nothing to do with waypoints. V2 says **nothing at all** while a waypoint
+can be placed — the Add button being there is the whole message, and a sentence repeating it
+would be a second thing claiming one job. It states the consequence only when it cannot, in
+that button's own slot, in Olav's words:
+
+> No position — you can inspect the echogram, but not mark it
+
+The premise of the first draft was wrong and Olav corrected it rather than the prose: the
+gesture is **not a long press**. `Plot2D.qml`'s `onPositionChanged` calls
+`plotMousePosition(x, y)` on every move while paused and `onReleased` commits a drag "exactly
+the same sequence your single-tap uses", so the loupe tracks the finger continuously and the
+release point arms. There is no long press to advertise.
+
+`uiVariantIsV2` is one binding in `PulseRuntimeSettings` and one key on the runtime bus,
+pushed at startup as well as on change — the aim layer can be asked to draw before a model is
+committed, and a loupe that came up classic in v2 until the first commit would be a defect
+nobody could reproduce twice.
+
+**Device verdict: *"This actually looks good."*** With one note: **the size may need tuning
+for phone and split screen**, which is the `boxSizePx` line and nothing else.
+
+### The gutter follows the flow — the no-jump rule loses
+
+The first gutter took the rail's width and ran down the left whatever the picture was doing,
+so that pausing never moved the echogram sideways. Olav overrode it: *"We do #2, follow the
+flow. That is the only intuitive way."*
+
+A side scan keeps the vertical gutter at the left. **A 2D picture gets a horizontal gutter
+along the foot**, so pausing gives the rail's width back and takes height at the bottom and
+the picture reflows. The trade is paid openly: `main.qml`'s inset comment now says the
+no-jump promise holds for a side scan only, rather than standing as something that used to be
+true. `pulseRailInset` answers for the left edge and `pulsePausedFootInset` is a separate
+number — they are margins on different sides, and a reader holding one must not be able to
+apply it to the other.
+
+`alongFoot` is handed in from `isHorizontalGrid`, the same flag the history bar has always
+used to choose between its two sliders, so the gutter and the bar it was about to swallow
+cannot disagree about which way the echogram runs.
+
+### The history bar leaves the picture, and why that is a fix rather than tidiness
+
+Olav's reason: *"the old design results in a moving magnifying box also when using the
+current drag handles (as they are present in the paused echogram areas)."*
+
+`TimeLineShifter` is `anchors.fill` on the window — the horizontal variant across the top of
+the picture, the vertical one down its left — so **dragging the bar dragged the aim
+underneath it.** The aim's touch handling belongs to the plot and the bar was sitting on the
+plot. Off the picture that cannot happen at all, which beats any amount of event-swallowing:
+there is no longer an event to swallow.
+
+Each gutter takes the slider matching its flow and **neither slider is rewritten**. The
+position stays where it lived — `historyTimeLineScroll` is assigned from both panes'
+`onTimelinePositionChanged`, so it remains the holder and the gutter binds to it; a user move
+comes back as a signal and `main.qml` does the same three things the old handler did,
+`resetAim()` included.
+
+One QML trap worth recording: **a rotated `Text` keeps its unrotated bounding box.** Anchoring
+the slider to `PAUSED.top` ran the slider straight through the word. The fix is to box it in
+an `Item` whose height is the text's natural **width**, which is the length the word occupies
+once turned.
+
+### Two defects found while building, neither fixed here
+
+**1. No depth for the 2D view.** Confirmed by Olav on the device: the loupe's `Bottom` row is
+labelled but blank on a 2D picture while `Cursor` reads correctly, so `cand_.depth` arrives
+NaN. The labelled blank is the designed "not known" state working; the missing value is not.
+
+**2. `waterViewFirst` is a cross-file `id` reach, and it cannot resolve.**
+`TimelineSliderVertical.qml:104,113` and `TimelineSliderHorizontal.qml:93,102` call
+`waterViewFirst.setDragActive(...)`, but `waterViewFirst` is an id declared in `main.qml` and
+**QML ids do not cross files** — it is not a context property either (`core.cpp` registers no
+such thing). So the call throws, `onPressed` aborts before its `update(mouse)` and
+**`setDragActive` has never once run**. That is why tapping the bar does nothing while
+dragging works, and it is very likely a second half of the moving-magnifier complaint. It is
+the same class as the rail's `pulseConnectionScreen` problem and wants the same answer: a
+signal out, wired in `main.qml`. Deliberately not in the move commit — a move is not a
+change.
+
+### Housekeeping — stale git locks in the working tree
+
+The sandbox shell could not unlink `.git/index.lock` and `.git/HEAD.lock` (the bridge treats
+`.git` as protected even with delete permission granted on the folder). They were moved into
+`.git/_stale/` so git could continue. **`.git/_stale/`, any remaining `.git/*.lock` and the
+`.git/objects/*/tmp_obj_*` files should be deleted by hand** — GitHub Desktop will refuse to
+operate while a real `index.lock` is present.
