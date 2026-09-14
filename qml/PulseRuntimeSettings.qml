@@ -2065,6 +2065,48 @@ QtObject {
         { "min": 21, "max": 100,"filter": 0 }
     ]
 
+    // THE KEY CODE RULE, IN ONE PLACE (Stage 4 b).
+    //
+    // It used to live inside KeyCodeInput.qml, which is a CLASSIC control - so the v2
+    // settings list could only have it by keeping a second copy, and a second copy of
+    // "which codes grant what" is the kind of thing that is right on the day it is written
+    // and wrong a year later. The function is here because both variants can reach this
+    // object and neither can reach the other's controls.
+    //
+    // THE SALT IS AN ARGUMENT rather than a read of `installToken`. main.cpp creates this
+    // file's object and sets its context properties in an order that has already cost one
+    // session - eleven ReferenceErrors from pulseSettings not existing yet - and a function
+    // that takes what it needs cannot be caught by that at all.
+    //
+    // Returns whether the code granted anything, so a caller can say so without repeating
+    // the test.
+    function applyKeyCode(code, salt) {
+        var entered  = ("" + code).trim().toLowerCase()
+        var isBeta   = betaKeyCodes.indexOf(entered)   !== -1
+        var isExpert = expertKeyCodes.indexOf(entered) !== -1
+
+        expertMode = isExpert
+        betaMode   = isExpert || isBeta
+
+        pulseSettings.isBetaTester = isBeta
+        pulseSettings.isExpert     = isExpert
+
+        if (betaMode) {
+            pulseSettings.keyCode      = entered
+            pulseSettings.validateSalt = salt
+        } else {
+            // A code that grants nothing CLEARS the stored one. Leaving the old code behind
+            // would mean a user who typed something wrong still holds the rights he had,
+            // with a field on screen showing the wrong reason for them.
+            pulseSettings.keyCode = "not_set"
+        }
+
+        console.log("KEYCODE: entered code ->",
+                    isExpert ? "expert" : (isBeta ? "beta tester" : "nothing"),
+                    "| expertMode", expertMode, "| betaMode", betaMode)
+        return betaMode
+    }
+
     property var betaKeyCodes: [
         "k7d-4m9-zx3",
         "t3g-5r1-vq8",

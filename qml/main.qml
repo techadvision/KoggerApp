@@ -2336,6 +2336,16 @@ ApplicationWindow  {
                     // Writing by string works because this is an assignment; a BINDING
                     // cannot be formed on a string key, which is exactly why the rows bind
                     // their reads explicitly instead of being described as data.
+                    // ONE RULE, NOT A SECOND COPY OF IT. applyKeyCode lives on
+                    // pulseRuntimeSettings so that classic's KeyCodeInput and this list
+                    // reach the same answer; the salt is handed in because this is the
+                    // side that can see installToken.
+                    onKeyCodeEntered: function (code) {
+                        if (!pulseRuntimeSettings)
+                            return
+                        pulseRuntimeSettings.applyKeyCode(code, installToken.currentSalt)
+                    }
+
                     // THE ACTIONS THE SETTINGS LIST CAN ASK FOR. Each raises the flag its
                     // existing consumer already watches and clears - echoSounderReboot is
                     // cleared by DeviceItem.qml:1984, reconfigureNow by :2014 - so nothing

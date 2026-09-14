@@ -54,28 +54,11 @@ Item {
         console.log("Key Code: doSaveOrEdit() was called; editing =", editing)
         if (editing) {
             console.log(">>> Key Code: Entering SAVE branch (editing is true)")
-            var code   = textField.text.trim()
-            var isBeta = pulseRuntimeSettings.betaKeyCodes.indexOf(code)   !== -1
-            var isExpert = pulseRuntimeSettings.expertKeyCodes.indexOf(code) !== -1
-
-            pulseRuntimeSettings.expertMode = isExpert
-            pulseRuntimeSettings.betaMode   = isExpert || isBeta
-            pulseSettings.isBetaTester      = isBeta
-            pulseSettings.isExpert          = isExpert
-
-            if (pulseRuntimeSettings.betaMode) {
-                pulseSettings.keyCode = code
-                pulseSettings.validateSalt = installToken.currentSalt
-            } else {
-                pulseSettings.keyCode = "not_set"
-            }
-
-            console.log("Key Code: User entered", code)
-            console.log(
-                "Key Code: result: expertMode", pulseRuntimeSettings.expertMode,
-                "and betaMode", pulseRuntimeSettings.betaMode,
-                "and validateSalt", pulseSettings.validateSalt, "for code", pulseSettings.keyCode
-            )
+            // THE RULE MOVED, IT WAS NOT COPIED. It is pulseRuntimeSettings.applyKeyCode
+            // now, because the v2 settings list needs the same answer and cannot reach a
+            // classic control - and two copies of "which codes grant what" is one copy too
+            // many. Every line this replaced is in that function, unchanged.
+            pulseRuntimeSettings.applyKeyCode(textField.text, installToken.currentSalt)
             editing = false
         } else {
             console.log(">>> Key Code: Entering EDIT branch (editing is false)")

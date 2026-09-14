@@ -38,6 +38,11 @@ Item {
     // buttons, which is a lookup table waiting to fall out of step.
     signal actionRequested(string id)
 
+    // THE KEY CODE IS NEITHER. It is not a setting - one string entered here rewrites four
+    // other keys and two access levels - and it is not an action, because it carries a
+    // value. Its own signal, answered by the one rule in pulseRuntimeSettings.
+    signal keyCodeEntered(string code)
+
     implicitHeight: column.height
     height: implicitHeight
 
@@ -57,6 +62,18 @@ Item {
 
     readonly property bool offersMounting:   offers && offers.sideScanMounting === true
     readonly property bool offersMtw:        offers && offers.nmeaMtw === true
+
+    // WHAT THE CODE BOUGHT, said in the row rather than left to two small badges. Classic
+    // shows a beta icon and a guru icon beside the field; a word is unambiguous at arm's
+    // length on a boat, and it answers the question the field actually raises - not "is
+    // there a code" but "what does it give me".
+    readonly property string keyCodeHint:
+          !pulseRuntimeSettings                  ? ""
+        : pulseRuntimeSettings.expertMode        ? qsTr("Expert - every setting is shown")
+        : pulseRuntimeSettings.betaMode          ? qsTr("Beta tester")
+        : (pulseSettings && pulseSettings.keyCode !== "not_set")
+                                                 ? qsTr("this code grants nothing")
+        :                                          qsTr("for testers, from Techadvision")
     readonly property bool expertOnly:       pulseRuntimeSettings ? pulseRuntimeSettings.expertMode : false
     readonly property bool betaOrExpert:
         pulseRuntimeSettings ? (pulseRuntimeSettings.expertMode || pulseRuntimeSettings.betaMode) : false
@@ -285,6 +302,29 @@ Item {
                     onToggled: function (v) {
                         list.settingChanged("persistent", "positionSourceAutoPilot", v)
                     }
+                },
+
+                // THE BETA KEY CODE, here on Olav's placing rather than in Troubleshooting
+                // where the document had it. It belongs with the things you set up once
+                // when the app is new to you, not with the things you reach for when
+                // something has gone wrong.
+                //
+                // MASKED AT REST, plain while typing. It is a secret worth not showing over
+                // a shoulder at a stand, and a field you cannot read while typing into it is
+                // a field you cannot correct.
+                PulseTextRow {
+                    width: installationGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Beta test key code")
+                    hint: list.keyCodeHint
+                    placeholder: qsTr("not set")
+                    masked: true
+                    lowercaseOnly: true
+                    value: (pulseSettings && pulseSettings.keyCode !== "not_set")
+                           ? pulseSettings.keyCode : ""
+
+                    onCommitted: function (code) { list.keyCodeEntered(code) }
                 }
             ]
         }

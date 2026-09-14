@@ -85,6 +85,9 @@ Item {
     // on its own signal - see PulseSettingsList.
     signal actionRequested(string id)
 
+    // Neither a setting nor an action - see PulseSettingsList.
+    signal keyCodeEntered(string code)
+
     visible: isOpen
     width: panelWidth
 
@@ -321,6 +324,10 @@ Item {
 
             onActionRequested: function (id) {
                 panel.actionRequested(id)
+            }
+
+            onKeyCodeEntered: function (code) {
+                panel.keyCodeEntered(code)
             }
         }
         }
