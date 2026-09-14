@@ -2507,6 +2507,23 @@ ApplicationWindow  {
                     safeLeft:   mainview.insetLeft()
 
                     onResumeRequested: mainview.setEchogramPaused(false)
+
+                    // THE POSITION STILL LIVES WHERE IT LIVED. historyTimeLineScroll is
+                    // assigned from both panes' onTimelinePositionChanged, so it stays the
+                    // holder and the gutter BINDS to it - moving the bar is not the same
+                    // idea as moving where the number is kept, and doing both in one commit
+                    // would put two ideas on one slow device build.
+                    timelinePosition: historyTimeLineScroll.timeLineScrollerPosition
+
+                    // And a move does exactly what the old bar's handler did, in the same
+                    // order. resetAim() matters: the crosshair is anchored to an epoch, and
+                    // scrolling to a different part of the history leaves it pointing at a
+                    // ping that is no longer under it.
+                    onTimelineMovedByUser: function (pos) {
+                        historyTimeLineScroll.timeLineScrollerPosition = pos
+                        core.setTimelinePosition(pos)
+                        core.resetAim()
+                    }
                 }
 
                 // THE INDICATOR PILLS (Stage 4 a). Beside the rail and for the same reason:
@@ -2593,7 +2610,12 @@ ApplicationWindow  {
     
     TimeLineShifter {
         id: historyTimeLineScroll
+        // STILL THE HOLDER, NO LONGER THE PICTURE. In v2 the paused gutter draws the bar,
+        // so this one goes dark - but it keeps carrying timeLineScrollerPosition, which
+        // both panes assign to and the gutter reads. One override on the component's own
+        // binding, which is rule 2 rather than an assignment.
         visibleWhenPaused: pulseRuntimeSettings.echogramPause
+                           && pulseSettings.uiVariant !== "v2"
         //visibleWhenPaused: false
         from: 0
         to: 1

@@ -38,6 +38,20 @@ Item {
 
     signal resumeRequested()
 
+    // THE HISTORY BAR, NOW IN HERE (14 Sept 2026). It used to be drawn ON the echogram -
+    // TimeLineShifter is anchors.fill on the window, with the horizontal variant across the
+    // top and the vertical one down the left - and that overlap is not only untidy. Olav:
+    // "the old design results in a moving magnifying box also when using the current drag
+    // handles (as they are present in the paused echogram areas)." Dragging the bar dragged
+    // the aim underneath it, because the aim's touch handling belongs to the plot and the
+    // bar was sitting on the plot. Off the picture, that cannot happen at all - which beats
+    // any amount of event-swallowing, because there is no longer an event to swallow.
+    //
+    // The gutter REPORTS and does not store, like every other V2 control: the position is
+    // handed in and a move is a signal. main.qml stays the only thing that talks to core.
+    property real timelinePosition: 1.0
+    signal timelineMovedByUser(real pos)
+
     readonly property real gutterThickness:
           alongFoot ? Math.round(92 * uiScale) + safeBottom
                     : Math.round(76 * uiScale) + safeLeft
@@ -58,6 +72,7 @@ Item {
 
     readonly property real buttonSize: Math.round(62 * uiScale)
     readonly property real edgePad:    Math.round(14 * uiScale)
+    readonly property real sliderHalo: Math.round(10 * uiScale)
 
     Rectangle {
         anchors.fill: parent
@@ -116,6 +131,7 @@ Item {
         }
 
         Text {
+            id: resumeLabelV
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: resumeButtonV.bottom
             anchors.topMargin: Math.round(10 * gutter.uiScale)
@@ -124,15 +140,51 @@ Item {
             font.pixelSize: Math.round(13 * gutter.uiScale)
         }
 
-        Text {
+        // PAUSED moves off the middle to make room for the bar. A ROTATED Text keeps its
+        // unrotated bounding box, so anchoring the slider to its top would run the slider
+        // straight through the word; the box is given the text's natural WIDTH as its
+        // height instead, which is the length the word actually occupies once turned.
+        Item {
+            id: pausedBoxV
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: parent.verticalCenter
-            rotation: -90
-            text: qsTr("PAUSED")
-            color: "#80d8a21f"
-            font.pixelSize: Math.round(22 * gutter.uiScale)
-            font.bold: true
-            font.letterSpacing: Math.round(4 * gutter.uiScale)
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: gutter.safeBottom + Math.round(16 * gutter.uiScale)
+            width:  parent.width
+            height: pausedTextV.implicitWidth
+
+            Text {
+                id: pausedTextV
+                anchors.centerIn: parent
+                rotation: -90
+                text: qsTr("PAUSED")
+                color: "#80d8a21f"
+                font.pixelSize: Math.round(22 * gutter.uiScale)
+                font.bold: true
+                font.letterSpacing: Math.round(4 * gutter.uiScale)
+            }
+        }
+
+        // The bar fills what is left, head to foot, the same direction the picture runs.
+        TimelineSliderVertical {
+            id: historyV
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top:    resumeLabelV.bottom
+            anchors.topMargin:    Math.round(16 * gutter.uiScale)
+            anchors.bottom: pausedBoxV.top
+            anchors.bottomMargin: Math.round(16 * gutter.uiScale)
+
+            thickness: Math.round(48 * gutter.uiScale)
+            halo:      gutter.sliderHalo
+            inverted:  true            // 1.0 at the TOP, as it has always been
+
+            from: 0
+            to: 1
+            stepSize: 0.0001
+            value: gutter.timelinePosition
+
+            onPositionChangedByUser: function (pos) { gutter.timelineMovedByUser(pos) }
+            onVisibleChanged: if (visible) setPosition(gutter.timelinePosition)
         }
     }
 
@@ -179,6 +231,7 @@ Item {
         }
 
         Text {
+            id: resumeLabelH
             anchors.verticalCenter: resumeButtonH.verticalCenter
             anchors.left: resumeButtonH.right
             anchors.leftMargin: Math.round(10 * gutter.uiScale)
@@ -188,6 +241,7 @@ Item {
         }
 
         Text {
+            id: pausedTextH
             anchors.verticalCenter: resumeButtonH.verticalCenter
             anchors.right: parent.right
             anchors.rightMargin: gutter.edgePad
@@ -196,6 +250,28 @@ Item {
             font.pixelSize: Math.round(22 * gutter.uiScale)
             font.bold: true
             font.letterSpacing: Math.round(4 * gutter.uiScale)
+        }
+
+        TimelineSliderHorizontal {
+            id: historyH
+
+            anchors.verticalCenter: resumeButtonH.verticalCenter
+            anchors.left:  resumeLabelH.right
+            anchors.leftMargin:  Math.round(16 * gutter.uiScale)
+            anchors.right: pausedTextH.left
+            anchors.rightMargin: Math.round(16 * gutter.uiScale)
+
+            thickness: Math.round(60 * gutter.uiScale)
+            halo:      gutter.sliderHalo
+            inverted:  false           // 1.0 newest at the RIGHT, as it has always been
+
+            from: 0
+            to: 1
+            stepSize: 0.0001
+            value: gutter.timelinePosition
+
+            onPositionChangedByUser: function (pos) { gutter.timelineMovedByUser(pos) }
+            onVisibleChanged: if (visible) setPosition(gutter.timelinePosition)
         }
     }
 }
