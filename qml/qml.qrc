@@ -122,6 +122,7 @@
         <file>PulseSegmentRow.qml</file>
         <file>PulseStepperRow.qml</file>
         <file>PulseReadOnlyRow.qml</file>
+        <file>PulseActionRow.qml</file>
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>LocationExtraSettings.qml</file>

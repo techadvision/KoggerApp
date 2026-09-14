@@ -32,6 +32,12 @@ Item {
 
     signal settingChanged(string target, string key, var value)
 
+    // AN ACTION IS NOT A SETTING, so it does not travel down the settings signal. It has no
+    // value to carry and its handler has to do something rather than assign something -
+    // routing it through settingChanged would mean main.qml deciding which keys are really
+    // buttons, which is a lookup table waiting to fall out of step.
+    signal actionRequested(string id)
+
     implicitHeight: column.height
     height: implicitHeight
 
@@ -428,11 +434,62 @@ Item {
 
         // NO RECORDING CATEGORY. The Recording tab had three jobs and the new surface has
         // already taken all three: the rail's Record button starts it, the pill column asks
-        // before stopping it, a demo starts from the connection screen - and as of this
-        // commit so does opening a file to view. Olav: "All redundant... But in settings we
-        // do not need this as a category."
-        Repeater { model: [ { id: "troubleshooting", title: qsTr("Troubleshooting") } ]
-                   delegate: stubCategory }
+        // before stopping it, a demo starts from the connection screen - and so does opening
+        // a file to view. Olav: "All redundant... But in settings we do not need this as a
+        // category."
+
+        // ---- Troubleshooting --------------------------------------------------
+        //
+        // NO "CHOOSE A DIFFERENT TRANSDUCER" HERE, though the strategy document lists one.
+        // The rail's source button opens the connection screen, which is that action with a
+        // picture of every device on it - repeating it as a row would be the duplicated
+        // ability Olav wants tier 3 cleaned of, arriving fresh in tier 2.
+        PulseSettingsGroup {
+            id: troubleGroup
+
+            width: parent.width
+            uiScale: list.uiScale
+            title: qsTr("Troubleshooting")
+            open: list.openId === "troubleshooting"
+            onToggled: list.toggle("troubleshooting")
+
+            content: [
+                // THE SAFE REPAIR FIRST, and it does not ask: it re-pushes the profile the
+                // app already committed and leaves the model alone, so the connection
+                // screen stays down and the echogram keeps its picture. There is nothing
+                // to undo.
+                //
+                // EXPERT-ONLY IN CLASSIC, where it lives under the expert Device swap
+                // group. Offered to everyone here because it is the honest answer to "the
+                // app and the transducer have drifted apart", which is not an expert's
+                // problem. One line to gate it again if Olav disagrees.
+                PulseActionRow {
+                    width: troubleGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Reconfigure the transducer")
+                    hint:  qsTr("sends the settings again, without changing which device it is")
+                    actionText: qsTr("Reconfigure")
+
+                    onActivated: list.actionRequested("reconfigure")
+                },
+
+                // AND THE ONE THAT INTERRUPTS THE PICTURE ASKS. The question stands in the
+                // row rather than in a dialog over the list.
+                PulseActionRow {
+                    width: troubleGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Restart the echo sounder")
+                    hint:  qsTr("the echogram stops until it comes back")
+                    actionText: qsTr("Restart")
+                    question:    qsTr("Restart it now? The picture stops until it is back.")
+                    confirmText: qsTr("Restart")
+
+                    onActivated: list.actionRequested("restart")
+                }
+            ]
+        }
     }
 
     // A HEADER WITH AN HONEST PLACEHOLDER, for the categories not yet filled. They are in

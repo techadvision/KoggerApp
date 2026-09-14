@@ -81,6 +81,10 @@ Item {
     // key - is kept exactly as well by one.
     signal settingChanged(string target, string key, var value)
 
+    // An action carries no value and its handler does rather than assigns, so it travels
+    // on its own signal - see PulseSettingsList.
+    signal actionRequested(string id)
+
     visible: isOpen
     width: panelWidth
 
@@ -313,6 +317,10 @@ Item {
 
             onSettingChanged: function (target, key, value) {
                 panel.settingChanged(target, key, value)
+            }
+
+            onActionRequested: function (id) {
+                panel.actionRequested(id)
             }
         }
         }

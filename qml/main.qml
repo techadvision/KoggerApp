@@ -2336,6 +2336,28 @@ ApplicationWindow  {
                     // Writing by string works because this is an assignment; a BINDING
                     // cannot be formed on a string key, which is exactly why the rows bind
                     // their reads explicitly instead of being described as data.
+                    // THE ACTIONS THE SETTINGS LIST CAN ASK FOR. Each raises the flag its
+                    // existing consumer already watches and clears - echoSounderReboot is
+                    // cleared by DeviceItem.qml:1984, reconfigureNow by :2014 - so nothing
+                    // new decides when an action is finished.
+                    onActionRequested: function (id) {
+                        if (!pulseRuntimeSettings) {
+                            console.log("SETTINGS: no runtime object for action", id)
+                            return
+                        }
+                        if (id === "restart") {
+                            console.log("SETTINGS: action - restart the echo sounder")
+                            pulseRuntimeSettings.echoSounderReboot = true
+                            return
+                        }
+                        if (id === "reconfigure") {
+                            console.log("SETTINGS: action - reconfigure the transducer")
+                            pulseRuntimeSettings.reconfigureNow = true
+                            return
+                        }
+                        console.log("SETTINGS: unknown action", id)
+                    }
+
                     onSettingChanged: function (target, key, value) {
                         var obj = (target === "runtime") ? pulseRuntimeSettings : pulseSettings
                         if (!obj) {
