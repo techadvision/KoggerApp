@@ -46,6 +46,15 @@ Settings {
     property string ecoConeId:                  ""      //"" = not migrated yet
     property int    ecoViewIndex:               0       //LEGACY, migration source only
     property int    ecoConeIndex:               0       //LEGACY, migration source only
+    //THE SCREEN PREFERENCE (Stage 4 b, the screen chooser). What the screen shows, as one
+    //of the ids in pulseRuntimeSettings.screenViewsAll.
+    //
+    //PERSISTED, NOT RUNTIME, and that is the whole reason it lives here beside the view and
+    //cone ids rather than in pulseRuntimeSettings with the live parameter state. A screen
+    //layout is exactly the kind of thing a user sets once for how they work and expects to
+    //find again next season - the opposite of an expert's sample-count experiment, which is
+    //meant to be forgotten at every app start.
+    property string screenViewId:               ""      //"" = not migrated yet
     property bool   useMetricValues:            true  //Not used anymore
     property bool   useMetricDepth:             true  //Metric split for depth and temperature
     property bool   useMetricTemperature:       true  //Metric split for depth and temperature
@@ -247,6 +256,16 @@ Settings {
             if (cId !== "") {
                 console.log("SETTINGS: migrating ecoConeIndex", ecoConeIndex, "-> ecoConeId", cId)
                 ecoConeId = cId
+            }
+
+            //AND ONWARD to the screen preference, which is migrated from the view id the
+            //two lines above have just settled - so the order here matters and a user who
+            //was looking at side scan opens on side scan rather than on the first entry.
+            var sId = pulseRuntimeSettings.migrateScreenId(screenViewId, ecoViewId, ecoViewIndex)
+            if (sId !== "") {
+                console.log("SETTINGS: migrating view", ecoViewId === "" ? ecoViewIndex : ecoViewId,
+                            "-> screenViewId", sId)
+                screenViewId = sId
             }
         } else {
             //Never expected — pulseRuntimeSettings is published first. Say so rather than

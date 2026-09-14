@@ -12,7 +12,8 @@ import QtQuick.Layouts 1.15
 // TWO MASTERS, NAMED RATHER THAN BLURRED. This is rule 1 as it applies to a control
 // surface, and getting it wrong here is how defect A's whole family recurs:
 //
-//   WHICH BUTTONS EXIST reads the COMMITTED profile (offersView / offersCone). A chooser
+//   WHICH BUTTONS EXIST reads the COMMITTED profile for the cone and the DISPLAY model
+//   for the screen (offersCone / offersScreen) - see the two property blocks. A chooser
 //   offers HARDWARE choices - you cannot change the cone of a transducer you do not have -
 //   so it follows what is connected, never a log that happens to be playing.
 //
@@ -32,8 +33,15 @@ Item {
     property bool displayIs2D: true
 
     // --- what the hardware offers (COMMITTED) ---
-    property bool offersView: false
     property bool offersCone: false
+
+    // --- what the PICTURE offers (DISPLAY) ---
+    //
+    // The screen chooser replaced the view chooser on 14 Sept, and it changed which model
+    // answers. A cone is a hardware choice and follows what is connected; a screen layout
+    // is a thing you judge by looking at it, so it follows displayIs2D and a side scan log
+    // on a red device still offers its layouts.
+    property bool offersScreen: false
 
     // --- app state the rail shows ---
     property bool recording: false
@@ -180,19 +188,24 @@ Item {
             onActivated: rail.buttonActivated(buttonId)
         }
 
-        // ONE BUTTON, TWO QUESTIONS - a VIEW on blue, a CONE on red - and absent entirely
-        // when the committed device offers neither. Absent rather than greyed out: a
-        // control that cannot be used is not a control, and the profile map already says
-        // "never offer a choice of one".
+        // ONE BUTTON, TWO QUESTIONS - a SCREEN on blue, a CONE on red - and absent entirely
+        // when neither is offered. Absent rather than greyed out: a control that cannot be
+        // used is not a control, and the profile map already says "never offer a choice of
+        // one".
         //
-        // The icon is static in this slice. Showing the CURRENT selection's icon means
-        // reading ecoViewId / ecoConeId, and that belongs with the chooser itself in
-        // stage 4 (b) - the profile map already carries a per-entry icon for it.
+        // THE RAIL'S BUTTON COUNT DOES NOT GROW, which is the decision recorded under the
+        // roadmap: the screen chooser took the view chooser's place rather than a place of
+        // its own, because once the layout says which picture is on screen a separate
+        // "which view" question has nothing left to answer.
+        //
+        // The icon is static, as it was for the view. Showing the CURRENT layout means
+        // drawing it, and PulseScreenMark draws it at 56 px in the panel where it is worth
+        // the room; at 24 px on the rail a split reads as a smudge.
         PulseRailButton {
             uiScale: rail.uiScale
-            buttonId: rail.offersCone ? "cone" : "view"
-            label: rail.offersCone ? "Cone" : "View"
-            visible: rail.offersView || rail.offersCone
+            buttonId: rail.offersCone ? "cone" : "screen"
+            label: rail.offersCone ? "Cone" : "Screen"
+            visible: rail.offersScreen || rail.offersCone
             iconSource: rail.offersCone ? "./icons/ui/pulse_cone.svg"
                                         : "./icons/ui/pulse_view_side_scan.svg"
             onActivated: rail.buttonActivated(buttonId)

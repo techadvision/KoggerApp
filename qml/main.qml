@@ -2227,7 +2227,7 @@ ApplicationWindow  {
                     // ask it. What the interface OFFERS reads the committed profile, because
                     // a chooser offers hardware choices and never follows a log.
                     displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
-                    offersView:  pulseRuntimeSettings ? pulseRuntimeSettings.offersViewChoice : false
+                    offersScreen: pulseRuntimeSettings ? pulseRuntimeSettings.offersScreenChoice : false
                     offersCone:  pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
 
                     recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
@@ -2579,6 +2579,18 @@ ApplicationWindow  {
                                    ? qsTr("A narrower cone sees less of the bottom and sees it more sharply.")
                                    : qsTr("What the transducer looks at. The frequency follows the view.")
 
+                    // ---- The screen ---------------------------------------------
+                    //
+                    // DISPLAY, not committed - the one line that separates this chooser
+                    // from the two above it. What the screen shows is judged by looking at
+                    // it, so it follows the display model and a side scan log keeps its
+                    // layouts whatever is plugged in.
+                    screenEntries:   pulseRuntimeSettings ? pulseRuntimeSettings.screenViews : []
+                    screenCurrentId: pulseRuntimeSettings
+                                     ? pulseRuntimeSettings.resolveScreenId(pulseSettings.screenViewId)
+                                     : ""
+                    screenCaption: qsTr("What the screen shows. Side scan sits on top in every split.")
+
                     // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE - classic's own
                     // rule, kept. Applying is what happens when the preference moves.
                     // ---- Max range ----------------------------------------------
@@ -2601,6 +2613,17 @@ ApplicationWindow  {
                     // ONE WRITER, shared with the pinch on the picture, and it is the runtime
                     // object's - because the key it writes is the key displayMaxRange reads.
                     onRangeMoved: function (v) { pulseRuntimeSettings.storeDisplayMaxRange(v) }
+
+                    // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE, the same
+                    // rule the view and cone choosers follow: resolveScreenId() answers
+                    // "what should be showing" for a stored layout that is not offered
+                    // today, and never writes that answer back over the user's own choice.
+                    onScreenChosen: function (id) {
+                        if (id === pulseSettings.screenViewId)
+                            return
+                        console.log("SCREEN: chosen", id)
+                        pulseSettings.screenViewId = id
+                    }
 
                     onChoiceMade: function (id) {
                         if (showingCone) {

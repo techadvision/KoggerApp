@@ -63,6 +63,17 @@ Item {
 
     signal choiceMade(string id)
 
+    // ---- The screen chooser -------------------------------------------------
+    //
+    // Its own four properties rather than a second use of the choice group's: the entries
+    // carry a layout rather than a frequency, and one list serving two meanings is how
+    // ecoViewIndex went wrong in the first place.
+    property var    screenEntries:   []
+    property string screenCurrentId: ""
+    property string screenCaption:   ""
+
+    signal screenChosen(string id)
+
     // ---- Max range ----------------------------------------------------------
     property int    rangeValue:   0
     property int    rangeFloor:   1
@@ -99,6 +110,7 @@ Item {
         : openGroup === "intensity" ? qsTr("Intensity")
         : openGroup === "filter"    ? qsTr("Water body filter")
         : openGroup === "range"     ? qsTr("Max range")
+        : openGroup === "screen"    ? qsTr("Screen")
         : openGroup === "view"      ? qsTr("View")
         : openGroup === "cone"      ? qsTr("Cone")
         : openGroup === "settings"  ? qsTr("Settings")
@@ -310,6 +322,19 @@ Item {
             caption:   panel.choiceCaption
 
             onChosen: function (id) { panel.choiceMade(id) }
+        }
+
+        PulseScreenGroup {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "screen"
+            uiScale: panel.uiScale
+
+            entries:   panel.screenEntries
+            currentId: panel.screenCurrentId
+            caption:   panel.screenCaption
+
+            onChosen: function (id) { panel.screenChosen(id) }
         }
 
         PulseSettingsList {

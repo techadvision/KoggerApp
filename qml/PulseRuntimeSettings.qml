@@ -1567,6 +1567,79 @@ QtObject {
     function coneForId(id)          { return entryForId(uiCones, resolveConeId(id)) }
     function viewModeForId(id)      { var e = viewForId(id); return e ? e.mode : "down" }
 
+    //-- THE SCREEN PREFERENCE (Stage 4 b, the screen chooser) ---------------------------
+    //
+    //WHAT THE SCREEN SHOWS, as one of six pictures. This replaces the side/down view
+    //chooser rather than joining it: the layout names which picture is on screen, so a
+    //separate "which view" question has nothing left to answer.
+    //
+    //RULE 1 DECIDES WHERE IT READS FROM, and it reads differently from the two choosers
+    //above. A view or a cone is a HARDWARE choice - you cannot change the cone of a
+    //transducer you do not have - so those follow the committed profile. The screen
+    //layout is a thing the user judges by LOOKING at it, so it follows the DISPLAY model
+    //and a side scan log played back on a red device still offers its layouts.
+    //
+    //An id is a promise: it is what sits in the user's settings file. Never rename one and
+    //never reuse a retired one for a different layout.
+    //
+    //`mode` is not decoration. resolveId() uses it to keep a user in the same picture when
+    //their stored choice is not currently offered, and it is what sends a stored
+    //split_side_down to single_side rather than to the top of the list.
+    property var screenViewsAll: [
+        { "id": "single_down",       "mode": "down",   "top": "down",   "bottom": "",       "title": "Down scan",     "subtitle": "full screen" },
+        { "id": "single_side",       "mode": "side",   "top": "side",   "bottom": "",       "title": "Side scan",     "subtitle": "full screen" },
+        { "id": "single_mosaic",     "mode": "mosaic", "top": "mosaic", "bottom": "",       "title": "Mosaic",        "subtitle": "full screen" },
+        { "id": "split_side_down",   "mode": "side",   "top": "side",   "bottom": "down",   "title": "Side + down",   "subtitle": "split", "needsTwoChannels": true },
+        { "id": "split_side_mosaic", "mode": "side",   "top": "side",   "bottom": "mosaic", "title": "Side + mosaic", "subtitle": "split" },
+        { "id": "split_down_mosaic", "mode": "down",   "top": "down",   "bottom": "mosaic", "title": "Down + mosaic", "subtitle": "split" }
+    ]
+
+    //SIDE OVER DOWN IS OFFERED NOW, AND THE TWO PANES SHARE ONE SOURCE. There is no true
+    //down scan on the wire yet - Olav, 14 Sept: "right now it is a single channel of choice
+    //only... We should work with interpolating the two channels into one view for downscan"
+    //- and the honest answer to that would have been to leave the row out. His answer was
+    //not that: "Allow downscan view already now. We use the same source as for downscan
+    //today. Fix it later."
+    //
+    //So the split draws BOTH panes from the one channel, exactly as the full-screen down
+    //scan already does, and the difference between the halves is the grid and the range
+    //rather than the data. That is a deliberate stand-in with a known end: when the
+    //interpolated down scan exists it replaces the bottom pane's source and nothing in this
+    //table changes.
+    //
+    //The flag stays as the one place that knows, so the row can still be withdrawn in one
+    //edit if the stand-in reads worse on the water than no row at all.
+    property bool offersSplitSideDown: true
+
+    property var screenViews: screenViewsAll.filter(function (e) {
+        return !e.needsTwoChannels || offersSplitSideDown
+    })
+
+    //A 2D transducer needs none of this - one picture, no second pane to offer - so there
+    //is no Screen button on the rail and the group is never built.
+    property bool offersScreenChoice: !displayIs2DTransducer
+
+    function resolveScreenId(id)    { return resolveId(screenViews, id, screenViewsAll) }
+    function screenForId(id)        { return entryForId(screenViews, resolveScreenId(id)) }
+
+    //ONE-SHOT MIGRATION from the view preference, called once from PulseSettings alongside
+    //the other two. A user who was looking at side scan keeps looking at side scan; the
+    //layout they never had starts as the picture they already had.
+    //
+    //Reads blue's own list for the same reason migrateViewId does: nothing is committed at
+    //startup, and views only ever existed on the Blue.
+    function migrateScreenId(storedId, storedViewId, legacyViewIndex) {
+        if (storedId !== "")
+            return ""
+        var all = (pulseBlue.ui && pulseBlue.ui.views) ? pulseBlue.ui.views : []
+        var e = (storedViewId !== "") ? entryForId(all, storedViewId)
+                                      : (all.length > 0
+                                         ? all[(legacyViewIndex < 0) ? 0
+                                               : (legacyViewIndex >= all.length ? all.length - 1 : legacyViewIndex)]
+                                         : null)
+        return (e && e.mode === "side") ? "single_side" : "single_down"
+    }
+
     //ONE-SHOT MIGRATION from the positional preferences, called once from
     //PulseSettings.Component.onCompleted. Returns the id to store, or "" to leave alone.
     //

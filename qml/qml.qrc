@@ -113,6 +113,8 @@
         <file>PulseColourGroup.qml</file>
         <file>PulseSliderRow.qml</file>
         <file>PulseChoiceGroup.qml</file>
+        <file>PulseScreenGroup.qml</file>
+        <file>PulseScreenMark.qml</file>
         <file>PulsePausedGutter.qml</file>
         <file>PulseDepthEngine.qml</file>
         <file>PulseDepthReadout.qml</file>
