@@ -626,7 +626,21 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             }
         }
 
-        // Depth from tapped epoch
+        // DEPTH FROM THE TAPPED EPOCH - two sources, and until 14 Sept a 2D picture only
+        // ever had one.
+        //
+        // The shape below used to be: side scan reads the chart's bottom processing, 2D
+        // reads the rangefinder, and then a shared fallback re-reads THE RANGEFINDER. For
+        // a side scan that fallback is a real second source. For a 2D picture it re-read
+        // the value that had just failed, so it could never do anything - and
+        // Epoch::rangeFinder() returns NAN whenever the epoch carries no rangefinder
+        // datum, which on a PULSE red is the ordinary case because the depth comes out of
+        // bottom track. The loupe's Bottom row was therefore blank on every 2D picture
+        // with an obvious bottom return sitting right under the crosshair.
+        //
+        // Each branch now has its own two sources in its own order. Epoch::distProccesing()
+        // already exists for exactly this - it walks the epoch's charts and returns the
+        // first finite bottom-processing distance - so nothing new is computed here.
         double depth = NAN;
         if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
             if (isSideScan) {
@@ -634,11 +648,14 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 if (auto* eg = epTap->chart(selCh, selSub)) {
                     depth = eg->bottomProcessing.getDistance();
                 }
+                if (!std::isfinite(depth) || depth < 0) {
+                    depth = epTap->rangeFinder();
+                }
             } else {
                 depth = epTap->rangeFinder();
-            }
-            if (!std::isfinite(depth) || depth < 0) {
-                depth = epTap->rangeFinder();
+                if (!std::isfinite(depth) || depth < 0) {
+                    depth = epTap->distProccesing();
+                }
             }
         }
 
@@ -1004,7 +1021,21 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
             }
         }
 
-        // Depth from tapped epoch
+        // DEPTH FROM THE TAPPED EPOCH - two sources, and until 14 Sept a 2D picture only
+        // ever had one.
+        //
+        // The shape below used to be: side scan reads the chart's bottom processing, 2D
+        // reads the rangefinder, and then a shared fallback re-reads THE RANGEFINDER. For
+        // a side scan that fallback is a real second source. For a 2D picture it re-read
+        // the value that had just failed, so it could never do anything - and
+        // Epoch::rangeFinder() returns NAN whenever the epoch carries no rangefinder
+        // datum, which on a PULSE red is the ordinary case because the depth comes out of
+        // bottom track. The loupe's Bottom row was therefore blank on every 2D picture
+        // with an obvious bottom return sitting right under the crosshair.
+        //
+        // Each branch now has its own two sources in its own order. Epoch::distProccesing()
+        // already exists for exactly this - it walks the epoch's charts and returns the
+        // first finite bottom-processing distance - so nothing new is computed here.
         double depth = NAN;
         if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
             if (isSideScan) {
@@ -1012,11 +1043,14 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 if (auto* eg = epTap->chart(selCh, selSub)) {
                     depth = eg->bottomProcessing.getDistance();
                 }
+                if (!std::isfinite(depth) || depth < 0) {
+                    depth = epTap->rangeFinder();
+                }
             } else {
                 depth = epTap->rangeFinder();
-            }
-            if (!std::isfinite(depth) || depth < 0) {
-                depth = epTap->rangeFinder();
+                if (!std::isfinite(depth) || depth < 0) {
+                    depth = epTap->distProccesing();
+                }
             }
         }
 
