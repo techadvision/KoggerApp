@@ -2316,8 +2316,15 @@ ApplicationWindow  {
                         // TAPPING THE BUTTON THAT OPENED A GROUP CLOSES IT, and one group is
                         // open at a time. Both fall out of comparing the id with openGroup
                         // rather than out of a rule written twice.
+                        //
+                        // THIS LIST IS THE SECOND PLACE A BUTTON ID IS WRITTEN, and it is why
+                        // renaming "view" to "screen" on the rail produced a button that
+                        // emitted, was heard, and fell through to the "arrives later" line
+                        // below - the panel never opened and nothing looked broken. A rail id
+                        // has to be spelled the same in PulseRail and here; there is no third
+                        // place, and the console line at the bottom is what says so.
                         if (id === "colours" || id === "intensity" || id === "filter"
-                                || id === "view" || id === "cone" || id === "range"
+                                || id === "screen" || id === "cone" || id === "range"
                                 || id === "settings") {
                             pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
                             console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
