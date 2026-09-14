@@ -1181,10 +1181,20 @@ ApplicationWindow  {
                     mainview.applyScreenId(pulseSettings.screenViewId)
             }
 
+            // THE CONTROL SURFACE TAKES ITS WIDTH FROM THE PICTURE RATHER THAN COVERING IT,
+            // and now it takes it from BOTH pictures. This was one anchors.leftMargin on the
+            // 2D GridLayout while the rail lived inside plotsContainer; the rail is a sibling
+            // of both containers now, so the inset belongs to the area they share.
+            //
+            // Zero in the classic UI and zero while the rail is collapsed, both through the
+            // rail's own `inset`, so there is still no second mechanism to keep in step.
+            readonly property real controlInset: mainview.pulseRailInset + mainview.pulsePanelInset
+            readonly property real contentWidth: Math.max(0, width - controlInset)
+
             readonly property bool has3DView: mosaicViewActive
             readonly property bool has2DView: !mosaicViewActive
             readonly property bool splitActive: has3DView && has2DView // always false now (no split) — kept for the geometry below
-            readonly property real primaryLength: landscapeMode ? width : height
+            readonly property real primaryLength: landscapeMode ? contentWidth : height
             readonly property real splitLength: Math.max(0, primaryLength)
             readonly property real firstPaneLength: splitActive
                                                     ? Math.round(splitLength * splitRatio)
@@ -1288,13 +1298,15 @@ ApplicationWindow  {
                 // Object stays instantiated when hidden (Core::UILoad findChild requirement).
                 visible: visualisationLayout.has3DView
                 objectName: "GraphicsScene3dView"
-                x: 0
+                // AFTER THE RAIL, the same as the echogram. The mosaic is a picture the user
+                // adjusts, so the controls compress it rather than sit on top of it.
+                x: visualisationLayout.controlInset
                 y: 0
                 width: visualisationLayout.landscapeMode
                        ? (visualisationLayout.splitActive
                           ? visualisationLayout.firstPaneLength
-                          : (visualisationLayout.has3DView ? visualisationLayout.width : 0))
-                       : visualisationLayout.width
+                          : (visualisationLayout.has3DView ? visualisationLayout.contentWidth : 0))
+                       : visualisationLayout.contentWidth
                 height: visualisationLayout.landscapeMode
                         ? visualisationLayout.height
                         : (visualisationLayout.splitActive
@@ -2023,11 +2035,16 @@ ApplicationWindow  {
 
                 // Landscape: left edge when echogram full, right edge when 3D full.
                 // Portrait:  top edge  when echogram full, bottom edge when 3D full.
-                x: visualisationLayout.landscapeMode
-                   ? (visualisationLayout.mosaicViewActive
-                      ? (visualisationLayout.width - width - edgeMargin)
-                      : edgeMargin)
-                   : Math.round((visualisationLayout.width - width) / 2)
+                // SHIFTED PAST THE RAIL like everything else that sits on a picture. At the
+                // left edge it would otherwise be under the rail and unreachable - which is a
+                // regression the rail's move would have introduced silently, on the one
+                // control that is the only way out of the mosaic until the chooser replaces it.
+                x: visualisationLayout.controlInset
+                   + (visualisationLayout.landscapeMode
+                      ? (visualisationLayout.mosaicViewActive
+                         ? (visualisationLayout.contentWidth - width - edgeMargin)
+                         : edgeMargin)
+                      : Math.round((visualisationLayout.contentWidth - width) / 2))
                 y: visualisationLayout.landscapeMode
                    ? Math.round((visualisationLayout.height - height) / 2)
                    : (visualisationLayout.mosaicViewActive
@@ -2071,11 +2088,12 @@ ApplicationWindow  {
             Item {
                 id: plotsContainer
                 visible: visualisationLayout.has2DView
-                x: visualisationLayout.landscapeMode
-                   ? (visualisationLayout.splitActive
-                      ? visualisationLayout.firstPaneLength
+                x: visualisationLayout.controlInset
+                   + (visualisationLayout.landscapeMode
+                      ? (visualisationLayout.splitActive
+                         ? visualisationLayout.firstPaneLength
+                         : 0)
                       : 0)
-                   : 0
                 y: visualisationLayout.landscapeMode
                    ? 0
                    : (visualisationLayout.splitActive
@@ -2083,9 +2101,9 @@ ApplicationWindow  {
                       : 0)
                 width: visualisationLayout.landscapeMode
                        ? (visualisationLayout.splitActive
-                          ? Math.max(0, visualisationLayout.width - visualisationLayout.firstPaneLength)
-                          : visualisationLayout.width)
-                       : visualisationLayout.width
+                          ? Math.max(0, visualisationLayout.contentWidth - visualisationLayout.firstPaneLength)
+                          : visualisationLayout.contentWidth)
+                       : visualisationLayout.contentWidth
                 height: visualisationLayout.landscapeMode
                         ? visualisationLayout.height
                         : (visualisationLayout.splitActive
@@ -2104,7 +2122,10 @@ ApplicationWindow  {
                     //
                     // Zero in the classic UI and zero while the rail is collapsed, both through
                     // the rail's own `inset`, so there is no second mechanism to keep in step.
-                    anchors.leftMargin: mainview.pulseRailInset + mainview.pulsePanelInset
+                    // THE LEFT INSET MOVED UP with the rail, onto plotsContainer's own x and
+                    // width - see visualisationLayout.controlInset. Applying it here as well
+                    // would take the width twice.
+                    //
                     // AND AT THE FOOT, for a 2D picture's paused gutter. Zero at every
                     // other moment, through the gutter's own binding - so there is no
                     // second mechanism deciding when the bottom is taken.
@@ -2196,615 +2217,634 @@ ApplicationWindow  {
                         }
                     }
                 }
+            }
+
+            // ---- THE V2 CONTROL SURFACE, one level up (14 Sept 2026) ----------------
+            //
+            // These four were children of plotsContainer, which is `visible: has2DView`.
+            // So the whole control surface vanished the moment the mosaic went full screen:
+            // no rail, no panel, no pills, no gutter, and - once the screen preference is
+            // persisted and the pill is gone - no way back out of the mosaic at all.
+            //
+            // It is the SAME move the rail already made once, one level further. Stage 4 (a)
+            // took it out of Plot2D because qPlot2D paints across its whole item and nothing
+            // built inside a pane can take width from the picture. The same reasoning does not
+            // stop at the 2D pane: the mosaic is a picture too, and a split puts a pane of each
+            // on screen at once. Anything that serves both has to be their SIBLING, which is
+            // here.
+            //
+            // Their anchors are unchanged - parent.left / top / bottom - because the new parent
+            // is the whole visualisation area rather than the 2D half of it, which is exactly
+            // what they should have been measuring against.
 
 
-                // THE EDGE RAIL (Stage 4 a). ONE instance above both panes, for the same
-                // reason PulseConnectionScreen and PulseSetupOverlay are: PulseApp is built
-                // inside Plot2D, so anything living there is drawn once per pane.
-                //
-                // It sits inside plotsContainer rather than at the foot of this file because
-                // anchors only reach a parent or a sibling - and because plotsContainer is
-                // exactly the 2D area, so the rail never intrudes on the 3D pane.
-                //
-                // Everything it needs is read here and passed in; the rail itself holds no
-                // app state. `collapsed` is ONE binding on the persisted setting and the
-                // handler writes the SETTING, never the property - assigning it would destroy
-                // the binding and the rail would stop following the stored value.
-                PulseRail {
-                    id: pulseRail
 
-                    // PAUSED IS ITS OWN MODE, so the rail is not merely disabled while the
-                    // picture is frozen - it is gone, and the gutter takes its place.
-                    visible: pulseSettings.uiVariant === "v2"
-                             && !pulseRuntimeSettings.echogramPause
-                    enabled: visible
+            // THE EDGE RAIL (Stage 4 a). ONE instance above both panes, for the same
+            // reason PulseConnectionScreen and PulseSetupOverlay are: PulseApp is built
+            // inside Plot2D, so anything living there is drawn once per pane.
+            //
+            // It sits inside plotsContainer rather than at the foot of this file because
+            // anchors only reach a parent or a sibling - and because plotsContainer is
+            // exactly the 2D area, so the rail never intrudes on the 3D pane.
+            //
+            // Everything it needs is read here and passed in; the rail itself holds no
+            // app state. `collapsed` is ONE binding on the persisted setting and the
+            // handler writes the SETTING, never the property - assigning it would destroy
+            // the binding and the rail would stop following the stored value.
+            PulseRail {
+                id: pulseRail
 
-                    anchors.left:   parent.left
-                    anchors.top:    parent.top
-                    anchors.bottom: parent.bottom
+                // PAUSED IS ITS OWN MODE, so the rail is not merely disabled while the
+                // picture is frozen - it is gone, and the gutter takes its place.
+                visible: pulseSettings.uiVariant === "v2"
+                         && !pulseRuntimeSettings.echogramPause
+                enabled: visible
 
-                    uiScale:    mainview.s
-                    safeTop:    mainview.insetTop()
-                    safeBottom: mainview.insetBottom()
-                    safeLeft:   mainview.insetLeft()
+                anchors.left:   parent.left
+                anchors.top:    parent.top
+                anchors.bottom: parent.bottom
 
-                    // RULE 1. What is DRAWN about the picture reads the display model;
-                    // is2DTransducer answers "what is connected" and nothing that draws may
-                    // ask it. What the interface OFFERS reads the committed profile, because
-                    // a chooser offers hardware choices and never follows a log.
-                    displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
-                    offersScreen: pulseRuntimeSettings ? pulseRuntimeSettings.offersScreenChoice : false
-                    offersCone:  pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
+                uiScale:    mainview.s
+                safeTop:    mainview.insetTop()
+                safeBottom: mainview.insetBottom()
+                safeLeft:   mainview.insetLeft()
 
-                    recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
+                // RULE 1. What is DRAWN about the picture reads the display model;
+                // is2DTransducer answers "what is connected" and nothing that draws may
+                // ask it. What the interface OFFERS reads the committed profile, because
+                // a chooser offers hardware choices and never follows a log.
+                displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
+                offersScreen: pulseRuntimeSettings ? pulseRuntimeSettings.offersScreenChoice : false
+                offersCone:  pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
 
-                    // THE CONDITION THE RECORDING TAB HAS ALWAYS USED, not isPresentingLog.
-                    // A replay records as a confusing second-generation log; an opened file,
-                    // or one still opening, is not live data to record at all. With a
-                    // transducer connected AND a file open, isPresentingLog is false - so it
-                    // would have let the button back over a picture that is still a file.
-                    canRecord: pulseRuntimeSettings
-                               ? (!pulseRuntimeSettings.wasKlfFileOpened
-                                  && !pulseRuntimeSettings.isOpeningKlfFile
-                                  && !pulseRuntimeSettings.isInDemoMode
-                                  && !core.isFileOpening)
-                               : false
+                recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
 
-                    // The link strip, read rather than recomputed. Same derivation the
-                    // connection screen reads, so the button and the screen it opens can
-                    // never disagree.
-                    sourceState: pulseRuntimeSettings ? pulseRuntimeSettings.linkState : "absent"
-                    sourceColor: pulseRuntimeSettings ? pulseRuntimeSettings.linkColor : "#6d7480"
+                // THE CONDITION THE RECORDING TAB HAS ALWAYS USED, not isPresentingLog.
+                // A replay records as a confusing second-generation log; an opened file,
+                // or one still opening, is not live data to record at all. With a
+                // transducer connected AND a file open, isPresentingLog is false - so it
+                // would have let the button back over a picture that is still a file.
+                canRecord: pulseRuntimeSettings
+                           ? (!pulseRuntimeSettings.wasKlfFileOpened
+                              && !pulseRuntimeSettings.isOpeningKlfFile
+                              && !pulseRuntimeSettings.isInDemoMode
+                              && !core.isFileOpening)
+                           : false
 
-                    collapsed: pulseSettings.v2RailCollapsed
-                    onCollapseToggled: {
-                        pulseSettings.v2RailCollapsed = !pulseSettings.v2RailCollapsed
-                        console.log("RAIL:", pulseSettings.v2RailCollapsed ? "collapsed" : "shown")
-                        // A PANEL WITHOUT ITS RAIL IS STRANDED. Its own close button still
-                        // works, but the button that opened it has just gone, so the two
-                        // move together.
-                        if (pulseSettings.v2RailCollapsed)
-                            pulsePanel.openGroup = ""
-                    }
+                // The link strip, read rather than recomputed. Same derivation the
+                // connection screen reads, so the button and the screen it opens can
+                // never disagree.
+                sourceState: pulseRuntimeSettings ? pulseRuntimeSettings.linkState : "absent"
+                sourceColor: pulseRuntimeSettings ? pulseRuntimeSettings.linkColor : "#6d7480"
 
-                    // THE OVERRIDE on the connection screen's one visibility binding. It goes
-                    // through pulseRuntimeSettings rather than through pulseConnectionScreen's
-                    // id because the rail is a component in its own file - and keeping the
-                    // route the same from wherever the rail is hosted is worth more than the
-                    // one line it saves here.
-                    onSourceActivated: {
-                        console.log("RAIL: source - opening the connection screen")
-                        if (pulseRuntimeSettings)
-                            pulseRuntimeSettings.connectionScreenRequested = true
-                    }
-
-                    // Scaffolding until 4 (b): the switch that turns v2 on lives in the expert
-                    // settings inside the CLASSIC UI, and uiVariant is persisted.
-                    onBackToClassic: {
-                        console.log("PULSE UI: v2 - returning to classic")
-                        pulseSettings.uiVariant = "classic"
-                    }
-
-                    openGroup: pulsePanel.openGroup
-
-                    onButtonActivated: function (id) {
-                        // RECORD IS THE FIRST TIER-1 BUTTON THAT DOES SOMETHING, because it
-                        // is the only one that needs no settings panel - it has no value to
-                        // set, only a state to enter. It does not toggle: it ASKS, in the
-                        // pill column where the recording state already lives.
-                        // PAUSE NEEDS NO PANEL EITHER. Like Record it has no value to set,
-                        // only a mode to enter - and unlike Record it is not destructive, so
-                        // it does not ask.
-                        if (id === "pause") {
-                            mainview.setEchogramPaused(true)
-                            return
-                        }
-
-                        if (id === "record") {
-                            if (pulseRuntimeSettings.isRecordingKlf)
-                                pulsePillColumn.askRecordStop()
-                            else
-                                pulsePillColumn.askRecordStart()
-                            return
-                        }
-
-                        // Any other rail tap answers an open question with "not now". A
-                        // question left standing while the user has plainly moved on is
-                        // clutter, and the next tap is how they said so.
-                        pulsePillColumn.dismissQuestion()
-
-                        // TAPPING THE BUTTON THAT OPENED A GROUP CLOSES IT, and one group is
-                        // open at a time. Both fall out of comparing the id with openGroup
-                        // rather than out of a rule written twice.
-                        //
-                        // THIS LIST IS THE SECOND PLACE A BUTTON ID IS WRITTEN, and it is why
-                        // renaming "view" to "screen" on the rail produced a button that
-                        // emitted, was heard, and fell through to the "arrives later" line
-                        // below - the panel never opened and nothing looked broken. A rail id
-                        // has to be spelled the same in PulseRail and here; there is no third
-                        // place, and the console line at the bottom is what says so.
-                        if (id === "colours" || id === "intensity" || id === "filter"
-                                || id === "screen" || id === "cone" || id === "range"
-                                || id === "settings") {
-                            pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
-                            console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
-                            return
-                        }
-
-                        console.log("RAIL:", id, "- its panel arrives later in stage 4 (b)")
-                    }
+                collapsed: pulseSettings.v2RailCollapsed
+                onCollapseToggled: {
+                    pulseSettings.v2RailCollapsed = !pulseSettings.v2RailCollapsed
+                    console.log("RAIL:", pulseSettings.v2RailCollapsed ? "collapsed" : "shown")
+                    // A PANEL WITHOUT ITS RAIL IS STRANDED. Its own close button still
+                    // works, but the button that opened it has just gone, so the two
+                    // move together.
+                    if (pulseSettings.v2RailCollapsed)
+                        pulsePanel.openGroup = ""
                 }
 
-                // THE SLIDING PANEL (Stage 4 b). Beside the rail, and anchored past it, so
-                // the two insets add up rather than overlap.
-                PulsePanel {
-                    id: pulsePanel
+                // THE OVERRIDE on the connection screen's one visibility binding. It goes
+                // through pulseRuntimeSettings rather than through pulseConnectionScreen's
+                // id because the rail is a component in its own file - and keeping the
+                // route the same from wherever the rail is hosted is worth more than the
+                // one line it saves here.
+                onSourceActivated: {
+                    console.log("RAIL: source - opening the connection screen")
+                    if (pulseRuntimeSettings)
+                        pulseRuntimeSettings.connectionScreenRequested = true
+                }
 
-                    visible: pulseSettings.uiVariant === "v2" && openGroup !== ""
-                    enabled: visible
+                // Scaffolding until 4 (b): the switch that turns v2 on lives in the expert
+                // settings inside the CLASSIC UI, and uiVariant is persisted.
+                onBackToClassic: {
+                    console.log("PULSE UI: v2 - returning to classic")
+                    pulseSettings.uiVariant = "classic"
+                }
 
-                    anchors.left: parent.left
-                    anchors.leftMargin: mainview.pulseRailInset
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
+                openGroup: pulsePanel.openGroup
 
-                    uiScale:    mainview.s
-                    safeTop:    mainview.insetTop()
-                    safeBottom: mainview.insetBottom()
-
-                    announceEchogramStop: pulseSettings.stopEchogramToConfigure
-
-                    onCloseRequested: openGroup = ""
-
-                    // THE ONE WRITER for every setting the tier-2 list carries. The rows
-                    // bind their values and report a change; this assigns it, and nothing
-                    // else does. `target` says which of the two objects owns the key -
-                    // persistent for pulseSettings, which is where a value survives a
-                    // restart, runtime for pulseRuntimeSettings, which is what reaches C++.
-                    //
-                    // Writing by string works because this is an assignment; a BINDING
-                    // cannot be formed on a string key, which is exactly why the rows bind
-                    // their reads explicitly instead of being described as data.
-                    // ONE RULE, NOT A SECOND COPY OF IT. applyKeyCode lives on
-                    // pulseRuntimeSettings so that classic's KeyCodeInput and this list
-                    // reach the same answer; the salt is handed in because this is the
-                    // side that can see installToken.
-                    onKeyCodeEntered: function (code) {
-                        if (!pulseRuntimeSettings)
-                            return
-                        pulseRuntimeSettings.applyKeyCode(code, installToken.currentSalt)
+                onButtonActivated: function (id) {
+                    // RECORD IS THE FIRST TIER-1 BUTTON THAT DOES SOMETHING, because it
+                    // is the only one that needs no settings panel - it has no value to
+                    // set, only a state to enter. It does not toggle: it ASKS, in the
+                    // pill column where the recording state already lives.
+                    // PAUSE NEEDS NO PANEL EITHER. Like Record it has no value to set,
+                    // only a mode to enter - and unlike Record it is not destructive, so
+                    // it does not ask.
+                    if (id === "pause") {
+                        mainview.setEchogramPaused(true)
+                        return
                     }
 
-                    // THE ACTIONS THE SETTINGS LIST CAN ASK FOR. Each raises the flag its
-                    // existing consumer already watches and clears - echoSounderReboot is
-                    // cleared by DeviceItem.qml:1984, reconfigureNow by :2014 - so nothing
-                    // new decides when an action is finished.
-                    onActionRequested: function (id) {
-                        if (!pulseRuntimeSettings) {
-                            console.log("SETTINGS: no runtime object for action", id)
-                            return
-                        }
-                        if (id === "restart") {
-                            console.log("SETTINGS: action - restart the echo sounder")
-                            pulseRuntimeSettings.echoSounderReboot = true
-                            return
-                        }
-                        // RESET DOES THE WORK RATHER THAN RAISING A FLAG.
-                        //
-                        // The flag was copied from classic, where the behaviour lives in a
-                        // Connections block INSIDE PulseInfoExpert.qml - a classic control
-                        // v2 never instantiates - so under v2 the flag went up and nothing
-                        // watched it.
-                        //
-                        // And classic's version does not work either, for a different
-                        // reason: it sets fakeDepthAddition to 0, which re-syncs the
-                        // control's thumb, but the control has emitOnUserActionOnly so
-                        // dataset.setFakeDepthAddition(0) is never called and the C++
-                        // offset stays. It also raises resetBottomTrackActive, which is
-                        // declared once in PulseRuntimeSettings and read NOWHERE in any
-                        // .qml or .cpp. Both halves are dead.
-                        //
-                        // So this clears the number where the number actually lives.
-                        if (id === "resetFakeDepth") {
-                            console.log("SETTINGS: action - back to the real depth")
-                            pulseRuntimeSettings.fakeDepthAddition = 0
-                            if (dataset)
-                                dataset.setFakeDepthAddition(0)
-                            return
-                        }
-                        if (id === "reconfigure") {
-                            console.log("SETTINGS: action - reconfigure the transducer")
-                            pulseRuntimeSettings.reconfigureNow = true
-                            return
-                        }
-                        console.log("SETTINGS: unknown action", id)
-                    }
-
-                    onSettingChanged: function (target, key, value) {
-                        // A THIRD TARGET, and it is not a third object. "param" is a
-                        // MANAGED DEVICE PARAMETER: readonly, living in the per-profile
-                        // live parameter map, and reachable only through setParam(). The
-                        // row declares which kind of key it is writing, so this handler
-                        // does not have to carry a list of which names are special - a
-                        // list that would fall out of step the first time one is added.
-                        if (target === "param") {
-                            if (pulseRuntimeSettings)
-                                pulseRuntimeSettings.setParam(key, value)
-                            return
-                        }
-
-                        var obj = (target === "runtime") ? pulseRuntimeSettings : pulseSettings
-                        if (!obj) {
-                            console.log("SETTINGS: no", target, "object for", key)
-                            return
-                        }
-                        if (obj[key] === value)
-                            return
-                        console.log("SETTINGS:", target, key, "->", value)
-                        obj[key] = value
-
-                        // THE ONE KEY WHOSE CONSUMER IS A CALL, NOT A BINDING.
-                        // pulseRuntimeSettings.fakeDepthAddition is read by nothing -
-                        // dataset._fakeDepthAddition is what actually shifts the depth, and
-                        // classic's control sets the property AND calls the setter. Writing
-                        // the property alone, as the generic path does, changed a number
-                        // nobody reads. Handled here rather than in the row, because this
-                        // is the side that can see `dataset`.
-                        if (key === "fakeDepthAddition" && dataset)
-                            dataset.setFakeDepthAddition(value)
-                    }
-
-                    // ---- Colours ------------------------------------------------
-                    //
-                    // THE LIST FOLLOWS THE DISPLAY MODEL, and so does the key a tap writes.
-                    // Neither chooser can reach the other device's stored preference, which
-                    // is the whole of the fix: the classic 2D selector read the SHARED
-                    // applied id, found the blue's theme inside the red list and wrote that
-                    // position into colorMapIndex2D, destroying red's own preference.
-                    readonly property var fullThemeList:
-                        pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeModel : []
-
-                    themeEntries: favouritesFilter ? pulseSettings.favoriteThemes2DNew
-                                                   : fullThemeList
-
-                    // THE COLOUR TABLES, ASKED FOR ONCE. qPlot2D::echogramThemeStops(id) is
-                    // Q_INVOKABLE and has been in the tree unused; it returns the renderer's
-                    // own table for ANY id, so every row can draw the palette it will get.
-                    //
-                    // Built once rather than bound: these tables are compiled in and cannot
-                    // change while the app runs, and twenty invokes per repaint would be
-                    // twenty invokes too many.
-                    property var themeStopsById: ({})
-
-                    Component.onCompleted: {
-                        var out = {}
-                        var all = pulseRuntimeSettings.themeModelRed
-                                      .concat(pulseRuntimeSettings.themeModelBlue)
-                        for (var i = 0; i < all.length; ++i) {
-                            var id = all[i].id
-                            if (out[id] !== undefined)
-                                continue
-                            out[id] = waterViewFirst.echogramThemeStops(id)
-                        }
-                        themeStopsById = out
-                        console.log("THEME: colour tables read for", Object.keys(out).length, "themes")
-
-                        // The stored values have to reach the renderer at least once, or v2
-                        // starts on whatever the plot happened to have. The classic controls
-                        // did this from their own Component.onCompleted; v2 has no control to
-                        // hang it on until a panel is opened, so it happens here.
-                        mainview.applyIntensity()
-                        mainview.applyWaterBodyFilter()
-                        mainview.applyMaxRange()
-                        mainview.applyScreenId(pulseSettings.screenViewId)
-                    }
-                    currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
-
-                    offerFavourites: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer
-                                                          : false
-                    favouritesFilter: offerFavourites && pulseSettings.useFavoriteThemes2D
-                    favouriteIds: pulseSettings.favoriteThemes2DNew.map(function (t) { return t.id })
-
-                    // THE ONLY PLACE A COLOUR KEY IS WRITTEN in v2, and it writes exactly
-                    // one - the one belonging to the model on screen. displayThemeId is a
-                    // binding on these, so the picture follows without being told.
-                    onThemeChosen: function (id) {
-                        var is2D  = pulseRuntimeSettings.displayIs2DTransducer
-                        var model = is2D ? pulseRuntimeSettings.themeModelRed
-                                         : pulseRuntimeSettings.themeModelBlue
-                        var idx = model.findIndex(function (e) { return e.id === id })
-                        if (idx < 0) {
-                            console.log("THEME: chosen id", id, "is not in the", is2D ? "2D" : "side scan", "list")
-                            return
-                        }
-                        console.log("THEME: chosen", id, "-> storing index", idx,
-                                    "in", is2D ? "colorMapIndex2D" : "colorMapIndexSideScan")
-                        if (is2D)
-                            pulseSettings.colorMapIndex2D = idx
+                    if (id === "record") {
+                        if (pulseRuntimeSettings.isRecordingKlf)
+                            pulsePillColumn.askRecordStop()
                         else
-                            pulseSettings.colorMapIndexSideScan = idx
+                            pulsePillColumn.askRecordStart()
+                        return
                     }
 
-                    // The two favourite functions already exist and already keep the list in
-                    // master order. removeFavorite2DNew also moves colorMapIndex2D when it
-                    // drops the current theme, which is exactly what v2 needs - and its write
-                    // to colorMapIndexReal is harmless here, because the index move
-                    // re-evaluates displayThemeId and the apply handler rewrites it.
-                    onFavouriteToggled: function (id) {
-                        var entry = pulseRuntimeSettings.themeModelRed.find(function (e) { return e.id === id })
-                        if (!entry)
+                    // Any other rail tap answers an open question with "not now". A
+                    // question left standing while the user has plainly moved on is
+                    // clutter, and the next tap is how they said so.
+                    pulsePillColumn.dismissQuestion()
+
+                    // TAPPING THE BUTTON THAT OPENED A GROUP CLOSES IT, and one group is
+                    // open at a time. Both fall out of comparing the id with openGroup
+                    // rather than out of a rule written twice.
+                    //
+                    // THIS LIST IS THE SECOND PLACE A BUTTON ID IS WRITTEN, and it is why
+                    // renaming "view" to "screen" on the rail produced a button that
+                    // emitted, was heard, and fell through to the "arrives later" line
+                    // below - the panel never opened and nothing looked broken. A rail id
+                    // has to be spelled the same in PulseRail and here; there is no third
+                    // place, and the console line at the bottom is what says so.
+                    if (id === "colours" || id === "intensity" || id === "filter"
+                            || id === "screen" || id === "cone" || id === "range"
+                            || id === "settings") {
+                        pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
+                        console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
+                        return
+                    }
+
+                    console.log("RAIL:", id, "- its panel arrives later in stage 4 (b)")
+                }
+            }
+
+            // THE SLIDING PANEL (Stage 4 b). Beside the rail, and anchored past it, so
+            // the two insets add up rather than overlap.
+            PulsePanel {
+                id: pulsePanel
+
+                visible: pulseSettings.uiVariant === "v2" && openGroup !== ""
+                enabled: visible
+
+                anchors.left: parent.left
+                anchors.leftMargin: mainview.pulseRailInset
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+
+                uiScale:    mainview.s
+                safeTop:    mainview.insetTop()
+                safeBottom: mainview.insetBottom()
+
+                announceEchogramStop: pulseSettings.stopEchogramToConfigure
+
+                onCloseRequested: openGroup = ""
+
+                // THE ONE WRITER for every setting the tier-2 list carries. The rows
+                // bind their values and report a change; this assigns it, and nothing
+                // else does. `target` says which of the two objects owns the key -
+                // persistent for pulseSettings, which is where a value survives a
+                // restart, runtime for pulseRuntimeSettings, which is what reaches C++.
+                //
+                // Writing by string works because this is an assignment; a BINDING
+                // cannot be formed on a string key, which is exactly why the rows bind
+                // their reads explicitly instead of being described as data.
+                // ONE RULE, NOT A SECOND COPY OF IT. applyKeyCode lives on
+                // pulseRuntimeSettings so that classic's KeyCodeInput and this list
+                // reach the same answer; the salt is handed in because this is the
+                // side that can see installToken.
+                onKeyCodeEntered: function (code) {
+                    if (!pulseRuntimeSettings)
+                        return
+                    pulseRuntimeSettings.applyKeyCode(code, installToken.currentSalt)
+                }
+
+                // THE ACTIONS THE SETTINGS LIST CAN ASK FOR. Each raises the flag its
+                // existing consumer already watches and clears - echoSounderReboot is
+                // cleared by DeviceItem.qml:1984, reconfigureNow by :2014 - so nothing
+                // new decides when an action is finished.
+                onActionRequested: function (id) {
+                    if (!pulseRuntimeSettings) {
+                        console.log("SETTINGS: no runtime object for action", id)
+                        return
+                    }
+                    if (id === "restart") {
+                        console.log("SETTINGS: action - restart the echo sounder")
+                        pulseRuntimeSettings.echoSounderReboot = true
+                        return
+                    }
+                    // RESET DOES THE WORK RATHER THAN RAISING A FLAG.
+                    //
+                    // The flag was copied from classic, where the behaviour lives in a
+                    // Connections block INSIDE PulseInfoExpert.qml - a classic control
+                    // v2 never instantiates - so under v2 the flag went up and nothing
+                    // watched it.
+                    //
+                    // And classic's version does not work either, for a different
+                    // reason: it sets fakeDepthAddition to 0, which re-syncs the
+                    // control's thumb, but the control has emitOnUserActionOnly so
+                    // dataset.setFakeDepthAddition(0) is never called and the C++
+                    // offset stays. It also raises resetBottomTrackActive, which is
+                    // declared once in PulseRuntimeSettings and read NOWHERE in any
+                    // .qml or .cpp. Both halves are dead.
+                    //
+                    // So this clears the number where the number actually lives.
+                    if (id === "resetFakeDepth") {
+                        console.log("SETTINGS: action - back to the real depth")
+                        pulseRuntimeSettings.fakeDepthAddition = 0
+                        if (dataset)
+                            dataset.setFakeDepthAddition(0)
+                        return
+                    }
+                    if (id === "reconfigure") {
+                        console.log("SETTINGS: action - reconfigure the transducer")
+                        pulseRuntimeSettings.reconfigureNow = true
+                        return
+                    }
+                    console.log("SETTINGS: unknown action", id)
+                }
+
+                onSettingChanged: function (target, key, value) {
+                    // A THIRD TARGET, and it is not a third object. "param" is a
+                    // MANAGED DEVICE PARAMETER: readonly, living in the per-profile
+                    // live parameter map, and reachable only through setParam(). The
+                    // row declares which kind of key it is writing, so this handler
+                    // does not have to carry a list of which names are special - a
+                    // list that would fall out of step the first time one is added.
+                    if (target === "param") {
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.setParam(key, value)
+                        return
+                    }
+
+                    var obj = (target === "runtime") ? pulseRuntimeSettings : pulseSettings
+                    if (!obj) {
+                        console.log("SETTINGS: no", target, "object for", key)
+                        return
+                    }
+                    if (obj[key] === value)
+                        return
+                    console.log("SETTINGS:", target, key, "->", value)
+                    obj[key] = value
+
+                    // THE ONE KEY WHOSE CONSUMER IS A CALL, NOT A BINDING.
+                    // pulseRuntimeSettings.fakeDepthAddition is read by nothing -
+                    // dataset._fakeDepthAddition is what actually shifts the depth, and
+                    // classic's control sets the property AND calls the setter. Writing
+                    // the property alone, as the generic path does, changed a number
+                    // nobody reads. Handled here rather than in the row, because this
+                    // is the side that can see `dataset`.
+                    if (key === "fakeDepthAddition" && dataset)
+                        dataset.setFakeDepthAddition(value)
+                }
+
+                // ---- Colours ------------------------------------------------
+                //
+                // THE LIST FOLLOWS THE DISPLAY MODEL, and so does the key a tap writes.
+                // Neither chooser can reach the other device's stored preference, which
+                // is the whole of the fix: the classic 2D selector read the SHARED
+                // applied id, found the blue's theme inside the red list and wrote that
+                // position into colorMapIndex2D, destroying red's own preference.
+                readonly property var fullThemeList:
+                    pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeModel : []
+
+                themeEntries: favouritesFilter ? pulseSettings.favoriteThemes2DNew
+                                               : fullThemeList
+
+                // THE COLOUR TABLES, ASKED FOR ONCE. qPlot2D::echogramThemeStops(id) is
+                // Q_INVOKABLE and has been in the tree unused; it returns the renderer's
+                // own table for ANY id, so every row can draw the palette it will get.
+                //
+                // Built once rather than bound: these tables are compiled in and cannot
+                // change while the app runs, and twenty invokes per repaint would be
+                // twenty invokes too many.
+                property var themeStopsById: ({})
+
+                Component.onCompleted: {
+                    var out = {}
+                    var all = pulseRuntimeSettings.themeModelRed
+                                  .concat(pulseRuntimeSettings.themeModelBlue)
+                    for (var i = 0; i < all.length; ++i) {
+                        var id = all[i].id
+                        if (out[id] !== undefined)
+                            continue
+                        out[id] = waterViewFirst.echogramThemeStops(id)
+                    }
+                    themeStopsById = out
+                    console.log("THEME: colour tables read for", Object.keys(out).length, "themes")
+
+                    // The stored values have to reach the renderer at least once, or v2
+                    // starts on whatever the plot happened to have. The classic controls
+                    // did this from their own Component.onCompleted; v2 has no control to
+                    // hang it on until a panel is opened, so it happens here.
+                    mainview.applyIntensity()
+                    mainview.applyWaterBodyFilter()
+                    mainview.applyMaxRange()
+                    mainview.applyScreenId(pulseSettings.screenViewId)
+                }
+                currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
+
+                offerFavourites: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer
+                                                      : false
+                favouritesFilter: offerFavourites && pulseSettings.useFavoriteThemes2D
+                favouriteIds: pulseSettings.favoriteThemes2DNew.map(function (t) { return t.id })
+
+                // THE ONLY PLACE A COLOUR KEY IS WRITTEN in v2, and it writes exactly
+                // one - the one belonging to the model on screen. displayThemeId is a
+                // binding on these, so the picture follows without being told.
+                onThemeChosen: function (id) {
+                    var is2D  = pulseRuntimeSettings.displayIs2DTransducer
+                    var model = is2D ? pulseRuntimeSettings.themeModelRed
+                                     : pulseRuntimeSettings.themeModelBlue
+                    var idx = model.findIndex(function (e) { return e.id === id })
+                    if (idx < 0) {
+                        console.log("THEME: chosen id", id, "is not in the", is2D ? "2D" : "side scan", "list")
+                        return
+                    }
+                    console.log("THEME: chosen", id, "-> storing index", idx,
+                                "in", is2D ? "colorMapIndex2D" : "colorMapIndexSideScan")
+                    if (is2D)
+                        pulseSettings.colorMapIndex2D = idx
+                    else
+                        pulseSettings.colorMapIndexSideScan = idx
+                }
+
+                // The two favourite functions already exist and already keep the list in
+                // master order. removeFavorite2DNew also moves colorMapIndex2D when it
+                // drops the current theme, which is exactly what v2 needs - and its write
+                // to colorMapIndexReal is harmless here, because the index move
+                // re-evaluates displayThemeId and the apply handler rewrites it.
+                onFavouriteToggled: function (id) {
+                    var entry = pulseRuntimeSettings.themeModelRed.find(function (e) { return e.id === id })
+                    if (!entry)
+                        return
+                    if (pulseSettings.favoriteThemes2DNew.find(function (x) { return x.id === id }))
+                        pulseSettings.removeFavorite2DNew(entry)
+                    else
+                        pulseSettings.addFavorite2DNew(entry)
+                }
+
+                onFavouritesFilterToggled: {
+                    pulseSettings.useFavoriteThemes2D = !pulseSettings.useFavoriteThemes2D
+                    console.log("THEME: favourites filter",
+                                pulseSettings.useFavoriteThemes2D ? "on" : "off")
+                }
+
+                // ---- Intensity and the water body filter --------------------
+                //
+                // DISPLAY IN, REAL OUT, and both stored - exactly as the classic controls
+                // do it. The row shows the display number; the apply functions above read
+                // the real one. The duplicate guard matters: a drag emits on every pixel
+                // and one step is many pixels wide.
+                intensityValue: pulseSettings.intensityDisplayValue
+                filterValue:    pulseSettings.filterDisplayValue
+
+                // What the filter is currently doing, since the same slider means two
+                // different things depending on the expert switch beside it.
+                filterHint: pulseRuntimeSettings && pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+                            ? qsTr("0 – 20   ·   water column only")
+                            : qsTr("0 – 20   ·   whole picture")
+
+                onIntensityMoved: function (v) {
+                    if (v === pulseSettings.intensityDisplayValue)
+                        return
+                    pulseSettings.intensityDisplayValue = v
+                    pulseSettings.intensityRealValue    = Math.round(120 - (v * 4))
+                }
+
+                onFilterMoved: function (v) {
+                    if (v === pulseSettings.filterDisplayValue)
+                        return
+                    pulseSettings.filterDisplayValue = v
+                    pulseSettings.filterRealValue    = Math.round(v * 2.5)
+                }
+
+                // ---- View / cone --------------------------------------------
+                //
+                // COMMITTED, not display. A chooser offers HARDWARE choices - you cannot
+                // change the cone of a transducer you do not have - so this follows what
+                // is connected and never a log that happens to be playing.
+                readonly property bool showingCone:
+                    pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
+
+                choiceEntries: !pulseRuntimeSettings ? []
+                             : showingCone ? pulseRuntimeSettings.uiCones
+                                           : pulseRuntimeSettings.uiViews
+                choiceCurrentId: !pulseRuntimeSettings ? ""
+                               : showingCone ? pulseRuntimeSettings.resolveConeId(pulseSettings.ecoConeId)
+                                             : pulseRuntimeSettings.resolveViewId(pulseSettings.ecoViewId)
+                choiceCaption: showingCone
+                               ? qsTr("A narrower cone sees less of the bottom and sees it more sharply.")
+                               : qsTr("What the transducer looks at. The frequency follows the view.")
+
+                // ---- The screen ---------------------------------------------
+                //
+                // DISPLAY, not committed - the one line that separates this chooser
+                // from the two above it. What the screen shows is judged by looking at
+                // it, so it follows the display model and a side scan log keeps its
+                // layouts whatever is plugged in.
+                screenEntries:   pulseRuntimeSettings ? pulseRuntimeSettings.screenViews : []
+                screenCurrentId: pulseRuntimeSettings
+                                 ? pulseRuntimeSettings.resolveScreenId(pulseSettings.screenViewId)
+                                 : ""
+                screenCaption: qsTr("What the screen shows. Side scan sits on top in every split.")
+
+                // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE - classic's own
+                // rule, kept. Applying is what happens when the preference moves.
+                // ---- Max range ----------------------------------------------
+                //
+                // Every term is the DISPLAY model's, including the ceiling: backlog item
+                // 11 in the one place it belongs. A 2D transducer's ceiling is hardware,
+                // a side scan's is the configured swath width, and neither is a copy that
+                // can freeze.
+                rangeValue:   pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRange        : 0
+                rangeFloor:   pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeFloor   : 1
+                rangeCeiling: pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeCeiling : 52
+                rangeStep:    pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeStep    : 1
+                rangeHint: pulseRuntimeSettings
+                           ? (pulseRuntimeSettings.displayMaxRangeFloor + " – "
+                              + pulseRuntimeSettings.displayMaxRangeCeiling + " m"
+                              + (pulseRuntimeSettings.displayMaxRangeStep > 1
+                                 ? "   ·   " + pulseRuntimeSettings.displayMaxRangeStep + " m steps" : ""))
+                           : ""
+
+                // ONE WRITER, shared with the pinch on the picture, and it is the runtime
+                // object's - because the key it writes is the key displayMaxRange reads.
+                onRangeMoved: function (v) { pulseRuntimeSettings.storeDisplayMaxRange(v) }
+
+                // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE, the same
+                // rule the view and cone choosers follow: resolveScreenId() answers
+                // "what should be showing" for a stored layout that is not offered
+                // today, and never writes that answer back over the user's own choice.
+                onScreenChosen: function (id) {
+                    if (id === pulseSettings.screenViewId)
+                        return
+                    console.log("SCREEN: chosen", id)
+                    pulseSettings.screenViewId = id
+                }
+
+                onChoiceMade: function (id) {
+                    if (showingCone) {
+                        if (id === pulseSettings.ecoConeId)
                             return
-                        if (pulseSettings.favoriteThemes2DNew.find(function (x) { return x.id === id }))
-                            pulseSettings.removeFavorite2DNew(entry)
-                        else
-                            pulseSettings.addFavorite2DNew(entry)
-                    }
-
-                    onFavouritesFilterToggled: {
-                        pulseSettings.useFavoriteThemes2D = !pulseSettings.useFavoriteThemes2D
-                        console.log("THEME: favourites filter",
-                                    pulseSettings.useFavoriteThemes2D ? "on" : "off")
-                    }
-
-                    // ---- Intensity and the water body filter --------------------
-                    //
-                    // DISPLAY IN, REAL OUT, and both stored - exactly as the classic controls
-                    // do it. The row shows the display number; the apply functions above read
-                    // the real one. The duplicate guard matters: a drag emits on every pixel
-                    // and one step is many pixels wide.
-                    intensityValue: pulseSettings.intensityDisplayValue
-                    filterValue:    pulseSettings.filterDisplayValue
-
-                    // What the filter is currently doing, since the same slider means two
-                    // different things depending on the expert switch beside it.
-                    filterHint: pulseRuntimeSettings && pulseRuntimeSettings.echogramWaterBodyFilterEnabled
-                                ? qsTr("0 – 20   ·   water column only")
-                                : qsTr("0 – 20   ·   whole picture")
-
-                    onIntensityMoved: function (v) {
-                        if (v === pulseSettings.intensityDisplayValue)
+                        pulseSettings.ecoConeId = id
+                    } else {
+                        if (id === pulseSettings.ecoViewId)
                             return
-                        pulseSettings.intensityDisplayValue = v
-                        pulseSettings.intensityRealValue    = Math.round(120 - (v * 4))
+                        pulseSettings.ecoViewId = id
                     }
+                }
+            }
 
-                    onFilterMoved: function (v) {
-                        if (v === pulseSettings.filterDisplayValue)
-                            return
-                        pulseSettings.filterDisplayValue = v
-                        pulseSettings.filterRealValue    = Math.round(v * 2.5)
-                    }
+            // THE PAUSED GUTTER (Stage 4 b). Takes the rail's place, never beside it.
+            PulsePausedGutter {
+                id: pulsePausedGutter
 
-                    // ---- View / cone --------------------------------------------
-                    //
-                    // COMMITTED, not display. A chooser offers HARDWARE choices - you cannot
-                    // change the cone of a transducer you do not have - so this follows what
-                    // is connected and never a log that happens to be playing.
-                    readonly property bool showingCone:
-                        pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
+                visible: pulseSettings.uiVariant === "v2"
+                         && pulseRuntimeSettings.echogramPause
+                enabled: visible
 
-                    choiceEntries: !pulseRuntimeSettings ? []
-                                 : showingCone ? pulseRuntimeSettings.uiCones
-                                               : pulseRuntimeSettings.uiViews
-                    choiceCurrentId: !pulseRuntimeSettings ? ""
-                                   : showingCone ? pulseRuntimeSettings.resolveConeId(pulseSettings.ecoConeId)
-                                                 : pulseRuntimeSettings.resolveViewId(pulseSettings.ecoViewId)
-                    choiceCaption: showingCone
-                                   ? qsTr("A narrower cone sees less of the bottom and sees it more sharply.")
-                                   : qsTr("What the transducer looks at. The frequency follows the view.")
+                // THE FLOW, from the one flag the history bar already trusts for the
+                // same question. isHorizontalGrid is true for a 2D picture, which is
+                // the one that flows sideways and so wants its gutter at the foot.
+                alongFoot: pulseRuntimeSettings.isHorizontalGrid
 
-                    // ---- The screen ---------------------------------------------
-                    //
-                    // DISPLAY, not committed - the one line that separates this chooser
-                    // from the two above it. What the screen shows is judged by looking at
-                    // it, so it follows the display model and a side scan log keeps its
-                    // layouts whatever is plugged in.
-                    screenEntries:   pulseRuntimeSettings ? pulseRuntimeSettings.screenViews : []
-                    screenCurrentId: pulseRuntimeSettings
-                                     ? pulseRuntimeSettings.resolveScreenId(pulseSettings.screenViewId)
-                                     : ""
-                    screenCaption: qsTr("What the screen shows. Side scan sits on top in every split.")
+                // TWO ANCHORS THAT NEVER CHANGE, AND THE SIZE CARRIES THE ORIENTATION.
+                //
+                // The first version toggled anchors.top and anchors.right with
+                // `undefined`, and that is a trap: isHorizontalGrid DEFAULTS TO TRUE, so
+                // the gutter was born along the foot with anchors.right set - and
+                // assigning undefined to an anchor does NOT clear one that is already
+                // there. Flipping to a side scan then added the top anchor and kept the
+                // right, the gutter had all four, and it filled the window. Which is
+                // exactly what the device showed: 2D correct, side scan covering the
+                // picture with its panel and its controls centred on the screen.
+                //
+                // An anchor that is only ever set, never cleared, cannot get stuck.
+                anchors.left:   parent.left
+                anchors.bottom: parent.bottom
+                width:  alongFoot ? parent.width : inset
+                height: alongFoot ? inset        : parent.height
 
-                    // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE - classic's own
-                    // rule, kept. Applying is what happens when the preference moves.
-                    // ---- Max range ----------------------------------------------
-                    //
-                    // Every term is the DISPLAY model's, including the ceiling: backlog item
-                    // 11 in the one place it belongs. A 2D transducer's ceiling is hardware,
-                    // a side scan's is the configured swath width, and neither is a copy that
-                    // can freeze.
-                    rangeValue:   pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRange        : 0
-                    rangeFloor:   pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeFloor   : 1
-                    rangeCeiling: pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeCeiling : 52
-                    rangeStep:    pulseRuntimeSettings ? pulseRuntimeSettings.displayMaxRangeStep    : 1
-                    rangeHint: pulseRuntimeSettings
-                               ? (pulseRuntimeSettings.displayMaxRangeFloor + " – "
-                                  + pulseRuntimeSettings.displayMaxRangeCeiling + " m"
-                                  + (pulseRuntimeSettings.displayMaxRangeStep > 1
-                                     ? "   ·   " + pulseRuntimeSettings.displayMaxRangeStep + " m steps" : ""))
+                uiScale:    mainview.s
+                safeTop:    mainview.insetTop()
+                safeBottom: mainview.insetBottom()
+                safeLeft:   mainview.insetLeft()
+
+                onResumeRequested: mainview.setEchogramPaused(false)
+
+                // THE POSITION STILL LIVES WHERE IT LIVED. historyTimeLineScroll is
+                // assigned from both panes' onTimelinePositionChanged, so it stays the
+                // holder and the gutter BINDS to it - moving the bar is not the same
+                // idea as moving where the number is kept, and doing both in one commit
+                // would put two ideas on one slow device build.
+                timelinePosition: historyTimeLineScroll.timeLineScrollerPosition
+
+                // And a move does exactly what the old bar's handler did, in the same
+                // order. resetAim() matters: the crosshair is anchored to an epoch, and
+                // scrolling to a different part of the history leaves it pointing at a
+                // ping that is no longer under it.
+                onTimelineMovedByUser: function (pos) {
+                    historyTimeLineScroll.timeLineScrollerPosition = pos
+                    core.setTimelinePosition(pos)
+                    core.resetAim()
+                }
+            }
+
+            // THE INDICATOR PILLS (Stage 4 a). Beside the rail and for the same reason:
+            // what they report is app-wide rather than pane-wide, so one instance above
+            // both panes. They draw ON the picture and take no width from it, so unlike
+            // the setup card they owe the rail nothing - they sit on the right.
+            PulsePillColumn {
+                id: pulsePillColumn
+
+                // The pills step aside with the rail. What the echogram IS matters while
+                // it is running; while it is frozen what matters is what is ON it.
+                visible: pulseSettings.uiVariant === "v2"
+                         && !pulseRuntimeSettings.echogramPause
+                enabled: visible
+
+                anchors.fill: parent
+
+                uiScale:    mainview.s
+                safeTop:    mainview.insetTop()
+                safeBottom: mainview.insetBottom()
+                safeRight:  mainview.insetRight()
+
+                // RULE 1. Which corner is a question about the PICTURE: a side scan
+                // flows downward so its overlays belong at the foot, a 2D picture the
+                // other way up.
+                displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
+
+                // OLD DATA, AS A BINDING ON THE ONE HOLDER OF THE POSITION.
+                // historyTimeLineScroll is assigned from both panes and is what the
+                // paused gutter already binds to, so there is no second idea of where
+                // the timeline is. Suppressed for an opened file, where scrolling is
+                // the point rather than a mistake - classic's own condition.
+                scrolledBack: pulseRuntimeSettings
+                              && !pulseRuntimeSettings.wasKlfFileOpened
+                              && historyTimeLineScroll.timeLineScrollerPosition < 0.999
+
+                // THE SPEED, IN ITS TWO JOBS. The runtime key is what the picture runs
+                // at and so what the pill says; the persistent key is what the user
+                // set and is the trigger only. PulsePillColumn explains why they are
+                // not one property.
+                echogramSpeed:        pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeed : 1.0
+                echogramSpeedSetting: pulseSettings        ? pulseSettings.echogramSpeed        : 1.0
+
+                presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
+                isDemo:        pulseRuntimeSettings ? pulseRuntimeSettings.isInDemoMode    : false
+                presentedName: pulseRuntimeSettings
+                               ? pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.presentedModel)
                                : ""
 
-                    // ONE WRITER, shared with the pinch on the picture, and it is the runtime
-                    // object's - because the key it writes is the key displayMaxRange reads.
-                    onRangeMoved: function (v) { pulseRuntimeSettings.storeDisplayMaxRange(v) }
-
-                    // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE, the same
-                    // rule the view and cone choosers follow: resolveScreenId() answers
-                    // "what should be showing" for a stored layout that is not offered
-                    // today, and never writes that answer back over the user's own choice.
-                    onScreenChosen: function (id) {
-                        if (id === pulseSettings.screenViewId)
-                            return
-                        console.log("SCREEN: chosen", id)
-                        pulseSettings.screenViewId = id
-                    }
-
-                    onChoiceMade: function (id) {
-                        if (showingCone) {
-                            if (id === pulseSettings.ecoConeId)
-                                return
-                            pulseSettings.ecoConeId = id
-                        } else {
-                            if (id === pulseSettings.ecoViewId)
-                                return
-                            pulseSettings.ecoViewId = id
-                        }
-                    }
+                // Both already exist and both end the same way - the picture goes back
+                // to the transducer. Neither is reimplemented here.
+                onStopDemo: {
+                    console.log("PILL: stopping the demo")
+                    pulseRuntimeSettings.exitDemoMode()
                 }
 
-                // THE PAUSED GUTTER (Stage 4 b). Takes the rail's place, never beside it.
-                PulsePausedGutter {
-                    id: pulsePausedGutter
-
-                    visible: pulseSettings.uiVariant === "v2"
-                             && pulseRuntimeSettings.echogramPause
-                    enabled: visible
-
-                    // THE FLOW, from the one flag the history bar already trusts for the
-                    // same question. isHorizontalGrid is true for a 2D picture, which is
-                    // the one that flows sideways and so wants its gutter at the foot.
-                    alongFoot: pulseRuntimeSettings.isHorizontalGrid
-
-                    // TWO ANCHORS THAT NEVER CHANGE, AND THE SIZE CARRIES THE ORIENTATION.
-                    //
-                    // The first version toggled anchors.top and anchors.right with
-                    // `undefined`, and that is a trap: isHorizontalGrid DEFAULTS TO TRUE, so
-                    // the gutter was born along the foot with anchors.right set - and
-                    // assigning undefined to an anchor does NOT clear one that is already
-                    // there. Flipping to a side scan then added the top anchor and kept the
-                    // right, the gutter had all four, and it filled the window. Which is
-                    // exactly what the device showed: 2D correct, side scan covering the
-                    // picture with its panel and its controls centred on the screen.
-                    //
-                    // An anchor that is only ever set, never cleared, cannot get stuck.
-                    anchors.left:   parent.left
-                    anchors.bottom: parent.bottom
-                    width:  alongFoot ? parent.width : inset
-                    height: alongFoot ? inset        : parent.height
-
-                    uiScale:    mainview.s
-                    safeTop:    mainview.insetTop()
-                    safeBottom: mainview.insetBottom()
-                    safeLeft:   mainview.insetLeft()
-
-                    onResumeRequested: mainview.setEchogramPaused(false)
-
-                    // THE POSITION STILL LIVES WHERE IT LIVED. historyTimeLineScroll is
-                    // assigned from both panes' onTimelinePositionChanged, so it stays the
-                    // holder and the gutter BINDS to it - moving the bar is not the same
-                    // idea as moving where the number is kept, and doing both in one commit
-                    // would put two ideas on one slow device build.
-                    timelinePosition: historyTimeLineScroll.timeLineScrollerPosition
-
-                    // And a move does exactly what the old bar's handler did, in the same
-                    // order. resetAim() matters: the crosshair is anchored to an epoch, and
-                    // scrolling to a different part of the history leaves it pointing at a
-                    // ping that is no longer under it.
-                    onTimelineMovedByUser: function (pos) {
-                        historyTimeLineScroll.timeLineScrollerPosition = pos
-                        core.setTimelinePosition(pos)
-                        core.resetAim()
-                    }
+                // BACK TO LIVE - the same three things, in the same order, that a move
+                // of the history bar does. resetAim() matters for the same reason: the
+                // crosshair is anchored to an epoch, and the head is a different one.
+                onGoLive: {
+                    console.log("PILL: back to live from a scrolled-back echogram")
+                    historyTimeLineScroll.timeLineScrollerPosition = 1
+                    core.setTimelinePosition(1)
+                    core.resetAim()
                 }
 
-                // THE INDICATOR PILLS (Stage 4 a). Beside the rail and for the same reason:
-                // what they report is app-wide rather than pane-wide, so one instance above
-                // both panes. They draw ON the picture and take no width from it, so unlike
-                // the setup card they owe the rail nothing - they sit on the right.
-                PulsePillColumn {
-                    id: pulsePillColumn
-
-                    // The pills step aside with the rail. What the echogram IS matters while
-                    // it is running; while it is frozen what matters is what is ON it.
-                    visible: pulseSettings.uiVariant === "v2"
-                             && !pulseRuntimeSettings.echogramPause
-                    enabled: visible
-
-                    anchors.fill: parent
-
-                    uiScale:    mainview.s
-                    safeTop:    mainview.insetTop()
-                    safeBottom: mainview.insetBottom()
-                    safeRight:  mainview.insetRight()
-
-                    // RULE 1. Which corner is a question about the PICTURE: a side scan
-                    // flows downward so its overlays belong at the foot, a 2D picture the
-                    // other way up.
-                    displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
-
-                    // OLD DATA, AS A BINDING ON THE ONE HOLDER OF THE POSITION.
-                    // historyTimeLineScroll is assigned from both panes and is what the
-                    // paused gutter already binds to, so there is no second idea of where
-                    // the timeline is. Suppressed for an opened file, where scrolling is
-                    // the point rather than a mistake - classic's own condition.
-                    scrolledBack: pulseRuntimeSettings
-                                  && !pulseRuntimeSettings.wasKlfFileOpened
-                                  && historyTimeLineScroll.timeLineScrollerPosition < 0.999
-
-                    // THE SPEED, IN ITS TWO JOBS. The runtime key is what the picture runs
-                    // at and so what the pill says; the persistent key is what the user
-                    // set and is the trigger only. PulsePillColumn explains why they are
-                    // not one property.
-                    echogramSpeed:        pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeed : 1.0
-                    echogramSpeedSetting: pulseSettings        ? pulseSettings.echogramSpeed        : 1.0
-
-                    presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
-                    isDemo:        pulseRuntimeSettings ? pulseRuntimeSettings.isInDemoMode    : false
-                    presentedName: pulseRuntimeSettings
-                                   ? pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.presentedModel)
-                                   : ""
-
-                    // Both already exist and both end the same way - the picture goes back
-                    // to the transducer. Neither is reimplemented here.
-                    onStopDemo: {
-                        console.log("PILL: stopping the demo")
-                        pulseRuntimeSettings.exitDemoMode()
-                    }
-
-                    // BACK TO LIVE - the same three things, in the same order, that a move
-                    // of the history bar does. resetAim() matters for the same reason: the
-                    // crosshair is anchored to an epoch, and the head is a different one.
-                    onGoLive: {
-                        console.log("PILL: back to live from a scrolled-back echogram")
-                        historyTimeLineScroll.timeLineScrollerPosition = 1
-                        core.setTimelinePosition(1)
-                        core.resetAim()
-                    }
-
-                    // A QUESTION MUST NEVER OUTLIVE WHAT IT IS ABOUT. If recording stops or
-                    // starts by any other route - the Recording tab is still there, and an
-                    // opened file or a demo makes recording impossible - a standing question
-                    // about it is stale, and answering it would act on a state that has
-                    // already moved.
-                    Connections {
-                        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                        function onIsRecordingKlfChanged() { pulsePillColumn.dismissQuestion() }
-                        function onIsInDemoModeChanged()   { pulsePillColumn.dismissQuestion() }
-                        function onWasKlfFileOpenedChanged(){ pulsePillColumn.dismissQuestion() }
-                    }
-                    onCloseFile: {
-                        console.log("PILL: closing the file view")
-                        pulseRuntimeSettings.exitFileView()
-                    }
-
-                    recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
-
-                    // The same two lines the Recording tab writes, in the same order. This
-                    // is the only place V2 writes them, and it is reached only through a
-                    // question that has already been answered.
-                    onStartRecording: {
-                        console.log("PILL: recording confirmed - starting")
-                        pulseRuntimeSettings.isRecordingKlf = true
-                        core.loggingKlf = true
-                    }
-                    onStopRecording: {
-                        console.log("PILL: stop confirmed - stopping")
-                        pulseRuntimeSettings.isRecordingKlf = false
-                        core.loggingKlf = false
-                    }
+                // A QUESTION MUST NEVER OUTLIVE WHAT IT IS ABOUT. If recording stops or
+                // starts by any other route - the Recording tab is still there, and an
+                // opened file or a demo makes recording impossible - a standing question
+                // about it is stale, and answering it would act on a state that has
+                // already moved.
+                Connections {
+                    target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+                    function onIsRecordingKlfChanged() { pulsePillColumn.dismissQuestion() }
+                    function onIsInDemoModeChanged()   { pulsePillColumn.dismissQuestion() }
+                    function onWasKlfFileOpenedChanged(){ pulsePillColumn.dismissQuestion() }
+                }
+                onCloseFile: {
+                    console.log("PILL: closing the file view")
+                    pulseRuntimeSettings.exitFileView()
                 }
 
+                recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
+
+                // The same two lines the Recording tab writes, in the same order. This
+                // is the only place V2 writes them, and it is reached only through a
+                // question that has already been answered.
+                onStartRecording: {
+                    console.log("PILL: recording confirmed - starting")
+                    pulseRuntimeSettings.isRecordingKlf = true
+                    core.loggingKlf = true
+                }
+                onStopRecording: {
+                    console.log("PILL: stop confirmed - stopping")
+                    pulseRuntimeSettings.isRecordingKlf = false
+                    core.loggingKlf = false
+                }
             }
+
         }
 
         Console {
