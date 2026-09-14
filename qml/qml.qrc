@@ -124,6 +124,7 @@
         <file>PulseReadOnlyRow.qml</file>
         <file>PulseActionRow.qml</file>
         <file>PulseTextRow.qml</file>
+        <file>PulseSettingsSection.qml</file>
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>LocationExtraSettings.qml</file>

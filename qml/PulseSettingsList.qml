@@ -75,6 +75,15 @@ Item {
                                                  ? qsTr("this code grants nothing")
         :                                          qsTr("for testers, from Techadvision")
     readonly property bool expertOnly:       pulseRuntimeSettings ? pulseRuntimeSettings.expertMode : false
+
+    // ENTITLEMENT IS NOT THE SAME AS THE SWITCH, and tier 3 needs both.
+    //
+    // expertMode is the live switch; pulseSettings.isExpert is what the key code bought and
+    // survives a restart. Every expert category reads the switch - except the one that
+    // CONTAINS the switch, which reads the entitlement. Classic gets this wrong in a way it
+    // has learned to live with: "Expert mode enabled" is `visible: expertMode`, so turning
+    // it off removes it from the screen and the only way back is typing the code again.
+    readonly property bool expertEntitled:   pulseSettings ? pulseSettings.isExpert : false
     readonly property bool betaOrExpert:
         pulseRuntimeSettings ? (pulseRuntimeSettings.expertMode || pulseRuntimeSettings.betaMode) : false
 
@@ -527,9 +536,140 @@ Item {
                     confirmText: qsTr("Restart")
 
                     onActivated: list.actionRequested("restart")
+                },
+
+                // THE ONE SETTING THE DROPPED "DEVICE SWAP" CATEGORY OWNED. Its other two
+                // rows are already elsewhere - reconfigure is directly above, and choosing
+                // a different transducer is the rail's source button - but this is a real
+                // preference with nowhere else to be, and a category being removed must not
+                // quietly take a setting with it.
+                //
+                // Here rather than in an expert group because it is about the same subject
+                // as the row above it: what happens when a different transducer turns up.
+                // Still expert-gated, as it is today.
+                PulseSwitchRow {
+                    width: troubleGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.expertOnly
+                    uiScale: list.uiScale
+
+                    label: qsTr("Swap transducer without asking")
+                    hint:  qsTr("accepting re-runs the whole setup, so it asks by default")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.deviceSwapAutomatic : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "deviceSwapAutomatic", v)
+                    }
                 }
             ]
         }
+
+        // ======================================================================
+        // TIER 3 - EXPERT
+        //
+        // The same list continues past a title once the code is in. Not a tab and not a
+        // screen: there is nothing to navigate back out of, which is the whole reason the
+        // panel has no back button anywhere.
+        //
+        // NO "DEVICE SWAP" CATEGORY - Olav: "For the expert we can get rid of Device swap
+        // category." Its three rows are accounted for: reconfigure and the automatic-swap
+        // switch are in Troubleshooting above, and choosing a different transducer is the
+        // rail's source button.
+        // ======================================================================
+
+        PulseSettingsSection {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertEntitled
+            uiScale: list.uiScale
+            title: qsTr("Expert settings")
+        }
+
+        // ---- Experimental settings --------------------------------------------
+        //
+        // READS THE ENTITLEMENT, NOT THE SWITCH - the only category that does, because it
+        // holds the switch. Turning expert mode off then leaves exactly one category on
+        // screen, which is the way back. See expertEntitled above.
+        PulseSettingsGroup {
+            id: experimentalGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertEntitled
+
+            uiScale: list.uiScale
+            title: qsTr("Experimental settings")
+            open: list.openId === "experimental"
+            onToggled: list.toggle("experimental")
+
+            content: [
+                PulseSwitchRow {
+                    width: experimentalGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Expert mode")
+                    hint:  qsTr("off hides every expert category but this one")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.expertMode : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "expertMode", v)
+                    }
+                },
+
+                // THE VARIANT SWITCH, AND THE POINT OF PUTTING IT HERE. It has only ever
+                // lived in the CLASSIC settings, so turning v2 on removed the switch from
+                // the screen - which is why PulseAppV2 carries its own way back on the
+                // rail, scaffolding that was always meant to leave when the settings panel
+                // existed. It now exists. The rail's button stays one more build, until
+                // this row is confirmed on the device: retiring the only escape hatch on
+                // the strength of an untested one is how a tester gets stranded.
+                //
+                // uiVariant is a STRING, so the generic writer carries it unchanged - no
+                // new property is needed for a third variant.
+                PulseSwitchRow {
+                    width: experimentalGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("New UI (PULSE UI v2)")
+                    hint:  qsTr("off returns to the classic interface")
+                    checked: pulseSettings ? pulseSettings.uiVariant === "v2" : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("persistent", "uiVariant", v ? "v2" : "classic")
+                    }
+                }
+            ]
+        }
+
+        // The seven remaining manipulation groups. USB baud rate is NOT among them: it
+        // lives in Connection now, and tier 3 arriving with its own copy is exactly the
+        // duplicated ability this tier is being cleaned of.
+        Repeater { model: [ { id: "waterbody",   title: qsTr("Water body filter")  },
+                            { id: "tvg2d",       title: qsTr("TVG 2D")             },
+                            { id: "tvgside",     title: qsTr("TVG side scan")      },
+                            { id: "bottomtrack", title: qsTr("Bottom track")       },
+                            { id: "depthfilter", title: qsTr("Depth filter")       },
+                            { id: "stripes",     title: qsTr("Black stripes")      },
+                            { id: "fakedepth",   title: qsTr("Depth manipulation") } ]
+                   delegate: expertStubCategory }
+
+        PulseSettingsSection {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+            uiScale: list.uiScale
+            title: qsTr("Expert info")
+        }
+
+        // FOUR GROUPS, FORTY-EIGHT ROWS, EVERY ONE OF THEM A READ. That is not an
+        // assessment of where they belong - it is what PulseInfoExpert.qml already
+        // contains: every row in these four is a Text with no control beside it. They take
+        // the read-only row and nothing else.
+        Repeater { model: [ { id: "devraw",    title: qsTr("Device raw information")    },
+                            { id: "devparam",  title: qsTr("Device parameters")         },
+                            { id: "devconfig", title: qsTr("Device and app config")     },
+                            { id: "debug",     title: qsTr("Debug information")         } ]
+                   delegate: expertStubCategory }
     }
 
     // A HEADER WITH AN HONEST PLACEHOLDER, for the categories not yet filled. They are in
@@ -539,6 +679,39 @@ Item {
     //
     // Declared outside the Column: a Component is not an Item, so it would be ignored
     // there anyway, but a reader should not have to know that to see it takes no space.
+    // The same placeholder, gated on the expert switch. A separate component rather than a
+    // `visible` argument threaded through the model, because the two runs differ in exactly
+    // that one binding and a model entry carrying a visibility flag is a model entry that
+    // will be copied without it.
+    Component {
+        id: expertStubCategory
+
+        PulseSettingsGroup {
+            id: expertStubGroup
+
+            width: column.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: modelData.title
+            open: list.openId === modelData.id
+            onToggled: list.toggle(modelData.id)
+
+            content: [
+                Text {
+                    width: expertStubGroup.contentWidth
+                    topPadding: Math.round(12 * list.uiScale)
+                    bottomPadding: Math.round(12 * list.uiScale)
+                    text: qsTr("Not built yet.")
+                    color: "#6d7784"
+                    font.pixelSize: Math.round(15 * list.uiScale)
+                    font.italic: true
+                }
+            ]
+        }
+    }
+
     Component {
         id: stubCategory
 
