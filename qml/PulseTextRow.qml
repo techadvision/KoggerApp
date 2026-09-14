@@ -39,9 +39,8 @@ Item {
 
     property bool _editing: false
 
-    implicitHeight: Math.round(40 * uiScale)
-                    + Math.round(44 * uiScale)
-                    + Math.round(26 * uiScale)
+    // AS TALL AS ITS CONTENT - see PulseStepperRow.
+    implicitHeight: control.y + control.height + Math.round(14 * uiScale)
     height: implicitHeight
 
     function _beginEdit() {

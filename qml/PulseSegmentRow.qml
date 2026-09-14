@@ -32,9 +32,8 @@ Item {
 
     readonly property real segmentHeight: Math.round(40 * uiScale)
 
-    implicitHeight: Math.round((hint === "" ? 22 : 40) * uiScale)
-                    + segmentHeight
-                    + Math.round(26 * uiScale)
+    // AS TALL AS ITS CONTENT - see PulseStepperRow.
+    implicitHeight: segments.y + segments.height + Math.round(14 * uiScale)
     height: implicitHeight
 
     Text {

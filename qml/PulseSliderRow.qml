@@ -32,7 +32,11 @@ Item {
 
     signal moved(int v)
 
-    implicitHeight: Math.round(104 * uiScale)
+    // AS TALL AS ITS CONTENT, MEASURED RATHER THAN ASSUMED. This one pinned the track to
+    // parent.BOTTOM inside a fixed 104 du, so a hint long enough to wrap ran into the track
+    // instead of pushing it down. The track now hangs under the range line and the row's
+    // height follows it - the same rule every other row type now uses.
+    implicitHeight: trackArea.y + trackArea.height + Math.round(10 * uiScale)
     height: implicitHeight
 
     readonly property int span: Math.max(1, maxValue - minValue)
@@ -76,7 +80,8 @@ Item {
 
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
+        anchors.top: rangeText.bottom
+        anchors.topMargin: Math.round(6 * sliderRow.uiScale)
         height: Math.round(44 * sliderRow.uiScale)
 
         readonly property real usable: Math.max(1, width - knob.width)

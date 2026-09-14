@@ -21,7 +21,10 @@ Item {
     property string hint:  ""
     property string value: ""
 
-    implicitHeight: Math.round((hint === "" ? 52 : 70) * uiScale)
+    // AS TALL AS ITS CONTENT - see PulseStepperRow.
+    implicitHeight: (hintText.visible ? hintText.y + hintText.height
+                                      : labelText.y + labelText.height)
+                    + Math.round(14 * uiScale)
     height: implicitHeight
 
     Text {
@@ -50,6 +53,8 @@ Item {
     }
 
     Text {
+        id: hintText
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: labelText.bottom

@@ -37,9 +37,10 @@ Item {
 
     function dismiss() { _asking = false }
 
-    implicitHeight: Math.round(40 * uiScale)
-                    + Math.round(44 * uiScale)
-                    + Math.round(26 * uiScale)
+    // AS TALL AS ITS CONTENT - see PulseStepperRow. It matters twice here, because the
+    // second line carries the hint at rest and the QUESTION while asking, and those are
+    // rarely the same number of lines.
+    implicitHeight: control.y + control.height + Math.round(14 * uiScale)
     height: implicitHeight
 
     Text {

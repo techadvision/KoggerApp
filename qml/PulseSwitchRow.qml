@@ -26,7 +26,13 @@ Item {
 
     signal toggled(bool value)
 
-    implicitHeight: Math.round((hint === "" ? 56 : 74) * uiScale)
+    // AS TALL AS ITS CONTENT - see PulseStepperRow for why a computed height was wrong.
+    // Either side can be the tallest: a wrapped label and hint on the left, or the switch
+    // on the right when the label is one short word.
+    implicitHeight: Math.max(track.y + track.height,
+                             hintText.visible ? hintText.y + hintText.height
+                                              : labelText.y + labelText.height)
+                    + Math.round(14 * uiScale)
     height: implicitHeight
 
     Text {
@@ -45,6 +51,8 @@ Item {
     }
 
     Text {
+        id: hintText
+
         anchors.left: parent.left
         anchors.right: track.left
         anchors.rightMargin: Math.round(14 * switchRow.uiScale)

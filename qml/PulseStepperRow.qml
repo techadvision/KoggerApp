@@ -67,9 +67,15 @@ Item {
         return best
     }
 
-    implicitHeight: Math.round((hint === "" ? 22 : 40) * uiScale)
-                    + Math.round(44 * uiScale)
-                    + Math.round(26 * uiScale)
+    // AS TALL AS ITS CONTENT, MEASURED RATHER THAN ASSUMED. The first version added up a
+    // one-line label, a one-line hint and the control - and every hint long enough to wrap
+    // then overflowed the row and was overlapped by the next one. Three groups showed it on
+    // the device at once, which is what a guessed height does: it is right until the words
+    // change.
+    //
+    // No loop here: the control's y comes from an anchor chain that starts at parent.top,
+    // and nothing inside reads the row's height.
+    implicitHeight: control.y + control.height + Math.round(14 * uiScale)
     height: implicitHeight
 
     readonly property string valueText:
