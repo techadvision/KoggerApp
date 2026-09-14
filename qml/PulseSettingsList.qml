@@ -426,8 +426,12 @@ Item {
             ]
         }
 
-        Repeater { model: [ { id: "recording",       title: qsTr("Recording")       },
-                            { id: "troubleshooting", title: qsTr("Troubleshooting") } ]
+        // NO RECORDING CATEGORY. The Recording tab had three jobs and the new surface has
+        // already taken all three: the rail's Record button starts it, the pill column asks
+        // before stopping it, a demo starts from the connection screen - and as of this
+        // commit so does opening a file to view. Olav: "All redundant... But in settings we
+        // do not need this as a category."
+        Repeater { model: [ { id: "troubleshooting", title: qsTr("Troubleshooting") } ]
                    delegate: stubCategory }
     }
 

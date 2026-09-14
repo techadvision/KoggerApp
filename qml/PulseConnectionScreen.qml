@@ -355,6 +355,49 @@ Item {
         }
     }
 
+    // VIEW A FILE (Stage 4 b).
+    //
+    // THE RECORDING TAB HAD THREE JOBS AND TWO OF THEM ARE GONE. Starting and stopping a
+    // recording is the rail's Record button and the pill's question; starting a demo is the
+    // button above this one. Opening a file to look at is the one that had no home, and
+    // Olav put it here: this screen is the answer to "there is no transducer - what am I
+    // looking at", and a file is one of the answers.
+    //
+    // A SEPARATE DIALOG FROM THE SIMULATION'S, on purpose and not by accident of copying.
+    // They are different acts on different machinery: enterDemoMode() closes the live links
+    // and paces the file as if the transducer were speaking, core.openLogFile() renders the
+    // whole recording and sets wasKlfFileOpened so the app knows it is browsing. They also
+    // accept different files - a demo can only pace a .plog, while browsing reads .ubx and
+    // .xtf too.
+    //
+    // Both make isPresentingLog true, so this screen closes itself either way and needs no
+    // dismissal path of its own.
+    FileDialog {
+        id: viewFileDialog
+        title: "Choose a recording to view"
+        currentFolder: connectionScreen.lastLogFolder
+        nameFilters: ["Logs (*.plog *.PLOG *.ubx *.UBX *.xtf *.XTF)",
+                      "Kogger log files (*.plog *.PLOG)",
+                      "U-blox (*.ubx *.UBX)"]
+
+        onCurrentFolderChanged: connectionScreen.lastLogFolder = currentFolder
+
+        onAccepted: {
+            const file = viewFileDialog.selectedFile
+            if (!file) {
+                console.log("CONN_SCREEN: view a file - the dialog returned nothing")
+                return
+            }
+            connectionScreen.lastLogFolder = viewFileDialog.currentFolder
+            const fileStr = file.toString()
+            const localPath = fileStr.replace("file:///",
+                                              Qt.platform.os === "windows" ? "" : "/")
+            console.log("CONN_SCREEN: view a file ->", localPath)
+            core.openLogFile(localPath, false, false)
+            pulseRuntimeSettings.klfFilePath = localPath
+        }
+    }
+
     // ACCEPTING A SWAP IS NOT commitCard(). commitCard() clears swapDeviceNow and writes
     // the model itself; acceptDeviceSwap() raises swapDeviceNow FIRST - which is what runs
     // DeviceItem's reset synchronously - and commits the target after, because committing
@@ -817,6 +860,47 @@ Item {
                                 id: switchArea
                                 anchors.fill: parent
                                 onClicked: connectionScreen.acceptSwap()
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            visible: viewPill.visible
+                        }
+
+                        // VIEW A FILE sits between the simulation and Keep, where Olav put
+                        // it. Hidden during a swap for the same reason the simulation is:
+                        // the screen is asking one question then, and a third answer that
+                        // does not answer it is clutter.
+                        //
+                        // Outlined like the simulation rather than filled: neither is the
+                        // primary answer to "which transducer", they are both ways of
+                        // getting a picture without one.
+                        Rectangle {
+                            id: viewPill
+                            visible: !connectionScreen.swapPending
+                            Layout.alignment: Qt.AlignTop
+                            implicitWidth:  viewLabel.implicitWidth
+                                            + Math.round(40 * connectionScreen.uiScale)
+                            implicitHeight: Math.round(44 * connectionScreen.uiScale)
+                            radius: height / 2
+                            color: viewArea.pressed ? "#223243" : "#182430"
+                            border.width: 1
+                            border.color: "#3d7fd0"
+
+                            Text {
+                                id: viewLabel
+                                anchors.centerIn: parent
+                                text: "View a file"
+                                color: "#cfe0f2"
+                                font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                            }
+
+                            MouseArea {
+                                id: viewArea
+                                anchors.fill: parent
+                                onClicked: viewFileDialog.open()
                             }
                         }
 
