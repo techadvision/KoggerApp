@@ -611,8 +611,19 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         else
             epochIdxForTap = cursor.currentEpochIndx;
 
+        //PULSE, 14 Sept 2026: AN EMPTY DATASET IS NOT A CLAMPING PROBLEM, and qBound is
+        //fatal rather than forgiving about it. data_width is 0 the instant the dataset is
+        //cleared - which is exactly what a demo restart does - and qBound(0, x, -1) trips
+        //Q_ASSERT(!(max < min)) and aborts the process. It crashed on the device while
+        //paused in a split screen, at the moment the demo looped.
+        //
+        //-1 rather than a clamped 0, because there is no epoch to name: every reader below
+        //either goes through dataset->fromIndex(), which answers null, or is a ranged search
+        //that finds nothing. A clamped 0 would be a lie about an epoch that does not exist.
         if (epochIdxForTap < 0 || epochIdxForTap >= data_width)
-            epochIdxForTap = qBound(0, cursor.currentEpochIndx, data_width - 1);
+            epochIdxForTap = (data_width > 0)
+                             ? qBound(0, cursor.currentEpochIndx, data_width - 1)
+                             : -1;
 
         // Which side (for SS)
         int side = 0;
@@ -1030,8 +1041,19 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         else
             epochIdxForTap = cursor.currentEpochIndx;
 
+        //PULSE, 14 Sept 2026: AN EMPTY DATASET IS NOT A CLAMPING PROBLEM, and qBound is
+        //fatal rather than forgiving about it. data_width is 0 the instant the dataset is
+        //cleared - which is exactly what a demo restart does - and qBound(0, x, -1) trips
+        //Q_ASSERT(!(max < min)) and aborts the process. It crashed on the device while
+        //paused in a split screen, at the moment the demo looped.
+        //
+        //-1 rather than a clamped 0, because there is no epoch to name: every reader below
+        //either goes through dataset->fromIndex(), which answers null, or is a ranged search
+        //that finds nothing. A clamped 0 would be a lie about an epoch that does not exist.
         if (epochIdxForTap < 0 || epochIdxForTap >= data_width)
-            epochIdxForTap = qBound(0, cursor.currentEpochIndx, data_width - 1);
+            epochIdxForTap = (data_width > 0)
+                             ? qBound(0, cursor.currentEpochIndx, data_width - 1)
+                             : -1;
 
         // Which side (for SS)
         int side = 0;
