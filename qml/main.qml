@@ -3776,6 +3776,30 @@ ApplicationWindow  {
         pulseRuntimeSettings.echogramPause = paused
     }
 
+    // THE SECOND PANE, ranged for its own grid. It asks the pane rather than being told,
+    // the same way applyMaxRange does, so the two cannot disagree about which grid pane 2
+    // is on.
+    //
+    // THE VALUE IS STILL THE FIRST PANE'S, and that is the parked per-pane range question
+    // showing through: the side half's range is a swath width and the down half's is a
+    // depth, and until there is somewhere to keep two numbers they share one.
+    function rangeSecondPane() {
+        if (!waterViewSecond.enabled)
+            return
+        var v = waterViewFirst.quickChangeMaxRangeValue * 1.0
+        if (v <= 0)
+            return
+        waterViewSecond.quickChangeMaxRangeValue = v
+        if (waterViewSecond.isViewHorizontal()) {
+            waterViewSecond.setHorizontalNow()
+            waterViewSecond.plotDistanceRange2d(v)
+        } else {
+            waterViewSecond.setVerticalNow()
+            waterViewSecond.plotDistanceRange(v)
+        }
+        waterViewSecond.updatePlot()
+    }
+
     function applyMaxRange() {
         if (pulseSettings.uiVariant !== "v2")
             return
@@ -3849,11 +3873,11 @@ ApplicationWindow  {
         waterViewFirst.setGridMode("")
         waterViewSecond.setGridMode(secondMode)
 
-        // AND BOTH PANES GET RANGED. applyEchogramMode re-ranges the first pane through its
-        // timer; applyMaxRange is what reaches the second, and it already asks each pane
-        // isViewHorizontal() rather than assuming they agree - so it makes the right call for
-        // each the moment their grids differ.
-        applyMaxRange()
+        // THE SECOND PANE IS RANGED BY THE TIMERS, not from here. Calling applyMaxRange()
+        // at this point was wrong for the reason the ten milliseconds exist at all: it
+        // ranges the plot BEFORE setVerticalNow/setHorizontalNow has landed, so the picture
+        // is ranged against the grid it is leaving, and then ranged again when the timer
+        // fires. One re-range, after the writes, in the one place that already does it.
     }
 
     // THE MODE HALF, lifted out of applyViewId unchanged. The property writes decide the grid
@@ -3928,6 +3952,10 @@ ApplicationWindow  {
             waterViewFirst.setVerticalNow()
             waterViewFirst.plotDistanceRange(waterViewFirst.quickChangeMaxRangeValue * 1.0)
             waterViewFirst.updatePlot()
+            // AND THE SECOND PANE, which is the other grid by definition - it only exists in
+            // side over down. It is ranged the way ITS grid wants, not the way this one does.
+            if (waterViewSecond.enabled)
+                mainview.rangeSecondPane()
         }
     }
 
@@ -3939,6 +3967,8 @@ ApplicationWindow  {
             waterViewFirst.setHorizontalNow()
             waterViewFirst.plotDistanceRange2d(waterViewFirst.quickChangeMaxRangeValue * 1.0)
             waterViewFirst.updatePlot()
+            if (waterViewSecond.enabled)
+                mainview.rangeSecondPane()
         }
     }
 
