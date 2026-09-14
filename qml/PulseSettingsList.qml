@@ -49,8 +49,15 @@ Item {
     readonly property bool offersWidth:      offers && offers.scanWidthMeters === true
     readonly property bool offersTemp:       pulseRuntimeSettings ? pulseRuntimeSettings.useTemperature : false
 
+    readonly property bool offersMounting:   offers && offers.sideScanMounting === true
+    readonly property bool expertOnly:       pulseRuntimeSettings ? pulseRuntimeSettings.expertMode : false
     readonly property bool betaOrExpert:
         pulseRuntimeSettings ? (pulseRuntimeSettings.expertMode || pulseRuntimeSettings.betaMode) : false
+
+    // A CATEGORY WITH NOTHING IN IT IS NOT OFFERED. Connection's two rows are both expert
+    // or beta, so for an ordinary user the category is absent rather than empty - the same
+    // rule the rows follow, one level up.
+    readonly property bool connectionHasRows: betaOrExpert || expertOnly
 
     Column {
         id: column
@@ -193,31 +200,75 @@ Item {
 
         // ---- Still to be built, in the document's order -----------------------
 
-        Repeater { model: [ { id: "installation", title: qsTr("Installation") } ]
-                   delegate: stubCategory }
-
-        // ---- Position source --------------------------------------------------
+        // ---- Installation -----------------------------------------------------
         //
-        // SMALLER THAN THE DOCUMENT PROMISED, and deliberately left that way. The strategy
-        // document lists three sources - autopilot, device GPS, NMEA GPS - and
-        // PulseSettings.qml does declare all three keys. Only positionSourceAutoPilot is
-        // ever READ: DeviceItem.qml:1892 and :1933, and nothing else in any .qml or .cpp
-        // touches the other two.
-        //
-        // So a three-way chooser here would offer two answers that change nothing, which is
-        // worse than offering one. One switch until the other two sources exist.
+        // POSITION SOURCE IS A ROW HERE, NOT A CATEGORY. It was one in the strategy
+        // document, on the promise of three sources - autopilot, device GPS, NMEA GPS. All
+        // three keys exist in PulseSettings.qml but only positionSourceAutoPilot is ever
+        // READ (DeviceItem.qml:1892 and :1933); nothing in any .qml or .cpp touches the
+        // other two. Olav, told that: no plan to offer the others, and where the boat is
+        // rigged is where this question belongs anyway. A category of one is a category
+        // that should have been a row.
         PulseSettingsGroup {
-            id: positionGroup
+            id: installationGroup
 
             width: parent.width
             uiScale: list.uiScale
-            title: qsTr("Position source")
-            open: list.openId === "position"
-            onToggled: list.toggle("position")
+            title: qsTr("Installation")
+            open: list.openId === "installation"
+            onToggled: list.toggle("installation")
 
             content: [
+                PulseStepperRow {
+                    width: installationGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Transducer below the water surface")
+                    hint:  qsTr("0 \u2013 10 m, in centimetres \u00b7 hold to run")
+                    unit:  qsTr("m")
+                    minValue: 0
+                    maxValue: 10
+                    stepSize: 0.01
+                    decimals: 2
+                    value: pulseSettings ? pulseSettings.transducerOffsetMount : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("persistent", "transducerOffsetMount", v)
+                    }
+                },
+
                 PulseSwitchRow {
-                    width: positionGroup.contentWidth
+                    width: installationGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.offersMounting
+                    uiScale: list.uiScale
+
+                    label: qsTr("Mounted on the left-hand side")
+                    hint:  qsTr("which hull the side scan looks past")
+                    checked: pulseSettings ? pulseSettings.isSideScanOnLeftHandSide : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("persistent", "isSideScanOnLeftHandSide", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: installationGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.offersMounting
+                    uiScale: list.uiScale
+
+                    label: qsTr("Cable facing the front")
+                    hint:  qsTr("off means the cable runs towards the stern")
+                    checked: pulseSettings ? pulseSettings.isSideScanCableFacingFront : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("persistent", "isSideScanCableFacingFront", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: installationGroup.contentWidth
                     uiScale: list.uiScale
 
                     label: qsTr("Position from the autopilot")
@@ -231,9 +282,61 @@ Item {
             ]
         }
 
-        Repeater { model: [ { id: "nmea",            title: qsTr("NMEA output")     },
-                            { id: "connection",      title: qsTr("Connection")      },
-                            { id: "recording",       title: qsTr("Recording")       },
+        Repeater { model: [ { id: "nmea", title: qsTr("NMEA output") } ]
+                   delegate: stubCategory }
+
+        // ---- Connection -------------------------------------------------------
+        //
+        // Both rows are expert or beta, so an ordinary user does not see this category at
+        // all - absent rather than empty, which is the row rule one level up.
+        PulseSettingsGroup {
+            id: connectionGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.connectionHasRows
+
+            uiScale: list.uiScale
+            title: qsTr("Connection")
+            open: list.openId === "connection"
+            onToggled: list.toggle("connection")
+
+            content: [
+                PulseSegmentRow {
+                    width: connectionGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.betaOrExpert
+                    uiScale: list.uiScale
+
+                    label: qsTr("Pulse Wi-Fi server UDP port")
+                    options: [ { value: 14550, title: "14550" },
+                               { value: 14560, title: "14560" } ]
+                    current: pulseSettings ? pulseSettings.udpPort : 14550
+
+                    onChosen: function (v) {
+                        list.settingChanged("persistent", "udpPort", v)
+                    }
+                },
+
+                PulseSegmentRow {
+                    width: connectionGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.expertOnly
+                    uiScale: list.uiScale
+
+                    label: qsTr("USB baud rate")
+                    options: [ { value: 115200, title: "115200" },
+                               { value: 921600, title: "921600" } ]
+                    current: pulseSettings ? pulseSettings.usbSerialBaud : 115200
+
+                    onChosen: function (v) {
+                        list.settingChanged("persistent", "usbSerialBaud", v)
+                    }
+                }
+            ]
+        }
+
+        Repeater { model: [ { id: "recording",       title: qsTr("Recording")       },
                             { id: "troubleshooting", title: qsTr("Troubleshooting") } ]
                    delegate: stubCategory }
     }

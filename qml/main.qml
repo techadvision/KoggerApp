@@ -229,6 +229,13 @@ ApplicationWindow  {
         function onTransducerOffsetMountChanged()   { settingsBus.updatePersistent({ transducerOffsetMount: pulseSettings.transducerOffsetMount }) }
         //Echogram speed moved to the persistent settings, workaround to keep the runtime integration as is:
         function onEchogramSpeedChanged ()          { pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed                             }
+        //THE SIDE-SCAN MOUNTING MIRROR, WHICH ONLY CLASSIC HAD. isSideScanLeftHand is the
+        //runtime key the bus carries to Plot2D and the grid; the persistent one is
+        //isSideScanOnLeftHandSide. main.qml copied it at startup and on a link event, but
+        //the only ON-CHANGE mirror lived inside PulseInfoSettings.qml and
+        //PulseAppClassic.qml - both classic. So under v2 the mounting switch would store a
+        //value the picture never heard about. One handler here answers for both variants.
+        function onIsSideScanOnLeftHandSideChanged () { pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide            }
         function onAutoRangeChanged ()              { pulseRuntimeSettings.shouldDoAutoRange = pulseSettings.autoRange                             }
         //function onUsbSerialBaudChanged ()          { pulseRuntimeSettings.usbSerialBaud = pulseSettings.usbSerialBaud                             }
     }
