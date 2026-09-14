@@ -5661,6 +5661,7 @@ merged to master, with `feature/pulse-ui-v2-rail` now **64 commits unpushed**.
 | Commit | What |
 |---|---|
 | `71a415a9` | the screen chooser, and what it took the place of |
+| `7b54cefb` | the three full screens apply, and the screen preference becomes what decides the picture |
 
 ### The market scan, which settled the shape before any drawing
 
@@ -5749,12 +5750,45 @@ does, and the difference between the halves is the grid and the range rather tha
 the stand-in reads worse on the water than no row at all. When the interpolated down scan
 exists it replaces the bottom pane's source and the entry table does not change.
 
-### Splits are horizontal, in landscape too
+### The split axis, asked twice and answered differently the second time
 
-*"Side scan on top in landscape."* `visualisationLayout` splits **left/right** in landscape
-today and top/bottom in portrait. That is the one existing behaviour the applying commit has
-to change, and `PulseScreenMark` already draws every split as top-over-bottom so the chooser
-is not promising something the screen will not do.
+*"Side scan on top in landscape"* was the first answer. The second, a message later, was a
+doubt worth more than the answer: *"I have a feeling that a landscape tablet may handle
+mosaic as a vertical split screen better. Just a hunch. Garmin & co likely know better than
+me."*
+
+**They do, and what they know is that it is not one rule.** Two of the three do not fix the
+direction at all — they make it a choice. Garmin: *"Select **Split** to choose the direction
+of the split screen (optional)."* Lowrance's page editor: *"Change the panel arrangement (only
+possible when 2 or more panels)"*, with panel sizes adjusted separately through
+`System Controls > adjust splits`. Only Humminbird ships it fixed, and Humminbird ships
+combos its model chose.
+
+So the hunch is right, and the reason it is right is not about landscape. It is about what
+the two panes have in common:
+
+> **Panes that share an axis stack along it. Panes that do not, split the screen's long way.**
+
+- **Side + down** are both scrolling echograms on the same time axis. Stacked top over bottom,
+  the same feature sits at the same horizontal position in both and the eye can carry it from
+  one to the other. That is worth keeping in landscape, which is what "side scan on top" was
+  reaching for.
+- **Anything + mosaic** shares nothing. The mosaic is a map and wants area in both directions;
+  halving a wide screen top-over-bottom leaves it a letterbox showing a thin strip of ground,
+  while halving it left/right leaves two near-square panes. So the mosaic splits along the
+  long side — left/right in landscape, top/bottom in portrait.
+
+**"Side scan first" survives as leading position** rather than as "top": top in portrait, left
+in landscape. Note that this is the OPPOSITE of the arrangement in the file today, where
+`scene3dContainer` is the first pane and `plotsContainer` the second — the echogram would move
+to the left of the mosaic.
+
+`PulseScreenMark` draws every split top-over-bottom, which is now true of only one of the
+three. It follows the pane arrangement when the splits are built, not before.
+
+**And the Garmin/Lowrance answer itself — make the direction a user choice — is deliberately
+not taken.** The whole point of this control was that the rail's button count does not grow.
+A default that is right is worth more than a setting that asks.
 
 ### What this unparks after all
 
@@ -5768,9 +5802,9 @@ depth, and they are different numbers for the same water.
 
 ### Where the next session picks up
 
-1. **Settle the per-pane range shape**, then apply the preference — the five-plus-one layouts
-   onto `numPlots` / `visualisationLayout` / grid, and landscape to top-over-bottom.
-2. **Remove what it replaced** — the `ecoViewId` applier and the rail's view branch, and the
-   green pill.
+1. **Settle the per-pane range shape**, then apply the three splits on the axis rule above.
+2. **Remove what it replaced** — `applyViewId`, the rail's view branch, and the green pill —
+   and only once the full screens are proven on the water. *"Now the green pill is back, and
+   that is the only way I can swap between mosaic and the side scan view I have."*
 3. Then the order Olav set: the four Expert info groups, **bug fixing** (the device-change
    problems, still not fixed), and phone size last.
