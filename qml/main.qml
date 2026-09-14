@@ -50,13 +50,24 @@ ApplicationWindow  {
     //
     // Anything that draws ON the echogram must add this. Anything full-bleed ABOVE
     // everything - PulseConnectionScreen at z 9000 - must not: it covers the rail too.
-    // WHICHEVER EDGE CONTROL IS SHOWING. The rail and the paused gutter are never both up,
-    // and they are the same width on purpose, so pausing does not make the echogram jump
-    // sideways at the moment you are trying to read something on it.
+    // WHICHEVER EDGE CONTROL IS SHOWING ON THAT EDGE. The rail and the paused gutter are
+    // never both up. They were also the same width on purpose, so that pausing never moved
+    // the echogram sideways - and as of 14 Sept that promise holds for a SIDE SCAN only.
+    // The gutter now follows the flow (Olav: "follow the flow. That is the only intuitive
+    // way"), so a 2D picture's gutter runs along the foot instead: pausing gives the rail's
+    // width back and takes height at the bottom, and the picture reflows. Stated here
+    // rather than left as a comment that used to be true.
     readonly property real pulseRailInset:
-          pulsePausedGutter.visible ? pulsePausedGutter.inset
-        : pulseRail.visible         ? pulseRail.inset
-        :                             0
+          (pulsePausedGutter.visible && !pulsePausedGutter.alongFoot) ? pulsePausedGutter.inset
+        : pulseRail.visible                                           ? pulseRail.inset
+        :                                                               0
+
+    // AND WHAT IT TAKES AT THE FOOT, which only the paused gutter ever does. A separate
+    // number rather than a sign on the one above, because they are margins on different
+    // sides and a reader who has one must not be able to apply it to the other.
+    readonly property real pulsePausedFootInset:
+          (pulsePausedGutter.visible && pulsePausedGutter.alongFoot) ? pulsePausedGutter.inset
+        :                                                             0
 
     // AND WHAT THE PANEL TAKES. Two numbers, one per thing that takes width, and neither
     // guesses about the other. Only the pane layout adds both; the setup card adds only the
@@ -2050,6 +2061,10 @@ ApplicationWindow  {
                     // Zero in the classic UI and zero while the rail is collapsed, both through
                     // the rail's own `inset`, so there is no second mechanism to keep in step.
                     anchors.leftMargin: mainview.pulseRailInset + mainview.pulsePanelInset
+                    // AND AT THE FOOT, for a 2D picture's paused gutter. Zero at every
+                    // other moment, through the gutter's own binding - so there is no
+                    // second mechanism deciding when the bottom is taken.
+                    anchors.bottomMargin: mainview.pulsePausedFootInset
 
                     rows    : 2
                     columns : 1
@@ -2474,9 +2489,17 @@ ApplicationWindow  {
                              && pulseRuntimeSettings.echogramPause
                     enabled: visible
 
+                    // THE FLOW, from the one flag the history bar already trusts for the
+                    // same question. isHorizontalGrid is true for a 2D picture, which is
+                    // the one that flows sideways and so wants its gutter at the foot.
+                    alongFoot: pulseRuntimeSettings.isHorizontalGrid
+
+                    // Three anchors either way, and the fourth is the one that changes.
+                    // The unanchored axis falls back to the gutter's implicit size.
                     anchors.left:   parent.left
-                    anchors.top:    parent.top
                     anchors.bottom: parent.bottom
+                    anchors.top:    alongFoot ? undefined : parent.top
+                    anchors.right:  alongFoot ? parent.right : undefined
 
                     uiScale:    mainview.s
                     safeTop:    mainview.insetTop()
