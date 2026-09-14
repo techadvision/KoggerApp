@@ -114,6 +114,7 @@
         <file>PulseSliderRow.qml</file>
         <file>PulseChoiceGroup.qml</file>
         <file>PulsePausedGutter.qml</file>
+        <file>PulseDepthEngine.qml</file>
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>LocationExtraSettings.qml</file>

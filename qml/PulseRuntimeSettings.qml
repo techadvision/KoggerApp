@@ -1142,6 +1142,11 @@ QtObject {
     property bool   isBottomTrackActive:        false   //If bottom track is to be used and is active, this is true: MMAY BE REDUNDANT
     property double bottomTrackMinDepth:        0.5     //Below this depth, the rangefinder shall always be used
     property bool   rangefinderTrackVisible:    false   //Expert-only: paint the raw rangefinder line on the echogram for analysis (never the value text)
+    //THE DEPTH EVERY READOUT SHOWS, in metres. Written by PulseDepthEngine.qml and by
+    //nothing else: bottom track when it is initiated, the rangefinder otherwise, and never
+    //a NaN - the last good value is held instead. The choosing rule lives in one file so
+    //that the classic readout and the v2 one cannot show different sources.
+    property double depthMeters:                0.0
     
     //COLOR MAP
 

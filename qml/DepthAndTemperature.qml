@@ -6,12 +6,20 @@ import Echo.UI 1.0
 import QtQuick.Window
 
 
+// THE CLASSIC DEPTH AND TEMPERATURE READOUT.
+//
+// THE ENGINE THAT USED TO LIVE HERE IS GONE - see PulseDepthEngine.qml. This file was 640
+// lines of which only the last 200 drew anything; the rest took the depth off the dataset,
+// ran the auto display level and computed the dynamic resolution that DeviceItem turns into
+// chartSamples and ch1Period on the transducer. All of that was reachable only by
+// instantiating this readout, which PulseAppV2 does not do - so in v2 nothing wrote those
+// keys at all. It is one instance above both panes now, and this file reads the one key it
+// publishes.
+//
+// Everything below is the readout exactly as it was.
+
 Item {
     id: depthAndTemperature
-
-    // Values for the depth
-    property double rangeFinderDepth: 0.0
-    property double bottomTrackDepth: 0.0
 
     // Platform helpers
     readonly property bool _isAndroid: Qt.platform.os === "android"
@@ -61,19 +69,8 @@ Item {
     property bool   isMetricTemperature:        pulseSettings.useMetricTemperature
     property bool   userShowTemperature:        pulseSettings.showTemperatureInUi
     property int    datasetUpdatedCounter:      0
-    property double autoLevel:                  2   // default value (for depth 0)
-
-    property int    dynamicResStableCount :     0   // counter to ensure more than one record to be considered before shifting resolution
-    property double lastStableDepth:            0   // Depth at which we last updated the resolution.
-    property int    stableCount:                0   // Counter for consecutive stable readings.
-    property int    lastDirection :             0   // direction of shift
-    property int    newAutoLevel :              0   // Shifter variable for the UI
-    property bool   pulseBlueResSetOnce:        false //Set the resoution for blue only once
-    //property int    initialResolutionSetter:    0
-    property bool   initialResolutionSet:       true
     property string tempText:                   "-.-"
     property string depthText:                  "-.-"
-    property bool   forceUpdateResolution:      false
     //useTemperature is already a profile key and is what this actually meant - a device
     //either has a temperature sensor or it does not. Same answer today (red true, blue
     //false), but it stops being a guess derived from the transducer geometry.
@@ -82,275 +79,11 @@ Item {
     signal swapUnits()
     //signal pulseAutoLevelChanged(int newAutoLevel)
 
-    // Function to calculate the autoLevel based on the current depth value.
-    function calculateAutoLevel(depth) {
-        const { autoDepthMinLevel, autoDepthLevelStep, autoDepthDistanceBelow, autoDepthMaxLevel } = pulseRuntimeSettings;
-
-
-      if (depth < autoDepthLevelStep) {
-        return autoDepthMinLevel + autoDepthDistanceBelow;
-      }
-
-      const steps = Math.floor((depth - autoDepthLevelStep) / autoDepthLevelStep) + 1;
-
-      let displayed = autoDepthMinLevel + (steps * autoDepthLevelStep) + autoDepthDistanceBelow;
-
-      if (typeof autoDepthMaxLevel !== "undefined") {
-        displayed = Math.min(displayed, autoDepthMaxLevel + autoDepthDistanceBelow);
-      }
-
-      return displayed;
-    }
-
-    // This is the resolution updater that takes into account both depth integer steps and hysteresis.
-    function updateDynamicResolutionWithStep(depth, candidateRes) {
-        const step = pulseRuntimeSettings.autoDepthLevelStep || 1;
-
-        let newLevel = Math.floor(depth / step);
-        let lastLevel = Math.floor(lastStableDepth / step);
-
-        if (!pulseRuntimeSettings.forceUpdateResolution) {
-            if (newLevel === lastLevel) {
-                stableCount = 0;
-                return;
-            }
-
-            stableCount ++;
-
-            if (stableCount < pulseRuntimeSettings.requiredStableReading) {
-                return
-            }
-
-            // Add +2 to resolution if depth changed to a deeper step
-            if (depth > lastStableDepth) {
-                candidateRes = candidateRes + 2
-                console.log("DYNAMIC: dynamicResolution: depth ", depth," > lastStableDepth", lastStableDepth, ", new candidateRes ", candidateRes)
-            }
-        }
-
-        //console.log("TAV: dynamicResolution called with ", candidateRes,"and depth", depth)
-
-        // Increase resolution size to look further into bottom composition, additional steps of 1 meter
-        //candidateRes = candidateRes + (2 * pulseSettings.bottomCompositionAddition)
-        //console.log("TAV: dynamicResolution:  considering bottomCompositionAddition, new candidateRes ", candidateRes)
-
-        pulseRuntimeSettings.dynamicResolution = candidateRes;
-        //Back to the shortest period — numerically the minimum.
-        if (pulseRuntimeSettings.dynamicPeriod !== pulseRuntimeSettings.dynamicPeriodMin) {
-            pulseRuntimeSettings.dynamicPeriod = pulseRuntimeSettings.dynamicPeriodMin
-        }
-        //Back to the fewest samples — numerically the minimum.
-        if (pulseRuntimeSettings.dynamicSamples !== pulseRuntimeSettings.dynamicSamplesMin) {
-            pulseRuntimeSettings.dynamicSamples = pulseRuntimeSettings.dynamicSamplesMin
-        }
-
-        //console.log("DYNAMIC: setting dynamicResolution to", candidateRes,"for depth", depth,"compared to last stable", lastStableDepth,"and bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel)
-        stableCount = 0
-        lastStableDepth = depth
-        pulseRuntimeSettings.forceUpdateResolution = false
-
-    }
-
-    function calculateDynamicResolution(depth) {
-        //DEMO MODE: the resolution and period are already baked into the
-        //recording. Recomputing them is at best a write to a null link and at
-        //worst UI oscillation as the replayed "boat" crosses depth steps.
-        //The auto DISPLAY level in autoLevelCalculate() is deliberately left
-        //running — it only changes what the echogram shows, and it looks right.
-        if (pulseRuntimeSettings.isInDemoMode) {
-            return;
-        }
-
-        if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
-                && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto) {
-            return;
-        }
-
-        const margin = pulseRuntimeSettings.dynamicResolutionMargin; // e.g., default 2 m.
-
-        let candidateRes = Math.round((depth + margin) * 2);
-
-        if (pulseSettings.doubleEchoOptimize) {
-            candidateRes = Math.round(( 2* depth + margin) * 2);
-        }
-
-        if (candidateRes <= 50) {
-            candidateRes = Math.max(candidateRes, pulseRuntimeSettings.dynamicResolutionMin);
-            candidateRes = Math.min(candidateRes, pulseRuntimeSettings.dynamicResolutionMax);
-            updateDynamicResolutionWithStep(depth, candidateRes);
-        } else {
-            updateDynamicSamplesAndPeriod (depth, candidateRes)
-        }
-
-
-    }
-
-    function updateDynamicSamplesAndPeriod (depth, candidateRes) {
-
-        if (!pulseRuntimeSettings.devConfigured) {
-            console.log("DYNAMIC: avoid updateDynamicSamplesAndPeriod until dev is configured")
-            return
-        }
-
-        let candidateSamples = candidateRes * 10
-        //console.log("DYNAMIC: candidateSamples suggested as", candidateSamples)
-        candidateSamples = Math.max(candidateSamples, pulseRuntimeSettings.dynamicSamplesMin);
-        candidateSamples = Math.min(candidateSamples, pulseRuntimeSettings.dynamicSamplesMax);
-
-        //dynamicResolutionMax = the COARSEST spacing (50 mm). Was spelled ...Min before the
-        //2026-08-29 numeric-convention swap; the value it reads is unchanged.
-        let candidatePeriod = candidateRes + (candidateRes - pulseRuntimeSettings.dynamicResolutionMax)
-        //console.log("DYNAMIC: candidatePeriod suggested as", candidatePeriod)
-        candidatePeriod = Math.max(candidatePeriod, pulseRuntimeSettings.dynamicPeriodMin);
-        candidatePeriod = Math.min(candidatePeriod, pulseRuntimeSettings.dynamicPeriodMax);
-
-        //console.log("DYNAMIC: allowed candidateSamples of", candidateSamples, "and candidatePeriod of", candidatePeriod)
-
-        updateDynamicPeriodAndSamplesWithStep (depth, candidatePeriod, candidateSamples, candidateRes)
-    }
-
-    function updateDynamicPeriodAndSamplesWithStep(depth, candidatePeriod, candidateSamples, candidateRes) {
-        const step = pulseRuntimeSettings.autoDepthLevelStep || 1;
-
-        let newLevel = Math.floor(depth / step);
-        let lastLevel = Math.floor(lastStableDepth / step);
-
-        if (newLevel === lastLevel) {
-            stableCount = 0;
-            return;
-        }
-
-        stableCount ++;
-        //console.log("DYNAMIC: stepped stableCount up by one")
-
-        if (stableCount < pulseRuntimeSettings.requiredStableReading) {
-            //console.log("DYNAMIC: stableCount below threshold of", pulseRuntimeSettings.requiredStableReading)
-            return
-        }
-
-        // Add +20 to period if depth changed to a deeper step
-        if (depth > lastStableDepth) {
-            candidateSamples = candidateSamples + pulseRuntimeSettings.dynamicSamplesStep
-            candidatePeriod = candidatePeriod + pulseRuntimeSettings.dynamicPeriodStep
-           // console.log("DYNAMIC: increased candidateSamples ",candidateSamples, "and candidatePeriod",candidatePeriod, ": depth deeper than before ", depth," > lastStableDepth", lastStableDepth)
-        }
-
-
-        pulseRuntimeSettings.dynamicSamples = candidateSamples;
-        pulseRuntimeSettings.dynamicPeriod = candidatePeriod;
-        //console.log("DYNAMIC: set dynamicSamples ",candidateSamples, "and dynamicPeriod",candidatePeriod, "for depth", depth,"with bottom composition addition", pulseSettings.doubleEchoOptimize, "with new integer level", newLevel, "compared to last level", lastLevel, "based on candidateRes", candidateRes)
-        stableCount = 0
-        lastStableDepth = depth
-    }
-
-    Timer {
-        id: autoLevelTimer
-        interval: 100  // Poll every 100ms; adjust as needed.
-        running: true
-        repeat: true
-        onTriggered: {
-            autoLevelCalculate()
-        }
-    }
-
+    // THE DEPTH THE ENGINE CHOSE. The bottom-track-first rule and the NaN filter live in
+    // PulseDepthEngine.qml, one instance above both panes, so this readout and the v2 one
+    // cannot disagree about which source they are showing.
     function currentDepthValue() {
-        if (dataset === null)
-            return 0
-        if (pulseRuntimeSettings === null)
-            return 0
-
-        if (pulseRuntimeSettings.isBottomTrackInitiated) {
-            //console.log("DistProcessing: Depth in UI from dataset.bottomTrackDepth as", dataset.bottomTrackDepth, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
-            //return dataset.bottomTrackDepth
-            return bottomTrackDepth
-        } else {
-            //console.log("DistProcessing: Depth in UI from dataset.dist as", dataset.dist, "since pulseRuntimeSettings.isBottomTrackInitiated is", pulseRuntimeSettings.isBottomTrackInitiated)
-            // return dataset.dist
-            return rangeFinderDepth
-        }
-    }
-
-    function autoLevelCalculate () {
-        //let currentDepth = (dataset !== null) ? dataset.dist : 0;
-        let currentDepth = currentDepthValue()
-        calculateDynamicResolution(currentDepth)
-        let newLevel = calculateAutoLevel(depthAndTemperature.lastStableDepth);
-        if (newLevel !== depthAndTemperature.autoLevel) {
-            depthAndTemperature.autoLevel = newLevel;
-            if (pulseRuntimeSettings !== null) {
-                pulseRuntimeSettings.autoDepthMaxLevel = newLevel
-                //console.log("TAV: Auto level changed to: " + newLevel);
-                //console.log("TAV: Auto level step: " + pulseRuntimeSettings.autoDepthLevelStep);
-                //console.log("TAV: Auto level distance below: " + pulseRuntimeSettings.autoDepthDistanceBelow);
-            } else {
-                console.log("TAV: Auto level cannot be set when pulseRuntimeSettings is null");
-            }
-        }
-    }
-
-    Connections {
-        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-
-        function onDynamicResolutionInitChanged () {
-            if (pulseRuntimeSettings.dynamicResolutionInit) {
-                //DEMO MODE: do not kick off a resolution pass for a ghost device.
-                if (pulseRuntimeSettings.isInDemoMode) {
-                    pulseRuntimeSettings.dynamicResolutionInit = false
-                    return
-                }
-                initialAutoLevelCalculatorTimer.start()
-                pulseRuntimeSettings.dynamicResolutionInit = false
-            }
-        }
-        //function onSwapDeviceNow
-    }
-
-    Connections {
-        target: pulseSettings ? pulseSettings : undefined
-        function onDoubleEchoOptimizeChanged () {
-            //DEMO MODE: no resolution writes while replaying.
-            if (pulseRuntimeSettings.isInDemoMode)
-                return
-            pulseRuntimeSettings.forceUpdateResolution = true
-        }
-    }
-
-    Connections {
-        target: dataset ? dataset : undefined
-
-        function onDistChanged () {
-            //console.log("DistProcessing: onDistChanged observed: Distance =", dataset.dist);
-            // Ignore NaN/inf so the display holds the last good value instead of showing NaN.
-            if (Number.isFinite(dataset.dist)) {
-                rangeFinderDepth = dataset.dist
-            }
-        }
-
-        // Use the SAME filtered, offset-corrected bottom-track value that NMEA sends
-        // (dataset.bottomTrackDepth = filterDepthRecords(rawDist + transducerOffsetMount + fake)).
-        // Previously this read dataset.getLastDepth() (= raw, unfiltered lastDepth_), which made
-        // the bottom-track display noisy and disagree with the NMEA output.
-        function onBottomTrackDepthChanged () {
-            //console.log("DistProcessing: onBottomTrackDepthChanged observed: Depth =", dataset.bottomTrackDepth);
-            // Ignore NaN/inf (e.g. _bottomTrackDepth before the first valid bottom) so the
-            // display keeps the last good value instead of showing NaN.
-            if (Number.isFinite(dataset.bottomTrackDepth)) {
-                bottomTrackDepth = dataset.bottomTrackDepth
-            }
-        }
-    }
-
-    Timer {
-        id: initialAutoLevelCalculatorTimer
-        repeat: false
-        interval: 1000
-        onTriggered: {
-            //DEMO MODE: no resolution writes while replaying.
-            if (pulseRuntimeSettings.isInDemoMode)
-                return
-            pulseRuntimeSettings.forceUpdateResolution = true
-            //console.log("TAV: dynamicResolution: Set the pulseRuntimeSettings.forceUpdateResolution to", pulseRuntimeSettings.forceUpdateResolution);
-        }
+        return pulseRuntimeSettings ? pulseRuntimeSettings.depthMeters : 0
     }
 
     function formatDepth() {
@@ -616,24 +349,6 @@ Item {
         }
     }
 
-        Component.onCompleted: {
-            pulseRuntimeSettings.useMetricDepth = pulseSettings.useMetricDepth
-            //plot2DGrid.setMeasuresMetric(pulseSettings.useMetricDepth)
-        }
-
-        Connections {
-            target: pulseSettings ? pulseSettings : undefined
-            function onUseMetricDepthChanged () {
-                pulseRuntimeSettings.useMetricDepth = pulseSettings.useMetricDepth
-                //plot2DGrid.setMeasuresMetric(pulseSettings.useMetricDepth)
-            }
-            function onUseMetricTemperatureChanged () {
-                // do nothing!
-            }
-            function onShowTemperatureInUiChanged () {
-                // do nothing!
-        }
-    }
 }
 
 

@@ -3683,6 +3683,15 @@ ApplicationWindow  {
         pulseSettings.colorMapIndexReal = id
     }
 
+    // THE DEPTH ENGINE (Stage 4 b). One instance, above both Plot2D panes, for the reason
+    // the connection screen and the pill column are: what it does is app-wide. It was
+    // reachable only through DepthAndTemperature.qml, which PulseAppV2 does not
+    // instantiate - so in v2 nothing wrote dynamicSamples, dynamicPeriod or
+    // autoDepthMaxLevel and the sounder ran at the defaults at every depth.
+    PulseDepthEngine {
+        id: pulseDepthEngine
+    }
+
     // THE CONNECTION SCREEN (Stage 4, step 1). One instance, above both Plot2D panes.
     // Replaces echoSounderSelectorRect, freeContainer, both EchoSounderSelector panels and
     // the windowShadow sheet. Everything it shows hangs off one binding, chooserAsking.
