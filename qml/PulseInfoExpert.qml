@@ -572,7 +572,7 @@ Flickable {
                     1515, 1520, 1525, 1530, 1535, 1540, 1545, 1550]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.soundSpeed = newValue * 1000
+                    pulseRuntimeSettings.setSoundSpeed(newValue * 1000)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -1165,10 +1165,11 @@ Flickable {
                         2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    if (pulseRuntimeSettings.distProcessing[5] !== newValue) {
-                        pulseRuntimeSettings.distProcessing[5] = newValue
-                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
-                    }
+                    // THE PROFILE IS NO LONGER EDITED IN PLACE. The old pair here mutated
+                    // distProcessing[5] and then reassigned the property to itself -
+                    // which destroyed its binding AND wrote through to the profile's own
+                    // array, so the device's default was gone for the run.
+                    pulseRuntimeSettings.setDistProcessingAt(5, newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -1195,10 +1196,11 @@ Flickable {
                     21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    if (pulseRuntimeSettings.distProcessing[1] !== newValue) {
-                        pulseRuntimeSettings.distProcessing[1] = newValue
-                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
-                    }
+                    // THE PROFILE IS NO LONGER EDITED IN PLACE. The old pair here mutated
+                    // distProcessing[1] and then reassigned the property to itself -
+                    // which destroyed its binding AND wrote through to the profile's own
+                    // array, so the device's default was gone for the run.
+                    pulseRuntimeSettings.setDistProcessingAt(1, newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -1225,10 +1227,11 @@ Flickable {
                     11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    if (pulseRuntimeSettings.distProcessing[2] !== newValue) {
-                        pulseRuntimeSettings.distProcessing[2] = newValue
-                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
-                    }
+                    // THE PROFILE IS NO LONGER EDITED IN PLACE. The old pair here mutated
+                    // distProcessing[2] and then reassigned the property to itself -
+                    // which destroyed its binding AND wrote through to the profile's own
+                    // array, so the device's default was gone for the run.
+                    pulseRuntimeSettings.setDistProcessingAt(2, newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -1253,10 +1256,11 @@ Flickable {
                 values: [0.0, 0.5, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    if (pulseRuntimeSettings.distProcessing[3] !== newValue) {
-                        pulseRuntimeSettings.distProcessing[3] = newValue
-                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
-                    }
+                    // THE PROFILE IS NO LONGER EDITED IN PLACE. The old pair here mutated
+                    // distProcessing[3] and then reassigned the property to itself -
+                    // which destroyed its binding AND wrote through to the profile's own
+                    // array, so the device's default was gone for the run.
+                    pulseRuntimeSettings.setDistProcessingAt(3, newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280
@@ -1283,10 +1287,11 @@ Flickable {
                         41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    if (pulseRuntimeSettings.distProcessing[4] !== newValue) {
-                        pulseRuntimeSettings.distProcessing[4] = newValue
-                        pulseRuntimeSettings.distProcessing = pulseRuntimeSettings.distProcessing
-                    }
+                    // THE PROFILE IS NO LONGER EDITED IN PLACE. The old pair here mutated
+                    // distProcessing[4] and then reassigned the property to itself -
+                    // which destroyed its binding AND wrote through to the profile's own
+                    // array, so the device's default was gone for the run.
+                    pulseRuntimeSettings.setDistProcessingAt(4, newValue)
                 }
                 height: 80
                 Layout.preferredWidth: 280

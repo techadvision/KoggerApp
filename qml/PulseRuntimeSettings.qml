@@ -1629,7 +1629,6 @@ QtObject {
     property int    transFreq:                      committedProfile.transFreq
     property int    transBoost:                     committedProfile.transBoost
     property int    dspHorSmooth:                   committedProfile.dspHorSmooth
-    property int    soundSpeed:                     committedProfile.soundSpeed
     property int    ch1Period:                      committedProfile.ch1Period
     property int    datasetChart:                   committedProfile.datasetChart
     property int    datasetDist:                    committedProfile.datasetDist
@@ -1652,7 +1651,69 @@ QtObject {
     property var    bottomTrackVisible:             committedProfile.bottomTrackVisible
     property var    bottomTrackVisibleModel:        committedProfile.bottomTrackVisibleModel
     property bool   processBottomTrack:             committedProfile.processBottomTrack
-    property var    distProcessing:                 committedProfile.distProcessing
+    // ---- TWO VALUES THE PROFILE SUPPLIES AND AN EXPERT MAY OVERRIDE ---------
+    //
+    // Both were plain bindings on committedProfile that the expert controls ASSIGNED, which
+    // destroys a binding for good - rule 2, and the reason the value stopped following a
+    // device swap after the first touch. distProcessing was worse than that: the binding
+    // hands back the PROFILE'S OWN ARRAY, so `distProcessing[5] = v` edited distProcPulseRed
+    // in place. The control was rewriting the record it reads its own default from, and
+    // every later read of that profile - including one after a swap back - saw the edit.
+    //
+    // One binding and one override each, and nothing ever assigns the bound property. The
+    // setters copy before they write, so the profile array is never touched at all.
+
+    // SOUND SPEED. Olav: the generic profile value is proper for many situations, but "a
+    // professional would prefer to be able to measure and make up his own mind. And in THAT
+    // case, the pulseRuntimeSetting is the better choice. The value is kept for the usage
+    // session, but not set for the next." Runtime, so it dies with the app on its own - no
+    // new persistent key, and nothing to migrate.
+    //
+    // AND IT SURVIVES A DEVICE SWAP, deliberately, because sound speed is a property of the
+    // WATER and not of the transducer: "should I change to another transducer then my
+    // changed speed value in the setting should win over the profile sound of speed."
+    // 0 means no override.
+    property int    soundSpeedOverride:            0
+    readonly property int soundSpeed:
+        soundSpeedOverride > 0 ? soundSpeedOverride : committedProfile.soundSpeed
+
+    function setSoundSpeed(v) {
+        var next = Math.round(v)
+        if (next === soundSpeedOverride)
+            return
+        soundSpeedOverride = next
+        console.log("SOUND SPEED: override ->", next, "(profile says", committedProfile.soundSpeed + ")")
+    }
+
+    // BOTTOM TRACK PROCESSING, and the opposite rule on a swap. These ARE transducer
+    // parameters - a window and a gain slope tuned for a red say nothing about a blue - so
+    // the override is dropped when the committed profile changes and the new device's own
+    // numbers take over. That is the whole difference between this and the sound speed
+    // above, and it is why they are two separate mechanisms rather than one.
+    property var    distProcessingOverride:        null
+    readonly property var distProcessing:
+        distProcessingOverride ? distProcessingOverride : committedProfile.distProcessing
+
+    onCommittedProfileChanged: {
+        if (distProcessingOverride !== null) {
+            console.log("BOTTOM TRACK: profile changed - dropping the expert override")
+            distProcessingOverride = null
+        }
+    }
+
+    // COPIES BEFORE IT WRITES. slice() is the whole point of this function: without it the
+    // assignment lands in the profile's array and the default is gone for the run.
+    function setDistProcessingAt(index, value) {
+        var current = distProcessing
+        if (!current || index < 0 || index >= current.length)
+            return
+        if (current[index] === value)
+            return
+        var next = current.slice()
+        next[index] = value
+        distProcessingOverride = next
+        console.log("BOTTOM TRACK: distProcessing[" + index + "] ->", value)
+    }
 
     //ACTUAL DEVICE PARAMETER VALUE COPY
 

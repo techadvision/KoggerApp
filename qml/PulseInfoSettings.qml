@@ -160,7 +160,7 @@ Flickable {
                     currentIndex = idx >= 0 ? idx : 0
                 }
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.soundSpeed = newValue * 1000
+                    pulseRuntimeSettings.setSoundSpeed(newValue * 1000)
                 }
                 Connections {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
