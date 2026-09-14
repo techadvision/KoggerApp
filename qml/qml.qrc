@@ -116,6 +116,9 @@
         <file>PulsePausedGutter.qml</file>
         <file>PulseDepthEngine.qml</file>
         <file>PulseDepthReadout.qml</file>
+        <file>PulseSettingsGroup.qml</file>
+        <file>PulseSwitchRow.qml</file>
+        <file>PulseSettingsList.qml</file>
         <file>Settings3DExtraSettings.qml</file>
         <file>IsobathsExtraSettings.qml</file>
         <file>LocationExtraSettings.qml</file>

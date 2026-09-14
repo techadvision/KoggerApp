@@ -72,6 +72,15 @@ Item {
 
     signal rangeMoved(int v)
 
+    // ---- Settings, tier 2 ---------------------------------------------------
+    //
+    // ONE SIGNAL FOR EVERY SETTING IN THE LIST. The rows bind their values straight to the
+    // two settings objects and this carries the write back to main.qml, which is the only
+    // place that assigns one. A property-and-signal pair per setting would be a hundred of
+    // each by the time tier 3 lands, and the rule it is there to protect - one writer per
+    // key - is kept exactly as well by one.
+    signal settingChanged(string target, string key, var value)
+
     visible: isOpen
     width: panelWidth
 
@@ -85,6 +94,7 @@ Item {
         : openGroup === "range"     ? qsTr("Max range")
         : openGroup === "view"      ? qsTr("View")
         : openGroup === "cone"      ? qsTr("Cone")
+        : openGroup === "settings"  ? qsTr("Settings")
         : openGroup === ""        ? ""
         :                           openGroup
 
@@ -293,6 +303,17 @@ Item {
             caption:   panel.choiceCaption
 
             onChosen: function (id) { panel.choiceMade(id) }
+        }
+
+        PulseSettingsList {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "settings"
+            uiScale: panel.uiScale
+
+            onSettingChanged: function (target, key, value) {
+                panel.settingChanged(target, key, value)
+            }
         }
         }
     }

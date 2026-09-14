@@ -2288,16 +2288,14 @@ ApplicationWindow  {
                         // open at a time. Both fall out of comparing the id with openGroup
                         // rather than out of a rule written twice.
                         if (id === "colours" || id === "intensity" || id === "filter"
-                                || id === "view" || id === "cone" || id === "range") {
+                                || id === "view" || id === "cone" || id === "range"
+                                || id === "settings") {
                             pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
                             console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
                             return
                         }
 
-                        if (id === "settings")
-                            console.log("RAIL:", id, "- the settings list arrives with tier 2")
-                        else
-                            console.log("RAIL:", id, "- its panel arrives later in stage 4 (b)")
+                        console.log("RAIL:", id, "- its panel arrives later in stage 4 (b)")
                     }
                 }
 
@@ -2321,6 +2319,27 @@ ApplicationWindow  {
                     announceEchogramStop: pulseSettings.stopEchogramToConfigure
 
                     onCloseRequested: openGroup = ""
+
+                    // THE ONE WRITER for every setting the tier-2 list carries. The rows
+                    // bind their values and report a change; this assigns it, and nothing
+                    // else does. `target` says which of the two objects owns the key -
+                    // persistent for pulseSettings, which is where a value survives a
+                    // restart, runtime for pulseRuntimeSettings, which is what reaches C++.
+                    //
+                    // Writing by string works because this is an assignment; a BINDING
+                    // cannot be formed on a string key, which is exactly why the rows bind
+                    // their reads explicitly instead of being described as data.
+                    onSettingChanged: function (target, key, value) {
+                        var obj = (target === "runtime") ? pulseRuntimeSettings : pulseSettings
+                        if (!obj) {
+                            console.log("SETTINGS: no", target, "object for", key)
+                            return
+                        }
+                        if (obj[key] === value)
+                            return
+                        console.log("SETTINGS:", target, key, "->", value)
+                        obj[key] = value
+                    }
 
                     // ---- Colours ------------------------------------------------
                     //
