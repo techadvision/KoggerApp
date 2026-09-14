@@ -638,9 +638,11 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         // bottom track. The loupe's Bottom row was therefore blank on every 2D picture
         // with an obvious bottom return sitting right under the crosshair.
         //
-        // Each branch now has its own two sources in its own order. Epoch::distProccesing()
-        // already exists for exactly this - it walks the epoch's charts and returns the
-        // first finite bottom-processing distance - so nothing new is computed here.
+        // BOTH branches now lead with bottom track and keep the rangefinder behind it.
+        // Epoch::distProccesing() already exists for exactly this - it walks the epoch's
+        // charts and returns the first finite bottom-processing distance - so nothing new
+        // is computed here; see the note in the 2D branch for why that order, and not the
+        // other one.
         double depth = NAN;
         if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
             if (isSideScan) {
@@ -652,9 +654,30 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                     depth = epTap->rangeFinder();
                 }
             } else {
-                depth = epTap->rangeFinder();
+                // 2D TAKES BOTTOM TRACK FIRST TOO, on Olav's call (14 Sept): "Here in zoom
+                // we can use bottom track."
+                //
+                // The two sources fail in opposite places, and the loupe is the wrong tool
+                // for the compromise. Bottom track has serious trouble on the shore and
+                // below about half a metre; the rangefinder is the one that gets FOOLED BY
+                // SIDEWAYS FEATURES - badly on a side scan, and to some degree on a 2D
+                // picture as well. Reading a hard bottom under a crosshair is exactly where
+                // a sideways feature would lie to you, so bottom track leads here and the
+                // rangefinder stands behind it.
+                //
+                // The planned crossover - rangefinder below one or two metres, bottom track
+                // above it - is a separate mechanism that has to key off THE RANGEFINDER
+                // VALUE to know which side of the threshold it is on. It belongs with the
+                // depth readout, not in the aim, and it is on the todo rather than here.
+                auto [selCh, selSub, selName] = parent->getSelectedChannelId();
+                if (auto* eg = epTap->chart(selCh, selSub)) {
+                    depth = eg->bottomProcessing.getDistance();
+                }
                 if (!std::isfinite(depth) || depth < 0) {
                     depth = epTap->distProccesing();
+                }
+                if (!std::isfinite(depth) || depth < 0) {
+                    depth = epTap->rangeFinder();
                 }
             }
         }
@@ -1033,9 +1056,11 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         // bottom track. The loupe's Bottom row was therefore blank on every 2D picture
         // with an obvious bottom return sitting right under the crosshair.
         //
-        // Each branch now has its own two sources in its own order. Epoch::distProccesing()
-        // already exists for exactly this - it walks the epoch's charts and returns the
-        // first finite bottom-processing distance - so nothing new is computed here.
+        // BOTH branches now lead with bottom track and keep the rangefinder behind it.
+        // Epoch::distProccesing() already exists for exactly this - it walks the epoch's
+        // charts and returns the first finite bottom-processing distance - so nothing new
+        // is computed here; see the note in the 2D branch for why that order, and not the
+        // other one.
         double depth = NAN;
         if (auto* epTap = dataset->fromIndex(epochIdxForTap)) {
             if (isSideScan) {
@@ -1047,9 +1072,30 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                     depth = epTap->rangeFinder();
                 }
             } else {
-                depth = epTap->rangeFinder();
+                // 2D TAKES BOTTOM TRACK FIRST TOO, on Olav's call (14 Sept): "Here in zoom
+                // we can use bottom track."
+                //
+                // The two sources fail in opposite places, and the loupe is the wrong tool
+                // for the compromise. Bottom track has serious trouble on the shore and
+                // below about half a metre; the rangefinder is the one that gets FOOLED BY
+                // SIDEWAYS FEATURES - badly on a side scan, and to some degree on a 2D
+                // picture as well. Reading a hard bottom under a crosshair is exactly where
+                // a sideways feature would lie to you, so bottom track leads here and the
+                // rangefinder stands behind it.
+                //
+                // The planned crossover - rangefinder below one or two metres, bottom track
+                // above it - is a separate mechanism that has to key off THE RANGEFINDER
+                // VALUE to know which side of the threshold it is on. It belongs with the
+                // depth readout, not in the aim, and it is on the todo rather than here.
+                auto [selCh, selSub, selName] = parent->getSelectedChannelId();
+                if (auto* eg = epTap->chart(selCh, selSub)) {
+                    depth = eg->bottomProcessing.getDistance();
+                }
                 if (!std::isfinite(depth) || depth < 0) {
                     depth = epTap->distProccesing();
+                }
+                if (!std::isfinite(depth) || depth < 0) {
+                    depth = epTap->rangeFinder();
                 }
             }
         }
