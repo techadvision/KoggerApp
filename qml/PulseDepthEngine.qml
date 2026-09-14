@@ -51,10 +51,32 @@ Item {
     // running and the answer must follow it. The publish is a handler because
     // pulseRuntimeSettings.depthMeters has exactly one writer and nothing binds it -
     // which is not the shape rule 2 forbids.
+    // WHAT THE PICTURE IS, not what is connected - rule 1, and here it is load-bearing
+    // rather than decorative. A side scan has no nadir for the rangefinder to answer from,
+    // so dataset.dist never arrives and rangeFinderDepth sits at its initial 0.0. Reading
+    // it anyway is how the readout came to say 0.0 m on every side scan picture.
+    readonly property bool pictureIsSideScan:
+        pulseRuntimeSettings ? (!pulseRuntimeSettings.displayIs2DTransducer
+                                && !pulseRuntimeSettings.isSideScan2DView)
+                             : false
+
+    // THE SIDE SCAN FOLLOWS THE BOTTOM TRACK PRIMARILY, which is what it always did -
+    // Olav, 14 Sept: "Side scan should follow the bottom track depth primarily. Like it
+    // used to." isBottomTrackInitiated is the wrong question to ask of it: that flag is
+    // written from DisplaySettings and the expert panel, neither of which v2 instantiates,
+    // so in v2 it is false unless an expert has been in and turned it on. The same shape as
+    // the engine itself, which was reachable only through DepthAndTemperature.
+    //
+    // PRIMARILY, not only. A bottom track that has never produced a value leaves
+    // bottomTrackDepth at 0.0, and 0.0 is finite, so the guards upstream let it through as
+    // if it were a reading. Falling back to the rangefinder costs nothing when the bottom
+    // track is working and is the difference between a number and a zero when it is not.
     readonly property double selectedDepth:
-        (pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated)
-            ? bottomTrackDepth
-            : rangeFinderDepth
+        pictureIsSideScan
+            ? (bottomTrackDepth > 0 ? bottomTrackDepth : rangeFinderDepth)
+            : ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated)
+                   ? bottomTrackDepth
+                   : rangeFinderDepth)
 
     onSelectedDepthChanged: {
         if (pulseRuntimeSettings)
