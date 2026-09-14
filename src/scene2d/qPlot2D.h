@@ -176,6 +176,25 @@ public:
         update();
     }
     Q_INVOKABLE void setIndx(int indx) { indx_ = indx; }
+
+    //PULSE, Stage 4 (b): PIN THIS PANE'S GRID, for a split of side scan over down scan.
+    //Pass "" to follow the settings bus again, which is what every pane does otherwise.
+    //
+    //It APPLIES as well as stores, with a map of just the two keys - applyRuntime() guards
+    //every read with contains(), so a partial map sets those two and touches nothing else.
+    //Without that the pane would keep the grid it had until the next broadcast happened to
+    //come along, which is a change that looks like it did not work.
+    Q_INVOKABLE void setGridMode(const QString& mode) {
+        setGridModeOverride(mode);
+        if (!mode.isEmpty()) {
+            QVariantMap m;
+            const bool down = (mode == QStringLiteral("down"));
+            m[QStringLiteral("isSideScan2DView")] = down;
+            m[QStringLiteral("isHorizontalGrid")] = down;
+            applyRuntime(m);
+        }
+        update();
+    }
     //Pulse
     Q_INVOKABLE void setDragActive(bool active) {
         Plot2D::setDragActive(active);

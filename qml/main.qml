@@ -1178,6 +1178,15 @@ ApplicationWindow  {
             readonly property bool wantsMosaic:
                 screenEntry ? (screenEntry.top === "mosaic" || screenEntry.bottom === "mosaic")
                             : false
+            // BOTH HALVES ARE ECHOGRAMS - the one layout that needs a second Plot2D rather
+            // than the 3D scene, and the only one that could not be built out of geometry
+            // alone. See Plot2D::applyRuntime for why.
+            readonly property bool splitEchograms:
+                screenEntry ? (screenEntry.top !== "mosaic"
+                               && screenEntry.bottom !== ""
+                               && screenEntry.bottom !== "mosaic")
+                            : false
+
             readonly property bool wantsEchogram:
                 screenEntry ? (screenEntry.top !== "mosaic"
                                || (screenEntry.bottom !== "" && screenEntry.bottom !== "mosaic"))
@@ -2107,8 +2116,13 @@ ApplicationWindow  {
                     Plot2D {
                         id: waterViewSecond
 
-                        enabled: menuBar.numPlots === 2
-                        visible: menuBar.numPlots === 2
+                        // THE SCREEN PREFERENCE DECIDES IN V2, numPlots in classic. numPlots is
+                        // the old Display-settings spin box, and it has no idea the screen
+                        // chooser exists.
+                        enabled: pulseSettings.uiVariant === "v2"
+                                 ? visualisationLayout.splitEchograms
+                                 : menuBar.numPlots === 2
+                        visible: enabled
 
                         Layout.fillHeight: true
                         Layout.fillWidth: true
@@ -2121,6 +2135,12 @@ ApplicationWindow  {
 
                         onEnabledChanged: {
                             waterViewSecond.setPlotEnabled(enabled)
+                            // AND RE-APPLY, because this pane's grid is pinned by
+                            // applyScreenId and the order in which a binding and a handler
+                            // land is not something to rely on. Re-applying is free; a pane
+                            // that came up with the wrong grid is a device build.
+                            if (pulseSettings.uiVariant === "v2")
+                                mainview.applyScreenId(pulseSettings.screenViewId)
                         }
 
                         onVisibleChanged: {
@@ -3811,11 +3831,29 @@ ApplicationWindow  {
         // What is left is the echogram's own mode, because that is a device-side write and a
         // re-range rather than a piece of geometry. A layout with no echogram in it leaves
         // the mode exactly as it was rather than guessing at one.
-        var mode = (e.top !== "mosaic")
-                   ? e.top
-                   : ((e.bottom !== "" && e.bottom !== "mosaic") ? e.bottom : "")
-        if (mode !== "")
-            applyEchogramMode(mode)
+        var firstMode = (e.top !== "mosaic")
+                        ? e.top
+                        : ((e.bottom !== "" && e.bottom !== "mosaic") ? e.bottom : "")
+        var secondMode = (e.top !== "mosaic" && e.bottom !== "" && e.bottom !== "mosaic")
+                         ? e.bottom
+                         : ""
+
+        if (firstMode !== "")
+            applyEchogramMode(firstMode)
+
+        // ONE BINDING AND ONE OVERRIDE, in the only shape the settings bus allows. The bus is
+        // a broadcast, so the LEADING pane follows it - applyEchogramMode has just set what it
+        // carries - and the second pane is the single exception, pinned to the other grid.
+        // Everything else in the app that reads isSideScan2DView therefore agrees with the
+        // pane at the top, which is the one the user is looking at.
+        waterViewFirst.setGridMode("")
+        waterViewSecond.setGridMode(secondMode)
+
+        // AND BOTH PANES GET RANGED. applyEchogramMode re-ranges the first pane through its
+        // timer; applyMaxRange is what reaches the second, and it already asks each pane
+        // isViewHorizontal() rather than assuming they agree - so it makes the right call for
+        // each the moment their grids differ.
+        applyMaxRange()
     }
 
     // THE MODE HALF, lifted out of applyViewId unchanged. The property writes decide the grid

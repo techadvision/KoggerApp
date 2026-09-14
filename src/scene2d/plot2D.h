@@ -48,6 +48,13 @@ public:
     int visibleColsOnScreen()   const { return visibleColsOnScreen_; }
 
     // Optional setters if other C++ wants to push directly
+    // THE PER-PANE GRID (Stage 4 b, side over down). "" follows the settings bus, which is
+    // what every pane did until now; "side" or "down" pins THIS pane's grid whatever the bus
+    // says. See applyRuntime() for why it has to be here and not on the three objects that
+    // read the value.
+    void setGridModeOverride(const QString& mode) { gridModeOverride_ = mode; }
+    QString gridModeOverride() const              { return gridModeOverride_; }
+
     void setIsSideScanLeftHand(bool v)   { isSideScanLeftHand_ = v; }
     void setIsSideScan2DView(bool v)     { isSideScan2DView_   = v; }
     void setEchogramSpeed(double v)      { echogramSpeed_      = v; }
@@ -266,6 +273,7 @@ private:
     bool   isEnabled_;
     bool   isSideScanLeftHand_  = false;
     bool   isSideScan2DView_    = false;
+    QString gridModeOverride_;
     double echogramSpeed_       = 1.0;
     bool   is2DTransducer_      = true;
     bool   shouldDoAutoRange_   = false;

@@ -225,9 +225,30 @@ Plot2D::Plot2D()
 }
 
 //PULSE
-void Plot2D::applyRuntime(const QVariantMap& m)
+void Plot2D::applyRuntime(const QVariantMap& mIn)
 {
     //qDebug() << "applyRuntime this=" << this << " thread=" << QThread::currentThread();
+
+    //PULSE, Stage 4 (b): THE PER-PANE GRID, applied to the MAP and applied exactly once.
+    //
+    //A split of side scan over down scan needs the two panes drawn with different grids, and
+    //the settings bus cannot say so: every qPlot2D subscribes to the same SettingsBus and is
+    //handed the same QVariantMap, so it is a broadcast by construction. This function is the
+    //one funnel underneath that broadcast - whatever it reads, grid_ and aim_ read out of the
+    //same map a few lines down - so rewriting the map here covers all three readers, and
+    //there is no fourth place to keep in step.
+    //
+    //POLARITY, because the name says the opposite of what it means: isSideScan2DView is TRUE
+    //for the DOWN view. It reads "draw this side scan device as a 2D picture", which is what
+    //down scan is on a PULSE blue. Getting this backwards draws both panes the same and looks
+    //like the override never arrived.
+    QVariantMap m = mIn;
+    if (!gridModeOverride_.isEmpty()) {
+        const bool down = (gridModeOverride_ == QStringLiteral("down"));
+        m[QStringLiteral("isSideScan2DView")] = down;
+        m[QStringLiteral("isHorizontalGrid")] = down;
+    }
+
     if (m.contains("isSideScanLeftHand"))  isSideScanLeftHand_ = m.value("isSideScanLeftHand").toBool();
     if (m.contains("isSideScan2DView"))    isSideScan2DView_   = m.value("isSideScan2DView").toBool();
     if (m.contains("echogramSpeed"))       echogramSpeed_      = m.value("echogramSpeed").toDouble();
