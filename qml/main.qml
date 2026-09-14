@@ -2360,6 +2360,11 @@ ApplicationWindow  {
                             pulseRuntimeSettings.echoSounderReboot = true
                             return
                         }
+                        if (id === "resetFakeDepth") {
+                            console.log("SETTINGS: action - clearing the fake depth")
+                            pulseRuntimeSettings.resetFakeDepth = true
+                            return
+                        }
                         if (id === "reconfigure") {
                             console.log("SETTINGS: action - reconfigure the transducer")
                             pulseRuntimeSettings.reconfigureNow = true

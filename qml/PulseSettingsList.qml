@@ -862,14 +862,360 @@ Item {
             ]
         }
 
-        // The four manipulation groups still to come. USB baud rate is NOT among them: it
-        // lives in Connection now, and tier 3 arriving with its own copy is exactly the
-        // duplicated ability this tier is being cleaned of.
-        Repeater { model: [ { id: "bottomtrack", title: qsTr("Bottom track")       },
-                            { id: "depthfilter", title: qsTr("Depth filter")       },
-                            { id: "stripes",     title: qsTr("Black stripes")      },
-                            { id: "fakedepth",   title: qsTr("Depth manipulation") } ]
-                   delegate: expertStubCategory }
+        // ---- Bottom track -----------------------------------------------------
+        //
+        // FIVE OF THESE EIGHT ROWS LIVE INSIDE ONE ARRAY, distProcessing, and they write
+        // through setDistProcessingAt() rather than by index assignment - see
+        // PulseRuntimeSettings: the binding hands back the profile's OWN array, so the old
+        // controls were editing the record they read their defaults from.
+        PulseSettingsGroup {
+            id: bottomTrackGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Bottom track")
+            open: list.openId === "bottomtrack"
+            onToggled: list.toggle("bottomtrack")
+
+            content: [
+                // FOUR ROWS IN THIS COMMIT WRITE A PROFILE-BOUND KEY DIRECTLY, and that
+                // is a known defect being matched rather than introduced: processBottomTrack
+                // and bottomTrackVisible here, and both black-stripe steps below, are
+                // `property X: committedProfile.X` - so assigning one destroys its binding
+                // and it stops following a device swap for the rest of the run.
+                //
+                // Classic already writes all four, so v2 changes nothing about whether the
+                // defect exists. It is NOT given the soundSpeed/distProcessing treatment
+                // here because sixteen of the thirty profile-bound keys are assigned
+                // somewhere in the tree - including transFreq from eleven places - and four
+                // hand-written override pairs would be work a proper sweep throws away. The
+                // sweep wants ONE mechanism, and it belongs in the bug-fixing chat.
+                PulseSwitchRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Use bottom track for depth")
+                    hint:  qsTr("the rangefinder answers when this is off")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.processBottomTrack : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "processBottomTrack", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Draw the bottom track")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.bottomTrackVisible : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "bottomTrackVisible", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Draw the raw rangefinder line")
+                    hint:  qsTr("for comparing the two sources on the picture")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.rangefinderTrackVisible : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "rangefinderTrackVisible", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Gain slope")
+                    decimals: 1
+                    values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
+                             2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
+                    value: (pulseRuntimeSettings && pulseRuntimeSettings.distProcessing)
+                           ? pulseRuntimeSettings.distProcessing[5] : 1.0
+
+                    onStepped: function (v) {
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.setDistProcessingAt(5, v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Window")
+                    decimals: 0
+                    values: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+                             18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+                    value: (pulseRuntimeSettings && pulseRuntimeSettings.distProcessing)
+                           ? pulseRuntimeSettings.distProcessing[1] : 3
+
+                    onStepped: function (v) {
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.setDistProcessingAt(1, v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Vertical gap")
+                    decimals: 0
+                    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                             11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+                    value: (pulseRuntimeSettings && pulseRuntimeSettings.distProcessing)
+                           ? pulseRuntimeSettings.distProcessing[2] : 0
+
+                    onStepped: function (v) {
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.setDistProcessingAt(2, v)
+                    }
+                },
+
+                // A LADDER THAT WAS NOT ASCENDING. Classic's list for this row reads
+                // [0.0, 0.5, 0.10, 0.15, ...] - 0.5 where 0.05 was plainly meant, sitting
+                // second in a list that then continues at 0.10. A stepper cannot walk that:
+                // the rung order IS the control. Corrected here, and classic still has the
+                // typo - flagged rather than changed, because it is Olav's number.
+                PulseStepperRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Shallowest depth evaluated")
+                    unit:  qsTr("m")
+                    decimals: 2
+                    values: [0.0, 0.05, 0.10, 0.15, 0.20, 0.25,
+                             0.30, 0.35, 0.40, 0.45, 0.50]
+                    value: (pulseRuntimeSettings && pulseRuntimeSettings.distProcessing)
+                           ? pulseRuntimeSettings.distProcessing[3] : 0
+
+                    onStepped: function (v) {
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.setDistProcessingAt(3, v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: bottomTrackGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Deepest depth evaluated")
+                    unit:  qsTr("m")
+                    decimals: 0
+                    values: [20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100]
+                    value: (pulseRuntimeSettings && pulseRuntimeSettings.distProcessing)
+                           ? pulseRuntimeSettings.distProcessing[4] : 20
+
+                    onStepped: function (v) {
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.setDistProcessingAt(4, v)
+                    }
+                }
+            ]
+        }
+
+        // ---- Depth filter -----------------------------------------------------
+
+        PulseSettingsGroup {
+            id: depthFilterGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Depth filter")
+            open: list.openId === "depthfilter"
+            onToggled: list.toggle("depthfilter")
+
+            content: [
+                PulseSwitchRow {
+                    width: depthFilterGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Filter the depth")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.useDepthFilter : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "useDepthFilter", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: depthFilterGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Filter bottom track too")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.useFilterWithBottomTrack : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "useFilterWithBottomTrack", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: depthFilterGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Fluctuation margin")
+                    hint:  qsTr("changes smaller than this are treated as the same depth")
+                    unit:  qsTr("m")
+                    decimals: 1
+                    values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.kSmallAgreeMargin : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "kSmallAgreeMargin", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: depthFilterGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Suspicious jump")
+                    hint:  qsTr("a step larger than this has to be confirmed")
+                    unit:  qsTr("m")
+                    decimals: 1
+                    values: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.kLargeJumpThreshold : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "kLargeJumpThreshold", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: depthFilterGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Readings that confirm it")
+                    decimals: 0
+                    values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.kConsistNeeded : 1
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "kConsistNeeded", v)
+                    }
+                }
+            ]
+        }
+
+        // ---- Black stripes ----------------------------------------------------
+
+        PulseSettingsGroup {
+            id: stripesGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Black stripes")
+            open: list.openId === "stripes"
+            onToggled: list.toggle("stripes")
+
+            content: [
+                PulseStepperRow {
+                    width: stripesGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Repair looking forward")
+                    hint:  qsTr("missing pings guessed from the columns after the gap")
+                    decimals: 0
+                    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.fixBlackStripesForwardSteps : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "fixBlackStripesForwardSteps", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: stripesGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Repair looking back")
+                    decimals: 0
+                    values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.fixBlackStripesBackwardSteps : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "fixBlackStripesBackwardSteps", v)
+                    }
+                }
+            ]
+        }
+
+        // ---- Depth manipulation -----------------------------------------------
+        //
+        // A TEST HARNESS, and the hints say so. Nothing here is a tuning knob: it makes the
+        // app believe in a depth it is not measuring, which is how the display and the NMEA
+        // output get exercised without a boat.
+        PulseSettingsGroup {
+            id: fakeDepthGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Depth manipulation")
+            open: list.openId === "fakedepth"
+            onToggled: list.toggle("fakedepth")
+
+            content: [
+                PulseStepperRow {
+                    width: fakeDepthGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Add to the measured depth")
+                    hint:  qsTr("testing only - the picture is no longer what the water says")
+                    unit:  qsTr("m")
+                    minValue: 0
+                    maxValue: 60
+                    stepSize: 0.1
+                    decimals: 1
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.fakeDepthAddition : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "fakeDepthAddition", v)
+                    }
+                },
+
+                PulseSwitchRow {
+                    width: fakeDepthGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Write it into the recording too")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.pushFakeDepth : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "pushFakeDepth", v)
+                    }
+                },
+
+                PulseActionRow {
+                    width: fakeDepthGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Back to the real depth")
+                    actionText: qsTr("Reset")
+
+                    onActivated: list.actionRequested("resetFakeDepth")
+                }
+            ]
+        }
 
         PulseSettingsSection {
             width: parent.width
