@@ -3233,9 +3233,6 @@ ApplicationWindow  {
         Connections {
             target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
             function onEchogramSpeedChanged () {
-                // CLASSIC ONLY - see the comment on zoomIndicator.
-                if (pulseSettings.uiVariant === "v2")
-                    return
                 // Do NOT assign zoomText.text here. zoomText.text is a declarative
                 // binding on pulseSettings.echogramSpeed (above); an imperative
                 // assignment destroys that binding on the first change, after which the
@@ -3245,6 +3242,11 @@ ApplicationWindow  {
                 // the binding decides WHAT it says.
                 console.log("Echogram speed: New value", pulseRuntimeSettings.echogramSpeed,
                             "(persistent", pulseSettings.echogramSpeed + ")")
+                // CLASSIC ONLY from here - see the comment on zoomIndicator. The line
+                // above is a diagnostic Olav reads and it belongs to neither variant, so
+                // the gate goes below it rather than at the top of the handler.
+                if (pulseSettings.uiVariant === "v2")
+                    return
                 zoomIndicator.visible = true
                 hideTimer.restart()
             }

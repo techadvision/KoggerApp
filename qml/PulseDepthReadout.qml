@@ -63,12 +63,21 @@ Item {
     readonly property bool metricDepth: pulseSettings ? pulseSettings.useMetricDepth : true
     readonly property bool metricTemp:  pulseSettings ? pulseSettings.useMetricTemperature : true
 
-    // A DEVICE EITHER HAS THE SENSOR OR IT DOES NOT, and separately the user either wants
-    // it on screen or does not. Classic ANDs a third clause - pulseBetaName === "..." -
-    // which hides temperature on every device carrying a beta name. Olav: a leftover. The
-    // profile key answers the hardware question on its own.
+    // THREE CLAUSES, AND THE THIRD IS NOT A LEFTOVER.
+    //
+    // useTemperature is the profile key: does this transducer have the sensor. Then the
+    // user's own setting: do they want it on screen. Then pulseBetaName === "..." - no
+    // beta name - which looks like debug scaffolding and is not. Beta devices of the red
+    // ("basic 2D") can have the temperature hidden, and Olav puts as many as twenty
+    // customers on that hardware. Dropping the clause would put a number on their screen
+    // that nothing behind it can measure.
+    //
+    // It is blunt - it answers "beta" where the real question is "this particular beta
+    // build has no temperature" - and a profile key would say it properly. That is a
+    // change to the profile records, not to a readout, and it is not made here.
     readonly property bool showTemp:
         (pulseRuntimeSettings ? pulseRuntimeSettings.useTemperature : false)
+        && (pulseRuntimeSettings ? pulseRuntimeSettings.pulseBetaName === "..." : false)
         && (pulseSettings ? pulseSettings.showTemperatureInUi : false)
 
     // ONE WRITER EACH, NO BINDING ON EITHER. The engine's key changes at the ping rate;
