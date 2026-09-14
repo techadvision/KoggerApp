@@ -4854,3 +4854,178 @@ The sandbox shell could not unlink `.git/index.lock` and `.git/HEAD.lock` (the b
 `.git/_stale/` so git could continue. **`.git/_stale/`, any remaining `.git/*.lock` and the
 `.git/objects/*/tmp_obj_*` files should be deleted by hand** — GitHub Desktop will refuse to
 operate while a real `index.lock` is present.
+
+---
+
+## Step 6 on the device — five faults, and the one that was not a fault (14 Sept 2026)
+
+The loupe was right on the first build (*"This actually looks good"*). Everything below came
+out of the next three. **Branch `feature/pulse-ui-v2-rail`, 39 commits, unpushed.**
+
+| Commit | What |
+|---|---|
+| `f6236733` | the paused gutter constrained to its own axis |
+| `e89ce444` | the history pill moves again |
+| `686e298b` | the loupe gets a depth on a 2D picture |
+| `6ea676fa` | and reads bottom track first |
+| `a98fe9e9` | `pulseSettings` handed over instead of looked up |
+| `5bb69ec4` | the two warnings that fix left behind |
+
+### 1. A conditional anchor is set but never cleared
+
+*"This was not very successful for side scan, 2D is however good… need to constrain the X
+axis."* The gutter filled the whole window, its panel over the picture and its controls
+centred on screen.
+
+The orientation was carried by `anchors.top` and `anchors.right`, each `undefined` for the
+orientation that does not want it. But **`isHorizontalGrid` defaults to `true`**, so the
+gutter is *born* along the foot with `anchors.right` set — and **assigning `undefined` to an
+anchor does not clear one that is already there**. A side scan then added the top anchor and
+kept the right: four sides anchored, gutter fills the window. A 2D picture never flips, which
+is exactly why it stayed correct.
+
+The orientation is width and height now, with two anchors that are set once. **An anchor that
+is only ever set cannot get stuck** — and that is the general lesson, not a detail of this
+control.
+
+### 2. Rule 2, broken by the person writing the rule down
+
+*"The sliding pill in the history bar does not move."*
+
+`value` on each slider binds to the gutter's `timelinePosition`, and the gutter *also* called
+`setPosition()` when the slider became visible. `setPosition` writes `slider.value`, which
+the alias exposes as `value` — **an assignment to a bound property**. The first pause
+destroyed the binding permanently.
+
+Both calls are gone: one binding, no push handler. Worth knowing that **`TimeLineShifter`
+carries the same hazard and pays for it the other way round** — it pushes `setPosition()`
+from three separate handlers precisely because its binding is destroyed the same way and
+something has to keep the pill honest afterwards.
+
+### 3. The 2D depth, and a dead line beside the hole it was shaped to fill
+
+```cpp
+if (isSideScan) { depth = eg->bottomProcessing.getDistance(); }
+else            { depth = epTap->rangeFinder(); }
+if (!isfinite(depth)) { depth = epTap->rangeFinder(); }   // re-reads what just failed
+```
+
+A genuine second source for a side scan; for 2D a re-read of the value that had already come
+back empty. And `Epoch::rangeFinder()` returns `NAN` whenever the epoch carries no
+rangefinder datum, which on a PULSE red is the ordinary case because the depth comes out of
+bottom track. So 2D had one source and it was usually the wrong one.
+
+**Then the order was turned round on Olav's call** — *"Here in zoom we can use bottom
+track"* — and with it a correction to what this document's backlog implied:
+
+- **Bottom track** may have serious trouble **on the shore**, and struggles below about
+  **0.5 m**.
+- **The rangefinder** is the one that gets **fooled by sideways features** — badly on a side
+  scan, and to some degree on a 2D picture too.
+
+Reading a hard bottom under a crosshair is precisely where a sideways feature would lie to
+you, so **both branches now lead with bottom track**. The planned crossover — rangefinder
+below one to two metres, bottom track above — is a separate mechanism that must key off **the
+rangefinder value** to know which side of the threshold it is on. It belongs with the depth
+readout and stays on the todo.
+
+### 4. `pulseSettings` was never resolvable inside `PulseRuntimeSettings.qml`
+
+Eleven `ReferenceError: pulseSettings is not defined` at startup, on every line in that file
+that reads persistent settings.
+
+**The cause is creation order, not spelling.** `src/main.cpp` creates
+`PulseRuntimeSettings.qml` and publishes `pulseRuntimeSettings` *first*, then creates
+`PulseSettings.qml` and publishes `pulseSettings`. So while every binding in the runtime file
+evaluates for the first time, the name it wants does not exist. In Qt 6, **a context property
+added after a context has been used to create objects does not reliably re-resolve names that
+already failed** — so this is not only noise: any binding never re-triggered afterwards keeps
+what it computed from `undefined`.
+
+**A capital `PulseSettings` does not fix it.** That is a type name, and a type name yields an
+object only for a singleton: `pragma Singleton` is commented out in `PulseSettings.qml`,
+`qml/qmldir` is empty, and `qmldir` is in no `.qrc`.
+
+So the object is **handed over**. `main.cpp` sets it as a property the moment PulseSettings
+exists; a property re-evaluates every binding that reads it, which a late context property
+cannot promise. It carries the same name the file already uses, because **an object's own
+property outranks a context property** in QML scope resolution, so all thirteen reads are
+untouched.
+
+Olav on the blast radius: *"this explains a lot of problems with wrong choice of colors, max
+depths ++. Correct reference will likely fix many minor issues I have seen."* Line 1153 is
+`displayThemeId`, which falls back to `model[0]` when its stored index is undefined — **a live
+candidate for the deferred "blue gets red's colour choices and favourites"**, which should be
+re-tested before anyone debugs it further.
+
+### 5. Two warnings that fix left behind, both general hazards
+
+**`TypeError: Cannot assign to read-only property "uiVariantIsV2"`.** The runtime bus echoes
+every key it is handed, and `main.qml`'s `onRuntimeChanged` writes each echoed key straight
+back into `pulseRuntimeSettings`. A QML→C++ key is a `readonly` binding here, so the
+write-back throws — and **any** future one-way key would do the same. A named list,
+`mainview.runtimeKeysQmlOwns`, is read past rather than a `try/catch`: a swallowed exception
+would also hide the day a genuinely writable key stops being writable.
+
+**`Unable to assign [undefined] to int`**, three places. The ReferenceErrors in a new coat —
+bindings evaluate once before injection. The value is right a moment later; only the warning
+was left. The three int reads go through `psInt(key, fallback)` and name their own floor.
+
+### The one that was not a fault — `waterViewFirst`
+
+A claim made in this session and **withdrawn on the device**: that
+`waterViewFirst.setDragActive(…)` in the two slider files is a cross-file `id` reach that
+cannot resolve, and that it is why tapping the bar does nothing.
+
+Wrong on both counts. Tapping the bar **does** jump the pill, and **no ReferenceError appears
+in logcat**. Qt documents ids as file-scoped, but in the implementation a component's ids live
+in its **QML context**, and a child component's context chains up to the context it was
+created in — so an id from `main.qml` is reachable from a component instantiated inside it.
+`setDragActive` runs.
+
+It stays a **robustness** risk rather than a defect: Qt documents ids as file-scoped precisely
+because the compiler is allowed to stop honouring that chain. Recorded here so the wrong
+theory is not repeated back later.
+
+### Still in the log, not fixed
+
+`TimelineSliderHorizontal.qml:100` — *Parameter "mouse" is not declared. Injection of
+parameters into signal handlers is deprecated.* Works today, breaks on a future Qt, and the
+same shape is in `TimelineSliderVertical.qml`. A natural companion to the `waterViewFirst`
+cleanup, since both live in those two files.
+
+---
+
+## Where the next sessions pick up (14 Sept 2026)
+
+Olav's own ordering, and he wants the last three in **separate chats** because of their
+volume.
+
+**Next, and the natural continuation of this one — three overlays that share a vocabulary:**
+
+1. **Depth and temperature on the echogram.** Belongs to `PulseAppV2`: lower left on a side
+   scan, top left on a 2D picture, by the flow rule. Both large, never hidden except while
+   paused.
+2. **The old-data warning.** `armOldDataWarning()` is still a no-op in V2. Olav wants the
+   **same design pattern as the demo pill**, with its own message.
+3. **An echogram-speed indication**, in a similar form and look, taken while the pattern is
+   open.
+
+**Then, in their own chats:**
+
+4. **Settings, tier 2 and tier 3.** Seven regular groups and seventeen expert groups, and
+   **six of the seven row types are still unwritten** — only the slider row exists. The
+   largest remaining piece by far.
+5. **Split screen, and a button on the rail to reveal it.** A decision that changes the rail
+   rather than adding to it: offering screen options **kills the need for the side/down view
+   chooser on PULSE blue**, because the layout choice subsumes it. The button count therefore
+   stays the same. Note this **reverses the standing "do not touch split screen" rule**, and
+   it makes the parked per-pane state object (and backlog 12/13) live again — they were parked
+   *on V2*, to be raised when the control they belong to is built, and this is that control.
+6. **Bug fixing**, once the surface is complete. Olav's plan has always been to sum up the
+   todos at the end of 4 (b) and add the quirks he has been collecting himself.
+
+**And a pass rather than a number:** phone size is deliberately left for later, but **split
+screen should be cared for** — *"likely there may be multiple things to adjust."* The rail,
+the panel, the setup card, the paused gutter and the loupe all take width or height from a
+pane, and in a split each pane is roughly half.
