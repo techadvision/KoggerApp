@@ -6373,3 +6373,51 @@ question the one-writer rule answers: if a control can change the picture withou
 preference, a re-apply is a data-loss bug rather than a fix.
 
 **QML only, one commit, not compiled and not on a device.**
+
+---
+
+## D-2 closed, and the instrument that was lying (15 Sept 2026, `af857891`)
+
+D-2 had been parked for several sessions on one rule: **do not write code before the
+`THEME:` line is read.** The rule was right and the line, when it came, said the opposite of
+what both branches of the rule predicted.
+
+### The item was already fixed, by a commit aimed at something else
+
+Blue reads `side scan` and theme 26 out of `themeModelBlue`; red reads `2D` and theme 9 out of
+`themeModelRed`. Both correct, each from its own key. The symptom — colours not differing by
+model — was the **frozen `displayIs2DTransducer` binding** from the settings-bus echo
+(`3ef7249a`). With that property stuck, `displayThemeId` took the same branch forever.
+
+**That is why the code read correct end to end last session and behaved wrong on the device**,
+and it is a reason to distrust "the path reads correct" as a conclusion when the report is
+about behaviour. The reading was accurate; the property it assumed was live was not.
+
+### The diagnostic was itself a binding, and bindings are unordered
+
+`displayThemeId` and `displayThemeIndex` were two bindings on `displayIs2DTransducer`. QML
+does not order their re-evaluation. `onDisplayThemeIdChanged` fired the moment the first one
+settled and read the second before it had caught up, so every line printed **the outgoing
+picture's index beside the incoming picture's id**. Each number was real; they were from
+different instants.
+
+This is the session's third fault shape in a new place:
+
+> The signal named after the event fires before the event has happened.
+
+except here it is not a signal but a sibling binding — the handler fires between the two
+evaluations rather than after both. Same root: **a value read at a moment nobody chose.**
+
+### The rule
+
+> **A diagnostic must not be a binding.** A binding that describes another binding can be
+> evaluated in any order relative to it, so it is free to describe the previous state. Read
+> the values imperatively, inside the handler, where the read happens at a moment you control.
+
+And the corollary that costs nothing: **a diagnostic should name the key it read and state its
+own contradiction.** The rewritten line prints the key name, resolves the entry so its id and
+title are visible, and prints `MISMATCH` when the entry's id and `displayThemeId` disagree —
+the exact condition D-2 spent several sessions describing in prose so that a human could
+reconstruct it by hand from two numbers and two lists.
+
+**QML only, one commit, not compiled and not on a device.**

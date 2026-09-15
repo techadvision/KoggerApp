@@ -224,8 +224,9 @@ A file is not a transducer, and three controls have not been told.
   frequency. `choosable` reads `logIsOnScreen`, not `isPresentingLog`, for the reason the
   connection screen uses it too.
 
-- **Colours: 2D and side scan must each keep their own set.** Still open, and now several
-  sessions old. **The v2 path was read end to end this session and looks correct**:
+- ~~**Colours: 2D and side scan must each keep their own set.**~~ **CLOSED BY THE LOG, 15 Sept
+  2026 — no migration, and no fault. See "D-2, answered" below (`af857891`).** The original
+  text is kept as written: **The v2 path was read end to end this session and looks correct**:
   `displayThemeId` reads `colorMapIndex2D` for red and `colorMapIndexSideScan` for blue,
   `displayThemeModel` hands out the matching list, `onThemeChosen` writes only the key
   belonging to the model on screen, and favourites are offered for 2D only
@@ -830,6 +831,78 @@ must not re-run the whole list, only recover what the rebuild destroyed.
 
 ---
 
+## D-2, answered — the colours were never broken, and the instrument was — **`af857891`**
+
+Olav produced the `THEME:` line the item had been waiting on, for three runs.
+
+```
+app start          THEME: index undefined is not in a list of 6 - falling back to the first entry
+                   THEME: display theme -> 26 | side scan | stored index 0
+
+blue log selected  THEME: display theme -> 9  | 2D        | stored index 5
+                   THEME: display theme -> 26 | side scan | stored index 4
+
+red log selected   THEME: display theme -> 9  | 2D        | stored index 5
+```
+
+### The decision rule, applied
+
+The item said: *side scan* with a red theme showing → migrate `colorMapIndexSideScan`;
+*2D* for a blue → the display model is answering wrong, a much bigger fish.
+
+**Neither. The log says both models answer correctly:**
+
+- **blue log → `side scan`.** `displayIs2DTransducer` is false for the blue, which is right.
+  Theme **26** is `themeModelBlue[5]`, "High Quality Orange" — an entry in **blue's own list**,
+  not a red theme leaking in.
+- **red log → `2D`**, theme **9** = `themeModelRed[4]`, "S Dark". Red's own list.
+- Each reads its own key, each key holds a legitimate index into its own model.
+
+**So what was the original symptom?** Almost certainly the frozen `displayIs2DTransducer`
+binding — `3ef7249a`. With that property stuck at whatever it first reported, `displayThemeId`
+picked the same branch forever and the colours could not differ by model however correct the
+keys were. **D-2 was a symptom of the settings-bus echo and was closed by fixing that**, which
+is also why the v2 path read correct end to end last session while behaving wrong on the
+device.
+
+### And the line itself was wrong, which is the part worth keeping
+
+`themeModelRed[5]` is id 10, not 9 — id 9 is index 4. `themeModelBlue[4]` is id 4, not 26 —
+id 26 is index 5. **Neither printed index matches its own printed id, and each one is exactly
+the index the other picture holds.**
+
+`displayThemeId` and `displayThemeIndex` were two separate bindings on
+`displayIs2DTransducer`, and **QML does not order the re-evaluation of two bindings on the
+same source.** The model changes, `displayThemeId` re-evaluates, `onDisplayThemeIdChanged`
+fires immediately, and it reads an index that has not been re-evaluated yet — so the line
+prints the outgoing picture's index beside the incoming picture's id.
+
+The ids were right the whole time: `displayThemeId` reads the two keys directly, so those
+reads are captured and live, and the chooser follows it **by id**. Only the report was wrong —
+and it very nearly bought a migration the data never justified.
+
+**A diagnostic must not be a binding.** A binding describing another binding may be evaluated
+in any order relative to it, so it is free to describe the previous state. The values are now
+read inside the handler, imperatively. The line also names the key it read, resolves the entry
+so its own id and title are shown, and prints **MISMATCH** when that id and `displayThemeId`
+disagree — which is the condition D-2 was actually looking for, now stated by the instrument
+rather than reconstructed by hand. `displayThemeIndex` had exactly one reader and is gone.
+
+### One benign thing the log also shows
+
+```
+THEME: index undefined is not in a list of 6 - falling back to the first entry
+```
+
+once per start. `pulseSettings.colorMapIndexSideScan` reads `undefined` on the binding's first
+evaluation, before the stored values are live; `themeIdAt` catches it and the binding settles
+to the right entry immediately after — the reported id is `themeModelBlue[5]`, not `[0]`, so
+the fallback did not stick. **Noisy, not harmful**, and the fallback logging is doing exactly
+the job it was added for. Left alone deliberately: it is the transient, and silencing it would
+remove the warning that catches a real out-of-range index.
+
+---
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
@@ -855,6 +928,7 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
    branch waiting for a build.
 4. **The manual-choice matrix** — fixed, `a47c1114`, awaiting the device build that confirms
    both red rows closed together.
-5. **D** — D-1 and D-3 done (`2cf5c267`); D-2 waits on one `THEME:` log line.
+5. **D** — **all done.** D-1 and D-3 `2cf5c267`; D-2 closed by the log, `af857891` — it was
+   a symptom of the settings-bus echo and no migration was needed.
 6. **E** — last of the tablet work, and it is already half of the phone work.
 7. **Phone sizing** — after all of the above, deliberately.
