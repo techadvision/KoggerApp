@@ -6139,3 +6139,123 @@ property shape one layer down — and it is a separate commit if it bites, becau
 separate idea.
 
 **QML only, one commit, not compiled and not on a device.**
+
+---
+
+## The cold-start demo — two faults, and why the sweep missed one (15 Sept 2026, `3ef7249a`, `f0b4bcb3`)
+
+Olav took the matrix one level further: **no manual model choice at all — start the app and
+go straight to a demo.** Red was clean. Blue came up wearing red's palette, red's max depth,
+red's intensity and water body filter, with **no chooser button on the rail at all** — and a
+pill that correctly read *"Demo · PULSE blue"*.
+
+That contradiction is the whole diagnosis. Two faults, and it is the pair that produces an
+app stuck between two identities.
+
+### One: the threading guarantee in `enterDemoMode` was not true
+
+```
+//Safe to emit here and not a frame later: demoIsSideScan is set during core.startDemo()
+//above - the prescan reports before it returns
+```
+
+`Core::startDemo` ends by handing off to the `DeviceManager` worker with
+`Qt::AutoConnection`, and that worker lives on `DevManThread`. Across threads that is
+**queued**, so `demoPrescan` has not run when the call returns. The answer arrives several
+frames later through `demoStarted` → `Core::demoPeriodChanged` → `onDemoPeriodChanged`, the
+only place `demoIsSideScan` is ever written.
+
+So `applyBlackStripesToCore` and `sourceChosen("demo")` both read a stale flag. **Stale is
+`false`, and `false` is red.** A red replay passed on the default happening to be right for
+it — the same accident that let the 2D orientation bug hide for weeks.
+
+This is the first form of the fault shape wearing new clothes: not a writer living in the
+classic UI, but a writer living **on another thread**. The branch nobody tested is still the
+one that runs.
+
+### Two: the settings bus destroys bindings, and no search could have found the writer
+
+The pill was the evidence. It reads `presentedModel`, it said *blue*, and `presentedModel`
+reads `activeModel` — so the classification **did** arrive and `activeModel` **did** move.
+Yet everything gated on `displayIs2DTransducer` stayed red. The only way both hold is that
+`displayIs2DTransducer` had stopped being a binding.
+
+```
+// main.qml, onRuntimeChanged
+if (k in pulseRuntimeSettings) {
+    pulseRuntimeSettings[k] = m[k]
+}
+```
+
+`displayIs2DTransducer` is published to the bus, was not in `runtimeKeysQmlOwns`, and was not
+`readonly`. The echo assigned it. **An assignment destroys a binding permanently** — rule 2's
+exact failure, from a writer that is a *dynamic write by string*.
+
+**The 15 Sept sweep could not have found this.** It searched for visible assignments and
+concluded there were no writers left to any profile-bound property. `pulseRuntimeSettings[k]
+= m[k]` matches no grep for a property name. The comment directly above that loop had already
+named the hazard — *"a DYNAMIC write by string that no static scan could find"* — about
+`maximumDepth`, and the lesson was not generalised.
+
+**`SettingsBus::flushRuntime()` diffs and emits only changed keys**, which is what made this
+intermittent rather than constant. The echo, and the binding's death, land on the first tick
+where the value actually moves, so the property **freezes at the first answer it ever gives**:
+
+- *commit a device, then play its log* — freezes on the committed device, which is right, and
+  nothing looks wrong. This is why every earlier test passed.
+- *cold start straight into a demo* — fault one makes `activeModel` red for a frame, and it
+  freezes on **red**, permanently.
+
+And it explains why Group B's `onPresentedModelChanged` repair never repaired anything: the
+properties it was meant to move had lost the ability to move.
+
+### The chooser button, and why "both are missing" was one control
+
+`PulseRail` has **one** button for this: `buttonId: rail.offersCone ? "cone" : "screen"`,
+`visible: rail.offersScreen || rail.offersCone`. With `offersScreen` frozen false (red) and
+`offersCone` false because blue has only one cone, neither question claimed it and it vanished.
+Not two controls missing — one control that nothing asked for.
+
+### The sweep, done properly this time
+
+Every key `main.qml` publishes to the runtime bus, against what it is in
+`PulseRuntimeSettings`:
+
+| key | what it is | protected before |
+|---|---|---|
+| `displayIs2DTransducer` | binding on `activeProfile` | **no** |
+| `is2DTransducer` | binding on `committedProfile` | **no** |
+| `maximumDepth` | `readonly`, managed parameter | yes, via `isManagedParam` |
+| `uiVariantIsV2` | `readonly` | yes, already listed |
+| the other eleven | plain properties, written imperatively | assignment is intended |
+
+Exactly two. Both are now `readonly` **and** in `runtimeKeysQmlOwns` — the `uiVariantIsV2`
+shape, which is rule 3 verbatim: the list makes the echo a no-op, and `readonly` makes the
+next writer fail loudly on its first attempt rather than quietly ending the app's ability to
+tell a red from a blue. The C++ only *reads* these two in `applyRuntime` and never pushes
+them, so refusing them on the way back in loses nothing.
+
+### Rule 3, restated because it needed restating
+
+> **A binding that is published is a binding that will be assigned.**
+
+Publishing a derived value to the settings bus puts it on a round trip, and the return leg is
+a dynamic write. Any binding on that trip needs `readonly` plus a place in
+`runtimeKeysQmlOwns`, and neither half is optional: the list alone leaves the next writer
+silent, and `readonly` alone turns a working no-op into a thrown error.
+
+### On the device
+
+- `DEMO: the replay is classified - side scan -> applying the picture's settings` should
+  appear **after** `DEMO: running at N ms/epoch`, and the `SOURCE:` line that follows should
+  name the right model. If `SOURCE: demo` still appears before `DEMO: running at`, the move
+  did not take.
+- **The loop restart is the regression to watch.** `demoSourceClassified()` is guarded by
+  `demoSourceApplied` because `DeviceManager` re-emits `demoStarted` on every loop restart;
+  unguarded, `applyMaxRange` would snap the range back to the stored preference each time the
+  file looped. Set a range by hand mid-demo and let the file loop — it must stay where it was
+  put, and the classification line must not appear a second time.
+- **Black stripes on a blue cold-start demo** were also wrong before this and were never
+  reported — worth a look for gaps or empty columns now that they are right.
+
+**QML only, two commits, not compiled and not on a device.**

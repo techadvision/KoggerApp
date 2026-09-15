@@ -670,6 +670,53 @@ designed together rather than each growing its own prescan.
 
 ---
 
+## The cold-start demo — **FIXED, `3ef7249a` + `f0b4bcb3`, awaiting a device build**
+
+The matrix one level further: **no manual model choice — start the app, go straight to a
+demo.** Red clean. Blue came up with red's palette, max depth, intensity and water body
+filter, **no chooser button on the rail at all**, and a pill correctly reading *"Demo · PULSE
+blue"*. That contradiction is the diagnosis.
+
+**Two faults, and it is the pair that sticks the app between identities.**
+
+- **`demoIsSideScan` is stale when the demo says a source was chosen.** `enterDemoMode`
+  claimed the prescan reports before `core.startDemo()` returns. It does not — `Core::startDemo`
+  hands off to a worker on `DevManThread` with `Qt::AutoConnection`, which is **queued**. Stale
+  is `false` and false is **red**, so red passed by accident and blue got red's everything.
+  Moved into `demoSourceClassified()`, called from `onDemoPeriodChanged` where the answer
+  actually lands. *(`f0b4bcb3`)*
+
+- **The settings bus echo was destroying the binding.** `onRuntimeChanged` does
+  `pulseRuntimeSettings[k] = m[k]`; `displayIs2DTransducer` was published, not `readonly`, and
+  not in `runtimeKeysQmlOwns`. `flushRuntime()` emits only *changed* keys, so the property
+  froze at the first answer it ever gave — the committed device on the manual path (right, so
+  everything looked fine) and **red** on a cold-start demo (wrong, permanently). This is also
+  why Group B's `onPresentedModelChanged` repair never repaired anything: the property it was
+  meant to move could no longer move. *(`3ef7249a`)*
+
+**The 15 Sept sweep could not have found the second one.** It searched for visible assignments;
+`pulseRuntimeSettings[k] = m[k]` matches no grep for a property name. The comment above that
+loop had already named the hazard for `maximumDepth` and the lesson was not generalised.
+
+**Only two keys of the fifteen published were exposed** — `displayIs2DTransducer` and
+`is2DTransducer`. Both are now `readonly` and in `runtimeKeysQmlOwns`. New rule, in the
+strategy doc: **a binding that is published is a binding that will be assigned.**
+
+**The rail's "missing two controls" was one control.** `buttonId: offersCone ? "cone" :
+"screen"`, `visible: offersScreen || offersCone` — neither question claimed it.
+
+### To check on the device
+
+- `DEMO: the replay is classified - …` must appear **after** `DEMO: running at N ms/epoch`,
+  and the `SOURCE:` line after it must name the right model.
+- **The loop restart.** Set a range by hand mid-demo and let the file loop: it must stay put,
+  and the classification line must not appear twice. That guard is the only reason
+  `demoSourceApplied` exists.
+- **Black stripes on a blue cold-start demo** were wrong before this too and never reported —
+  look for gaps or empty columns.
+
+---
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
