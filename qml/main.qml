@@ -3637,6 +3637,44 @@ ApplicationWindow  {
     Connections {
         target: core
         function onChannelListUpdated() {
+            // THE RANGE HAS JUST BEEN OVERWRITTEN, AND THIS IS THE ONLY PLACE THAT KNOWS IT.
+            //
+            // Core::onChannelsUpdated() calls Plot2D::setDataChannel() on every pane, and
+            // that function ends with
+            //
+            //     datasetPtr_->getMaxDistanceRange(&from, &to, ...)
+            //     if (isfinite(from) && isfinite(to) && (to - from) > 0)
+            //         cursor_.distance.set(from, to)
+            //
+            // - it takes the plot's range FROM THE DATASET, discarding whatever the app had
+            // applied. channelListUpdated is emitted after that loop, so this handler is the
+            // first moment at which the damage exists and can be undone.
+            //
+            // WHERE IT BITES TODAY IS THE DEMO LOOP. A restart does a full
+            // prepareDemoPipeline(): delAllDev(), the parser context reset, the dataset
+            // cleared. The new pass rebuilds the channel list, setDataChannel re-derives the
+            // range from the first few epochs of a file whose bottom has not been acquired
+            // yet, and the picture comes back at a metre or two while every slider still
+            // reads the number the user set. Olav, 15 Sept: "The settings in all sliders are
+            // OK. But the settings are not applied to the echogram." Only the range, because
+            // setDataChannel is the only thing that re-derives anything.
+            //
+            // IT IS NOT A DEMO FAULT, which is why the repair is here and not on demoLooped.
+            // Any rebuild of the channel list does this - a reconnect, a file reopened, a
+            // second transducer appearing - and demoLooped is emitted BEFORE the queued
+            // worker start, so a handler there would apply the range and then watch the new
+            // pass overwrite it. Same trap as the prescan.
+            //
+            // NOTHING IS LOST BY RE-APPLYING. displayMaxRange is the stored preference, and
+            // every way a user changes the range writes it: the panel slider through
+            // storeDisplayMaxRange, and the pinch through PulseAppV2.maxDepthValue into the
+            // same writer. So this restores the user's own number rather than overriding it.
+            //
+            // BEFORE THE EARLY RETURN BELOW, deliberately: a list too short to classify is
+            // still a list that has been through setDataChannel.
+            if (pulseSettings.uiVariant === "v2")
+                mainview.applyMaxRange()
+
             let list = []
             list = dataset.channelsNameList()
             // Diagnostic: this is the ONLY thing that classifies an opened log as 2D or
@@ -3990,6 +4028,9 @@ ApplicationWindow  {
         var v = pulseRuntimeSettings.displayMaxRange
         if (v <= 0)
             return
+
+        console.log("RANGE: applying", v, "from", pulseRuntimeSettings.displayMaxRangeKey,
+                    "|", waterViewFirst.isViewHorizontal() ? "2D law" : "side scan law")
 
         pulseRuntimeSettings.manualSetLevel = v * 1.0
 
