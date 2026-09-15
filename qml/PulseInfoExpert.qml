@@ -821,10 +821,30 @@ Flickable {
             text: "Use TVG for mosaic"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
             SettingsCheckBox {
+                id: sideScanTvgMosaicBox
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "sideScanTvgMosaicEnabled"
+
+                // NO targetPropertyName, deliberately. sideScanTvgMosaicEnabled is a
+                // binding on the committed profile now and it is readonly, so this
+                // control's write-back would throw rather than merely destroy it - which
+                // is the louder version of what the row above still does to its own.
+                // Every write in SettingsCheckBox is guarded on the name being non-empty,
+                // so leaving it unset makes the control inert and the override below is
+                // the only thing written.
                 initialChecked: pulseRuntimeSettings.sideScanTvgMosaicEnabled
                 clearAfter: false
+
+                // A Connections rather than an inline onToggled: a handler declared at the
+                // use site REPLACES the component's own, and SettingsCheckBox has one.
+                // Nothing depends on it while the name is empty, and it will the day
+                // somebody sets one.
+                Connections {
+                    target: sideScanTvgMosaicBox
+                    function onToggled() {
+                        pulseRuntimeSettings.sideScanTvgMosaicOverride =
+                                sideScanTvgMosaicBox.checked ? 1 : 2
+                    }
+                }
             }
         }
 

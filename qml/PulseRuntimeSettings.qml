@@ -593,7 +593,39 @@ QtObject {
     property double sideScanTvgRefRange:     15     // gain = 1 at this range (m): near field keeps familiar brightness
     property double sideScanTvgNoiseFloor:   0.1    // noise-floor subtraction strength 0..1 (0 = off; base level for partner testing 2026-08-17)
     property double sideScanTvgBoost:        1.2    // detail boost beta (field-tuned: essential for crispness)
-    property bool   sideScanTvgMosaicEnabled:false  // mosaic renders TVG buffer instead of AGC (rebuild applied on switch)
+    //THE MOSAIC'S GAIN LAW, and it is PROFILE DATA for the same reason the waterfall's is.
+    //
+    //It was a bare `false`, buried in the expert tier, and that is the whole of the defect
+    //Olav reported as "the mosaic looks terrible, far away areas are darker". Nothing was
+    //missing: EchogramSideScanTvg, the per-epoch ssTvgCompensated buffer, MosaicProcessor's
+    //ensureMosaicSource() / mosaicSourceBuf() and qPlot2D::setSsTvgMosaicEnabled were all
+    //built. The switch was simply off.
+    //
+    //AND THE BUFFER IS ALREADY THERE. pulseBlue carries sideScanTvgEnabled: true, so
+    //resolveEchogramCompensation() returns imageType 3 and the WATERFALL already renders
+    //from ssTvgCompensated - which means it is computed, per epoch, version-cached, for
+    //every epoch the echogram draws. The mosaic was reading `compensated`, the AGC buffer,
+    //right beside it. So the two surfaces were drawing THE SAME DATA THROUGH TWO DIFFERENT
+    //GAIN LAWS: AGC normalises local contrast, TVG corrects level over range, and the edges
+    //of the swath go dark under the one and not the other. Switching the mosaic over costs
+    //almost nothing because the buffer it wants is already built.
+    //
+    //RULE 2, AND NOT THE SHAPE NEXT DOOR. sideScanTvgEnabled above is a binding on
+    //activeProfile that the expert list ASSIGNS to - so the first touch of that switch
+    //destroys the binding and the profile stops deciding the waterfall's gain law for the
+    //rest of the run. That is a live rule-2 violation and it is NOT fixed here; it wants
+    //its own commit. This one is written the way the rule asks: one binding on the profile,
+    //one explicit override, and nothing ever assigns the value itself.
+    //
+    //0 = follow the profile, 1 = force it on, 2 = force it off. An int rather than a bool
+    //because "no opinion" has to be distinguishable from "off" - with a bool the override
+    //IS the value and we are back to the shape above.
+    property int    sideScanTvgMosaicOverride: 0
+
+    readonly property bool sideScanTvgMosaicEnabled:
+          sideScanTvgMosaicOverride === 1 ? true
+        : sideScanTvgMosaicOverride === 2 ? false
+        : (activeProfile !== undefined ? activeProfile.sideScanTvgMosaicEnabled : false)
 
     // Single source of truth for the echogram compensation id.
     // 2D uses the selected gain law (echogram2DGainId: 2 = PULSE EchogramTvg,
@@ -2044,6 +2076,10 @@ QtObject {
         "bottomTrackVisibleModel":      0,
         "echogramTvgEnabled":           true,
         "sideScanTvgEnabled":           false,
+        //A 2D transducer has no mosaic to render, so this is "not applicable" rather than
+        //a preference. Stated anyway: every profile answers every key, which is what lets
+        //the binding above read activeProfile without a per-key existence test.
+        "sideScanTvgMosaicEnabled":     false,
         "distProcessing":               distProcPulseRed,
 
         //What the INTERFACE offers for this device. Read through uiProfile, never inferred
@@ -2152,6 +2188,10 @@ QtObject {
         "bottomTrackVisibleModel":      0,
         "echogramTvgEnabled":           false,
         "sideScanTvgEnabled":           true,
+        //THE MOSAIC GETS THE SAME LAW AS THE WATERFALL. With sideScanTvgEnabled true the
+        //ssTvgCompensated buffer is already built for every epoch the echogram draws, so
+        //the mosaic reading the AGC buffer instead was two gain laws over one dataset.
+        "sideScanTvgMosaicEnabled":     true,
         "distProcessing":               distProcPulseBlue,
 
         //What the INTERFACE offers for this device. Read through uiProfile, never inferred

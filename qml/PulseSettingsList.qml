@@ -779,11 +779,16 @@ Item {
                     uiScale: list.uiScale
 
                     label: qsTr("Use it for the mosaic too")
-                    hint:  qsTr("the mosaic is brighter at the centre of the line without it")
+                    hint:  qsTr("on by default for a side scan; off makes the mosaic brighter at the centre of the line")
                     checked: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgMosaicEnabled : false
 
+                    // THE OVERRIDE, NEVER THE VALUE. sideScanTvgMosaicEnabled is a binding
+                    // on the committed profile and assigning to it would destroy that
+                    // binding permanently - which is exactly what the Side scan TVG switch
+                    // above still does to its own. 1 forces it on, 2 forces it off, and 0
+                    // (untouched) leaves the profile deciding.
                     onToggled: function (v) {
-                        list.settingChanged("runtime", "sideScanTvgMosaicEnabled", v)
+                        list.settingChanged("runtime", "sideScanTvgMosaicOverride", v ? 1 : 2)
                     }
                 },
 
