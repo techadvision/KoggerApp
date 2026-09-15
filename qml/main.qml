@@ -3979,18 +3979,41 @@ ApplicationWindow  {
     // at once, and this is the half that is genuinely about the screen. Nothing is lost today
     // because every view blue offers is 460 kHz; a frequency chooser returns when power is
     // fixed.
+    // THE STORED RANGE IS READ THROUGH displayMaxRange, ONCE, and that is the whole of the
+    // change here. This function used to name a key: the side branch assigned
+    // pulseSettings.maxDepthValuePulseBlueFixed by hand, and the down branch assigned
+    // NOTHING - so entering down scan re-ranged the plot against whatever number the mode
+    // it was leaving had left in quickChangeMaxRangeValue, and the two grids shared one
+    // value by accident rather than keeping the separate ones that are already stored.
+    //
+    // displayMaxRangeKey exists precisely so a key is never spelled out twice; a write
+    // keyed differently from the read is how a value lands in one preference and is read
+    // out of another, which the strategy document records twice. Reading the derived value
+    // here means the side half gets its swath width back and the down half gets its depth,
+    // and neither branch knows a key name.
+    //
+    // ORDER IS LOAD-BEARING: displayMaxRange is a binding over displayMaxRangeKey, which is
+    // a binding over isSideScan2DView. Reading it BEFORE the mode write returns the
+    // outgoing mode's number, which is the bug this is fixing, one line earlier.
     function applyEchogramMode(mode) {
-        if (mode === "side") {
-            pulseRuntimeSettings.isSideScan2DView = false
-            pulseRuntimeSettings.isHorizontalGrid = false
-            waterViewFirst.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
-            plotDistanceRangeV2Timer.restart()
-        } else {
-            pulseRuntimeSettings.isSideScan2DView = true
-            pulseRuntimeSettings.isHorizontalGrid = true
+        // isSideScan2DView reads backwards and is not renamed here - TRUE means the blue is
+        // in DOWN scan, as PulseRuntimeSettings says at displayMaxRangeKey.
+        var down = (mode !== "side")
+
+        pulseRuntimeSettings.isSideScan2DView = down
+        pulseRuntimeSettings.isHorizontalGrid = down
+        if (down)
             pulseRuntimeSettings.setParam("chartOffset", 0)
+
+        var v = pulseRuntimeSettings.displayMaxRange
+        if (v > 0)
+            waterViewFirst.quickChangeMaxRangeValue = v
+
+        // The ten milliseconds are the classic ones - see the timers below.
+        if (down)
             plotDistanceRange2dV2Timer.restart()
-        }
+        else
+            plotDistanceRangeV2Timer.restart()
     }
 
     // DEAD FROM THIS COMMIT, and kept only until the view chooser is removed with the rest of
