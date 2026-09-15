@@ -539,12 +539,86 @@ surface at all** today, and `progress_` is already being computed for one.
 
 ---
 
+## THE NEXT SESSION STARTS HERE — the manual-choice matrix, 15 Sept evening
+
+Olav ran the same procedure twice on the evening build: **start the app, choose the model
+FIRST, then re-enter source and play a log of that model.** This is the cleanest evidence the
+device-change problem has produced, because it isolates one variable.
+
+| | blue → blue log | red → red log |
+|---|---|---|
+| Colour profiles offered | blue's | red's, favourites correct |
+| Chosen colour applied | yes | yes |
+| Echogram orientation | correct | **VERTICAL — renders as a blue single channel** |
+| Screen choice | remembered and applied | (n/a on red) |
+| Max depth | remembered and applied | **remembered as 13, applied as about 2** |
+| Intensity | remembered and applied | yes |
+| Water body filter | remembered and applied | yes |
+
+**Blue is clean on every row. Red fails on exactly two, and they are almost certainly one
+fault.**
+
+### Both red rows fall out of the root cause already recorded above
+
+`applyEchogramMode` is the only writer of `isSideScan2DView` and `isHorizontalGrid`. It is
+reachable only from `applyScreenId`, which begins:
+
+```
+if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersScreenChoice)
+    return
+```
+
+and `offersScreenChoice` is `!displayIs2DTransducer`. **So for a 2D picture the orientation is
+never written at all**, and red inherits whatever the last side scan left: `isSideScan2DView`
+false, `isHorizontalGrid` false — which is *side scan*, drawn vertically. That is row 3 exactly,
+and "blue single channel" is precisely how it should look.
+
+**And row 4 follows from row 3 rather than being its own bug.** `applyMaxRange` branches on the
+pane, not on the preference:
+
+```
+if (panes[i].isViewHorizontal())
+    panes[i].plotDistanceRange2d(v)
+else
+    panes[i].plotDistanceRange(v)
+```
+
+With the grid stuck on side scan, `isViewHorizontal()` answers false and a red 2D range of 13
+goes through `plotDistanceRange()` — the side scan call — instead of `plotDistanceRange2d()`.
+The stored value is right, the read is right, and the picture is ranged by the wrong law. That
+is the "remembered 13, applied about 2".
+
+**So the prediction is one fix, two rows.** Giving a 2D picture an orientation writer should
+close both. If it closes row 3 and not row 4, the range branch is a second fault and wants its
+own look.
+
+### Olav's idea for the shape of it, recorded as given
+
+> *"We have additional issues when we automatically adapt the UI to the log that is to be used.
+> Maybe we should read some log content, let the app abilities do the app setup (but not try to
+> configure the transducer as it is a file) and THEN show the content? Just an idea, for
+> inspiration only."*
+
+**This is already how the demo path works and is exactly what the file path lacks.**
+`DeviceManager::demoPrescan()` reads up to `kDemoPrescanMaxBytes` before the first epoch and
+answers "2D or side scan" from the recording itself — which is why `demoIsSideScan` is settled
+before `enterDemoMode` emits `sourceChosen`. The file path has no equivalent: it starts
+rendering and the channel list arrives later, which is why `applyForSource` had to be given a
+second trigger on `presentedModel`.
+
+A file-side prescan would turn that second trigger from a repair into a non-event: decide the
+picture, set the app up, *then* show the content. **And it shares its one expensive step with
+the burst-playback item** — both want the log read ahead of rendering — so the two should be
+designed together rather than each growing its own prescan.
+
+---
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
   -> ok` with no `ReferenceError` above it.
 - `feature/device-profiles-step4` has never been merged to master.
-- `feature/pulse-ui-v2-rail` is now **93 commits unpushed**.
+- `feature/pulse-ui-v2-rail` is now **94 commits unpushed**.
 - Three C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
   (`2efbccb3`), the loupe crash guard (`e3d75733`) and the held demo restart (`2b2074f8`).
   The last one adds a `Q_INVOKABLE` to `Core`, so `moc` has to re-run — a clean-ish build
