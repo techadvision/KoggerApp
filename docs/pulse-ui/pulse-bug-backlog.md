@@ -399,6 +399,75 @@ finding.
 
 ---
 
+## The mosaic and the water body filter — **filter DONE `77c23cad`, the nadir band diagnosed and parked**
+
+Found on the 15 Sept build, immediately after the mosaic TVG landed. Olav: *"The mosaic is
+now good. But with one exception. It does not distinguish the water body filter, filter
+values is global and the filter darkens the entire bottom render."*
+
+### The filter was the mosaic's black point
+
+Both v2 appliers called
+
+```
+MosaicViewControlMenuController.onLevelChanged(pulseSettings.filterRealValue,
+                                               pulseSettings.intensityRealValue)
+```
+
+and that signature is `(lowLevel, highLevel)`. It lands in
+`mosaic::PlotColorTable::update()`, where `lowLevel` is a **black point**:
+`indexOffset = lowLevel * 2.5`, and every amplitude below it clamps to colour index 0. So the
+water body filter — a **water column** idea — was wired to a global contrast floor over the
+**bottom**. Raise it and the whole seabed render crushes.
+
+A side scan mosaic has no water column to filter. It is a map of the bottom by construction,
+so there is nothing for the filter to remove and everything for it to damage.
+
+**Zero**, not `PlotColorTable`'s own default of 10, on Olav's answer: zero is what the mosaic
+already got with the filter down, which is the render the TVG was judged on. And with the
+side scan TVG now correcting level over range, a floor has nothing left to do except throw
+away real signal at the edges of the swath — the very darkness the TVG was turned on to fix.
+`applyWaterBodyFilter` no longer touches the mosaic at all; the levels follow intensity, which
+is legitimate because intensity is a brightness control.
+
+**`PulseAppClassic` has the same wiring in three places and was NOT touched** — classic is the
+`uiVariant` fallback and is not disturbed without cause. Worth one commit if classic is ever
+used on a side scan in anger.
+
+### The water body left in the map — checked, and our geometry is not at fault
+
+Olav: *"For side scan mosaic the water body is by design removed from the equation… but the
+upstream author did not exactly nail it as there is a portion of the water body kept present."*
+
+The sample lookup is honest slant range:
+
+```
+QVector3D segFCurrPhPos(x, y, segFDistProc);        // z = the processed depth
+sampleIndex(segFCharts, segFCurrPhPos.distanceToPoint(segFBoatPos))
+```
+
+`distanceToPoint` is a true 3D distance from the boat to a seabed point, so a ground point at
+horizontal offset *x* reads the sample at `sqrt(x² + depth²)`. **There is no slant-range error
+to fix.**
+
+**The dark band along the track is the nadir null, and it is physical.** A side scan
+transducer has no useful return directly beneath it. Upstream paints that wedge anyway, near
+black, which is why it reads as a strip of water body laid into the map. The two honest
+treatments are the ones the industry uses:
+
+- **Blank it** — leave the nadir wedge transparent out to roughly the depth, so the map says
+  "no data" instead of drawing black ground. Needs a per-epoch width from the bottom track and
+  a transparency path through the tile writer that may not exist yet.
+- **Interpolate across it** — which is the *same work* as Olav's standing note: *"We should
+  work with interpolating the two channels into one view for downscan."* That closes the nadir
+  **and** gives the downscan, so it is worth doing once rather than twice.
+
+**Parked deliberately**, and it wants the split-screen/downscan decision made first so it is
+not built twice. Not started tonight on Olav's own steer: *"We do not have to fix the part
+waterbody instantly if it is complex."*
+
+---
+
 ## Asked for, twice — burst playback instead of the file-open freeze
 
 **Olav, 15 Sept 2026, and he has raised it before:** *"My file opening is nothing to be proud
@@ -475,7 +544,7 @@ surface at all** today, and `progress_` is already being computed for one.
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
   -> ok` with no `ReferenceError` above it.
 - `feature/device-profiles-step4` has never been merged to master.
-- `feature/pulse-ui-v2-rail` is now **91 commits unpushed**.
+- `feature/pulse-ui-v2-rail` is now **93 commits unpushed**.
 - Three C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
   (`2efbccb3`), the loupe crash guard (`e3d75733`) and the held demo restart (`2b2074f8`).
   The last one adds a `Q_INVOKABLE` to `Core`, so `moc` has to re-run — a clean-ish build
