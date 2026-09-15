@@ -378,11 +378,17 @@ ApplicationWindow  {
         //DEMO MODE (Stage 1) — see demo_mode_plan.md.
         //The prescan reports the pacing it settled on; surface it so the expert
         //UI can show what the demo is actually running at.
+        //
+        //AND IT IS ALSO THE MOMENT THE REPLAY'S IDENTITY EXISTS. demoIsSideScan is written
+        //nowhere else, and everything that depends on what the log IS - the palette, the
+        //range key, the black stripes profile, the screen chooser - was being applied back
+        //in enterDemoMode, several frames before this handler runs. See the long note there.
         function onDemoPeriodChanged(periodMs, isSideScan) {
             pulseRuntimeSettings.demoMeasuredPeriodMs = periodMs
             pulseRuntimeSettings.demoIsSideScan = isSideScan
             console.log("DEMO: running at", periodMs, "ms/epoch,",
                         isSideScan ? "side scan" : "2D")
+            pulseRuntimeSettings.demoSourceClassified()
         }
 
         //End of the replayed file, or a stop initiated in C++. Undo the quieting

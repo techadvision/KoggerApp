@@ -214,6 +214,13 @@ QtObject {
     property string demoFilePath:           ""      // File chosen for replay
     property int    demoMeasuredPeriodMs:   0       // 0 = unknown; else the pacing in use (ms/epoch)
     property bool   demoIsSideScan:         false   // What the prescan classified the log as
+    //HAS THE PRESCAN'S ANSWER BEEN ACTED ON FOR THIS REPLAY. Raised by
+    //demoSourceClassified(), cleared by every path that starts or ends a replay. It exists
+    //because DeviceManager re-emits demoStarted on every LOOP RESTART with the cached
+    //classification, and re-running the appliers there would call applyMaxRange and snap the
+    //range back to the stored preference each time the file looped - undoing an adjustment
+    //made mid-demo. Today a loop restart re-applies nothing, and that stays true.
+    property bool   demoSourceApplied:      false
     property int    numberOfDatasetChannels:0       // The number of channels in the dataset received
     property int    currentDepthSolution:   -1      // Depth reporting inactive = 0, depth distance = 1, depth NMEA = 2
     property bool   disableAllSetup:        false
@@ -878,27 +885,59 @@ QtObject {
         // the file-open path does.
         echogramCompensationFile = resolveEchogramCompensation()
 
+        //NOTHING THAT DEPENDS ON WHAT THE LOG IS MAY RUN HERE. The comment this replaces
+        //claimed "demoIsSideScan is set during core.startDemo() above - the prescan reports
+        //before it returns". It does not. Core::startDemo ends with
+        //
+        //    QMetaObject::invokeMethod(deviceManagerWrapperPtr_->getWorker(), "startDemo",
+        //                              Qt::AutoConnection, Q_ARG(QString, localFilePath));
+        //
+        //and that worker lives on DevManThread, so AutoConnection is QUEUED: DeviceManager
+        //::startDemo, and demoPrescan inside it, have not run when this returns. The answer
+        //comes back later through demoStarted -> Core::demoPeriodChanged -> main.qml's
+        //onDemoPeriodChanged, which is where demoIsSideScan is finally written.
+        //
+        //So both things that were here read a stale flag, and stale means FALSE, and false
+        //means RED. A red replay passed on the default being right for it; a blue got red's
+        //palette, red's range key, red's black stripes profile and no screen chooser.
+        //
+        //They now live in demoSourceClassified(), called from that handler. The window is a
+        //frame or two, but it is long enough for the settings bus to flush - which is how
+        //this fault used to become permanent rather than momentary.
+        demoSourceApplied = false
         core.startDemo(path)
+    }
+
+    //THE REPLAY HAS SAID WHAT IT IS. Called from main.qml's onDemoPeriodChanged, the one
+    //place demoIsSideScan is ever written, and the earliest moment at which activeModel,
+    //activeProfile, displayIs2DTransducer and every key they pick mean anything for a demo.
+    //
+    //ONCE PER REPLAY, and the guard is not tidiness. DeviceManager re-emits demoStarted on
+    //every loop restart, with the cached prescan answer, so an unguarded call would re-run
+    //applyForSource - and applyMaxRange inside it - each time the file looped, snapping the
+    //range back to the stored preference over whatever the user had set while watching.
+    //Today a loop restart re-applies nothing; this keeps that true.
+    function demoSourceClassified() {
+        if (!isInDemoMode || demoSourceApplied)
+            return
+        demoSourceApplied = true
+
+        console.log("DEMO: the replay is classified -",
+                    demoIsSideScan ? "side scan" : "2D",
+                    "-> applying the picture's settings")
 
         //Black stripes removal must be enforced for the replay too, otherwise the
-        //gaps from missing data show as empty columns. Done AFTER startDemo on
-        //purpose: the prescan has run by then, so demoIsSideScan tells us which
-        //profile the LOG needs — we do not have to rely on device detection,
-        //which for a ghost device may never settle on a model.
+        //gaps from missing data show as empty columns. The prescan tells us which
+        //profile the LOG needs - we do not have to rely on device detection, which
+        //for a ghost device may never settle on a model.
         //No echogram pause around this: unlike a real parameter write, these are
         //display-side settings and are safe to change with the echogram flowing.
         var prof = demoIsSideScan ? pulseBlue : pulseRed
-        console.log("DEMO: applying black stripes profile for",
-                    demoIsSideScan ? "side scan" : "2D")
         applyBlackStripesToCore(prof.fixBlackStripesForwardSteps,
                                 prof.fixBlackStripesBackwardSteps,
                                 prof.fixBlackStripesState)
 
-        //AND THE PICTURE'S OWN SETTINGS, which a demo got none of. Safe to emit here and
-        //not a frame later: demoIsSideScan is set during core.startDemo() above - the
-        //prescan reports before it returns, which is why the black stripes profile three
-        //lines up can already read it - so activeModel, displayIs2DTransducer and every
-        //key they pick are settled by the time anything reads them.
+        //AND THE PICTURE'S OWN SETTINGS, which a demo got none of before Group B.
         sourceChosen("demo")
     }
 
@@ -920,6 +959,7 @@ QtObject {
         core.stopDemo()
         isInDemoMode = false
         demoMeasuredPeriodMs = 0
+        demoSourceApplied = false
         setConfigStatesForDemo(false)
     }
 
@@ -934,6 +974,7 @@ QtObject {
 
         isInDemoMode = false
         demoMeasuredPeriodMs = 0
+        demoSourceApplied = false
         setConfigStatesForDemo(false)
 
         // Leave nothing behind that makes the app think it should configure a
