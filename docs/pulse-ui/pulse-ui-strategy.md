@@ -6421,3 +6421,65 @@ the exact condition D-2 spent several sessions describing in prose so that a hum
 reconstruct it by hand from two numbers and two lists.
 
 **QML only, one commit, not compiled and not on a device.**
+
+---
+
+## A cache that cannot see its own input (15 Sept 2026, `bd14130f`)
+
+Reported as *"the TVG disables black stripes removal"*. It is neither about the TVG nor about
+black stripes: it is about four caches whose validity test cannot observe the thing they are
+caching.
+
+`Epoch::Echogram` derives `compensated`, `tvgCompensated`, `ssTvgCompensated` and `tgc` from
+`amplitude`. All four are rebuilt lazily in `chartTo()`, and every guard tests **length**, or
+length plus a version tag that names the **global gain constants**. None of them can notice
+that the samples changed. `BlackStripesProcessor` repairs samples in place at the same length,
+so the repair is visible on the raw render and on nothing else.
+
+### The fourth fault shape, and it is the one with the longest reach
+
+The branch's list so far:
+
+> A flag or a call whose only writer lives in the classic UI reads false in v2.
+
+> A property borrowed for a question it was not answering.
+
+> The signal named after the event fires before the event has happened.
+
+And now:
+
+> **A derived value whose staleness test cannot see its input.**
+
+This is the same family as the handler that watched its own output, one layer down: in both
+cases a dependency exists in the data and not in the mechanism that is supposed to track it.
+QML bindings get this right for free, which is precisely why it is easy to miss when the
+value is a hand-rolled C++ cache — the habit of trusting the dependency graph does not
+survive the move across the language boundary.
+
+**Where else to look:** any `if (buffer.isEmpty())` or `if (buffer.size() != n)` standing in
+for "is this still valid". Both are answers to *"has it been built?"*, not to *"is it still
+right?"*, and they are indistinguishable until something edits the input in place.
+
+### Two things worth copying from the fix
+
+**Invalidate where the data lives, not where the writer is.** `Epoch::setChart` and
+`setChartBySubChannelId` invalidate on their own, so every present and future caller is correct
+without knowing the caches exist. Only the one writer that goes through a raw reference — which
+`Epoch` cannot observe — has to say so itself. That is the same "stop it being reachable only
+through the caller that remembers" shape as the orientation fix at the top of this session.
+
+**`clear()` rather than resize.** An empty buffer fails all four guards *as they are already
+written*, so no new condition has to be kept in step with them. A resize would have had to
+match each guard's own idea of validity, and one of them is `isEmpty()`.
+
+### A latent overread found on the way
+
+`chartTo()` takes `rawSize` from `amplitude.size()`, and the `imageType` 1 and 4 guards are
+`isEmpty()` alone. A `compensated` or `tgc` buffer left at an older, **shorter** length is
+therefore accepted and indexed to the new `rawSize`. The black-stripes grow path
+(`amplitude.resize(newDataSize)`) reached it. The two TVG buffers escaped only because their
+guards happen to compare size — **luck, not design**, and the distinction is worth keeping in
+mind: three of the four guards in that function are not equivalent, and they look it.
+
+**C++, one commit, not compiled — the shell has no Qt. No `moc` round: `Echogram` is a plain
+struct.**

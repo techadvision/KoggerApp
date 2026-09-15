@@ -903,6 +903,54 @@ remove the warning that catches a real out-of-range index.
 
 ---
 
+## The TVG appeared to disable black stripes removal — **FIXED, `bd14130f`** (C++, uncompiled)
+
+**Olav, 15 Sept:** *"The TVG, both for side scan and for 2D, disables the use of the black
+stripes removal. Clearly evident if I disable the TVG in expert settings."*
+
+**Not a TVG fault.** Every buffer `Epoch::Echogram` derives from `amplitude` is a cache keyed
+on **size**, never on contents:
+
+```
+imageType 1 (AGC)      if (compensated.isEmpty())
+imageType 2 (2D TVG)   if (tvgCompensated.size()   != rawSize || version mismatch)
+imageType 3 (SS TVG)   if (ssTvgCompensated.size() != rawSize || version mismatch)
+imageType 4 (upstream) if (tgc.isEmpty())
+imageType 0 (raw)      reads amplitude directly
+```
+
+The version tags track the **global gain constants**, not the samples. `BlackStripesProcessor`
+repairs masked samples straight into the epoch's vector, **in place and at an unchanged
+length**, so all four guards see nothing and `imageType 0` is the only render that shows the
+repair. That is precisely what the expert switch does.
+
+**The backward pass is why it is so obvious:** 5 steps on both profiles, so it repairs epochs
+the renderer has *already drawn and already built a gain buffer for*. `Dataset` emits
+`redrawEpochs()` for exactly those epochs and `Core::onRedrawEpochs` re-renders them —
+faithfully, from the stale buffer. **The invalidation existed and reached the wrong layer.**
+
+`Echogram::invalidateDerived()` clears all four and zeroes the two version tags. Called from
+`Epoch::setChart` and `Epoch::setChartBySubChannelId` — so every caller is correct without
+knowing the caches exist, including the processor's *"this epoch had no chart at all"* branch —
+and from the repair loop itself, which writes through a reference `Epoch` cannot observe.
+
+**And the grow path was an overread, not just a stale draw.** `chartTo()` takes `rawSize` from
+`amplitude.size()`, and the `imageType` 1 and 4 guards are `isEmpty()` alone — so a
+`compensated` or `tgc` buffer left at the old, shorter length is accepted and then indexed to
+the new `rawSize`. The two TVG buffers are safe only because their guards compare size, which
+is luck rather than design. `amplitude.resize()` now invalidates too.
+
+### To check on the device
+
+- Black stripes removal must work **with the TVG on**, on both red and blue, exactly as it
+  does with it off. That is the whole test.
+- The stripes should fill in **behind** the live edge as well as at it — that is the backward
+  pass, and it is the half that was fully invisible before.
+- **C++, and the branch's fourth uncompiled change** (with `2efbccb3`, `e3d75733`, `2b2074f8`).
+  `Echogram` is a plain struct, so no `moc` round — an incremental build is enough.
+
+---
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
