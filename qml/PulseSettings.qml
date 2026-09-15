@@ -21,15 +21,36 @@ Settings {
     //autoFilter is RETIRED (2026-08-29). Kept as a property only so an existing stored
     //"true" can be found and migrated away; nothing sets it back to true any more.
     property bool   autoFilter:                 false
-    property int    intensityDisplayValue:      10
-    property int    intensityRealValue:         90
+    //INTENSITY AND THE WATER BODY FILTER ARE PER-PICTURE FROM 15 Sept 2026, on Olav's
+    //reasoning: "For red it is usually a focus on reading the colors of first and second
+    //echo to determine hardness, while for blue it is more of a question to distinguish
+    //variation of dullness/brightness in areas of the bottom render" - and a blue usually
+    //has a lot less clutter in the water body to filter out in the first place.
+    //
+    //ONLY THE DISPLAY NUMBER SPLITS. The two Real values below are pure functions of it
+    //(120 - v*4 and v*2.5) and are what goes onto the persistent bus and into
+    //plot2D_echogram.cpp, so they keep that job and become THE SHARED APPLIED VALUE,
+    //written by the applier - exactly the role colorMapIndexReal already has beside
+    //colorMapIndex2D and colorMapIndexSideScan. Two new keys per control, not four.
+    //
+    //THE TWO LEGACY KEYS STAY. They are classic's sliders and they are the migration
+    //source below. Do not delete them: they are somebody's settings file.
+    //
+    //-1 = NOT MIGRATED YET, the ecoViewId pattern. 0 is a legitimate value for both
+    //controls, so it cannot be the sentinel.
+    property int    intensityDisplayValue:      10      //LEGACY + classic; migration source
+    property int    intensityDisplayValue2D:    -1      //red
+    property int    intensityDisplayValueSideScan: -1   //blue
+    property int    intensityRealValue:         90      //SHARED applied value, written by the applier
     //Defaults raised 2 -> 8 (real 5 -> 20) on 2026-08-29, when the depth-driven auto
     //filter was retired: 8 is the value Olav found works well across the range with the
     //water body filter (real 20 -> strength 20/50 = 0.4). Qt.labs.settings only falls back
     //to a declared default when NOTHING is stored, so this affects fresh installs only —
     //anyone who has ever moved the filter slider keeps their own value.
-    property int    filterDisplayValue:         8
-    property int    filterRealValue:            20
+    property int    filterDisplayValue:         8       //LEGACY + classic; migration source
+    property int    filterDisplayValue2D:       -1      //red
+    property int    filterDisplayValueSideScan: -1      //blue
+    property int    filterRealValue:            20      //SHARED applied value, written by the applier
     //THE VIEW AND CONE PREFERENCES, as stable entry ids (step 4, 2026-09-12).
     //
     //ecoViewIndex / ecoConeIndex stored a POSITION in the profile's ui.views / ui.cones
@@ -233,6 +254,29 @@ Settings {
             console.log("AUTO FILTER: retired — clearing stored autoFilter; keeping the user's manual filter of",
                         filterDisplayValue, "(real", filterRealValue + ")")
             autoFilter = false
+        }
+
+        //ONE-SHOT MIGRATION: the single intensity / filter preference -> one per picture.
+        //
+        //BOTH MODELS INHERIT THE VALUE THE USER ALREADY HAS, on Olav's answer, so nothing
+        //moves on the first build and it is a clean test of whether the SPLIT works rather
+        //than of new numbers. The moment either slider is touched the two part company.
+        //
+        //Safe to run on every start: it writes only while the key is still -1, and what it
+        //writes comes from the user's own stored value rather than from a constant here, so
+        //the two cannot drift apart. A fresh install has never stored anything, so the
+        //legacy key is still its declared default and both new keys inherit that.
+        if (intensityDisplayValue2D < 0 || intensityDisplayValueSideScan < 0) {
+            console.log("SETTINGS: splitting intensity per picture - both seeded from",
+                        intensityDisplayValue)
+            if (intensityDisplayValue2D < 0)       intensityDisplayValue2D       = intensityDisplayValue
+            if (intensityDisplayValueSideScan < 0) intensityDisplayValueSideScan = intensityDisplayValue
+        }
+        if (filterDisplayValue2D < 0 || filterDisplayValueSideScan < 0) {
+            console.log("SETTINGS: splitting the water body filter per picture - both seeded from",
+                        filterDisplayValue)
+            if (filterDisplayValue2D < 0)       filterDisplayValue2D       = filterDisplayValue
+            if (filterDisplayValueSideScan < 0) filterDisplayValueSideScan = filterDisplayValue
         }
 
         //ONE-SHOT MIGRATION: positional view/cone preference -> stable entry id.

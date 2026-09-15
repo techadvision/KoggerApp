@@ -1211,6 +1211,74 @@ QtObject {
         pulseSettings[displayMaxRangeKey] = v
     }
 
+    // ---- INTENSITY AND THE WATER BODY FILTER, PER PICTURE (15 Sept 2026) ----
+    //
+    // Olav: "it makes sense to distinguish filter for blue (usually have a LOT less clutter
+    // in the water body anyway) and of the intensity (user may want to view this with
+    // different intensity: for red it is usually a focus on reading the colors of first and
+    // second echo to determine hardness, while for blue it is more of a question to
+    // distinguish variation of dullness/brightness in areas of the bottom render)."
+    //
+    // THE SAME SHAPE AS displayMaxRange ABOVE, twice - a key named once, a derived read, and
+    // one writer - for the same reason it exists there: a write keyed differently from the
+    // read is how a value lands in one preference and is read out of another, and this
+    // document records that fault three times now.
+    //
+    // TWO-WAY, on displayIs2DTransducer, which is the colour theme's split rather than the
+    // max range's three-way one. The range needs three because a blue's swath width and its
+    // depth are different physical quantities; a brightness is a brightness whichever way a
+    // blue is drawn, and Olav's reasoning is about the device family.
+    //
+    // DISPLAY IN, REAL OUT, and only the DISPLAY number is per picture. intensityRealValue
+    // and filterRealValue are pure functions of it and are what main.qml publishes to the
+    // persistent bus and plot2D_echogram.cpp reads, so they stay single and become the
+    // SHARED APPLIED VALUE - the role colorMapIndexReal already has beside colorMapIndex2D
+    // and colorMapIndexSideScan. The appliers in main.qml are their only writer in v2.
+    readonly property string displayIntensityKey:
+        displayIs2DTransducer ? "intensityDisplayValue2D" : "intensityDisplayValueSideScan"
+
+    readonly property string displayFilterKey:
+        displayIs2DTransducer ? "filterDisplayValue2D" : "filterDisplayValueSideScan"
+
+    // THE FALLBACKS ARE THE LEGACY KEY, not a constant. PulseSettings seeds both new keys
+    // from it once, so this only ever answers during the frames before that migration has
+    // run - and answering with the user's own number there is the difference between no
+    // flicker and a visible jump on the first build.
+    readonly property int displayIntensity: psInt(displayIntensityKey,
+                                                  psInt("intensityDisplayValue", 10))
+    readonly property int displayFilter:    psInt(displayFilterKey,
+                                                  psInt("filterDisplayValue", 8))
+
+    // THE CONVERSIONS, written down once instead of at each call site. They were spelled out
+    // in main.qml's two slider handlers and again in classic's, which is three places to get
+    // a magic number right.
+    function intensityRealFor(display) { return Math.round(120 - (display * 4)) }
+    function filterRealFor(display)    { return Math.round(display * 2.5) }
+
+    readonly property int displayIntensityReal: intensityRealFor(displayIntensity)
+    readonly property int displayFilterReal:    filterRealFor(displayFilter)
+
+    // THE ONE WRITER of each, and the same guard storeDisplayMaxRange carries: a preference
+    // is never written while nothing is identified, because with no device and no log there
+    // is no picture whose preference this is.
+    function storeDisplayIntensity(v) {
+        if (presentedModel === "..." || presentedModel === "")
+            return
+        if (pulseSettings[displayIntensityKey] === v)
+            return
+        console.log("INTENSITY: storing", v, "in", displayIntensityKey)
+        pulseSettings[displayIntensityKey] = v
+    }
+
+    function storeDisplayFilter(v) {
+        if (presentedModel === "..." || presentedModel === "")
+            return
+        if (pulseSettings[displayFilterKey] === v)
+            return
+        console.log("FILTER: storing", v, "in", displayFilterKey)
+        pulseSettings[displayFilterKey] = v
+    }
+
     // THE CEILING, as backlog item 11 says it should be.
     //
     // `maximumDepth` above is a binding on committedProfile.maximumDepth that THREE places

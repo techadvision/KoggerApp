@@ -2605,12 +2605,16 @@ ApplicationWindow  {
 
                 // ---- Intensity and the water body filter --------------------
                 //
-                // DISPLAY IN, REAL OUT, and both stored - exactly as the classic controls
-                // do it. The row shows the display number; the apply functions above read
-                // the real one. The duplicate guard matters: a drag emits on every pixel
-                // and one step is many pixels wide.
-                intensityValue: pulseSettings.intensityDisplayValue
-                filterValue:    pulseSettings.filterDisplayValue
+                // PER PICTURE SINCE 15 Sept 2026. The row shows the DISPLAY number for the
+                // model on screen and writes it through the one writer, the same way the
+                // max range row and the colour chooser already do. The real value is
+                // derived by the applier; nothing here spells out a conversion.
+                //
+                // The duplicate guard matters: a drag emits on every pixel and one step is
+                // many pixels wide. storeDisplay* guards again on its own account, because
+                // the pinch path reaches it too.
+                intensityValue: pulseRuntimeSettings ? pulseRuntimeSettings.displayIntensity : 10
+                filterValue:    pulseRuntimeSettings ? pulseRuntimeSettings.displayFilter    : 8
 
                 // What the filter is currently doing, since the same slider means two
                 // different things depending on the expert switch beside it.
@@ -2619,17 +2623,15 @@ ApplicationWindow  {
                             : qsTr("0 – 20   ·   whole picture")
 
                 onIntensityMoved: function (v) {
-                    if (v === pulseSettings.intensityDisplayValue)
+                    if (v === pulseRuntimeSettings.displayIntensity)
                         return
-                    pulseSettings.intensityDisplayValue = v
-                    pulseSettings.intensityRealValue    = Math.round(120 - (v * 4))
+                    pulseRuntimeSettings.storeDisplayIntensity(v)
                 }
 
                 onFilterMoved: function (v) {
-                    if (v === pulseSettings.filterDisplayValue)
+                    if (v === pulseRuntimeSettings.displayFilter)
                         return
-                    pulseSettings.filterDisplayValue = v
-                    pulseSettings.filterRealValue    = Math.round(v * 2.5)
+                    pulseRuntimeSettings.storeDisplayFilter(v)
                 }
 
                 // ---- View / cone --------------------------------------------
@@ -3714,9 +3716,6 @@ ApplicationWindow  {
             mainview.applyWaterBodyFilter()
         }
 
-        function onIntensityRealValueChanged() { mainview.applyIntensity() }
-        function onFilterRealValueChanged()    { mainview.applyWaterBodyFilter() }
-
         function onScreenViewIdChanged() { mainview.applyScreenId(pulseSettings.screenViewId) }
         function onEcoConeIdChanged() { mainview.applyConeId(pulseSettings.ecoConeId) }
     }
@@ -3729,6 +3728,26 @@ ApplicationWindow  {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
         function onDisplayMaxRangeChanged() { mainview.applyMaxRange() }
+    }
+
+    // AND THE SAME FOR INTENSITY AND THE FILTER, now that they are per-picture too.
+    //
+    // THESE USED TO WATCH intensityRealValue AND filterRealValue on pulseSettings, and that
+    // had to move rather than stay: the appliers now WRITE those two - they are the shared
+    // applied value, derived from whichever picture's preference is in force - so a handler
+    // on them would be an applier triggering itself. It would terminate, because Qt emits
+    // changed only on a real difference, but it is a handler watching its own output.
+    //
+    // A HANDLER BELONGS ON THE INPUT. displayIntensity and displayFilter are the preference,
+    // keyed by the picture, so watching them also covers the MODEL CHANGING for free - a red
+    // log after a blue one gets red's own brightness back with nothing having to remember to
+    // restore it, exactly as the range above already does. That is the whole point of the
+    // split, and it is one handler rather than a restore path.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        enabled: pulseSettings.uiVariant === "v2"
+        function onDisplayIntensityChanged() { mainview.applyIntensity() }
+        function onDisplayFilterChanged()    { mainview.applyWaterBodyFilter() }
     }
 
     // AND WHEN THE DEVICE CHANGES UNDER THE PREFERENCE. The stored id has not moved, so
@@ -3842,10 +3861,18 @@ ApplicationWindow  {
     // brightness control and the mosaic is entitled to it.
     readonly property real mosaicBlackPoint: 0
 
+    //
+    // AND THE SHARED APPLIED VALUE IS WRITTEN HERE, not by the slider. intensityRealValue
+    // and filterRealValue are single keys derived from a per-picture display number, so the
+    // applier is the only place that knows which picture's number is in force - exactly
+    // where applyDisplayTheme writes colorMapIndexReal, and for the same reason. main.qml
+    // publishes both onto the persistent bus, plot2D_echogram.cpp reads them, and classic
+    // and Plot2D's pinch path keep reading them unchanged.
     function applyIntensity() {
         if (pulseSettings.uiVariant !== "v2")
             return
-        var real = pulseSettings.intensityRealValue
+        var real = pulseRuntimeSettings.displayIntensityReal
+        pulseSettings.intensityRealValue = real
         waterViewFirst.setIntensityValue(real * 1.0)
         if (waterViewSecond.enabled)
             waterViewSecond.setIntensityValue(real * 1.0)
@@ -3860,7 +3887,8 @@ ApplicationWindow  {
     function applyWaterBodyFilter() {
         if (pulseSettings.uiVariant !== "v2")
             return
-        var real = pulseSettings.filterRealValue
+        var real = pulseRuntimeSettings.displayFilterReal
+        pulseSettings.filterRealValue = real
         var panes = waterViewSecond.enabled ? [waterViewFirst, waterViewSecond] : [waterViewFirst]
         for (var i = 0; i < panes.length; ++i) {
             if (pulseRuntimeSettings.echogramWaterBodyFilterEnabled) {
