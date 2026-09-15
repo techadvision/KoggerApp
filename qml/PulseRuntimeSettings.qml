@@ -1836,7 +1836,12 @@ QtObject {
     //PER DEVICE PROPERTIES
     property bool   settingVersion:                 committedProfile.settingVersion
     property bool   useTemperature:                 committedProfile.useTemperature
-    property bool   is2DTransducer:                 committedProfile.is2DTransducer
+    //READONLY, AND IT IS NOT DECORATION - see the long note on displayIs2DTransducer below.
+    //Both of these are bindings that are PUBLISHED to the settings bus, and the bus echo in
+    //main.qml assigns every key it does not skip straight back onto this object. An
+    //assignment destroys a binding permanently, so without readonly this property freezes at
+    //the first value it ever reports and the app stops being able to tell a red from a blue.
+    readonly property bool is2DTransducer:          committedProfile.is2DTransducer
 
     //THE DISPLAY SIDE OF THE SAME QUESTION (backlog items 7 and 10). is2DTransducer above is
     //a fact about the COMMITTED device and is what decides configuration and what the
@@ -1846,7 +1851,37 @@ QtObject {
     //ramp painted on the samples on screen and has nothing to do with the transducer on the
     //wire. Falls back to the committed answer when nothing is identified, which is the same
     //three-way activeProfile already does.
-    property bool   displayIs2DTransducer: (activeProfile !== undefined)
+    //
+    //READONLY, AND THE WRITER IT LOCKS OUT IS THE ONE NO SEARCH FINDS.
+    //
+    //This property is published to the runtime bus (main.qml, onDisplayIs2DTransducerChanged
+    //and the startup block). main.qml's onRuntimeChanged handler then does
+    //
+    //    pulseRuntimeSettings[k] = m[k]
+    //
+    //for every key it is handed that is not in runtimeKeysQmlOwns and is not a managed
+    //parameter. That is a DYNAMIC WRITE BY STRING - the exact thing the comment above that
+    //loop already warns about for maximumDepth - so no grep for "displayIs2DTransducer ="
+    //will ever find it. The 15 Sept sweep that made the two TVG switches readonly searched
+    //for visible assignments and concluded there were no writers left; this writer was
+    //invisible to that search by construction.
+    //
+    //WHY IT BIT WHERE IT DID. SettingsBus::flushRuntime() diffs and emits only CHANGED keys,
+    //so the echo - and the binding's death - happens on the first tick where the value
+    //actually moves. The property therefore freezes at THE FIRST ANSWER IT EVER GIVES:
+    //
+    //  * commit a device first, then play a log of it: it freezes on the committed device,
+    //    which is the right answer, and everything appears to work.
+    //  * cold start straight into a demo: enterDemoMode sets isInDemoMode before the prescan
+    //    has reported, so activeModel is red for a frame or two (see demoSourceClassified
+    //    below). It freezes on RED - and a blue log then plays with red's palette, red's
+    //    range key and no screen chooser, while presentedModel, still a live binding, tells
+    //    the pill it is a blue. That is the "in-between" app Olav reported on 15 Sept.
+    //
+    //Both names also join runtimeKeysQmlOwns so the echo is SKIPPED rather than thrown. The
+    //C++ only ever reads these two keys in applyRuntime and never pushes them, so nothing is
+    //lost by refusing them on the way back in.
+    readonly property bool displayIs2DTransducer: (activeProfile !== undefined)
                                                ? activeProfile.is2DTransducer
                                                : is2DTransducer
 

@@ -250,7 +250,17 @@ ApplicationWindow  {
     // A named list rather than a try/catch, for two reasons: a swallowed exception hides the
     // day a genuinely writable key stops being writable, and a one-way key ought to have to
     // declare itself. Add to this list when you publish something the QML side computes.
+    //
+    // THE TWO DEVICE-IDENTITY BINDINGS JOIN THE LIST, 15 Sept. Both are bindings on a
+    // profile that this file PUBLISHES to the bus, so without a place here the loop below
+    // handed each one straight back and assigned it - killing the binding and freezing the
+    // app's idea of what it is looking at at the first value it ever reported. Both are now
+    // readonly as well, so the echo would throw rather than freeze; this list is what turns
+    // a throw into the intended no-op. The C++ only READS these two in applyRuntime and
+    // never pushes them, so nothing is lost by refusing them on the way back in.
     readonly property var runtimeKeysQmlOwns: ["uiVariantIsV2",
+                                               "is2DTransducer",
+                                               "displayIs2DTransducer",
                                                "echogramTvgEnabled",
                                                "sideScanTvgEnabled",
                                                "sideScanTvgMosaicEnabled"]
