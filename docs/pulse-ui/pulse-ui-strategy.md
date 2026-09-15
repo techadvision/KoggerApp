@@ -6483,3 +6483,97 @@ mind: three of the four guards in that function are not equivalent, and they loo
 
 **C++, one commit, not compiled — the shell has no Qt. No `moc` round: `Echogram` is a plain
 struct.**
+
+---
+
+# Session close — 15 Sept 2026, the evening session
+
+**`feature/pulse-ui-v2-rail`, 180 commits, unpushed, clean tree.** Twelve commits tonight,
+seven of them fixes, **none seen on a device**. Groups A–E are complete except E itself.
+
+The blow-by-blow is in `pulse-bug-backlog.md`, which now ends with the whole remaining list
+grouped and prioritised. What belongs here is what the evening taught.
+
+## One: every fault tonight was a value read at a moment nobody chose
+
+Seven fixes, and after the first two they stopped being separate bugs. The branch's fault-shape
+list grew from two to four, and the two new ones are both about **time** rather than about
+naming:
+
+| shape | this session's instance |
+|---|---|
+| a writer that only exists in the classic UI | — (none tonight; the sweep had caught them) |
+| a property borrowed for a question it was not answering | `offersScreenChoice` asked "does this picture have a layout" |
+| **the signal named after the event fires before the event** | `demoIsSideScan` after a queued `startDemo`; `demoLooped` before its own queued hand-off |
+| **a derived value whose staleness test cannot see its input** | the bus echo freezing `displayIs2DTransducer`; the gain buffers not seeing a repaired sample |
+
+**`Qt::AutoConnection` across a thread boundary is the tell for the third**, and this codebase
+hands work to `DevManThread` constantly. **`isEmpty()` or `size() != n` standing in for "is
+this still valid" is the tell for the fourth** — both answer *has it been built*, not *is it
+still right*.
+
+## Two: two sweeps in two days, and the second found what the first could not
+
+On 14 Sept the sweep made three profile-bound properties `readonly` and concluded *"there are
+now no writers left to any of them."* That was true of every writer a search could find. It
+missed `pulseRuntimeSettings[k] = m[k]` in the settings-bus echo — **a dynamic write by
+string**, invisible to a grep for a property name, and the comment directly above that loop had
+already named the hazard for `maximumDepth`.
+
+The lesson generalised into the rule now in this document:
+
+> **A binding that is published is a binding that will be assigned.**
+
+Publishing a derived value to the settings bus puts it on a round trip whose return leg is a
+dynamic write. `readonly` **and** a place in `runtimeKeysQmlOwns` — neither half optional.
+
+**And a sweep should be stated as a set, not as a search.** The 15 Sept version was: *of the
+fifteen keys `main.qml` publishes, which are bindings?* Two. That question has an answer a
+search cannot miss.
+
+## Three: the instrument was wrong, and it cost a session
+
+D-2 sat parked for several sessions on a rule that was right — *do not write code before the
+`THEME:` line is read*. When the line came it said neither of the two things the item
+predicted, because **the line itself was reporting the outgoing picture's index beside the
+incoming picture's id**. Two bindings on the same source, and QML does not order their
+re-evaluation.
+
+The item had in fact been fixed hours earlier by `3ef7249a`, a commit aimed at something else
+entirely. The symptom — colours not differing by model — was `displayIs2DTransducer` frozen.
+
+Two things fall out:
+
+> **A diagnostic must not be a binding.** It can be evaluated in any order relative to the thing
+> it describes, so it is free to describe the previous state. Read the values imperatively,
+> inside the handler.
+
+> **"The path reads correct end to end" is not a conclusion when the report is about
+> behaviour.** Last session read the whole colour path and found it correct. It was correct.
+> The property it assumed was live was not.
+
+## Four: what makes a re-apply safe
+
+Two fixes tonight re-apply a stored preference on an event the user did not cause — the range
+after a channel-list rebuild, and the picture's settings when a replay is classified. That is
+normally how you overwrite somebody's work. The test that made both safe:
+
+> **Every route by which a user changes the value must write the preference.**
+
+For the range, both do — the panel slider through `storeDisplayMaxRange`, the pinch through
+`PulseAppV2.maxDepthValue` into the same writer. There is no way to hold a range that is not
+stored, so a re-apply restores rather than overrides. **If a control can change the picture
+without writing the preference, a re-apply is a data-loss bug wearing a fix's clothes.**
+
+The mirror of it is the `demoSourceApplied` guard: a loop restart must recover what the rebuild
+destroyed and must **not** re-run the whole list.
+
+## Where the next session picks up
+
+**The device build, and nothing else first.** Seven unverified fixes that interact, four
+uncompiled C++ changes, and 180 unpushed commits. The next-session prompt below carries the
+eleven checks.
+
+After that: **E then phone sizing** as one continuum; **the file-open freeze** designed as one
+piece of work with the prescan and a progress surface; **the nadir band and downscan** together,
+after E. The full grouping is at the end of the backlog.

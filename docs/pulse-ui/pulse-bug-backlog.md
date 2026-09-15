@@ -951,18 +951,103 @@ is luck rather than design. `amplitude.resize()` now invalidates too.
 
 ---
 
-## Still owed, from earlier sessions
+## WHAT IS LEFT — the whole remaining list, grouped and prioritised (15 Sept 2026)
 
-- The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
-  -> ok` with no `ReferenceError` above it.
+Groups A–E were sized "one per session" and that held. What follows is everything still open,
+**grouped by what shares work** rather than by when it was noticed, because six of these items
+pair off and doing either one first makes the other cheaper.
+
+### P0 — The build, and the push. Nothing else should start first
+
+**Seven fixes from the 15 Sept evening session are on the branch and none has been seen on a
+device.** They interact — the orientation fix, the bus-echo `readonly` sweep and the demo
+classification move all touch what the app believes it is looking at — so a device build that
+exercises them together is worth more than any new work.
+
+- Compile and run the eleven device checks now scattered through this document. They are
+  gathered in the next-session prompt in the strategy doc.
+- **Four uncompiled C++ changes**: the per-pane grid (`2efbccb3`), the loupe crash guard
+  (`e3d75733`), the held demo restart (`2b2074f8`) and the gain-buffer invalidation
+  (`bd14130f`). Only `2b2074f8` adds a `Q_INVOKABLE`, so `moc` must re-run at least once —
+  a clean-ish build rather than an incremental one if Qt Creator is stubborn.
+- **`feature/pulse-ui-v2-rail` is 180 commits unpushed.** This is the single largest
+  unmanaged risk on the project and it is not a code problem. Push it.
 - `feature/device-profiles-step4` has never been merged to master.
-- `feature/pulse-ui-v2-rail` is now **94 commits unpushed**.
-- Three C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
-  (`2efbccb3`), the loupe crash guard (`e3d75733`) and the held demo restart (`2b2074f8`).
-  The last one adds a `Q_INVOKABLE` to `Core`, so `moc` has to re-run — a clean-ish build
-  rather than an incremental one if Qt Creator is stubborn about it.
+- The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings -> ok`
+  with no `ReferenceError` above it — still owed from several sessions back.
 
-## Not blocking, with Olav
+### P1 — Group E, then phone sizing. One continuum, not two jobs
+
+**These are the same work and should be one sustained effort**, which is why E has always been
+scheduled last: a split pane on a tablet is roughly a phone-sized picture, so every fix in E is
+most of a phone fix.
+
+- **The zoom/loupe box is too large in a split** — sized against a whole pane.
+- **The Stop demo / Close file pill sits above the tick ruler on a side scan** and must drop
+  below it.
+- **Everything else that takes width or height from a pane** — rail, panel, setup card, paused
+  gutter, depth readout — has not been walked in a split. Olav: *"likely there may be multiple
+  things to adjust."*
+- **Then phone sizing**, deliberately after, with most of it already done.
+
+### P2 — Opening a file without freezing. Three items, one expensive step
+
+Olav has raised this twice, and it is the worst thing a customer meets on first contact:
+*"These logs take like forever to open, and the entire UI becomes unresponsive."*
+
+**All three want the same thing — read the log ahead of rendering — and the documents already
+say design them together rather than growing three prescans.**
+
+- **Burst playback** (`demoPeriodMs_ = 0`), using the demo transport rather than demo mode.
+  The three traps are recorded: `wasKlfFileOpened` must stay TRUE, the links must not close,
+  `demoPrescan` can be skipped. Do not promise a shorter open; promise a **visible** one.
+- **A file-side prescan** — Olav's own idea: *"read some log content, let the app abilities do
+  the app setup (but not try to configure the transducer as it is a file) and THEN show the
+  content."* The demo path already works this way. It would turn `applyForSource`'s
+  `presentedModel` trigger from a repair into a non-event.
+- **A progress surface.** `DeviceManager::openFile` already computes `progress_` **and throws
+  it away** on the shipping branch. v2 has no progress surface at all. The number exists; it
+  has nowhere to go.
+- Noted, not chosen: turning `SEPARATE_READING` **ON** is the smaller change and gives a
+  cancellable open for free, but it is a build option nobody ships and it re-threads the whole
+  reception path. The two are not exclusive.
+
+### P3 — The mosaic and downscan geometry. Two items that are one piece of work
+
+**The nadir band and the downscan view are the same job**, and the documents say so: closing
+the nadir null by interpolating across it *is* Olav's standing note *"we should work with
+interpolating the two channels into one view for downscan."* Worth doing once rather than
+twice.
+
+- **The nadir band in the mosaic** — physical, not a geometry error; our slant-range lookup was
+  checked and is honest. Two treatments: blank the wedge (needs a per-epoch width from the
+  bottom track and a transparency path through the tile writer that may not exist), or
+  interpolate across it.
+- **Downscan from two channels.**
+- **Deliberately after P1**, because it wants the split-screen/downscan decision settled first
+  so it is not built twice.
+
+### P4 — Small, independent, low risk. Any order, any spare half-session
+
+- **The speed gauge** — asked for by the professional dealer. The data already exists
+  (`vruVelocityH`, a root context property), it is a third line on the depth/temperature
+  overlay, the unit is the user's with one decimal, and the setting belongs under
+  `Screen & echogram`. Two small decisions left: absent or dashed with no MAVLink, and whether
+  it is suppressed while paused.
+- **Classic's mosaic filter wiring** — the same water-body-filter-as-black-point fault in three
+  places in `PulseAppClassic`, deliberately not touched. One commit if classic is ever used on
+  a side scan in anger.
+- **The water body filter's MEANING per device.** `echogramWaterBodyFilterEnabled` and
+  `echogramWaterBodyMinRealValue` are flat runtime properties, not profile data. The filter's
+  *value* went per-picture on 15 Sept (`7dc2676b`); its *meaning* is a bigger idea and its own
+  commit.
+- **The per-pane range question** — a side pane's range is a swath width and a down pane's is a
+  depth, and until there is somewhere to keep two numbers they share one (`rangeSecondPane`).
+- **Backlog item 9's other half** — with `demoLoopEnabled_` false, end of file while paused
+  still stops the demo, and `exitDemoMode()` then clears the committed model and asks for
+  re-detection under a frozen picture. Loop is on by default, so it does not bite today.
+
+### P5 — Not blocking, needs water or hardware
 
 The boat run with two transducers, the real device swap, the PULSEblue-IP acceptance test.
 
@@ -970,13 +1055,14 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
 
 ## The order, and why
 
-1. ~~**A**~~ — **done**, `d75e4f12`.
-2. ~~**B**~~ — **done**, `e8634060` … `b5849994`. Untested on a device.
-3. ~~**C**~~ — **done**, `2b2074f8`. Uncompiled, and it is the third C++ change on the
-   branch waiting for a build.
-4. **The manual-choice matrix** — fixed, `a47c1114`, awaiting the device build that confirms
-   both red rows closed together.
-5. **D** — **all done.** D-1 and D-3 `2cf5c267`; D-2 closed by the log, `af857891` — it was
-   a symptom of the settings-bus echo and no migration was needed.
-6. **E** — last of the tablet work, and it is already half of the phone work.
-7. **Phone sizing** — after all of the above, deliberately.
+1. ~~**A**~~ `d75e4f12` · ~~**B**~~ `e8634060`…`b5849994` · ~~**C**~~ `2b2074f8` · ~~**D**~~
+   `2cf5c267`, `af857891` — **all done.**
+2. ~~**The manual-choice matrix**~~ `a47c1114` · ~~**the cold-start demo**~~ `3ef7249a`,
+   `f0b4bcb3` · ~~**the demo loop range**~~ `d8510413` · ~~**per-picture intensity and
+   filter**~~ `7dc2676b` · ~~**black stripes under TVG**~~ `bd14130f` — **all done, none seen
+   on a device.**
+3. **P0 — the build and the push.** Before anything else.
+4. **P1 — E, then phone sizing.** One continuum.
+5. **P2 — the file-open freeze**, designed as one piece of work.
+6. **P3 — the nadir band and downscan**, after P1.
+7. **P4** — whenever there is a spare half-session.
