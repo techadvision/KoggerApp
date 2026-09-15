@@ -324,6 +324,14 @@ ApplicationWindow  {
 
             if (isFileOpening) {
                 pulseRuntimeSettings.wasKlfFileOpened = true
+
+                // THE SCREEN COMES DOWN THE MOMENT THE FILE STARTS, not when it finishes.
+                // Committing a card and starting a demo both answer the source question;
+                // opening a file answered nothing, so the connection screen the user went
+                // through to reach "View a file" stayed up over the file it had loaded.
+                // Same two flags, same function, and on the RISING edge because the answer
+                // was given when the file was chosen, not when it finished reading.
+                pulseRuntimeSettings.answerSourceQuestion("opening a file")
                 // A NEW LOG MUST NOT BE CLASSIFIED BY THE PREVIOUS ONE'S CHANNEL COUNT.
                 // activeModel classifies an opened file from numberOfDatasetChannels, and
                 // onChannelListUpdated below only ever ASSIGNS it — it returns early while

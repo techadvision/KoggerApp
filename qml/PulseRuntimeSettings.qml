@@ -525,6 +525,21 @@ QtObject {
                                       || ((wasKlfFileOpened || isOpeningKlfFile) && !hasConnectedDevice))
                                      && activeModel !== ""
 
+    //IS THERE A LOG ON SCREEN, OR ON ITS WAY. Deliberately NOT isPresentingLog, which is a
+    //question about the PROFILE and answers two things this one must not inherit:
+    //
+    //  * it requires activeModel !== "", and an opened file has no model until its channel
+    //    list arrives. With nothing ever committed - a cold start, which is exactly when the
+    //    welcome screen is up - activeModel falls back to the committed model, which is "".
+    //    So through the whole of the open, isPresentingLog reads false and the connection
+    //    screen sat over the file it had just loaded until a sounder was picked by hand.
+    //  * it requires !hasConnectedDevice for the file case, because an opened log must never
+    //    reconfigure a transducer that is plugged in. True for the profile, wrong here:
+    //    opening a file IS an answer to "what am I looking at" whatever is connected.
+    //
+    //This is the plainer question, and it is the only one the connection screen ever wanted.
+    readonly property bool logIsOnScreen: isInDemoMode || wasKlfFileOpened || isOpeningKlfFile
+
     onIsPresentingLogChanged: {
         console.log("PROFILE: presenting a log ->", isPresentingLog,
                     "| presenting", presentedModel, "| committed", userManualSetName,
@@ -681,6 +696,28 @@ QtObject {
         }
     }
 
+    //THE SOURCE QUESTION IS ANSWERED, and who answered it does not matter.
+    //
+    //Two flags hold the connection screen up: awaitingUserChoice, which is the app asking,
+    //and connectionScreenRequested, which is the user having asked. Committing a card clears
+    //both, and so did enterDemoMode - inline, in its own body. Opening a file cleared
+    //neither, so the screen the user opened to reach "View a file" stayed up over the file
+    //it had just loaded.
+    //
+    //That is the fault shape the backlog names, in its plainest form: a flag whose only
+    //clearers live on the other two paths. So the clears live here, in one function all
+    //three call, rather than being copied into a third body to be forgotten from a fourth.
+    function answerSourceQuestion(how) {
+        if (awaitingUserChoice) {
+            console.log("DEV_CHOICE: answered by", how)
+            awaitingUserChoice = false
+        }
+        if (connectionScreenRequested) {
+            console.log("DEV_CHOICE: the connection screen request is answered by", how)
+            connectionScreenRequested = false
+        }
+    }
+
     //A SOURCE HAS BEEN CHOSEN - APPLY EVERYTHING THE PICTURE NEEDS.
     //
     //The signal lives here and the applying lives in main.qml, for the reason every other
@@ -725,20 +762,10 @@ QtObject {
         //Starting a simulation is an answer to "which transducer", and the only one that
         //commits no model - so the clear on userManualSetName cannot cover it. Without
         //this, awaitingUserChoice would still be raised when the demo stops and item 9's
-        //re-detection would be refused by the rule.
-        if (awaitingUserChoice) {
-            console.log("DEV_CHOICE: answered by starting a simulation")
-            awaitingUserChoice = false
-        }
-
-        //AND SO IS THE USER'S OWN REQUEST FOR THE SCREEN. Starting a simulation from the
-        //connection screen is a way OUT of it, exactly like committing a card, so the
-        //override has to fall here too - otherwise the screen the rail's source button
-        //raised would stay up over the replay it just started.
-        if (connectionScreenRequested) {
-            console.log("DEV_CHOICE: the connection screen request is answered by the simulation")
-            connectionScreenRequested = false
-        }
+        //re-detection would be refused by the rule. And the user's own request for the
+        //screen falls with it: starting a simulation from the connection screen is a way
+        //OUT of it, exactly like committing a card.
+        answerSourceQuestion("starting a simulation")
 
         // Starting a demo on top of an opened file view is allowed — the open has
         // already finished, we were only rendering it. But wasKlfFileOpened MUST be

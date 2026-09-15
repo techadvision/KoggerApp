@@ -101,8 +101,14 @@ Item {
            // honest version, and it is also what stops detection answering underneath.
            (pulseRuntimeSettings ? pulseRuntimeSettings.awaitingUserChoice : false)
         || swapPending
+           // NOTHING IS IDENTIFIED AND NOTHING IS BEING LOOKED AT. The middle term used to
+           // read isPresentingLog, which is a question about the PROFILE and needs a model
+           // an opened file does not have until its channel list arrives - so on a cold
+           // start this screen stayed up over a file it had already loaded, and only a
+           // sounder card would take it down. logIsOnScreen is the plainer question this
+           // term was always asking.
         || (nothingIdentified
-            && !(pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false)
+            && !(pulseRuntimeSettings ? pulseRuntimeSettings.logIsOnScreen : false)
             && (graceElapsed || !somethingMayStillAnswer))
 
     // WHICH QUESTION THE PANEL ASKS when both could apply is settled in the panel itself,
