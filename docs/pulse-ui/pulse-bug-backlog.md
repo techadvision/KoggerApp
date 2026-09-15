@@ -154,7 +154,7 @@ startup got whichever partial list its path happened to reach.
 
 ---
 
-## Group C — the demo loop, and the crash that came out of it
+## Group C — the demo loop, and the crash that came out of it — **DONE, 15 Sept 2026 (`2b2074f8`)**
 
 - **The demo restarts at end of file. Keep that** — Olav wants it. **But not while
   paused:** restarting under a pause produces "huge artifacts", and it is important for
@@ -164,8 +164,39 @@ startup got whichever partial list its path happened to reach.
   line above. A demo restart clears the dataset; `data_width` goes to 0; `qBound(0, x, -1)`
   aborts the process.
 
-**The defensive half is done** — `e3d75733` makes the loupe answer "no epoch" instead of
-aborting. **The behavioural half is this group:** hold the restart until the pause ends.
+**The defensive half was done** — `e3d75733` makes the loupe answer "no epoch" instead of
+aborting. **The behavioural half is now done too**, and it removes the cause rather than the
+symptom: the restart calls `prepareDemoPipeline()`, which does a full
+`resetRealtimeSessionState()`, so a frozen view was left pointing at epochs that had just
+been destroyed.
+
+### How it is held
+
+**Held, not cancelled, and held WITHOUT stopping.** `isDemoMode_` stays true, so the pill
+still reads *Demo* and the app still believes it is replaying — the replay has simply run
+out of file, nothing new arrives, and the paused picture stays exactly where the user left
+it. Resuming pays the debt.
+
+- The loop body moved into `Core::startNextDemoPass()`, so a pass started by a resume is
+  byte-for-byte the pass the end-of-file path would have started. Two callers, one body.
+- **`stopDemo()` clears `demoRestartPending_`.** Stopping from the paused gutter is an
+  ordinary case, and a flag left set would fire a pass into a stopped demo on the next
+  resume.
+- **The `epochsPlayed == 0` branch is untouched.** A pass that played nothing means the file
+  could not be read, and that stops whether paused or not — holding a restart that is going
+  to fail again helps nobody.
+- **C++ had never been told about the pause.** `echogramPause` is a QML property, so
+  `setDemoPaused(bool)` is pushed in from `main.qml`'s `setEchogramPaused` — the single
+  writer of that property, and the route the rail's Pause button and the paused gutter both
+  already take.
+
+**Not compiled.** This is the branch's THIRD uncompiled C++ change, with the per-pane grid
+(`2efbccb3`) and the loupe guard (`e3d75733`). That build is now overdue on its own account.
+
+**One thing deliberately left**, because it is a second idea: with `demoLoopEnabled_` false,
+end of file while paused still stops the demo, and `exitDemoMode()` then clears the committed
+model, reopens the links and asks for re-detection — all under a frozen picture. Loop is on
+by default and Olav wants it on, so it does not bite today.
 
 **Session size:** small, and it can ride along with Group B since it is the same demo
 path.
@@ -357,9 +388,11 @@ surface at all** today, and `progress_` is already being computed for one.
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
   -> ok` with no `ReferenceError` above it.
 - `feature/device-profiles-step4` has never been merged to master.
-- `feature/pulse-ui-v2-rail` is now **81 commits unpushed**.
-- Two C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
-  (`2efbccb3`) and the loupe crash guard (`e3d75733`).
+- `feature/pulse-ui-v2-rail` is now **86 commits unpushed**.
+- Three C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
+  (`2efbccb3`), the loupe crash guard (`e3d75733`) and the held demo restart (`2b2074f8`).
+  The last one adds a `Q_INVOKABLE` to `Core`, so `moc` has to re-run — a clean-ish build
+  rather than an incremental one if Qt Creator is stubborn about it.
 
 ## Not blocking, with Olav
 
@@ -371,9 +404,8 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
 
 1. ~~**A**~~ — **done**, `d75e4f12`.
 2. ~~**B**~~ — **done**, `e8634060` … `b5849994`. Untested on a device.
-3. **C** — rides along with B; same demo path. **Next**, and it is C++: the restart is in
-   `Core::onDemoFinished`, which loops whenever `demoLoopEnabled_` is set and knows nothing
-   about the pause. Note the branch already carries two uncompiled C++ changes.
+3. ~~**C**~~ — **done**, `2b2074f8`. Uncompiled, and it is the third C++ change on the
+   branch waiting for a build.
 4. **D** — wants B finished before it can be judged.
 5. **E** — last of the tablet work, and it is already half of the phone work.
 6. **Phone sizing** — after all of the above, deliberately.
