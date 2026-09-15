@@ -281,6 +281,77 @@ dash when no MAVLink is present (the settings list's own rule is absent, and
 `pulseRuntimeSettings.mavlinkDetected` already answers the question), and whether it is
 suppressed while paused the way the depth readout is.
 
+## Asked for, twice — burst playback instead of the file-open freeze
+
+**Olav, 15 Sept 2026, and he has raised it before:** *"My file opening is nothing to be proud
+of. The old UI had a 'please wait…' for a good reason. These logs take like forever to open,
+and the entire UI becomes unresponsive. Could we utilize the file opening mechanism used by
+the demo? It plays 1 record per 50 ms. What if we could simply blast through as fast as
+possible using the demo playback mechanism? Then the screen would fill fairly quickly and
+let the UI remain responsive."*
+
+### Why it freezes, which is worth knowing before choosing a fix
+
+`CMakeLists.txt:13` declares `option(SEPARATE_READING "Data reception in a separate thread"
+OFF)`, and **OFF is what ships**. On that branch `device_manager_wrapper.cpp:32` connects
+`sendOpenFile` → `DeviceManager::openFile` with **`Qt::DirectConnection`** — so the entire
+parse runs **on the GUI thread**, inside a `while (true)` that reads 1 MB at a time and
+parses every frame in it. The `QCoreApplication::processEvents()` inside that loop is
+`#ifdef SEPARATE_READING`, so on the shipping build **it is not there**. The event loop does
+not run again until the whole file is parsed. That is the freeze exactly, and it is why
+`Core::openLogFile`'s 15 ms `singleShot` exists at all — it buys one repaint before the
+stall, which is where a "please wait…" used to get drawn.
+
+Note also that `DeviceManager::openFile` already computes a `progress_` percentage in that
+loop **and throws it away** on this branch. The number exists; it has nowhere to go.
+
+### Olav's idea is the right one, and the machinery is already built
+
+`demoTick()` is not "one epoch per timer tick" — it is **clock-driven and frame-budgeted**,
+and its own comment says why. It delivers whatever the recording says is due, capped by
+`kDemoMaxEpochsPerTick = 4` and `kDemoTickBudgetMs = 12`, then **returns to the event loop**.
+That is already the shape a responsive fast-forward needs.
+
+**A burst is `demoPeriodMs_ = 0`.** With the period at zero the clock is always behind, so
+every tick delivers until the 12 ms budget or the epoch cap is hit, and the UI breathes in
+between. Two knobs would want raising: the per-tick cap (4 is a catch-up allowance for a
+paced replay, not a throughput number) and the tick interval (`qMax(5, demoPeriodMs_ / 3)`
+floors at 5 ms). **The 12 ms budget should NOT be raised** — it is what guarantees a frame.
+
+Three things that make it the demo **transport** rather than demo **mode**, and all three
+have to be got right or this trades a freeze for a worse bug:
+
+- **`wasKlfFileOpened` must stay TRUE.** `enterDemoMode` deliberately clears it, because that
+  flag is what switches OFF live-style `Plot2D` behaviour and a demo wants live follow, the
+  old-data indicator and the rest of it ON. A burst-opened file wants the opposite — scroll
+  back, the timeline, no live follow. So a burst sets the **file** flags, never the demo ones.
+- **It must not close the links.** `Core::startDemo` calls `closeOpenedLinks()`; opening a
+  file deliberately does not, which is why a plain opened file still asks about a device swap.
+- **`demoPrescan` can be skipped entirely.** It exists to settle the pacing by reading up to
+  `kDemoPrescanMaxBytes` before the first epoch. A burst has no pacing to settle, so skipping
+  it also removes the one remaining up-front read.
+
+**What it does and does not buy.** Total CPU is the same or slightly more — the work is the
+same parse plus the same per-epoch dataset, bottom-track and mosaic cost. What changes is
+that the app stays alive and the picture **fills progressively**, which is what the user is
+actually asking for. Do not promise a shorter open; promise a visible one.
+
+### The other route, already half-written in the tree
+
+Turning `SEPARATE_READING` **ON** moves `openFile` onto `DevManThread` — and that branch
+already has the `processEvents()`, the `break_` escape hatch and the
+`fileStartOpening` / `fileStopsOpening` signals, with a matching `Core::openLogFile` written
+for it at `src/core.cpp:683`. It is the **smaller** change by a wide margin and it gives a
+cancellable open for free. Against it: it is a build option nobody currently ships, so it is
+untested on Android, and it changes the threading of the whole reception path rather than
+just the file open.
+
+**Not chosen here.** The two are not exclusive either — the option gives responsiveness, the
+burst gives a picture that fills while you wait. Whichever is taken, v2 has **no progress
+surface at all** today, and `progress_` is already being computed for one.
+
+---
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
