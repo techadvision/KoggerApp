@@ -203,18 +203,45 @@ path.
 
 ---
 
-## Group D — the chooser offers what a log file cannot do
+## Group D — the chooser offers what a log file cannot do — **D-1 and D-3 done, D-2 needs one log line**
 
 A file is not a transducer, and three controls have not been told.
 
-- **The cone chooser cannot work during playback.** Choosing a cone sends a command to a
-  transducer, and there is not one. Either preselect the file's own frequency and show it
-  as chosen, or **disable the choices outright** — Olav: *"OK to have the bar expanded,
-  but not clickable choices."*
-- **Colours: 2D and side scan must each keep their own set.** Today the side scan gets
-  the 2D favourites and choices. `colorMapIndexSideScan` and `colorMapIndex2D` both exist;
-  this is the deferred *blue gets red's colour choices and favourites* item, still open
-  and now several sessions old.
+- ~~**The cone chooser cannot work during playback.**~~ **DONE, `2cf5c267`.** Choosing a cone
+  is `setParam("transFreq")` to hardware, so with a recording on screen it either reaches
+  nothing or — at an exhibition, with a transducer in an aquarium — reaches the device and
+  changes nothing the user can see. Olav's answer was taken: *"OK to have the bar expanded,
+  but not clickable choices."* The group stays visible, the rows drop to 0.45 opacity and
+  take no taps, and a note sits above them.
+
+  **Disabled rather than absent**, which is the opposite of what the rail and the settings
+  list do and is deliberate: absent is right when a device does not HAVE an ability, and
+  here the ability exists and is momentarily unusable — a row that vanishes while a log
+  plays and returns when it stops reads as a bug rather than as a rule.
+
+  **The current row keeps its mark**, because the chooser is the committed device's question
+  and the highlight is still true; the note is what stops it being read as the recording's
+  frequency. `choosable` reads `logIsOnScreen`, not `isPresentingLog`, for the reason the
+  connection screen uses it too.
+
+- **Colours: 2D and side scan must each keep their own set.** Still open, and now several
+  sessions old. **The v2 path was read end to end this session and looks correct**:
+  `displayThemeId` reads `colorMapIndex2D` for red and `colorMapIndexSideScan` for blue,
+  `displayThemeModel` hands out the matching list, `onThemeChosen` writes only the key
+  belonging to the model on screen, and favourites are offered for 2D only
+  (`offerFavourites: displayIs2DTransducer`).
+
+  **So it is one of two things, and one log line says which** — open the Colours panel on a
+  blue and read:
+
+  ```
+  THEME: display theme -> <id> | 2D or side scan | stored index <n>
+  ```
+
+  *side scan* with a red theme showing → the stored `colorMapIndexSideScan` is corrupt from
+  the legacy selector, and this is a **migration**. *2D* for a blue → the display model is
+  answering wrong, the colours are innocent, and the same fault would break the pill's corner
+  and the ruler — a much bigger fish. **Do not write code for this before the line is read.**
 - **The view chooser is gone and the cone chooser stays** — done, recorded here only
   because it closes Olav's note on the pair. The rail's button count is unchanged.
 
@@ -448,7 +475,7 @@ surface at all** today, and `progress_` is already being computed for one.
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
   -> ok` with no `ReferenceError` above it.
 - `feature/device-profiles-step4` has never been merged to master.
-- `feature/pulse-ui-v2-rail` is now **89 commits unpushed**.
+- `feature/pulse-ui-v2-rail` is now **91 commits unpushed**.
 - Three C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
   (`2efbccb3`), the loupe crash guard (`e3d75733`) and the held demo restart (`2b2074f8`).
   The last one adds a `Q_INVOKABLE` to `Core`, so `moc` has to re-run — a clean-ish build
@@ -466,6 +493,6 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
 2. ~~**B**~~ — **done**, `e8634060` … `b5849994`. Untested on a device.
 3. ~~**C**~~ — **done**, `2b2074f8`. Uncompiled, and it is the third C++ change on the
    branch waiting for a build.
-4. **D** — wants B finished before it can be judged.
+4. **D** — D-1 and D-3 done (`2cf5c267`); D-2 waits on one `THEME:` log line.
 5. **E** — last of the tablet work, and it is already half of the phone work.
 6. **Phone sizing** — after all of the above, deliberately.
