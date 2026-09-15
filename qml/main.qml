@@ -2634,6 +2634,19 @@ ApplicationWindow  {
                                ? qsTr("A narrower cone sees less of the bottom and sees it more sharply.")
                                : qsTr("What the transducer looks at. The frequency follows the view.")
 
+                // A FILE IS NOT A TRANSDUCER. Choosing a cone is setParam("transFreq") to
+                // hardware, so with a recording on screen it either reaches nothing or -
+                // worse, at an exhibition with a transducer in an aquarium - reaches the
+                // device and changes nothing the user can see. Both are a control lying
+                // about what it does.
+                //
+                // logIsOnScreen rather than isPresentingLog, and for the same reason the
+                // connection screen uses it: this asks "is a log being looked at", which is
+                // a plainer question than the profile one and does not need the log to have
+                // declared its model yet.
+                choiceChoosable: pulseRuntimeSettings ? !pulseRuntimeSettings.logIsOnScreen : true
+                choiceNote: qsTr("A recording is on screen. This is what the transducer is set to — changing it needs the live picture.")
+
                 // ---- The screen ---------------------------------------------
                 //
                 // DISPLAY, not committed - the one line that separates this chooser

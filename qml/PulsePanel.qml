@@ -60,6 +60,8 @@ Item {
     property var    choiceEntries:   []
     property string choiceCurrentId: ""
     property string choiceCaption:   ""
+    property bool   choiceChoosable: true
+    property string choiceNote:      ""
 
     signal choiceMade(string id)
 
@@ -320,6 +322,8 @@ Item {
             entries:   panel.choiceEntries
             currentId: panel.choiceCurrentId
             caption:   panel.choiceCaption
+            choosable: panel.choiceChoosable
+            note:      panel.choiceNote
 
             onChosen: function (id) { panel.choiceMade(id) }
         }
