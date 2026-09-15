@@ -6323,3 +6323,53 @@ from side scan to downscan; they are brightness and a water-column cut either wa
 in the two blue modes, two when it is the same quantity judged by a different eye.
 
 **QML only, one commit, not compiled and not on a device.**
+
+---
+
+## The obvious hook was the wrong hook, twice in one session (15 Sept 2026, `d8510413`)
+
+The demo loop came back with every slider right and the picture ranged to two metres.
+`Plot2D::setDataChannel()` ends by taking the plot's range from the dataset, the loop restart
+rebuilds the channel list, and the range is re-derived from the first epochs of a file whose
+bottom has not been acquired. The detail is in the backlog. What belongs here is the shape.
+
+### A third form of the fault, and it is about time rather than about naming
+
+The branch already has two:
+
+> A flag or a call whose only writer lives in the classic UI reads false in v2.
+
+> A property borrowed for a question it was not answering.
+
+This session produced a third, twice:
+
+> **The signal named after the event fires before the event has happened.**
+
+`demoIsSideScan` was read in `enterDemoMode` because `core.startDemo()` had been called — but
+that call is a queued hand-off to a worker thread, so the prescan had not run. And `demoLooped`
+is emitted by `startNextDemoPass()` *before* its own queued `invokeMethod`, so a handler there
+would apply settings the new pass has not yet had a chance to destroy.
+
+Both signals are honestly named. Both fire at the moment the app *asks* for the thing, not at
+the moment the thing has happened. **`Qt::AutoConnection` across a thread boundary is the tell**,
+and this codebase hands work to `DevManThread` constantly.
+
+**The rule that falls out of it:** repair a value at the signal that fires *after* the thing
+that damaged it, not at the signal named after the action that will damage it.
+`channelListUpdated` is emitted at the end of `onChannelsUpdated()`, downstream of the
+`setDataChannel` loop, which is why it is the right hook and `demoLooped` — unused, obvious,
+and inviting — is the wrong one.
+
+### And a note on what makes a re-apply safe
+
+The repair re-applies a stored preference on an event the user did not cause, which is
+normally how you overwrite somebody's work. It is safe here for one checkable reason:
+**every route by which a user changes the range writes the preference** — the panel slider
+through `storeDisplayMaxRange`, the pinch through `PulseAppV2.maxDepthValue` into the same
+writer. There is no way to hold a range that is not stored.
+
+**That is the question to ask before adding any repair of this kind**, and it is the same
+question the one-writer rule answers: if a control can change the picture without writing the
+preference, a re-apply is a data-loss bug rather than a fix.
+
+**QML only, one commit, not compiled and not on a device.**

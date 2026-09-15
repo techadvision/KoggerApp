@@ -768,6 +768,68 @@ bigger change than making its *value* per-device.
 
 ---
 
+## The demo loop loses the range — **FIXED, `d8510413`**
+
+**Olav, 15 Sept, letting a blue replay run to the end and loop:** *"The settings in all
+sliders are OK. But the settings are not applied to the echogram… max depth is applied as 2
+meters only even though selector is 25 meters."* And: *"Only for blue, but my bet is that it
+also applies for red."* **His bet is right — this is channel-driven, not model-driven.**
+
+### `setDataChannel` takes the range from the dataset
+
+`Core::onChannelsUpdated()` calls `Plot2D::setDataChannel()` on every pane, and that function
+ends with:
+
+```
+datasetPtr_->getMaxDistanceRange(&from, &to, ...)
+if (isfinite(from) && isfinite(to) && (to - from) > 0)
+    cursor_.distance.set(from, to)
+```
+
+Whatever the app had applied is discarded. A loop restart does a full `prepareDemoPipeline()`
+— `delAllDev()`, the parser context reset, the dataset cleared — so the new pass rebuilds the
+channel list and the range is re-derived **from the first few epochs of a file whose bottom
+has not been acquired yet**. Two metres, on a picture whose slider still reads 25.
+
+**Only the range**, which is exactly what he observed: `setDataChannel` is the only thing that
+re-derives anything, so intensity, the filter and the palette all survived. The very dark
+echogram was the two-metre range showing nothing but water body.
+
+### Why the repair is on `channelListUpdated` and not on `demoLooped`
+
+`channelListUpdated` is emitted **after** the `setDataChannel` loop, so its handler is the
+first moment at which the damage exists and can be undone.
+
+`demoLooped` exists, is emitted by `Core::startNextDemoPass()`, and **nothing listens to it** —
+it looks like the obvious hook and it is the wrong one. It is emitted *before* the queued
+`invokeMethod(worker, "startDemo")`, so a handler there would apply the range and then watch
+the new pass overwrite it. **The same threading trap as the prescan in `f0b4bcb3`**, one week
+and one signal apart.
+
+And the demo loop is only where it bites first. Any channel list rebuild does this — a
+reconnect, a file reopened, a second transducer appearing.
+
+### Nothing is lost by re-applying
+
+`displayMaxRange` is the stored preference, and **every** way a user changes the range writes
+it: the panel slider through `storeDisplayMaxRange`, and the pinch through
+`PulseAppV2.maxDepthValue` into the same writer. So the repair restores the user's own number
+rather than overriding it.
+
+That is also why the `demoSourceApplied` guard from `f0b4bcb3` stays exactly as it is: a loop
+must not re-run the whole list, only recover what the rebuild destroyed.
+
+### To check on the device
+
+- `RANGE: applying 25 from maxDepthValuePulseBlue | side scan law` after each loop restart.
+  The line names the law as well as the number, because the two ways of getting this wrong —
+  the wrong number, and the right number under the wrong law — look identical on the water.
+- Let a red log loop too. It should never have worked either.
+- Pinch the range mid-demo and let it loop: it must come back to the pinched value, not to
+  whatever the panel last showed.
+
+---
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
