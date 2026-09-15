@@ -3977,9 +3977,39 @@ ApplicationWindow  {
     // THE PILL IS STILL ITS OWN WRITER in the meantime, so tapping it moves the picture
     // without moving the preference. Deliberately not fixed here: the pill is not gated on
     // the v2 variant, so teaching it to write screenViewId would change the classic UI too.
+    //
+    // A PICTURE WITHOUT A SCREEN CHOICE STILL HAS AN ORIENTATION, and this guard used to
+    // deny it one. offersScreenChoice is !displayIs2DTransducer, so the early return below
+    // meant that for a 2D picture applyEchogramMode - THE ONLY WRITER in v2 of
+    // isSideScan2DView and isHorizontalGrid, and the only thing that restarts either
+    // re-range timer - was never reached at all. A red demo, a red log and a red live feed
+    // inherited whichever way the last side scan left those two properties, which is false
+    // and false: side scan, drawn vertically. That is rows 3 and 4 of the manual-choice
+    // matrix, and it is the SECOND fault shape from the 15 Sept session close -
+    // A PROPERTY BORROWED FOR A QUESTION IT WAS NOT ANSWERING. offersScreenChoice answers
+    // "may the user PICK a screen". It was read here as "does this picture HAVE a layout",
+    // and every picture has one.
+    //
+    // THE GUARD STAYS, and the branch is taken instead of the guard being deleted, because
+    // the rest of this body genuinely is the chooser's business: screenForId() for a 2D
+    // picture returns a blue entry - side, mosaic, a split - and would pin panes that do
+    // not exist. What a 2D picture needs is the mode half and nothing else.
+    //
+    // "down" IS THE MODE, not a workaround. A 2D echogram is the same geometry as a blue in
+    // downscan - horizontal grid, plotDistanceRange2d - and applyEchogramMode now tells the
+    // two apart by the device rather than by the mode name. setGridMode("") on both panes
+    // is the same follow-the-bus default the chooser's own full-screen rows set.
     function applyScreenId(id) {
-        if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersScreenChoice)
+        if (pulseSettings.uiVariant !== "v2")
             return
+
+        if (!pulseRuntimeSettings.offersScreenChoice) {
+            applyEchogramMode("down")
+            waterViewFirst.setGridMode("")
+            waterViewSecond.setGridMode("")
+            return
+        }
+
         var e = pulseRuntimeSettings.screenForId(id)
         if (!e)
             return
@@ -4045,14 +4075,48 @@ ApplicationWindow  {
     // ORDER IS LOAD-BEARING: displayMaxRange is a binding over displayMaxRangeKey, which is
     // a binding over isSideScan2DView. Reading it BEFORE the mode write returns the
     // outgoing mode's number, which is the bug this is fixing, one line earlier.
+    //
+    // AND IT IS NOW REACHED BY 2D PICTURES TOO, which is what makes the polarity below a
+    // question rather than a spelling. Until this commit the only caller was applyScreenId,
+    // behind a guard no 2D transducer passes.
     function applyEchogramMode(mode) {
         // isSideScan2DView reads backwards and is not renamed here - TRUE means the blue is
         // in DOWN scan, as PulseRuntimeSettings says at displayMaxRangeKey.
         var down = (mode !== "side")
 
-        pulseRuntimeSettings.isSideScan2DView = down
+        // A RED IS NOT A BLUE IN DOWNSCAN, and assigning `down` to both properties would say
+        // it is. The question isSideScan2DView asks is "is a SIDE SCAN being drawn as a 2D
+        // picture", and for a 2D transducer the answer is no however the picture flows.
+        // Getting it wrong is not cosmetic: flipImage is isSideScanOnLeftHandSide_ &&
+        // isSideScan2DView_ in BOTH plot2D.cpp and plot2D_grid.cpp, so a red would render
+        // mirrored with its ruler inverted, and PulseDepthEngine.pictureIsSideScan would
+        // change its mind about which depth source to trust.
+        //
+        // CLASSIC ALREADY ANSWERS THIS. PulseAppClassic.setUserInterface(), showAs2DTransducer
+        // branch: setHorizontalNow(), isHorizontalGrid = true, plotDistanceRange2d(...) - and
+        // it does not touch isSideScan2DView at all. Horizontal, and not a side scan.
+        //
+        // ON THE BLUE PATH THIS CHANGES NOTHING: displayIs2DTransducer is false there, so
+        // sideScanShownAs2D === down and every existing caller behaves exactly as before.
+        var sideScanShownAs2D = down && !pulseRuntimeSettings.displayIs2DTransducer
+
+        pulseRuntimeSettings.isSideScan2DView = sideScanShownAs2D
         pulseRuntimeSettings.isHorizontalGrid = down
-        if (down)
+
+        // THE LINE THAT FALSIFIES THE PREDICTION. Rows 3 and 4 of the matrix are predicted
+        // to be one fault, and on a red this line is the whole of the evidence: if it does
+        // not appear at all the call is still unreachable, and if it appears saying
+        // "vertical" the polarity above is backwards.
+        console.log("MODE:", mode, "->", down ? "horizontal" : "vertical",
+                    "| side scan as 2D", sideScanShownAs2D,
+                    "|", pulseRuntimeSettings.displayIs2DTransducer ? "2D device" : "side scan device",
+                    "| range", pulseRuntimeSettings.displayMaxRange,
+                    "from", pulseRuntimeSettings.displayMaxRangeKey)
+
+        // CHARTOFFSET MOVES WITH THE POLARITY, not with `down`. It is a blue-in-downscan
+        // correction and a 2D transducer has nothing to offset - and it is a setParam, a
+        // DEVICE WRITE, which D-1 says should not fire on a file path without a reason.
+        if (sideScanShownAs2D)
             pulseRuntimeSettings.setParam("chartOffset", 0)
 
         var v = pulseRuntimeSettings.displayMaxRange
