@@ -250,7 +250,10 @@ ApplicationWindow  {
     // A named list rather than a try/catch, for two reasons: a swallowed exception hides the
     // day a genuinely writable key stops being writable, and a one-way key ought to have to
     // declare itself. Add to this list when you publish something the QML side computes.
-    readonly property var runtimeKeysQmlOwns: ["uiVariantIsV2", "sideScanTvgMosaicEnabled"]
+    readonly property var runtimeKeysQmlOwns: ["uiVariantIsV2",
+                                               "echogramTvgEnabled",
+                                               "sideScanTvgEnabled",
+                                               "sideScanTvgMosaicEnabled"]
 
     Connections {
         target: settingsBus

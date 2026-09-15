@@ -558,8 +558,36 @@ QtObject {
     //panel breaks this binding for the rest of the session — deliberate: a manual expert
     //choice must not be silently undone by a reconnect. Restart restores the profile
     //default, as with every other runtime TVG value.
-    property bool   echogramTvgEnabled:     activeProfile !== undefined ? activeProfile.echogramTvgEnabled
-                                                                        : false
+    //THE TWO GAIN-LAW SWITCHES, AND WHY NEITHER IS WRITABLE ANY MORE.
+    //
+    //Both were bindings on activeProfile that the expert controls ASSIGNED to - v2's
+    //settings list through settingChanged("runtime", ...), classic's expert panel through
+    //SettingsCheckBox.targetPropertyName. An assignment destroys a binding permanently, so
+    //the FIRST touch of either switch ended the profile's say over the gain law for the
+    //rest of the run: swap the transducer after that and the echogram renders with the
+    //law belonging to the device that is no longer there.
+    //
+    //Classic's rows carry `writeBackOnUserActionOnly: true` and a comment saying exactly
+    //this - "otherwise the first device identification kills the profile binding" - which
+    //narrows the window to a real click without closing it. A real click was always going
+    //to happen; that is what the control is for.
+    //
+    //So both take the shape rule 2 asks for and the mosaic switch beside them already
+    //uses: ONE binding on the profile, ONE explicit override, and nothing assigns the
+    //value. 0 = follow the profile, 1 = force it on, 2 = force it off. An int rather than
+    //a bool because "no opinion" has to be distinguishable from "off" - with a bool the
+    //override IS the value and we are back where we started.
+    //
+    //readonly is the half that makes it stick. A future control that reaches for the old
+    //spelling gets a loud "Cannot assign to read-only property" on the first click instead
+    //of a picture that quietly stops following the device. Both names are in main.qml's
+    //runtimeKeysQmlOwns for the same reason, so a bus echo is skipped rather than thrown.
+    property int    echogramTvgOverride: 0
+
+    readonly property bool echogramTvgEnabled:
+          echogramTvgOverride === 1 ? true
+        : echogramTvgOverride === 2 ? false
+        : (activeProfile !== undefined ? activeProfile.echogramTvgEnabled : false)
     property double echogramTvgDbPerMeter:  0.9     // Net decay constant in dB/m (Dreamlake harvest: 0.66-1.11, mean ~0.9)
 
     //WHICH 2D GAIN LAW RENDERS — comparison switch, 2026-09-12.
@@ -586,8 +614,13 @@ QtObject {
     //gain (imageType 3) validated offline on SS_pulse_log_2026.07.20: consistent
     //intensity over range (brightness = bottom hardness) instead of the AGC's
     //local-contrast normalization. Defaults mirror EchogramSideScanTvg constants.
-    property bool   sideScanTvgEnabled:      activeProfile !== undefined ? activeProfile.sideScanTvgEnabled
-                                                                         : false    // waterfall uses TVG (3) instead of AGC (1)
+    //The waterfall's law, same shape as the 2D one above - see the note there.
+    property int    sideScanTvgOverride: 0
+
+    readonly property bool sideScanTvgEnabled:      // waterfall uses TVG (3) instead of AGC (1)
+          sideScanTvgOverride === 1 ? true
+        : sideScanTvgOverride === 2 ? false
+        : (activeProfile !== undefined ? activeProfile.sideScanTvgEnabled : false)
     property double sideScanTvgSpreading:    5      // S in dB/decade (field-tuned 2026-08-16; deeper water/chirp may want more)
     property double sideScanTvgAbsorption:   0.0    // a in dB/m (field-tuned: 0 on 25 m ranges; matters for chirp long range)
     property double sideScanTvgRefRange:     15     // gain = 1 at this range (m): near field keeps familiar brightness

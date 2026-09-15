@@ -718,13 +718,26 @@ Flickable {
             text: "TVG depth compensation (2D)"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCat2DTvg
             SettingsCheckBox {
+                id: echogramTvgBox
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "echogramTvgEnabled"
+
+                // NO targetPropertyName. writeBackOnUserActionOnly narrowed the window in
+                // which this control killed the profile binding; it never closed it, and a
+                // real click was always going to come. echogramTvgEnabled is readonly now,
+                // so the write-back would throw rather than quietly destroy - and every
+                // write in SettingsCheckBox is guarded on the name being non-empty, which
+                // makes leaving it unset the whole of the opt-out.
                 initialChecked: pulseRuntimeSettings.echogramTvgEnabled
-                // Profile-driven default: never write back unless the expert really clicks,
-                // otherwise the first device identification kills the profile binding.
-                writeBackOnUserActionOnly: true
                 clearAfter: false
+
+                // A Connections rather than an inline onToggled: a handler declared at the
+                // use site REPLACES the component's own.
+                Connections {
+                    target: echogramTvgBox
+                    function onToggled() {
+                        pulseRuntimeSettings.echogramTvgOverride = echogramTvgBox.checked ? 1 : 2
+                    }
+                }
             }
         }
 
@@ -804,13 +817,19 @@ Flickable {
             text: "Side scan TVG (waterfall)"
             show: pulseRuntimeSettings.expertMode && pulseRuntimeSettings.showCatTvg
             SettingsCheckBox {
+                id: sideScanTvgBox
                 target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
-                targetPropertyName: "sideScanTvgEnabled"
+
+                // The override, never the value. Same reason as the 2D row above.
                 initialChecked: pulseRuntimeSettings.sideScanTvgEnabled
-                // Profile-driven default: never write back unless the expert really clicks,
-                // otherwise the first device identification kills the profile binding.
-                writeBackOnUserActionOnly: true
                 clearAfter: false
+
+                Connections {
+                    target: sideScanTvgBox
+                    function onToggled() {
+                        pulseRuntimeSettings.sideScanTvgOverride = sideScanTvgBox.checked ? 1 : 2
+                    }
+                }
             }
         }
 

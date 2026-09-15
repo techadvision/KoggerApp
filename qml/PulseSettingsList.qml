@@ -710,8 +710,11 @@ Item {
                     hint:  qsTr("gain computed from range in metres, so resolution changes do not shift it")
                     checked: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgEnabled : false
 
+                    // THE OVERRIDE, NEVER THE VALUE - echogramTvgEnabled is a readonly
+                    // binding on the committed profile. See the note in
+                    // PulseRuntimeSettings; the mosaic row below does the same.
                     onToggled: function (v) {
-                        list.settingChanged("runtime", "echogramTvgEnabled", v)
+                        list.settingChanged("runtime", "echogramTvgOverride", v ? 1 : 2)
                     }
                 },
 
@@ -769,8 +772,9 @@ Item {
                     hint:  qsTr("the waterfall")
                     checked: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : false
 
+                    // The override, never the value. Same reason as the 2D row above.
                     onToggled: function (v) {
-                        list.settingChanged("runtime", "sideScanTvgEnabled", v)
+                        list.settingChanged("runtime", "sideScanTvgOverride", v ? 1 : 2)
                     }
                 },
 
