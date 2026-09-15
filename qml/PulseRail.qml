@@ -179,11 +179,17 @@ Item {
 
         spacing: Math.round(8 * rail.uiScale)
 
+        // WHAT IS OPEN, SAID ONCE, to the whole column. Every PulseRailButton below is a
+        // direct child of this layout and defaults its own `openGroup` from here, then
+        // compares it with its own buttonId - so the button that opened a group is the one
+        // lit, and no button can be added without that being true of it. This is the single
+        // line that replaces one line per button, of which exactly one was ever written.
+        property string openGroup: rail.openGroup
+
         PulseRailButton {
             uiScale: rail.uiScale
             buttonId: "colours"
             label: "Colours"
-            pending: rail.openGroup === "colours"
             iconSource: "./icons/ui/pulse_color_choice.svg"
             onActivated: rail.buttonActivated(buttonId)
         }

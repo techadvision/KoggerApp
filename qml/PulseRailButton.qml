@@ -22,10 +22,31 @@ Item {
     property string label:      ""
 
     // ACTIVE means "this control is doing something to the picture right now" - recording
-    // is on, the filter is not at zero. PENDING means "its panel is open", and nothing
-    // raises it until stage 4 (b) builds the panel.
+    // is on, the filter is not at zero. PENDING means "its panel is open".
     property bool   active:  false
-    property bool   pending: false
+
+    // PENDING IS DERIVED, NOT SET AT THE CALL SITE, and that is the whole of the fix for
+    // "the rail says nothing about what is open". It was one line per button before, and
+    // exactly one of eleven buttons carried it: Colours lit up and Cone, Max range,
+    // Intensity, Water body filter and Settings did not. A line that has to be remembered
+    // once per button is a line that will be forgotten, and the next button added would
+    // have been the twelfth to forget it.
+    //
+    // THE OPEN GROUP ARRIVES THROUGH THE PARENT because QML ids do not cross files - this
+    // component cannot see PulseRail's `rail`. The rail declares `openGroup` on the
+    // ColumnLayout these buttons are children of, in ONE place, and every button defaults
+    // from it. So a new button needs no line at all: give it a buttonId and it lights up.
+    //
+    // Still a settable property rather than a readonly binding, so a button that is ever
+    // nested inside something other than the column can be handed the value directly. The
+    // undefined test is what makes that safe: a parent with no such property answers "",
+    // which matches no buttonId, rather than throwing on every evaluation.
+    property string openGroup: (parent && parent.openGroup !== undefined) ? parent.openGroup : ""
+
+    // The empty test is not belt and braces. `collapse` and `backToClassic` carry buttonIds
+    // and open no group, and "" is also what openGroup reads when the panel is closed - so
+    // without it every button on a closed panel would light up at once.
+    readonly property bool pending: buttonId !== "" && buttonId === openGroup
 
     signal activated()
 
