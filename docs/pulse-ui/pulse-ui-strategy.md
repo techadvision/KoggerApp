@@ -6016,3 +6016,126 @@ After that, and in this order: D-2, which is blocked on a single `THEME:` log li
 be coded before it is read; then E, the split-screen pass; then phone sizing. The two larger
 ideas — a file-side prescan and burst playback — share their expensive step and should be
 designed together, not grown separately.
+
+---
+
+## The 2D orientation, written at last — rows 3 and 4 (15 Sept 2026, `a47c1114`)
+
+The prediction held, and reading the path end to end sharpened it in two places. One of
+them changed the fix; the other changes how it is falsified on the device.
+
+### It is not "row 4 follows from row 3". Both rows follow from the same uncalled function
+
+The backlog derived the range failure *from* the orientation failure, and that reads
+plausibly but is one step too long. `applyEchogramMode` does **two separate things**, and
+red was missing both:
+
+- it writes `isSideScan2DView` / `isHorizontalGrid`, which reach `grid_`, `plot_` and `aim_`
+  over the settings bus — **row 3, the orientation**;
+- it restarts one of the two 10 ms timers, and *the timer* calls
+  `setHorizontalNow()` / `setVerticalNow()` **and** the matching
+  `plotDistanceRange2d()` / `plotDistanceRange()` — **row 4, the range law**.
+
+Those are two different pieces of state. `isHorizontalGrid` is a QML preference published
+over the bus; `isHorizontal_` is a private C++ member of `Plot2D` whose **only** writer is
+`setHorizontal(bool)`, reached from `setHorizontalNow()` / `setVerticalNow()`, reached from
+those two timers. `applyMaxRange` branches on `isViewHorizontal()`, which reads that member.
+
+So the prediction — one fix, two rows — is right, for a better reason than the backlog gave.
+It is not a cascade. It is one function that nobody called, carrying both answers.
+
+### The call could not simply be made: `applyEchogramMode` had the polarity bug inside it
+
+```
+var down = (mode !== "side")
+pulseRuntimeSettings.isSideScan2DView = down
+```
+
+Correct for the only caller it had ever had. A lie for a red, and an expensive one:
+`flipImage = isSideScanOnLeftHandSide_ && isSideScan2DView_` in **both** `plot2D.cpp:460`
+and `plot2D_grid.cpp:104`, so a red would have rendered mirrored with its ruler inverted,
+and `PulseDepthEngine.pictureIsSideScan` would have changed its mind about which depth
+source to trust.
+
+**Classic had already answered the question**, which is the second instance this week of
+"read what is there before designing". `PulseAppClassic.setUserInterface()`, the
+`showAs2DTransducer` branch, sets the grid horizontal, ranges with `plotDistanceRange2d`,
+and **does not touch `isSideScan2DView` at all**. Horizontal, and not a side scan.
+
+The property asks *"is a **side scan** being drawn as a 2D picture?"*, and a 2D transducer
+answers no however the picture flows:
+
+```
+var sideScanShownAs2D = down && !pulseRuntimeSettings.displayIs2DTransducer
+```
+
+`chartOffset` moved onto that same condition rather than onto `down`. It is a
+blue-in-downscan correction — a red has nothing to offset — and it is a `setParam`, a
+**device write**, which D-1 says should not fire on a file path without a reason.
+
+### The guard was the second fault shape, and that is why reachability was the fix
+
+The backlog offered two shapes and preferred the second. The second is right, and the reason
+is sharper than "it stops it recurring":
+
+```
+if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersScreenChoice)
+    return
+```
+
+`offersScreenChoice` answers **"may the user pick a screen?"**. It was being read here as
+**"does this picture have a layout?"** — and every picture has one. That is exactly *a
+property borrowed for a question it was not answering*, the shape this session's close named
+after `chooserAsking` borrowed `isPresentingLog`. Writing the orientation into
+`applyForSource` instead would have left the borrowed read in place and added a second
+writer beside it; rule 2 has an opinion about second writers.
+
+**The guard stays and a branch is taken instead of deleting it.** The rest of
+`applyScreenId` genuinely *is* the chooser's business: `screenForId()` for a 2D picture
+returns a blue entry — side, mosaic, a split — and would pin panes that do not exist. A 2D
+picture needs the mode half and nothing else:
+
+```
+if (!pulseRuntimeSettings.offersScreenChoice) {
+    applyEchogramMode("down")
+    waterViewFirst.setGridMode("")
+    waterViewSecond.setGridMode("")
+    return
+}
+```
+
+`"down"` is the mode rather than a workaround: a 2D echogram is the same geometry as a blue
+in downscan, and `applyEchogramMode` now tells the two apart **by the device** rather than
+by the mode name it was handed.
+
+### Blue is unchanged by construction
+
+On the blue path `displayIs2DTransducer` is false, so `sideScanShownAs2D === down` and the
+new branch is unreachable. **If blue regresses, the polarity is backwards** — that is the
+whole of the blue-side test.
+
+### How to falsify it, and the trap waiting in row 4
+
+`applyEchogramMode` now logs:
+
+```
+MODE: down -> horizontal | side scan as 2D false | 2D device | range 13 from maxDepthValue
+```
+
+- **No `MODE:` line at all on a red** — the call is still unreachable and nothing here worked.
+- **`vertical`, or `side scan as 2D true`** — the polarity is backwards.
+- **The line is right and the picture is still vertical** — the write is not reaching the
+  renderer, and the settings bus is the next place to look, not this function.
+
+**The trap is row 4.** `applyForSource` calls `applyMaxRange()` immediately after
+`applyScreenId`, and `applyMaxRange` branches on `panes[i].isViewHorizontal()` — which is
+still the **outgoing** value, because the timer that sets it has not fired yet. Row 4 should
+close anyway, because the timer re-ranges 10 ms later from the same
+`quickChangeMaxRangeValue` with its own matching range call, and the timer is the last
+writer. But if the orientation comes right and 13 still lands as about 2, **do not start at
+`applyMaxRange`'s branch**: start at whether the timer fired. `applyMaxRange` asking the
+*pane* how it is drawn, when the answer belongs to the *preference*, is the same borrowed-
+property shape one layer down — and it is a separate commit if it bites, because it is a
+separate idea.
+
+**QML only, one commit, not compiled and not on a device.**

@@ -539,7 +539,7 @@ surface at all** today, and `progress_` is already being computed for one.
 
 ---
 
-## THE NEXT SESSION STARTS HERE — the manual-choice matrix, 15 Sept evening
+## The manual-choice matrix, 15 Sept evening — **FIXED, `a47c1114`, awaiting a device build**
 
 Olav ran the same procedure twice on the evening build: **start the app, choose the model
 FIRST, then re-enter source and play a log of that model.** This is the cleanest evidence the
@@ -592,6 +592,63 @@ is the "remembered 13, applied about 2".
 close both. If it closes row 3 and not row 4, the range branch is a second fault and wants its
 own look.
 
+### What was built, `a47c1114` — and the one correction to the derivation above
+
+**Row 4 does not follow from row 3.** Both follow from the same uncalled function.
+`applyEchogramMode` writes the orientation *and* restarts the timer that calls
+`setHorizontalNow()`/`setVerticalNow()` — the sole writer of the C++ `isHorizontal_` that
+`applyMaxRange` later branches on. Two pieces of state, one function, and red was missing it
+entirely. Not a cascade.
+
+**The guard was the second fault shape.** `offersScreenChoice` answers *"may the user pick a
+screen"*; `applyScreenId` was reading it as *"does this picture have a layout"*. So the fix is
+reachability, not a second orientation writer in `applyForSource`. The guard stays and a branch
+is taken — `screenForId()` for a 2D picture returns a blue entry and would pin panes that do not
+exist:
+
+```
+if (!pulseRuntimeSettings.offersScreenChoice) {
+    applyEchogramMode("down")
+    waterViewFirst.setGridMode("")
+    waterViewSecond.setGridMode("")
+    return
+}
+```
+
+**`applyEchogramMode` could not simply be called — it had the polarity bug inside it.**
+`isSideScan2DView = down` is correct for the only caller it ever had and a lie for a red:
+`flipImage` is `isSideScanOnLeftHandSide_ && isSideScan2DView_` in **both** `plot2D.cpp` and
+`plot2D_grid.cpp`, so a red would render mirrored with an inverted ruler, and
+`PulseDepthEngine.pictureIsSideScan` would change its mind. Classic already answered it — the
+`showAs2DTransducer` branch of `setUserInterface()` sets the grid horizontal and never touches
+`isSideScan2DView`. It is now `down && !displayIs2DTransducer`, and `chartOffset` — a device
+write — moved onto that same condition.
+
+**Blue is unchanged by construction**: `displayIs2DTransducer` is false there, so the new
+branch is unreachable and the polarity expression collapses to `down`. If blue regresses, the
+polarity is backwards.
+
+### To check on the device, in this order
+
+`applyEchogramMode` now logs on every call:
+
+```
+MODE: down -> horizontal | side scan as 2D false | 2D device | range 13 from maxDepthValue
+```
+
+- **No `MODE:` line on a red** → still unreachable, nothing here worked.
+- **`vertical`, or `side scan as 2D true`** → polarity backwards.
+- **Line right, picture still vertical** → the write is not reaching the renderer; look at the
+  settings bus, not at this function.
+- **Row 3 closes, row 4 does not** → *do not start at `applyMaxRange`'s branch.* Start at
+  whether the timer fired. `applyForSource` calls `applyMaxRange()` immediately, before the
+  10 ms timer lands, so its `isViewHorizontal()` read is the outgoing value and the timer is
+  the last writer. `applyMaxRange` asking the **pane** how it is drawn when the answer belongs
+  to the **preference** is the borrowed-property shape one layer down — a separate commit,
+  because it is a separate idea.
+
+**QML only. Not compiled and not on a device.**
+
 ### Olav's idea for the shape of it, recorded as given
 
 > *"We have additional issues when we automatically adapt the UI to the log that is to be used.
@@ -636,6 +693,8 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
 2. ~~**B**~~ — **done**, `e8634060` … `b5849994`. Untested on a device.
 3. ~~**C**~~ — **done**, `2b2074f8`. Uncompiled, and it is the third C++ change on the
    branch waiting for a build.
-4. **D** — D-1 and D-3 done (`2cf5c267`); D-2 waits on one `THEME:` log line.
-5. **E** — last of the tablet work, and it is already half of the phone work.
-6. **Phone sizing** — after all of the above, deliberately.
+4. **The manual-choice matrix** — fixed, `a47c1114`, awaiting the device build that confirms
+   both red rows closed together.
+5. **D** — D-1 and D-3 done (`2cf5c267`); D-2 waits on one `THEME:` log line.
+6. **E** — last of the tablet work, and it is already half of the phone work.
+7. **Phone sizing** — after all of the above, deliberately.
