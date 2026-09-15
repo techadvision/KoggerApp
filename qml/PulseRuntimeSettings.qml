@@ -1519,18 +1519,48 @@ QtObject {
     //The list the chooser SHOWS, and the key it writes. Both follow the display model for
     //the same reason the id above does.
     readonly property var  displayThemeModel: displayIs2DTransducer ? themeModelRed : themeModelBlue
-    readonly property int  displayThemeIndex: displayIs2DTransducer
-        ? psInt("colorMapIndex2D", 0)
-        : psInt("colorMapIndexSideScan", 0)
 
     //Favourites are a 2D idea only - blue has six themes and never needed them.
     readonly property bool displayThemeFavouritesActive:
         displayIs2DTransducer && pulseSettings.useFavoriteThemes2D
         && pulseSettings.favoriteThemes2DNew.length > 0
 
-    onDisplayThemeIdChanged: console.log("THEME: display theme ->", displayThemeId,
-                                         "|", displayIs2DTransducer ? "2D" : "side scan",
-                                         "| stored index", displayThemeIndex)
+    //THE DIAGNOSTIC READS ITS VALUES NOW, IMPERATIVELY, AND IT IS NOT A BINDING ANY MORE.
+    //
+    //It used to print a second property, displayThemeIndex, which was its own binding on
+    //displayIs2DTransducer - and QML DOES NOT ORDER THE RE-EVALUATION OF TWO BINDINGS ON
+    //THE SAME SOURCE. When the picture changed model, displayThemeId re-evaluated, this
+    //handler fired at once, and it read an index that had not been re-evaluated yet: the
+    //OTHER model's index. The log from Olav's 15 Sept run says it exactly:
+    //
+    //  THEME: display theme -> 9  | 2D        | stored index 5   <- id 9 is themeModelRed[4]
+    //  THEME: display theme -> 26 | side scan | stored index 4   <- id 26 is themeModelBlue[5]
+    //
+    //Neither index matches its own id, and each one is the value the other picture holds.
+    //The IDs were right the whole time - displayThemeId reads its keys directly, so it is
+    //captured and live - but the line reporting them was a session's worth of misdirection,
+    //and it very nearly bought a migration that was never needed.
+    //
+    //A DIAGNOSTIC MUST NOT BE A BINDING. A binding describing another binding can be
+    //evaluated in any order relative to it, so it is free to describe the previous state.
+    //Read inside the handler and the read happens now, against the same
+    //displayIs2DTransducer the line prints. The KEY NAME goes in the line too, because the
+    //whole confusion was about which of the two keys was being reported.
+    //
+    //displayThemeIndex had exactly one reader, this line, so it is gone rather than fixed.
+    onDisplayThemeIdChanged: {
+        var is2D  = displayIs2DTransducer
+        var key   = is2D ? "colorMapIndex2D" : "colorMapIndexSideScan"
+        var model = is2D ? themeModelRed : themeModelBlue
+        var idx   = psInt(key, 0)
+        var entry = themeEntryAt(model, idx)
+        console.log("THEME: display theme ->", displayThemeId,
+                    "|", is2D ? "2D" : "side scan",
+                    "|", key, "=", idx,
+                    "-> id", entry ? entry.id : "(none)",
+                    entry ? "(" + entry.title + ")" : "",
+                    entry && entry.id !== displayThemeId ? "| MISMATCH" : "")
+    }
 
 
     //DISPLAY SETTINGS
