@@ -216,15 +216,14 @@ one that benefits from everything else being stable.
 
 ## Found on the device build of 15 Sept, after A and B
 
-- **The demo pill survives opening a file.** Run a demo, then open a file from the source
-  screen: the pill that was reporting the demo stays up while the file loads and after it
-  has loaded. Pressing it does the right thing — the file closes and the link re-establishes
-  if a sounder is present, which is `exitFileView()`'s behaviour and therefore the CLOSE
-  branch — so the pill's *action* is the file's and only its appearance is in question.
-  `isDemo` is one binding on `isInDemoMode`, and `stopDemoPlayback("a file was opened")`
-  lowers that in `onSendIsFileOpening` before anything else can read it. **Diagnosis needs
-  the logcat**: `DEMO: stopping the replay - a file was opened` present or absent settles
-  whether the flag never fell or the pill is not reading it.
+- **The demo pill survives opening a file — and it turned out to be the file's pill.**
+  Checked with Olav: it reads *"Viewing recording … Close"*, not *"Demo … Stop"*. So
+  `isInDemoMode` did fall, `stopDemoPlayback("a file was opened")` did run, and the pill is
+  wearing the right identity and doing the right thing. What was seen was the pill changing
+  identity in place rather than a stale one persisting. **Nothing to fix unless the replay
+  itself is still feeding underneath** — the observable for that is the echogram continuing
+  to scroll under a static file, and the logcat line is `DEMO: stopping the replay - a file
+  was opened`.
 
 - **A red demo now flows vertically, and the live feed has started doing the same.**
   Olav, 15 Sept: *"opposite from before when echogram came horizontal for dual side scan —
@@ -233,9 +232,31 @@ one that benefits from everything else being stable.
   rather than closing, and it now reaches the live picture. **Olav is deferring it** — *"the
   inability to properly enforce the user's preferred settings also is not working all over
   the place. We will come back to that."* Note for whoever picks it up: `applyForSource` now
-  runs on `presentedModel` as well as on the three source paths, so the orientation writes
-  in `applyEchogramMode` reach the live picture on paths they did not reach before. That is
-  the intended behaviour and it is also the most likely carrier of an inherited preference.
+  runs on `presentedModel` as well as on the three source paths, so it now fires on paths
+  it did not fire on before.
+
+  **And there is a root cause worth writing down before the item is picked up, because it is
+  checkable without a build.** `applyEchogramMode` is the only thing in v2 that writes
+  `isSideScan2DView` and `isHorizontalGrid` — the two properties that decide which way the
+  echogram flows. It is reachable from exactly one place, `applyScreenId`, which begins:
+
+  ```
+  if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersScreenChoice)
+      return
+  ```
+
+  and `offersScreenChoice` is `!displayIs2DTransducer`. **So for a 2D picture the orientation
+  is never written at all.** A red demo, a red log and a red live feed all inherit whichever
+  way the last side scan left those two properties, and nothing puts them back. That is
+  precisely "like it inherited the blue render prefs", and it is not caused by Group B —
+  Group B only made it visible, by applying everything else correctly around it.
+
+  The fix shape, when the item comes up: a 2D picture has an orientation too, and something
+  has to state it. Either `applyForSource` writes the 2D orientation directly when
+  `displayIs2DTransducer`, or `applyEchogramMode` stops being reachable only through a
+  control that a 2D transducer is not offered. The second is the shape that stops it
+  recurring — it is the same "a call whose only caller lives behind a control the branch
+  never reaches" as the rest of this list.
 
 ---
 
