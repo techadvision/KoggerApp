@@ -3802,6 +3802,30 @@ ApplicationWindow  {
     // PulseAppV2.applyFiltering() is a deliberate no-op, which meant the water body filter
     // did nothing at all in v2. Plot2D calls that seam on a pinch; the filter's own value is
     // applied from here, so both routes end in the same place.
+    // THE MOSAIC'S BLACK POINT, AND WHY IT IS A CONSTANT RATHER THAN THE FILTER.
+    //
+    // MosaicViewControlMenuController.onLevelChanged(lowLevel, highLevel) lands in
+    // mosaic::PlotColorTable::update(), where lowLevel is a BLACK POINT: every amplitude
+    // under lowLevel * 2.5 maps to colour index 0. Both appliers were passing
+    // pulseSettings.filterRealValue into it, so the water body filter - a WATER COLUMN
+    // idea - was wired to a global contrast floor over the BOTTOM. Raise the filter and
+    // the whole seabed render crushes to black, which is what Olav reported on 15 Sept.
+    //
+    // A side scan mosaic has no water column to filter. It is, by construction, a map of
+    // the bottom, so there is nothing for the filter to remove and everything for it to
+    // damage.
+    //
+    // ZERO rather than PlotColorTable's own default of 10, on Olav's answer: zero is
+    // exactly the render he has been judging the TVG on, because with the filter down
+    // that is the value the mosaic was already getting. And with the side scan TVG now
+    // correcting level over range, a floor has nothing left to do except throw away real
+    // signal at the edges of the swath - which is the very darkness the TVG was turned on
+    // to fix.
+    //
+    // The HIGH level still follows intensity, which is legitimate: intensity is a
+    // brightness control and the mosaic is entitled to it.
+    readonly property real mosaicBlackPoint: 0
+
     function applyIntensity() {
         if (pulseSettings.uiVariant !== "v2")
             return
@@ -3809,7 +3833,7 @@ ApplicationWindow  {
         waterViewFirst.setIntensityValue(real * 1.0)
         if (waterViewSecond.enabled)
             waterViewSecond.setIntensityValue(real * 1.0)
-        MosaicViewControlMenuController.onLevelChanged(pulseSettings.filterRealValue, real)
+        MosaicViewControlMenuController.onLevelChanged(mainview.mosaicBlackPoint, real)
     }
 
     // THE BRANCH IS THE CLASSIC ONE, not a simplification of it. With the water body filter
@@ -3832,7 +3856,10 @@ ApplicationWindow  {
                 panes[i].setFilteringValue(real)
             }
         }
-        MosaicViewControlMenuController.onLevelChanged(real, pulseSettings.intensityRealValue)
+        // AND THE MOSAIC IS NOT TOLD, which is the point rather than an omission. The
+        // mosaic's levels follow intensity and nothing else now, so this applier has no
+        // business pushing them - see mosaicBlackPoint above. Left in, it would be a call
+        // that reads as though the filter still reached the map.
     }
 
     // THE VIEW AND THE CONE - the committed device's own question, and the one tier-1 control
