@@ -748,13 +748,37 @@ QtObject {
     //Note what is deliberately NOT touched: wasKlfFileOpened stays false. Demo
     //wants the live-style Plot2D behaviour that flag switches off.
     function enterDemoMode(path) {
-        if (isInDemoMode) {
-            console.log("DEMO: already running")
-            return
-        }
         if (!path || path.length === 0) {
             console.log("DEMO: no file chosen")
             return
+        }
+
+        // A NEW FILE WHILE ONE IS PLAYING IS A SWAP, NOT A NO-OP. This read
+        // `if (isInDemoMode) return` - so choosing a second recording from the connection
+        // screen logged "already running" and did nothing at all, and the only way to see
+        // the new file was to stop the demo by hand first. Nothing on screen said why.
+        //
+        // The same file IS a no-op, and that is worth keeping: restarting the recording
+        // somebody is already demonstrating from is never what was meant.
+        //
+        // core.stopDemo() rather than exitDemoMode(): Core::startDemo refuses outright
+        // while isDemoMode_ is set, so the C++ side has to be stopped - but exitDemoMode's
+        // other half exists to come BACK to a real transducer. It clears the committed
+        // model, reopens the live links and asks for re-detection, all of which we would
+        // undo two lines later, and in between the app would be hunting for a sounder.
+        //
+        // isInDemoMode stays TRUE across the swap, deliberately. Lowering it would drop
+        // isPresentingLog and logIsOnScreen for a frame, and with nothing committed - a
+        // demo from a cold start, which is most of them - that frame is the connection
+        // screen coming back over the file that is being chosen.
+        if (isInDemoMode) {
+            if (demoFilePath === path) {
+                console.log("DEMO: already running", path)
+                return
+            }
+            console.log("DEMO: a new file was chosen -", demoFilePath, "->", path)
+            core.stopDemo()
+            demoMeasuredPeriodMs = 0
         }
 
         console.log("DEMO: entering demo mode with", path)
@@ -811,6 +835,27 @@ QtObject {
         //lines up can already read it - so activeModel, displayIs2DTransducer and every
         //key they pick are settled by the time anything reads them.
         sourceChosen("demo")
+    }
+
+    //STOPPING THE REPLAY WITHOUT COMING BACK TO THE TRANSDUCER.
+    //
+    //exitDemoMode() is the STOP button: it stops the replay and then does the whole of
+    //backlog item 9 - clears the committed model, reopens the links the demo closed and
+    //asks for re-detection - because the user asked to go back to what is plugged in.
+    //
+    //Opening a file over a running demo is not that. The user has said what they want to
+    //look at next, and the item 9 half would make the app hunt for a transducer, clear
+    //userManualSetName, and raise the connection screen over the file that is loading.
+    //So this is the other half on its own, and it is the mirror of what enterDemoMode
+    //already does to a file view it is replacing.
+    function stopDemoPlayback(why) {
+        if (!isInDemoMode)
+            return
+        console.log("DEMO: stopping the replay -", why)
+        core.stopDemo()
+        isInDemoMode = false
+        demoMeasuredPeriodMs = 0
+        setConfigStatesForDemo(false)
     }
 
     function exitDemoMode() {

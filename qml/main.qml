@@ -332,6 +332,14 @@ ApplicationWindow  {
                 // Same two flags, same function, and on the RISING edge because the answer
                 // was given when the file was chosen, not when it finished reading.
                 pulseRuntimeSettings.answerSourceQuestion("opening a file")
+
+                // AND A RUNNING DEMO IS STOPPED, because two sources feeding one picture is
+                // not a picture. Here rather than beside the dialog for the reason the
+                // clear above is here - every route to an opened file passes through this
+                // handler - and AFTER wasKlfFileOpened is raised, so logIsOnScreen never
+                // drops between the two and the connection screen cannot flash back over
+                // the file that is loading.
+                pulseRuntimeSettings.stopDemoPlayback("a file was opened")
                 // A NEW LOG MUST NOT BE CLASSIFIED BY THE PREVIOUS ONE'S CHANNEL COUNT.
                 // activeModel classifies an opened file from numberOfDatasetChannels, and
                 // onChannelListUpdated below only ever ASSIGNS it — it returns early while
