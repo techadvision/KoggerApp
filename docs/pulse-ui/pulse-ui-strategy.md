@@ -5935,3 +5935,84 @@ without it every button would light at once whenever the panel was shut.
 **Still owed and now several sessions old:** the logcat check for `SETTINGS: persistent
 settings injected into pulseRuntimeSettings -> ok` with no ReferenceError above it, and
 `feature/device-profiles-step4` still not merged to master.
+
+
+---
+
+## Session close — 15 Sept 2026, the bug-fixing session
+
+**`feature/pulse-ui-v2-rail`, 94 commits, unpushed, clean tree.** Groups A, B, C and D-1 are
+built and device-confirmed. Everything after group C is QML only, so the next build needs no
+`moc` round.
+
+The blow-by-blow is in `pulse-bug-backlog.md`, which was rewritten as the work landed and is
+the file a cold session should read first. What belongs *here* is the three things this
+session taught that outlive the bugs.
+
+### One: the fault shape has a second form, and it is harder to see
+
+The backlog states the first form and uses it to predict:
+
+> A flag or a call whose only writer lives in the classic UI reads false in v2, and the branch
+> nobody tested is the one that runs.
+
+Group B produced a textbook instance — `awaitingUserChoice` and `connectionScreenRequested`
+cleared on two paths out of three. But it also produced this, which is **not** a missing
+writer:
+
+> **A property borrowed for a question it was not answering.**
+
+`chooserAsking` guarded on `isPresentingLog`, and that read looks right. It is not:
+`isPresentingLog` is a question about the **profile** and carries two conditions the guard must
+not inherit — it needs `activeModel !== ""`, which an opening file does not have until its
+channel list arrives, and it needs `!hasConnectedDevice`, which is true for the profile and
+wrong for "is a log being looked at". On a cold start, the exact case where the welcome screen
+is up, the guard read false for the whole open.
+
+The cure was a plainer property, `logIsOnScreen`. The warning is that **this UI now has several
+derived booleans about the source**, and the next defect of this class will be one of them read
+somewhere that needed its neighbour. When a guard looks right and behaves wrong, check what
+question the property was written to answer before checking its value.
+
+### Two: "not implemented" was twice "implemented and switched off"
+
+The mosaic TVG was reported as missing. `EchogramSideScanTvg`, the per-epoch
+`ssTvgCompensated` buffer, `MosaicProcessor::ensureMosaicSource()` / `mosaicSourceBuf()` and
+`qPlot2D::setSsTvgMosaicEnabled` were all in the tree, wired end to end. The default was
+`false` and the switch was in the expert tier. The same session found the mosaic's black point
+wired to the water body filter — not a missing feature either, but a wire into the wrong
+socket.
+
+**So the first move on a "we must implement X" is a search for X, not a design for it.** Both
+of these were one-commit changes that had been described for weeks as work.
+
+### Three: rule 2 needs `readonly` to be a rule rather than a hope
+
+`echogramTvgEnabled` and `sideScanTvgEnabled` were bindings on `activeProfile` that the expert
+controls assigned to. Classic's rows even carried `writeBackOnUserActionOnly: true` with a
+comment naming the exact failure — *"otherwise the first device identification kills the
+profile binding"* — which narrows the window to a real click without closing it. **A real click
+is what the control is for.**
+
+One binding plus one override is only half the rule. The other half is that the value is
+`readonly`, so the next control that reaches for the old spelling fails loudly on its first
+click instead of quietly ending the profile's say for the rest of the run. Three properties now
+have that shape and there are no writers left to any of them.
+
+### Where the next session picks up
+
+**The manual-choice matrix at the end of the backlog, and nothing else first.** Olav isolated
+the variable — start, choose the model, then play a log of that model — and blue is clean on
+every row while red fails on exactly two. Both are predicted to be one fault: no 2D picture
+ever gets an orientation written, because `applyEchogramMode` is reachable only through
+`applyScreenId`, which returns early unless `offersScreenChoice`, which is
+`!displayIs2DTransducer`.
+
+The prediction is falsifiable and should be tested as one: **one fix, two rows.** If the
+orientation closes and the range does not, `applyMaxRange`'s branch on
+`panes[i].isViewHorizontal()` is a second fault.
+
+After that, and in this order: D-2, which is blocked on a single `THEME:` log line and must not
+be coded before it is read; then E, the split-screen pass; then phone sizing. The two larger
+ideas — a file-side prescan and burst playback — share their expensive step and should be
+designed together, not grown separately.
