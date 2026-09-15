@@ -578,6 +578,10 @@ void Core::stopDemo()
     isDemoMode_ = false;
     demoFilePath_.clear();
     demoPassNumber_ = 0;
+    // Nothing armed behind a demo that is over. Stopping while paused with a restart
+    // held is an ordinary case - the pill's Stop is reachable from the paused gutter -
+    // and leaving it set would fire a pass into a stopped demo on the next resume.
+    demoRestartPending_ = false;
 
     // Leave the app idle and clean, as if it had just started with no device.
     //
@@ -594,6 +598,65 @@ void Core::stopDemo()
     restoreRealtimeProcessingFlags();
 
     emit demoModeChanged();
+}
+
+// THE LOOP RESTART, with two callers: reaching the end of the file unpaused, and
+// resuming from a pause that was holding one. One body, so a pass started by a resume
+// is byte-for-byte the pass the timeout path would have started.
+void Core::startNextDemoPass()
+{
+    if (demoFilePath_.isEmpty()) {
+        return;
+    }
+
+    // Endless loop: start the same file over and keep going until the user
+    // stops it. The full pipeline reset is deliberate rather than a cheap
+    // seek-to-zero — without it the dataset, mosaic and bottom track would
+    // keep growing for every pass and eat memory across an exhibition day.
+    // isDemoMode_ stays true throughout, which matters: getLinkNames() must
+    // keep advertising the demo UUID or the new pass gets no chart channel.
+    const QString path = demoFilePath_;
+    ++demoPassNumber_;
+    qInfo() << "Core: demo starting pass" << demoPassNumber_;
+
+    prepareDemoPipeline(path);
+
+    QMetaObject::invokeMethod(deviceManagerWrapperPtr_->getWorker(), "startDemo",
+                              Qt::AutoConnection, Q_ARG(QString, path));
+
+    emit demoLooped(demoPassNumber_);
+}
+
+// THE PAUSE, PUSHED IN FROM QML. One caller — main.qml's setEchogramPaused, which is the
+// single place the pause is written and the route the rail's Pause button and the paused
+// gutter both already take.
+//
+// Resuming is what pays a held restart, and it happens HERE rather than through a signal
+// back into QML: the pipeline reset and the worker start are Core's own, and routing them
+// out and back would put a frame between the resume and the restart for no gain.
+void Core::setDemoPaused(bool state)
+{
+    if (demoPaused_ == state) {
+        return;
+    }
+
+    demoPaused_ = state;
+
+    if (demoPaused_ || !demoRestartPending_) {
+        return;
+    }
+
+    // A restart was held while the picture was frozen. The guard matters: isDemoMode_
+    // can have gone false underneath a pause — stopDemo() clears the pending flag for
+    // exactly that reason, so this is belt and braces rather than the real defence.
+    demoRestartPending_ = false;
+
+    if (!isDemoMode_) {
+        return;
+    }
+
+    qInfo() << "Core: resumed - running the demo restart that was held";
+    startNextDemoPass();
 }
 
 void Core::onDemoFinished(quint64 epochsPlayed)
@@ -613,22 +676,23 @@ void Core::onDemoFinished(quint64 epochsPlayed)
     }
 
     if (demoLoopEnabled_ && !demoFilePath_.isEmpty()) {
-        // Endless loop: start the same file over and keep going until the user
-        // stops it. The full pipeline reset is deliberate rather than a cheap
-        // seek-to-zero — without it the dataset, mosaic and bottom track would
-        // keep growing for every pass and eat memory across an exhibition day.
-        // isDemoMode_ stays true throughout, which matters: getLinkNames() must
-        // keep advertising the demo UUID or the new pass gets no chart channel.
-        const QString path = demoFilePath_;
-        ++demoPassNumber_;
-        qInfo() << "Core: demo reached end of file, starting pass" << demoPassNumber_;
+        // NOT WHILE PAUSED. The restart below does a FULL pipeline reset, so running it
+        // under a pause leaves the frozen view pointing at epochs that no longer exist —
+        // which is the "huge artifacts" Olav reported, and the same root as the
+        // qBound(0, x, -1) abort inside Plot2DAim::draw.
+        //
+        // Held rather than cancelled, and held WITHOUT stopping: isDemoMode_ stays true,
+        // so the pill still reads Demo and the app still believes it is replaying. The
+        // replay has simply run out of file and nothing new arrives, which is exactly
+        // what a paused picture wants — it stays where the user left it. Resuming pays
+        // the debt in setDemoPaused().
+        if (demoPaused_) {
+            demoRestartPending_ = true;
+            qInfo() << "Core: demo reached end of file while paused - holding the restart";
+            return;
+        }
 
-        prepareDemoPipeline(path);
-
-        QMetaObject::invokeMethod(deviceManagerWrapperPtr_->getWorker(), "startDemo",
-                                  Qt::AutoConnection, Q_ARG(QString, path));
-
-        emit demoLooped(demoPassNumber_);
+        startNextDemoPass();
         return;
     }
 

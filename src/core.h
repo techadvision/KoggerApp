@@ -218,6 +218,17 @@ public slots:
     // dataset/mosaic memory from growing without bound over a whole day.
     Q_INVOKABLE bool getDemoLoopEnabled() const { return demoLoopEnabled_; }
     Q_INVOKABLE void setDemoLoopEnabled(bool state) { demoLoopEnabled_ = state; }
+    // AND THE LOOP MUST NOT RUN UNDER A PAUSE. A restart calls prepareDemoPipeline(),
+    // which does a full resetRealtimeSessionState() - so a frozen view is left pointing
+    // at epochs that have just been destroyed. That is where the "huge artifacts" come
+    // from, and it is the same root as the qBound(0, x, -1) abort the loupe guard now
+    // defends against: this removes the cause, the guard was the symptom.
+    //
+    // The pause is a QML property (pulseRuntimeSettings.echogramPause) and C++ has never
+    // been told about it, so it is pushed in from the one function that owns it -
+    // main.qml's setEchogramPaused. Shaped like the loop flag above for that reason: a
+    // plain state setter with exactly one caller.
+    Q_INVOKABLE void setDemoPaused(bool state);
 
     Q_INVOKABLE void setPosZeroing(bool state);
     Q_INVOKABLE void setBottomTrackZeroing(bool state);
@@ -436,8 +447,17 @@ private:
     //Pulse demo mode
     bool isDemoMode_ = false;
     bool demoLoopEnabled_ = true;
+    // The pause, as C++ sees it, and the restart it is holding. demoRestartPending_ is
+    // raised ONLY by onDemoFinished and lowered ONLY by setDemoPaused and stopDemo, so
+    // there is never a restart armed with no demo to restart.
+    bool demoPaused_ = false;
+    bool demoRestartPending_ = false;
     int  demoPassNumber_ = 0;
     QString demoFilePath_;
+    // The loop itself, lifted out of onDemoFinished so that resuming from a pause takes
+    // exactly the same route as reaching the end of the file unpaused. Two callers, one
+    // body - the thing this whole backlog is about.
+    void startNextDemoPass();
     // Everything the pipeline needs reset for a fresh pass; shared by startDemo
     // and the loop restart so a looped pass is identical to the first one.
     void prepareDemoPipeline(const QString& localFilePath);

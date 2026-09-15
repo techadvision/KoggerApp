@@ -3863,6 +3863,13 @@ ApplicationWindow  {
 
         console.log("PAUSE:", paused ? "paused - inspecting" : "resumed")
         pulseRuntimeSettings.echogramPause = paused
+
+        // AND C++ HAS TO KNOW, because the demo's end-of-file restart lives there and a
+        // restart under a pause wipes the pipeline out from under a frozen picture. This
+        // is the only place the pause is written, so it is the only place that tells it.
+        // Harmless when no demo is running - Core keeps the flag and acts on it only when
+        // a restart is actually being held.
+        core.setDemoPaused(paused)
     }
 
     // THE SECOND PANE, ranged for its own grid. It asks the pane rather than being told,
