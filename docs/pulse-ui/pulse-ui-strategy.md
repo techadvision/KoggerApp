@@ -6259,3 +6259,67 @@ silent, and `readonly` alone turns a working no-op into a thrown error.
   reported — worth a look for gaps or empty columns now that they are right.
 
 **QML only, two commits, not compiled and not on a device.**
+
+---
+
+## Per-picture preferences, and the handler that watched its own output (15 Sept 2026, `7dc2676b`)
+
+With the cold-start faults fixed, Olav swapped between a red log and a blue log repeatedly —
+the first time that has worked — and immediately found what the swap made visible: the
+intensity and the water body filter do not move with the model. They never did.
+
+The interesting part is not the feature. It is what building it exposed about the shape of the
+existing wiring.
+
+### The third instance of one pattern, and it should be a named pattern now
+
+Three preferences are now per-picture, and all three have the same four parts:
+
+| | key chosen once | derived read | one writer | applied by a handler on |
+|---|---|---|---|---|
+| colour theme | inline in `displayThemeId` | `displayThemeId` | `onThemeChosen` | `onDisplayThemeIdChanged` |
+| max range | `displayMaxRangeKey` | `displayMaxRange` | `storeDisplayMaxRange` | `onDisplayMaxRangeChanged` |
+| intensity / filter | `displayIntensityKey`, `displayFilterKey` | `displayIntensity`, `displayFilter` | `storeDisplayIntensity`, `storeDisplayFilter` | `onDisplayIntensityChanged`, `onDisplayFilterChanged` |
+
+**The handler on the derived read is what makes a model swap free.** Nothing restores anything;
+the key the read uses changes, so the value changes, so the handler fires. A restore path is
+what this shape replaces, and a restore path is a thing somebody forgets to call.
+
+**Only the display number splits.** For all three, the value the C++ actually consumes stays a
+single shared key written by the applier — `colorMapIndexReal`, and now `intensityRealValue`
+and `filterRealValue`. The applier is the only place that knows which picture's preference is
+in force, so it is the only honest writer of the applied value. That also means classic, the
+persistent bus and `Plot2D`'s pinch path need no changes at all.
+
+### The handler that watched its own output
+
+`onIntensityRealValueChanged` and `onFilterRealValueChanged` were the apply triggers. The
+moment the appliers began *writing* those two keys, those handlers became an applier
+triggering itself. It terminates — Qt emits `changed` only on a real difference — so it would
+never have hung, and it would never have been noticed either.
+
+**A handler belongs on the input, not on the output.** That is the same family as the two
+faults this branch already has a name for:
+
+> A property borrowed for a question it was not answering.
+
+Here the property was not borrowed, it was *inverted*: the handler asked "has the applied value
+moved?" when the question was "has the preference moved?". Those are the same thing right up
+until the applier becomes the writer, and then they are a loop.
+
+**Worth checking the rest of the file against this**, because it is cheap to look for: a
+`Connections` handler whose body calls a function that assigns the very property the handler
+is named after.
+
+### Two-way, not three-way, and why the range is the exception
+
+`displayMaxRangeKey` has three keys because a blue's **swath width** and its **depth** are
+different physical quantities measured in the same unit — the number genuinely means something
+else in each mode. Intensity and the water body filter do not change meaning when a blue goes
+from side scan to downscan; they are brightness and a water-column cut either way. So they take
+`displayIs2DTransducer`, the colour theme's split.
+
+**The test to apply to the next one:** three keys when the number *means* something different
+in the two blue modes, two when it is the same quantity judged by a different eye.
+
+**QML only, one commit, not compiled and not on a device.**

@@ -717,6 +717,57 @@ strategy doc: **a binding that is published is a binding that will be assigned.*
 
 ---
 
+## Intensity and the water body filter, per picture — **DONE, `7dc2676b`**
+
+**Olav, 15 Sept, after the cold-start fixes landed and the model-to-model swap finally
+worked:** *"As far as I can see, the water body filter and the intensity does not differ on
+the models. Maybe that was always the case. But it really should not be… it makes sense to
+distinguish filter for blue (usually have a LOT less clutter in the water body anyway) and of
+the intensity: for red it is usually a focus on reading the colors of first and second echo to
+determine hardness, while for blue it is more of a question to distinguish variation of
+dullness/brightness in areas of the bottom render."*
+
+**It was always the case.** Four flat keys with no model in them anywhere, and classic has the
+same four — nothing regressed. The per-picture idea arrived with the colour theme and the max
+range and these two were never brought along.
+
+Built as `displayMaxRange`'s shape, twice: a key named once, a derived read, one writer.
+**Two-way on `displayIs2DTransducer`** — the colour theme's split, not the range's three-way
+one. The range needs three because a blue's swath width and its depth are different physical
+quantities; a brightness is a brightness whichever way a blue is drawn.
+
+**Only the display number splits.** `intensityRealValue` / `filterRealValue` are pure
+functions of it and are what reaches the persistent bus and `plot2D_echogram.cpp`, so they
+stay single and become the **shared applied value written by the applier** — the role
+`colorMapIndexReal` already has. Classic's sliders and `Plot2D`'s pinch path are untouched.
+Two new keys per control, not four.
+
+**The apply triggers had to move, and that is the part worth remembering.** They watched
+`intensityRealValue` / `filterRealValue`, which the appliers now write — a handler on them
+would be an applier triggering itself. They now watch `displayIntensity` / `displayFilter`,
+the *input*, which also covers the model changing for free: a red log after a blue one gets
+red's own brightness back with nothing having to remember to restore it. Same as the range.
+
+**Migration** is the `ecoViewId` pattern, in `PulseSettings.Component.onCompleted` (that file,
+not `main.qml`, because `pulseSettings` is built by its own `QQmlComponent` first). Sentinel is
+`-1`, since `0` is legitimate for both controls. **Both models inherit the user's current
+value**, on Olav's answer, so nothing moves on the first build.
+
+### To check on the device
+
+- `SETTINGS: splitting intensity per picture - both seeded from N` and the filter equivalent,
+  **once**, on the first run of this build and never again.
+- Set a different intensity on a red log and on a blue log, then swap back and forth: each
+  must come back to its own number, with no restore step and no flicker.
+- Classic still behaves exactly as before — it reads the legacy keys, which are untouched.
+
+**Not done, and deliberately its own idea:** `echogramWaterBodyFilterEnabled` (whether the
+slider is a water-column filter or a whole-picture low cut) and `echogramWaterBodyMinRealValue`
+are flat runtime properties, not profile data. Making the filter's *meaning* per-device is a
+bigger change than making its *value* per-device.
+
+---
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
