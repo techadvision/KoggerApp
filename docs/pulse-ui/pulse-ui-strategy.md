@@ -5808,3 +5808,130 @@ depth, and they are different numbers for the same water.
    that is the only way I can swap between mosaic and the side scan view I have."*
 3. Then the order Olav set: the four Expert info groups, **bug fixing** (the device-change
    problems, still not fixed), and phone size last.
+
+
+---
+
+## Bug fixing, groups A and B (15 Sept 2026)
+
+**`feature/pulse-ui-v2-rail`, 81 commits, unpushed. None of this is compiled or on a device.**
+
+| Commit | What |
+|---|---|
+| `d75e4f12` | the rail lights the button whose panel is open |
+| `e8634060` | one applier for all three ways a source is chosen |
+| `689e33f7` | opening a file takes the connection screen down |
+| `65ed7074` | choosing a new source stops the old one first |
+| `b5849994` | `applyEchogramMode` reads the range key instead of naming one |
+
+### The fault shape, confirmed twice more
+
+The backlog states it once and uses it to predict where the next one will be found:
+
+> A flag or a call whose only writer lives in the classic UI reads false in v2, and the
+> branch nobody tested is the one that runs.
+
+Group B produced two more instances, and the second is the more interesting of the pair.
+
+**The plain one.** `awaitingUserChoice` and `connectionScreenRequested` are what hold the
+connection screen up. Committing a card cleared both; `enterDemoMode` cleared both, inline,
+in its own body; the file path cleared neither. So the screen the user went through to reach
+*View a file* stayed up over the file it had just loaded. The clears now live in
+`answerSourceQuestion(how)` and all three paths call it — the shape the group is about,
+applied to the group's own fix.
+
+**The one worth remembering.** `chooserAsking`'s third term guarded on `isPresentingLog`,
+and that read *looks* right. It is not, because `isPresentingLog` is a question about the
+**profile** and carries two conditions this term must not inherit:
+
+- it requires `activeModel !== ""`, and an opened file has no model until its channel list
+  arrives. With nothing ever committed — **a cold start, which is exactly when the welcome
+  screen is up** — `activeModel` falls back to the committed model, which is `""`. So
+  through the whole of the open the guard read false.
+- it requires `!hasConnectedDevice` for the file case, because an opened log must never
+  reconfigure a transducer that is plugged in. True for the profile and wrong here: opening
+  a file **is** an answer to "what am I looking at" whatever is connected.
+
+So the fault is not a missing writer this time, it is **a property borrowed for a question
+it was not answering**. `logIsOnScreen` is the plainer question — is there a log on screen or
+on its way — and it is the one that term always wanted. Worth watching for: this UI now has
+several derived booleans about the source, and the next defect of this class will be one of
+them read in a place that needed a neighbour.
+
+### One list, and the second trigger it needs
+
+`mainview.applyForSource(reason)` is the backlog's "a source has been chosen — apply
+everything the picture needs". The backlog says the commit path had it and the other two did
+not. **The commit path did not have it either:** `onUserManualSetNameChanged` ran two of the
+six applies, and the only near-complete set was the colour block's `Component.onCompleted`,
+running once at startup. Two partial lists, no complete one.
+
+**Range last, and that is ordering rather than taste.** `applyScreenId` → `applyEchogramMode`
+writes `isSideScan2DView`, which is what `displayMaxRangeKey` is keyed on, which is what
+`displayMaxRange` reads. Applying range first applies the outgoing mode's number.
+
+**And the trigger no call at the moment of choosing can replace.** A log does not say what it
+is until its channel list arrives — several frames after the dialog closed — so the applier
+also runs on `presentedModel`. That is the half that makes the picture adapt to the log
+rather than to the last device, and it is exactly Olav's own reframing of the whole group:
+
+> *"Seems most problems are related to having the UI self-adapt to the chosen log file."*
+
+Note what it does **not** do: `presentedModel` does not move when a blue log is opened on a
+committed blue, which is the case he reported as already working. The applier is silent
+there, and that is the design rather than a gap.
+
+**The file-open call is in `onSendIsFileOpening`, not beside a dialog.** That handler is the
+one point every route to an opened file passes through — the connection screen's *View a
+file*, the drag and drop, the menu bar's open. Three calls at three dialogs would have been
+three places to forget, which is the shape this group exists to stop.
+
+### Stopping the old source, and the frame that must not exist
+
+`enterDemoMode` returned early on `isInDemoMode`, and `Core::startDemo` refuses outright
+while `isDemoMode_` is set — so choosing a second recording logged *"already running"* and
+did nothing, with nothing on screen to say why.
+
+The swap calls `core.stopDemo()` and **not `exitDemoMode()`**. exitDemoMode's other half is
+backlog item 9 — clear the committed model, reopen the live links, ask for re-detection —
+which a swap would undo two lines later, with the app hunting for a transducer in between.
+`stopDemoPlayback(why)` is that same half on its own, and it is the mirror of what
+`enterDemoMode` already does to a file view it is replacing.
+
+**`isInDemoMode` stays true across a demo-to-demo swap, deliberately.** Lowering it drops
+`isPresentingLog` and `logIsOnScreen` for a frame, and with nothing committed — a demo from a
+cold start, which is most of them — that frame is the connection screen coming back over the
+file being chosen. The same reasoning puts `stopDemoPlayback` **after** `wasKlfFileOpened` is
+raised on the file path. Both are one-frame gaps that only appear on the cold-start path,
+which is the path least likely to be the one being tested.
+
+### The rail, and the line that is gone rather than repeated
+
+The backlog offered two shapes and named the second as the one that stops the defect
+recurring. That is the one built: the `ColumnLayout` declares `openGroup` **once** and each
+`PulseRailButton` compares its parent's value with its own `buttonId`, so a new button lights
+up with **no line at all**.
+
+The parent read is the one implicit thing in it, and it is implicit because QML ids do not
+cross files — `PulseRailButton.qml` cannot see `rail`. The `undefined` test is what makes it
+safe, and `openGroup` stays settable at the call site for a button ever nested somewhere
+other than the column. The empty-string test is not belt and braces: `collapse` and
+`backToClassic` carry buttonIds and open no group, and `""` is also a closed panel, so
+without it every button would light at once whenever the panel was shut.
+
+### Where the next session picks up
+
+1. **Build it in Qt Creator and put it on the tablet.** Nothing here is compiled. The logcat
+   to read is `SOURCE:` — it prints the reason, the presented model, 2D or side scan, and the
+   range key on every apply, so a path that applies nothing is visible as a missing line
+   rather than as a wrong picture.
+2. **Group C**, which is C++ and is the one thing in the demo path this session did not
+   touch: the restart lives in `Core::onDemoFinished` and loops whenever `demoLoopEnabled_`
+   is set, knowing nothing about the pause. Note the branch already carries two uncompiled
+   C++ changes, so that build is overdue on its own account.
+3. Then **D**, which wanted B finished before it could be judged, and **E** last of the
+   tablet work.
+
+**Still owed and now several sessions old:** the logcat check for `SETTINGS: persistent
+settings injected into pulseRuntimeSettings -> ok` with no ReferenceError above it, and
+`feature/device-profiles-step4` still not merged to master.

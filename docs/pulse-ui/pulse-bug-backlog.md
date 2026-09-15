@@ -29,26 +29,38 @@ than a list of separate bugs.
 
 ---
 
-## Group A — the rail says nothing about what is open
+## Group A — the rail says nothing about what is open — **DONE, 15 Sept 2026 (`d75e4f12`)**
 
-One fault, five symptoms, and it is the cheapest win on the list.
+One fault, five symptoms, and it was the cheapest win on the list.
 
-- **Only the Colours button lights up when its panel is open.** Cone, Max depth,
-  Intensity, Water body filter and Settings do not. `PulseRail.qml` sets
+- **Only the Colours button lit up when its panel was open.** Cone, Max depth,
+  Intensity, Water body filter and Settings did not. `PulseRail.qml` set
   `pending: rail.openGroup === "colours"` on exactly one button; every other
-  `PulseRailButton` is missing the line. Users cannot tell which control they are
+  `PulseRailButton` was missing the line. Users could not tell which control they were
   looking at.
 
-**Fix:** one property per button, or better, let the button compare its own `buttonId`
-with `rail.openGroup` so a new button cannot be added without it. The second shape is the
-one that stops this recurring.
+**Fixed with the second shape, which is the one that stops this recurring.** The line is
+gone rather than written ten more times. The rail's `ColumnLayout` declares
+`openGroup: rail.openGroup` **once**; `PulseRailButton` defaults its own `openGroup` from
+its parent and derives `readonly property bool pending: buttonId !== "" && buttonId ===
+openGroup`. A new button lights up correctly with **no line at all** — it only needs a
+`buttonId`, which it needs anyway to do anything.
 
-**Session size:** minutes. Do it first — it makes everything else easier to test, because
-the rail finally says what is open while you are testing something else.
+Three details worth keeping in mind when the next button is added:
+
+- The **parent read** is what makes it free, and it is the one implicit thing here: QML ids
+  do not cross files, so `PulseRailButton.qml` cannot see `rail`. The `undefined` test is
+  what makes it safe — a parent with no such property answers `""` rather than throwing on
+  every evaluation — and `openGroup` is still settable at the call site for a button ever
+  nested inside something other than the column.
+- The **empty test is not belt and braces.** `collapse` and `backToClassic` carry buttonIds
+  and open no group, and `""` is also what `openGroup` reads when the panel is closed;
+  without it every button would light at once on a closed panel.
+- **`cone`/`screen` lights up for free** because its `buttonId` is already dynamic.
 
 ---
 
-## Group B — the file/demo path sets nothing up
+## Group B — the file/demo path sets nothing up — **DONE, 15 Sept 2026 (`e8634060` … `b5849994`)**
 
 The largest group, and the one Olav has been describing for several sessions as "the
 device change problems". His own reframing on 14 September is the key to it:
@@ -77,6 +89,66 @@ opened or a demo starts.
 **Fix shape:** one function that says "a source has been chosen — apply everything the
 picture needs", called from the commit path AND the file-open path AND the demo-start
 path. Today the commit path has it and the other two do not.
+
+### What was actually there, which is worse than the line above says
+
+**The commit path did not have it either.** `onUserManualSetNameChanged` ran
+`applyScreenId` and `applyConeId` — two of the six applies. The only place that ran
+anything like the full set was the colour block's `Component.onCompleted`, **once**, at
+startup. So there were two partial lists and no complete one, and every source chosen after
+startup got whichever partial list its path happened to reach.
+
+### The four commits
+
+- **`e8634060` — `mainview.applyForSource(reason)` is the one list.** Theme → intensity →
+  water body filter → screen mode → cone → **range last**, and the ordering is
+  load-bearing: `applyScreenId` → `applyEchogramMode` writes `isSideScan2DView`, and that
+  is what decides which of the three stored range keys `displayMaxRange` reads. It reaches
+  the other files through `signal sourceChosen(string reason)` on `pulseRuntimeSettings`,
+  the same route the rail's source button already takes. Callers: the commit handler, the
+  startup block, `enterDemoMode`, and the file-open completion.
+
+  **Plus a second trigger that no call at the moment of choosing can replace.** A log does
+  not say whether it is 2D or side scan until its channel list arrives, several frames after
+  the dialog closed — so `applyForSource` also runs on `presentedModel`. That is the half
+  that makes the picture adapt to the log rather than to the last device, and it is silent
+  in exactly the case Olav reported as already working (a blue log on a committed blue does
+  not move `presentedModel`).
+
+  **The file-open call is in `onSendIsFileOpening`, not beside a dialog**, because that
+  handler is the one point every route to an opened file passes through — the connection
+  screen's *View a file*, the drag and drop, and the menu bar's open. A call at each dialog
+  would have been three places to forget.
+
+- **`689e33f7` — opening a file takes the connection screen down.** Two faults, both the
+  predicted shape. The **flags**: `awaitingUserChoice` and `connectionScreenRequested` were
+  cleared by committing a card and by `enterDemoMode`, and by nothing on the file path.
+  Both clears now live in `answerSourceQuestion(how)` on `pulseRuntimeSettings` and all
+  three paths call it. The **binding**: `chooserAsking`'s third term guarded on
+  `isPresentingLog`, which requires `activeModel !== ""` and therefore a channel list — so
+  on a cold start, which is *when the welcome screen is up*, an opening file had no model
+  and the guard read false for the whole open. The new `logIsOnScreen` is the plainer
+  question that term was always asking, without `isPresentingLog`'s two profile-side
+  conditions.
+
+- **`65ed7074` — choosing a new source stops the old one first.** `enterDemoMode` returned
+  early on `isInDemoMode`; `Core::startDemo` refuses while `isDemoMode_` is set, so nothing
+  happened at all. The same file still returns early; a different one calls `core.stopDemo()`
+  and carries on. **Not `exitDemoMode()`** — its other half is backlog item 9 (clear the
+  committed model, reopen the links, ask for re-detection), which a swap would undo two
+  lines later while the app hunted for a transducer. **`isInDemoMode` stays true across the
+  swap**, or `logIsOnScreen` drops for a frame and the connection screen flashes back over
+  the file being chosen. `stopDemoPlayback(why)` is that same half on its own, for opening a
+  file over a running demo, and it is called *after* `wasKlfFileOpened` is raised for the
+  same reason.
+
+- **`b5849994` — `applyEchogramMode` reads the key instead of naming one.** The side branch
+  assigned `pulseSettings.maxDepthValuePulseBlueFixed` by hand and **the down branch assigned
+  nothing at all**, so entering down scan re-ranged the plot against the number the outgoing
+  mode had left in `quickChangeMaxRangeValue`. Both branches now read
+  `pulseRuntimeSettings.displayMaxRange`, after the `isSideScan2DView` write and not before.
+
+**Not compiled and not on a device.** Every one of these is QML and the shell has no Qt.
 
 **Session size:** one full session. This is the group with the most user-visible payoff.
 
@@ -147,7 +219,7 @@ one that benefits from everything else being stable.
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
   -> ok` with no `ReferenceError` above it.
 - `feature/device-profiles-step4` has never been merged to master.
-- `feature/pulse-ui-v2-rail` is now **72 commits unpushed**.
+- `feature/pulse-ui-v2-rail` is now **81 commits unpushed**.
 - Two C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
   (`2efbccb3`) and the loupe crash guard (`e3d75733`).
 
@@ -159,9 +231,11 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
 
 ## The order, and why
 
-1. **A** — minutes, and it makes every later session easier to test.
-2. **B** — the big one, and the one a customer would notice first.
-3. **C** — rides along with B; same demo path.
+1. ~~**A**~~ — **done**, `d75e4f12`.
+2. ~~**B**~~ — **done**, `e8634060` … `b5849994`. Untested on a device.
+3. **C** — rides along with B; same demo path. **Next**, and it is C++: the restart is in
+   `Core::onDemoFinished`, which loops whenever `demoLoopEnabled_` is set and knows nothing
+   about the pause. Note the branch already carries two uncompiled C++ changes.
 4. **D** — wants B finished before it can be judged.
 5. **E** — last of the tablet work, and it is already half of the phone work.
 6. **Phone sizing** — after all of the above, deliberately.
