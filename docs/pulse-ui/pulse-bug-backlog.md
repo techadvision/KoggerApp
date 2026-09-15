@@ -214,6 +214,52 @@ one that benefits from everything else being stable.
 
 ---
 
+## Found on the device build of 15 Sept, after A and B
+
+- **The demo pill survives opening a file.** Run a demo, then open a file from the source
+  screen: the pill that was reporting the demo stays up while the file loads and after it
+  has loaded. Pressing it does the right thing — the file closes and the link re-establishes
+  if a sounder is present, which is `exitFileView()`'s behaviour and therefore the CLOSE
+  branch — so the pill's *action* is the file's and only its appearance is in question.
+  `isDemo` is one binding on `isInDemoMode`, and `stopDemoPlayback("a file was opened")`
+  lowers that in `onSendIsFileOpening` before anything else can read it. **Diagnosis needs
+  the logcat**: `DEMO: stopping the replay - a file was opened` present or absent settles
+  whether the flag never fell or the pill is not reading it.
+
+- **A red demo now flows vertically, and the live feed has started doing the same.**
+  Olav, 15 Sept: *"opposite from before when echogram came horizontal for dual side scan —
+  only now the live feed also opens that way like it inherited the blue render prefs."* This
+  is the older *"demo for red after blue shows as a single-channel side scan"* quirk moving
+  rather than closing, and it now reaches the live picture. **Olav is deferring it** — *"the
+  inability to properly enforce the user's preferred settings also is not working all over
+  the place. We will come back to that."* Note for whoever picks it up: `applyForSource` now
+  runs on `presentedModel` as well as on the three source paths, so the orientation writes
+  in `applyEchogramMode` reach the live picture on paths they did not reach before. That is
+  the intended behaviour and it is also the most likely carrier of an inherited preference.
+
+---
+
+## Asked for, not a bug — the speed gauge
+
+**From the professional dealer, via Olav, 15 Sept 2026.** Not a defect and not scheduled
+here; recorded so it is not lost.
+
+- **The data already exists.** The autopilot sends `GLOBAL_POSITION_INT`, whose `vx`/`vy`
+  are cm/s; `DeviceManager` reduces them to a horizontal velocity and
+  `device_manager_wrapper.h:29` publishes it as
+  `Q_PROPERTY(float vruVelocityH READ vruVelocityH NOTIFY vruChanged)`. `deviceManagerWrapper`
+  is a root context property, so a QML overlay can read it directly — nothing C++ is needed.
+- **Where it goes:** below the depth readout, and below the temperature when that is shown.
+  So it is a third line on the depth/temperature overlay rather than a new surface, and it
+  inherits that overlay's corner-follows-the-flow rule for free.
+- **The unit is the user's:** m/s, km/h, or the imperial equivalents, **one decimal**.
+- **The setting lives under the `Screen & echogram` category** in the settings list.
+
+Two things to settle when it is built rather than now: whether the row is absent or shows a
+dash when no MAVLink is present (the settings list's own rule is absent, and
+`pulseRuntimeSettings.mavlinkDetected` already answers the question), and whether it is
+suppressed while paused the way the depth readout is.
+
 ## Still owed, from earlier sessions
 
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
