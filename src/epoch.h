@@ -202,6 +202,38 @@ public:
             tgc.clear();
         }
 
+        // EVERY BUFFER ABOVE IS DERIVED FROM `amplitude`, AND NONE OF THEIR CACHE GUARDS
+        // CAN SEE THAT IT CHANGED.
+        //
+        // chartTo() rebuilds them on `isEmpty()` (compensated, tgc) or on
+        // `size() != rawSize || version mismatch` (tvgCompensated, ssTvgCompensated). The
+        // version tags track the GLOBAL GAIN CONSTANTS - EchogramTvg::version() and
+        // EchogramSideScanTvg::version() - not the samples. So an in-place edit of
+        // `amplitude` at the SAME SIZE is invisible to all four, and the picture keeps
+        // drawing the copy made before the edit.
+        //
+        // WHICH IS WHY TVG APPEARED TO DISABLE BLACK STRIPES REMOVAL (Olav, 15 Sept 2026).
+        // BlackStripesProcessor::update() repairs masked samples straight into this vector
+        // and does not change its length; imageType 0 renders `amplitude` directly and shows
+        // the repair, and imageType 1-4 all render a stale cache and do not. The backward
+        // pass makes it unmissable - 5 steps on both profiles - because it repairs epochs the
+        // renderer has already drawn AND already built a gain buffer for. Dataset emits
+        // redrawEpochs() for exactly those epochs and Core::onRedrawEpochs re-renders them,
+        // faithfully, from the stale buffer: the invalidation existed and reached the wrong
+        // layer.
+        //
+        // CLEAR RATHER THAN RESIZE, deliberately. An empty buffer fails all four guards as
+        // they are written, so every branch rebuilds with no new condition to keep in step
+        // with them.
+        void invalidateDerived() {
+            compensated.clear();
+            tvgCompensated.clear();
+            tvgVersion = 0;
+            ssTvgCompensated.clear();
+            ssTvgVersion = 0;
+            tgc.clear();
+        }
+
         DistProcessing bottomProcessing;
         Position sensorPosition;
         RecordParameters recordParameters_;

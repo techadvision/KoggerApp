@@ -97,6 +97,12 @@ void Epoch::setChart(const ChannelId& channelId, const QVector<QVector<uint8_t>>
         echogram.resolution = resolution;
         echogram.offset = offset;
         echogram.type = 1;
+
+        //THE GAIN BUFFERS ARE DERIVED FROM THE SAMPLES WE JUST REPLACED. Their cache guards
+        //in chartTo() test size and a global gain version, neither of which notices new
+        //content at the same length - see Echogram::invalidateDerived(). Doing it here means
+        //every caller of setChart is correct without knowing the caches exist.
+        echogram.invalidateDerived();
     }
 }
 
@@ -116,6 +122,11 @@ void Epoch::setChartBySubChannelId(const ChannelId &channelId, uint8_t subChanne
     charts.resolution = resolution;
     charts.offset = offset;
     charts.type = 1;
+
+    //Same reason as setChart above. This is the path BlackStripesProcessor takes when an
+    //epoch had no chart at all for the channel, so without this the rebuilt column would
+    //render through whatever gain buffer the previous occupant of this slot had left.
+    charts.invalidateDerived();
 }
 
 void Epoch::setRecParameters(const ChannelId& channelId, const RecordParameters& recParams)

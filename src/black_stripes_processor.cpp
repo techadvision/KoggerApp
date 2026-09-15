@@ -63,6 +63,15 @@ bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Dir
                 epoch->setChartParameters(channelId, chartParameters);
                 amplitude.resize(newDataSize);
                 beenUpdated = true;
+
+                // AND THE GROW PATH IS THE ONE THAT CAN READ PAST THE END, not merely draw
+                // something stale. chartTo() takes rawSize from amplitude.size(), and its
+                // guards for imageType 1 and 4 are isEmpty() alone - so a `compensated` or
+                // `tgc` buffer left at the OLD, SHORTER length is accepted and then indexed
+                // to the new rawSize. The two TVG buffers happen to be safe because their
+                // guards compare size, which is luck rather than design: the same mistake
+                // one buffer away is an overread.
+                epoch->chart(channelId, subChannelId)->invalidateDerived();
             }
         }
         else {
@@ -85,16 +94,20 @@ bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Dir
             beenUpdated = true;
         }
 
-        auto& amplitude = epoch->chart(channelId, subChannelId)->amplitude;
+        auto* echogram = epoch->chart(channelId, subChannelId);
+        auto& amplitude = echogram->amplitude;
         auto chartParameters = epoch->getChartParameters(channelId);
 
         const auto errorMask = createErrorMask(chartParameters.errList, newDataSize);
         const bool isMaskAvailable = !errorMask.isEmpty();
 
+        bool repairedSamples = false;
+
         for (int i = 0; i < newDataSize; ++i) {
             if (isMaskAvailable && errorMask[i]) {
                 if (ethalonVector[i].first) {
                     beenUpdated = true;
+                    repairedSamples = true;
                     amplitude[i] = ethalonVector[i].second;
                     --ethalonVector[i].first;
                 }
@@ -102,6 +115,25 @@ bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Dir
             else {
                 ethalonVector[i] = qMakePair(isForward ? forwardSteps_ : backwardSteps_, amplitude.at(i));
             }
+        }
+
+        // THE REPAIR HAS TO REACH THE GAIN BUFFERS, AND THIS IS THE ONE WRITER THAT HAS TO
+        // SAY SO ITSELF.
+        //
+        // Epoch::setChart and Epoch::setChartBySubChannelId invalidate on their own, so
+        // every caller of those is covered without knowing the caches exist. This loop is
+        // different: it writes through a reference to the epoch's own vector, which Epoch
+        // cannot observe, at an unchanged length - and an unchanged length is precisely what
+        // chartTo()'s cache guards test. Without this the repaired samples are invisible to
+        // imageType 1 to 4 and visible only on the raw render, which is why the black stripes
+        // removal looked as though the TVG switch disabled it.
+        //
+        // Guarded on repairedSamples rather than beenUpdated: the branches above that set
+        // beenUpdated without touching this vector have already invalidated through Epoch's
+        // own setters, and the resize case rebuilds anyway. The cost is bounded by the step
+        // counts - at most forward + backward epochs re-gained per ping.
+        if (repairedSamples) {
+            echogram->invalidateDerived();
         }
     }
 
