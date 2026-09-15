@@ -312,6 +312,66 @@ dash when no MAVLink is present (the settings list's own rule is absent, and
 `pulseRuntimeSettings.mavlinkDetected` already answers the question), and whether it is
 suppressed while paused the way the depth readout is.
 
+## The mosaic TVG, and the expert switches that could end a profile binding — **DONE, 15 Sept 2026**
+
+| Commit | What |
+|---|---|
+| `50ff1f42` | the mosaic gets the side scan TVG, because it was built and switched off |
+| `00b5b0a3` | an expert switch can no longer end the profile's say over the gain law |
+
+**Olav, 15 Sept:** *"We must enable the TVG for side scan mosaic. The result looks terrible
+when far away areas are darker."*
+
+### Nothing was missing. The default was false.
+
+`EchogramSideScanTvg`, the per-epoch `ssTvgCompensated` buffer, `MosaicProcessor`'s
+`ensureMosaicSource()` and `mosaicSourceBuf()`, and `qPlot2D::setSsTvgMosaicEnabled` were all
+in the tree, with `Plot2D.qml` pushing the value and `main.qml:138` rebuilding the mosaic when
+it changed. `sideScanTvgMosaicEnabled` was declared `false` and the switch sat in the expert
+tier.
+
+**And the buffer was already being built.** `pulseBlue` carries `sideScanTvgEnabled: true`, so
+`resolveEchogramCompensation()` returns imageType 3 and the **waterfall already renders from
+`ssTvgCompensated`** — for every epoch it draws. The mosaic was reading `compensated`, the AGC
+buffer, beside it. So the two surfaces drew **the same data through two different gain laws**:
+AGC normalises local contrast, TVG corrects level over range, and the edges of the swath go
+dark under one and not the other. Switching the mosaic over costs almost nothing, because the
+buffer it wants is already there.
+
+It became **profile data**, beside `sideScanTvgEnabled` where it belongs: `true` on blue (and
+blue-IP, which merges it), `false` on red, which has no mosaic to draw.
+
+### And then the sweep, which is the part that stops it happening again
+
+`echogramTvgEnabled` and `sideScanTvgEnabled` were bindings on `activeProfile` **that the
+expert controls assigned to** — v2's settings list through `settingChanged("runtime", …)`,
+classic's expert panel through `SettingsCheckBox.targetPropertyName`. An assignment destroys a
+binding permanently, so **the first touch of either switch ended the profile's say over the
+gain law for the rest of the run**: swap the transducer after that and the echogram renders
+with the law of the device that is no longer there.
+
+Classic's rows already carried `writeBackOnUserActionOnly: true` with a comment naming this
+exact failure. That narrows the window to a real click without closing it, and a real click is
+what the control is for.
+
+All three now take the shape rule 2 asks for: **one binding on the profile, one tri-state
+override (0 follow / 1 force on / 2 force off), and nothing assigns the value.** The value is
+`readonly`, so a future control reaching for the old spelling gets a loud *"Cannot assign to
+read-only property"* on the first click instead of a picture that quietly stops following the
+device; all three names join `runtimeKeysQmlOwns` so a bus echo is skipped rather than thrown.
+
+**It was a sweep, not a spot fix.** Those two were the *only* profile-bound properties in
+`PulseRuntimeSettings` with an assignment anywhere in the QML, and there are now no writers
+left to any of the three.
+
+**To check on the device:** tiles already drawn keep their pixels until re-traced, and at
+startup the value is simply already true, so nothing changes and nothing triggers the rebuild.
+A log that was open from before may look half-and-half until the mosaic update action is used.
+On a **fresh** open it should be right from the first tile — if it is not, that is a real
+finding.
+
+---
+
 ## Asked for, twice — burst playback instead of the file-open freeze
 
 **Olav, 15 Sept 2026, and he has raised it before:** *"My file opening is nothing to be proud
@@ -388,7 +448,7 @@ surface at all** today, and `progress_` is already being computed for one.
 - The logcat check for `SETTINGS: persistent settings injected into pulseRuntimeSettings
   -> ok` with no `ReferenceError` above it.
 - `feature/device-profiles-step4` has never been merged to master.
-- `feature/pulse-ui-v2-rail` is now **86 commits unpushed**.
+- `feature/pulse-ui-v2-rail` is now **89 commits unpushed**.
 - Three C++ changes in this branch are **uncompiled in this shell**: the per-pane grid
   (`2efbccb3`), the loupe crash guard (`e3d75733`) and the held demo restart (`2b2074f8`).
   The last one adds a `Q_INVOKABLE` to `Core`, so `moc` has to re-run — a clean-ish build
