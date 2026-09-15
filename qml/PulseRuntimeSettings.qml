@@ -681,6 +681,26 @@ QtObject {
         }
     }
 
+    //A SOURCE HAS BEEN CHOSEN - APPLY EVERYTHING THE PICTURE NEEDS.
+    //
+    //The signal lives here and the applying lives in main.qml, for the reason every other
+    //cross-file call in this UI has: QML ids do not cross files, so nothing outside
+    //main.qml can reach `mainview`, while pulseRuntimeSettings is a root context property
+    //and is reachable from all of them. This is the same route the rail's source button
+    //takes to raise the connection screen.
+    //
+    //THREE PATHS CHOOSE A SOURCE and only one of them was applying anything: committing a
+    //card ran the screen and cone appliers, while starting a demo and opening a file ran
+    //nothing at all. The stored intensity, water body filter and max range reached the
+    //echogram exactly once, from the colour block's Component.onCompleted at startup - so
+    //a demo started afterwards showed the sliders at their stored values over a picture
+    //that had none of them. That is Olav's "the UI self-adapt to the chosen log file",
+    //and this signal is the one place it is answered.
+    //
+    //`reason` is for the log line only. Nothing branches on it, and nothing should: the
+    //whole point is that the three paths get the SAME treatment.
+    signal sourceChosen(string reason)
+
     //DEMO MODE: entering and leaving, in one place so the Recording tab, the
     //end-of-file path and any later kiosk autostart all take the same route.
     //
@@ -757,6 +777,13 @@ QtObject {
         applyBlackStripesToCore(prof.fixBlackStripesForwardSteps,
                                 prof.fixBlackStripesBackwardSteps,
                                 prof.fixBlackStripesState)
+
+        //AND THE PICTURE'S OWN SETTINGS, which a demo got none of. Safe to emit here and
+        //not a frame later: demoIsSideScan is set during core.startDemo() above - the
+        //prescan reports before it returns, which is why the black stripes profile three
+        //lines up can already read it - so activeModel, displayIs2DTransducer and every
+        //key they pick are settled by the time anything reads them.
+        sourceChosen("demo")
     }
 
     function exitDemoMode() {

@@ -309,6 +309,19 @@ ApplicationWindow  {
             let isFileOpening = core.getIsFileOpening()
             console.log ("FILE OPENING: isFileOpening euals", isFileOpening)
             pulseRuntimeSettings.isOpeningKlfFile = isFileOpening
+
+            // THE FILE-OPEN PATH'S CALL, and it is here rather than beside any one of the
+            // file dialogs because THIS is where every route to an opened file arrives -
+            // the connection screen's "View a file", the drag and drop above, and the menu
+            // bar's open. A call at each dialog would be three places to forget, which is
+            // the shape Group B is about in the first place.
+            //
+            // ON THE FALLING EDGE, when the open has finished. The picture cannot be set up
+            // from a file that is still being read, and the channel list that says what the
+            // log IS has not arrived while this is true.
+            if (!isFileOpening && pulseRuntimeSettings.wasKlfFileOpened)
+                pulseRuntimeSettings.sourceChosen("file")
+
             if (isFileOpening) {
                 pulseRuntimeSettings.wasKlfFileOpened = true
                 // A NEW LOG MUST NOT BE CLASSIFIED BY THE PREVIOUS ONE'S CHANNEL COUNT.
@@ -2500,10 +2513,12 @@ ApplicationWindow  {
                     // starts on whatever the plot happened to have. The classic controls
                     // did this from their own Component.onCompleted; v2 has no control to
                     // hang it on until a panel is opened, so it happens here.
-                    mainview.applyIntensity()
-                    mainview.applyWaterBodyFilter()
-                    mainview.applyMaxRange()
-                    mainview.applyScreenId(pulseSettings.screenViewId)
+                    // ONE CALL, because this block was the app's only complete-ish apply
+                    // and it ran once, at startup. It is now the startup CALLER of the
+                    // shared list rather than a second copy of it - so a value added to
+                    // that list is applied at startup too, without this block being
+                    // remembered.
+                    mainview.applyForSource("startup")
                 }
                 currentThemeId: pulseRuntimeSettings ? pulseRuntimeSettings.displayThemeId : -1
 
@@ -3671,12 +3686,36 @@ ApplicationWindow  {
     // AND WHEN THE DEVICE CHANGES UNDER THE PREFERENCE. The stored id has not moved, so
     // neither handler above fires - but a newly committed transducer has to be told what it
     // is set to, which is what classic's onUserManualSetNameChanged did for both choosers.
+    //
+    // THIS WAS THE COMMIT PATH'S OWN SHORT LIST and is now a call to the shared one. It kept
+    // two of the six applies, which is why committing a card left the intensity, the water
+    // body filter and the max range wherever the last source had put them.
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
-        function onUserManualSetNameChanged() {
-            mainview.applyScreenId(pulseSettings.screenViewId)
-            mainview.applyConeId(pulseSettings.ecoConeId)
+        function onUserManualSetNameChanged() { mainview.applyForSource("commit") }
+    }
+
+    // THE OTHER TWO PATHS, and the settle that neither of them can do synchronously.
+    //
+    // sourceChosen is emitted by enterDemoMode and by the file-open path - see
+    // PulseRuntimeSettings and the core.onSendIsFileOpening handler above. That is the
+    // backlog's "called from the commit path AND the file-open path AND the demo-start
+    // path", and it is the whole of the Group B fix shape.
+    //
+    // AND presentedModel, which is the part a call at the moment of choosing cannot cover.
+    // A log does not say what it is until its channel list arrives, so activeModel - and
+    // with it every key the appliers read - moves some frames AFTER the file was chosen.
+    // Applying again when it moves is what makes the picture self-adapt to the log, which
+    // is the thing Olav named as the source of the whole group. It costs a repaint when
+    // nothing needed changing, and it is silent when the log matches what was committed -
+    // which is exactly the case he reported as already working.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        enabled: pulseSettings.uiVariant === "v2"
+        function onSourceChosen(reason) { mainview.applyForSource(reason) }
+        function onPresentedModelChanged() {
+            mainview.applyForSource("presenting " + pulseRuntimeSettings.presentedModel)
         }
     }
 
@@ -3687,6 +3726,40 @@ ApplicationWindow  {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
         function onEchogramWaterBodyFilterEnabledChanged() { mainview.applyWaterBodyFilter() }
+    }
+
+    // A SOURCE HAS BEEN CHOSEN - APPLY EVERYTHING THE PICTURE NEEDS (Group B).
+    //
+    // THE ONE LIST, and the reason it exists is that there were two partial ones. Committing
+    // a card ran applyScreenId and applyConeId; the colour block's Component.onCompleted ran
+    // applyIntensity, applyWaterBodyFilter, applyMaxRange and applyScreenId, once, at
+    // startup. Nothing ran the whole set, and a demo or a file opened after startup ran none
+    // of it - which is every symptom in Group B of the backlog in one sentence.
+    //
+    // EVERY apply IS IDEMPOTENT AND EVERY ONE IS GATED ON v2 ITSELF, so calling this twice
+    // costs a repaint and nothing else. That matters, because it is called twice on purpose:
+    // once when the source is chosen, and again when the picture's identity settles (see the
+    // presentedModel handler below). A file does not know whether it is 2D or side scan
+    // until its channel list arrives, which is several frames after the dialog closed.
+    //
+    // RANGE LAST, and that is ordering rather than taste: applyScreenId -> applyEchogramMode
+    // writes isSideScan2DView, and that property is what decides WHICH of the three stored
+    // range keys displayMaxRange reads. Range first would apply the outgoing mode's number.
+    function applyForSource(reason) {
+        if (pulseSettings.uiVariant !== "v2")
+            return
+
+        console.log("SOURCE:", reason, "-> applying the picture's settings |",
+                    pulseRuntimeSettings.presentedModel,
+                    "|", pulseRuntimeSettings.displayIs2DTransducer ? "2D" : "side scan",
+                    "| range key", pulseRuntimeSettings.displayMaxRangeKey)
+
+        applyDisplayTheme()
+        applyIntensity()
+        applyWaterBodyFilter()
+        applyScreenId(pulseSettings.screenViewId)
+        applyConeId(pulseSettings.ecoConeId)
+        applyMaxRange()
     }
 
     // INTENSITY AND THE WATER BODY FILTER, applied the same way the palette is: one function,
