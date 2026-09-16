@@ -3844,10 +3844,60 @@ ApplicationWindow  {
     // is the thing Olav named as the source of the whole group. It costs a repaint when
     // nothing needed changing, and it is silent when the log matches what was committed -
     // which is exactly the case he reported as already working.
+    // A PANEL ABOUT THE OUTGOING DEVICE IS WRONG. This is the third instance of a rule the
+    // file already states twice - at the rail's collapse, "a panel without its rail is
+    // stranded", and at the pause, "a panel over a frozen picture is wrong". Both close
+    // openGroup the moment the panel's premise stops holding, and a source change is exactly
+    // such a moment: the panel's contents belong to the device that is leaving.
+    //
+    // Olav, 16 Sept: he stopped a red demo with the cone panel open, started a blue demo, and
+    // the still-open panel came back as the phased-out blue chooser - correctly disabled,
+    // because a recording was on screen, but showing blue's content under red's question. The
+    // panel had outlived the thing it described and was re-resolving its own contents
+    // underneath itself, which is a state nothing here was designed to be in.
+    //
+    // ONE BODY, THREE CALLERS, because the panel becomes stale at three different moments and
+    // a rule written out three times is a rule that will be written out twice next time.
+    function closeStalePanel(why) {
+        if (pulseSettings.uiVariant !== "v2" || pulsePanel.openGroup === "")
+            return
+        console.log("PANEL: closed -", why)
+        pulsePanel.openGroup = ""
+    }
+
+    // BOTH ENDS OF THE SWAP, because they are two different wrongs. The connection screen
+    // RISING leaves a panel hovering over the chooser; a source being CHOSEN leaves a panel
+    // describing a device that has just been replaced. Olav's sequence goes through both, so
+    // closing at one end only would have left the other half of it intact.
+    //
+    // NOT IN answerSourceQuestion, which clears these two flags and looks like the tidier
+    // home: QML ids do not cross files, so PulseRuntimeSettings cannot reach pulsePanel.
+    // main.qml is the only place that can - the same reason sourceChosen is a signal rather
+    // than a direct call.
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
-        function onSourceChosen(reason) { mainview.applyForSource(reason) }
+
+        function onAwaitingUserChoiceChanged() {
+            if (pulseRuntimeSettings.awaitingUserChoice)
+                mainview.closeStalePanel("the app is asking for a source")
+        }
+        function onConnectionScreenRequestedChanged() {
+            if (pulseRuntimeSettings.connectionScreenRequested)
+                mainview.closeStalePanel("the user asked for the connection screen")
+        }
+    }
+
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        enabled: pulseSettings.uiVariant === "v2"
+        function onSourceChosen(reason) {
+            // CLOSED BEFORE THE APPLIES RUN, deliberately. The applies retint the panel's
+            // contents for the incoming device, and that re-resolution under an open panel is
+            // what Olav watched happen.
+            mainview.closeStalePanel("a source was chosen - " + reason)
+            mainview.applyForSource(reason)
+        }
         function onPresentedModelChanged() {
             mainview.applyForSource("presenting " + pulseRuntimeSettings.presentedModel)
         }
