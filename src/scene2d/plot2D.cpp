@@ -654,6 +654,33 @@ void Plot2D::setSyncCursor(int epoch, float depth, int channel)
     syncChannel_ = channel;   // 1/2 — used to pick the half on a dual-channel slave
     setAimEpochEventState(true);
     setTimelinePositionByEpoch(epoch);
+
+    // AND REPAINT, WHICH IS THE WHOLE FIX. Olav, 16 Sept, on a split: "The upper (or lower)
+    // screen does not clear its old when I touch the other screen. Same now in tablet, not a
+    // phone problem." Two crosshairs and two zoom boxes, and nothing about the sync was wrong.
+    //
+    // syncDepthValid_ above is what makes this pane's aim FOREIGN, and Plot2DAim::draw
+    // already refuses a foreign aim both halves of its output - no crosshair, and cand_
+    // cleared so no panel. The flag was set correctly every time. The pane simply never drew
+    // again, so the guard never ran and the pixels from the user's previous touch stayed on
+    // screen.
+    //
+    // THE ONLY REPAINT IN THIS FUNCTION'S CHAIN WAS INSIDE A CALL THAT RETURNS EARLY WHEN
+    // PAUSED. setTimelinePositionByEpoch() opens with `if (echogramPause_) return;`, and
+    // setTimelinePositionSec() - which holds the plotUpdate() - opens with the same test.
+    // The loupe exists ONLY while paused: Plot2D.qml raises an aim on press exclusively
+    // under pulseRuntimeSettings.echogramPause. So the one state in which this repaint is
+    // needed is the one state in which it could not happen, and a running echogram redraws
+    // within a frame anyway - which is why this was invisible until a split was paused.
+    //
+    // clearSyncCursor() HAS ALWAYS ENDED WITH plotUpdate(). The asymmetry between the two
+    // was the bug: clearing a foreign aim repainted, setting one did not.
+    //
+    // NOT cursor_.setMouse(-1, -1) HERE, deliberately. What this pane may DRAW is already
+    // answered by aimIsForeign(); the cursor still carries the epoch and depth the sync is
+    // for, and a per-pane readout or a correlation marker wants exactly that. This commit
+    // makes the pane redraw, and changes nothing about what it knows.
+    plotUpdate();
 }
 
 void Plot2D::clearSyncCursor()
