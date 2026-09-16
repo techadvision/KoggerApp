@@ -3,11 +3,29 @@ import QtQuick 2.15
 // THE INDICATOR PILLS (Stage 4 a) - what the echogram on screen actually IS, and the way
 // out of it.
 //
-// WHICH CORNER FOLLOWS THE FLOW, which is rule 1 applied to placement: a side scan flows
-// downward and its newest pings are at the top, so every overlay belongs at the FOOT; a 2D
-// picture flows sideways and its overlays sit at the TOP, clear of the bottom return. That
-// is the display model's question, never the committed one - with a blue log presenting on
-// a committed red, the pill must sit where the PICTURE says.
+// ALWAYS AT THE FOOT, RIGHT. This column used to switch corners with the flow - foot for
+// a side scan, top for a 2D picture - and that rule NEVER ONCE RAN. It was written as
+//
+//     anchors.top:    displayIs2D ? parent.top : undefined
+//     anchors.bottom: displayIs2D ? undefined  : parent.bottom
+//
+// and an anchor binding that evaluates to undefined does NOT clear an anchor that has
+// already been set: undefined is not a value an anchor line accepts, so the old one
+// silently stays. displayIs2D defaults to true, so parent.top was established at creation
+// - before pulseRuntimeSettings resolved - and nothing could ever take it off again. The
+// pills have sat top right on every picture since the day this file was written.
+//
+// Olav, 16 Sept 2026, on a blue: "It is top right. And if I have a side scan it overlaps
+// the right part of the tick ruler on the top." The side scan tick ruler is a band across
+// the TOP of the pane (plot2D_grid.cpp:210-219), so that corner was never available.
+//
+// THE RULE IS NOW ONE CORNER, NOT A CHOICE. The foot, right - bottom LEFT is the depth
+// readout's on a side scan, so the two do not contend. One anchor, no ternary, and so no
+// undefined to assign: the fix and the trap leave together. Rule 1 still governs what the
+// pills SAY; it no longer governs where they sit.
+//
+// THE TELL, for the next one: `? something : undefined` on an anchor line. There was
+// exactly one other in v2, the hairline in PulsePausedGutter.qml, and it is gone too.
 //
 // ONE INSTANCE ABOVE BOTH PANES. Everything it reports is app-wide rather than pane-wide -
 // a demo is running or it is not - so it is hosted in main.qml beside the rail rather than
@@ -115,11 +133,8 @@ Item {
     function askRecordStop()  { asking = "stop" }
     function dismissQuestion(){ asking = "" }
 
-    // Same floor as the rail and the connection screen: main.qml's insetTop() answers 0
-    // unless DeX is on, because the app draws full-bleed under the status bar. Right for
-    // the picture, wrong for a control - and on a 2D echogram this column sits at the top.
-    readonly property bool onAndroid: Qt.platform.os === "android"
-    readonly property real topInset: Math.max(safeTop, onAndroid ? Math.round(34 * uiScale) : 0)
+    // topInset and its Android status-bar floor are gone with the top anchor. safeTop is
+    // kept declared because main.qml assigns it and a later top-edge overlay will want it.
 
     // A positioner, not a Layout - so a plain width on a child is correct throughout this
     // file, and an invisible pill simply takes no space.
@@ -129,10 +144,11 @@ Item {
         anchors.right: parent.right
         anchors.rightMargin: pillColumn.safeRight + Math.round(16 * pillColumn.uiScale)
 
-        anchors.top:    pillColumn.displayIs2D ? parent.top : undefined
-        anchors.bottom: pillColumn.displayIs2D ? undefined  : parent.bottom
-        anchors.topMargin:    pillColumn.topInset    + Math.round(14 * pillColumn.uiScale)
-        anchors.bottomMargin: pillColumn.safeBottom  + Math.round(14 * pillColumn.uiScale)
+        // ONE ANCHOR. See the head of this file: the pair of ternaries this replaces could
+        // not express "not anchored", so the top one was permanent and the bottom one was
+        // decorative.
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: pillColumn.safeBottom + Math.round(14 * pillColumn.uiScale)
 
         spacing: Math.round(10 * pillColumn.uiScale)
 
@@ -142,9 +158,9 @@ Item {
         // on: "Stop" ends a demo, "Live now" ends a scroll.
         //
         // FIRST IN THE COLUMN. It is the most urgent thing the column can say, and the
-        // arithmetic works in its favour: a Column anchored at its BOTTOM - which is
-        // where this column sits on a side scan - grows upward when a first child
-        // appears, so nothing below it moves.
+        // arithmetic works in its favour: a Column anchored at its BOTTOM - which is now
+        // where this column always sits - grows upward when a first child appears, so
+        // nothing below it moves. That was written as an intention and is finally true.
         //
         // NO BUTTON THAT ONLY WAITS. The action does exactly what classic's timer did
         // after six seconds, at the moment the user asks for it instead.
