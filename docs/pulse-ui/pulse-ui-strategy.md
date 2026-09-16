@@ -7233,105 +7233,214 @@ the option gives responsiveness, the burst gives a picture that fills while you 
 
 ---
 
+# Session close — 16 Sept 2026 (late), the file open
+
+**Ten commits. The phone was parked, P2 was designed and then mostly built, and two of the
+three things that went wrong were mine.**
+
+| commit | what |
+|---|---|
+| `027b35d1` | a foreign aim must repaint the pane it lands on |
+| `2d92f90f` | the P2 design, before any of it was built |
+| `ea5cf3d3` | the file path asks the recording what it is, before drawing any of it |
+| `4807efea` | the file open breathes |
+| `f1e2717e` | the prescan compiles on the branch that ships |
+| `49f9b85e` | the file open can be answered: Stop keeps it, Close walks away |
+| `33ae511a` | the opening pill, and the only two things a tap can reach |
+| `8548375d` | the opening pill declares the properties it is assigned |
+| `8a8b159c` | a binding with nowhere to land is caught before the device |
+| `0cead7ae` | the working-style note names the fourth check |
+
+## Fifteen: a state change whose only repaint is in a call that returns early
+
+`027b35d1`, and it is the day's cleanest. Two crosshairs and two zoom boxes in a split, which
+looked like the mirror the device day had deleted coming back. It was not. `setSyncCursor()`
+sets the flag that makes the other pane's aim foreign, and `Plot2DAim::draw` has always refused
+a foreign aim both halves. **The flag was right every time; the pane never drew again.** Its
+only repaint sits behind `setTimelinePositionByEpoch()`, which opens with
+`if (echogramPause_) return;` — and the loupe exists **only** while paused.
+
+> **The one state in which a repaint is needed can be the one state in which it cannot happen.**
+> The tell is a setter and its opposite disagreeing: `clearSyncCursor()` has always ended with
+> `plotUpdate()` and `setSyncCursor()` never did.
+
+And it lived in a split that `78ee70cc` had verified the same day. **A layout can be walked and
+a gesture missed** — this one needed touching one pane and then the other.
+
+## Sixteen: two options weighed as one, and the half that was separable
+
+The documents had weighed *burst through the demo transport* against *turn `SEPARATE_READING`
+on*, and rejected the second because it re-threads the whole reception path. **The
+`processEvents()` is not the threading.** Taking it alone kept Core's completion path
+synchronous, so `fileOpened()`, `notifyFileOpened()`, `fitAllInView()` and `onChannelsUpdated()`
+kept their order with nothing restructured — and the teardown trap the design had just written
+down never arose, because `openFile` kept its own loop and therefore its own teardown.
+
+> **When two options are rejected together, check whether one of them is two things.** The cost
+> of the pairing here was a design that reached for the larger change for a reason that applied
+> to only half of it.
+
+## Seventeen: a declaration placed by where it looks at home
+
+Twice in one evening, and both cost a build.
+
+`logPrescanClass_` landed inside `core.h`'s `#ifdef SEPARATE_READING` block, beside
+`tryOpenedfilePath_` and `fileIsCompleteOpened_` — which is exactly where a file-open member
+*looks* like it belongs. Both of its readers are on the shipping branch, where that macro is not
+defined. And `logPrescan` stayed `private` when it stopped being `demoPrescan`.
+
+> **Place a declaration by where it is USED, not by what it sits next to.** A neighbour is a
+> resemblance; a reader is a fact.
+
+## Eighteen: a check that must be ignored is worse than no check
+
+The second failure was worse than the first, because it was process rather than judgement: **a
+patch script raised before it wrote the file, and I read its output as information rather than
+as a failed write.** Half a commit shipped — the pill and its blocker without the five
+properties and signals they hang on — and the app could not start.
+
+All three checks in `tools/` passed on it, and none could have done otherwise: none resolves a
+name against the type it is assigned to. So there is a fourth, `pulse-qml-binding-check.js`.
+
+**Its first version judged every component and produced twelve hundred lines.** `SpinBoxCustom`,
+`CheckButton`, `CCheck`, `CText` and `CCombo` are rooted in QtQuick Controls types and inherit a
+surface it cannot see, so `text`, `checked`, `from`, `to` and `value` all looked wrong and all
+were right.
+
+> **A static check earns its place by what it is silent about.** Narrowing it to components
+> rooted in a plain `Item` is not a concession — an `Item` root has almost no inherited surface,
+> so what the file declares IS what it offers, and that is exactly the Pulse v2 family where the
+> bug class lives. Three false-positive classes were then FIXED rather than allowlisted, because
+> each was legitimate QML the parser did not know. The allowlist is empty.
+
+Verified by reproduction: delete `signal abortOpening()` and it names `main.qml:3029
+PulsePillColumn.onAbortOpening` — the same file, line and name Qt printed.
+
+## And the vocabulary did the work again
+
+The opening pill needed no new words. **Stop** is what the demo pill already says for *stop
+feeding me, keep what is on screen*; **Close** is what the file pill already says for *this file
+goes away*. Putting the pill INSIDE `PulsePillColumn` is what makes that true rather than merely
+consistent: it is replaced by the "Viewing recording · Close" pill when the open finishes, in
+the same corner, at the same size, with one word changed. The button the user was looking at does
+not move — which matters most here, because this is the one moment a user cannot explore the
+interface to find out what a control does.
+
+Olav found every fault this evening by using the app, and closed one of them himself: *"The
+upper (or lower) screen does not clear its old when I touch the other screen."* That sentence was
+the diagnosis.
+
+---
+
 # Next-session prompt
 
-Repo `Documents/GitHub/KoggerApp`, branch `feature/pulse-ui-v2-rail`. Ask for folder access and
-delete permission before any branch switch or file removal.
+Repo `Documents/GitHub/KoggerApp`. Ask for folder access and delete permission before any branch
+switch or file removal.
 
-FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` — "WHAT IS LEFT", P0–P5, and especially the
-"Phone findings, 16 Sept 2026" block under P1, which now carries the diagnosis and the
-arithmetic — then this document's final session close, "16 Sept 2026 (evening), the phone". Do
-not re-derive any of it.
+**P3 IS ON ITS OWN BRANCH, off the pushed tip of `feature/pulse-ui-v2-rail`** — Olav, 16 Sept:
+*"I suggest that I will push to github and then isolate the changes we now do for the nadir band
+and downscan. I feel this is a bit risky."* He is right, and the reason is worth stating so the
+isolation is kept rather than quietly abandoned halfway:
 
-THIS SESSION STARTS WITH TWO LOG LINES, and until they are read there is nothing to write.
-Build, run on **both the phone and the tablet**, and bring back:
+- **P3 is the first work of this project that changes the DATA rather than the interface.** A
+  derived channel lives in `Epoch`/`Dataset`, underneath the echogram, the mosaic, the bottom
+  track and both UI variants. Everything since 11 Sept has been QML and presentation, where a
+  mistake is visible and local; this one can be wrong everywhere at once and look fine in the
+  place you are testing.
+- **`feature/pulse-ui-v2-rail` is a known-good point worth being able to return to.** Seven
+  fixes verified on hardware on 16 Sept, then tonight's file-open work verified too.
+- **The cache discipline is the specific hazard.** `bd14130f` established that every buffer
+  derived from `amplitude` joins `Echogram::invalidateDerived()`. A new derived channel that
+  does not join it is that exact fault again, and it is silent — a stale buffer draws
+  faithfully.
 
-1. **`METRICS:`** — two per run, "startup" and "settled". It carries the window in logical
-   units, `Screen.devicePixelRatio`, the screen both ways, the short side, the RAW ratio before
-   the clamp, the clamped `s`, `theme.resCoeff` and three derived sizes. **The dpr is the number
-   the whole loupe/font diagnosis turns on.** `main.cpp` sets `QT_SCALE_FACTOR=0.5` on Android,
-   so the logical-to-device ratio is the device's density times a half — near 1 on a
-   normal-density tablet (the dpr-1 desktop window `computeScale()`'s own comment names, and why
-   the tablet has never looked wrong) and not near 1 on a 560 dpi phone.
+Confirm the branch is at 0/0 before branching. **And `master` is still 71 commits ahead of
+`origin/master`** — unrelated to P3, still the residual risk these documents keep naming, and
+worth doing in the same visit to GitHub Desktop.
 
-   **The dpr picks WHICH repair is correct, and they are opposite.** `qPlot2D::paint` sets
-   `deviceScale_ = (qAbs(dpr - qRound(dpr)) > 0.01) ? dpr : 1.0` — an INTEGER dpr means every
-   `UiMetrics` number is logical and the fix is the base scale, AFTER `bf80ab02`, whose fit clamp
-   is what keeps a larger base scale safe. A FRACTIONAL dpr on the phone with an integer one on
-   the tablet means the same constants are device pixels on one and logical units on the other,
-   and the fix is a conversion in the painter — touching `scale()` would then inflate every QML
-   control, which reads `Ui.iconTouch` as logical units in `SettingRow`, `KeyCodeInput` and the
-   rest. Olav's *"text is readable, buttons are small"* leans to the first. Leaning is not
-   reading.
+FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` — "WHAT IS LEFT", and especially **P3**, the
+mosaic-and-downscan section, plus the earlier section *"The mosaic and the water body filter"*
+where the nadir band was diagnosed and parked. Then this document's last two session closes,
+"16 Sept 2026 (evening), the phone" and "16 Sept 2026 (late), the file open". Do not re-derive
+any of it.
 
-   **And the box and the buttons are two knobs.** `zin.boxSizePx` (320 in v2) is already the one
-   knob for the tile, and `bf80ab02` shrinks the tile and never the chrome — so raising it gives
-   a bigger box full screen and takes it back in a split with nothing to decide per layout. The
-   buttons' minimum is physical, not proportional. If chrome alone ever exceeds a split pane, the
-   answer is the layout `bf80ab02` already named, buttons BESIDE the tile, not a smaller button.
+THIS SESSION: **P3 — the nadir band and the downscan, which are one piece of work.** Olav chose
+the treatment on 16 Sept: **interpolate across the nadir, because that IS the downscan.**
 
-2. **`MOSAIC:`** — on startup, on every layout choice, and whenever availability moves. It names
-   all three terms of `view3dToggleAvailable`, plus `has3DView` / `has2DView` /
-   `splitEchograms` and the 3D pane's size. **Say which term is false, then fix that one.**
-   Leading candidate: `core.filePath` is empty during a demo, so a demo fails both halves of a
-   test that is really asking "do we have position". Second: `is2DTransducer` is the COMMITTED
-   device where every other screen-chooser question follows the DISPLAY model. Do not write
-   either fix before the line is read — D-2 is the precedent.
+## What is already settled, and must not be re-litigated
 
-   If the line ever reads **available true**, the pane size on the same line is the next
-   question and it is already answered.
+- **Our geometry is not at fault.** The mosaic's sample lookup is honest slant range —
+  `segFCurrPhPos.distanceToPoint(segFBoatPos)` with z = the processed depth — so a ground point
+  at horizontal offset *x* reads the sample at `sqrt(x² + depth²)`. Checked end to end. **There
+  is no slant-range error to find.**
+- **The dark band along the track is the nadir null and it is PHYSICAL.** A side scan transducer
+  has no useful return directly beneath it. Upstream paints that wedge anyway, near black, which
+  is why it reads as a strip of water body laid into the map.
+- **The two honest treatments** are blanking the wedge (needs a per-epoch width from the bottom
+  track and a transparency path through the tile writer that may not exist) and interpolating
+  across it. **Interpolating is chosen**, and the reason is Olav's own standing note: *"We should
+  work with interpolating the two channels into one view for downscan."* Closing the nadir and
+  building the downscan are the same work, so it is done once rather than twice.
 
-ALSO CHECK ON THAT BUILD, all cheap:
+## The landing place already exists, which is what makes this tractable
 
-- **The rail on the phone.** The wordmark should be absent rather than half off the screen, and
-  the arrow to classic should be gone. Then say whether the rail FITS — the remaining decision
-  (two columns of buttons on a short screen, or settings/collapse into the panel) is Olav's, and
-  it was deliberately left until a real available height is known.
-- **The rail on the tablet must be unmoved.** `3ed258c9` only ever shrinks and reserves the
-  wordmark's old slot to the pixel, spacing included. If the wordmark has moved on a tablet, the
-  slot arithmetic is wrong.
-- **The settings list's Experimental row is now the ONLY way back to classic.** Confirm it
-  works; nothing else in v2 writes `uiVariant`.
+`split_side_down` is shipping as a deliberate stand-in. `PulseRuntimeSettings.qml` says so in
+`offersSplitSideDown`'s own note: there is no true down scan on the wire, so **the split draws
+BOTH panes from the one channel** and the difference between the halves is the grid and the
+range rather than the data. Olav: *"Allow downscan view already now. We use the same source as
+for downscan today. Fix it later."*
 
-WATCH FOR: the fault shapes in this document's session closes, now fourteen — the last added
-after the close was written: **a state change whose only repaint lives inside a call that
-returns early in the very state where the change matters** (`027b35d1`). Its tell is a setter
-and its opposite disagreeing: `clearSyncCursor()` ended with `plotUpdate()`, `setSyncCursor()`
-did not. The four that
-earned their place today are **a fallback that works is indistinguishable from a feature that
-does not** (tell: a graceful substitution with no log line), **every scale in this app is
-floored** (tell: `qBound`/`Math.max` with the floor at or above what a small screen produces),
-**in a Layout an item shrinks and its fixed-size children do not** (tell: `anchors.centerIn`
-over a hard `width`/`height` inside a `Layout.preferred*` box), and **scaffolding is retired by
-being used, not by being replaced**.
+> **"When the interpolated down scan exists it replaces the bottom pane's source and nothing in
+> this table changes."**
 
-And the standing one, which held again today: **a confident derivation about behaviour is a
-hypothesis.** A long read of the mosaic render path produced nothing; Olav's second message
-produced the diagnosis in one line.
+So the deliverable has a defined shape before a line is written: **a second channel derived from
+the two side scan channels**, which the bottom pane of `split_side_down` reads instead of
+channel 1, and which the mosaic reads across the nadir wedge. One derivation, two consumers.
 
-ALSO OPEN, none of it blocking the phone:
+## Where to read first
 
-- **Group E's remaining walk** — the panel, the setup card, the paused gutter and the depth
-  readout have never been checked in a split. The rail half is now the phone fit budget. **And
-  walk them with a GESTURE, not only a layout**: `027b35d1` was a fault in a split `78ee70cc`
-  had already verified, and it only appears when one pane is touched and then the other.
-- **A settings row for `revealAppLogFolder()`** — both `Q_INVOKABLE`s exist and nothing in QML
-  calls them. Cheap, and it turns every future device check into a tap.
-- **`bd14130f` unverified** — needs a log known to show black stripes, TVG on.
-- **`applyEchogramMode`'s `setParam("chartOffset", 0)`** is unguarded on a recording — the same
-  argument as `79c16ebc`, and live on an opened file where the links stay open.
+`src/data_processor/mosaic_processor.cpp` for the wedge and the tile writer; `Epoch`/`Dataset`
+for where a derived channel would live (`Echogram::invalidateDerived()` in `epoch.h` is the
+cache discipline any new derived buffer must join — `bd14130f` is the commit that established
+it, and a new buffer that does not join it is the same stale-cache fault again); and
+`PulseRuntimeSettings.screenViewsAll` for the table that does not change.
+
+**Before writing anything visual, show Olav the design.** The interpolation is a picture, and
+what the nadir looks like afterwards is his call, not an implementation detail.
+
+ALSO OPEN, none of it blocking P3:
+
+- **P2b — the three source choices** (backlog): drop the simulation caption, add **Stream a
+  file** (the demo transport with the FILE flags), rename **View a file** to **Open a file**.
+  One reading in it needs confirming — the backlog says which.
+- **The mosaic on the phone.** Still the one functional fault, still instrumented (`262be7fe`)
+  and still unread. The tablet reads `available true` with `mavlink true`, which weakens the
+  "empty `core.filePath` in a demo" candidate, because a replay raises MAVLink itself.
+- **The loupe's buttons on the phone**, waiting on the `METRICS:` line. `qPlot2D::paint`'s
+  integer-versus-fractional dpr cliff decides which of two opposite repairs is right.
+- **The `CHANNELS:` line** still prints "2D" / "side scan" from the channel count, which
+  `ea5cf3d3` means the app no longer decides with. A diagnostic describing a value the decision
+  does not use — the `af857891` lesson. One line.
+- **`applyEchogramMode`'s `setParam("chartOffset", 0)`** is unguarded on a recording.
 - **`applyViewId` is dead code** carrying two hardware writes.
-- **The channel-count transient** — a blue demo runs a full apply pass as red before correcting.
-  Cosmetic; belongs with P2's file-side prescan rather than a patch at the guard.
-- **`master` is 71 commits ahead of `origin/master`.** The feature branch has four new commits
-  to push.
+- **A settings row for `revealAppLogFolder()`** — both `Q_INVOKABLE`s exist and nothing calls
+  them. The logs are at `Documents/KoggerApp/AppLogs/kogger*.log` on the device; logcat is not
+  needed and never was.
+- **`master` is 71 commits ahead of `origin/master`.**
+
+WATCH FOR: the fault shapes in this document's session closes, now eighteen. The four added
+tonight are **a state change whose only repaint lives in a call that returns early in the state
+where it matters** (tell: a setter and its opposite disagreeing about `plotUpdate()`), **two
+options weighed as one when one of them was two things**, **a declaration placed by where it
+looks at home rather than by where it is used** (tell: a member inside an `#ifdef` its readers
+are outside), and **a static check earns its place by what it is silent about**.
+
+And the standing one: **a confident derivation about behaviour is a hypothesis.** It held again
+tonight — the dual crosshair was reasoned about at length and yielded to one sentence from Olav
+and one file read.
 
 HOW WE WORK: show me the design before building anything visual; one idea per commit; I build in
 Qt Creator and report back — the sandboxed shell has no Qt and no GitHub credentials, and pushes
 happen from GitHub Desktop. Run `node tools/pulse-profile-check.js` after any profile change and
-`pulse-qml-version-check.js` / `pulse-icon-check.js` / **`pulse-qml-binding-check.js`** after
-any QML or icon change. That last one is new on 16 Sept and it is not optional: a property
-assigned to a component that does not declare it is a LOAD failure — the whole tree fails,
-the root object is null and the app exits before drawing — and the other checks all passed
-on exactly that. Nothing under
-`build/`. Patch the strategy document by anchored replacement.
+`pulse-qml-version-check.js` / `pulse-icon-check.js` / **`pulse-qml-binding-check.js`** after any
+QML or icon change. Nothing under `build/`. Patch the strategy document by anchored replacement.

@@ -1255,6 +1255,42 @@ say design them together rather than growing three prescans.**
   cancellable open for free, but it is a build option nobody ships and it re-threads the whole
   reception path. The two are not exclusive.
 
+### P2b — The three source choices, from Olav, 16 Sept evening — **NOT STARTED**
+
+**His own words, recorded before they are interpreted:** *"Remove the sub text under button for
+simulation (Simulate a file). Then add 'Stream a file' as new. This behavior. Then repurpose
+'view a file' as 'open a file'. This to use the old behavior. But we keep the new pill that
+allows the impatient user to stop and abort - and then we show the result similar to now."*
+
+**This turns P2's burst item from a change to OPENING into a third user-visible CHOICE**, which
+is a better answer than the one the design reached for: instead of one open that behaves
+differently from before, there are two named acts and the user picks.
+
+The connection screen's three rows, after:
+
+| row | what it is | today |
+|---|---|---|
+| **Start a simulation** | demo mode - closes the live links and pretends to be live | `PulseConnectionScreen.qml:830`; the caption at `:980` goes |
+| **Stream a file** | **NEW.** The demo TRANSPORT with the FILE flags: links stay open, `wasKlfFileOpened` stays true, the picture fills as it reads | does not exist |
+| **Open a file** | read it all, then present it, with the timeline and scroll-back | `:901`, today's *View a file* |
+
+- **Remove the caption** *"Replays a recording as if the transducer were live."* (`simCaption`,
+  `:980`). One line.
+- **Stream a file** is P2's burst-playback item with its three recorded traps unchanged:
+  `wasKlfFileOpened` must stay **TRUE**, the links must **not** be closed, and the prescan is
+  already done by `ea5cf3d3`. It is the demo *transport*, never demo *mode* - that distinction
+  is the whole of the difference between this row and the first one.
+- **Open a file** keeps today's behaviour **and the new pill**: `4807efea`'s yielding parse and
+  `49f9b85e`'s Stop / Close stay exactly as they are, because they are what makes waiting
+  bearable rather than what makes it a stream.
+
+**ONE THING TO CONFIRM BEFORE BUILDING, and it is a reading rather than a quotation.** *"This
+behavior"* against **Stream a file** is taken to mean the progressive fill - a file arriving like
+a feed - and *"the old behavior"* against **Open a file** to mean read-it-all-then-show. If it is
+the other way round, the two rows swap and nothing else in this item changes.
+
+---
+
 ### P3 — The mosaic and downscan geometry. Two items that are one piece of work
 
 **The nadir band and the downscan view are the same job**, and the documents say so: closing
@@ -1306,6 +1342,9 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
    on a device.**
 3. ~~**P0 — the build and the push**~~ — **done 16 Sept 2026**, branch pushed at 0/0.
 4. **P1 — E, then phone sizing.** One continuum.
-5. **P2 — the file-open freeze**, designed as one piece of work.
+5. ~~**P2 — the file-open freeze**~~ — **the prescan (`ea5cf3d3`), the yielding parse
+   (`4807efea`), the interrupt (`49f9b85e`) and the opening pill (`33ae511a`) are all built and
+   the first three are verified on a device.** What is left of it is **P2b**, which is a product
+   decision rather than a repair.
 6. **P3 — the nadir band and downscan**, after P1.
 7. **P4** — whenever there is a spare half-session.
