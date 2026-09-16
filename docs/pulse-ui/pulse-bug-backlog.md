@@ -1108,6 +1108,34 @@ wrote them; what follows each is what the evening session found.
      moving settings/collapse into the panel (128 u) are both on the table and neither is worth
      choosing against an estimated available height.
 
+5. **Two crosshairs and two zoom boxes in a split** — found on the phone, **confirmed on the
+   tablet, and NOT a phone problem.** **FIXED, `027b35d1`.** Olav: *"The upper (or lower) screen
+   does not clear its old when I touch the other screen. Same now in tablet, not a phone
+   problem."*
+
+   **Nothing about the sync was wrong.** `setSyncCursor()` sets `syncDepthValid_`, which is what
+   makes a pane's aim *foreign*, and `Plot2DAim::draw` already refuses a foreign aim both halves
+   — no crosshair, and `cand_` cleared so the panel is not tappable either. The flag was set
+   correctly every time. **The pane never drew again**, so the guard never ran and the pixels
+   from the previous touch stayed on screen.
+
+   ```
+   setSyncCursor()
+     └ setTimelinePositionByEpoch()   if (echogramPause_) return;
+         └ setTimelinePositionSec()   if (echogramPause_ && !drag) return;
+             └ plotUpdate()           ← never reached
+   ```
+
+   **The loupe exists only while paused** — `Plot2D.qml` raises an aim on press exclusively
+   under `echogramPause` — so the one state in which that repaint is needed is the one state in
+   which it could not happen. A running echogram redraws within a frame regardless, which is why
+   only a *paused split* ever showed it. `clearSyncCursor()` has always ended with
+   `plotUpdate()`; the asymmetry between the two was the bug.
+
+   **And it is the device day's own lesson nine in a new place.** `78ee70cc` deleted the mirror
+   and verified the split; this gesture — touch one pane, then touch the other — was never
+   tried, and the guard it added was correct the whole time.
+
 4. **The forced landscape is on borrowed time.** The console already warns about it. If Google
    stops honouring it, *"the narrow split screen view we get as landscape today will rule"* —
    so the narrow case is not an edge case to tolerate, it is the case to design for. **Not
@@ -1121,12 +1149,56 @@ dpr 1 — the desktop window named in that function's own comment. Both the phon
 tablet were expected to land on the 0.75 clamp floor, so **nothing that scales down can help
 the phone**; it needs the base scale fixed.
 
+**LOGCAT IS NOT NEEDED, and this was not known until now.** `main.cpp:418` installs `AppLog` as
+the Qt message handler, so every `console.log` in the app is written to a rolling file on the
+device: `/storage/emulated/0/Documents/KoggerApp/AppLogs/kogger*.log`, under **Documents** and so
+reachable over USB or any file manager, 8 MB × 5 on Android. Every `METRICS:`, `MOSAIC:`,
+`THEME:`, `MODE:`, `RANGE:` and `SOURCE:` line this project has ever written is in there. `Core`
+also exposes `appLogFilePath()` and `revealAppLogFolder()` as `Q_INVOKABLE` and **nothing in QML
+calls either** — a settings row would turn this into a tap instead of a hunt. This retires the
+"logcat was unavailable again" check that has been owed for several sessions.
+
 **INSTRUMENTED, `b753c340`, and the code is NOT to be touched before the line is read.** One
 `METRICS:` line prints the window in logical units, `Screen.devicePixelRatio`, the screen both
 ways, the short side, the **raw** ratio before the clamp, the clamped `s`, `theme.resCoeff` and
 three derived sizes — at startup and again 400 ms after the last resize, because the activity
 forces landscape and the window is resized after QML is up. Raw and clamped both print: `0.75`
 and `0.75-because-the-floor-caught-it` are otherwise the same string.
+
+**THE NUMBER SELECTS BETWEEN TWO OPPOSITE FIXES, which is why the code is not to be touched
+first.** `qPlot2D::paint` contains a cliff:
+
+```
+const qreal dpr = window()->effectiveDevicePixelRatio();
+deviceScale_ = (qAbs(dpr - qRound(dpr)) > 0.01) ? dpr : 1.0;
+```
+
+An **integer** dpr takes one branch and a **fractional** dpr the other:
+
+- **dpr ≈ 2.0 on both devices** → `deviceScale_` is 1.0 everywhere, every `UiMetrics` number is
+  *logical*, and the phone's chrome is small for the plain reason that `scale()` is pinned at
+  the 0.75 floor while the tablet sits above it. **Fix: the base scale**, with `bf80ab02`'s
+  clamp keeping a split safe.
+- **dpr ≈ 1.75 on the phone** (density 3.5 × `main.cpp`'s `QT_SCALE_FACTOR=0.5`) **and 1.0 on
+  the tablet** → the phone takes the fractional branch, its canvas is 1.75× denser, and every
+  constant the C++ painter draws with is **device pixels on the phone and logical units on the
+  tablet**. One number, two coordinate systems. **Fix: the painter converts** — and touching
+  `scale()` would then be wrong, because QML reads `Ui.iconTouch` as *logical* units in
+  `SettingRow`, `KeyCodeInput` and the rest, and would inflate every control.
+
+**Olav's own report leans to the first** — *"Text is readable. But the button size is small"*,
+and a font at 18 **device** px on a 560 dpi screen would be under a millimetre tall. Leaning is
+not reading.
+
+**And the two knobs are separate.** *"The entire zoom box could actually be larger. But also
+cannot be much larger for the dual screen options."* The box is already one knob —
+`plot2D_aim.cpp`'s `zin.boxSizePx = isUiVariantV2_ ? 320 : 250`, named in its own comment as
+*"THE ONE KNOB FOR ZOOM BOX SIZE"* — and `bf80ab02` shrinks **the tile and never the chrome**
+when the pane is short, so raising it gives a bigger box full screen and takes it back in a
+split with nothing to decide per layout. The **buttons** are the other knob and their minimum is
+physical, not proportional. If the chrome alone ever exceeds a split pane, the honest next step
+is the layout `bf80ab02` already named — buttons **beside** the tile, not beneath it — and not a
+smaller button.
 
 **And the Android case is not what the code reads like.** `main.cpp` sets
 `QT_AUTO_SCREEN_SCALE_FACTOR=0` and `QT_SCALE_FACTOR=0.5`, so the logical-to-device ratio is the
