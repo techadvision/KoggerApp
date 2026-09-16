@@ -388,6 +388,14 @@ public slots:
         refreshEchogram();
     }
     Q_INVOKABLE int getDownBlendDomain () const { return EchogramBlend::domain(); }
+    Q_INVOKABLE void setDownBlendTrimDb (float db) {
+        if (qFuzzyCompare(1.0f + db, 1.0f + EchogramBlend::trimDb())) {
+            return;
+        }
+        EchogramBlend::setTrimDb(db);
+        refreshEchogram();
+    }
+    Q_INVOKABLE float getDownBlendTrimDb () const { return EchogramBlend::trimDb(); }
     //Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
     //Q_INVOKABLE void setSideScanOnLeftHandSideNow(bool isLeftSideInstalled) { setSideScanOnLeftHandSide(isLeftSideInstalled); }
 

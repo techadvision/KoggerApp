@@ -944,6 +944,27 @@ Item {
                     onChosen: function (v) {
                         list.settingChanged("runtime", "downScanBlendDomain", v)
                     }
+                },
+
+                // A LADDER, so a stepper rather than a segmented row - these are points on a
+                // scale, not answers with names. Also absent with the blend off, for the same
+                // reason the row above is.
+                PulseStepperRow {
+                    width: downScanGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: (pulseRuntimeSettings ? pulseRuntimeSettings.downScanBlendMode : 1) !== 0
+                    uiScale: list.uiScale
+
+                    label: qsTr("Channel balance")
+                    hint:  qsTr("by eye - plus favours the starboard channel, half applied each way")
+                    unit:  qsTr("dB")
+                    decimals: 0
+                    values: [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.downScanBlendTrimDb : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "downScanBlendTrimDb", v)
+                    }
                 }
             ]
         }

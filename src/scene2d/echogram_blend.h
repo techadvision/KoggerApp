@@ -51,12 +51,27 @@
 //   blend ONCE gives the down pane exactly the signal chain a real down scan
 //   channel would have. AfterGain is kept for comparison and costs nothing.
 //
-// NOT HERE, DELIBERATELY: channel balance. Port and starboard transducers do
-// differ in sensitivity and equalising before combining is correct practice,
-// but the honest estimator is a slowly varying ratio of each channel's
-// seabed-region intensity over a few hundred pings. A per-ping ratio chases
-// speckle and makes the picture worse, so this waits until the blend has been
-// seen on the water rather than shipping as a switch that guesses.
+// CHANNEL BALANCE, AND WHY IT IS A HAND TRIM RATHER THAN AN ESTIMATOR. Port and
+// starboard transducers differ in sensitivity, and equalising before combining
+// is correct practice - two looks are only two looks if they are at the same
+// level. But the honest AUTOMATIC estimator is a slowly varying ratio of each
+// channel's seabed-region intensity over a few hundred pings; a per-ping ratio
+// chases speckle and makes the picture worse. So what ships is the form that
+// needs no estimator at all: a trim in dB that a person sets by eye, applied
+// SYMMETRICALLY - half of it to each channel, in opposite directions - so the
+// ratio moves and the overall level does not.
+//
+// The gains are passed IN rather than read here, because this module knows the
+// law and the renderer knows which buffer is port and which is starboard. That
+// is also why apply() takes them per call: chartToBlended is handed whichever
+// channel owns the half being drawn, so "the first argument" is not a channel
+// identity.
+//
+// AND THE BLEND MODE IS ITS OWN DIAGNOSTIC FOR THIS. RMS and the arithmetic
+// mean differ only where the two channels differ - speckle CV 0.363 against
+// 0.370, and about 6% in level, both invisible on matched channels. If the two
+// modes look OBVIOUSLY different, the channels are mismatched, which is what
+// the trim is for.
 //
 // Display-only, like every other module in this directory: stored amplitudes
 // and logs are never touched.
@@ -82,9 +97,21 @@ public:
     static void setDomain(int domain);
     static int  domain();
 
-    // out[i] = blend(a[i], b[i]) for i < n. out is resized to n. Mode::Single
-    // never reaches here - the caller does not blend at all in that case.
-    static void apply(const uint8_t* a, const uint8_t* b, int n, QVector<uint8_t>& out);
+    // Channel balance, in dB, positive favouring the SECOND channel. Applied as
+    // half each way, so the ratio moves and the level does not.
+    static void  setTrimDb(float db);
+    static float trimDb();
+
+    // The two amplitude gains a trim of `trimDb()` implies, first channel then
+    // second. Both are 1.0 at a trim of zero.
+    static void  trimGains(float& gainFirst, float& gainSecond);
+
+    // out[i] = blend(gainA * a[i], gainB * b[i]) for i < n, clamped to 0..255.
+    // out is resized to n. Mode::Single never reaches here - the caller does not
+    // blend at all in that case.
+    static void apply(const uint8_t* a, float gainA,
+                      const uint8_t* b, float gainB,
+                      int n, QVector<uint8_t>& out);
 
 private:
     EchogramBlend() = delete;

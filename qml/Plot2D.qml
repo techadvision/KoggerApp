@@ -226,6 +226,7 @@ WaterFall {
             plot.setSsTvgMosaicEnabled(pulseRuntimeSettings.sideScanTvgMosaicEnabled)
             plot.setDownBlendMode(pulseRuntimeSettings.downScanBlendMode)
             plot.setDownBlendDomain(pulseRuntimeSettings.downScanBlendDomain)
+            plot.setDownBlendTrimDb(pulseRuntimeSettings.downScanBlendTrimDb)
 
             // Water body filter: its strength lives in a C++ atomic and is ONLY ever
             // pushed through applyFiltering(). Push it here so the filter is genuinely
@@ -325,6 +326,17 @@ WaterFall {
                         pulseRuntimeSettings.downScanBlendDomain === 1 ? "after the gain law"
                                                                        : "raw, gain applied to the blend")
             plot.setDownBlendDomain(pulseRuntimeSettings.downScanBlendDomain)
+        }
+
+        function onDownScanBlendTrimDbChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("BLEND: channel balance ->", pulseRuntimeSettings.downScanBlendTrimDb,
+                        "dB, half each way,",
+                        pulseRuntimeSettings.downScanBlendTrimDb === 0 ? "matched"
+                      : pulseRuntimeSettings.downScanBlendTrimDb > 0   ? "favouring channel 2"
+                                                                       : "favouring channel 1")
+            plot.setDownBlendTrimDb(pulseRuntimeSettings.downScanBlendTrimDb)
         }
 
         // PULSE side scan TVG: expert toggle. Only ever switches between the

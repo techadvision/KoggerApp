@@ -1906,17 +1906,29 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                         // zero - is untouched by construction.
                         const bool blendHalf = EchogramBlend::mode() != EchogramBlend::Single;
 
+                        // The channel balance is resolved HERE because this is the only
+                        // place that knows which cursor channel is which side. channel1 is
+                        // the half drawn below zero and channel2 the half above it, so a
+                        // positive trim favours channel2 - starboard, the side the down pane
+                        // has been showing on its own all along.
+                        float gain1 = 1.0f, gain2 = 1.0f;
+                        if (blendHalf) {
+                            EchogramBlend::trimGains(gain1, gain2);
+                        }
+
                         if (blendHalf && cash_data_size_part1 > 0 && cash_data_size_part2 <= 0) {
                             datasource->chartToBlended(cursor.channel1, cursor.subChannel1,
                                                        cursor.channel2, cursor.subChannel2,
                                                        from1, to1, cash_data, cash_data_size_part1,
-                                                       _compensation_id, true);
+                                                       _compensation_id, true,
+                                                       gain1, gain2);
                         }
                         else if (blendHalf && cash_data_size_part2 > 0 && cash_data_size_part1 <= 0) {
                             datasource->chartToBlended(cursor.channel2, cursor.subChannel2,
                                                        cursor.channel1, cursor.subChannel1,
                                                        from2, to2, cash_data, cash_data_size_part2,
-                                                       _compensation_id, false);
+                                                       _compensation_id, false,
+                                                       gain2, gain1);
                         }
                         else {
                             if(cash_data_size_part1 > 0) {

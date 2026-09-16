@@ -778,10 +778,17 @@ public:
     // fifth buffer outside it. Nothing is stored on the dataset, so there is no
     // per-epoch cache that can go stale behind a black-stripes repair; the cost is
     // one blend pass and one gain pass per epoch per invalidated column.
+    //
+    // gainPrimary / gainOther are the channel balance, computed by the caller
+    // because IT knows which buffer is port and which is starboard - "primary" is
+    // whichever channel owns the half being drawn and is not a channel identity.
+    // Both are 1.0 when no trim is set, and the blend then runs its untrimmed
+    // arithmetic to the bit.
     bool chartToBlended(const ChannelId& primaryCh, uint8_t primarySub,
                         const ChannelId& otherCh, uint8_t otherSub,
                         float start, float end, int16_t* dst, int len,
-                        int imageType, bool reverse = false)
+                        int imageType, bool reverse = false,
+                        float gainPrimary = 1.0f, float gainOther = 1.0f)
     {
         if (!dst || len <= 0) {
             return false;
@@ -839,7 +846,7 @@ public:
         scratch.bottomProcessing  = primary->bottomProcessing;
         scratch.sensorPosition    = primary->sensorPosition;
 
-        EchogramBlend::apply(a, b, n, scratch.amplitude);
+        EchogramBlend::apply(a, gainPrimary, b, gainOther, n, scratch.amplitude);
         if (scratch.amplitude.size() != n) {
             return chartFrom(*primary, start, end, dst, len, imageType, reverse);
         }

@@ -721,6 +721,15 @@ QtObject {
     property int    downScanBlendMode:   1
     property int    downScanBlendDomain: 0
 
+    //CHANNEL BALANCE, BY HAND. Two looks are only two looks if they are at the same level,
+    //and port and starboard transducers are not identical. The automatic form of this needs
+    //a slowly varying ratio of each channel's seabed intensity over a few hundred pings - a
+    //per-ping ratio chases speckle - so what ships is the form that needs no estimator: a
+    //trim in dB set by eye, applied HALF EACH WAY so the ratio moves and the level does not.
+    //Positive favours channel 2, which is the side the down pane drew on its own before the
+    //blend existed. Zero is the only defensible default while nothing has measured them.
+    property double downScanBlendTrimDb: 0
+
     // Single source of truth for the echogram compensation id.
     // 2D uses the selected gain law (echogram2DGainId: 2 = PULSE EchogramTvg,
     // 4 = upstream's linear TGC ramp) when enabled, else raw (0); side scan uses
