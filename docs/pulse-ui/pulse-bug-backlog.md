@@ -1013,6 +1013,33 @@ most of a phone fix.
   things to adjust."*
 - **Then phone sizing**, deliberately after, with most of it already done.
 
+#### Phone findings, 16 Sept 2026 — parked deliberately, tablet first
+
+**Olav's own notes from a quick pass on a Samsung S23 Ultra**, recorded verbatim in substance
+so nothing is re-derived. *"These are notes for phone right now... let us first fix the error on
+the tablet."* None of these is started.
+
+1. **No mosaic at all on the phone.**
+2. **`split_side_down` shows only the side scan.** Full-screen side and full-screen down are
+   both fine, so it is the split that fails rather than either view.
+3. **The rail does not fit.** The app forces landscape from the Java activity, so the phone's
+   screen *width* becomes the height available to the rail, and there is not enough of it —
+   *"I can barely see the 'N' in the TechAdVision artwork."*
+4. **The forced landscape is on borrowed time.** The console already warns about it. If Google
+   stops honouring it, *"the narrow split screen view we get as landscape today will rule"* —
+   so the narrow case is not an edge case to tolerate, it is the case to design for.
+
+**And the legibility half, which is NOT a fit problem:** the loupe and its fonts are too small
+to read on the phone — *"the box is a bit too tiny (fonts are a bit tiny, specifically)"*. The
+cause is in `UiMetrics::computeScale()`: it divides a **logical** short side by a reference of
+1200 and the result then multiplies **device**-pixel constants. The two coincide only at
+dpr 1 — the desktop window named in that function's own comment — and diverge with pixel
+density, which is exactly an S23 Ultra. Both the phone and a 10" tablet land on the 0.75 clamp
+floor, so **nothing that scales down can help the phone**; it needs the base scale fixed.
+
+Do that one **after** `bf80ab02`, not before: the fit clamp is what stops a larger base scale
+from putting the buttons off the pane again.
+
 ### P2 — Opening a file without freezing. Three items, one expensive step
 
 Olav has raised this twice, and it is the worst thing a customer meets on first contact:
