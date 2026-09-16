@@ -372,7 +372,35 @@ ApplicationWindow  {
                                 pulseRuntimeSettings.numberOfDatasetChannels)
                     pulseRuntimeSettings.numberOfDatasetChannels = 0
                 }
+                // AND THE PREVIOUS LOG'S PRESCAN, for exactly the argument above. Core
+                // clears it on close as well; this covers opening a file over a file, where
+                // the new answer arrives about 15 ms later from onLogClassified and the
+                // window between must not be the old log's.
+                pulseRuntimeSettings.fileIsSideScan = -1
             }
+        }
+
+        // THE FILE PATH'S PRESCAN ANSWER (P2, item 1), and it is the file-side twin of
+        // onDemoPeriodChanged below. Core runs DeviceManager::logPrescan once per open,
+        // AFTER fixFilePathString has resolved an Android content:// URI and BEFORE a
+        // single byte is parsed, so this handler runs while the picture is still empty.
+        //
+        // That is what Olav asked for in his own words - "read some log content, let the
+        // app abilities do the app setup (but not try to configure the transducer as it is
+        // a file) and THEN show the content" - and it turns applyForSource's presentedModel
+        // trigger from a repair into a non-event, because presentedModel has already moved
+        // by the time the first epoch is drawn.
+        //
+        // AN ASSIGNMENT, NOT A BINDING, and that is correct here: the value is an EVENT
+        // (this file, classified, now) rather than a derivation of anything else on this
+        // object. Nothing else writes it; Core is the single writer at both ends, and the
+        // -1 it sends on close is what stops a closed log classifying the next one.
+        function onLogClassified(classification) {
+            console.log("FILE: prescan says",
+                        classification === 1 ? "side scan"
+                      : classification === 0 ? "2D"
+                                             : "not known - the channel count decides")
+            pulseRuntimeSettings.fileIsSideScan = classification
         }
 
         //DEMO MODE (Stage 1) — see demo_mode_plan.md.

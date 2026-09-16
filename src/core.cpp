@@ -943,6 +943,47 @@ void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEven
             emit filePathChanged();
         }
 
+        // ── THE LOG PRESCAN (P2, item 1) ────────────────────────────────────────────────
+        //
+        // ASK THE RECORDING WHAT IT IS BEFORE DRAWING ANY OF IT. The demo path has always
+        // done this - DeviceManager::logPrescan reads a bounded prefix and answers "2D or
+        // side scan" before the first epoch, which is why demoIsSideScan is settled before
+        // enterDemoMode emits sourceChosen. The file path had no equivalent, and two
+        // recorded items ARE that absence:
+        //
+        //   * applyForSource needed a second trigger on presentedModel (e8634060), because
+        //     an opened log does not say what it is until its channel list arrives.
+        //   * P0's leftover - "the channel count classifies before it has finished
+        //     counting": main.qml's `if (list.length < 2) return` asks whether a list has
+        //     been BUILT, not whether it has finished GROWING, so a blue reads 2D for one
+        //     update. The demo path is immune for exactly the reason above.
+        //
+        // Olav asked for this shape in his own words: "read some log content, let the app
+        // abilities do the app setup (but not try to configure the transducer as it is a
+        // file) and THEN show the content."
+        //
+        // HERE, AND NOT AT THE RISING EDGE OF sendIsFileOpening. That signal is emitted
+        // before this lambda runs and therefore before fixFilePathString() has resolved an
+        // Android content:// URI - there is no path to scan yet. This is the first point at
+        // which the resolved path exists and nothing has been read.
+        //
+        // THE PACING IS DISCARDED, deliberately. An opened file is not paced; only the
+        // classification is wanted here, and taking the period as well would be inventing a
+        // second meaning for an out-param that already has one.
+        {
+            int  prescanPeriodMs = 0;
+            bool prescanIsSideScan = false;
+            logPrescanClass_ = DeviceManager::logPrescan(localfilePath, prescanPeriodMs,
+                                                         prescanIsSideScan, "FILE")
+                                   ? (prescanIsSideScan ? 1 : 0)
+                                   : -1;
+            qInfo() << "FILE: prescan ->"
+                    << (logPrescanClass_ == 1 ? "side scan"
+                      : logPrescanClass_ == 0 ? "2D"
+                                              : "not known - the channel count decides");
+            emit logClassified(logPrescanClass_);
+        }
+
         if (!isAppend && !openedfilePath_.isEmpty()) {
             openedfilePath_.clear();
             emit openedFilePathChanged();
@@ -1208,6 +1249,16 @@ void Core::doOpenLogFileHeavyWork(const QString &filePath,
 bool Core::closeLogFile()
 {
     // qDebug() << "Core::closeLogFile()";
+    // THE PRESCAN'S ANSWER BELONGS TO THE FILE THAT IS GOING AWAY. Left standing it would
+    // classify whatever is opened next, which is precisely the fault main.qml already
+    // guards against for numberOfDatasetChannels: "a new log must not be classified by the
+    // previous one's channel count". Unconditional, and before the wasOpened branch below
+    // returns early, because a stale classification is wrong in both exits.
+    if (logPrescanClass_ != -1) {
+        logPrescanClass_ = -1;
+        emit logClassified(-1);
+    }
+
     const bool wasOpened = isOpenedFile();
     const QString closedFileName = QFileInfo(openedfilePath_).fileName();
     QMetaObject::invokeMethod(dataProcessor_, "prepareForFileClose", Qt::BlockingQueuedConnection, Q_ARG(int, 1500));

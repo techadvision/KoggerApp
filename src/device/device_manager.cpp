@@ -763,14 +763,15 @@ bool DeviceManager::isChartEpochStart(const Parsers::FrameParser& frame)
     return peek.read<U2>() == 0;
 }
 
-bool DeviceManager::demoPrescan(const QString& localPath, int& periodMsOut, bool& isSideScanOut)
+bool DeviceManager::logPrescan(const QString& localPath, int& periodMsOut, bool& isSideScanOut,
+                               const char* tag)
 {
     QFile file;
     const QUrl url(localPath);
     url.isLocalFile() ? file.setFileName(url.toLocalFile()) : file.setFileName(url.toString());
 
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "DEMO: prescan cannot open" << localPath;
+        qWarning() << tag << ": prescan cannot open" << localPath;
         return false;
     }
 
@@ -828,7 +829,7 @@ bool DeviceManager::demoPrescan(const QString& localPath, int& periodMsOut, bool
     file.close();
 
     if (!sawChart) {
-        qWarning() << "DEMO: prescan found no chart data in" << localPath;
+        qWarning() << tag << ": prescan found no chart data in" << localPath;
         return false;
     }
 
@@ -845,17 +846,17 @@ bool DeviceManager::demoPrescan(const QString& localPath, int& periodMsOut, bool
         const int measured = static_cast<int>(spanMs / (epochsSpanned - 1));
         if (measured >= kDemoPeriodMinMs && measured <= kDemoPeriodMaxMs) {
             periodMsOut = measured;
-            qInfo() << "DEMO: pacing measured from log timestamps:" << measured << "ms/epoch"
+            qInfo() << tag << ": pacing measured from log timestamps:" << measured << "ms/epoch"
                     << "(" << epochsSpanned << "epochs over" << spanMs << "ms )";
             return true;
         }
-        qWarning() << "DEMO: measured period" << measured
+        qWarning() << tag << ": measured period" << measured
                    << "ms is outside" << kDemoPeriodMinMs << ".." << kDemoPeriodMaxMs
                    << "- using fallback";
     }
 
     periodMsOut = fallbackMs;
-    qInfo() << "DEMO: pacing fallback" << fallbackMs << "ms/epoch ("
+    qInfo() << tag << ": pacing fallback" << fallbackMs << "ms/epoch ("
             << (sawSideScan ? "side scan, chart v1" : "2D, chart v0") << ")";
     return true;
 }
@@ -876,7 +877,7 @@ void DeviceManager::startDemo(QString filePath)
         isSideScan = demoCachedIsSideScan_;
     }
     else {
-        if (!demoPrescan(filePath, periodMs, isSideScan)) {
+        if (!logPrescan(filePath, periodMs, isSideScan, "DEMO")) {
             emit demoFinished(0);   // nothing played: Core must not loop on this
             return;
         }

@@ -493,10 +493,32 @@ QtObject {
         (userManualSetName === modelPulseRed || userManualSetName === modelPulseBlue) ? userManualSetName
       : ""
 
+    //WHAT AN OPENED LOG IS, ANSWERED BY THE RECORDING BEFORE IT IS DRAWN (P2, item 1).
+    //-1 not known, 0 a 2D picture, 1 a side scan. Written only from core.onLogClassified,
+    //which Core emits once per open from DeviceManager::logPrescan - the same bounded
+    //prefix scan the demo path has always used - and again with -1 when the file closes.
+    //
+    //THIS IS THE DEMO PATH'S demoIsSideScan FOR FILES, and it exists for the same reason:
+    //the demo has always known what it was replaying before the first epoch, and the file
+    //path did not.
+    property int fileIsSideScan: -1
+
+    //IT OUTRANKS THE CHANNEL COUNT WHEN IT HAS AN ANSWER, and that is the point of it.
+    //numberOfDatasetChannels arrives from onChannelListUpdated, whose guard asks whether a
+    //list has been BUILT and not whether it has finished GROWING - so a blue reads 1 channel
+    //for one update and this binding said "red" for that update. The prescan reads chart
+    //frame VERSIONS out of the recording, and the channel structure of a log is a fact about
+    //the file rather than a list that grows, so the earlier answer is also the better one.
+    //
+    //THE CHANNEL COUNT REMAINS THE FALLBACK, for a log the prescan could not classify - no
+    //chart data in its first 8 MB, or a file it could not open - so nothing that works today
+    //stops working when the prescan has nothing to say.
     property string activeModel:
         isInDemoMode ? (demoIsSideScan ? modelPulseBlue : modelPulseRed)
       : (wasKlfFileOpened || isOpeningKlfFile)
-            ? (numberOfDatasetChannels >= 2 ? modelPulseBlue
+            ? (fileIsSideScan === 1 ? modelPulseBlue
+             : fileIsSideScan === 0 ? modelPulseRed
+             : numberOfDatasetChannels >= 2 ? modelPulseBlue
              : numberOfDatasetChannels === 1 ? modelPulseRed
              : committedModel)
       : committedModel
