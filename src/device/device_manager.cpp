@@ -866,7 +866,7 @@ bool DeviceManager::logPrescan(const QString& localPath, int& periodMsOut, bool&
     url.isLocalFile() ? file.setFileName(url.toLocalFile()) : file.setFileName(url.toString());
 
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << tag << ": prescan cannot open" << localPath;
+        qWarning() << tag << "prescan cannot open" << localPath;
         return false;
     }
 
@@ -924,7 +924,7 @@ bool DeviceManager::logPrescan(const QString& localPath, int& periodMsOut, bool&
     file.close();
 
     if (!sawChart) {
-        qWarning() << tag << ": prescan found no chart data in" << localPath;
+        qWarning() << tag << "prescan found no chart data in" << localPath;
         return false;
     }
 
@@ -941,17 +941,17 @@ bool DeviceManager::logPrescan(const QString& localPath, int& periodMsOut, bool&
         const int measured = static_cast<int>(spanMs / (epochsSpanned - 1));
         if (measured >= kDemoPeriodMinMs && measured <= kDemoPeriodMaxMs) {
             periodMsOut = measured;
-            qInfo() << tag << ": pacing measured from log timestamps:" << measured << "ms/epoch"
+            qInfo() << tag << "pacing measured from log timestamps:" << measured << "ms/epoch"
                     << "(" << epochsSpanned << "epochs over" << spanMs << "ms )";
             return true;
         }
-        qWarning() << tag << ": measured period" << measured
+        qWarning() << tag << "measured period" << measured
                    << "ms is outside" << kDemoPeriodMinMs << ".." << kDemoPeriodMaxMs
                    << "- using fallback";
     }
 
     periodMsOut = fallbackMs;
-    qInfo() << tag << ": pacing fallback" << fallbackMs << "ms/epoch ("
+    qInfo() << tag << "pacing fallback" << fallbackMs << "ms/epoch ("
             << (sawSideScan ? "side scan, chart v1" : "2D, chart v0") << ")";
     return true;
 }
@@ -972,7 +972,7 @@ void DeviceManager::startDemo(QString filePath)
         isSideScan = demoCachedIsSideScan_;
     }
     else {
-        if (!logPrescan(filePath, periodMs, isSideScan, "DEMO")) {
+        if (!logPrescan(filePath, periodMs, isSideScan, "DEMO:")) {
             emit demoFinished(0);   // nothing played: Core must not loop on this
             return;
         }

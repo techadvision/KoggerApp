@@ -974,7 +974,7 @@ void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEven
             int  prescanPeriodMs = 0;
             bool prescanIsSideScan = false;
             logPrescanClass_ = DeviceManager::logPrescan(localfilePath, prescanPeriodMs,
-                                                         prescanIsSideScan, "FILE")
+                                                         prescanIsSideScan, "FILE:")
                                    ? (prescanIsSideScan ? 1 : 0)
                                    : -1;
             qInfo() << "FILE: prescan ->"

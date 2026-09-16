@@ -175,6 +175,21 @@ signals:
 #endif
     void fileOpened();
 
+public:
+    // Bounded prefix scan: works out the pacing and the classification before the first
+    // frame is dispatched. Returns false when the file carries no chart data.
+    //
+    // STATIC, AND NAMED FOR WHAT IT SCANS RATHER THAN FOR ITS FIRST CALLER. It touches no
+    // member state - it opens the path, parses a bounded prefix and writes two out params -
+    // so it is callable from any thread and from outside this class. That is what lets Core
+    // run it on the GUI thread on the file-open path while startDemo() still calls it on
+    // DevManThread. `tag` is the log prefix, so DEMO: and FILE: lines stay distinguishable.
+    //
+    // PUBLIC FOR THAT SECOND CALLER. It began as demoPrescan, private beside the rest of the
+    // demo transport; the moment Core calls it, the access has to move with the name.
+    static bool logPrescan(const QString& localPath, int& periodMsOut, bool& isSideScanOut,
+                           const char* tag);
+
 private:
     /*methods*/
     DevQProperty* getDevice(QUuid uuid, Link* link, uint8_t addr);
@@ -183,16 +198,6 @@ private:
     DevQProperty* createDev(QUuid uuid, Link* link, uint8_t addr);
 
     //PULSE DEMO MODE
-    // Bounded prefix scan: works out the pacing and the classification before the
-    // first frame is dispatched. Returns false when the file carries no chart data.
-    //
-    // STATIC, AND NAMED FOR WHAT IT SCANS RATHER THAN FOR ITS FIRST CALLER. It touches
-    // no member state - it opens the path, parses a bounded prefix and writes two out
-    // params - so it is callable from any thread, which is what lets Core run it on the
-    // GUI thread on the file-open path while startDemo() still calls it on DevManThread.
-    // `tag` is the log prefix, so DEMO: and FILE: lines stay distinguishable.
-    static bool logPrescan(const QString& localPath, int& periodMsOut, bool& isSideScanOut,
-                           const char* tag);
     // Clock-driven: each tick delivers whatever the recording says is due by now.
     void demoTick();
     // Dispatches frames up to and including the next chart epoch boundary.

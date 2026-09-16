@@ -420,12 +420,18 @@ private:
 #ifdef SEPARATE_READING
     QString tryOpenedfilePath_;
     bool fileIsCompleteOpened_ = false;
-    // PULSE, THE LOG PRESCAN. -1 not known, 0 a 2D picture, 1 a side scan. Written once
-    // per open, before the parse begins, and cleared when the file closes so the next
-    // log is never classified by the last one's answer.
-    int  logPrescanClass_ = -1;
     QList<QMetaObject::Connection> deviceManagerWrapperConnections_;
 #endif
+
+    // PULSE, THE LOG PRESCAN. -1 not known, 0 a 2D picture, 1 a side scan. Written once
+    // per open, before the parse begins, and cleared when the file closes so the next log
+    // is never classified by the last one's answer.
+    //
+    // OUTSIDE THE SEPARATE_READING BLOCK, and that is not a detail: both of its readers -
+    // openLogFile's lambda and closeLogFile() - are on the SHIPPING branch, where that
+    // macro is not defined. Sitting one line higher it compiled in a configuration nobody
+    // builds and in none that anybody does.
+    int  logPrescanClass_ = -1;
 
     QQmlApplicationEngine* qmlAppEnginePtr_;
     Dataset* datasetPtr_;
