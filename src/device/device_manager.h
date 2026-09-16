@@ -174,8 +174,35 @@ signals:
     void onFileReadEnough();
 #endif
     void fileOpened();
+    // PULSE: the open's percentage moved. Emitted from inside the parse, which is only
+    // possible because the parse yields.
+    void openProgressChanged(int percent);
+    // PULSE: the user answered the opening pill. `discarded` is true for Close.
+    void openInterrupted(bool discarded);
 
 public:
+    // ── INTERRUPTING A FILE OPEN (P2) ──────────────────────────────────────────────────
+    //
+    // openFile() yields to the event loop while parsing, so for the first time a user can
+    // answer it mid-parse. Two answers, and they are NOT one flag with a modifier: they
+    // differ in whether the file counts as OPENED afterwards.
+    //
+    //   KeepLoaded  stop reading, and COMPLETE the open. Everything already parsed stays on
+    //               screen and the app believes it has a file. Olav's "enough".
+    //   Discard     stop reading, and do NOT complete. The caller then closes the file and
+    //               goes back to the connection screen. Olav's "abort".
+    //
+    // ONE VALUE RATHER THAN TWO BOOLS, because two bools have a fourth state that means
+    // nothing and a third that means both. volatile for the same reason break_ is: it is
+    // written from a button handler running inside processEvents() and read by the loop.
+    enum OpenInterrupt { OpenRunning = 0, OpenKeepLoaded = 1, OpenDiscard = 2 };
+    void requestOpenInterrupt(int mode) { openInterrupt_ = mode; }
+    int  openInterrupt() const          { return openInterrupt_; }
+
+    // The percentage openFile() has always computed and thrown away. It has somewhere to go
+    // now only because the parse yields: nothing could have drawn it before.
+    int  openProgress() const { return progress_; }
+
     // Bounded prefix scan: works out the pacing and the classification before the first
     // frame is dispatched. Returns false when the file carries no chart data.
     //
@@ -264,6 +291,7 @@ private:
     // for the first time a second open can arrive while the first is still running. Set for
     // the whole of a parse and cleared on every exit by an RAII guard in the .cpp.
     bool openFileActive_ = false;
+    volatile int openInterrupt_ = OpenRunning;
 #ifdef SEPARATE_READING
     bool onOpen_{ false };
 #endif

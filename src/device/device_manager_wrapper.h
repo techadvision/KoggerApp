@@ -34,6 +34,8 @@ public:
 
     //Pulse
     Q_PROPERTY(bool mavlinkDetected READ mavlinkDetected NOTIFY mavlinkWasDetected)
+    //Pulse, P2: how far a file open has got. Readable at all only because openFile() yields.
+    Q_PROPERTY(int fileOpenProgress READ fileOpenProgress NOTIFY openProgressChanged)
 
     DeviceManager* getWorker();
     QUuid getFileUuid() const;
@@ -47,6 +49,13 @@ public:
     float                vruVelocityH   () { return getWorker()->vruVelocityH();   }
     int                  pilotArmState  () { return getWorker()->pilotArmState();  }
     int                  pilotModeState () { return getWorker()->pilotModeState(); }
+    int                  fileOpenProgress() { return getWorker()->openProgress(); }
+
+    //Pulse, P2: the opening pill's two answers. Direct, not queued - openFile() runs on the
+    //GUI thread on this branch and the tap that calls this lands inside its own
+    //processEvents(), so the loop reads the new value on its very next check.
+    Q_INVOKABLE void stopFileOpen()  { getWorker()->requestOpenInterrupt(DeviceManager::OpenKeepLoaded); }
+    Q_INVOKABLE void abortFileOpen() { getWorker()->requestOpenInterrupt(DeviceManager::OpenDiscard); }
 
     void startWorkerThread();
     void initStreamList();
@@ -108,6 +117,9 @@ signals:
     void vruChanged();
     void chartLossesChanged();
     void mavlinkWasDetected();
+    //Pulse, P2
+    void openProgressChanged(int percent);
+    void openInterrupted(bool discarded);
     void protoBinConsoledChanged();
     void nmeaConsoledChanged();
     void USBLBeaconDirectAskChanged();

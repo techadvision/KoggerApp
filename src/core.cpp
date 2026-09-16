@@ -1057,8 +1057,48 @@ void Core::openLogFile(const QString& filePath, bool isAppend, bool onCustomEven
         bool fileOpenedOk = false;
         auto fileOpenedConn = QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::fileOpened,
                                                [&fileOpenedOk]() { fileOpenedOk = true; });
+
+        // ── THE USER MAY NOW ANSWER MID-OPEN (P2) ───────────────────────────────────────
+        //
+        // openFile() yields to the event loop, so the opening pill's Stop and Close land
+        // WHILE THIS CALL IS STILL ON THE STACK. Two outcomes, and only one of them is a
+        // failure:
+        //
+        //   Stop  -> fileOpened() is emitted as usual, so fileOpenedOk is true and every
+        //            line below runs exactly as it does for a file that read to the end.
+        //            Nothing here needs to know it was cut short.
+        //   Close -> fileOpened() is NOT emitted, so fileOpenedOk is false - which is the
+        //            same shape as a file that failed to open, and it must NOT be reported
+        //            that way. An abort is an answer, not a fault.
+        //
+        // So the abort is latched separately, and it is the only thing that tells the two
+        // apart. Without it Close would raise "could not open this file" over a file the
+        // user deliberately walked away from.
+        bool fileOpenAborted = false;
+        auto abortConn = QObject::connect(deviceManagerWrapperPtr_->getWorker(), &DeviceManager::openInterrupted,
+                                          [&fileOpenAborted](bool discarded) { fileOpenAborted = discarded; });
+
         emit deviceManagerWrapperPtr_->sendOpenFile(localfilePath);
         QObject::disconnect(fileOpenedConn);
+        QObject::disconnect(abortConn);
+
+        if (fileOpenAborted) {
+            // BACK TO WHERE THE FILE WAS CHOSEN. closeLogFile() is the one path that puts
+            // the app back: it clears the dataset, the caches and the 3D scene, and it also
+            // clears the prescan classification so the abandoned log cannot classify the
+            // next one. Raising the connection screen is QML's business - it watches
+            // openInterrupted - so nothing here reaches into the interface.
+            qInfo() << "FILE: the open was aborted by the user -" << localfilePath;
+            openedfilePath_.clear();
+            emit openedFilePathChanged();
+            closeLogFile();
+            QMetaObject::invokeMethod(dataProcessor_, "setIsOpeningFile", Qt::QueuedConnection, Q_ARG(bool, false));
+            if (scene3dViewPtr_) {
+                scene3dViewPtr_->setIsOpeningFile(false);
+            }
+            onFileStopsOpening();
+            return;
+        }
 
         openedfilePath_ = fileOpenedOk ? localfilePath : "";
         emit openedFilePathChanged();

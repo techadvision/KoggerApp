@@ -622,14 +622,15 @@ namespace {
 // that to move to a callback, and would have brought openFile's OWN teardown - delAllDev()
 // at both ends, vru_.cleanVru(), fileOpened(), fileStopsOpening() - along as a trap.
 //
-// EXCLUDEUSERINPUTEVENTS IS THE WHOLE SAFETY ARGUMENT, and it is a deliberate narrowing of
-// what "responsive" promises. Paint events, timers and queued invocations run, so the
-// echogram fills and the app is plainly alive; taps do not, so nothing the user can press
-// can re-enter a file open that is already in progress. Pumping the event loop from inside
-// a parse is exactly how a second openLogFile lands on top of the first, and re-entrancy in
-// this path is the fault family this project keeps finding. What is given up is the ability
-// to cancel - which does not exist today either (break_ is only ever set by
-// SEPARATE_READING's closeFile, so every `if (break_)` on this branch is dead code).
+// USER INPUT IS ADMITTED, AND A MODAL BLOCKER IS WHAT MAKES THAT SAFE. The first version of
+// this passed ExcludeUserInputEvents, which removed re-entrancy by removing taps - and with
+// it removed any possibility of Olav's "Stop" and "Close". Pumping the event loop from
+// inside a parse is exactly how a second openLogFile lands on top of the first, so the
+// answer is not to forbid taps but to leave only two things a tap can reach: while an open
+// runs, QML raises a full-screen blocker with the opening pill above it. Re-entrancy is then
+// impossible by CONSTRUCTION rather than by flag, and the refusing guard at the top of this
+// function covers the routes a person cannot take - a queued timer, a drag and drop, a
+// startup open.
 //
 // isOpeningFile_ IS UNTOUCHED, and that is what keeps this honestly one variable.
 // data_processor.cpp:673 early-returns from tryScheduleAutoBottomTrack while it is set -
@@ -670,6 +671,8 @@ void DeviceManager::openFile(QString filePath)
         return;
     }
     OpenFileScope openScope(openFileActive_);
+    openInterrupt_ = OpenRunning;
+    bool interrupted = false;
 #endif
 
 #ifdef SEPARATE_READING
@@ -736,6 +739,11 @@ void DeviceManager::openFile(QString filePath)
 
         if (progress_ != currProgress) {
             progress_ = currProgress;
+#ifndef SEPARATE_READING
+            // ONCE PER MEGABYTE, which is where the number changes anyway. It could not be
+            // emitted usefully before this branch yielded - nothing would have drawn it.
+            emit openProgressChanged(progress_);
+#endif
         }
 
         frameParser.setContext((uint8_t*)chunk.data(), chunk.size());
@@ -775,20 +783,62 @@ void DeviceManager::openFile(QString filePath)
             // AT THE FOOT OF THE BODY, so at least one frame is always dispatched per
             // window and a pathological frame cannot yield forever without progress.
             if (sinceYield.elapsed() >= kOpenYieldWorkMs) {
-                QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents,
-                                                kOpenYieldBudgetMs);
+                QCoreApplication::processEvents(QEventLoop::AllEvents, kOpenYieldBudgetMs);
                 sinceYield.restart();
+
+                // THE ANSWER IS READ WHERE THE TAP CAN HAVE LANDED, which is the line after
+                // the pump and nowhere else.
+                if (openInterrupt_ != OpenRunning) {
+                    interrupted = true;
+                    break;
+                }
             }
 #endif
         }
 
         chunk.clear();
+
+#ifndef SEPARATE_READING
+        if (interrupted) {
+            break;
+        }
+#endif
     }
     file.close();
 
     vru_.cleanVru();
     delAllDev();
     emit vruChanged();
+
+#ifndef SEPARATE_READING
+    // ── HOW AN INTERRUPTED OPEN ENDS ────────────────────────────────────────────────────
+    //
+    // The two answers differ in exactly one thing: whether fileOpened() is emitted. That
+    // signal is what Core's lambda latches to decide whether there IS an opened file, so it
+    // is the whole of the difference between "enough, show me this much" and "abort".
+    //
+    //   Stop  -> fileOpened() as usual. Everything parsed so far stays, the app believes it
+    //            has a file, and the pill becomes "Viewing recording" like any other open.
+    //   Close -> no fileOpened(). Core sees no open file and takes it from there.
+    //
+    // THE TEARDOWN ABOVE RUNS EITHER WAY, and that is not a detail: delAllDev() and
+    // cleanVru() undo what the parse built, and skipping them on an abort would leave the
+    // ghost devices of a file nobody is looking at. The original `if (break_) return;` on
+    // this branch skipped all of it, which is one reason it was never reachable code worth
+    // having.
+    if (openInterrupt_ != OpenRunning) {
+        const bool discarded = (openInterrupt_ == OpenDiscard);
+        qInfo() << "FILE: open interrupted by the user -"
+                << (discarded ? "discarding" : "keeping what was read")
+                << "at" << progress_ << "%";
+        emit openInterrupted(discarded);
+        openInterrupt_ = OpenRunning;
+        if (discarded) {
+            emit fileStopsOpening();
+            return;
+        }
+    }
+#endif
 
     emit fileOpened();
     emit fileStopsOpening();

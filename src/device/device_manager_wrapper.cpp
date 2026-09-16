@@ -24,6 +24,8 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::vruChanged,           this,                &DeviceManagerWrapper::vruChanged,             ct));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::chartLossesChanged,   this,                &DeviceManagerWrapper::calcAverageChartLosses, ct));
     deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::mavlinkWasDetected,   this,                &DeviceManagerWrapper::mavlinkWasDetected,     ct));
+    deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::openProgressChanged,  this,                &DeviceManagerWrapper::openProgressChanged,    ct));
+    deviceManagerConnections_.append(QObject::connect(workerObject_.get(), &DeviceManager::openInterrupted,      this,                &DeviceManagerWrapper::openInterrupted,        ct));
 
     workerObject_->moveToThread(workerThread_.get());
     workerThread_->setObjectName("DevManThread");
@@ -37,6 +39,8 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     QObject::connect(workerObject_.get(), &DeviceManager::vruChanged,           this,                &DeviceManagerWrapper::vruChanged,             ct);
     QObject::connect(workerObject_.get(), &DeviceManager::chartLossesChanged,   this,                &DeviceManagerWrapper::calcAverageChartLosses, ct);
     QObject::connect(workerObject_.get(), &DeviceManager::mavlinkWasDetected,   this,                &DeviceManagerWrapper::mavlinkWasDetected,     ct);
+    QObject::connect(workerObject_.get(), &DeviceManager::openProgressChanged,  this,                &DeviceManagerWrapper::openProgressChanged,    ct);
+    QObject::connect(workerObject_.get(), &DeviceManager::openInterrupted,      this,                &DeviceManagerWrapper::openInterrupted,        ct);
 #endif
 }
 
