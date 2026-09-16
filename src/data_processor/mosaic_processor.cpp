@@ -12,6 +12,7 @@
 #include "dataset.h"
 #include "compute_worker.h"
 #include "echogram_sidescan_tvg.h" // PULSE: mosaic source switch (AGC vs side scan TVG)
+#include "mosaic_nadir.h" // PULSE: the nadir band fill
 
 
 static constexpr int sampleLimiter    = 2;
@@ -1061,6 +1062,93 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
         QVector3D segFBoatPos(segFInterpNED.n, segFInterpNED.e, 0.0f);
         QVector3D segSBoatPos(segSInterpNED.n, segSInterpNED.e, 0.0f);
 
+        // PULSE P3: THE NADIR FILL, set up once per quad because every term of it is
+        // constant along the strip. mosaic_nadir.h holds the reasoning; in short, the
+        // dark band along the track is the physical nadir null plus the collapse of the
+        // ground-to-slant mapping, and the treatment is to interpolate across it between
+        // the two sides' TRUSTED EDGE values rather than to keep drawing the null.
+        //
+        // t is the across-track parameter and Beg is the boat, so the ground offset at t
+        // is simply t * the segment length - the same quantity the slant lookup below is
+        // built from, which is what keeps the fill and the real data on one geometry.
+        //
+        // Both edge values are read off the SAME epoch, this side's chart and the other
+        // channel's, so the port and starboard half-strips interpolate towards the same
+        // pair of anchors and meet continuously at the track. No cross-quad state, and
+        // nothing that depends on which side was rasterised first.
+        const bool  nadirFill  = MosaicNadir::enabled();
+        const float segFDepth  = -segFDistProc;
+        const float segSDepth  = -segSDistProc;
+        const float segFLen    = std::sqrt(segFPhDistX * segFPhDistX + segFPhDistY * segFPhDistY);
+        const float segSLen    = std::sqrt(segSPhDistX * segSPhDistX + segSPhDistY * segSPhDistY);
+        const float segFOuter  = MosaicNadir::outerFactor() * segFDepth;
+        const float segSOuter  = MosaicNadir::outerFactor() * segSDepth;
+
+        const auto otherCh  = segFIsOdd ? segFChannelId_    : segSChannelId_;
+        const auto otherSCh = segFIsOdd ? segFSubChannelId_ : segSSubChannelId_;
+
+        int segFEdgeThis = 0, segFEdgeOther = 0;
+        int segSEdgeThis = 0, segSEdgeOther = 0;
+
+        // The two anchors for one epoch: this side's sample at its own outer edge, and the
+        // other channel's at ITS own - each side reads its own bottom track, because on a
+        // slope the two do not agree and using one depth for both would tilt the fill.
+        //
+        // A ZERO ANCHOR MEANS "NO DATA THERE", not "black there": the edge can fall past
+        // the end of a short trace. One good anchor is used for both ends; no good anchor
+        // and the fill is skipped for that epoch, which leaves the band exactly as it is
+        // today rather than painting a guess over it.
+        auto nadirAnchors = [&](Epoch& epoch, Epoch::Echogram* thisCharts,
+                                float thisDepth, float thisOuter,
+                                int& vThis, int& vOther) {
+            vThis  = 0;
+            vOther = 0;
+            if (!(thisDepth > 0.0f) || !(thisOuter > 0.0f)) {
+                return;
+            }
+            vThis = getColorIndx(thisCharts,
+                                 sampleIndex(thisCharts, std::sqrt(thisOuter * thisOuter + thisDepth * thisDepth)));
+
+            if (auto* otherCharts = epoch.chart(otherCh, otherSCh); otherCharts) {
+                ensureMosaicSource(otherCharts);
+                float otherDepth = static_cast<float>(otherCharts->bottomProcessing.getDistance());
+                if (!isfinite(otherDepth) || otherDepth <= 0.0f) {
+                    otherDepth = thisDepth;
+                }
+                const float otherOuter = MosaicNadir::outerFactor() * otherDepth;
+                vOther = getColorIndx(otherCharts,
+                                      sampleIndex(otherCharts, std::sqrt(otherOuter * otherOuter + otherDepth * otherDepth)));
+            }
+
+            if (!vThis && !vOther) {
+                return;
+            }
+            if (!vThis)  { vThis  = vOther; }
+            if (!vOther) { vOther = vThis;  }
+        };
+
+        if (nadirFill) {
+            nadirAnchors(segFEpoch, segFCharts, segFDepth, segFOuter, segFEdgeThis, segFEdgeOther);
+            nadirAnchors(segSEpoch, segSCharts, segSDepth, segSOuter, segSEdgeThis, segSEdgeOther);
+        }
+
+        // value(x) = lerp(the other side's edge, this side's edge) across the full 2*outer
+        // span, so at x = outer it IS this side's real sample and the join needs no special
+        // case, and at x = 0 it is the average of the two - which is what the opposite
+        // half-strip also computes there.
+        auto nadirBlend = [](int real, int edgeThis, int edgeOther, float x, float outer, float w) -> int {
+            if (w <= 0.0f || (!edgeThis && !edgeOther)) {
+                return real;
+            }
+            float frac = 0.5f;
+            if (outer > 0.0f) {
+                frac = 0.5f + 0.5f * std::min(x / outer, 1.0f);
+            }
+            const float fill = float(edgeOther) + frac * float(edgeThis - edgeOther);
+            const float out  = (1.0f - w) * float(real) + w * fill;
+            return int(out + 0.5f);
+        };
+
         // select longest ray
         const bool bigIsF = (segFPixTotDist >= segSPixTotDist);
         int       bigX1  = bigIsF ? segFPixX1  :  segSPixX1;
@@ -1103,6 +1191,19 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
 
             int segFColorIndx = getColorIndx(segFCharts, sampleIndex(segFCharts, segFCurrPhPos.distanceToPoint(segFBoatPos)));
             int segSColorIndx = getColorIndx(segSCharts, sampleIndex(segSCharts, segSCurrPhPos.distanceToPoint(segSBoatPos)));
+
+            // BEFORE the "both empty, skip this pixel" test below, deliberately: near the
+            // track the real sample is very often zero, and that test is exactly what has
+            // been leaving the band unpainted as well as unlit.
+            if (nadirFill) {
+                const float xF = t * segFLen;
+                const float xS = t * segSLen;
+                segFColorIndx = nadirBlend(segFColorIndx, segFEdgeThis, segFEdgeOther,
+                                           xF, segFOuter, MosaicNadir::weightAt(xF, segFDepth));
+                segSColorIndx = nadirBlend(segSColorIndx, segSEdgeThis, segSEdgeOther,
+                                           xS, segSOuter, MosaicNadir::weightAt(xS, segSDepth));
+            }
+
             if (!segFColorIndx && !segSColorIndx) {
                 if (bresStep(bigX1, bigY1, bigX2, bigY2, bigErr, bigDx, bigDy, bigSx, bigSy)) {
                     break;

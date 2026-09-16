@@ -7,6 +7,7 @@
 #include <dataset.h>
 #include <QTimer>
 #include "echogram_blend.h"
+#include "mosaic_nadir.h"
 #include "echogram_tvg.h"
 #include "echogram_watercolumn.h"
 #include "plot2D.h"
@@ -396,6 +397,18 @@ public slots:
         refreshEchogram();
     }
     Q_INVOKABLE float getDownBlendTrimDb () const { return EchogramBlend::trimDb(); }
+
+    // PULSE P3: the mosaic nadir fill. NO refresh here, unlike the blend setters
+    // above - these do not touch the echogram at all. A tile keeps its pixels
+    // until it is re-traced, so the rebuild is the mosaic update action, fired
+    // from main.qml through Qt.callLater exactly as the side scan TVG mosaic
+    // switch already is.
+    Q_INVOKABLE void  setNadirFillEnabled (bool enabled)  { MosaicNadir::setEnabled(enabled); }
+    Q_INVOKABLE bool  getNadirFillEnabled () const        { return MosaicNadir::enabled(); }
+    Q_INVOKABLE void  setNadirInnerFactor (float factor)  { MosaicNadir::setInnerFactor(factor); }
+    Q_INVOKABLE float getNadirInnerFactor () const        { return MosaicNadir::innerFactor(); }
+    Q_INVOKABLE void  setNadirOuterFactor (float factor)  { MosaicNadir::setOuterFactor(factor); }
+    Q_INVOKABLE float getNadirOuterFactor () const        { return MosaicNadir::outerFactor(); }
     //Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
     //Q_INVOKABLE void setSideScanOnLeftHandSideNow(bool isLeftSideInstalled) { setSideScanOnLeftHandSide(isLeftSideInstalled); }
 

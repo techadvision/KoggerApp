@@ -730,6 +730,29 @@ QtObject {
     //blend existed. Zero is the only defensible default while nothing has measured them.
     property double downScanBlendTrimDb: 0
 
+    //THE MOSAIC NADIR FILL — P3, step 3. See src/data_processor/mosaic_nadir.h.
+    //
+    //The dark band along the track is the physical nadir null, not a geometry error: our
+    //slant-range lookup was checked end to end. Two degradations stack there — the beam
+    //pattern at vertical incidence, and the collapse of the ground-to-slant mapping, where
+    //ground spacing is dr*r/x and so runs 1.41 slant samples at x = 1.0*depth, 2.24 at 0.5
+    //and 4.1 at 0.25. It degrades SMOOTHLY, so a hard cut at any single width leaves a
+    //seam: hence a feather between the two factors below, both multiples of the epoch's own
+    //depth.
+    //
+    //The fill interpolates ACROSS THE TRACK between the two sides' trusted edge values, with
+    //the nadir data excluded — the blended down scan trace cannot rescue this wedge, because
+    //inside it both channels are in the null and the mapping has collapsed. Blending two
+    //nulls gives a null.
+    //
+    //THE WEDGE IS INVENTED DATA. It is the tile colour and nothing else: no bottom track, no
+    //depth readout and no surface reads any of it. Turning the fill off is also the honest
+    //diagnostic — it shows exactly where the band was, which a drawn boundary line would only
+    //approximate.
+    property bool   nadirFillEnabled: true
+    property double nadirInnerFactor: 0.3
+    property double nadirOuterFactor: 1.0
+
     // Single source of truth for the echogram compensation id.
     // 2D uses the selected gain law (echogram2DGainId: 2 = PULSE EchogramTvg,
     // 4 = upstream's linear TGC ramp) when enabled, else raw (0); side scan uses

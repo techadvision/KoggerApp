@@ -136,6 +136,13 @@ ApplicationWindow  {
         //Qt.callLater ensures the Plot2D.qml handler has pushed the C++ flag
         //before the rebuild starts.
         function onSideScanTvgMosaicEnabledChanged() { Qt.callLater(function() { scene3DToolbar.updateMosaic() }) }
+        //PULSE P3: the nadir fill, same division of labour - Plot2D.qml pushes the
+        //C++ static, this rebuilds the tiles that were traced with the old one.
+        //Qt.callLater is what makes the order safe whichever Connections object
+        //Qt evaluates first.
+        function onNadirFillEnabledChanged()         { Qt.callLater(function() { scene3DToolbar.updateMosaic() }) }
+        function onNadirInnerFactorChanged()         { Qt.callLater(function() { scene3DToolbar.updateMosaic() }) }
+        function onNadirOuterFactorChanged()         { Qt.callLater(function() { scene3DToolbar.updateMosaic() }) }
         //App is ready configured, ensure C++ values are up to date:
         function onUserManualSetNameChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")

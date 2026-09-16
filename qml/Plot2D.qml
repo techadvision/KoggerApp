@@ -227,6 +227,9 @@ WaterFall {
             plot.setDownBlendMode(pulseRuntimeSettings.downScanBlendMode)
             plot.setDownBlendDomain(pulseRuntimeSettings.downScanBlendDomain)
             plot.setDownBlendTrimDb(pulseRuntimeSettings.downScanBlendTrimDb)
+            plot.setNadirFillEnabled(pulseRuntimeSettings.nadirFillEnabled)
+            plot.setNadirInnerFactor(pulseRuntimeSettings.nadirInnerFactor)
+            plot.setNadirOuterFactor(pulseRuntimeSettings.nadirOuterFactor)
 
             // Water body filter: its strength lives in a C++ atomic and is ONLY ever
             // pushed through applyFiltering(). Push it here so the filter is genuinely
@@ -337,6 +340,32 @@ WaterFall {
                       : pulseRuntimeSettings.downScanBlendTrimDb > 0   ? "favouring channel 2"
                                                                        : "favouring channel 1")
             plot.setDownBlendTrimDb(pulseRuntimeSettings.downScanBlendTrimDb)
+        }
+
+        // PULSE P3: the mosaic nadir fill. These push the C++ statics and nothing
+        // else - the REBUILD is main.qml's, through Qt.callLater, so that it runs
+        // after this handler whichever order the two Connections objects happen to
+        // be evaluated in. Same division of labour as the side scan TVG mosaic
+        // switch, and for the same reason.
+        function onNadirFillEnabledChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("NADIR: fill ->", pulseRuntimeSettings.nadirFillEnabled ? "on" : "off")
+            plot.setNadirFillEnabled(pulseRuntimeSettings.nadirFillEnabled)
+        }
+
+        function onNadirInnerFactorChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("NADIR: fully filled inside", pulseRuntimeSettings.nadirInnerFactor, "x depth")
+            plot.setNadirInnerFactor(pulseRuntimeSettings.nadirInnerFactor)
+        }
+
+        function onNadirOuterFactorChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("NADIR: fully real outside", pulseRuntimeSettings.nadirOuterFactor, "x depth")
+            plot.setNadirOuterFactor(pulseRuntimeSettings.nadirOuterFactor)
         }
 
         // PULSE side scan TVG: expert toggle. Only ever switches between the

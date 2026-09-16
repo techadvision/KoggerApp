@@ -965,6 +965,63 @@ Item {
                     onStepped: function (v) {
                         list.settingChanged("runtime", "downScanBlendTrimDb", v)
                     }
+                },
+
+                // ---- the mosaic nadir ----------------------------------------
+                //
+                // The dark band along the track in the mosaic is the physical nadir null,
+                // not a geometry error - our slant-range lookup was checked end to end.
+                // The fill interpolates ACROSS the track between the two sides' trusted
+                // edge values; see src/data_processor/mosaic_nadir.h.
+                //
+                // TURNING IT OFF IS THE DIAGNOSTIC, which is why there is no "show the
+                // nadir edge" row: off shows exactly where the band was, and a drawn
+                // boundary would only approximate it.
+                PulseSwitchRow {
+                    width: downScanGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Fill the mosaic nadir")
+                    hint:  qsTr("interpolated, not measured - off shows the band as it is")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : true
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "nadirFillEnabled", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: downScanGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : true
+                    uiScale: list.uiScale
+
+                    label: qsTr("Fully filled inside")
+                    hint:  qsTr("times the depth - the beam has nothing here")
+                    decimals: 1
+                    values: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1.0]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.nadirInnerFactor : 0.3
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "nadirInnerFactor", v)
+                    }
+                },
+
+                PulseStepperRow {
+                    width: downScanGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : true
+                    uiScale: list.uiScale
+
+                    label: qsTr("Fully real outside")
+                    hint:  qsTr("times the depth - 1.0 is the 45 degree line")
+                    decimals: 1
+                    values: [0.4, 0.5, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.nadirOuterFactor : 1.0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "nadirOuterFactor", v)
+                    }
                 }
             ]
         }
