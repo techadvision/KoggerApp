@@ -255,6 +255,10 @@ private:
     bool isConsoled_;
     bool nmeaConsoled_;
     volatile bool break_;
+    // PULSE: openFile() yields to the event loop while parsing (see the note above it), so
+    // for the first time a second open can arrive while the first is still running. Set for
+    // the whole of a parse and cleared on every exit by an RAII guard in the .cpp.
+    bool openFileActive_ = false;
 #ifdef SEPARATE_READING
     bool onOpen_{ false };
 #endif

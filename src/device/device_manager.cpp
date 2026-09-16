@@ -1,6 +1,9 @@
 #include "device_manager.h"
 #include "device_defs.h"
 #include <QDateTime>
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include "location_reader.h"
 #include "core.h"
 extern Core core;
@@ -592,8 +595,83 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
     }
 }
 
+#ifndef SEPARATE_READING
+namespace {
+// ── THE FILE OPEN BREATHES (P2, item 2) ─────────────────────────────────────────────────
+//
+// Olav, twice: "These logs take like forever to open, and the entire UI becomes
+// unresponsive. Could we utilize the file opening mechanism used by the demo? ... the
+// screen would fill fairly quickly and let the UI remain responsive."
+//
+// WHY IT FREEZES. CMakeLists.txt declares option(SEPARATE_READING ... OFF) and OFF is what
+// ships, so device_manager_wrapper.cpp connects sendOpenFile to this function with
+// Qt::DirectConnection and the whole parse runs on the GUI thread. The
+// QCoreApplication::processEvents() in the loop below is #ifdef SEPARATE_READING, so on the
+// shipping build IT IS NOT THERE. The event loop does not run again until the file is
+// parsed. That is the freeze, exactly, and it is why Core::openLogFile's 15 ms singleShot
+// exists at all: it buys one repaint before the stall.
+//
+// AND THE THIRD OPTION THE DOCUMENTS DID NOT SEPARATE OUT. They weighed "burst through the
+// demo transport" against "turn SEPARATE_READING on", and rejected the second because it
+// re-threads the whole reception path. But the processEvents() is not the threading - it is
+// the other half of that option, and it can be taken on its own. Nothing moves thread,
+// nothing about the parse changes, and Core's completion path stays exactly as synchronous
+// as it is today: openFile still returns when the file is finished, so fileOpened(),
+// notifyFileOpened(), fitAllInView() and onChannelsUpdated() keep their order with no
+// restructuring. The burst-through-the-demo-transport route would have required all of
+// that to move to a callback, and would have brought openFile's OWN teardown - delAllDev()
+// at both ends, vru_.cleanVru(), fileOpened(), fileStopsOpening() - along as a trap.
+//
+// EXCLUDEUSERINPUTEVENTS IS THE WHOLE SAFETY ARGUMENT, and it is a deliberate narrowing of
+// what "responsive" promises. Paint events, timers and queued invocations run, so the
+// echogram fills and the app is plainly alive; taps do not, so nothing the user can press
+// can re-enter a file open that is already in progress. Pumping the event loop from inside
+// a parse is exactly how a second openLogFile lands on top of the first, and re-entrancy in
+// this path is the fault family this project keeps finding. What is given up is the ability
+// to cancel - which does not exist today either (break_ is only ever set by
+// SEPARATE_READING's closeFile, so every `if (break_)` on this branch is dead code).
+//
+// isOpeningFile_ IS UNTOUCHED, and that is what keeps this honestly one variable.
+// data_processor.cpp:673 early-returns from tryScheduleAutoBottomTrack while it is set -
+// mosaic, surface and bottom track - and that suppression is WHY today's open is as fast as
+// it is. The echogram draws from epoch amplitudes and needs none of them, so the picture
+// still fills. This commit changes when the event loop runs and nothing about what work is
+// done.
+//
+// THE TWO NUMBERS. kOpenYieldWorkMs is how long the parse may run between yields and is the
+// demo transport's own 12 ms frame budget, read the other way round. kOpenYieldBudgetMs
+// bounds the yield itself so a slow frame cannot become the new stall; the pump usually
+// returns at once because there is nothing queued, so the real overhead is roughly one
+// frame's work per 12 ms of parsing rather than a fixed duty cycle.
+constexpr int kOpenYieldWorkMs   = 12;
+constexpr int kOpenYieldBudgetMs = 8;
+
+// RAII, because openFile() has five exits and a flag cleared at four of them is worse than
+// no flag at all.
+struct OpenFileScope {
+    bool& flag;
+    explicit OpenFileScope(bool& f) : flag(f) { flag = true; }
+    ~OpenFileScope() { flag = false; }
+};
+} // namespace
+#endif
+
 void DeviceManager::openFile(QString filePath)
 {
+#ifndef SEPARATE_READING
+    // ONE OPEN AT A TIME. Yielding to the event loop is what makes this reachable at all:
+    // sendOpenFile is a DirectConnection, so a second open can only arrive from code that
+    // runs during a pump - a queued timer, a drag and drop, a startup file open. Excluding
+    // user input already removes every route a person can take; this removes the rest.
+    // Refusing is right rather than queueing: the caller's completion path assumes openFile
+    // returns when THE FILE IT ASKED FOR is done.
+    if (openFileActive_) {
+        qWarning() << "FILE: an open is already running, ignoring" << filePath;
+        return;
+    }
+    OpenFileScope openScope(openFileActive_);
+#endif
+
 #ifdef SEPARATE_READING
     break_ = false;
 #endif
@@ -611,6 +689,13 @@ void DeviceManager::openFile(QString filePath)
     qint64 bytesRead = 0;
     Parsers::FrameParser frameParser;
     const QUuid someUuid(kFileUuidStr);
+
+#ifndef SEPARATE_READING
+    // Measures PARSE time only: it is restarted after every yield, so a long pump cannot
+    // shorten the next work window.
+    QElapsedTimer sinceYield;
+    sinceYield.start();
+#endif
 
     delAllDev();
 
@@ -685,6 +770,16 @@ void DeviceManager::openFile(QString filePath)
                 }
 #endif
             }
+
+#ifndef SEPARATE_READING
+            // AT THE FOOT OF THE BODY, so at least one frame is always dispatched per
+            // window and a pathological frame cannot yield forever without progress.
+            if (sinceYield.elapsed() >= kOpenYieldWorkMs) {
+                QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents,
+                                                kOpenYieldBudgetMs);
+                sinceYield.restart();
+            }
+#endif
         }
 
         chunk.clear();
