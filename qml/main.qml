@@ -2670,6 +2670,13 @@ ApplicationWindow  {
                             dataset.setFakeDepthAddition(0)
                         return
                     }
+                    // NOT THROUGH pulseRuntimeSettings, unlike every other action here:
+                    // this one asks Core to open a folder and touches no setting at all.
+                    if (id === "revealAppLog") {
+                        console.log("SETTINGS: action - show the app log folder")
+                        core.revealAppLogFolder()
+                        return
+                    }
                     if (id === "reconfigure") {
                         console.log("SETTINGS: action - reconfigure the transducer")
                         pulseRuntimeSettings.reconfigureNow = true

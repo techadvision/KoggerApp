@@ -51,6 +51,26 @@ Item {
         console.log("SETTINGS:", openId === "" ? "all closed" : "showing " + openId)
     }
 
+    // WHERE THE APP'S OWN LOG IS, so a tester can find it without a cable.
+    //
+    // main.cpp installs AppLog as the Qt message handler, so every console.log the app
+    // writes - every METRICS:, MOSAIC:, THEME:, MODE:, RANGE:, SOURCE:, BLEND: and NADIR:
+    // line this project has ever emitted - lands in a rolling file under Documents on the
+    // device, reachable over USB or any file manager. logcat has never been needed, and the
+    // checks that kept asking for it were asking for the wrong thing.
+    //
+    // READ ON OPEN RATHER THAN BOUND, because appLogFilePath() is a function call with no
+    // change signal: a binding on it would evaluate once at startup and then describe the
+    // file the app was writing to then. The log rolls at 8 MB, so over a long test session
+    // that is the wrong name. A binding that cannot notice it is stale is worse than no
+    // binding - the af857891 lesson, which is why this one is imperative.
+    property string appLogPath: ""
+
+    function refreshAppLogPath() {
+        appLogPath = (typeof core !== "undefined" && core) ? core.appLogFilePath() : ""
+        console.log("SETTINGS: app log is at", appLogPath === "" ? "(not active)" : appLogPath)
+    }
+
     // ---- What this device offers --------------------------------------------
 
     readonly property var offers: pulseRuntimeSettings ? pulseRuntimeSettings.uiOffers : ({})
@@ -512,6 +532,7 @@ Item {
             title: qsTr("Troubleshooting")
             open: list.openId === "troubleshooting"
             onToggled: list.toggle("troubleshooting")
+            onOpenChanged: if (open) list.refreshAppLogPath()
 
             content: [
                 // THE SAFE REPAIR FIRST, and it does not ask: it re-pushes the profile the
@@ -571,6 +592,38 @@ Item {
                     onToggled: function (v) {
                         list.settingChanged("runtime", "deviceSwapAutomatic", v)
                     }
+                },
+
+                // ---- the app's own log ---------------------------------------
+                //
+                // AN ABILITY, NOT A SETTING: it is how a tester gets at the evidence. Both
+                // Q_INVOKABLEs have been in Core since the log handler was installed and
+                // NOTHING has ever called either of them, so the logs have been written to
+                // the device and then hunted for by hand every time.
+                PulseReadOnlyRow {
+                    width: troubleGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("App log")
+                    hint:  qsTr("every line the app prints, kept on the device")
+                    value: list.appLogPath === "" ? qsTr("not active") : list.appLogPath
+                },
+
+                // ABSENT ON ANDROID, because Core::revealInFolder is an explicit no-op
+                // there - its whole body is #if defined(Q_OS_ANDROID) Q_UNUSED. A button
+                // that does nothing on the platform being tested is worse than no button,
+                // and the row above already names the file. Absent rather than greyed, like
+                // everything else in this list.
+                PulseActionRow {
+                    width: troubleGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: Qt.platform.os !== "android"
+                    uiScale: list.uiScale
+
+                    label: qsTr("Show the log folder")
+                    actionText: qsTr("Show")
+
+                    onActivated: list.actionRequested("revealAppLog")
                 }
             ]
         }
