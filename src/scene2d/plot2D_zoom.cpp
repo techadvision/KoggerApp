@@ -443,13 +443,14 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
     const auto px = [s](int designPx) { return qMax(1, int(designPx * s)); };
 
     // ---- the bands, top to bottom -----------------------------------------
-    const int tile     = qMax(60, int(in.boxSizePx * s));
+    int       tile     = qMax(60, int(in.boxSizePx * s));   // not const: the fit clamp below
     const int pad      = px(12);
     const int headerH  = px(30);
     const int rowH     = px(28);
     const int btnH     = px(46);
     const int gapS     = px(6);
     const int gapM     = px(10);
+    const int margin   = px(4);   // hoisted: the fit clamp needs it before placement does
 
     const bool canAdd = in.showAddBtn;
 
@@ -462,17 +463,54 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
     fNote.setPixelSize(ui ? ui->fontS() : px(15));
 
     // The sentence wraps, so its height is a measurement rather than a constant - the
-    // string is Olav's and may get longer or shorter without this file being touched.
-    int noteH = 0;
-    QString noteText;
-    if (!canAdd) {
-        noteText = kNoPosition();
+    // string is Olav's and may get longer or shorter without this file being touched. It is
+    // a lambda because the fit clamp below changes the width it wraps into.
+    const QString noteText = canAdd ? QString() : kNoPosition();
+    const auto measureNote = [&](int wrapWidth) -> int {
+        if (canAdd)
+            return 0;
         QFontMetrics fm(fNote);
-        const QRect br = fm.boundingRect(QRect(0, 0, tile, 0),
-                                         Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
-                                         noteText);
-        noteH = br.height() + gapM;
+        return fm.boundingRect(QRect(0, 0, qMax(1, wrapWidth), 0),
+                               Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignTop,
+                               noteText).height() + gapM;
+    };
+
+    // ---- THE PANEL MUST FIT THE PANE IT IS DRAWN IN ------------------------
+    //
+    // in.viewport is the PANE's own canvas, not the window - fed from p->viewport() in
+    // plot2D_aim.cpp. Placement has always clamped against it; nothing ever asked whether
+    // the panel FITS in it. So the size followed the window while the room followed the
+    // pane, and the two part company exactly where Olav found them: a 10" tablet at an
+    // Android split of 50% just fits, and at 60% the buttons go under the bottom edge,
+    // because a larger window lifts UiMetrics::scale() off its 0.75 floor while the
+    // internal dual view still gives the panel half the height to live in.
+    //
+    // THE TILE ABSORBS IT, NOT THE CHROME. Scaling the whole panel down would keep the
+    // buttons proportional and eventually untappable - trading "hidden underneath" for
+    // "visible but too small to hit", which is the same feature lost a different way. The
+    // rows and the buttons keep their size; the zoomed tile gives up pixels, which costs
+    // magnification and nothing else.
+    //
+    // IT ONLY EVER SHRINKS. `want >= tile` breaks out untouched, so every case that fits
+    // today is byte-identical - Olav: "for a tablet it need not be any bigger than it is
+    // right now." Two passes because noteH wraps into the tile's width, so a narrower tile
+    // can want a taller note; the second pass settles it and a third has nothing to do.
+    //
+    // 60 px is the existing floor, kept. Below it the honest next step is a different
+    // LAYOUT - the buttons beside the tile rather than beneath it - and not a smaller one.
+    const int availW = in.viewport.width()  - 2 * margin;
+    const int availH = in.viewport.height() - 2 * margin;
+
+    for (int pass = 0; pass < 2; ++pass) {
+        const int chromeH = headerH + gapS + gapM + (2 * rowH) + gapM
+                          + measureNote(tile) + btnH + (2 * pad);
+        const int want = qMin(availW - (2 * pad), availH - chromeH);
+        if (want >= tile)
+            break;
+        tile = qMax(60, want);
     }
+
+    const int noteH = measureNote(tile);
 
     const int contentW = tile;
     const int contentH = headerH + gapS + tile + gapM + (2 * rowH) + gapM + noteH + btnH;
@@ -501,7 +539,6 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
                              : QPoint(in.anchorPx.x() + xShift,          in.anchorPx.y() + yShift);
     }
 
-    const int margin = px(4);
     topLeft.setX(clampi(topLeft.x(), in.viewport.left() + margin,
                         qMax(in.viewport.left() + margin, in.viewport.right() - margin - panelW)));
     topLeft.setY(clampi(topLeft.y(), in.viewport.top() + margin,
