@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <math.h>
 #include <stdint.h>
@@ -12,6 +13,7 @@
 
 #include "data_processor_defs.h"
 #include "dataset_defs.h"
+#include "echogram_blend.h" // PULSE: the two side scan channels blended into one down scan trace
 #include "echogram_sidescan_tvg.h" // PULSE: side scan TVG (imageType 3 + mosaic source)
 #include "echogram_tvg.h" // PULSE: TVG display compensation (imageType 2)
 #include "echogram_watercolumn.h" // PULSE: water-body display filter (Stage B)
@@ -583,44 +585,16 @@ public:
     void doBottomTrackSideScan(Echogram &chart, bool is_update_dist = false);
 
 
-    bool chartTo(const ChannelId& channelId, uint8_t subChannelId, float start, float end, int16_t* dst, int len, int imageType, bool reverse = false)
+    // PULSE P3: the imageType -> sample-buffer selection, lifted out of chartTo
+    // unchanged so that the blended down scan trace (chartToBlended, below)
+    // selects its gain law through EXACTLY this code rather than a copy of it.
+    //
+    // Returns nullptr when the requested buffer could not be built and the caller
+    // should render nothing. imageType 2 and 3 fall back to the raw amplitude
+    // instead of failing, which is the behaviour chartTo has always had.
+    static const uint8_t* gainSource(Echogram& eg, int imageType)
     {
-        if (!dst || len <= 0) {
-            return false;
-        }
-
-        auto zeroOut = [&]{
-            std::fill(dst, dst + len, int16_t(0));
-            return false;
-        };
-
-        auto it = charts_.find(channelId);
-        if (it == charts_.end()) {
-            return zeroOut();
-        }
-
-        QVector<Echogram>& subs = it.value();
-        const int sub = int(subChannelId);
-        if (sub < 0 || sub >= subs.size()) {
-            return zeroOut();
-        }
-
-        Echogram& eg = subs[sub];
-
-        if (eg.resolution == 0) {
-            return zeroOut();
-        }
-
         const int rawSize = eg.amplitude.size();
-        if (rawSize <= 0) {
-            return zeroOut();
-        }
-
-        const float rawRangeF = eg.range();
-        if (!(rawRangeF > 0.0f)) {
-            return zeroOut();
-        }
-
         const uint8_t* src = eg.amplitude.constData();
 
         if (imageType == 1) {
@@ -628,7 +602,7 @@ public:
                 eg.updateCompesated();
             }
             if (eg.compensated.isEmpty()) {
-                return zeroOut();
+                return nullptr;
             }
             src = eg.compensated.constData();
         } else if (imageType == 2) { // PULSE: TVG display compensation
@@ -662,9 +636,42 @@ public:
                 eg.updateTgc();
             }
             if (eg.tgc.isEmpty()) {
-                return zeroOut();
+                return nullptr;
             }
             src = eg.tgc.constData();
+        }
+
+        return src;
+    }
+
+    // PULSE P3: everything chartTo did once it had an Echogram in hand, taken out
+    // whole. A SYNTHETIC echogram - the blended down scan trace - then renders
+    // through the identical path: same gain selection, same water-body filter,
+    // same resampler, with no second copy of any of them to keep in step.
+    static bool chartFrom(Echogram& eg, float start, float end, int16_t* dst, int len, int imageType, bool reverse)
+    {
+        auto zeroOut = [&]{
+            std::fill(dst, dst + len, int16_t(0));
+            return false;
+        };
+
+        if (eg.resolution == 0) {
+            return zeroOut();
+        }
+
+        const int rawSize = eg.amplitude.size();
+        if (rawSize <= 0) {
+            return zeroOut();
+        }
+
+        const float rawRangeF = eg.range();
+        if (!(rawRangeF > 0.0f)) {
+            return zeroOut();
+        }
+
+        const uint8_t* src = gainSource(eg, imageType);
+        if (!src) {
+            return zeroOut();
         }
 
         // PULSE Stage B: water-body display filter (column dim + surface soft-knee).
@@ -737,6 +744,114 @@ public:
         }
 
         return true;
+    }
+
+    bool chartTo(const ChannelId& channelId, uint8_t subChannelId, float start, float end, int16_t* dst, int len, int imageType, bool reverse = false)
+    {
+        if (!dst || len <= 0) {
+            return false;
+        }
+
+        Echogram* eg = chart(channelId, subChannelId);
+        if (!eg) {
+            std::fill(dst, dst + len, int16_t(0));
+            return false;
+        }
+
+        return chartFrom(*eg, start, end, dst, len, imageType, reverse);
+    }
+
+    // PULSE P3: the two side scan channels blended into one down scan trace, then
+    // rendered exactly as any other trace is. See echogram_blend.h for the law and
+    // for why RMS on the raw amplitudes is the default.
+    //
+    // `primary` is the channel that owns this half of the pane - it supplies the
+    // geometry (resolution, offset, bottom track) and it is what gets rendered
+    // ALONE whenever the blend cannot honestly be made: blending off, the other
+    // channel missing, or the two disagreeing about their range grid. A blend of
+    // two traces that are not on the same grid would be a quiet mis-registration,
+    // which is worse than the single channel this replaces.
+    //
+    // THE SCRATCH ECHOGRAM IS WHY THIS IS SAFE. The blend is written into a real
+    // Echogram and invalidateDerived() is called on it before it is rendered, so
+    // it joins the cache discipline bd14130f established rather than inventing a
+    // fifth buffer outside it. Nothing is stored on the dataset, so there is no
+    // per-epoch cache that can go stale behind a black-stripes repair; the cost is
+    // one blend pass and one gain pass per epoch per invalidated column.
+    bool chartToBlended(const ChannelId& primaryCh, uint8_t primarySub,
+                        const ChannelId& otherCh, uint8_t otherSub,
+                        float start, float end, int16_t* dst, int len,
+                        int imageType, bool reverse = false)
+    {
+        if (!dst || len <= 0) {
+            return false;
+        }
+
+        Echogram* primary = chart(primaryCh, primarySub);
+        if (!primary) {
+            std::fill(dst, dst + len, int16_t(0));
+            return false;
+        }
+
+        Echogram* other = chart(otherCh, otherSub);
+
+        const int mode = EchogramBlend::mode();
+        const bool blendable =
+            mode != EchogramBlend::Single &&
+            other != nullptr &&
+            other != primary &&
+            primary->resolution > 0.0f &&
+            qFuzzyCompare(primary->resolution, other->resolution) &&
+            qFuzzyCompare(1.0f + primary->offset, 1.0f + other->offset);
+
+        if (!blendable) {
+            return chartFrom(*primary, start, end, dst, len, imageType, reverse);
+        }
+
+        const int n = std::min(primary->amplitude.size(), other->amplitude.size());
+        if (n <= 0) {
+            return chartFrom(*primary, start, end, dst, len, imageType, reverse);
+        }
+
+        const bool afterGain = EchogramBlend::domain() == EchogramBlend::AfterGain;
+
+        const uint8_t* a = nullptr;
+        const uint8_t* b = nullptr;
+        if (afterGain) {
+            a = gainSource(*primary, imageType);
+            b = gainSource(*other, imageType);
+            if (!a || !b) {
+                return chartFrom(*primary, start, end, dst, len, imageType, reverse);
+            }
+        }
+        else {
+            a = primary->amplitude.constData();
+            b = other->amplitude.constData();
+        }
+
+        // Thread-local so the renderer thread keeps one buffer for the whole run
+        // and no allocation happens per column.
+        static thread_local Echogram scratch;
+
+        scratch.resolution        = primary->resolution;
+        scratch.offset            = primary->offset;
+        scratch.type              = primary->type;
+        scratch.bottomProcessing  = primary->bottomProcessing;
+        scratch.sensorPosition    = primary->sensorPosition;
+
+        EchogramBlend::apply(a, b, n, scratch.amplitude);
+        if (scratch.amplitude.size() != n) {
+            return chartFrom(*primary, start, end, dst, len, imageType, reverse);
+        }
+
+        // The amplitude has just been rewritten in place, very often at the SAME
+        // length as last time - the exact condition every derived cache guard here
+        // is blind to. Clearing them is not defensive, it is the rule.
+        scratch.invalidateDerived();
+
+        // AfterGain has already spent the gain law on the two components, so the
+        // blend renders raw; Raw hands the gain law the blended trace, once.
+        return chartFrom(scratch, start, end, dst, len, afterGain ? 0 : imageType, reverse);
     }
 
     void moveComplexToEchogram(ChannelId channel_id, int group_id, float offset_m, float levels_offset_db);

@@ -243,6 +243,7 @@ list(APPEND APP_HEADERS
     src/scene2d/plot2D_usbl_solution.h
     src/scene2d/plot2D_depth.h
     src/scene2d/plot2D_zoom.h
+    src/scene2d/echogram_blend.h
     src/scene2d/echogram_sidescan_tvg.h
     src/scene2d/echogram_tvg.h
     src/scene2d/echogram_watercolumn.h
@@ -267,6 +268,7 @@ list(APPEND APP_SOURCES
     src/scene2d/plot2D_usbl_solution.cpp
     src/scene2d/plot2D_depth.cpp
     src/scene2d/plot2D_zoom.cpp
+    src/scene2d/echogram_blend.cpp
     src/scene2d/echogram_sidescan_tvg.cpp
     src/scene2d/echogram_tvg.cpp
     src/scene2d/echogram_watercolumn.cpp

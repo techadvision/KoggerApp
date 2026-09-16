@@ -2,6 +2,7 @@
 #include "plot2D.h"
 #include "SettingsBus.h"
 #include <numeric>
+#include "echogram_blend.h"
 
 
 Plot2DEchogram::Plot2DEchogram()
@@ -1884,17 +1885,47 @@ int Plot2DEchogram::updateCash(Plot2D* parent, Dataset* dataset, int width, int 
                     else {
                         int cash_data_size_part1 = cash_data_size*(range1/fullrange);
 
-                        if(cash_data_size_part1 > 0) {
-                            datasource->chartTo(cursor.channel1, cursor.subChannel1, from1, to1, cash_data, cash_data_size_part1, _compensation_id, true);
-                        }
-
                         if(cash_data_size_part1 < 0) {
                             cash_data_size_part1 = 0;
                         }
 
                         const int cash_data_size_part2 = cash_data_size - cash_data_size_part1;
-                        if(cash_data_size_part2 > 0) {
-                            datasource->chartTo(cursor.channel2, cursor.subChannel2, from2, to2, &cash_data[cash_data_size_part1], cash_data_size_part2, _compensation_id, false);
+
+                        // PULSE P3: a pane that HAS two channels but shows only ONE half of
+                        // them is the DOWN SCAN view. Its range is 0..R, so the negative half
+                        // is zero pixels wide and channel 1 was never drawn - the down pane
+                        // has always been channel 2 on its own, by arithmetic rather than by
+                        // choice. That half is now drawn from the two channels BLENDED
+                        // instead of from the one that happens to own it; echogram_blend.h
+                        // holds the law and the reasoning.
+                        //
+                        // DERIVED FROM THE RANGE, NOT CARRIED ON A FLAG. "Two channels and a
+                        // range that does not cross zero" IS the down case, so the full
+                        // screen down view and the split's bottom pane are both covered with
+                        // nothing to keep in step, and a side scan - whose range does cross
+                        // zero - is untouched by construction.
+                        const bool blendHalf = EchogramBlend::mode() != EchogramBlend::Single;
+
+                        if (blendHalf && cash_data_size_part1 > 0 && cash_data_size_part2 <= 0) {
+                            datasource->chartToBlended(cursor.channel1, cursor.subChannel1,
+                                                       cursor.channel2, cursor.subChannel2,
+                                                       from1, to1, cash_data, cash_data_size_part1,
+                                                       _compensation_id, true);
+                        }
+                        else if (blendHalf && cash_data_size_part2 > 0 && cash_data_size_part1 <= 0) {
+                            datasource->chartToBlended(cursor.channel2, cursor.subChannel2,
+                                                       cursor.channel1, cursor.subChannel1,
+                                                       from2, to2, cash_data, cash_data_size_part2,
+                                                       _compensation_id, false);
+                        }
+                        else {
+                            if(cash_data_size_part1 > 0) {
+                                datasource->chartTo(cursor.channel1, cursor.subChannel1, from1, to1, cash_data, cash_data_size_part1, _compensation_id, true);
+                            }
+
+                            if(cash_data_size_part2 > 0) {
+                                datasource->chartTo(cursor.channel2, cursor.subChannel2, from2, to2, &cash_data[cash_data_size_part1], cash_data_size_part2, _compensation_id, false);
+                            }
                         }
                     }
 
