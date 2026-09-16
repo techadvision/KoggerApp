@@ -3402,12 +3402,15 @@ ApplicationWindow  {
             waterViewFirst.setAim(r.x, r.y)
         }
     }
+    // THE MIRROR IS CLEARED QUIETLY. This resets the pane the user is NOT touching - the one
+    // handlePlotPressed put a mirrored aim on - so it must not start a sync of its own, or
+    // the broadcast comes back and clears the aim under the user's finger.
     function handlePlotReleased(indx) {
         if (indx === 1 && waterViewSecond.enabled) {
-            waterViewSecond.resetAim()
+            waterViewSecond.resetSyncAim()
         }
         if (indx === 2) {
-            waterViewFirst.resetAim()
+            waterViewFirst.resetSyncAim()
         }
     }
     function onPlotSettingsClicked() {

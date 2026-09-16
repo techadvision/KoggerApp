@@ -1149,7 +1149,20 @@ void Plot2D::setMousePosition(int x, int y, bool isSync) {
         cursor_.selectEpochIndx = -1;
         cursor_.currentEpochIndx = -1;
         //_cursor.lastEpochIndx = -1; // ?
-        syncClearAim();
+        // AN ECHO MUST NOT ECHO. syncClearAim() broadcasts a clear to every OTHER plot,
+        // which is right when a user clears their own aim and catastrophic when the clear
+        // IS the sync: main.qml's handlePlotReleased resets the MIRRORED pane on finger-up,
+        // that reset lands here with x == -1, and the broadcast then wipes the aim on the
+        // pane the user actually touched. The loupe vanished on release in a split and
+        // never in a single pane, because in a single pane handlePlotReleased does nothing
+        // at all and so nothing broadcasts. Olav, 16 Sept: "Only when dual screen. Never in
+        // single screen, then it works as it should."
+        //
+        // isSync is already threaded through setMousePosition for exactly this distinction
+        // and this branch had never consulted it. Every existing caller passes false, so
+        // they are unchanged by construction; only the mirrored reset passes true.
+        if (!isSync)
+            syncClearAim();
         plotUpdate();
         return;
     }

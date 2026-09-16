@@ -140,6 +140,11 @@ WaterFall {
     function resetAim() {
         plotMousePosition(-1, -1)
     }
+    // THE MIRRORED PANE'S RESET, which must not broadcast a clear back at the pane the user
+    // is touching. See the x == -1 branch of Plot2D::setMousePosition.
+    function resetSyncAim() {
+        plotMousePosition(-1, -1, true)
+    }
     function doVerZoomEvent(paramX) {
         verZoomEvent(paramX)
     }
