@@ -4304,6 +4304,40 @@ ApplicationWindow  {
     function applyConeId(id) {
         if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersConeChoice)
             return
+
+        // NOT WHILE A RECORDING IS ON SCREEN. This is the only applier on the list that
+        // writes to the TRANSDUCER rather than to the picture, and a file is not a
+        // transducer: with a recording up, setParam("transFreq") either reaches nothing or -
+        // at an exhibition, with a device in an aquarium - reaches hardware and changes
+        // nothing the user can see.
+        //
+        // D-1 (2cf5c267) answered this AT THE CHOOSER: the cone rows drop to 0.45 opacity and
+        // take no taps while a log plays. It did not answer it AT THE APPLIER, so any path
+        // reaching applyForSource under a recording still transmitted - and
+        // onUserManualSetNameChanged is exactly such a path. Olav's 16 Sept demo log shows it:
+        //
+        //   SOURCE: demo   -> applying the picture's settings | PULSEblue | side scan | ...
+        //   SOURCE: commit -> applying the picture's settings | PULSEblue | side scan | ...
+        //
+        // one line apart, the second of them carrying this call. It stayed silent only
+        // because offersConeChoice is uiCones.length > 1 and blue carries one cone. A red
+        // demo on a multi-cone profile would have transmitted, and dual transducers make that
+        // more likely rather than less - which is why this is closed now rather than when it
+        // first bites.
+        //
+        // THE GUARD BELONGS HERE, not on the triggers. A trigger-side guard has to be
+        // remembered by every present and future caller; the applier is the one place that
+        // knows it is talking to hardware. The picture still re-applies under a recording,
+        // which is wanted - only the transmission is withheld.
+        //
+        // logIsOnScreen, NOT isPresentingLog - the same test D-1 took and for the same
+        // reason: isPresentingLog carries two profile-side conditions that read false during
+        // part of the window this has to be true.
+        if (pulseRuntimeSettings.logIsOnScreen) {
+            console.log("CONE: not applying", id, "- a recording is on screen, not a transducer")
+            return
+        }
+
         var c = pulseRuntimeSettings.coneForId(id)
         if (!c)
             return
