@@ -66,6 +66,42 @@ Item {
     // binding - the af857891 lesson, which is why this one is imperative.
     property string appLogPath: ""
 
+    // WHAT THE APP INTENDS, AND WHAT THE DEVICE SAYS IT TOOK.
+    //
+    // Every managed parameter has a _Copy read-back, written when the device reports its
+    // own configuration. Classic showed it in a separate "Device parameter information"
+    // category further down the panel, so checking whether a write landed meant scrolling
+    // away from the control that made it. Here it rides on the row: the value alone while
+    // the two agree, and "2400 (device 2350)" while they do not.
+    //
+    // THAT DISAGREEMENT IS THE SAFETY INDICATOR. A parameter the transducer refused, or
+    // clamped, or has not been told about yet, is invisible in every other way - the
+    // slider sits happily at a number the hardware never accepted. -1 means the device has
+    // not reported yet and is not a disagreement.
+    // WITH NOTHING COMMITTED paramValue answers undefined - committedProfile is empty and
+    // there is no override to find. An undefined reaching a slider's int value silently
+    // becomes 0, which is below every minimum here and puts the knob off the left end. The
+    // group is expert-gated and can be opened before a transducer is chosen, so this is
+    // reachable rather than theoretical.
+    function paramNum(name, fallback) {
+        if (!pulseRuntimeSettings)
+            return fallback
+        var v = pulseRuntimeSettings.paramValue(name)
+        return (v === undefined || v === null || isNaN(v)) ? fallback : v
+    }
+
+    function paramText(name, deviceValue, unit) {
+        if (!pulseRuntimeSettings)
+            return ""
+        var v = pulseRuntimeSettings.paramValue(name)
+        if (v === undefined || v === null || isNaN(v))
+            return qsTr("not set")
+        var t = v + (unit ? " " + unit : "")
+        if (deviceValue !== undefined && deviceValue >= 0 && deviceValue !== v)
+            t += "  (device " + deviceValue + ")"
+        return t
+    }
+
     function refreshAppLogPath() {
         appLogPath = (typeof core !== "undefined" && core) ? core.appLogFilePath() : ""
         console.log("SETTINGS: app log is at", appLogPath === "" ? "(not active)" : appLogPath)
@@ -628,6 +664,49 @@ Item {
             ]
         }
 
+        // ---- About ------------------------------------------------------------
+        //
+        // THE APP DID NOT SAY WHAT IT WAS ANYWHERE. Its name is set once in main.cpp and
+        // read by nothing; the version lived on the old welcome tab and left with it. On a
+        // desktop the window title carried the name by accident - on Android there is not
+        // one, so a tester holding a tablet had no way to answer "which build is this".
+        //
+        // LAST BEFORE THE EXPERT TITLE, on Olav's placing: it is the least often wanted
+        // thing an ordinary user has, and the first thing anyone asks for in a bug report.
+        //
+        // Both rows come from C++ rather than from a second XMLHttpRequest on version.txt:
+        // a synchronous read of a compiled-in resource cannot fail halfway and needs no
+        // callback, and Core can strip the name out of the line so the two rows do not both
+        // say it.
+        PulseSettingsGroup {
+            id: aboutGroup
+
+            width: parent.width
+            uiScale: list.uiScale
+            title: qsTr("About")
+            open: list.openId === "about"
+            onToggled: list.toggle("about")
+
+            content: [
+                PulseReadOnlyRow {
+                    width: aboutGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("App")
+                    value: (typeof core !== "undefined" && core) ? core.appName() : ""
+                },
+
+                PulseReadOnlyRow {
+                    width: aboutGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Version")
+                    hint:  qsTr("quote this in anything you report")
+                    value: (typeof core !== "undefined" && core) ? core.appVersion() : ""
+                }
+            ]
+        }
+
         // ======================================================================
         // TIER 3 - EXPERT
         //
@@ -702,6 +781,218 @@ Item {
                     onToggled: function (v) {
                         list.settingChanged("persistent", "uiVariant", v ? "v2" : "classic")
                     }
+                }
+            ]
+        }
+
+        // ---- Transducer -------------------------------------------------------
+        //
+        // THE SETTERS CLASSIC HID UNDER "Experimental", BACK, AND DELIBERATELY SO. Olav,
+        // 17 Sept: "my partner will be mad at me. Because he really needs to modify several
+        // settings that are now all lost under experimental settings... the upcoming
+        // transducer needs to be tuned."
+        //
+        // WHAT MAKES IT SAFE IS NOT THE RANGE, IT IS WHERE THE VALUE LIVES. Every row here
+        // writes through the "param" target into pulseRuntimeSettings.liveParams, which was
+        // built on 14 Sept with three rules and no special cases:
+        //
+        //   RUNTIME  - every app start returns to the profile, so no experiment can outlive
+        //              the session that made it. Olav, when it was built: an expert "will
+        //              need to start from scratch at app start."
+        //   KEYED BY PROFILE - red's and blue's never mix, and swapping away and back finds
+        //              the experiment still there.
+        //   READONLY - setParam is the only writer, so no stray assignment can destroy the
+        //              binding that follows the committed device.
+        //
+        // So the honest answer to "make these safe" was not to clamp them. It was to check
+        // that the container already refuses to do the dangerous thing - and it does - and
+        // then to add the two things it was missing: A WAY BACK that does not need a
+        // restart (the action at the foot of this group), and A READ-BACK so a value the
+        // transducer never accepted is visible on the row that set it rather than in a
+        // category further down the panel.
+        //
+        // THE RANGES ARE THE DEVICE'S OWN, taken from DeviceItem.qml's configuration
+        // SpinBoxes rather than invented here - those are what the hardware is asked for
+        // during setup, so nothing in this group can ask for something setup could not.
+        // Samples runs to 15000, which is Olav's "drag them up into 5000" with room over.
+        //
+        // SLIDERS WITH NUDGES, not steppers. Olav: the +/- stepper is "a bit slow", and
+        // over 100-15000 it is unusable. But a drag alone cannot land on an exact value at
+        // that width - about forty units per pixel - so the drag chooses the neighbourhood
+        // and the nudge lands the number. See PulseSliderRow.
+        //
+        // NOT HERE: soundSpeed, which is deliberately outside the parameter map because it
+        // is a property of the water rather than of the device, and wants the
+        // one-binding-one-override shape instead. distDeadZone, which is not a managed key
+        // - DeviceItem writes it straight to the device. And chartOffset's automatic write:
+        // applyEchogramMode sets it to 0 on every mode change, so a hand value here would
+        // be overwritten by the next screen change. That is on the open list as a bug in
+        // applyEchogramMode, not something this group should work around.
+        PulseSettingsGroup {
+            id: transducerGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Transducer")
+            open: list.openId === "transducer"
+            onToggled: list.toggle("transducer")
+
+            content: [
+                PulseSliderRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Samples")
+                    hint:  qsTr("how many points the transducer returns per ping")
+                    minValue: 100
+                    maxValue: 15000
+                    stepSize: 50
+                    value: list.paramNum("chartSamples", 100)
+                    valueText: list.paramText("chartSamples",
+                                              pulseRuntimeSettings ? pulseRuntimeSettings.chartSamples_Copy : -1)
+
+                    onMoved: function (v) {
+                        list.settingChanged("param", "chartSamples", v)
+                    }
+                },
+
+                PulseSliderRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    // "Sample spacing" rather than "Resolution", which classic renamed for
+                    // the reason its own comment gives: high resolution is a LOW number and
+                    // misreads every time. A spacing is a length, so bigger is plainly coarser.
+                    label: qsTr("Sample spacing")
+                    hint:  qsTr("millimetres between points - smaller is finer and shallower")
+                    minValue: 1
+                    maxValue: 100
+                    stepSize: 1
+                    value: list.paramNum("chartResolution", 1)
+                    valueText: list.paramText("chartResolution",
+                                              pulseRuntimeSettings ? pulseRuntimeSettings.chartResolution_Copy : -1,
+                                              qsTr("mm"))
+
+                    onMoved: function (v) {
+                        list.settingChanged("param", "chartResolution", v)
+                    }
+                },
+
+                PulseSliderRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Transducer pulse")
+                    hint:  qsTr("longer carries further and blurs the first return")
+                    minValue: 0
+                    maxValue: 5000
+                    stepSize: 1
+                    value: list.paramNum("transPulse", 0)
+                    valueText: list.paramText("transPulse",
+                                              pulseRuntimeSettings ? pulseRuntimeSettings.transPulse_Copy : -1)
+
+                    onMoved: function (v) {
+                        list.settingChanged("param", "transPulse", v)
+                    }
+                },
+
+                // 0 or 1 on the device, so a switch rather than a slider across two values.
+                PulseSwitchRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Transmit boost")
+                    hint:  qsTr("more power into the water")
+                    checked: list.paramNum("transBoost", 0) === 1
+
+                    onToggled: function (v) {
+                        list.settingChanged("param", "transBoost", v ? 1 : 0)
+                    }
+                },
+
+                PulseSliderRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Bottom confidence")
+                    hint:  qsTr("how sure the device must be before it calls a bottom")
+                    minValue: 0
+                    maxValue: 100
+                    stepSize: 1
+                    value: list.paramNum("distConfidence", 0)
+                    valueText: list.paramText("distConfidence",
+                                              pulseRuntimeSettings ? pulseRuntimeSettings.distConfidence_Copy : -1)
+
+                    onMoved: function (v) {
+                        list.settingChanged("param", "distConfidence", v)
+                    }
+                },
+
+                // TWO WRITES FROM ONE CONTROL, and they are not a pair that can be split:
+                // distMax is the device's search ceiling in millimetres and maximumDepth is
+                // the app's in metres, and classic has always moved them together. The +2 m
+                // on a 2D transducer comes straight from classic's row.
+                //
+                // It asks is2DTransducer rather than comparing userManualSetName against
+                // modelPulseRed and modelPulseRedProto, which is what classic does: the
+                // question here is "is this a 2D transducer", and two name comparisons are
+                // two names that will be spelt wrong when a third red arrives.
+                PulseSliderRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Maximum depth")
+                    hint:  qsTr("how deep the device searches - metres")
+                    minValue: 1000
+                    maxValue: 50000
+                    stepSize: 1000
+                    value: list.paramNum("distMax", 1000)
+                    valueText: {
+                        if (!pulseRuntimeSettings)
+                            return ""
+                        var mm  = list.paramNum("distMax", -1)
+                        if (mm < 0)
+                            return qsTr("not set")
+                        var dev = pulseRuntimeSettings.distMax_Copy
+                        var t   = Math.round(mm / 1000) + " " + qsTr("m")
+                        if (dev >= 0 && dev !== mm)
+                            t += "  (device " + Math.round(dev / 1000) + ")"
+                        return t
+                    }
+
+                    onMoved: function (v) {
+                        list.settingChanged("param", "distMax", v)
+                        list.settingChanged("param", "maximumDepth",
+                                            v / 1000 + (pulseRuntimeSettings && pulseRuntimeSettings.is2DTransducer ? 2 : 0))
+                    }
+                },
+
+                // THE WAY BACK, and the row that makes the rest of this group safe to play
+                // with. clearParams drops the committed profile's whole override entry, so
+                // every key above falls through to the profile's own value at once.
+                //
+                // It asks, because it throws away work: a tuning session is a sequence of
+                // small judgements and losing it to a mis-tap would be worse than any value
+                // in it.
+                PulseActionRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Back to the profile")
+                    hint:  qsTr("every value here returns to what this device ships with")
+                    actionText: qsTr("Reset")
+                    question:    qsTr("Drop every tuning change on this transducer?")
+                    confirmText: qsTr("Reset")
+
+                    onActivated: list.actionRequested("clearParams")
                 }
             ]
         }

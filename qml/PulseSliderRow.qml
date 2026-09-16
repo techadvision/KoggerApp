@@ -41,29 +41,115 @@ Item {
 
     readonly property int span: Math.max(1, maxValue - minValue)
 
-    Text {
-        id: labelText
-        anchors.left: parent.left
-        anchors.top: parent.top
-        text: sliderRow.label
-        color: "#eaf1f8"
-        font.pixelSize: Math.round(17 * sliderRow.uiScale)
-    }
+    // FINE NUDGES, OPTIONAL, and the reason they exist is arithmetic rather than taste.
+    // Olav: the +/- stepper is "a bit slow", and on a parameter like the sample count -
+    // 100 to 15000 - it is unusable: a hundred and fifty taps to cross the range. But the
+    // slider has the opposite failure at that width. A 360 du track over 14900 units is
+    // about forty units per pixel, so a parameter whose step is 1 cannot be landed on
+    // exactly by dragging at all.
+    //
+    // So the two are not alternatives. The DRAG chooses the neighbourhood and the NUDGE
+    // lands the value, and a row that needs only one of them asks for only one. Off by
+    // default, so every slider built before this is untouched.
+    property bool showNudges: false
 
-    Text {
-        id: valueLabel
+    readonly property int nudgeSize: Math.round(34 * uiScale)
+
+    Item {
+        id: header
+
+        anchors.left: parent.left
         anchors.right: parent.right
-        anchors.baseline: labelText.baseline
-        text: sliderRow.valueText
-        color: "#8ad3ff"
-        font.pixelSize: Math.round(19 * sliderRow.uiScale)
-        font.bold: true
+        anchors.top: parent.top
+        height: Math.max(labelText.implicitHeight,
+                         sliderRow.showNudges ? sliderRow.nudgeSize : 0)
+
+        Text {
+            id: labelText
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: sliderRow.label
+            color: "#eaf1f8"
+            font.pixelSize: Math.round(17 * sliderRow.uiScale)
+        }
+
+        // A NUDGE IS AT A BOUND, NOT DISABLED. The same rule the stepper row follows: the
+        // button stays where it is and stops answering, so the control does not move under
+        // a thumb that is already on it.
+        Component {
+            id: nudgeButton
+
+            Rectangle {
+                property int dir: 1
+                property bool atBound: dir < 0 ? sliderRow.value <= sliderRow.minValue
+                                               : sliderRow.value >= sliderRow.maxValue
+
+                width:  sliderRow.nudgeSize
+                height: sliderRow.nudgeSize
+                radius: height / 2
+                color: tap.pressed && !atBound ? "#22303c" : "transparent"
+                border.width: 1
+                border.color: atBound ? "#2a323c" : "#3d7fd0"
+                opacity: atBound ? 0.4 : 1.0
+
+                Text {
+                    anchors.centerIn: parent
+                    text: parent.dir < 0 ? "\u2212" : "+"
+                    color: "#cfe0f2"
+                    font.pixelSize: Math.round(19 * sliderRow.uiScale)
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: tap
+                    anchors.fill: parent
+                    onClicked: {
+                        if (parent.atBound)
+                            return
+                        var v = sliderRow.value + parent.dir * sliderRow.stepSize
+                        v = Math.max(sliderRow.minValue, Math.min(sliderRow.maxValue, v))
+                        if (v !== sliderRow.value)
+                            sliderRow.moved(v)
+                    }
+                }
+            }
+        }
+
+        Loader {
+            id: plusNudge
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            active: sliderRow.showNudges
+            sourceComponent: nudgeButton
+            onLoaded: item.dir = 1
+        }
+
+        Text {
+            id: valueLabel
+            anchors.right: sliderRow.showNudges ? plusNudge.left : parent.right
+            anchors.rightMargin: sliderRow.showNudges ? Math.round(8 * sliderRow.uiScale) : 0
+            anchors.verticalCenter: parent.verticalCenter
+            text: sliderRow.valueText
+            color: "#8ad3ff"
+            font.pixelSize: Math.round(19 * sliderRow.uiScale)
+            font.bold: true
+        }
+
+        Loader {
+            id: minusNudge
+            anchors.right: valueLabel.left
+            anchors.rightMargin: Math.round(8 * sliderRow.uiScale)
+            anchors.verticalCenter: parent.verticalCenter
+            active: sliderRow.showNudges
+            sourceComponent: nudgeButton
+            onLoaded: item.dir = -1
+        }
     }
 
     Text {
         id: rangeText
         anchors.left: parent.left
-        anchors.top: labelText.bottom
+        anchors.top: header.bottom
         anchors.topMargin: Math.round(2 * sliderRow.uiScale)
         text: sliderRow.hint !== "" ? sliderRow.hint
                                     : sliderRow.minValue + " – " + sliderRow.maxValue

@@ -90,6 +90,16 @@ Settings {
     //experiment can never start the app without an interface. Persisted on purpose: a
     //comparison on the water has to survive the app being closed between runs.
     property string uiVariant:                  "classic"
+    //AN EXPERT STARTS IN V2, ONCE. "classic" above stays the declared default, because it
+    //is still what an ordinary user should meet; an expert is someone who has typed a key
+    //code, and the v2 interface is what they are here to test.
+    //
+    //A SEED, NOT AN OVERRIDE, and the flag is the whole difference. It fires once per
+    //install - the first start of a build that has this, or the moment a key code is
+    //accepted - and never again, so an expert who goes back to classic in the Experimental
+    //row STAYS in classic. An override would drag them back to v2 on every start and there
+    //would be no way to say no that survived a restart.
+    property bool   uiVariantSeededForExpert:   false
     //THE RAIL IS COLLAPSED. Direction C's "minimise promoted to a proper collapse
     //affordance", which the canvas kept as worth borrowing. Its own key rather than
     //areUiControlsVisible: that one hides the classic quick controls, and one value
@@ -218,7 +228,25 @@ Settings {
         }
     }
 
+    //Two triggers, one body: the entitlement may already be stored when this object is
+    //built, in which case onIsExpertChanged never fires, or it may arrive later when a key
+    //code is accepted, in which case Component.onCompleted has been and gone. Neither
+    //trigger alone covers both, and a seed that runs twice is harmless because the flag
+    //stops the second one.
+    function seedUiVariantForExpert() {
+        if (uiVariantSeededForExpert || !isExpert)
+            return
+        console.log("SETTINGS: expert entitlement - starting in the v2 interface (was",
+                    uiVariant + "); the Experimental row is the way back, and this is asked once")
+        uiVariant = "v2"
+        uiVariantSeededForExpert = true
+    }
+
+    onIsExpertChanged: seedUiVariantForExpert()
+
     Component.onCompleted: {
+        seedUiVariantForExpert()
+
         favoriteThemes2DNew = favoriteThemes2DNew.map(function(x) {
             return typeof x === "string" ? parseInt(x, 10) : x
         })

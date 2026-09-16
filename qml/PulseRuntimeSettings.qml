@@ -2215,13 +2215,30 @@ QtObject {
         console.log("PARAM:", committedProfileKey, name, "->", value)
     }
 
-    // Back to what the profile says, for this device. Nothing calls it yet; it is the
-    // honest answer to "put the experiment back" and it costs four lines.
+    // THE WAY BACK, and it is as much of the expert rows' safety as the runtime rule is.
+    // Dropping the committed profile's whole entry makes every managed key fall through to
+    // committedProfile[name] again - the profile's own value - in one action, with no list
+    // of keys to keep in step and nothing to restore from.
+    //
+    // Restarting the app has always done this, because liveParams is runtime. But an
+    // experiment that can only be undone by closing the app is one nobody runs twice in a
+    // session, and a transducer being tuned needs exactly that: try it, look, put it back,
+    // try the next. It sat here unused from the day the parameter map was built (14 Sept);
+    // the Transducer group is what finally calls it.
+    //
+    // A FRESH OBJECT rather than a delete on the live one, for the reason setParam above
+    // records: a var property handed the same reference has no cause to emit its change
+    // signal, and without that nothing re-evaluates.
     function clearParams() {
+        if (liveParams[committedProfileKey] === undefined) {
+            console.log("PARAMS:", committedProfileKey, "- nothing set on top, already the profile's own values")
+            return false
+        }
         var all = _copyOf(liveParams)
         delete all[committedProfileKey]
         liveParams = all
-        console.log("PARAM:", committedProfileKey, "- back to the profile defaults")
+        console.log("PARAMS:", committedProfileKey, "- every override cleared, back to the profile")
+        return true
     }
 
     readonly property int chartResolution:           paramValue("chartResolution")

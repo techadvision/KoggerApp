@@ -134,6 +134,8 @@ public:
     Q_INVOKABLE bool    prepareLogDirectory(const QString& dir);
     Q_INVOKABLE QString appLogDirectory() const;
     Q_INVOKABLE bool    promoteAppLogStorage();
+    Q_INVOKABLE QString appName() const;
+    Q_INVOKABLE QString appVersion() const;
     Q_INVOKABLE QString appLogFilePath() const;
     Q_INVOKABLE void    revealAppLogFolder();
     Q_INVOKABLE void    powerOffSystem();

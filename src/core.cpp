@@ -7,7 +7,9 @@
 #include <utility>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QUrl>
 #include <QStandardPaths>
 #include <QDateTime>
@@ -1696,6 +1698,53 @@ void Core::installAppLogStoragePromotion()
         promoteAppLogStorage();
     });
 #endif
+}
+
+// PULSE: what the app calls itself and which build this is.
+//
+// THE APP NAME WAS NOWHERE ON SCREEN. It is set once in main.cpp and read by nothing,
+// so the only place a user could learn what they were running was the window title on
+// desktop - and on Android there is no window title. Read from QCoreApplication rather
+// than repeated as a literal in QML, so there is one spelling of it.
+//
+// THE VERSION LIVES IN version.txt, compiled into the qrc, and its first line carries
+// BOTH: "Pulse Echo Sounder v. 0.89". The old welcome tab fetched it with an
+// XMLHttpRequest from QML and showed the whole line. Read here instead - a synchronous
+// read of a compiled-in resource cannot fail halfway, needs no callback, and can strip
+// the name so the two rows do not both say it.
+//
+// Cached after the first read: the file is in the binary and cannot change while the app
+// runs.
+QString Core::appName() const
+{
+    const QString name = QCoreApplication::applicationName();
+    return name.isEmpty() ? QStringLiteral("Pulse Echo Sounder") : name;
+}
+
+QString Core::appVersion() const
+{
+    static QString cached;
+    if (!cached.isNull()) {
+        return cached;
+    }
+
+    cached = QStringLiteral("unknown");
+
+    QFile f(QStringLiteral(":/version.txt"));
+    if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        const QString line = QString::fromUtf8(f.readLine()).trimmed();
+        if (!line.isEmpty()) {
+            // FALL BACK TO THE WHOLE LINE rather than to "unknown" if the shape ever
+            // changes. A version string nobody can parse is still a version string; a
+            // build that reports "unknown" because a full stop moved is not.
+            const QRegularExpression re(QStringLiteral("^(?:.*?)\\bv\\.?\\s*(\\S+)\\s*$"),
+                                        QRegularExpression::CaseInsensitiveOption);
+            const QRegularExpressionMatch m = re.match(line);
+            cached = m.hasMatch() ? m.captured(1) : line;
+        }
+    }
+
+    return cached;
 }
 
 QString Core::appLogFilePath() const
