@@ -138,6 +138,27 @@ Item {
 
     // A positioner, not a Layout - so a plain width on a child is correct throughout this
     // file, and an invisible pill simply takes no space.
+    // THE BLOCKER, and it is what makes the two buttons above safe to offer at all.
+    //
+    // DeviceManager::openFile yields to the event loop while parsing, so taps arrive while
+    // the parse is still on the stack. The first version of that commit excluded user input
+    // precisely to stop a second file open landing on top of the first - and excluding input
+    // also excludes Stop and Close. So input is admitted and the re-entrancy is removed a
+    // better way: while an open runs, nothing but this column can be reached.
+    //
+    // INSIDE THIS ITEM, deliberately. It fills the same area the pills do and sits under
+    // them in one file, so there is no z value for two files to agree about and no way for
+    // the blocker to end up above the buttons it exists to protect. The rail, the panel and
+    // both panes are siblings declared earlier in main.qml, so this covers all of them.
+    MouseArea {
+        anchors.fill: parent
+        visible: pillColumn.openingFile
+        enabled: visible
+        acceptedButtons: Qt.AllButtons
+        preventStealing: true
+        onWheel: function (wheel) { wheel.accepted = true }
+    }
+
     Column {
         id: stack
 
@@ -151,6 +172,124 @@ Item {
         anchors.bottomMargin: pillColumn.safeBottom + Math.round(14 * pillColumn.uiScale)
 
         spacing: Math.round(10 * pillColumn.uiScale)
+
+        // OPENING A FILE. First in the column for the same arithmetic the old-data pill
+        // records: a Column anchored at its bottom grows upward, so nothing below moves.
+        //
+        // THE BLUE FAMILY, because this IS the file family - identical to the "Viewing
+        // recording" pill below, which is what this becomes when the open finishes.
+        Rectangle {
+            id: openingPill
+
+            visible: pillColumn.openingFile
+            height:  openingBody.height + Math.round(22 * pillColumn.uiScale)
+            width:   openingBody.width  + Math.round(28 * pillColumn.uiScale)
+            radius:  Math.round(18 * pillColumn.uiScale)
+
+            color: "#ee0f1317"
+            border.width: 1
+            border.color: "#3d7fd0"
+
+            Column {
+                id: openingBody
+                anchors.centerIn: parent
+                spacing: Math.round(8 * pillColumn.uiScale)
+
+                Row {
+                    id: openingRow
+                    spacing: Math.round(12 * pillColumn.uiScale)
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        // THE PERCENTAGE, NOT A BAR. The echogram filling underneath is
+                        // already a better progress bar than a progress bar: it shows what
+                        // you are getting rather than only how much. This is the number for
+                        // when the picture is still mostly empty.
+                        text: qsTr("Opening")
+                              + (pillColumn.openingName === ""
+                                 ? "" : "   ·   " + pillColumn.openingName)
+                              + "   ·   " + pillColumn.openingProgress + " %"
+                        color: "#eaf1f8"
+                        font.pixelSize: Math.round(17 * pillColumn.uiScale)
+                    }
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width:  1
+                        height: Math.round(24 * pillColumn.uiScale)
+                        color: "#30ffffff"
+                    }
+
+                    // A WORD, NOT A GLYPH, for the reason the log pill's action states:
+                    // one symbol cannot carry two consequences.
+                    Rectangle {
+                        id: openingStopButton
+
+                        anchors.verticalCenter: parent.verticalCenter
+                        width:  openingStopLabel.width + Math.round(26 * pillColumn.uiScale)
+                        height: Math.round(34 * pillColumn.uiScale)
+                        radius: height / 2
+                        color: openingStopArea.pressed ? "#2f7fb5" : "#1d3446"
+                        border.width: 1
+                        border.color: "#3d7fd0"
+
+                        Text {
+                            id: openingStopLabel
+                            anchors.centerIn: parent
+                            text: qsTr("Stop")
+                            color: "#cfe0f2"
+                            font.pixelSize: Math.round(16 * pillColumn.uiScale)
+                            font.bold: true
+                        }
+
+                        MouseArea {
+                            id: openingStopArea
+                            anchors.fill: parent
+                            onClicked: pillColumn.stopOpening()
+                        }
+                    }
+
+                    Rectangle {
+                        id: openingCloseButton
+
+                        anchors.verticalCenter: parent.verticalCenter
+                        width:  openingCloseLabel.width + Math.round(26 * pillColumn.uiScale)
+                        height: Math.round(34 * pillColumn.uiScale)
+                        radius: height / 2
+                        color: openingCloseArea.pressed ? "#2f7fb5" : "#1d3446"
+                        border.width: 1
+                        border.color: "#3d7fd0"
+
+                        Text {
+                            id: openingCloseLabel
+                            anchors.centerIn: parent
+                            text: qsTr("Close")
+                            color: "#cfe0f2"
+                            font.pixelSize: Math.round(16 * pillColumn.uiScale)
+                            font.bold: true
+                        }
+
+                        MouseArea {
+                            id: openingCloseArea
+                            anchors.fill: parent
+                            onClicked: pillColumn.abortOpening()
+                        }
+                    }
+                }
+
+                // THE SENTENCE UNDER THE CONTROLS, which is the loupe's pattern - "No
+                // position - you can inspect the echogram, but not mark it". Two words
+                // cannot carry which one keeps the picture, and this is the one moment a
+                // user cannot try a control to find out what it does.
+                Text {
+                    width: openingRow.width
+                    wrapMode: Text.WordWrap
+                    text: qsTr("Stop keeps what has loaded   ·   Close discards the file")
+                    color: "#8fa6bd"
+                    font.pixelSize: Math.round(14 * pillColumn.uiScale)
+                }
+            }
+        }
 
         // OLD DATA. Olav's sentence, and the demo pill's pattern in a warning accent -
         // same capsule, same body, same divider, same word in the action slot. What

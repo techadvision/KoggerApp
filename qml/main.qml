@@ -315,6 +315,24 @@ ApplicationWindow  {
         setFullScreenMode(mainview.visibility !== Window.FullScreen)
     }
 
+    // AFTER AN ABORT, THE WAY BACK. Core does the closing; raising the screen is the
+    // interface's business and belongs here, beside every other thing that decides whether
+    // the connection screen is up. connectionScreenRequested is the "the user asked" flag,
+    // which is exactly what this is - they asked to leave the file they had chosen.
+    //
+    // ONLY ON `discarded`. Stop leaves a perfectly good file on screen and must not send
+    // the user back to a chooser they did not ask for.
+    Connections {
+        target: deviceManagerWrapper ? deviceManagerWrapper : undefined
+        function onOpenInterrupted(discarded) {
+            if (!discarded)
+                return
+            console.log("FILE: the open was aborted - returning to the connection screen")
+            pulseRuntimeSettings.wasKlfFileOpened = false
+            pulseRuntimeSettings.connectionScreenRequested = true
+        }
+    }
+
     Connections {
         target: core ? core : undefined
         function onSendIsFileOpening() {
@@ -2981,6 +2999,37 @@ ApplicationWindow  {
                 // flows downward so its overlays belong at the foot, a 2D picture the
                 // other way up.
                 displayIs2D: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : true
+
+                // THE FILE BEING OPENED (P2). isOpeningKlfFile is already the one flag
+                // every route to an opened file raises, so there is no second idea of
+                // when an open is running.
+                openingFile: pulseRuntimeSettings
+                             && pulseRuntimeSettings.isOpeningKlfFile
+                // THE NAME, not the path. An Android content:// URI is unreadable and a
+                // full path is too long for a pill; the last segment is what the user
+                // chose in the picker. Decoded, because a picker URI percent-escapes it.
+                openingName: {
+                    var p = core.filePath ? String(core.filePath) : ""
+                    if (p === "")
+                        return ""
+                    var cut = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"))
+                    var name = cut >= 0 ? p.substring(cut + 1) : p
+                    try { name = decodeURIComponent(name) } catch (e) {}
+                    return name
+                }
+                openingProgress: deviceManagerWrapper ? deviceManagerWrapper.fileOpenProgress : 0
+
+                // THE TWO ANSWERS GO STRAIGHT TO THE WORKER. openFile() is running on this
+                // very thread inside its own processEvents(), so the flag these set is read
+                // by the parse loop on its next check - no queue, no wait.
+                onStopOpening: {
+                    console.log("FILE: the user pressed Stop - keeping what has loaded")
+                    deviceManagerWrapper.stopFileOpen()
+                }
+                onAbortOpening: {
+                    console.log("FILE: the user pressed Close - discarding the file")
+                    deviceManagerWrapper.abortFileOpen()
+                }
 
                 // OLD DATA, AS A BINDING ON THE ONE HOLDER OF THE POSITION.
                 // historyTimeLineScroll is assigned from both panes and is what the
