@@ -1494,6 +1494,57 @@ twice.
 - **Deliberately after P1**, because it wants the split-screen/downscan decision settled first
   so it is not built twice.
 
+### The handover set — 17 Sept 2026, `c426ef6e`
+
+Three things Olav asked for before the build goes to his partner for testing.
+
+**An expert starts in v2.** `"classic"` stays the declared default; a one-shot seed moves an
+expert to v2 on the first start of a build that has this, or the moment a key code is accepted.
+**A seed, not an override** — the flag fires once per install, so an expert who goes back to
+classic in the Experimental row stays there. Two triggers, one body, because the entitlement may
+already be stored when `PulseSettings` is built (`onIsExpertChanged` never fires) or arrive later
+(`Component.onCompleted` has been and gone).
+
+**An About category**, last before the expert title: the app name and the version. The name is
+set once in `main.cpp` and was read by nothing, and the version left with the old welcome tab —
+on Android there is no window title, so a tester had no way to answer *which build is this*. Both
+come from two new `Core` invokables rather than a second `XMLHttpRequest` on `version.txt`.
+
+**The transducer setters are back**, in a `Transducer` group under Expert settings.
+
+> **What makes them safe is not the range, it is where the value lives.** Every row writes
+> through the `"param"` target into `liveParams` — **runtime** (no experiment outlives its
+> session), **keyed by profile** (red's and blue's never mix), **readonly** (`setParam` is the
+> only writer). The container already refuses the dangerous thing. What it lacked was a **way
+> back** that does not need a restart — `clearParams()`, unused since the map was built — and a
+> **read-back on the row**, so a value the transducer refused or clamped shows as
+> `2400 (device 2350)` instead of a slider sitting happily at a number the hardware never took.
+
+Ranges are the device's own, from `DeviceItem`'s configuration SpinBoxes. Samples runs to 15000.
+**Sliders with nudges**, because the two are not alternatives: +/- alone is 150 taps across that
+range, and a drag alone is about forty units per pixel. The drag chooses the neighbourhood, the
+nudge lands the number.
+
+#### To check on the device
+
+- **Start the build as an expert.** It must come up in v2, once, with
+  `SETTINGS: expert entitlement - starting in the v2 interface`. Then switch to classic in the
+  Experimental row, restart, and it **must stay classic** — the line must not appear again. That
+  is the seed-not-override test and it is the one that matters.
+- **About** names the app and a version that matches `version.txt`. If the version reads as the
+  whole line including the name, the parse fell back, which is by design rather than a fault.
+- **Open `Transducer` on a committed blue.** Drag Samples up and watch the echogram change.
+  Then tap a nudge: exactly one step, and the number must move by 50.
+- **Watch the read-back.** After each write the `(device N)` suffix should appear briefly and
+  then go, as the transducer reports back. **One that stays is the finding** — that value did
+  not land.
+- **Reset, and then restart.** Reset must put every row back to the profile's value in one
+  action; a restart must do the same thing on its own, because the map is runtime.
+- **Swap red and blue and come back.** The experiment must still be there, and red must never
+  show blue's numbers.
+- With nothing committed the rows read **not set** rather than 0 — the group is expert-gated and
+  can be opened before a transducer is chosen.
+
 ### P4 — Small, independent, low risk. Any order, any spare half-session
 
 - **The speed gauge** — asked for by the professional dealer. The data already exists
