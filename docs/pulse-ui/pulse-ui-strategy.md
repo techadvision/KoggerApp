@@ -6648,7 +6648,7 @@ classifies an opened log as 2D or side scan (activeModel reads the count)*. The 
 is length 2, passes, and writes `numberOfDatasetChannels = 1`. That is exactly the tell the
 15 Sept close named for shape four: `size() != n` standing in for *is this still valid*.
 
-**The demo path is immune and that is what hid it.** `demoPrescan` settles the model before the
+**The demo path was assumed immune. That assumption was wrong — see the correction below.** `demoPrescan` settles the model before the
 channel list arrives, so the transient writes a value nothing is waiting on. **The file-open path
 has no prescan** — which is precisely why `applyForSource` had to be given its `presentedModel`
 trigger — so the prediction is that a blue *log file* is classified as red for that window and
@@ -6826,3 +6826,71 @@ later idea rather than something this commit prejudges.
 - **The first pane must not flicker** when the second appears. The appliers are idempotent —
   the 16 Sept build proved that with repeated `MODE:`, `RANGE:` and `THEME:` lines — so the
   re-apply should be invisible on pane 1.
+
+---
+
+# The count that classifies too early, confirmed — and a correction (16 Sept 2026)
+
+`a0820198`, `79c16ebc`, `07ce2184`, all verified on device the same afternoon.
+
+## The correction: the demo path is NOT immune
+
+This document said, earlier today, that `demoPrescan` settles the model before the channel list
+arrives, so the transient writes a value nothing is waiting on. **That is wrong**, and the
+mechanism it overlooked is one this document had already written down: `applyForSource` runs on
+`onPresentedModelChanged`, and `presentedModel` is derived from the channel count. So the
+transient does not sit quietly — it fires a complete apply pass.
+
+Olav's log, starting a **blue** demo:
+
+```
+SOURCE: presenting PULSEred  -> applying the picture's settings | PULSEred  | 2D        | range key maxDepthValue
+SOURCE: presenting PULSEblue -> applying the picture's settings | PULSEblue | side scan | range key maxDepthValuePulseBlueFixed
+SOURCE: demo   -> ... | PULSEblue | side scan | ...
+SOURCE: commit -> ... | PULSEblue | side scan | ...
+```
+
+and starting a **red** demo:
+
+```
+SOURCE: presenting PULSEred -> applying the picture's settings | PULSEred | 2D | range key maxDepthValue
+SOURCE: demo   -> ...
+SOURCE: commit -> ...
+```
+
+## The asymmetry is the proof, and it rules out the innocent reading
+
+A blue demo gets **two** `presenting` passes; a red demo gets **one**. If this were leftover
+state from a previous red session it would look the same on both, and `onPresentedModelChanged`
+fires only on a *change*, so `presentedModel` genuinely moved to `PULSEred` before moving to
+blue. Red coincides with its own transient because red really is one channel. Blue does not.
+
+So a blue demo runs a full apply pass **as red** — theme, intensity, water body filter, screen
+and range — and then corrects. That is the one-frame red palette reported this morning, now
+traced end to end. Nothing is left wrong afterwards, so it stays cosmetic; it is five times the
+work it needs to be, and it is the last place the app briefly believes it is looking at the
+wrong device.
+
+> **A guard that tests whether a value has ARRIVED cannot tell you whether it has FINISHED.**
+> `if (list.length < 2) return` asks *has a list been built*. The channel list is a growing
+> input, so the honest question is whether it has stopped growing, and nothing in the QML can
+> currently ask it. Fault shape four, and the cheapest instance of it yet found.
+
+## What was confirmed alongside it
+
+- **`79c16ebc`, the cone guard.** `CONE: not applying narrow - a recording is on screen, not a
+  transducer` on a red demo. Two silences that are also correct: a **blue** demo prints nothing
+  because `offersConeChoice` is `uiCones.length > 1` and blue carries one cone, so the call
+  returns before the guard — **blue cannot test this path, only red can**; and the earlier build
+  that appeared to fail the guard simply predated the commit.
+- **`07ce2184`, the stale panel.** `PANEL: closed - the user asked for the connection screen`,
+  on both a cone panel and a screen panel. `PANEL: closed - a source was chosen` never printed,
+  which is also correct: the connection-screen half had already closed it and `closeStalePanel`
+  returns early on an empty `openGroup`. Both halves are live; the first to fire wins, which is
+  what sharing one body buys.
+- **`a0820198`.** The pane re-apply now names which edge it is on.
+
+**Still open, unchanged:** the channel-count transient itself (cosmetic, and it wants the
+file-side prescan rather than a patch at the guard — the two are the same work, as P2 already
+says); `bd14130f` unverified; `applyEchogramMode`'s unguarded `setParam("chartOffset", 0)` on a
+recording; `applyViewId` dead with two hardware writes in it; `master` unpushed.
