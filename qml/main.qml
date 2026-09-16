@@ -2208,8 +2208,16 @@ ApplicationWindow  {
                             // A HOOK IS ONLY AS GOOD AS THE LIST IT RE-APPLIES. Naming one
                             // applier here has to be remembered every time an applier is
                             // added; calling the one list never does.
+                            //
+                            // BOTH EDGES, and the reason says which. A pane going away
+                            // leaves pane 1 full height and wanting its grid and range
+                            // restated, so the re-apply is right in both directions - but a
+                            // line reading "appeared" as it disappears is a diagnostic
+                            // describing a state that is not the one it is in, which is the
+                            // af857891 lesson in its cheapest possible form.
                             if (pulseSettings.uiVariant === "v2")
-                                mainview.applyForPicture("the second pane appeared")
+                                mainview.applyForPicture(enabled ? "the second pane appeared"
+                                                                 : "the second pane went away")
                         }
 
                         onVisibleChanged: {
