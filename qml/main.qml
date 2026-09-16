@@ -553,8 +553,60 @@ ApplicationWindow  {
         }
     }
 
-    onWidthChanged:  Ui.windowWidth  = width
-    onHeightChanged: Ui.windowHeight = height
+    onWidthChanged:  { Ui.windowWidth  = width;  uiMetricsSettle.restart() }
+    onHeightChanged: { Ui.windowHeight = height; uiMetricsSettle.restart() }
+
+    // ── WHAT UiMetrics::computeScale() IS ACTUALLY COMPUTING FROM (16 Sept 2026) ─────────
+    //
+    // The phone's loupe and its fonts are too small to read, and the reading of the code is
+    // that computeScale() divides a LOGICAL short side by a reference of 1200 while the
+    // result multiplies DEVICE-pixel constants. That is a reading, not a measurement, and
+    // the whole base scale rests on it - so the numbers come first and the code after.
+    //
+    // WHY THE ANDROID CASE IS NOT OBVIOUS FROM THE SOURCE. main.cpp sets
+    // QT_AUTO_SCREEN_SCALE_FACTOR=0 and QT_SCALE_FACTOR=0.5 on Android, so the ratio between
+    // logical and device pixels is the device's own density times a half. A normal-density
+    // tablet lands near 1 - which is the dpr-1 desktop window computeScale()'s comment names,
+    // and why the tablet has never looked wrong - while a 560 dpi phone does not. So the one
+    // number that decides whether this is a divergence or a constant factor is the dpr, and
+    // it is the number nobody has yet read off a device.
+    //
+    // RAW AND CLAMPED BOTH PRINT. "0.75" alone cannot be told from "0.75 because the floor
+    // caught it", and the whole point of the phone note is that both devices sit ON the floor,
+    // where nothing that scales DOWN can help. The raw value is what says how far apart they
+    // really are.
+    //
+    // AND resCoeff BESIDE IT, because the app has two scales and they are computed from
+    // different things - Ui.scale from the window, theme.resCoeff from physical over logical
+    // DPI. A font that is too small is not evidence about which of the two drew it until both
+    // are on one line.
+    function logUiMetrics(reason) {
+        var dpr = Screen.devicePixelRatio
+        var shortSide = Math.min(Ui.windowWidth, Ui.windowHeight)
+        var raw = shortSide / 1200
+        var clamped = (raw < 0.75) || (raw > 1.35)
+        console.log("METRICS:", reason,
+                    "| window", Ui.windowWidth + "x" + Ui.windowHeight, "logical",
+                    "| dpr", dpr,
+                    "| screen", Screen.width + "x" + Screen.height, "logical =",
+                    Math.round(Screen.width * dpr) + "x" + Math.round(Screen.height * dpr), "device px",
+                    "| short side", shortSide, "/ 1200 -> raw", raw.toFixed(3),
+                    "-> s", Ui.scale, clamped ? "(CLAMPED)" : "(not clamped)",
+                    "| resCoeff", theme.resCoeff,
+                    "| fontS", Ui.fontS, "fontM", Ui.fontM, "iconTouchSmall", Ui.iconTouchSmall)
+    }
+
+    // THE SIZE SETTLES AFTER onCompleted ON ANDROID. The activity forces landscape, and the
+    // window is resized again after QML is up - so a single print at startup can describe the
+    // portrait window the app never shows. The timer prints the size the app actually ran at;
+    // the startup line is kept beside it because the difference between the two is itself
+    // worth seeing once.
+    Timer {
+        id: uiMetricsSettle
+        interval: 400
+        repeat: false
+        onTriggered: mainview.logUiMetrics("settled")
+    }
 
     Component.onCompleted: {
         Ui.windowWidth = width
@@ -598,6 +650,8 @@ ApplicationWindow  {
         console.log("App start code check: code=", code, ", isBeta", isBeta, "isExpert", isExpert)
         //console.log("App start code check: pulseSettings.isBetaTester=", pulseSettings.isBetaTester, "pulseSettings.isExpert=", pulseSettings.isExpert)
         theme.updateResCoeff()
+        // AFTER updateResCoeff(), or the line reports the coefficient the app is leaving.
+        logUiMetrics("startup")
 
         //Important settings:
 
