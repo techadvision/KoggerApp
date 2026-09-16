@@ -2183,12 +2183,33 @@ ApplicationWindow  {
 
                         onEnabledChanged: {
                             waterViewSecond.setPlotEnabled(enabled)
-                            // AND RE-APPLY, because this pane's grid is pinned by
-                            // applyScreenId and the order in which a binding and a handler
-                            // land is not something to rely on. Re-applying is free; a pane
-                            // that came up with the wrong grid is a device build.
+                            // AND RE-APPLY THE WHOLE PICTURE LIST, not one item of it.
+                            //
+                            // This handler already knew the hazard and repaired one symptom
+                            // of it. FOUR appliers reach this pane - applyDisplayTheme,
+                            // applyIntensity, applyWaterBodyFilter and applyMaxRange - and
+                            // every one gates on waterViewSecond.enabled, which ends a
+                            // binding chain hanging off displayIs2DTransducer. applyForSource
+                            // runs from a handler on that same source, and QML does not order
+                            // a binding's re-evaluation against a handler firing on it, so all
+                            // four read the OUTGOING false and write to one pane. Only the
+                            // grid was ever put back here.
+                            //
+                            // Olav, 16 Sept, on side over down: "The downscan came with the
+                            // blue (default) color. And it also did not have the intensity
+                            // applied." The default is exactly what it was - pane 2 was never
+                            // given a theme. The range looked right only because d8510413 gave
+                            // it a second trigger on channelListUpdated, which lands later,
+                            // when this pane is already enabled.
+                            //
+                            // applyForPicture, NOT applyForSource: a pane appearing is not a
+                            // reason to re-transmit a cone frequency to the transducer.
+                            //
+                            // A HOOK IS ONLY AS GOOD AS THE LIST IT RE-APPLIES. Naming one
+                            // applier here has to be remembered every time an applier is
+                            // added; calling the one list never does.
                             if (pulseSettings.uiVariant === "v2")
-                                mainview.applyScreenId(pulseSettings.screenViewId)
+                                mainview.applyForPicture("the second pane appeared")
                         }
 
                         onVisibleChanged: {
@@ -3850,7 +3871,29 @@ ApplicationWindow  {
     // RANGE LAST, and that is ordering rather than taste: applyScreenId -> applyEchogramMode
     // writes isSideScan2DView, and that property is what decides WHICH of the three stored
     // range keys displayMaxRange reads. Range first would apply the outgoing mode's number.
-    function applyForSource(reason) {
+    // ONE LIST, SPLIT BY WHAT IT WRITES TO. applyForPicture is everything that reaches the
+    // PICTURE; applyForSource is that plus the one call that reaches the TRANSDUCER.
+    //
+    // The split exists because a second pane appearing is a reason to re-apply the picture
+    // and is NOT a reason to re-transmit a cone frequency. Same line D-1 drew for the cone
+    // chooser during playback: a control that writes to hardware is a different kind of
+    // control from one that writes to the picture, and the two do not belong on one list
+    // that anything is allowed to re-run.
+    //
+    // THE SOURCE: LINE STAYS IN THE INNER FUNCTION, deliberately. It describes the picture,
+    // it is the observable read on every device build, and keeping it here means a re-apply
+    // from the pane path prints the same line with its own reason instead of arriving
+    // silently. One observable, every route.
+    //
+    // ORDER IS STILL LOAD-BEARING: applyScreenId -> applyEchogramMode writes isSideScan2DView,
+    // and that is what decides which of the three stored range keys displayMaxRange reads, so
+    // applyMaxRange stays last. applyConeId reads nothing the range depends on, so moving it
+    // after the picture list is free.
+    //
+    // NO LOOP THROUGH THE PANE HANDLER: applyScreenId reads pulseSettings.screenViewId and
+    // never writes it, so splitEchograms - and therefore waterViewSecond.enabled - cannot
+    // move as a result of this call.
+    function applyForPicture(reason) {
         if (pulseSettings.uiVariant !== "v2")
             return
 
@@ -3863,8 +3906,15 @@ ApplicationWindow  {
         applyIntensity()
         applyWaterBodyFilter()
         applyScreenId(pulseSettings.screenViewId)
-        applyConeId(pulseSettings.ecoConeId)
         applyMaxRange()
+    }
+
+    function applyForSource(reason) {
+        if (pulseSettings.uiVariant !== "v2")
+            return
+
+        applyForPicture(reason)
+        applyConeId(pulseSettings.ecoConeId)
     }
 
     // INTENSITY AND THE WATER BODY FILTER, applied the same way the palette is: one function,
