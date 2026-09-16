@@ -101,6 +101,60 @@ Item {
     readonly property real railWidth: Math.round(76 * uiScale) + safeLeft
     readonly property real tabWidth:  Math.round(30 * uiScale) + safeLeft
 
+    // ── THE RAIL HAS TO FIT THE SCREEN IT IS DRAWN ON (16 Sept 2026) ────────────────────
+    //
+    // The app forces landscape from the Java activity, so on a phone the SHORT side is the
+    // height this column has to live in. The column needs about 983 design units with a
+    // live blue on it and a Samsung S23 Ultra does not have that many, so the ColumnLayout
+    // squeezed every item it could - and the one item that does not squeeze ran off the
+    // bottom of the screen. Olav: "I can barely see the 'N' in the TechAdVision artwork."
+    //
+    // THAT 'N' IS THE DIAGNOSIS, not a complaint. The wordmark's Image kept a fixed
+    // 150 x 30 and was only CENTRED in a box the layout had shrunk, so it overflowed. At
+    // -90 degrees the original left edge maps to the bottom, so what stays on screen is the
+    // END of the word. TechAdVisio-n.
+    //
+    // AND BOTH OF THE APP'S SCALES ARE FLOORED. uiScale is mainview.s, which is
+    // Math.max(1.0, shortSide / 1100) - it grows on a tablet and can never shrink on a
+    // phone - exactly as UiMetrics::scale() sits on its own 0.75 floor. Nothing that scales
+    // down reaches this, which is why the answer is a BUDGET rather than a smaller number.
+    //
+    // THE WORDMARK IS THE ONLY THING ON THIS RAIL THAT IS NOT A CONTROL, so it is the one
+    // that gives - and it gives completely rather than partly. Olav, on the three shapes:
+    // elastic, and absent below its natural size. A wordmark drawn at half size reads as a
+    // smudge and spends the room anyway; absent spends nothing and says nothing false.
+    //
+    // ONLY EVER SHRINKS, which is bf80ab02's clamp in a second place: on a tablet there is
+    // room, the slot is reserved exactly as the Layout.topMargin + 150 used to be, and the
+    // geometry is identical to before this commit.
+    //
+    // NO HAND-WRITTEN SUM, and that is the whole reason the wordmark leaves the layout. The
+    // question "is there room" needs the controls' natural height, and column.implicitHeight
+    // is that number, kept by the layout itself - so a button added or withdrawn is counted
+    // with nothing to remember. Adding up the column here would have been the "hook is only
+    // as good as the list it re-applies" fault in a new place.
+    //
+    // AND IT CANNOT LOOP. implicitHeight is the sum of the CHILDREN's preferred heights; it
+    // does not read the layout's own geometry or its margins. So the reservation below is
+    // downstream of the measurement and never feeds back into it. (This is why the wordmark
+    // could not simply be hidden in place: hiding it inside the layout would drop
+    // implicitHeight, which would make it fit, which would show it again.)
+    readonly property real columnTopMargin:    Math.round(10 * uiScale) + topInset
+    readonly property real columnBottomMargin: Math.round(10 * uiScale) + safeBottom
+    readonly property real columnSpacing:      Math.round(8 * uiScale)
+    readonly property real wordmarkHeight:     Math.round(150 * uiScale)
+    // THE SLOT IS THE ROOM THE WORDMARK USED TO TAKE INSIDE THE LAYOUT, to the pixel: its
+    // own 150, the Layout.topMargin of 10 it carried, and the column spacing that separated
+    // it from the button above. Leaving the spacing out would move it 8 units up on every
+    // device that already fits - and the point of this commit is that those devices do not
+    // move at all. columnSpacing is read by the layout as well, so there is one spelling.
+    readonly property real wordmarkSlot:       wordmarkHeight
+                                               + Math.round(10 * uiScale)
+                                               + columnSpacing
+    readonly property real controlsRoom:       Math.max(0, height - columnTopMargin - columnBottomMargin)
+    readonly property bool wordmarkFits:       !collapsed
+                                               && (controlsRoom - column.implicitHeight) >= wordmarkSlot
+
     // WHAT THE PICTURE OWES THE RAIL. Zero when collapsed - the echogram takes the whole
     // screen and the tab floats over it - and the rail's full width otherwise. This is the
     // one number a host has to read to give the echogram the rest of the screen.
@@ -174,10 +228,15 @@ Item {
         visible: !rail.collapsed
         anchors.fill: parent
         anchors.leftMargin:   rail.safeLeft
-        anchors.topMargin:    Math.round(10 * rail.uiScale) + rail.topInset
-        anchors.bottomMargin: Math.round(10 * rail.uiScale) + rail.safeBottom
+        anchors.topMargin:    rail.columnTopMargin
+        // THE SLOT IS RESERVED HERE, not taken by the wordmark itself. The fill-height
+        // spacer sits in the MIDDLE of this column, so the lower group is bottom-aligned
+        // against this margin - which is exactly where the wordmark used to push it from
+        // inside. Reserving rather than squeezing is what stops the Image overflowing.
+        anchors.bottomMargin: rail.columnBottomMargin
+                              + (rail.wordmarkFits ? rail.wordmarkSlot : 0)
 
-        spacing: Math.round(8 * rail.uiScale)
+        spacing: rail.columnSpacing
 
         // WHAT IS OPEN, SAID ONCE, to the whole column. Every PulseRailButton below is a
         // direct child of this layout and defaults its own `openGroup` from here, then
@@ -366,27 +425,41 @@ Item {
             iconSource: "./icons/ui/pulse_arrow_left.svg"
             onActivated: rail.backToClassic()
         }
+    }
 
-        // The wordmark leaves the picture and comes to the foot of the rail, which is what
-        // takes the watermark off the echogram itself. Rotation does not change an item's
-        // layout size, so the box is sized for the ROTATED result and the image is centred
-        // inside it.
-        Item {
-            Layout.preferredWidth:  Math.round(40 * rail.uiScale)
-            Layout.preferredHeight: Math.round(150 * rail.uiScale)
-            Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: Math.round(10 * rail.uiScale)
+    // The wordmark leaves the picture and comes to the foot of the rail, which is what
+    // takes the watermark off the echogram itself. Rotation does not change an item's
+    // layout size, so the box is sized for the ROTATED result and the image is centred
+    // inside it.
+    //
+    // OUT OF THE LAYOUT, IN THE SAME PLACE. Anchored to the foot of the rail, in the slot
+    // the column's bottom margin reserves for it, so where it is drawn has not changed -
+    // only what happens when there is nowhere to draw it. Centred on the CONTENT area
+    // rather than on the item, which is what Layout.alignment did for it before: the
+    // content starts at safeLeft, so its centre is half of safeLeft to the right of the
+    // rail's own.
+    Item {
+        id: wordmark
 
-            Image {
-                anchors.centerIn: parent
-                width:  Math.round(150 * rail.uiScale)
-                height: Math.round(30 * rail.uiScale)
-                rotation: -90
-                source: "./image/logo_techadvision_gray.png"
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-                opacity: 0.42
-            }
+        visible: rail.wordmarkFits
+
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.horizontalCenterOffset: Math.round(rail.safeLeft / 2)
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: rail.columnBottomMargin
+
+        width:  Math.round(40 * rail.uiScale)
+        height: rail.wordmarkHeight
+
+        Image {
+            anchors.centerIn: parent
+            width:  Math.round(150 * rail.uiScale)
+            height: Math.round(30 * rail.uiScale)
+            rotation: -90
+            source: "./image/logo_techadvision_gray.png"
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            opacity: 0.42
         }
     }
 }
