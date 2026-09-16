@@ -3927,13 +3927,40 @@ ApplicationWindow  {
 
             let list = []
             list = dataset.channelsNameList()
-            // Diagnostic: this is the ONLY thing that classifies an opened log as 2D or
-            // side scan (activeModel reads the count), and it was silent. Log every
-            // update, including the ones that return early, so a misclassified replay
-            // says why in the application output instead of having to be reproduced.
+
+            // Diagnostic. IT USED TO CLAIM THE COUNT CLASSIFIES THE PICTURE, and said
+            // "side scan" or "2D" as though it were the answer. That was true when it was
+            // written and has not been since ea5cf3d3: the log prescan answers from the
+            // recording before anything is drawn, fileIsSideScan OUTRANKS the count, and
+            // the count is now only the fallback for a log the prescan could not read.
+            // On a demo it decides nothing at all, and on a live device even less.
+            //
+            // A DIAGNOSTIC DESCRIBING A VALUE THE DECISION DOES NOT USE is the af857891
+            // lesson - there it printed the outgoing picture's index beside the incoming
+            // picture's id and very nearly bought a migration the data never justified.
+            // So the line now says what the count WOULD say, and then names who is
+            // actually deciding, which is the question a reader of this log has.
+            function decider() {
+                if (pulseRuntimeSettings.isInDemoMode)
+                    return "the demo prescan decides (" +
+                           (pulseRuntimeSettings.demoIsSideScan ? "side scan" : "2D") + ")"
+                if (pulseRuntimeSettings.wasKlfFileOpened || pulseRuntimeSettings.isOpeningKlfFile)
+                    return pulseRuntimeSettings.fileIsSideScan === -1
+                         ? "THE COUNT DECIDES - the log prescan had no answer"
+                         : "the log prescan decides (" +
+                           (pulseRuntimeSettings.fileIsSideScan === 1 ? "side scan" : "2D") +
+                           "), the count is only its fallback"
+                return "the committed device decides (" +
+                       (pulseRuntimeSettings.committedModel === "" ? "nothing committed"
+                                                                   : pulseRuntimeSettings.committedModel) + ")"
+            }
+
+            // Logged even on the early return, because a list that never finishes growing
+            // is exactly the fault this line exists to make visible.
             if (list.length < 2) {
                 console.log("CHANNELS: list not ready yet (length", list.length,
-                            ") - keeping", pulseRuntimeSettings.numberOfDatasetChannels)
+                            ") - keeping", pulseRuntimeSettings.numberOfDatasetChannels,
+                            "|", decider())
                 return
             }
 
@@ -3941,7 +3968,8 @@ ApplicationWindow  {
             if (pulseRuntimeSettings.numberOfDatasetChannels !== channels)
                 console.log("CHANNELS:", pulseRuntimeSettings.numberOfDatasetChannels, "->", channels,
                             "| list", JSON.stringify(list),
-                            "|", channels >= 2 ? "side scan" : "2D")
+                            "| the count would say", channels >= 2 ? "side scan" : "2D",
+                            "|", decider())
             pulseRuntimeSettings.numberOfDatasetChannels = channels
         }
     }
