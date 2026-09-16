@@ -6790,7 +6790,7 @@ a blue looks like blue's palette. *"Blue (default) color"* was literally the def
 > **A re-apply hook is only as good as the list it re-applies.** A hook that names one applier
 > has to be remembered every time an applier is added; a hook that calls the one list never does.
 
-**The designed fix, not yet built:** split the list by what it writes to.
+**Built as `c5f970a4`:** split the list by what it writes to.
 `applyForPicture(reason)` is theme, intensity, filter, screen and range; `applyForSource` is
 `applyForPicture` plus `applyConeId`. The handler calls `applyForPicture`, because `applyConeId`
 is `setParam("transFreq")` **to the transducer** and a pane appearing is not a reason to
@@ -6802,3 +6802,27 @@ restores rather than overrides.
 **Olav's constraint, recorded:** *"Screens need to use the same settings as we have no way (at
 least not now) to differ."* Both panes get the same picture settings; per-pane settings stay a
 later idea rather than something this commit prejudges.
+
+## To check on the device — the three QML commits of 16 Sept
+
+`f7d294cf`, `ef493ced`, `c5f970a4`. All QML, one build.
+
+- **The pills sit bottom right on every picture**, red and blue, full screen and in the app's
+  own split. Confirmed already for Android multi-window, where the Stop demo pill had been
+  disappearing.
+- **The paused gutter's hairline is a line, not a corner**, after changing flow — pause on a
+  side scan, swap to a 2D picture, pause again.
+- **Side over down: the down pane comes up with the SAME palette, intensity, water body filter
+  and range as the side pane.** The observable is a second `SOURCE:` line naming its own reason:
+
+  ```
+  SOURCE: the second pane appeared -> applying the picture's settings | PULSEblue | side scan | range key ...
+  ```
+
+  followed by `THEME: applying N to the panes` — and N must be the picture's theme, not the
+  renderer's default.
+- **No `CONE:` line after that `SOURCE:` line.** If one appears, `applyConeId` has leaked back
+  into the picture list and a pane appearing is re-transmitting a frequency to the transducer.
+- **The first pane must not flicker** when the second appears. The appliers are idempotent —
+  the 16 Sept build proved that with repeated `MODE:`, `RANGE:` and `THEME:` lines — so the
+  re-apply should be invisible on pane 1.
