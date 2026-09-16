@@ -1326,6 +1326,79 @@ ApplicationWindow  {
             // drawn. Never nothing at all.
             readonly property bool has2DView: wantsEchogram || !has3DView
             readonly property bool splitActive: has3DView && has2DView
+
+            // ── THE INSTRUMENT FOR "NO MOSAIC AT ALL" (16 Sept 2026) ─────────────────────────
+            //
+            // Olav on a Samsung S23 Ultra: choosing Mosaic does nothing and the previous full
+            // screen stays up; choosing Side + mosaic or Down + mosaic gives a full-screen
+            // side or down. Those are not two faults and they are not mosaic faults. They are
+            // has2DView's documented fallback firing, and the shapes match it exactly:
+            //
+            //   single_mosaic      firstMode is "" -> applyEchogramMode is never called, so
+            //                      the outgoing picture stays exactly as it was.
+            //   split_*_mosaic     splitEchograms is false and firstMode is side/down -> one
+            //                      full-screen echogram.
+            //
+            // The chooser still marks the row because the PREFERENCE was stored; only the pane
+            // was never built. So the question is not "why is the mosaic blank" but "which
+            // term of view3dToggleAvailable is false", and that has three candidate answers
+            // with three different fixes:
+            //
+            //   is2DTransducer      the COMMITTED device, while every other screen-chooser
+            //                       question follows the DISPLAY model (offersScreenChoice is
+            //                       !displayIs2DTransducer). A blue log on an uncommitted app
+            //                       would be offered the layouts and refused the pane.
+            //   mavlinkDetected     raised by any MAVLink frame, a replayed one included.
+            //   core.filePath       EMPTY DURING A DEMO. Core::startDemo never sets it and
+            //                       clears it if a file was open - so a demo, which carries
+            //                       exactly as much position as the file it replays, is missed
+            //                       by both halves of the position test.
+            //
+            // NOT A BINDING, and that is the af857891 lesson in its cheapest form: a binding
+            // describing other bindings may be evaluated in any order relative to them and is
+            // free to describe the state they are leaving. Every value here is read inside the
+            // handler, imperatively, at the moment the line is printed.
+            //
+            // THE PANE GEOMETRY IS ON THE SAME LINE on purpose. If the line ever reads
+            // available TRUE the next question is whether the pane was built with a size, and
+            // one build should answer both rather than two.
+            //
+            // GUARDED, because two of the three triggers can fire DURING creation - before
+            // pulseRuntimeSettings is built and before `renderer`, declared below, exists.
+            // A diagnostic that throws is worse than no diagnostic: the exception unwinds the
+            // handler and the state it was printing is lost with it.
+            function logMosaicAvailability(reason) {
+                if (!pulseRuntimeSettings)
+                    return
+                var hasFile = (core.filePath !== undefined && core.filePath !== null
+                               && String(core.filePath).length > 0)
+                var pane = renderer ? (Math.round(renderer.width) + "x" + Math.round(renderer.height))
+                                    : "(not built yet)"
+                console.log("MOSAIC:", reason,
+                            "| screen", (screenEntry ? screenEntry.id : "(no entry)"),
+                            "| wantsMosaic", wantsMosaic,
+                            "| available", view3dToggleAvailable,
+                            "= committed is2D", pulseRuntimeSettings.is2DTransducer,
+                            "/ display is2D", pulseRuntimeSettings.displayIs2DTransducer,
+                            "| mavlink", pulseRuntimeSettings.mavlinkDetected,
+                            "| file", hasFile,
+                            "| demo", pulseRuntimeSettings.isInDemoMode,
+                            "-> has3DView", has3DView,
+                            "| has2DView", has2DView,
+                            "| splitEchograms", splitEchograms,
+                            "| pane", pane)
+            }
+
+            // THREE TRIGGERS, AND EACH ONE IS A DIFFERENT QUESTION. The layout changing is
+            // "what happened when I chose it"; availability changing is "did it ever arrive
+            // later"; startup is the baseline the other two are read against.
+            //
+            // THE LAYOUT TRIGGER IS screenEntry, NOT wantsMosaic. Moving from Side + mosaic to
+            // Mosaic leaves wantsMosaic true, so a handler on it would say nothing about the
+            // choice that was just made - and switching between the mosaic layouts is exactly
+            // what Olav did when he found this.
+            onScreenEntryChanged:           logMosaicAvailability("the layout was chosen")
+            onView3dToggleAvailableChanged: logMosaicAvailability("availability moved")
             readonly property real primaryLength: landscapeMode ? contentWidth : height
             readonly property real splitLength: Math.max(0, primaryLength)
             // THE FIRST PANE IS THE ECHOGRAM NOW, where it used to be the 3D scene. "Side scan
@@ -1410,6 +1483,7 @@ ApplicationWindow  {
 
             Component.onCompleted: {
                 applySceneSplitRatioFromSettings()
+                logMosaicAvailability("startup")
             }
 
             Behavior on splitRatio {
