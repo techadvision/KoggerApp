@@ -1366,9 +1366,30 @@ Open a **blue** log (or a blue demo) and put a **down** picture on screen: full 
   ```
   BLEND: down scan channels -> 1 RMS
   ```
-- **RMS against Mean.** Both are smoother than Single. RMS should be the brighter of the two on
-  a strong bottom — if Mean is brighter, the domain assumption is wrong and the byte is not
-  linear amplitude after all, which would be a real finding worth stopping for.
+- **RMS against Mean — and this check was WRONG as first written, which is worth keeping.** It
+  said *"RMS should be the brighter of the two; if Mean is brighter, the byte is not linear
+  amplitude"*. **RMS is brighter than the arithmetic mean for every possible pair of samples**,
+  by the power-mean inequality, with equality only when the two channels agree exactly. The
+  outcome was fixed by arithmetic before the app was built, so the check could not have
+  discriminated anything — lesson eighteen, *a check that must be ignored is worse than no
+  check*, in a new place and written by me.
+
+  **And the honest expectation is that the two look nearly identical.** For two independent
+  Rayleigh looks the speckle coefficient of variation is 0.52 for a single channel, **0.363**
+  for RMS and **0.370** for the arithmetic mean — a 2% difference, invisible. RMS runs about
+  **6% brighter**. Both deliver essentially all of the 1.5 dB; RMS is the principled estimator
+  rather than the visibly better one. **The difference that is actually visible on the water is
+  Single against either of them.**
+
+  **So the row earns its place as a DIAGNOSTIC rather than as a preference:** if RMS and Mean
+  look *obviously* different, the two channels are badly mismatched in level, because that is
+  the only condition under which the two estimators diverge. That is the channel-balance
+  question answering itself.
+
+  **The domain question cannot be settled by looking.** Whether the raw byte is linear envelope
+  amplitude or something already squared or log-compressed is a question for the firmware and
+  for Dennis's side of the house, not for the picture. `imageType 3`'s "log-law" comment is the
+  evidence the code carries; it is not proof.
 - **Blend the: Raw against After gain.** Raw is the recommendation; After gain is likely to
   look flatter or to breathe with the AGC. Whichever reads better on the water wins the row.
 - **The side scan pane must not change at all**, in a split or full screen. Its range crosses
