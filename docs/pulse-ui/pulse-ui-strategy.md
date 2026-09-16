@@ -6894,3 +6894,149 @@ wrong device.
 file-side prescan rather than a patch at the guard — the two are the same work, as P2 already
 says); `bd14130f` unverified; `applyEchogramMode`'s unguarded `setParam("chartOffset", 0)` on a
 recording; `applyViewId` dead with two hardware writes in it; `master` unpushed.
+
+---
+
+# Session close — 16 Sept 2026, the device day
+
+**Eleven commits, all verified on device the same day, and the loupe works in a split for the
+first time.** Group E's two named items are done; the walk of everything else that takes width
+or height from a pane is not.
+
+| commit | what |
+|---|---|
+| `f7d294cf` | the pills sit at the foot — also closed an Android multi-window report |
+| `ef493ced` | the paused gutter's hairline stops flipping anchors |
+| `c5f970a4` | the second pane is given the whole picture, not just its grid |
+| `a0820198` | the pane re-apply says which edge it is on |
+| `79c16ebc` | a cone is not applied to a recording |
+| `07ce2184` | a panel does not outlive the device it describes |
+| `38abfbdc` | the loupe survives finger-up in a split — an echo must not echo |
+| `bf80ab02` | the loupe fits the pane it is drawn in |
+| `add7230b` | the untouched pane gets the mark, not the panel |
+| `78ee70cc` | one finger, one aim — the mirror is deleted rather than silenced |
+
+## Five: a binding must be able to express every state it selects between
+
+The day's first fault and its cheapest. `anchors.top: cond ? parent.top : undefined` is not a
+switch — `undefined` is not a value an anchor accepts, so the binding leaves the previous
+anchor in place. It fires once, at creation, on whatever the property's default happens to be.
+
+**The tell is syntactic, and that is what made the sweep answerable**: not a property name but
+`? something : undefined` on an anchor line. One grep over `qml/` answers it as a set. Two
+sites, both gone. This is the form the 15 Sept close asked for — *state a sweep as a set, not
+as a search* — and the first time the set was defined by syntax rather than by name.
+
+## Six: an echo must not echo
+
+`Plot2D::setMousePosition`'s clear branch broadcast a clear to every other plot. Right when a
+user clears their own aim; catastrophic when the clear **is** the sync — the mirrored pane's
+reset came back and wiped the aim under the user's finger. `isSync` was already threaded
+through the function for exactly this distinction and that branch had never consulted it.
+
+> **A change driven by a sync must not start another sync.** Any broadcast needs a way to know
+> whether it is the origin or the echo, and if a parameter already carries that, every branch
+> owes it a look.
+
+## Seven: when a borrowed feature assumes geometry you do not have, delete it
+
+Upstream mirrors the aim to the other view so you can see where you are on both — sound, where
+two panes share an axis. **Pulse turns the echogram 90 degrees for a side scan**, so the
+mirrored mark lands where nobody pressed. Three separate symptoms came out of that one
+mismatch: two loupes, a misplaced crosshair, and a pane whose loupe died on release.
+
+The fix was not three guards. Once neither half of the mirror was drawn, the mirror had nothing
+left to do, and the release-side reset it required was the thing breaking the third symptom.
+
+> **When a borrowed feature's premise does not hold, remove the feature rather than suppress
+> its output.** Suppressing leaves the machinery, and the machinery has side effects — the
+> reset here was one.
+
+## Eight: scale and fit are two questions, and one number was answering both
+
+`UiMetrics::scale()` followed the **window**; the room available followed the **pane**. So a
+bigger Pulse window made the loupe bigger while the internal dual view still gave it half the
+height, and the buttons went off the bottom at an Android split of 60%.
+
+They are separate questions with separate inputs: **legibility comes from the device, fit comes
+from the pane.** The fit clamp only ever shrinks, so everything that fitted before is
+byte-identical — and it is what will make the phone's legibility fix safe to attempt, because
+a larger base scale can no longer push the buttons off the pane.
+
+**And the chrome does not absorb the shrink, the tile does.** Scaling the whole panel keeps the
+buttons proportional and eventually untappable — the same feature lost a different way.
+
+## Nine: I reasoned without reading three times, and was wrong each time
+
+Recorded because it is the day's most useful pattern, not the least. The demo path was called
+immune to the channel-count transient; it was not. The pill's corner rule was assumed to work
+and had never run. The lower pane's vanish was reasoned about at length and only yielded to
+reading `setMousePosition`. Every one of them was settled in a single file read.
+
+> **In this codebase, a confident derivation about behaviour is a hypothesis.** The faults here
+> live in evaluation order, in parameters not consulted, and in defaults that fire before a
+> binding resolves — none of which survive being read, and none of which are visible from the
+> outside.
+
+Olav found all five of the day's real faults by using the app. The instrument is the device.
+
+---
+
+# Next-session prompt
+
+Repo `Documents/GitHub/KoggerApp`, branch `feature/pulse-ui-v2-rail`. Ask for folder access and
+delete permission before any branch switch or file removal.
+
+FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` in full — especially "WHAT IS LEFT", grouped
+P0–P5, and the "Phone findings, 16 Sept 2026" block under P1 — then this document's final
+section, "Session close — 16 Sept 2026, the device day". Do not re-derive any of it.
+
+THIS SESSION: **the phone.** The tablet is right; the phone has three functional faults and one
+legibility fault, and they are not the same job.
+
+1. **No mosaic at all on the phone.** Nothing is known about why. Start here — it is the only
+   one with no diagnosis at all.
+2. **`split_side_down` shows only the side scan.** Full-screen side and full-screen down are
+   both fine, so it is the split that fails. `splitEchograms` and `waterViewSecond.enabled` are
+   where I would read first; `c5f970a4` and its handler are recent and relevant.
+3. **The rail does not fit.** The app forces landscape from the Java activity, so the phone's
+   width becomes the rail's available height. Olav: *"I can barely see the 'N' in the
+   TechAdVision artwork."*
+4. **The loupe and its fonts are too small to read.** This is `UiMetrics::computeScale()`: it
+   divides a **logical** short side by a reference of 1200 and the result multiplies
+   **device**-pixel constants. They coincide only at dpr 1 — the desktop window named in that
+   function's own comment. Both the phone and a 10" tablet land on the 0.75 clamp floor, so
+   **nothing that scales down helps the phone**; the base scale has to be fixed. Do it AFTER
+   the others, and note that `bf80ab02`'s fit clamp is what keeps it safe.
+
+**Before writing a line for #4, get one log:** `m_windowWidth`, `m_windowHeight`,
+`Screen.devicePixelRatio` and the computed `s` at startup, on both the phone and the tablet. The
+diagnosis above is a reading of the code, not a measurement.
+
+WATCH FOR: the fault shapes are listed in this document's session closes, now nine of them. The
+three that earned their place today are **a binding that cannot express every state it selects
+between** (tell: `? x : undefined`), **an echo that echoes** (tell: a broadcast with no sense of
+origin), and **a borrowed feature whose geometry premise does not hold** (tell: upstream
+behaviour that is subtly wrong rather than broken — Pulse rotates the echogram 90 degrees for a
+side scan and upstream does not).
+
+And the standing one, which cost three wrong answers on 16 Sept: **a confident derivation about
+behaviour is a hypothesis.** Read the file.
+
+ALSO OPEN, none of it blocking the phone:
+
+- **Group E's remaining walk** — the rail, the panel, the setup card, the paused gutter and the
+  depth readout have never been checked in a split. Overlaps #3 above almost completely.
+- **`bd14130f` unverified** — needs a log known to show black stripes, TVG on.
+- **`applyEchogramMode`'s `setParam("chartOffset", 0)`** is unguarded on a recording — the same
+  argument as `79c16ebc`, and live on an opened file where the links stay open.
+- **`applyViewId` is dead code** carrying two hardware writes.
+- **The channel-count transient** — a blue demo runs a full apply pass as red before correcting.
+  Cosmetic; belongs with P2's file-side prescan rather than a patch at the guard.
+- **`master` is 71 commits ahead of `origin/master`.** The feature branch is pushed.
+
+HOW WE WORK: show me the design before building anything visual; one idea per commit; I build in
+Qt Creator and report back — the sandboxed shell has no Qt and no GitHub credentials, and pushes
+happen from GitHub Desktop. Run `node tools/pulse-profile-check.js` after any profile change and
+`pulse-qml-version-check.js` / `pulse-icon-check.js` after any QML or icon change. Nothing under
+`build/`. Patch the strategy document by anchored replacement.
