@@ -6577,3 +6577,119 @@ eleven checks.
 After that: **E then phone sizing** as one continuum; **the file-open freeze** designed as one
 piece of work with the prescan and a progress surface; **the nadir band and downscan** together,
 after E. The full grouping is at the end of the backlog.
+
+---
+
+# The device build — 16 Sept 2026, the eleven checks
+
+**Seven fixes verified on hardware. Nothing falsified.** No polarity inversion, no `MISMATCH`,
+no crash. `feature/pulse-ui-v2-rail` is **pushed** — 182 commits, `origin/feature/pulse-ui-v2-rail`,
+0/0, clean tree. The single largest unmanaged risk on the project is closed. `master` remains 71
+commits ahead of `origin/master` (and `feature/device-profiles-step4` sits on the same commit,
+`3b0a9abe`), which is now the residual.
+
+## What the checks settled
+
+| # | result | the line that settled it |
+|---|---|---|
+| 1 | pass, **demo path only** | `MODE: down -> horizontal \| side scan as 2D false \| 2D device \| range 21 from maxDepthValue` — `a47c1114` confirmed |
+| 2 | pass | blue unchanged, so the polarity is the right way round |
+| 3 | **pass, the headline** | classification lands *after* pacing, names `PULSEblue`, picks `maxDepthValuePulseBlueFixed` — `3ef7249a` + `f0b4bcb3` confirmed |
+| 5 | pass | `RANGE: applying 25 from maxDepthValuePulseBlueFixed \| side scan law` — the *pinched* value, right key, right law — `d8510413` confirmed |
+| 6 | pass | the classification line is **absent** from the loop restart; `demoSourceApplied` holds |
+| 8 | pass, behavioural | intensity and filter split per picture and each returns to its own number |
+| 9 | pass | no `MISMATCH`; 26 = `colorMapIndexSideScan = 5`, 9 = `colorMapIndex2D = 4` — `af857891` confirmed |
+
+**Check 1 tested the demo path, not the file path.** The log was
+`DEMO: entering demo mode with …2D_pulse_log….plog`. The red *log file* case — rows 3 and 4 of
+the manual-choice matrix as originally reported — is still unverified, and the finding below
+says why that gap matters rather than being a formality.
+
+## Three checks that could not answer, and the one that is worth recording as a rule
+
+- **#4 and #10, black stripes: inconclusive, not a pass.** The observation was *"I am not able to
+  detect black stripes"*, which reads both as *removal is working* and as *no test case showed
+  stripes either way*. The `DEV_SETUP` lines in the log prove only that the controls were seeded
+  (backward 5, forward 1, enabled) — they do not prove the repair ran. `bd14130f` is therefore
+  **built and plausible, not verified**. The decisive test is a log known to show stripes on the
+  previous build, with the TVG on.
+- **#11 is still owed.** Logcat was unavailable.
+- **#7's observable is spent, permanently.** `SETTINGS: splitting intensity per picture - both
+  seeded from N` can only print on the first run of a build, and that run has now happened. The
+  behavioural evidence in #8 is what stands. The rule worth keeping:
+
+> **A once-only diagnostic is spent the first time the build runs, whether or not anyone was
+> watching.** A migration line is not a check you can schedule — it is a check you either
+> capture on the first launch or lose. If a migration matters, the line must be paired with a
+> durable observable that can be read at any time.
+
+## What the logs found that the checks did not ask for
+
+**The channel count classifies the picture before it has finished counting — fault shape four,
+in the one place the code already knew was load-bearing.**
+
+On a cold-start blue demo:
+
+```
+CHANNELS: 0 -> 1 | list ["None","Demo|0|0"]            | 2D
+CHANNELS: 1 -> 2 | list ["None","Demo|0|0","Demo|0|1"] | side scan
+```
+
+A blue is classified **2D** for the window between its first and second channel arriving. The
+guard in `main.qml` is
+
+```
+if (list.length < 2) { ...keep... return }
+```
+
+and the comment two lines above it already states the stakes: *this is the ONLY thing that
+classifies an opened log as 2D or side scan (activeModel reads the count)*. The guard asks
+**"has a list been built"**, not **"has the list finished growing"** — `["None","Demo|0|0"]`
+is length 2, passes, and writes `numberOfDatasetChannels = 1`. That is exactly the tell the
+15 Sept close named for shape four: `size() != n` standing in for *is this still valid*.
+
+**The demo path is immune and that is what hid it.** `demoPrescan` settles the model before the
+channel list arrives, so the transient writes a value nothing is waiting on. **The file-open path
+has no prescan** — which is precisely why `applyForSource` had to be given its `presentedModel`
+trigger — so the prediction is that a blue *log file* is classified as red for that window and
+has red's settings applied before correcting. **This is checkable on the next build without
+writing any code**, and it is the same gap check 1 left open.
+
+**The corroborating trace is in the THEME log.** Cold start → demo red → demo blue:
+
+```
+THEME: applying 9 to the panes          <- red's palette, on a blue demo
+THEME: display theme -> 26 | side scan | colorMapIndexSideScan = 5 -> id 26 (High Quality Orange)
+THEME: applying 26 to the panes
+```
+
+One frame of red's palette at the start of a blue demo. Cosmetic on its own, and the same
+mechanism: **the start path applies the outgoing picture's settings once, then corrects.** The
+two are one idea and should be one commit.
+
+## The repeated lines are noise, and that is a finding too
+
+`MODE:` printed three times, `RANGE:` three times, `THEME: applying N to the panes` between two
+and four times. `applyEchogramMode` and `applyMaxRange` are idempotent, so the repeats write the
+same values and cost nothing today. Recorded because idempotence is currently load-bearing and
+undocumented: **the re-apply path is safe only for as long as every applier stays idempotent**,
+and the next applier added to `applyForSource` will inherit that requirement without being told.
+
+One benign line confirmed unchanged: `THEME: index undefined is not in a list of 6 - falling back
+to the first entry`, once per start, the documented transient.
+
+## Where the next session picks up
+
+**P0 is closed.** The build is verified and the branch is pushed. Next is **Group E, the
+split-screen pass, design first** — the loupe box sized against a whole pane, the Stop demo /
+Close file pill above the tick ruler on a side scan, and a walk of everything else that takes
+width or height from a pane, treated as one continuum with phone sizing.
+
+Carried forward as open, none of it blocking E:
+
+- **The channel-count classification**, above. Verify on a blue *log file*, then one commit for
+  it and the palette flash together.
+- **`bd14130f` unverified** — needs a log known to show stripes.
+- **The red log-file path** — check 1 on the file path rather than the demo path.
+- **Check 11**, still owed from several sessions back.
+- **`master` unpushed**, 71 commits.

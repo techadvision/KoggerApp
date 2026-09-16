@@ -957,7 +957,30 @@ Groups A–E were sized "one per session" and that held. What follows is everyth
 **grouped by what shares work** rather than by when it was noticed, because six of these items
 pair off and doing either one first makes the other cheaper.
 
-### P0 — The build, and the push. Nothing else should start first
+### P0 — The build, and the push — **DONE, 16 Sept 2026**
+
+**The build was made and the branch is pushed.** Seven fixes verified on hardware, nothing
+falsified — no polarity inversion, no `MISMATCH`, no crash. `origin/feature/pulse-ui-v2-rail`
+now exists at 0/0, 182 commits. Check-by-check results and the two findings the checks did not
+ask for are in the strategy doc, *The device build — 16 Sept 2026, the eleven checks*.
+
+**What P0 leaves behind, none of it blocking P1:**
+
+- **The channel count classifies before it has finished counting.** `main.qml`'s
+  `if (list.length < 2) return` asks *has a list been built*, not *has the list finished
+  growing*, so a blue reads `2D` for one update. The demo path is immune because `demoPrescan`
+  settles the model first; **the file-open path has no prescan**, so the prediction is that a
+  blue *log file* gets red's settings applied before correcting. Fault shape four. Checkable on
+  the next build without writing code. The one-frame red palette at the start of a blue demo is
+  the same mechanism and the same commit.
+- **`bd14130f` is built and plausible, not verified.** *"I am not able to detect black stripes"*
+  reads both as working and as no test case. Needs a log known to show stripes, TVG on.
+- **Check 1 was run on the demo path, not the file path.** The red *log file* case is still open.
+- **Check 11 still owed** — logcat was unavailable again.
+- **`master` is 71 commits ahead of `origin/master`** (`feature/device-profiles-step4` sits on
+  the same commit, `3b0a9abe`, so pushing master covers both). The residual risk.
+
+The original P0 text follows, kept because it is what the checks were derived from.
 
 **Seven fixes from the 15 Sept evening session are on the branch and none has been seen on a
 device.** They interact — the orientation fix, the bus-echo `readonly` sweep and the demo
@@ -1061,7 +1084,7 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
    `f0b4bcb3` · ~~**the demo loop range**~~ `d8510413` · ~~**per-picture intensity and
    filter**~~ `7dc2676b` · ~~**black stripes under TVG**~~ `bd14130f` — **all done, none seen
    on a device.**
-3. **P0 — the build and the push.** Before anything else.
+3. ~~**P0 — the build and the push**~~ — **done 16 Sept 2026**, branch pushed at 0/0.
 4. **P1 — E, then phone sizing.** One continuum.
 5. **P2 — the file-open freeze**, designed as one piece of work.
 6. **P3 — the nadir band and downscan**, after P1.
