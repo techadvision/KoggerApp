@@ -1298,10 +1298,15 @@ pushed tip of `feature/pulse-ui-v2-rail`, which was confirmed at 0/0 first). Sco
 Olav before anything was written: **channel 1 and channel 2 of the SIDE SCAN blended with each
 other.** The 2D transducer is not involved at any point, and the new category is absent on a red.
 
+**ALL THREE STEPS ARE NOW BUILT.**
+
 | commit | what |
 |---|---|
 | `746d199d` | the down scan is two channels, not the one that owns the half |
 | `d93f3364` | the blend can be falsified: a Down scan group with the two knobs that matter |
+| `57d2d848` | the RMS-against-Mean check could not have failed, and is now a different check |
+| `57ed6248` | two looks are only two looks at the same level: a balance set by eye |
+| `5295580d` | the nadir band is interpolated across, between the two sides' trusted edges |
 
 **The finding that made the job smaller than it looked.** The down pane was never "the side
 scan data with a different grid" — it is **channel 2 on its own**, and by arithmetic rather
@@ -1405,10 +1410,66 @@ no `moc`), `qPlot2D.h` (**does** carry `Q_INVOKABLE`s, so `moc` must re-run) and
 `plot2D_echogram.cpp`, plus the new `echogram_blend.{h,cpp}` registered in the top-level
 `CMakeLists.txt`.
 
-**Still to come in P3:** the mosaic nadir — a feathered fill, fully interpolated inside
-0.3 × depth and fully real data outside 1.0 × depth, interpolating across the track between the
-two trusted edge values. Its rows join the same `Down scan` group. Held deliberately until the
-blend has been looked at.
+### The nadir fill, `5295580d`
+
+**Feathered, because the degradation is smooth.** Ground sample spacing in the mosaic is
+`dr · r/x` — 1.41 slant samples at *x* = 1.0 × depth, 2.24 at 0.5, 4.1 at 0.25 — so a hard cut
+at any single width leaves a seam, and the conventional 45° blanking also throws away usable
+data between about 0.6 and 1.0 × depth. Fully filled inside **0.3 × depth**, fully real outside
+**1.0 × depth**, smoothstepped between, both factors expert rows.
+
+**The fill excludes the nadir data.** It interpolates across the track between the two sides'
+**trusted edge values**, each read at its own outer edge with its own bottom track — the two
+disagree on a slope. Both come off the **same epoch**, so the port and starboard half-strips
+interpolate towards the same anchors and meet continuously at the track: no cross-quad state
+and no dependence on rasterisation order. The lerp spans the full `2 × outer`, so at the outer
+edge it *is* the real sample and the join needs no special case.
+
+**Applied before the "both empty, skip this pixel" test**, deliberately — near the track the
+real sample is very often zero, and that test is what has been leaving the band unpainted as
+well as unlit. A zero anchor means *no data there*, not *black there*: one good anchor serves
+both ends, and with no good anchor the epoch is left exactly as it is today rather than having
+a guess painted over it.
+
+**No refresh on the setters**, unlike the blend — these do not touch the echogram. A tile keeps
+its pixels until re-traced, so the rebuild is the mosaic update action, fired from `main.qml`
+through `Qt.callLater`, the same division of labour as the side scan TVG mosaic switch.
+
+**No "show the nadir edge" row.** Turning the fill off shows exactly where the band was; a
+drawn boundary would only approximate it.
+
+**The wedge is invented data and is the tile colour only** — no bottom track, no depth readout
+and no surface reads any of it.
+
+#### To check on the device — the nadir and the balance
+
+- **Draw a fresh mosaic on a blue and look along the track.** The dark strip should be gone,
+  and the seabed should read continuously across the boat's path. **Tiles already traced keep
+  their pixels** — use the mosaic update action, or a fresh log, or the band will look
+  half-and-half.
+- **Toggle `Fill the mosaic nadir` off and on with the mosaic on screen.** Off must restore
+  exactly today's picture. That is the A/B, and it is also the honest answer to "how much of
+  this is real".
+- **Watch for a bright stripe rather than a dark one.** If one appears, the trusted edge is
+  being read too close in and is picking up the specular nadir return — raise **Fully real
+  outside** before touching anything else.
+- **Watch for a seam** at the outer edge. A visible ring at a fixed multiple of depth means the
+  feather is too narrow: raise the gap between the two factors.
+- **`Fully filled inside` at 0** should look almost identical to 0.3 — the smoothstep does most
+  of the work. If 0 looks obviously different, the inner factor is doing more than feathering
+  and wants a look.
+  ```
+  NADIR: fill -> on
+  NADIR: fully filled inside 0.3 x depth
+  NADIR: fully real outside 1 x depth
+  ```
+- **`Channel balance` at 0 must be bit-identical to the build before `57ed6248`.** Both gains
+  are exactly 1.0 there and every mode runs its untrimmed arithmetic.
+- **Walk the balance to ±6 dB on a down pane.** The picture should shift towards one side's
+  character without the overall level moving — that is the half-each-way construction. If the
+  pane gets plainly brighter or darker as you walk it, the symmetry is wrong.
+- **The nadir rows must not change the echogram at all**, and the balance must not change the
+  mosaic at all. They are two different surfaces and each setter touches exactly one.
 
 **One correction to the shape this document predicted.** "One derivation, two consumers" does
 not survive contact: the blended trace cannot rescue the mosaic wedge. Inside the wedge the
