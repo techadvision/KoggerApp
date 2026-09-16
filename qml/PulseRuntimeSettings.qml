@@ -689,6 +689,38 @@ QtObject {
         : sideScanTvgMosaicOverride === 2 ? false
         : (activeProfile !== undefined ? activeProfile.sideScanTvgMosaicEnabled : false)
 
+    //THE DOWN SCAN BLEND — P3, step 1. See src/scene2d/echogram_blend.h for the law.
+    //
+    //The down pane has always been ONE of the two side scan channels, and by arithmetic
+    //rather than by choice: its range is 0..R, so the negative half of the two-channel
+    //draw is zero pixels wide and channel 1 is never drawn. Port and starboard are two
+    //independent looks at the same vertical return, so combining them is ordinary
+    //multi-look processing: averaging N looks in the INTENSITY domain takes the speckle
+    //coefficient of variation to 1/sqrt(N), and intensity is amplitude squared, so the
+    //estimator is the quadratic mean. Hence RMS, and hence blending BEFORE the gain law,
+    //which is adaptive and has no defined meaning averaged across two traces.
+    //
+    //PLAIN RUNTIME PROPERTIES, NOT PROFILE DATA AND NOT AN OVERRIDE PAIR. These are
+    //tunings of the picture rather than abilities of the device — the same kind of value
+    //as echogramTvgDbPerMeter above, which is also a bare runtime default. Nothing binds
+    //them to a profile, so there is no binding an expert row can destroy and the
+    //one-binding-one-override shape would be answering a question nobody asked. Runtime
+    //means every app start returns to the recommendation, which is what an experiment
+    //wants.
+    //
+    //NOT ON THE SETTINGS BUS EITHER. C++ never publishes these keys, so onRuntimeChanged
+    //cannot echo them back and freeze them the way it froze displayIs2DTransducer. Plot2D
+    //pushes them into the renderer through Q_INVOKABLE setters instead.
+    //
+    //  blend mode:   0 single (today's behaviour, the A/B reference)
+    //                1 RMS - two-look mean intensity, the recommendation
+    //                2 arithmetic mean of amplitudes
+    //                3 max
+    //  blend domain: 0 raw amplitudes, gain law applied once to the blend (recommended)
+    //                1 the two gain-shaped buffers, blended after the fact
+    property int    downScanBlendMode:   1
+    property int    downScanBlendDomain: 0
+
     // Single source of truth for the echogram compensation id.
     // 2D uses the selected gain law (echogram2DGainId: 2 = PULSE EchogramTvg,
     // 4 = upstream's linear TGC ramp) when enabled, else raw (0); side scan uses

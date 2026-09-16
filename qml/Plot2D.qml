@@ -224,6 +224,8 @@ WaterFall {
             plot.setSsTvgNoiseFloor(pulseRuntimeSettings.sideScanTvgNoiseFloor)
             plot.setSsTvgBoost(pulseRuntimeSettings.sideScanTvgBoost)
             plot.setSsTvgMosaicEnabled(pulseRuntimeSettings.sideScanTvgMosaicEnabled)
+            plot.setDownBlendMode(pulseRuntimeSettings.downScanBlendMode)
+            plot.setDownBlendDomain(pulseRuntimeSettings.downScanBlendDomain)
 
             // Water body filter: its strength lives in a C++ atomic and is ONLY ever
             // pushed through applyFiltering(). Push it here so the filter is genuinely
@@ -296,6 +298,33 @@ WaterFall {
                 return
             console.log("EchogramCompensation: TVG dB/m ->", pulseRuntimeSettings.echogramTvgDbPerMeter)
             plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+        }
+
+        // PULSE P3: the down scan blend - which of the two side scan channels the down
+        // pane draws, and whether they are combined before or after the gain law.
+        // echogram_blend.h holds the law; the C++ setters drop the per-epoch caches and
+        // repaint, so the picture changes under the tester as the row is tapped.
+        //
+        // No guard on the compensation id, unlike the TVG handlers above: the blend sits
+        // UNDER every image type rather than being one of them, so there is no current
+        // id that would make the change invisible. No guard on the picture either - a
+        // side scan pane's range crosses zero and never reaches the blended path, so a
+        // value pushed while a side scan is up simply waits for the down pane.
+        function onDownScanBlendModeChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("BLEND: down scan channels ->", pulseRuntimeSettings.downScanBlendMode,
+                        ["single", "RMS", "mean", "max"][pulseRuntimeSettings.downScanBlendMode])
+            plot.setDownBlendMode(pulseRuntimeSettings.downScanBlendMode)
+        }
+
+        function onDownScanBlendDomainChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("BLEND: down scan domain ->", pulseRuntimeSettings.downScanBlendDomain,
+                        pulseRuntimeSettings.downScanBlendDomain === 1 ? "after the gain law"
+                                                                       : "raw, gain applied to the blend")
+            plot.setDownBlendDomain(pulseRuntimeSettings.downScanBlendDomain)
         }
 
         // PULSE side scan TVG: expert toggle. Only ever switches between the

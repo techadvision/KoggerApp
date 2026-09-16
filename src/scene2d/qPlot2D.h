@@ -6,6 +6,7 @@
 #include <QVariant>
 #include <dataset.h>
 #include <QTimer>
+#include "echogram_blend.h"
 #include "echogram_tvg.h"
 #include "echogram_watercolumn.h"
 #include "plot2D.h"
@@ -361,6 +362,32 @@ public slots:
     // mosaic update action for a full rebuild (handled QML-side in main.qml).
     Q_INVOKABLE void setSsTvgMosaicEnabled (bool enabled) { EchogramSideScanTvg::setMosaicEnabled(enabled); }
     Q_INVOKABLE bool getSsTvgMosaicEnabled () const { return EchogramSideScanTvg::mosaicEnabled(); }
+
+    // PULSE P3: the down scan blend - the two side scan channels combined into
+    // the one trace the down pane draws. See echogram_blend.h for the law.
+    //
+    // Both setters refresh UNCONDITIONALLY, unlike the TVG setters above, because
+    // the blend sits UNDER every image type instead of being one of them: there is
+    // no compensation id whose absence means the change cannot be visible. The
+    // early return is what keeps that honest - a push of the value already held
+    // costs nothing, which matters because Plot2D.qml pushes the whole parameter
+    // set on every model change.
+    Q_INVOKABLE void setDownBlendMode (int mode) {
+        if (mode == EchogramBlend::mode()) {
+            return;
+        }
+        EchogramBlend::setMode(mode);
+        refreshEchogram();
+    }
+    Q_INVOKABLE int getDownBlendMode () const { return EchogramBlend::mode(); }
+    Q_INVOKABLE void setDownBlendDomain (int domain) {
+        if (domain == EchogramBlend::domain()) {
+            return;
+        }
+        EchogramBlend::setDomain(domain);
+        refreshEchogram();
+    }
+    Q_INVOKABLE int getDownBlendDomain () const { return EchogramBlend::domain(); }
     //Q_INVOKABLE void setGridHorizontalNow(bool horizontal) { setGridHorizontal(horizontal); }
     //Q_INVOKABLE void setSideScanOnLeftHandSideNow(bool isLeftSideInstalled) { setSideScanOnLeftHandSide(isLeftSideInstalled); }
 
@@ -432,6 +459,12 @@ private:
         if (Plot2D::getEchogramCompensation() == 3) {
             setEchogramCompensation(3);
         }
+    }
+    // Re-applying the CURRENT compensation is how every per-epoch cache in this
+    // file is dropped; the id does not move, only the buffers behind it.
+    void refreshEchogram() {
+        setEchogramCompensation(Plot2D::getEchogramCompensation());
+        plotUpdate();
     }
     int indx_ = -1;
     //PULSE

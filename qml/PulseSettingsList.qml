@@ -63,6 +63,17 @@ Item {
     readonly property bool offersMounting:   offers && offers.sideScanMounting === true
     readonly property bool offersMtw:        offers && offers.nmeaMtw === true
 
+    // THE BLEND ONLY EXISTS WHERE THERE ARE TWO CHANNELS TO BLEND, so on a 2D picture the
+    // whole category is absent rather than empty - the same rule the rows follow, one
+    // level up.
+    //
+    // Reads displayIs2DTransducer rather than offersScreenChoice, which is the same
+    // expression today. offersScreenChoice answers "may the user pick a layout"; this row
+    // is asking "does this picture have two channels". Borrowing the first to mean the
+    // second is how applyScreenId came to skip a red entirely.
+    readonly property bool offersDownBlend:
+        pulseRuntimeSettings ? !pulseRuntimeSettings.displayIs2DTransducer : false
+
     // WHAT THE CODE BOUGHT, said in the row rather than left to two small badges. Classic
     // shows a beta icon and a guru icon beside the field; a word is unambiguous at arm's
     // length on a boat, and it answers the question the field actually raises - not "is
@@ -867,6 +878,71 @@ Item {
 
                     onStepped: function (v) {
                         list.settingChanged("runtime", "sideScanTvgBoost", v)
+                    }
+                }
+            ]
+        }
+
+        // ---- Down scan --------------------------------------------------------
+        //
+        // The down pane draws ONE trace, and until now that trace was one of the two side
+        // scan channels - channel 2, by arithmetic rather than by choice (its range is
+        // 0..R, so the negative half of the two-channel draw is zero pixels wide). Port and
+        // starboard are two independent looks at the same vertical return, so combining
+        // them is ordinary multi-look processing. src/scene2d/echogram_blend.h has the law.
+        //
+        // THE DEFAULTS ARE THE RECOMMENDATION, not a neutral starting point, and these rows
+        // exist so it can be FALSIFIED on the water rather than argued about. Single is
+        // kept as the A/B reference against the picture this replaces.
+        //
+        // The nadir fill rows land in this group when the mosaic half of P3 is built. They
+        // are not here yet because they would be controls for something that does not exist
+        // - absent rather than greyed, at the row level too.
+        PulseSettingsGroup {
+            id: downScanGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly && list.offersDownBlend
+
+            uiScale: list.uiScale
+            title: qsTr("Down scan")
+            open: list.openId === "downscan"
+            onToggled: list.toggle("downscan")
+
+            content: [
+                PulseSegmentRow {
+                    width: downScanGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Channel blend")
+                    hint:  qsTr("two looks at the same return - RMS is the multi-look average")
+                    options: [ { value: 0, title: qsTr("Single") },
+                               { value: 1, title: qsTr("RMS") },
+                               { value: 2, title: qsTr("Mean") },
+                               { value: 3, title: qsTr("Max") } ]
+                    current: pulseRuntimeSettings ? pulseRuntimeSettings.downScanBlendMode : 1
+
+                    onChosen: function (v) {
+                        list.settingChanged("runtime", "downScanBlendMode", v)
+                    }
+                },
+
+                // ABSENT WITH NO BLEND ON, because there is then nothing for it to describe.
+                PulseSegmentRow {
+                    width: downScanGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: (pulseRuntimeSettings ? pulseRuntimeSettings.downScanBlendMode : 1) !== 0
+                    uiScale: list.uiScale
+
+                    label: qsTr("Blend the")
+                    hint:  qsTr("raw is the honest one - the gain law is adaptive along each trace")
+                    options: [ { value: 0, title: qsTr("Raw") },
+                               { value: 1, title: qsTr("After gain") } ]
+                    current: pulseRuntimeSettings ? pulseRuntimeSettings.downScanBlendDomain : 0
+
+                    onChosen: function (v) {
+                        list.settingChanged("runtime", "downScanBlendDomain", v)
                     }
                 }
             ]
