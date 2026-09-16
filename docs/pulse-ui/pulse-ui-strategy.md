@@ -7332,6 +7332,83 @@ the diagnosis.
 
 ---
 
+# P3 step 1 — the down scan blend, 16 Sept 2026, `746d199d` + `d93f3364`
+
+**Scope, confirmed by Olav before a line was written:** channel 1 and channel 2 of the **side
+scan**, blended with each other. Not the 2D transducer blended into the side scan. The whole of
+this work is unreachable on a red.
+
+**The design was shown first and the recommendation was asked for by name** — *"Base the
+recommendation of regular science, and we will start with whatever is the recommended
+solution."* So the defaults are not neutral, and the expert rows exist to falsify them rather
+than to let the tester pick a flavour.
+
+## Nineteen: the behaviour nobody chose is still the behaviour that ships
+
+The down pane draws **channel 2 alone**, and no line in the tree says so. The range is signed;
+`plotDistanceRange2d` sets `0..R`; `plot2D_echogram.cpp` splits the pane at zero with
+`range1 = 0 - from`. With `from = 0` that width is **zero**, so the channel-1 half is skipped
+and the channel-2 half fills the pane. The documents had recorded the stand-in as *"the split
+draws BOTH panes from the one channel"* — true as far as it went, and it hid that the "one
+channel" was a consequence of arithmetic rather than a decision.
+
+> **A feature nobody can point at a line for is a feature nobody has decided.** The tell is a
+> description that is correct but has no author: it describes what happens, not what was
+> chosen. `split_side_down`'s own note called the stand-in deliberate, and the deliberate part
+> was the layout — which channel it drew was left to a multiplication.
+
+It made the job smaller: this is not inventing a down scan, it is giving the existing one its
+second ear.
+
+## Twenty: the derived buffer that cannot go stale is the one that is not kept
+
+`bd14130f` established that every buffer derived from `amplitude` joins
+`Echogram::invalidateDerived()`, and the next-session prompt named a new derived channel that
+does not join it as the specific hazard of this branch — silent, because a stale buffer draws
+faithfully.
+
+The blend joins the discipline by **having nothing to keep**. It is written into a scratch
+`Echogram` whose `invalidateDerived()` is called before it renders, so the four caches are
+rebuilt from the new samples every time; nothing is stored per epoch, so nothing survives to go
+stale behind a black-stripes repair. The cost is one blend pass and one gain pass per epoch per
+invalidated column, and columns are already cached.
+
+> **A cache you do not keep cannot be invalidated late.** The invalidation rule still has to be
+> obeyed — the scratch is rewritten in place at the same length every call, which is exactly the
+> condition every guard in `Epoch::Echogram` is blind to — but obeying it is one line at one
+> site rather than a fifth entry in a list future work has to remember.
+
+The other half of keeping it honest was **not writing a second renderer**. `chartTo`'s
+imageType selection and its resampler were lifted out whole into `gainSource()` and
+`chartFrom()`, so the blended trace goes through exactly that code. The existing call path is
+the same function it always was with its middle taken out.
+
+## And the shape the prompt predicted did not survive contact
+
+The next-session prompt set the deliverable as *"a second channel derived from the two side
+scan channels, which the bottom pane of `split_side_down` reads instead of channel 1, and which
+the mosaic reads across the nadir wedge. One derivation, two consumers."*
+
+**The blended trace cannot rescue the mosaic wedge.** Inside the wedge the ground-to-slant
+mapping is compressed to nothing — `d(slant)/d(ground) = x/r`, which goes to zero at nadir — and
+both channels are in the beam null there, so blending two nulls gives a null. Fusion makes the
+black stripe stereo.
+
+What the two consumers actually share is the **fusion rule and the nadir-width rule**, not a
+buffer. The mosaic's treatment is a true interpolation with the nadir data excluded: fully
+interpolated inside 0.3 × depth, fully real data outside 1.0 × depth, smoothstepped between,
+interpolating across the track between the two trusted edge values — which both halves can read
+off the same `Epoch`, so they meet continuously at the track with no cross-quad state. A hard
+cut at any single width leaves a seam; the conventional 45° / 1 × altitude blanking also throws
+away usable data between about 0.6 and 1.0 × depth, where the ground spacing is still under
+twice the slant resolution.
+
+> **A shape agreed before the reading is a hypothesis about the work, exactly like a confident
+> derivation about behaviour.** It was worth saying so at the design stage rather than
+> discovering it half way through and quietly keeping the name.
+
+---
+
 # Next-session prompt
 
 Repo `Documents/GitHub/KoggerApp`. Ask for folder access and delete permission before any branch

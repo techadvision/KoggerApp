@@ -1293,6 +1293,112 @@ the other way round, the two rows swap and nothing else in this item changes.
 
 ### P3 — The mosaic and downscan geometry. Two items that are one piece of work
 
+**STEP 1 AND STEP 2 ARE BUILT, 16 Sept 2026, on `feature/pulse-p3-downscan-nadir`** (off the
+pushed tip of `feature/pulse-ui-v2-rail`, which was confirmed at 0/0 first). Scope confirmed by
+Olav before anything was written: **channel 1 and channel 2 of the SIDE SCAN blended with each
+other.** The 2D transducer is not involved at any point, and the new category is absent on a red.
+
+| commit | what |
+|---|---|
+| `746d199d` | the down scan is two channels, not the one that owns the half |
+| `d93f3364` | the blend can be falsified: a Down scan group with the two knobs that matter |
+
+**The finding that made the job smaller than it looked.** The down pane was never "the side
+scan data with a different grid" — it is **channel 2 on its own**, and by arithmetic rather
+than by choice. The range is signed, `plotDistanceRange2d` sets `0..R`, and
+`plot2D_echogram.cpp` splits the pane at zero with `range1 = 0 - from`. With `from = 0` that
+width is **zero**, so channel 1 is never drawn. So this work is not inventing a down scan, it
+is giving the existing one its second ear.
+
+**The law, from ordinary multi-look processing.** Seabed backscatter is speckled — envelope
+amplitude is Rayleigh, intensity is exponential, one look has a coefficient of variation of
+1.0. Averaging N independent looks **in the intensity domain** takes that to 1/√N; port and
+starboard are two independent looks at the same vertical return, so N = 2 and CV goes
+1.00 → 0.71, about **1.5 dB of speckle suppression**. Intensity is amplitude squared, so the
+estimator mapped back into the renderer's domain is `sqrt((a² + b²)/2)` — the quadratic mean.
+An arithmetic mean of *amplitudes* is a biased-low estimate of mean intensity; averaging
+log-compressed values is a geometric mean and worse again. The raw byte here **is** linear
+envelope amplitude: `imageType 3`'s own comment calls its side scan TVG a "log-law", so the
+log is applied downstream.
+
+**And the blend comes before the gain.** The AGC is an adaptive running normaliser along the
+trace, so two channels each normalised against their own trace and then averaged have no
+defined level law. Blending first and gain-shaping once gives the down pane the signal chain a
+real down scan channel would have. Both of these are expert rows so they can be falsified
+rather than argued about.
+
+**Derived from the range, not carried on a flag.** "Two channels and a range that does not
+cross zero" IS the down case, so the full-screen down view and the split's bottom pane are both
+covered with nothing to keep in step, and a side scan — whose range does cross zero — is
+untouched by construction.
+
+**No new cache, which is the whole answer to the hazard the branch was made for.** The blend is
+written into a scratch `Echogram` that `invalidateDerived()` is called on before it renders, so
+it **joins** `bd14130f`'s discipline instead of becoming a fifth buffer outside it. Nothing is
+stored per epoch, so nothing can go stale behind a black-stripes repair. `chartTo`'s gain
+selection and its resampler were lifted out whole into `gainSource()` and `chartFrom()` so the
+blended trace renders through exactly that code rather than a copy of it; the existing call
+path is unchanged.
+
+**Falls back to the primary channel alone** whenever the blend cannot honestly be made:
+blending off, the other channel missing, or the two disagreeing about resolution or offset. A
+blend of two traces on different grids is a quiet mis-registration, which is worse than the
+single channel it replaces.
+
+**Channel balance is deliberately not built.** Equalising port against starboard before
+combining is correct practice, but the honest estimator is a slowly varying ratio of each
+channel's seabed-region intensity over a few hundred pings; a per-ping ratio chases speckle and
+makes the picture worse. It waits until the blend has been seen.
+
+#### To check on the device — in this order
+
+Open a **blue** log (or a blue demo) and put a **down** picture on screen: full screen down, or
+`split_side_down` and look at the bottom pane.
+
+- **The bottom pane must look different from before, and quieter.** The speckle is what moved;
+  the level and the palette should not have. If the whole pane got brighter or darker, the
+  blend is not landing where it was meant to and the domain row is the first thing to try.
+- **`Down scan` appears under Expert settings on a blue and NOT on a red.** If it shows on a
+  red, `offersDownBlend` is reading the wrong question.
+- **Tap through Channel blend with the pane on screen.** Every tap must change the picture
+  immediately — that is the unconditional cache refresh. **Single must look exactly like the
+  build before this one**; if it does not, the fallback path is not actually the old path.
+  ```
+  BLEND: down scan channels -> 1 RMS
+  ```
+- **RMS against Mean.** Both are smoother than Single. RMS should be the brighter of the two on
+  a strong bottom — if Mean is brighter, the domain assumption is wrong and the byte is not
+  linear amplitude after all, which would be a real finding worth stopping for.
+- **Blend the: Raw against After gain.** Raw is the recommendation; After gain is likely to
+  look flatter or to breathe with the AGC. Whichever reads better on the water wins the row.
+- **The side scan pane must not change at all**, in a split or full screen. Its range crosses
+  zero so it never reaches the blended path; any change there is a bug in the half selection.
+- **A red must not change at all**, anywhere.
+- Worth watching for on a long file: the blend costs one extra pass per epoch per invalidated
+  column. If scrolling back through a large log is visibly slower than before, say so — the
+  cheap answer is to blend after the gain, which reuses the buffers the side pane already
+  built.
+
+**QML and C++, and NOT COMPILED — the shell has no Qt.** The C++ touches `epoch.h` (header,
+no `moc`), `qPlot2D.h` (**does** carry `Q_INVOKABLE`s, so `moc` must re-run) and
+`plot2D_echogram.cpp`, plus the new `echogram_blend.{h,cpp}` registered in the top-level
+`CMakeLists.txt`.
+
+**Still to come in P3:** the mosaic nadir — a feathered fill, fully interpolated inside
+0.3 × depth and fully real data outside 1.0 × depth, interpolating across the track between the
+two trusted edge values. Its rows join the same `Down scan` group. Held deliberately until the
+blend has been looked at.
+
+**One correction to the shape this document predicted.** "One derivation, two consumers" does
+not survive contact: the blended trace cannot rescue the mosaic wedge. Inside the wedge the
+ground-to-slant mapping is compressed to nothing — `d(slant)/d(ground) → 0` at nadir — and both
+channels sit in the beam null, so fusing two nulls gives a null. What the two consumers share
+is the **fusion rule and the nadir-width rule**, not a buffer. The mosaic's treatment is a true
+interpolation with the nadir data excluded.
+
+The original text of this item follows.
+
+
 **The nadir band and the downscan view are the same job**, and the documents say so: closing
 the nadir null by interpolating across it *is* Olav's standing note *"we should work with
 interpolating the two channels into one view for downscan."* Worth doing once rather than
