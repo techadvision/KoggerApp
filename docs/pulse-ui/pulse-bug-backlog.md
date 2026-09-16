@@ -1016,7 +1016,27 @@ most of a phone fix.
   the two named E items landed first and `bf80ab02`'s fit clamp is what the phone's base-scale
   fix will lean on.
 
-#### Phone findings, 16 Sept 2026 — worked 16 Sept evening. Two closed, two waiting on a log
+#### Phone findings, 16 Sept 2026 — **PARKED by Olav, 16 Sept evening. The tablet is the test device.**
+
+**Olav, after the evening build:** *"The issue is really only the small size of the button here.
+The phone has room (at least this model) for the rail. And we COULD make the rail scrollable to
+cater for smaller sizes. Obviously, a larger screen benefits for this app anyway, but need to
+deal with it. Let us note this for later. The initial testing will be performed using a tablet.
+And I will do more testing. So not priority to fix. The other parts of the UI is actually OK (a
+bit tiny everything)."*
+
+**So the phone is a known-good-enough surface, not a blocker.** What remains open on it, in one
+place, so the rest of this block can be read as history:
+
+- **The loupe's buttons are too small**, and nothing else is. `Dismiss` is the button in the
+  photographs; `Add waypoint` was not even drawn because the replay carries no position. The
+  measurement that decides the repair is still unread — see the legibility half below.
+- **The rail fits** after `3ed258c9` + `e55c648c`, and Olav has withdrawn the second half of the
+  budget: no two-column rail, no moving settings into the panel. **A scrollable rail is his own
+  note for a smaller phone than this one**, not for the S23 Ultra.
+- **The mosaic** is still the one functional fault, still instrumented and unread.
+
+#### The findings as they were worked, 16 Sept evening — two closed, two waiting on a log
 
 **Olav's own notes from a pass on a Samsung S23 Ultra.** The numbered items are kept as he
 wrote them; what follows each is what the evening session found.
@@ -1108,8 +1128,10 @@ wrote them; what follows each is what the evening session found.
      moving settings/collapse into the panel (128 u) are both on the table and neither is worth
      choosing against an estimated available height.
 
-5. **Two crosshairs and two zoom boxes in a split** — found on the phone, **confirmed on the
-   tablet, and NOT a phone problem.** **FIXED, `027b35d1`.** Olav: *"The upper (or lower) screen
+5. ~~**Two crosshairs and two zoom boxes in a split**~~ — found on the phone, **confirmed on
+   the tablet, and NOT a phone problem.** **FIXED `027b35d1`, VERIFIED ON THE TABLET 16 Sept.**
+   Olav: *"Loupe boxes now disappears from the first half screen when I press the second half
+   screen. Solved."* Olav: *"The upper (or lower) screen
    does not clear its old when I touch the other screen. Same now in tablet, not a phone
    problem."*
 
