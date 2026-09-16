@@ -6982,58 +6982,181 @@ Olav found all five of the day's real faults by using the app. The instrument is
 
 ---
 
+# Session close — 16 Sept 2026 (evening), the phone
+
+**Four commits, none of them a fix to the thing that looked broken.** Two of the four phone
+items were closed without code: one by a build Olav had not yet installed, one by reading what
+the symptom actually described. The other two are instrumented and deliberately unwritten.
+
+| commit | what |
+|---|---|
+| `b753c340` | the scale says what it was computed from |
+| `262be7fe` | the mosaic says which term refused it |
+| `3ed258c9` | the wordmark gives the rail its room back, or it is absent |
+| `e55c648c` | the rail's way back to classic is retired |
+
+## Ten: a fallback that works is indistinguishable from a feature that does not
+
+The session's whole shape. "No mosaic at all on the phone" had no diagnosis, and Olav's second
+report is what settled it: *"nothing happens, the last full screen stays active"*, and *"I get
+full screen with either side or down instead of the one split with mosaic. Button selection is
+correct."*
+
+Three sentences, three different-looking symptoms — and all three are `has2DView` behaving
+exactly as its own comment promises: *"the echogram holds the screen when the mosaic was asked
+for and cannot be drawn. Never nothing at all."* `single_mosaic` leaves `firstMode` empty, so
+`applyEchogramMode` is never called and the outgoing picture stays; a split with a mosaic in it
+has `splitEchograms` false and one `firstMode`; the chooser marks the row because the
+preference was stored and only the pane was never built.
+
+> **A deliberate graceful fallback erases the distinction between "unavailable" and "broken",
+> and the user reports the second.** The fallback is right — never nothing at all — but it is
+> silent, and silence is what sent this in as a mosaic fault with no diagnosis. Anything that
+> quietly substitutes a second-best owes a log line saying it did, or the next person debugs
+> the substitute.
+
+So nothing about the mosaic was read after that point. The question became *which term of
+`view3dToggleAvailable` is false*, and its three terms have three unrelated fixes — which is
+exactly the D-2 situation, where a confident reading nearly bought a migration the data never
+justified. `262be7fe` prints the line; the fix waits for it.
+
+**The leading candidate, for the record:** `core.filePath` is **empty during a demo**.
+`Core::startDemo` never sets it and clears it if a file was open — so a demo, which carries
+exactly as much position as the file it replays, fails both halves of the position test. If
+that is it, the fault was never phone-specific at all; the phone is simply where only demos get
+run. Second candidate: `view3dToggleAvailable` reads `is2DTransducer`, the **committed** device,
+while every other screen-chooser question reads `displayIs2DTransducer`.
+
+## Eleven: every scale in this app is floored, and a floor cannot help a small screen
+
+`UiMetrics::scale()` is `qBound(0.75, shortSide / 1200, 1.35)`. `mainview.s` — which is what the
+rail is sized by — is `Math.max(1.0, shortSide / 1100)`. **Two independent scales, computed from
+different things, and both can only ever grow.** They are tuned for a tablet and a desktop
+window, and on a phone they are both pinned at the bottom.
+
+That is why every phone question this session turned out to be a **budget** rather than a
+number. Nothing can be made smaller, so something has to be given up — and the only honest way
+to choose is to know what the column needs and what the screen has.
+
+The rail's column needs **983 design units** with a live blue on it. That number is arithmetic,
+not an estimate, and it is what made the next two decisions answerable in one exchange rather
+than a device round trip.
+
+## Twelve: the artefact that does not shrink is the one that runs off the edge
+
+*"I can barely see the 'N' in the TechAdVision artwork."*
+
+The `ColumnLayout` squeezes every item it can — but the wordmark's `Image` kept a fixed
+150 × 30 and was only **centred** in a box the layout had shrunk. So it overflowed instead of
+shrinking, and at −90° the original left edge maps to the bottom, so what stays on screen is the
+END of the word. TechAdVisio**n**. The letter Olav named was predicted by the geometry before
+anything was changed, which is the strongest evidence the reading was right.
+
+> **In a Layout, an item shrinks; its fixed-size children do not.** A parent that gives way
+> while its content does not is not a soft failure — it is content leaving the screen, and it
+> looks like a rendering bug rather than a space problem.
+
+`3ed258c9`'s shape matters more than the wordmark does. The question "is there room" needs the
+controls' natural height, and adding up the column by hand is *"a hook is only as good as the
+list it re-applies"* in a new place. Taking the wordmark **out of the layout** makes
+`column.implicitHeight` that number, kept by the layout itself — a button added or withdrawn is
+counted with nothing to remember. And it is loop-free by construction: `implicitHeight` reads
+the children's preferred heights and never the layout's own geometry or margins, so the
+reservation is downstream of the measurement. **Hiding the wordmark in place would have looped**
+— dropping `implicitHeight` makes it fit, which shows it again.
+
+## Thirteen: scaffolding is retired by being used, not by being replaced
+
+The rail's back-to-classic arrow was scaffolding from day one and the file said so. Its
+replacement — the Experimental row in the settings list — was built with a comment stating
+plainly that the arrow stays *one more build*, because *"retiring the only escape hatch on the
+strength of an untested one is how a tester gets stranded."*
+
+Olav ran that build and said drop it. So the exception is retired against evidence rather than
+against a plan, and the settings row's comment now says it is the only way back. **68 design
+units**, and the whole removal — button, property, signal, handler, and the stale example in
+`PulseRailButton`'s own comment — went in one commit, because a signal nothing emits and a
+handler nothing reaches are what a half-removal leaves behind.
+
+## And the standing one held again
+
+Three of the four items were settled by reading a file or by reading the user's own words
+carefully, and the one that was not — the base scale — is the one where an instrument was
+written instead of code. The long read of the mosaic render path at the start of the session
+produced nothing; Olav's second message produced the diagnosis in one line. **The instrument is
+still the device, and the user is still the instrument's operator.**
+
+---
+
 # Next-session prompt
 
 Repo `Documents/GitHub/KoggerApp`, branch `feature/pulse-ui-v2-rail`. Ask for folder access and
 delete permission before any branch switch or file removal.
 
-FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` in full — especially "WHAT IS LEFT", grouped
-P0–P5, and the "Phone findings, 16 Sept 2026" block under P1 — then this document's final
-section, "Session close — 16 Sept 2026, the device day". Do not re-derive any of it.
+FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` — "WHAT IS LEFT", P0–P5, and especially the
+"Phone findings, 16 Sept 2026" block under P1, which now carries the diagnosis and the
+arithmetic — then this document's final session close, "16 Sept 2026 (evening), the phone". Do
+not re-derive any of it.
 
-THIS SESSION: **the phone.** The tablet is right; the phone has three functional faults and one
-legibility fault, and they are not the same job.
+THIS SESSION STARTS WITH TWO LOG LINES, and until they are read there is nothing to write.
+Build, run on **both the phone and the tablet**, and bring back:
 
-1. **No mosaic at all on the phone.** Nothing is known about why. Start here — it is the only
-   one with no diagnosis at all.
-2. **`split_side_down` shows only the side scan.** Full-screen side and full-screen down are
-   both fine, so it is the split that fails. `splitEchograms` and `waterViewSecond.enabled` are
-   where I would read first; `c5f970a4` and its handler are recent and relevant.
-3. **The rail does not fit.** The app forces landscape from the Java activity, so the phone's
-   width becomes the rail's available height. Olav: *"I can barely see the 'N' in the
-   TechAdVision artwork."*
-4. **The loupe and its fonts are too small to read.** This is `UiMetrics::computeScale()`: it
-   divides a **logical** short side by a reference of 1200 and the result multiplies
-   **device**-pixel constants. They coincide only at dpr 1 — the desktop window named in that
-   function's own comment. Both the phone and a 10" tablet land on the 0.75 clamp floor, so
-   **nothing that scales down helps the phone**; the base scale has to be fixed. Do it AFTER
-   the others, and note that `bf80ab02`'s fit clamp is what keeps it safe.
+1. **`METRICS:`** — two per run, "startup" and "settled". It carries the window in logical
+   units, `Screen.devicePixelRatio`, the screen both ways, the short side, the RAW ratio before
+   the clamp, the clamped `s`, `theme.resCoeff` and three derived sizes. **The dpr is the number
+   the whole loupe/font diagnosis turns on.** `main.cpp` sets `QT_SCALE_FACTOR=0.5` on Android,
+   so the logical-to-device ratio is the device's density times a half — near 1 on a
+   normal-density tablet (the dpr-1 desktop window `computeScale()`'s own comment names, and why
+   the tablet has never looked wrong) and not near 1 on a 560 dpi phone. Read it, then fix the
+   base scale — AFTER `bf80ab02`, whose fit clamp is what keeps a larger base scale safe.
 
-**Before writing a line for #4, get one log:** `m_windowWidth`, `m_windowHeight`,
-`Screen.devicePixelRatio` and the computed `s` at startup, on both the phone and the tablet. The
-diagnosis above is a reading of the code, not a measurement.
+2. **`MOSAIC:`** — on startup, on every layout choice, and whenever availability moves. It names
+   all three terms of `view3dToggleAvailable`, plus `has3DView` / `has2DView` /
+   `splitEchograms` and the 3D pane's size. **Say which term is false, then fix that one.**
+   Leading candidate: `core.filePath` is empty during a demo, so a demo fails both halves of a
+   test that is really asking "do we have position". Second: `is2DTransducer` is the COMMITTED
+   device where every other screen-chooser question follows the DISPLAY model. Do not write
+   either fix before the line is read — D-2 is the precedent.
 
-WATCH FOR: the fault shapes are listed in this document's session closes, now nine of them. The
-three that earned their place today are **a binding that cannot express every state it selects
-between** (tell: `? x : undefined`), **an echo that echoes** (tell: a broadcast with no sense of
-origin), and **a borrowed feature whose geometry premise does not hold** (tell: upstream
-behaviour that is subtly wrong rather than broken — Pulse rotates the echogram 90 degrees for a
-side scan and upstream does not).
+   If the line ever reads **available true**, the pane size on the same line is the next
+   question and it is already answered.
 
-And the standing one, which cost three wrong answers on 16 Sept: **a confident derivation about
-behaviour is a hypothesis.** Read the file.
+ALSO CHECK ON THAT BUILD, all cheap:
+
+- **The rail on the phone.** The wordmark should be absent rather than half off the screen, and
+  the arrow to classic should be gone. Then say whether the rail FITS — the remaining decision
+  (two columns of buttons on a short screen, or settings/collapse into the panel) is Olav's, and
+  it was deliberately left until a real available height is known.
+- **The rail on the tablet must be unmoved.** `3ed258c9` only ever shrinks and reserves the
+  wordmark's old slot to the pixel, spacing included. If the wordmark has moved on a tablet, the
+  slot arithmetic is wrong.
+- **The settings list's Experimental row is now the ONLY way back to classic.** Confirm it
+  works; nothing else in v2 writes `uiVariant`.
+
+WATCH FOR: the fault shapes in this document's session closes, now thirteen. The four that
+earned their place today are **a fallback that works is indistinguishable from a feature that
+does not** (tell: a graceful substitution with no log line), **every scale in this app is
+floored** (tell: `qBound`/`Math.max` with the floor at or above what a small screen produces),
+**in a Layout an item shrinks and its fixed-size children do not** (tell: `anchors.centerIn`
+over a hard `width`/`height` inside a `Layout.preferred*` box), and **scaffolding is retired by
+being used, not by being replaced**.
+
+And the standing one, which held again today: **a confident derivation about behaviour is a
+hypothesis.** A long read of the mosaic render path produced nothing; Olav's second message
+produced the diagnosis in one line.
 
 ALSO OPEN, none of it blocking the phone:
 
-- **Group E's remaining walk** — the rail, the panel, the setup card, the paused gutter and the
-  depth readout have never been checked in a split. Overlaps #3 above almost completely.
+- **Group E's remaining walk** — the panel, the setup card, the paused gutter and the depth
+  readout have never been checked in a split. The rail half is now the phone fit budget.
 - **`bd14130f` unverified** — needs a log known to show black stripes, TVG on.
 - **`applyEchogramMode`'s `setParam("chartOffset", 0)`** is unguarded on a recording — the same
   argument as `79c16ebc`, and live on an opened file where the links stay open.
 - **`applyViewId` is dead code** carrying two hardware writes.
 - **The channel-count transient** — a blue demo runs a full apply pass as red before correcting.
   Cosmetic; belongs with P2's file-side prescan rather than a patch at the guard.
-- **`master` is 71 commits ahead of `origin/master`.** The feature branch is pushed.
+- **`master` is 71 commits ahead of `origin/master`.** The feature branch has four new commits
+  to push.
 
 HOW WE WORK: show me the design before building anything visual; one idea per commit; I build in
 Qt Creator and report back — the sandboxed shell has no Qt and no GitHub credentials, and pushes

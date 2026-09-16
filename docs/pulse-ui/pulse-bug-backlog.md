@@ -1005,39 +1005,138 @@ exercises them together is worth more than any new work.
 scheduled last: a split pane on a tablet is roughly a phone-sized picture, so every fix in E is
 most of a phone fix.
 
-- **The zoom/loupe box is too large in a split** — sized against a whole pane.
-- **The Stop demo / Close file pill sits above the tick ruler on a side scan** and must drop
-  below it.
+- ~~**The zoom/loupe box is too large in a split**~~ — **DONE `bf80ab02`**, 16 Sept.
+- ~~**The Stop demo / Close file pill sits above the tick ruler on a side scan**~~ — **DONE
+  `f7d294cf`**, 16 Sept.
 - **Everything else that takes width or height from a pane** — rail, panel, setup card, paused
   gutter, depth readout — has not been walked in a split. Olav: *"likely there may be multiple
-  things to adjust."*
-- **Then phone sizing**, deliberately after, with most of it already done.
+  things to adjust."* **Still open**, and the rail half of it now overlaps the phone work
+  almost completely: the fit budget below is the same question a split pane asks.
+- **Then phone sizing** — **started 16 Sept evening, see the block below.** The order held:
+  the two named E items landed first and `bf80ab02`'s fit clamp is what the phone's base-scale
+  fix will lean on.
 
-#### Phone findings, 16 Sept 2026 — parked deliberately, tablet first
+#### Phone findings, 16 Sept 2026 — worked 16 Sept evening. Two closed, two waiting on a log
 
-**Olav's own notes from a quick pass on a Samsung S23 Ultra**, recorded verbatim in substance
-so nothing is re-derived. *"These are notes for phone right now... let us first fix the error on
-the tablet."* None of these is started.
+**Olav's own notes from a pass on a Samsung S23 Ultra.** The numbered items are kept as he
+wrote them; what follows each is what the evening session found.
 
-1. **No mosaic at all on the phone.**
-2. **`split_side_down` shows only the side scan.** Full-screen side and full-screen down are
-   both fine, so it is the split that fails rather than either view.
-3. **The rail does not fit.** The app forces landscape from the Java activity, so the phone's
-   screen *width* becomes the height available to the rail, and there is not enough of it —
-   *"I can barely see the 'N' in the TechAdVision artwork."*
+1. ~~**No mosaic at all on the phone.**~~ **DIAGNOSED — it is not a mosaic fault. Instrumented
+   in `262be7fe`, waiting on one log line.** Olav, on the build of the same evening: *"The
+   Mosaic does not [work] (nothing happens, the last full screen stays active although the
+   side scan option gets selected). Multi screen: I get full screen with either side or down
+   instead of the one split with mosaic. Button selection is correct."*
+
+   **That is `has2DView`'s documented fallback firing, and the two shapes match it exactly.**
+   `has3DView` is `wantsMosaic && view3dToggleAvailable`; `has2DView` is `wantsEchogram ||
+   !has3DView` — *"the echogram holds the screen when the mosaic was asked for and cannot be
+   drawn. Never nothing at all."* With `view3dToggleAvailable` false:
+
+   - `single_mosaic` → `firstMode` is `""`, so `applyEchogramMode` is never called and the
+     **outgoing picture stays exactly as it was**. "Nothing happens, the last full screen
+     stays active."
+   - `split_side_mosaic` / `split_down_mosaic` → `splitEchograms` false and `firstMode` is
+     `side` / `down` → **one full-screen echogram**. "Full screen with either side or down."
+   - The chooser still marks the row because the **preference was stored**. Only the pane was
+     never built. "Button selection is correct."
+
+   **So the question is which of the three terms of `view3dToggleAvailable` is false**, and
+   they have three different fixes:
+
+   - **`core.filePath` is EMPTY DURING A DEMO.** `Core::startDemo` never sets it and clears it
+     if a file was open. A demo carries exactly as much position as the file it replays and is
+     missed by **both** halves of the position test. **This is the leading candidate**; if the
+     phone was running a demo it is the whole of it.
+   - **`is2DTransducer` is the COMMITTED device**, while every other screen-chooser question
+     follows the DISPLAY model (`offersScreenChoice` is `!displayIs2DTransducer`). A blue log
+     on an app with nothing committed would be offered the layouts and refused the pane.
+   - **`mavlinkDetected`** — raised by any MAVLink frame, a replayed one included, so this one
+     is the least likely to be the culprit.
+
+   **Do not write the fix before the line is read.** `262be7fe` prints `MOSAIC:` at startup, on
+   every layout choice and whenever availability moves, naming all three terms plus
+   `has3DView` / `has2DView` / `splitEchograms` **and the 3D pane's size** — so if it ever
+   reads *available true* the next question is answered by the same build. D-2's precedent is
+   the reason: a derivation there nearly bought a migration the data never justified.
+
+2. ~~**`split_side_down` shows only the side scan.**~~ **CLOSED, 16 Sept 2026 — by the build,
+   not by a commit.** Olav on the current build: *"The dual side/down works now."* The phone
+   had been running an older APK; `c5f970a4` and the rest of the device day's eleven commits
+   close it. **No phone-specific fault existed.**
+
+3. ~~**The rail does not fit.**~~ **PART DONE, `3ed258c9` + `e55c648c`; the rest waits on a
+   measurement.** The arithmetic, which turns this from an opinion into a budget — the column
+   at `uiScale` = `mainview.s`:
+
+   | | live blue | replaying (no Record) |
+   |---|---|---|
+   | buttons | 7 × 60 = 420 | 6 × 60 = 360 |
+   | divider + source | 65 | 65 |
+   | settings + collapse + back-to-classic | 180 | 180 |
+   | wordmark | 150 + 10 | 150 + 10 |
+   | spacing (8 between each) | 104 | 96 |
+   | margins + 34 Android top inset | 54 | 54 |
+   | **needs** | **983 u** | **915 u** |
+
+   **And both of the app's scales are floored.** `uiScale` is `Math.max(1.0, shortSide / 1100)`
+   — it grows on a tablet and can never shrink on a phone — exactly as `UiMetrics::scale()`
+   sits on its own 0.75 floor. **Nothing that scales down reaches this**, which is why the
+   answer is a budget and not a smaller number.
+
+   **The 'N' was a prediction that came true.** The `ColumnLayout` shrinks the fill-height
+   spacer to zero and then squeezes every item, but the wordmark's `Image` kept a fixed
+   150 × 30 and was only *centred* in the shrunken box — so it **overflowed off the bottom of
+   the screen** rather than shrinking. At −90° the original left edge maps to the bottom, so
+   what stays on screen is the END of the word: TechAdVisio**n**.
+
+   - **`3ed258c9` — the wordmark is elastic, and absent below its natural size.** Olav's choice
+     of the three shapes offered; half-sized it reads as a smudge and spends the room anyway.
+     It leaves the `ColumnLayout` and is anchored into a slot the column's bottom margin
+     reserves. **Out of the layout is what makes the question answerable without a hand-written
+     sum**: `column.implicitHeight` IS the controls' natural height, kept by the layout itself,
+     so a button added or withdrawn is counted with nothing to remember. **And it cannot loop**
+     — `implicitHeight` reads the children's preferred heights, never the layout's own geometry
+     or margins. Hiding the wordmark *in place* would have looped: dropping `implicitHeight`
+     would make it fit, which would show it again. Only ever shrinks, so a tablet is unmoved.
+   - **`e55c648c` — the way back to classic is retired.** Olav: *"Drop that 'return to classic'
+     arrow. We do not need it."* It was scaffolding and the file said so; the settings list's
+     Experimental row has carried the variant switch since the panel was built, kept beside the
+     rail's button for one build rather than instead of it. That build has been run. **68 u**,
+     and that row is now the only way back — the comment there says so.
+   - **Not done, on Olav's steer:** *land the wordmark and measure again.* Two columns of
+     buttons on a short screen (recovers ~45% of the height for ~5% of the picture's width) and
+     moving settings/collapse into the panel (128 u) are both on the table and neither is worth
+     choosing against an estimated available height.
+
 4. **The forced landscape is on borrowed time.** The console already warns about it. If Google
    stops honouring it, *"the narrow split screen view we get as landscape today will rule"* —
-   so the narrow case is not an edge case to tolerate, it is the case to design for.
+   so the narrow case is not an edge case to tolerate, it is the case to design for. **Not
+   started.**
 
 **And the legibility half, which is NOT a fit problem:** the loupe and its fonts are too small
 to read on the phone — *"the box is a bit too tiny (fonts are a bit tiny, specifically)"*. The
 cause is in `UiMetrics::computeScale()`: it divides a **logical** short side by a reference of
 1200 and the result then multiplies **device**-pixel constants. The two coincide only at
-dpr 1 — the desktop window named in that function's own comment — and diverge with pixel
-density, which is exactly an S23 Ultra. Both the phone and a 10" tablet land on the 0.75 clamp
-floor, so **nothing that scales down can help the phone**; it needs the base scale fixed.
+dpr 1 — the desktop window named in that function's own comment. Both the phone and a 10"
+tablet were expected to land on the 0.75 clamp floor, so **nothing that scales down can help
+the phone**; it needs the base scale fixed.
 
-Do that one **after** `bf80ab02`, not before: the fit clamp is what stops a larger base scale
+**INSTRUMENTED, `b753c340`, and the code is NOT to be touched before the line is read.** One
+`METRICS:` line prints the window in logical units, `Screen.devicePixelRatio`, the screen both
+ways, the short side, the **raw** ratio before the clamp, the clamped `s`, `theme.resCoeff` and
+three derived sizes — at startup and again 400 ms after the last resize, because the activity
+forces landscape and the window is resized after QML is up. Raw and clamped both print: `0.75`
+and `0.75-because-the-floor-caught-it` are otherwise the same string.
+
+**And the Android case is not what the code reads like.** `main.cpp` sets
+`QT_AUTO_SCREEN_SCALE_FACTOR=0` and `QT_SCALE_FACTOR=0.5`, so the logical-to-device ratio is the
+device's own density times a half — **near 1 on a normal-density tablet**, which is precisely
+the dpr-1 desktop window `computeScale()`'s comment names, and why the tablet has never looked
+wrong. On a 560 dpi phone it is not. So the one number that decides whether this is a divergence
+or a constant factor is the **dpr**, and nobody has yet read it off a device. Needed from both
+the phone and the tablet.
+
+Do the fix **after** `bf80ab02`, not before: the fit clamp is what stops a larger base scale
 from putting the buttons off the pane again.
 
 ### P2 — Opening a file without freezing. Three items, one expensive step
