@@ -93,13 +93,34 @@ Item {
     }
 
     // The hairline that faces the picture, on whichever side that is.
+    //
+    // TWO RECTANGLES, NOT ONE THAT FLIPS FOUR ANCHORS. An anchor binding that evaluates
+    // to undefined does NOT clear an anchor already set - undefined is not a value an
+    // anchor line accepts, so the previous one silently stays. This was one Rectangle
+    // switching right/left/bottom and its height on alongFoot, so the first flip left it
+    // holding BOTH parent.left and parent.right forever and it drew as a corner rather
+    // than a line on every later change of flow.
+    //
+    // The switch is `visible`, which is what sideColumn and footRow below already use and
+    // the only form in this file that has ever worked. Same trap as the pill column's
+    // corner rule, found the same day; the tell is `? something : undefined` on an anchor.
     Rectangle {
-        anchors.right:  gutter.alongFoot ? undefined : parent.right
-        anchors.left:   gutter.alongFoot ? parent.left : undefined
+        id: hairlineFoot
+        visible: gutter.alongFoot
+        anchors.left:  parent.left
+        anchors.right: parent.right
+        anchors.top:   parent.top
+        height: 1
+        color: "#40d8a21f"
+    }
+
+    Rectangle {
+        id: hairlineSide
+        visible: !gutter.alongFoot
+        anchors.right:  parent.right
         anchors.top:    parent.top
-        anchors.bottom: gutter.alongFoot ? undefined : parent.bottom
-        width:  gutter.alongFoot ? parent.width : 1
-        height: gutter.alongFoot ? 1 : undefined
+        anchors.bottom: parent.bottom
+        width: 1
         color: "#40d8a21f"
     }
 
