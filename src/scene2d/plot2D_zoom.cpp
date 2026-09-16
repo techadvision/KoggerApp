@@ -709,20 +709,14 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
             p->setBrush(kAccent);
             p->drawRoundedRect(addRect, corner, corner);
 
-            const int iconPx = ui ? ui->iconTouchSmall() : px(24);
-            QFontMetrics fm(fLabel);
-            const int textW  = fm.horizontalAdvance(kBtnAdd());
-            const int blockW = iconPx + px(8) + textW;
-            const int blockX = addRect.center().x() - blockW / 2;
-
-            drawSvgTinted(p, QStringLiteral("./icons/ui/pulse_zoom_add_marker.svg"),
-                          QRect(blockX, addRect.top(), iconPx, addRect.height()),
-                          iconPx, kInk);
-
+            // NO PIN. The icon and the label shared the button's width, and in a split the
+            // panel is narrow enough that the last word of "Add waypoint" fell off the end.
+            // The label alone is unambiguous - it is the only button on that side and it
+            // says what it does - so the pin was decoration that cost the words.
+            // Olav, 16 Sept: "should fit with icon removed."
             p->setFont(fLabel);
             p->setPen(kInk);
-            p->drawText(QRect(blockX + iconPx + px(8), addRect.top(), textW, addRect.height()),
-                        Qt::AlignVCenter | Qt::AlignLeft, kBtnAdd());
+            p->drawText(addRect, Qt::AlignCenter, kBtnAdd());
         }
 
         out.abortRect = abortRect;

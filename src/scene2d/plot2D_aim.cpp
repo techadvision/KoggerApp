@@ -810,7 +810,13 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     }
 
     // Draw outer crosshair LAST (synced with zoom center)
-    {
+    //
+    // NOT FOR A FOREIGN AIM. Upstream mirrors the mark to the other view so you can see
+    // where you are on both, and that is a reasonable feature in an app whose two panes
+    // share an axis. Pulse turns the echogram 90 degrees for a side scan, so the mirrored
+    // mark lands somewhere nobody pressed and reads as a second, wrong cursor. Olav,
+    // 16 Sept: "the crosshair is misplaced. It just confuses and should not be visible."
+    if (!parent->aimIsForeign()) {
         const QPoint drawPt = aimLogical.toPoint();
         p->drawLine(0,          drawPt.y(), canvas.width(),  drawPt.y());
         p->drawLine(drawPt.x(), 0,          drawPt.x(),      canvas.height());
@@ -1240,7 +1246,13 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
     }
 
     // Draw outer crosshair LAST (synced with zoom center)
-    {
+    //
+    // NOT FOR A FOREIGN AIM. Upstream mirrors the mark to the other view so you can see
+    // where you are on both, and that is a reasonable feature in an app whose two panes
+    // share an axis. Pulse turns the echogram 90 degrees for a side scan, so the mirrored
+    // mark lands somewhere nobody pressed and reads as a second, wrong cursor. Olav,
+    // 16 Sept: "the crosshair is misplaced. It just confuses and should not be visible."
+    if (!parent->aimIsForeign()) {
         const QPoint drawPt = aimLogical.toPoint();
         p->drawLine(0,          drawPt.y(), canvas.width(),  drawPt.y());
         p->drawLine(drawPt.x(), 0,          drawPt.x(),      canvas.height());

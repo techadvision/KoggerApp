@@ -3392,26 +3392,32 @@ ApplicationWindow  {
             waterViewFirst.update()
         }
     }
+    // THE AIM IS NO LONGER MIRRORED, and the mirror is deleted rather than silenced.
+    //
+    // Upstream put an aim on the pane you are NOT touching so the other view could show
+    // where you were. Pulse now draws neither half of it: the panel went in add7230b - one
+    // finger, one control surface - and the crosshair went with it, because Pulse turns the
+    // echogram 90 degrees for a side scan and the mirrored mark lands where nobody pressed.
+    //
+    // So the mirror had nothing left to draw, and keeping it was not free. It needed a
+    // release-side reset, and that reset is what has been clearing the aim on the pane under
+    // the user's finger. Deleting the mirror deletes the whole class of echo instead of
+    // suppressing its symptoms one at a time.
+    //
+    // Core::broadcastEpochCursor -> setSyncCursor is the OTHER route to a foreign aim and is
+    // deliberately left alone: it also carries the timeline, which is wanted. Its aim simply
+    // draws nothing now, by Plot2D::aimIsForeign().
+    //
+    // Core::getConvertedMousePos loses its only caller here. It is left in place on purpose -
+    // it is the honest (epoch, depth) round trip between two panes of different orientation,
+    // it was hard-won, and a per-pane readout or a future correlation marker wants exactly
+    // it. Removing it would be a separate decision from this one.
     function handlePlotPressed(indx, mouseX, mouseY) {
-        let r = core.getConvertedMousePos(indx, mouseX, mouseY)
-
-        if (indx === 1 && waterViewSecond.enabled) {
-            waterViewSecond.setAim(r.x, r.y)
-        }
-        if (indx === 2) {
-            waterViewFirst.setAim(r.x, r.y)
-        }
     }
-    // THE MIRROR IS CLEARED QUIETLY. This resets the pane the user is NOT touching - the one
-    // handlePlotPressed put a mirrored aim on - so it must not start a sync of its own, or
-    // the broadcast comes back and clears the aim under the user's finger.
+    // NOTHING TO CLEAR. With no mirrored aim to put up, there is none to take down - and
+    // this handler is where the lower pane's loupe was dying on finger-up. resetSyncAim()
+    // stays on Plot2D for the moment; it is the correct quiet reset if a mirror ever returns.
     function handlePlotReleased(indx) {
-        if (indx === 1 && waterViewSecond.enabled) {
-            waterViewSecond.resetSyncAim()
-        }
-        if (indx === 2) {
-            waterViewFirst.resetSyncAim()
-        }
     }
     function onPlotSettingsClicked() {
         menuBar.closeMenus()
