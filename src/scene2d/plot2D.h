@@ -98,6 +98,18 @@ public:
     void clearSyncCursor();
     virtual void syncClearAim() {}
     bool hasSyncDepth() const { return syncDepthValid_; }
+
+    // TRUE when this pane's aim did not come from a touch on THIS pane. Two routes get one
+    // there: main.qml's handlePlotPressed mirrors it in via setAim(), which is
+    // plotMousePosition(x, y, isSync = true); and Core::broadcastEpochCursor pushes it in
+    // via setSyncCursor(), which is what syncDepthValid_ already marks.
+    //
+    // A FOREIGN AIM GETS THE CROSSHAIR AND NOT THE PANEL. The crosshair is the whole point
+    // of the correlation - it says where you are on the other view. The panel is a control
+    // surface for the epoch under your finger, and there is only one finger: a second panel
+    // is anchored to a point nobody pressed, which is why it also came up misplaced.
+    // Olav, 16 Sept: "Just need that not-touched screen not to create a zoom box."
+    bool aimIsForeign() const { return aimIsMirrored_ || syncDepthValid_; }
     float getSyncDepth() const { return syncDepth_; }
     int getSyncChannel() const { return syncChannel_; }
     void setAimFieldsMask(int mask) { aimFieldsMask_ = mask; }
@@ -264,6 +276,7 @@ protected:
     bool isHorizontal_;
     bool dvlLegendVisible_ = true;
     int  dvlLegendPosIndex_ = 0;
+    bool aimIsMirrored_ = false;      // see aimIsForeign()
     bool syncDepthValid_ = false;
     float syncDepth_ = 0.0f;          // absolute physical depth (>=0 from surface)
     int syncChannel_ = 1;             // which channel the synced depth belongs to (1/2)

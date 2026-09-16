@@ -816,6 +816,14 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         p->drawLine(drawPt.x(), 0,          drawPt.x(),      canvas.height());
     }
 
+    // A FOREIGN AIM GETS THE MARK, NOT THE PANEL - see Plot2D::aimIsForeign(). cand_ is
+    // cleared rather than merely left undrawn, because its button rectangles are what the
+    // tap handler hit-tests against: a panel that is not drawn must not still be tappable.
+    if (parent->aimIsForeign()) {
+        cand_.active = false;
+        cand_.haveTarget = false;
+    }
+
     // Draw your zoom panel when active
     if (cand_.active) {
         Plot2DZoom::Input zin;
@@ -1236,6 +1244,14 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         const QPoint drawPt = aimLogical.toPoint();
         p->drawLine(0,          drawPt.y(), canvas.width(),  drawPt.y());
         p->drawLine(drawPt.x(), 0,          drawPt.x(),      canvas.height());
+    }
+
+    // A FOREIGN AIM GETS THE MARK, NOT THE PANEL - see Plot2D::aimIsForeign(). cand_ is
+    // cleared rather than merely left undrawn, because its button rectangles are what the
+    // tap handler hit-tests against: a panel that is not drawn must not still be tappable.
+    if (parent->aimIsForeign()) {
+        cand_.active = false;
+        cand_.haveTarget = false;
     }
 
     // Draw your zoom panel when active

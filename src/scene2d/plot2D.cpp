@@ -1110,6 +1110,9 @@ void Plot2D::scrollDistance(float ratio)
 
 void Plot2D::setMousePosition(int x, int y, bool isSync) {
     syncDepthValid_ = false;
+    // A real aim, and whether it is this pane's own. Cleared by the x == -1 reset for free,
+    // because a cleared aim belongs to nobody.
+    aimIsMirrored_ = (x >= 0) && isSync;
     if (!datasetPtr_ || canvas_.width() <= 0 || canvas_.height() <= 0) {
         cursor_.selectEpochIndx = -1;
         cursor_.currentEpochIndx = -1;
