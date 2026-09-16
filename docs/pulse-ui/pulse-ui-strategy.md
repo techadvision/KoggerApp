@@ -7409,6 +7409,36 @@ twice the slant resolution.
 
 ---
 
+# Nineteen, again: the four checks all pass on a file that does not load — 17 Sept 2026
+
+`pulse-qml-structure-check.js`, written the day it would have earned its place. A patch
+inserted two rows into `PulseSettingsList.qml` at the wrong offset and produced an orphan
+closing brace, a stray comma and a `content` array closed one brace short. **All four existing
+checks passed on it**, and none of them could have done otherwise: the version check reads
+imports, the icon check reads icon names, the profile check reads profile records, and the
+binding check resolves property names against component declarations. Every one of them
+*scans*; not one of them *balances*.
+
+> **A file that cannot be parsed is not a category any of those checks has an opinion about.**
+> Each was built to catch a class of fault inside a file that loads, so a file that does not
+> load falls through all of them at once — and the next thing to say so is Qt, on a device,
+> after a full Android build.
+
+**Verified by reproduction**, which is the only evidence worth having for a check: the break was
+put back and this one FAILs on it while the other three still pass.
+
+**And its first run was a false positive**, which is the part worth keeping. `main.qml:3831`
+holds a regex literal whose character class contains a lone `)` and whose escaped parens are not
+parens — read as code, the file does not balance. Allowlisting the line was the wrong repair: the
+parser did not know something legitimate, so **the parser was taught it**, exactly as the binding
+check's three false-positive classes were fixed rather than excused. Its allowlist is empty too.
+
+The one heuristic in it — telling a regex literal from a division — can only ever be *noisy*,
+never silent: anything it gets wrong shows up as a FAIL on a file that loads. That is the
+failure direction a check is allowed to have.
+
+---
+
 # Next-session prompt
 
 Repo `Documents/GitHub/KoggerApp`. Ask for folder access and delete permission before any branch
@@ -7519,5 +7549,5 @@ and one file read.
 HOW WE WORK: show me the design before building anything visual; one idea per commit; I build in
 Qt Creator and report back — the sandboxed shell has no Qt and no GitHub credentials, and pushes
 happen from GitHub Desktop. Run `node tools/pulse-profile-check.js` after any profile change and
-`pulse-qml-version-check.js` / `pulse-icon-check.js` / **`pulse-qml-binding-check.js`** after any
-QML or icon change. Nothing under `build/`. Patch the strategy document by anchored replacement.
+`pulse-qml-version-check.js` / `pulse-icon-check.js` / `pulse-qml-binding-check.js` /
+**`pulse-qml-structure-check.js`** after any QML or icon change. Nothing under `build/`. Patch the strategy document by anchored replacement.
