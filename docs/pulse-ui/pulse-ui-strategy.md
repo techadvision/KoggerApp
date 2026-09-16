@@ -7107,7 +7107,7 @@ time, in both. The differences are three, and only three:
 So the three P2 items are **not three jobs**. One of them is independent and cheap, one is a
 transport swap, and the third falls out of the second.
 
-## 1. The log prescan — independent, cheap, and it closes a P0 leftover as well
+## 1. The log prescan — **BUILT AS `ea5cf3d3`**
 
 `demoPrescan()` already exists, already answers *2D or side scan* and the epoch period, and
 already runs **before the first epoch** on the demo path. That is why `demoIsSideScan` is settled
@@ -7129,7 +7129,36 @@ judged cheap enough to pay at demo start.
 
 **This lands first, alone, and touches no transport.**
 
-## 2. The burst — one variable changed: when the event loop runs
+## 2. The burst — **BUILT AS `4807efea`, and NOT through the demo transport**
+
+**A third option the design below did not separate out, found while building it.** The
+documents weighed *burst through the demo transport* against *turn `SEPARATE_READING` on*, and
+rejected the second because it re-threads the whole reception path. **But the `processEvents()`
+is not the threading.** It is the other half of that option and it can be taken on its own.
+
+So `openFile`'s own loop yields — 12 ms of parse between yields, an 8 ms bound on the yield
+itself, `QEventLoop::ExcludeUserInputEvents` — and that is the whole change. Nothing moves
+thread. **Core's completion path stays exactly as synchronous as it is today**: `openFile` still
+returns when the file is finished, so `fileOpened()`, `notifyFileOpened()`, `fitAllInView()` and
+`onChannelsUpdated()` keep their order with nothing restructured, and **the teardown trap below
+never arises** — `openFile` keeps its own teardown because it keeps its own loop.
+
+**`ExcludeUserInputEvents` is the safety argument and it narrows the promise on purpose.** Paint
+events, timers and queued invocations run, so the echogram fills and the app is plainly alive;
+taps do not, so nothing a person can press can re-enter an open in progress. What is given up is
+cancelling, which does not exist today either — `break_` is only ever set by
+`SEPARATE_READING`'s `closeFile`, so every `if (break_)` on the shipping branch is dead code. A
+refusing re-entrancy guard covers the routes a person cannot take.
+
+**And the 1.4× below does not apply to what was built.** That figure was the demo transport's:
+12 ms of work per 5 ms tick, where the tick interval is dead time. Pumping directly has no dead
+time — the pump returns at once when nothing is queued — so the overhead is roughly one frame's
+work per 12 ms of parsing. **The thing to measure on a device is whether a filling picture reads
+better than a freeze**, not the wall clock.
+
+The design as it was written, kept because it is what the build was judged against:
+
+## 2 (as designed) — the burst through the demo transport, NOT built
 
 Route the file open through the demo transport with `demoPeriodMs_ = 0`, the **file** flags, and
 no link closing. With the period at zero the clock is always behind, so every tick delivers until
@@ -7167,7 +7196,12 @@ roughly **1.4× the wall clock of today's frozen parse**. The documents already 
 promise a shorter open; promise a visible one"* — this is the number behind that sentence. If
 1.4× reads worse than a freeze on a large log, **the tick interval is the knob**, not the budget.
 
-## 3. Progress is a consequence, not a third item
+## 3. Progress is a consequence, not a third item — **NOT BUILT, deliberately**
+
+Olav's steer: land the prescan and the burst, feel whether a filling picture beats a freeze, and
+decide then. That answer changes whether a progress surface is wanted at all — a picture that
+visibly fills may already be the progress surface.
+
 
 `DeviceManager::openFile` already computes `progress_` from bytes read over total size **and
 throws it away**. It could not be drawn even if it were exposed, because nothing repaints during
