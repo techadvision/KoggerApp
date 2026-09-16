@@ -7525,14 +7525,16 @@ ALSO OPEN, none of it blocking P3:
   "empty `core.filePath` in a demo" candidate, because a replay raises MAVLink itself.
 - **The loupe's buttons on the phone**, waiting on the `METRICS:` line. `qPlot2D::paint`'s
   integer-versus-fractional dpr cliff decides which of two opposite repairs is right.
-- **The `CHANNELS:` line** still prints "2D" / "side scan" from the channel count, which
-  `ea5cf3d3` means the app no longer decides with. A diagnostic describing a value the decision
-  does not use — the `af857891` lesson. One line.
+- ~~**The `CHANNELS:` line**~~ — **DONE `88c63c4f`.** It now says what the count *would* say and
+  then names who is actually deciding: the demo prescan, the log prescan, the count itself when
+  the prescan had nothing, or the committed device.
 - **`applyEchogramMode`'s `setParam("chartOffset", 0)`** is unguarded on a recording.
 - **`applyViewId` is dead code** carrying two hardware writes.
-- **A settings row for `revealAppLogFolder()`** — both `Q_INVOKABLE`s exist and nothing calls
-  them. The logs are at `Documents/KoggerApp/AppLogs/kogger*.log` on the device; logcat is not
-  needed and never was.
+- ~~**A settings row for `revealAppLogFolder()`**~~ — **DONE `ebbb81ef`.** Two rows at the foot of
+  Troubleshooting: a read-only row naming the current file, refreshed when the category opens
+  because `appLogFilePath()` has no change signal and the log rolls at 8 MB; and a Show button
+  that is **absent on Android**, where `Core::revealInFolder`'s whole body is `Q_UNUSED`. The
+  logs are at `Documents/KoggerApp/AppLogs/kogger*.log`; logcat is not needed and never was.
 - **`master` is 71 commits ahead of `origin/master`.**
 
 WATCH FOR: the fault shapes in this document's session closes, now eighteen. The four added
