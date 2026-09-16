@@ -7107,8 +7107,23 @@ Build, run on **both the phone and the tablet**, and bring back:
    the whole loupe/font diagnosis turns on.** `main.cpp` sets `QT_SCALE_FACTOR=0.5` on Android,
    so the logical-to-device ratio is the device's density times a half — near 1 on a
    normal-density tablet (the dpr-1 desktop window `computeScale()`'s own comment names, and why
-   the tablet has never looked wrong) and not near 1 on a 560 dpi phone. Read it, then fix the
-   base scale — AFTER `bf80ab02`, whose fit clamp is what keeps a larger base scale safe.
+   the tablet has never looked wrong) and not near 1 on a 560 dpi phone.
+
+   **The dpr picks WHICH repair is correct, and they are opposite.** `qPlot2D::paint` sets
+   `deviceScale_ = (qAbs(dpr - qRound(dpr)) > 0.01) ? dpr : 1.0` — an INTEGER dpr means every
+   `UiMetrics` number is logical and the fix is the base scale, AFTER `bf80ab02`, whose fit clamp
+   is what keeps a larger base scale safe. A FRACTIONAL dpr on the phone with an integer one on
+   the tablet means the same constants are device pixels on one and logical units on the other,
+   and the fix is a conversion in the painter — touching `scale()` would then inflate every QML
+   control, which reads `Ui.iconTouch` as logical units in `SettingRow`, `KeyCodeInput` and the
+   rest. Olav's *"text is readable, buttons are small"* leans to the first. Leaning is not
+   reading.
+
+   **And the box and the buttons are two knobs.** `zin.boxSizePx` (320 in v2) is already the one
+   knob for the tile, and `bf80ab02` shrinks the tile and never the chrome — so raising it gives
+   a bigger box full screen and takes it back in a split with nothing to decide per layout. The
+   buttons' minimum is physical, not proportional. If chrome alone ever exceeds a split pane, the
+   answer is the layout `bf80ab02` already named, buttons BESIDE the tile, not a smaller button.
 
 2. **`MOSAIC:`** — on startup, on every layout choice, and whenever availability moves. It names
    all three terms of `view3dToggleAvailable`, plus `has3DView` / `has2DView` /
@@ -7133,7 +7148,11 @@ ALSO CHECK ON THAT BUILD, all cheap:
 - **The settings list's Experimental row is now the ONLY way back to classic.** Confirm it
   works; nothing else in v2 writes `uiVariant`.
 
-WATCH FOR: the fault shapes in this document's session closes, now thirteen. The four that
+WATCH FOR: the fault shapes in this document's session closes, now fourteen — the last added
+after the close was written: **a state change whose only repaint lives inside a call that
+returns early in the very state where the change matters** (`027b35d1`). Its tell is a setter
+and its opposite disagreeing: `clearSyncCursor()` ended with `plotUpdate()`, `setSyncCursor()`
+did not. The four that
 earned their place today are **a fallback that works is indistinguishable from a feature that
 does not** (tell: a graceful substitution with no log line), **every scale in this app is
 floored** (tell: `qBound`/`Math.max` with the floor at or above what a small screen produces),
@@ -7148,7 +7167,11 @@ produced the diagnosis in one line.
 ALSO OPEN, none of it blocking the phone:
 
 - **Group E's remaining walk** — the panel, the setup card, the paused gutter and the depth
-  readout have never been checked in a split. The rail half is now the phone fit budget.
+  readout have never been checked in a split. The rail half is now the phone fit budget. **And
+  walk them with a GESTURE, not only a layout**: `027b35d1` was a fault in a split `78ee70cc`
+  had already verified, and it only appears when one pane is touched and then the other.
+- **A settings row for `revealAppLogFolder()`** — both `Q_INVOKABLE`s exist and nothing in QML
+  calls them. Cheap, and it turns every future device check into a tap.
 - **`bd14130f` unverified** — needs a log known to show black stripes, TVG on.
 - **`applyEchogramMode`'s `setParam("chartOffset", 0)`** is unguarded on a recording — the same
   argument as `79c16ebc`, and live on an opened file where the links stay open.
