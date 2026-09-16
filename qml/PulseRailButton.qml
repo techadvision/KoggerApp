@@ -43,9 +43,9 @@ Item {
     // which matches no buttonId, rather than throwing on every evaluation.
     property string openGroup: (parent && parent.openGroup !== undefined) ? parent.openGroup : ""
 
-    // The empty test is not belt and braces. `collapse` and `backToClassic` carry buttonIds
-    // and open no group, and "" is also what openGroup reads when the panel is closed - so
-    // without it every button on a closed panel would light up at once.
+    // The empty test is not belt and braces. `collapse` carries a buttonId and opens no
+    // group, and "" is also what openGroup reads when the panel is closed - so without it
+    // every button on a closed panel would light up at once.
     readonly property bool pending: buttonId !== "" && buttonId === openGroup
 
     signal activated()

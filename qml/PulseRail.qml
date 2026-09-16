@@ -65,10 +65,15 @@ Item {
     property string sourceState: "absent"
     property color  sourceColor: "#6d7480"
 
-    // SCAFFOLDING, removed by stage 4 (b). The switch that turns v2 on lives in the expert
-    // settings INSIDE the classic UI, and uiVariant is persisted - so until the settings
-    // panel exists, v2 must carry its own way back or turning it on strands the app.
-    property bool showBackToClassic: true
+    // THE WAY BACK TO CLASSIC IS GONE FROM THE RAIL, 16 Sept 2026. It was scaffolding from
+    // the first day of stage 4 (a): the switch that turns v2 on had only ever lived in the
+    // CLASSIC expert settings, and uiVariant is persisted - so turning v2 on removed its own
+    // off switch from the screen and the rail had to carry one or a tester was stranded.
+    //
+    // The settings list's Experimental group now carries "New UI (PULSE UI v2)", and it has
+    // been used on a device. Olav: "Drop that 'return to classic' arrow. We do not need it."
+    // So the exception is retired rather than kept "just in case" - and the rail, which is
+    // 68 design units short of fitting a phone, gets the first of them back.
 
     // COLLAPSED. One binding on the persisted setting, set by the host; the toggle writes
     // the SETTING, never this property - assigning here would destroy the binding and the
@@ -84,7 +89,6 @@ Item {
 
     signal buttonActivated(string id)
     signal sourceActivated()
-    signal backToClassic()
     signal collapseToggled()
 
     // THE APP DRAWS FULL-BLEED UNDER THE STATUS BAR, on purpose - an echogram wants every
@@ -417,14 +421,6 @@ Item {
             onActivated: rail.collapseToggled()
         }
 
-        PulseRailButton {
-            uiScale: rail.uiScale
-            buttonId: "backToClassic"
-            label: "Back to the classic UI"
-            visible: rail.showBackToClassic
-            iconSource: "./icons/ui/pulse_arrow_left.svg"
-            onActivated: rail.backToClassic()
-        }
     }
 
     // The wordmark leaves the picture and comes to the foot of the rail, which is what

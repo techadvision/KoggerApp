@@ -2490,13 +2490,6 @@ ApplicationWindow  {
                         pulseRuntimeSettings.connectionScreenRequested = true
                 }
 
-                // Scaffolding until 4 (b): the switch that turns v2 on lives in the expert
-                // settings inside the CLASSIC UI, and uiVariant is persisted.
-                onBackToClassic: {
-                    console.log("PULSE UI: v2 - returning to classic")
-                    pulseSettings.uiVariant = "classic"
-                }
-
                 openGroup: pulsePanel.openGroup
 
                 onButtonActivated: function (id) {

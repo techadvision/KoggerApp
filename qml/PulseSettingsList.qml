@@ -618,11 +618,12 @@ Item {
 
                 // THE VARIANT SWITCH, AND THE POINT OF PUTTING IT HERE. It has only ever
                 // lived in the CLASSIC settings, so turning v2 on removed the switch from
-                // the screen - which is why PulseAppV2 carries its own way back on the
+                // the screen - which is why PulseAppV2 carried its own way back on the
                 // rail, scaffolding that was always meant to leave when the settings panel
-                // existed. It now exists. The rail's button stays one more build, until
-                // this row is confirmed on the device: retiring the only escape hatch on
-                // the strength of an untested one is how a tester gets stranded.
+                // existed. This row was kept beside the rail's button for one build rather
+                // than replacing it untested, and that build has now been run: the rail's
+                // arrow was dropped on 16 Sept and THIS ROW IS THE ONLY WAY BACK. Nothing
+                // else in v2 writes uiVariant, so a change here strands a tester in v2.
                 //
                 // uiVariant is a STRING, so the generic writer carries it unchanged - no
                 // new property is needed for a third variant.
