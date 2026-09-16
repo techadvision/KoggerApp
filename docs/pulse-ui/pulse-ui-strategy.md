@@ -7329,5 +7329,9 @@ ALSO OPEN, none of it blocking the phone:
 HOW WE WORK: show me the design before building anything visual; one idea per commit; I build in
 Qt Creator and report back — the sandboxed shell has no Qt and no GitHub credentials, and pushes
 happen from GitHub Desktop. Run `node tools/pulse-profile-check.js` after any profile change and
-`pulse-qml-version-check.js` / `pulse-icon-check.js` after any QML or icon change. Nothing under
+`pulse-qml-version-check.js` / `pulse-icon-check.js` / **`pulse-qml-binding-check.js`** after
+any QML or icon change. That last one is new on 16 Sept and it is not optional: a property
+assigned to a component that does not declare it is a LOAD failure — the whole tree fails,
+the root object is null and the app exits before drawing — and the other checks all passed
+on exactly that. Nothing under
 `build/`. Patch the strategy document by anchored replacement.
