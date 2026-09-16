@@ -7088,6 +7088,117 @@ still the device, and the user is still the instrument's operator.**
 
 ---
 
+# P2 design — opening a file without freezing, 16 Sept 2026
+
+**Read before building. Nothing here is written yet.**
+
+## The finding that reorders the three items
+
+`DeviceManager::openFile` and `DeviceManager::demoDeliverOneEpoch` run **the same parse through
+the same `frameInput`**. Every byte of a log goes through one `Parsers::FrameParser`, 1 MB at a
+time, in both. The differences are three, and only three:
+
+| | `openFile` | the demo transport |
+|---|---|---|
+| who drives the loop | `while (true)` on the GUI thread | `QTimer` → `demoTick()` |
+| does the event loop run | **no** (`processEvents` is `#ifdef SEPARATE_READING`) | yes, between ticks |
+| flags around it | file flags, `delAllDev()` at both ends | demo flags, links closed |
+
+So the three P2 items are **not three jobs**. One of them is independent and cheap, one is a
+transport swap, and the third falls out of the second.
+
+## 1. The log prescan — independent, cheap, and it closes a P0 leftover as well
+
+`demoPrescan()` already exists, already answers *2D or side scan* and the epoch period, and
+already runs **before the first epoch** on the demo path. That is why `demoIsSideScan` is settled
+before `enterDemoMode` emits `sourceChosen`.
+
+**The file path has no equivalent, and two recorded items are that absence:**
+
+- `applyForSource` had to be given a second trigger on `presentedModel` (`e8634060`) because a
+  log does not say what it is until its channel list arrives. A prescan turns that repair into a
+  non-event.
+- P0's leftover — *"the channel count classifies before it has finished counting"*, `main.qml`'s
+  `if (list.length < 2) return` — is immune on the demo path **because `demoPrescan` settles the
+  model first**, and bites on the file path for exactly the same reason. One prescan closes both.
+
+It is not a demo prescan, it is a **log** prescan, and renaming it is part of the commit.
+`demoCachedPath_` already caches per path, so opening a file you have just demoed pays nothing.
+The read is bounded at `kDemoPrescanMaxBytes` (8 MB) and 400 epochs, and that bound was already
+judged cheap enough to pay at demo start.
+
+**This lands first, alone, and touches no transport.**
+
+## 2. The burst — one variable changed: when the event loop runs
+
+Route the file open through the demo transport with `demoPeriodMs_ = 0`, the **file** flags, and
+no link closing. With the period at zero the clock is always behind, so every tick delivers until
+the budget is spent and then returns to the event loop.
+
+- **Keep `kDemoTickBudgetMs = 12`.** It is what guarantees a frame.
+- **Raise `kDemoMaxEpochsPerTick`.** 4 is a catch-up allowance for a paced replay, not a
+  throughput number, and at a 5 ms tick it alone would cap a burst at 800 epochs/s.
+
+### The three traps the documents already record
+
+`wasKlfFileOpened` must stay **TRUE** (a burst sets the file flags, never the demo ones); the
+links must **not** be closed (`Core::startDemo` closes them, opening a file deliberately does
+not); `demoPrescan` is already done by item 1 and is not repeated.
+
+### The two the documents do NOT record, and both are found by reading
+
+- **`isOpeningFile_` stays TRUE for the whole burst.** `data_processor.cpp:673` early-returns
+  from `tryScheduleAutoBottomTrack` while it is set — mosaic, surface and bottom track — and
+  **that suppression is why today's open is as fast as it is.** The echogram draws from epoch
+  amplitudes and needs none of them, so the picture still fills. Keeping it true is what makes
+  this commit honestly one variable: *when the event loop runs*, and nothing about what work is
+  done. Dropping it would make a burst as slow as live playback and would be a different idea.
+- **The teardown is not the demo's teardown.** `openFile` begins AND ends with `delAllDev()`,
+  and ends with `vru_.cleanVru()`, `vruChanged()`, `fileOpened()` and `fileStopsOpening()`. The
+  demo transport tears down through `stopDemo()`/`demoCleanup()` and emits `demoFinished`. A
+  burst that reaches EOF must emit the **file** completion or `fileIsCompleteOpened_` is never
+  set and the app never believes the open finished. This is the shape that would have produced a
+  file that looks open and is not.
+
+### The honest arithmetic, which is the thing to check on a device
+
+A 12 ms budget on a 5 ms tick is about a **70% duty cycle**, so a burst-opened file takes
+roughly **1.4× the wall clock of today's frozen parse**. The documents already say *"do not
+promise a shorter open; promise a visible one"* — this is the number behind that sentence. If
+1.4× reads worse than a freeze on a large log, **the tick interval is the knob**, not the budget.
+
+## 3. Progress is a consequence, not a third item
+
+`DeviceManager::openFile` already computes `progress_` from bytes read over total size **and
+throws it away**. It could not be drawn even if it were exposed, because nothing repaints during
+the open. Once the burst runs the event loop, progress becomes nearly free — the burst already
+knows both numbers.
+
+It needs a getter (`progress_` is a bare `int` member with no `Q_PROPERTY` and no signal; the
+only progress signal on that class is `upgradeProgressChanged`, which is the firmware upgrade)
+and a surface. **v2 has none at all.** The surface is the only visual part of P2 and is the only
+part that wants a design shown before it is built.
+
+## And what is deliberately not chosen
+
+Turning `SEPARATE_READING` **ON** is the smaller change by a wide margin and gives a cancellable
+open for free — the branch already has the `processEvents()`, the `break_` escape hatch, the
+`fileStartOpening`/`fileStopsOpening` signals and a matching `Core::openLogFile` at
+`src/core.cpp:747`. Against it: it is a build option nobody ships, it is untested on Android, and
+it re-threads the whole reception path rather than just the file open. The two are not exclusive;
+the option gives responsiveness, the burst gives a picture that fills while you wait.
+
+## The order, and why
+
+1. **The log prescan.** Independent, no transport change, closes a P0 leftover, and makes every
+   later observation about the file path cleaner because the app knows what it is looking at
+   before it draws.
+2. **The burst.** One variable, with the teardown trap written down before it is written.
+3. **The progress surface.** Needs the burst to exist, and is the only piece that wants a design
+   review first.
+
+---
+
 # Next-session prompt
 
 Repo `Documents/GitHub/KoggerApp`, branch `feature/pulse-ui-v2-rail`. Ask for folder access and
