@@ -80,6 +80,29 @@ Item {
     property real   echogramSpeed:        1.0
     property real   echogramSpeedSetting: 1.0
 
+    // ---- THE FILE BEING OPENED (P2) -----------------------------------------
+    //
+    // The old UI had none of this: you chose a file and the app went dead until it
+    // finished. Olav: "the old version never had such options, you simply had to wait to
+    // see what got opened, app totally unresponsive."
+    //
+    // IT LIVES IN THIS COLUMN RATHER THAN BESIDE IT, and that is the whole reason the
+    // wording works. This pill is REPLACED BY the "Viewing recording - Close" pill the
+    // moment the open finishes: same column, same capsule, same colours, same corner. The
+    // button the user was looking at does not move, and Close means the same thing on both
+    // sides of that moment.
+    property bool   openingFile:     false
+    property string openingName:     ""
+    property int    openingProgress: 0
+
+    // Olav's two words, and neither is new. "Stop" is what the demo pill already says for
+    // "stop feeding me, keep what is on screen"; "Close" is what the file pill already says
+    // for "this file goes away". Re-using them means there is nothing to learn - which
+    // matters most here, because this is the one moment the user cannot explore the
+    // interface to find out what a control does.
+    signal stopOpening()
+    signal abortOpening()
+
     signal stopDemo()
     signal closeFile()
     signal startRecording()
