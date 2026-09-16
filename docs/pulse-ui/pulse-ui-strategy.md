@@ -6693,3 +6693,112 @@ Carried forward as open, none of it blocking E:
 - **The red log-file path** — check 1 on the file path rather than the demo path.
 - **Check 11**, still owed from several sessions back.
 - **`master` unpushed**, 71 commits.
+
+---
+
+# Group E opens on a binding that cannot say "no" — 16 Sept 2026, `f7d294cf`, `ef493ced`
+
+E was scheduled last because it wanted everything else stable. It opened by finding that one
+of its three items was not a sizing problem at all.
+
+## Five: an anchor binding cannot express "not anchored"
+
+`PulsePillColumn` switched corners with the flow — foot for a side scan, top for a 2D
+picture — and **the rule had never once run.** It was written as
+
+```qml
+anchors.top:    displayIs2D ? parent.top : undefined
+anchors.bottom: displayIs2D ? undefined  : parent.bottom
+```
+
+`undefined` is not a value an anchor line accepts. Assigning it does **not** clear an anchor
+that is already set; the binding silently leaves the previous one in place. `displayIs2D`
+defaults to `true`, so `parent.top` was established at component creation — before
+`pulseRuntimeSettings` had resolved — and nothing could take it off again. The pills had sat
+top right on every picture since the file was written, and the long comment at the head of
+that file documented behaviour that never executed.
+
+> **A binding must be able to express every state it selects between.** A ternary whose
+> false arm is `undefined` is not a switch; it is a one-way latch that fires once, at
+> creation, on whatever the property's default happens to be.
+
+**The tell is syntactic, which makes the sweep answerable rather than hopeful.** Not a
+property name — `? something : undefined` on an anchor line. One grep over all of `qml/`
+answers it as a set: **two sites, both now gone** (the pill column, and the paused gutter's
+hairline, which after its first change of flow held `parent.left` and `parent.right` at once
+and drew a corner instead of a line). This is the form the 15 Sept close asked for — *a sweep
+should be stated as a set, not as a search* — and it is the first one where the set was
+defined by syntax rather than by name, which is why it could not be missed.
+
+**Olav found it from the other end**, on a blue: *"It is top right. And if I have a side scan
+it overlaps the right part of the tick ruler on the top."* The side scan ruler is a band
+across the top of the pane (`plot2D_grid.cpp:210-219`), so that corner was never available.
+The rule is now one corner, not a choice — the foot, right, with bottom left belonging to the
+depth readout — and with the ternary gone there is no `undefined` left to assign. **The fix
+and the trap leave together**, which is the shape worth preferring over repairing the switch.
+
+## And it closed a second report nobody connected to it
+
+Olav, separately, on **Android multi-window** (not the app's own pane split): the Stop demo
+pill vanished; scrolling history brought the demo pill back but not the history pill; dragging
+back to full screen restored both.
+
+With both anchors stuck on, the column's height is forced to
+`parent.height - topMargin - bottomMargin`, and `uiScale` is `mainview.s` — `Screen` short
+side / 1100, the **physical screen**, never the window. In multi-window the window shrinks and
+those margins do not, so the column sat pinned near the top behind a screen-sized inset in a
+much shorter parent; the "You scrolled back" pill, first in the column, displaced the demo pill
+*downward into view*, which is exactly the symptom reported. Confirmed fixed on device by
+`f7d294cf` alone.
+
+**The residual is real and is its own commit:** every `uiScale` in v2 reads the physical screen
+or the whole window, never the container the element is drawn in. That is the missing concept
+behind the rest of E — the loupe is a fixed 320 design-px square scaled by the window short
+side, and nine other surfaces are scaled the same way.
+
+## The second pane is given four things and keeps one
+
+Olav, on the app's own `split_side_down`: *"The downscan came with the blue (default) color.
+And it also did not have the intensity applied similar to the side scan… Double check that the
+intensity is the only missing."*
+
+**It is not.** Four appliers gate on `waterViewSecond.enabled`:
+
+| applier | line | gate |
+|---|---|---|
+| `applyDisplayTheme` | `main.qml:4294` | `if (waterViewSecond.enabled)` |
+| `applyIntensity` | `main.qml:3915` | `if (waterViewSecond.enabled)` |
+| `applyWaterBodyFilter` | `main.qml:3931` | `panes = enabled ? [1,2] : [1]` |
+| `applyMaxRange` | `main.qml:4037` | `panes = enabled ? [1,2] : [1]` |
+
+`waterViewSecond.enabled` ends a binding chain — `splitEchograms` ← `screenEntry` ←
+`offersScreenChoice` ← `displayIs2DTransducer` — and `applyForSource` runs from a handler on
+**that same source**. QML does not order a binding's re-evaluation against a handler firing on
+it: the `af857891` lesson, third instance this week. So all four read the *outgoing* `enabled`,
+find `false`, and write to one pane.
+
+**The handler built to prevent this already exists and re-applies one item of five.**
+`main.qml:2184`, whose own comment says *"AND RE-APPLY, because … the order in which a binding
+and a handler land is not something to rely on. Re-applying is free."* It calls `applyScreenId`
+and nothing else. The grid arrives; the palette, the intensity, the filter and the range do not.
+
+**That asymmetry is what makes the report legible.** The range *looks* right because `d8510413`
+gave it a second trigger on `channelListUpdated`, which fires later, when both panes are
+enabled. The theme has no second trigger, so pane 2 shows the renderer's own default — which on
+a blue looks like blue's palette. *"Blue (default) color"* was literally the default.
+
+> **A re-apply hook is only as good as the list it re-applies.** A hook that names one applier
+> has to be remembered every time an applier is added; a hook that calls the one list never does.
+
+**The designed fix, not yet built:** split the list by what it writes to.
+`applyForPicture(reason)` is theme, intensity, filter, screen and range; `applyForSource` is
+`applyForPicture` plus `applyConeId`. The handler calls `applyForPicture`, because `applyConeId`
+is `setParam("transFreq")` **to the transducer** and a pane appearing is not a reason to
+re-transmit a frequency. Same line D-1 drew: a control that writes to hardware is a different
+kind of control from one that writes to the picture. It passes the re-apply safety test from
+the 15 Sept close — all four have a single writer into a stored preference, so a re-apply
+restores rather than overrides.
+
+**Olav's constraint, recorded:** *"Screens need to use the same settings as we have no way (at
+least not now) to differ."* Both panes get the same picture settings; per-pane settings stay a
+later idea rather than something this commit prejudges.
