@@ -1525,6 +1525,33 @@ Ranges are the device's own, from `DeviceItem`'s configuration SpinBoxes. Sample
 range, and a drag alone is about forty units per pixel. The drag chooses the neighbourhood, the
 nudge lands the number.
 
+**Three more adjusters, and a repair, 17 Sept** — `3d700266`, `b1710aa4`, `e776b696`.
+
+- **Frequency** (`transFreq`) shares its key with the rail's cone chooser, and the overlap is
+  **shown rather than prevented**: a frequency that is not one of the profile's three cones
+  leaves the chooser with nothing marked, which is the truth. Bounds are the profile's own
+  widest and narrowest cone.
+- **Ping period** (`ch1Period`, 0–2000 ms) — the echogram's speed, and the row the IP connector
+  work needs.
+- **Dynamic resolution** (`doDynamicResolution`) sits **between the rows it gates**, because
+  while it is on `DeviceItem` drives `chartResolution` and writes `ch1Period` from
+  `dynamicPeriod`. Both gated rows say who is holding the value in their hint — a row that
+  silently loses what you put in it reads as a fault.
+- **The chart offset check compared a value with itself.** `chartOffset_Copy` is assigned from
+  `dev.chartOffset` on the line directly above the comparison, so the repair has never run once
+  — which is why units in the field have kept a chart offset of 25. It now compares the device
+  against what the app intends (0 in both profiles), bounded at three attempts so a unit that
+  refuses says so loudly instead of looping the configuration.
+- **The version is derived from the manifest now.** Not a repair: `resources/version.txt` was
+  already correct at 1.38. But there is a **second, stale `version.txt` at the repository root**
+  reading 0.89, referenced by nothing — I read that one first and wrote a fix for a drift that
+  did not exist. The derivation retires the hand-kept duplicate; the root copy is left alone and
+  named in `CMakeLists.txt` so the next reader does not believe it.
+
+**Samples and sample spacing set the trace length together**: `samples × spacing` is the range,
+so finer spacing shortens the picture at a fixed sample count. That is the interaction Olav
+wants to exploit, and it is also why the Maximum depth row can appear to fight these two.
+
 #### To check on the device
 
 - **Start the build as an expert.** It must come up in v2, once, with
