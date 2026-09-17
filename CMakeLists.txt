@@ -2,6 +2,71 @@ cmake_minimum_required(VERSION 3.21)
 
 project(KoggerApp VERSION 1.0 LANGUAGES CXX)
 
+# ---- ONE PLACE TO SET THE VERSION ---------------------------------------------
+#
+# THE FILE THAT SHIPS IS ALREADY CORRECT, and this is not a repair. resources/version.txt
+# reads "Pulse Echo Sounder v. 1.38" and the manifest going to Google Play says the same,
+# so the About row has been right all along. I first read the WRONG FILE and wrote a fix
+# for a drift that did not exist; the correction is worth keeping because of what it
+# turned up.
+#
+# THERE ARE TWO version.txt FILES. The one the qrc compiles in is resources/version.txt.
+# There is a SECOND at the repository root, last touched three commits titled "Version"
+# ago, still reading 0.89, and referenced by nothing. It is the duplication hazard with
+# the evidence already in it: two files with the same name and the same job, one of them
+# silently four decimal places out of date, and nothing to say which is which.
+#
+# So the derivation is not fixing today's number, it is retiring the job of keeping any
+# number in step by hand. THE MANIFEST WINS BECAUSE IT HAS TO BE RIGHT: versionName and
+# versionCode are updated before every upload to Google Play, which is neither optional
+# nor forgettable. A second file carrying the same number only has to be forgotten once -
+# and the root copy is what that looks like.
+#
+# Written into the source tree rather than the build directory because the qrc lists it by
+# its source path. It changes only when the manifest changes, so its diff is the version
+# bump and nothing else, and CMAKE_CONFIGURE_DEPENDS means a bump reaches it without a
+# manual cmake step.
+#
+# FAIL-SAFE: a missing manifest, or a versionName that cannot be read, leaves the existing
+# file exactly as it is. A build that cannot find the version is not a reason to destroy
+# the last known good one.
+#
+# THE ROOT COPY IS LEFT ALONE, deliberately. Deleting a tracked file nobody asked about is
+# not this commit's business, and it is now named here so the next person does not read it
+# and believe it.
+set(PULSE_ANDROID_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/platform/android/AndroidManifest.xml")
+set(PULSE_VERSION_FILE     "${CMAKE_CURRENT_SOURCE_DIR}/resources/version.txt")
+
+if(EXISTS "${PULSE_ANDROID_MANIFEST}")
+    # Re-run configure when the manifest is edited, so a version bump reaches
+    # version.txt without a manual cmake step.
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PULSE_ANDROID_MANIFEST}")
+
+    file(READ "${PULSE_ANDROID_MANIFEST}" PULSE_MANIFEST_TEXT)
+    string(REGEX MATCH "android:versionName=\"([^\"]*)\"" PULSE_VERSION_MATCH "${PULSE_MANIFEST_TEXT}")
+
+    if(CMAKE_MATCH_1)
+        set(PULSE_VERSION_NAME "${CMAKE_MATCH_1}")
+        set(PULSE_VERSION_EXISTING "")
+        if(EXISTS "${PULSE_VERSION_FILE}")
+            file(READ "${PULSE_VERSION_FILE}" PULSE_VERSION_EXISTING)
+            string(REGEX REPLACE "\r?\n.*" "" PULSE_VERSION_EXISTING "${PULSE_VERSION_EXISTING}")
+            string(STRIP "${PULSE_VERSION_EXISTING}" PULSE_VERSION_EXISTING)
+        endif()
+        if(NOT PULSE_VERSION_EXISTING STREQUAL PULSE_VERSION_NAME)
+            message(STATUS "Pulse: version.txt <- AndroidManifest versionName \"${PULSE_VERSION_NAME}\" (was \"${PULSE_VERSION_EXISTING}\")")
+            file(WRITE "${PULSE_VERSION_FILE}" "${PULSE_VERSION_NAME}\n")
+        else()
+            message(STATUS "Pulse: version \"${PULSE_VERSION_NAME}\"")
+        endif()
+    else()
+        message(WARNING "Pulse: no android:versionName in ${PULSE_ANDROID_MANIFEST} - leaving version.txt as it is")
+    endif()
+else()
+    message(WARNING "Pulse: ${PULSE_ANDROID_MANIFEST} not found - leaving version.txt as it is")
+endif()
+
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC OFF)
