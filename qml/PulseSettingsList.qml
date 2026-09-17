@@ -83,6 +83,22 @@ Item {
     // becomes 0, which is below every minimum here and puts the knob off the left end. The
     // group is expert-gated and can be opened before a transducer is chosen, so this is
     // reachable rather than theoretical.
+    // FOUR READINGS, WRITTEN ONCE. Every row in Expert info is one of these shapes, and
+    // classic spells each of them inline at every row - which is how it came to print a
+    // bare "true" in some places, "On" in others and a raw -1 in a third.
+    //
+    // orDash is the one that carries a judgement: a _Copy of -1 means THE DEVICE HAS NOT
+    // REPORTED YET, which is a different statement from a parameter whose value is minus
+    // one, and an em dash says so without pretending to a number.
+    function yesNo(v)   { return v ? qsTr("Yes") : qsTr("No") }
+    function onOff(v)   { return v ? qsTr("On")  : qsTr("Off") }
+    function okOrNot(v) { return v === true ? qsTr("OK") : qsTr("Not verified") }
+    function orDash(v) {
+        if (v === undefined || v === null || v === "" || v === -1)
+            return "\u2014"
+        return String(v)
+    }
+
     function paramNum(name, fallback) {
         if (!pulseRuntimeSettings)
             return fallback
@@ -1806,80 +1822,496 @@ Item {
             title: qsTr("Expert info")
         }
 
-        // FOUR GROUPS, FORTY-EIGHT ROWS, EVERY ONE OF THEM A READ. That is not an
-        // assessment of where they belong - it is what PulseInfoExpert.qml already
-        // contains: every row in these four is a Text with no control beside it. They take
-        // the read-only row and nothing else.
-        Repeater { model: [ { id: "devraw",    title: qsTr("Device raw information")    },
-                            { id: "devparam",  title: qsTr("Device parameters")         },
-                            { id: "devconfig", title: qsTr("Device and app config")     },
-                            { id: "debug",     title: qsTr("Debug information")         } ]
-                   delegate: expertStubCategory }
-    }
-
-    // A HEADER WITH AN HONEST PLACEHOLDER, for the categories not yet filled. They are in
-    // the list rather than added one at a time so it can be judged as a list on the device -
-    // how far it runs, how the indent reads against closed neighbours. Each entry leaves
-    // with the commit that fills its category, and this whole component goes with the last.
-    //
-    // Declared outside the Column: a Component is not an Item, so it would be ignored
-    // there anyway, but a reader should not have to know that to see it takes no space.
-    // The same placeholder, gated on the expert switch. A separate component rather than a
-    // `visible` argument threaded through the model, because the two runs differ in exactly
-    // that one binding and a model entry carrying a visibility flag is a model entry that
-    // will be copied without it.
-    Component {
-        id: expertStubCategory
-
+        // ---- Device raw information -------------------------------------------
+        //
+        // WHAT THE DEVICE SAYS IT IS, before the app has decided anything about it. Ported
+        // from PulseInfoExpert's four read-only categories, which the placeholder that used
+        // to stand here was holding the shape of.
+        //
+        // THE "Device: " PREFIX ON EVERY LABEL IS GONE. Classic needed it because its rows
+        // sat in one long list; here the category IS the prefix, and repeating it thirteen
+        // times spends the width that the value needs.
+        //
+        // A BOOLEAN READS Yes/No AND A DATASET FLAG READS On/Off, rather than classic's
+        // bare "true". A row whose value is the word true is a row that has been printed
+        // rather than written.
         PulseSettingsGroup {
-            id: expertStubGroup
+            id: devrawGroup
 
-            width: column.width
+            width: parent.width
             height: visible ? implicitHeight : 0
             visible: list.expertOnly
 
             uiScale: list.uiScale
-            title: modelData.title
-            open: list.openId === modelData.id
-            onToggled: list.toggle(modelData.id)
+            title: qsTr("Device raw information")
+            open: list.openId === "devraw"
+            onToggled: list.toggle("devraw")
 
             content: [
-                Text {
-                    width: expertStubGroup.contentWidth
-                    topPadding: Math.round(12 * list.uiScale)
-                    bottomPadding: Math.round(12 * list.uiScale)
-                    text: qsTr("Not built yet.")
-                    color: "#6d7784"
-                    font.pixelSize: Math.round(15 * list.uiScale)
-                    font.italic: true
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Device name")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.rawDev_devName) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Device type")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.rawDev_devType) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("devList dump")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.rawDev_devListDump) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Baud rate")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.rawDev_devBaudRate) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Serial number")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.rawDev_devSerialNumber) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Firmware version")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.rawDev_firmwareVersion) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Is a sonar")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.rawDev_isSonar) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Supports chart")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.rawDev_isChartSupport) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Is a transducer")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.rawDev_isTransducerSupport) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Supports distance")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.rawDev_isDistSupport) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Supports dataset")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.rawDev_isDatasetSupport) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Supports sound speed")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.rawDev_isSoundSpeedSupport) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devrawGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Can be upgraded")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.rawDev_isUpgradeSupport) : "\u2014"
                 }
             ]
         }
-    }
 
-    Component {
-        id: stubCategory
-
+        // ---- Device parameters ------------------------------------------------
+        //
+        // WHAT THE DEVICE REPORTS IT IS SET TO - the _Copy read-backs, written by DeviceItem
+        // when the device answers. This is the other half of the Transducer group above:
+        // that one says what the app asked for, this one says what came back.
+        //
+        // THE LABELS MATCH THE TRANSDUCER GROUP'S, deliberately, for exactly that reason.
+        // Classic calls the same value "Chart: Samples" here and "Samples" there, and a
+        // reader comparing the two has to do the translation themselves.
+        //
+        // -1 READS AS AN EM DASH, not as -1. It means the device has not reported yet,
+        // which is a different statement from a parameter whose value is minus one.
         PulseSettingsGroup {
-            id: stubGroup
+            id: devparamGroup
 
-            width: column.width
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
             uiScale: list.uiScale
-            title: modelData.title
-            open: list.openId === modelData.id
-            onToggled: list.toggle(modelData.id)
+            title: qsTr("Device parameters")
+            open: list.openId === "devparam"
+            onToggled: list.toggle("devparam")
 
             content: [
-                Text {
-                    width: stubGroup.contentWidth
-                    topPadding: Math.round(12 * list.uiScale)
-                    bottomPadding: Math.round(12 * list.uiScale)
-                    text: qsTr("Not built yet.")
-                    color: "#6d7784"
-                    font.pixelSize: Math.round(15 * list.uiScale)
-                    font.italic: true
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Samples")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.chartSamples_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Sample spacing")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.chartResolution_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Chart offset")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.chartOffset_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Transducer pulse")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.transPulse_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Frequency")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.transFreq_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Transmit boost")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.transBoost_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Ping period")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.ch1Period_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Bottom confidence")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.distConfidence_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Maximum depth")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.distMax_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Dead zone")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.distDeadZone_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Horizontal smoothing")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.dspHorSmooth_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Sound speed")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.soundSpeed_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Chart in the dataset")
+                    value: pulseRuntimeSettings ? list.onOff(pulseRuntimeSettings.datasetChart_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Distance in the dataset")
+                    value: pulseRuntimeSettings ? list.onOff(pulseRuntimeSettings.datasetDist_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Distance NMEA in the dataset")
+                    value: pulseRuntimeSettings ? list.onOff(pulseRuntimeSettings.datasetSDDBT_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Euler in the dataset")
+                    value: pulseRuntimeSettings ? list.onOff(pulseRuntimeSettings.datasetEuler_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Temperature in the dataset")
+                    value: pulseRuntimeSettings ? list.onOff(pulseRuntimeSettings.datasetTemp_Copy) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devparamGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Time stamp in the dataset")
+                    value: pulseRuntimeSettings ? list.onOff(pulseRuntimeSettings.datasetTimestamp_Copy) : "\u2014"
+                }
+            ]
+        }
+
+        // ---- Device and app config --------------------------------------------
+        //
+        // THE LINKS AND THE PROFILE'S OWN NUMBERS. The four UUID rows are what the app
+        // managed to open; the cone frequencies and the maximum depth are what the
+        // committed profile says.
+        //
+        // "Uses temperature" IS NO LONGER GATED ON ITSELF. Classic shows that row only when
+        // useTemperature is true, so it can never read anything but true and answers a
+        // question nobody can ask. The correction row below it stays gated, because a
+        // correction with no temperature to correct is meaningless rather than merely
+        // uninformative.
+        PulseSettingsGroup {
+            id: devconfigGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Device and app config")
+            open: list.openId === "devconfig"
+            onToggled: list.toggle("devconfig")
+
+            content: [
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("UUID opened")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.uuidSuccessfullyOpened) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("UUID serial")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.uuidUsbSerial) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("UUID wifi")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.uuidIpGateway) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("UUID proxy")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.uuidProxyLink) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Is a 2D device")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.is2DTransducer) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Uses temperature")
+                    value: pulseRuntimeSettings ? list.yesNo(pulseRuntimeSettings.useTemperature) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: pulseRuntimeSettings ? pulseRuntimeSettings.useTemperature : false
+                    uiScale: list.uiScale
+
+                    label: qsTr("Temperature correction")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.temperatureCorrection) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Cone: wide")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.transFreqWide) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Cone: medium")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.transFreqMedium) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Cone: narrow")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.transFreqNarrow) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: devconfigGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Maximum depth the app asks for")
+                    value: pulseRuntimeSettings ? list.orDash(pulseRuntimeSettings.maximumDepth) : "\u2014"
+                }
+            ]
+        }
+
+        // ---- Debug information ------------------------------------------------
+        //
+        // THE SIX CONFIGURATION HANDSHAKES, each OK or not. These are the flags the setup
+        // overlay counts, so a device stuck part-way through configuration says which stage
+        // it is stuck at here.
+        //
+        // "Not verified" rather than classic's "Not verified (struggle?)": the parenthesis
+        // was a note to its author about what it might mean, and a row that asks the reader
+        // a question is not a reading.
+        PulseSettingsGroup {
+            id: debugGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Debug information")
+            open: list.openId === "debug"
+            onToggled: list.toggle("debug")
+
+            content: [
+                PulseReadOnlyRow {
+                    width: debugGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Distance config")
+                    value: pulseRuntimeSettings ? list.okOrNot(pulseRuntimeSettings.onDistSetupChanged) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: debugGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Transducer echogram config")
+                    value: pulseRuntimeSettings ? list.okOrNot(pulseRuntimeSettings.onChartSetupChanged) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: debugGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Dataset config")
+                    value: pulseRuntimeSettings ? list.okOrNot(pulseRuntimeSettings.onDatasetChanged) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: debugGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Transducer config")
+                    value: pulseRuntimeSettings ? list.okOrNot(pulseRuntimeSettings.onTransChanged) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: debugGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Sound speed config")
+                    value: pulseRuntimeSettings ? list.okOrNot(pulseRuntimeSettings.onSoundChanged) : "\u2014"
+                },
+
+                PulseReadOnlyRow {
+                    width: debugGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Echogram enabled")
+                    value: pulseRuntimeSettings ? list.okOrNot(pulseRuntimeSettings.datasetChart_ok) : "\u2014"
                 }
             ]
         }
     }
+
 }
