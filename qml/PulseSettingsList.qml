@@ -869,7 +869,12 @@ Item {
                     // the reason its own comment gives: high resolution is a LOW number and
                     // misreads every time. A spacing is a length, so bigger is plainly coarser.
                     label: qsTr("Sample spacing")
-                    hint:  qsTr("millimetres between points - smaller is finer and shallower")
+                    // Same "who is holding this" rule as Ping period below: while dynamic
+                    // resolution is on, DeviceItem drives chartResolution and a hand value
+                    // does not survive.
+                    hint: list.paramNum("doDynamicResolution", 0)
+                        ? qsTr("the app is driving this - turn Dynamic resolution off to hold it")
+                        : qsTr("millimetres between points - finer costs depth, which can be the point")
                     minValue: 1
                     maxValue: 100
                     stepSize: 1
@@ -902,6 +907,40 @@ Item {
                     }
                 },
 
+                // FREQUENCY, AND IT SHARES ITS KEY WITH THE RAIL'S CONE CHOOSER. Both write
+                // transFreq: the chooser writes one of the profile's three cone frequencies,
+                // this writes anything between the widest and the narrowest. Olav, 17 Sept:
+                // "I know these makes trouble with our (particularly red/black) cone
+                // adjustments. But I will still need it."
+                //
+                // SO THE OVERLAP IS SHOWN RATHER THAN PREVENTED. The cone chooser marks the
+                // row whose stored cone id matches, so a frequency that is not one of the
+                // three leaves the chooser with nothing marked - which is the truth, and is
+                // better than a chooser confidently pointing at a cone the transducer is not
+                // transmitting. Picking a cone afterwards overwrites this, as it should.
+                //
+                // The bounds are the profile's own widest and narrowest cone, so this cannot
+                // ask for a frequency outside what the device is configured for.
+                PulseSliderRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Frequency")
+                    hint:  qsTr("between the widest and narrowest cone - the cone buttons also write this")
+                    minValue: pulseRuntimeSettings ? pulseRuntimeSettings.transFreqWide : 0
+                    maxValue: pulseRuntimeSettings ? pulseRuntimeSettings.transFreqNarrow : 0
+                    stepSize: 5
+                    value: list.paramNum("transFreq", pulseRuntimeSettings ? pulseRuntimeSettings.transFreqWide : 0)
+                    valueText: list.paramText("transFreq",
+                                              pulseRuntimeSettings ? pulseRuntimeSettings.transFreq_Copy : -1,
+                                              qsTr("kHz"))
+
+                    onMoved: function (v) {
+                        list.settingChanged("param", "transFreq", v)
+                    }
+                },
+
                 // 0 or 1 on the device, so a switch rather than a slider across two values.
                 PulseSwitchRow {
                     width: transducerGroup.contentWidth
@@ -913,6 +952,53 @@ Item {
 
                     onToggled: function (v) {
                         list.settingChanged("param", "transBoost", v ? 1 : 0)
+                    }
+                },
+
+                // THE GATE FOR THE TWO ROWS ABOVE AND THE ONE BELOW, so it sits between
+                // them rather than at the foot of the group. While it is on, DeviceItem
+                // drives chartResolution and writes ch1Period from dynamicPeriod - so a
+                // hand value is overwritten and the row that set it looks broken.
+                //
+                // Olav, 17 Sept: "Red has dynamic adjustments now. But that is for wifi
+                // compromises. We may disable that entirely for IP." This is the switch
+                // that lets that be tried on the water rather than decided in advance.
+                PulseSwitchRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Dynamic resolution")
+                    hint:  qsTr("the app drives spacing and ping period - a wifi compromise")
+                    checked: list.paramNum("doDynamicResolution", 0) ? true : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("param", "doDynamicResolution", v)
+                    }
+                },
+
+                PulseSliderRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Ping period")
+                    // THE HINT SAYS WHO IS HOLDING THE VALUE, because while dynamic
+                    // resolution is on this row is a display and not a control: the app
+                    // writes ch1Period from dynamicPeriod and a hand value does not
+                    // survive. A row that silently loses its value reads as a bug.
+                    hint: list.paramNum("doDynamicResolution", 0)
+                        ? qsTr("the app is driving this - turn Dynamic resolution off to hold it")
+                        : qsTr("milliseconds between pings - this is the echogram's speed")
+                    minValue: 0
+                    maxValue: 2000
+                    stepSize: 5
+                    value: list.paramNum("ch1Period", 50)
+                    valueText: list.paramText("ch1Period",
+                                              pulseRuntimeSettings ? pulseRuntimeSettings.ch1Period_Copy : -1,
+                                              qsTr("ms"))
+
+                    onMoved: function (v) {
+                        list.settingChanged("param", "ch1Period", v)
                     }
                 },
 
