@@ -1548,6 +1548,21 @@ nudge lands the number.
   did not exist. The derivation retires the hand-kept duplicate; the root copy is left alone and
   named in `CMakeLists.txt` so the next reader does not believe it.
 
+**Expert info is filled — `d4f89e5b`.** All forty-eight rows, ported from `PulseInfoExpert`'s
+four read-only categories, and both placeholder components retired with the last category they
+served. **Tier 3 is complete.**
+
+- **Four readings written once** — `yesNo`, `onOff`, `okOrNot`, `orDash`. Classic spells each
+  shape inline at every row, which is how it came to print a bare `true` in some places, `On` in
+  others and a raw `-1` in a third. `orDash` carries the judgement: **a `_Copy` of -1 means the
+  device has not reported yet**, which is not the same statement as a parameter whose value is
+  minus one.
+- **Device parameters is the other half of the Transducer group**, and its labels now match it
+  exactly. That group says what the app asked for; this one says what came back.
+- Two corrections carried across rather than copied: *Uses temperature* was gated on
+  `useTemperature`, so it could never read anything but true; and *"Not verified (struggle?)"*
+  loses the parenthesis — a row that asks the reader a question is not a reading.
+
 **Samples and sample spacing set the trace length together**: `samples × spacing` is the range,
 so finer spacing shortens the picture at a fixed sample count. That is the interaction Olav
 wants to exploit, and it is also why the Maximum depth row can appear to fight these two.
