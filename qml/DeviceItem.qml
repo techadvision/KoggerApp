@@ -72,6 +72,10 @@ ColumnLayout {
                 return
         }
 
+        //Attempts spent repairing a device whose chart offset disagrees with the profile.
+        //Reset when the device comes good; see onChartSetupChanged below.
+        property int chartOffsetRepairAttempts: 0
+
         function onChartSetupChanged () {
             if (pulseRuntimeSettings.userManualSetName === "...")
                 return
@@ -81,11 +85,46 @@ ColumnLayout {
             pulseRuntimeSettings.chartSamples_Copy = dev.chartSamples
             pulseRuntimeSettings.chartOffset_Copy = dev.chartOffset
 
-            if (pulseRuntimeSettings.devConfigured && pulseRuntimeSettings.chartOffset_Copy != dev.chartOffset) {
-                pulseRuntimeSettings.devConfigured = false
-                pulseRuntimeSettings.chartOffset_ok = false
-                pulseRuntimeSettings.onChartSetupChanged = false
-                completeDeviceConfigurationTimer.start()
+            //PULSE 17 Sept 2026: THIS CHECK COULD NEVER FIRE. chartOffset_Copy is assigned
+            //from dev.chartOffset on the line directly above, so both sides of the
+            //comparison were the same value and the repair has never run once.
+            //
+            //WHAT IT WAS REACHING FOR is the device disagreeing with what the APP intends -
+            //pulseRuntimeSettings.chartOffset, which is 0 in both profiles and deliberately
+            //so. Units in the field left the factory with 25 and have kept it ever since,
+            //because the one thing meant to notice was comparing a number with itself.
+            //
+            //RE-RUNNING THE CONFIGURATION IS WHAT PUSHES THE CORRECTION. The Connections
+            //handler on onChartOffsetChanged cannot: it fires on a change of the APP's value,
+            //which does not move, so it is deaf to a device that disagrees. The configuration
+            //sequence writes dev.chartOffset and re-checks until it matches.
+            //
+            //BOUNDED, because the alternative is a configuration loop against hardware that
+            //will not take the value: clearing devConfigured restarts the timer, which lands
+            //here again. Three attempts is enough for a unit that is simply slow to answer
+            //and few enough that one that refuses says so in the log instead of spinning.
+            if (pulseRuntimeSettings.devConfigured &&
+                    dev.chartOffset !== pulseRuntimeSettings.chartOffset) {
+                if (chartOffsetRepairAttempts < 3) {
+                    chartOffsetRepairAttempts++
+                    console.log("DEV_PARAM: chart offset on the device is", dev.chartOffset,
+                                "and must be", pulseRuntimeSettings.chartOffset,
+                                "- reconfiguring, attempt", chartOffsetRepairAttempts, "of 3")
+                    pulseRuntimeSettings.devConfigured = false
+                    pulseRuntimeSettings.chartOffset_ok = false
+                    pulseRuntimeSettings.onChartSetupChanged = false
+                    completeDeviceConfigurationTimer.start()
+                }
+                else {
+                    console.log("DEV_PARAM: chart offset on the device is", dev.chartOffset,
+                                "and will not take", pulseRuntimeSettings.chartOffset,
+                                "- giving up after 3 attempts. THIS UNIT NEEDS LOOKING AT.")
+                }
+            }
+            else if (dev.chartOffset === pulseRuntimeSettings.chartOffset) {
+                //A device that has come good resets the budget, so a later drift is repaired
+                //rather than inheriting the count from an earlier one.
+                chartOffsetRepairAttempts = 0
             }
 
             //Abort if already OK
