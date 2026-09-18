@@ -7527,16 +7527,29 @@ Repo `Documents/GitHub/KoggerApp`. Ask for folder access and delete permission b
 switch or file removal.
 
 **THE BRANCH IS `feature/pulse-p3-downscan-nadir`**, off the pushed tip of
-`feature/pulse-ui-v2-rail`. **NINETEEN COMMITS, NONE COMPILED, NONE ON A DEVICE.** It carries a
-data-path change, a mosaic change, a settings tier, a device-configuration repair and a
-build-system change. That is far more unverified work than this project usually holds at once,
-and it is the reason the first item below is not negotiable.
+`feature/pulse-ui-v2-rail`. Nineteen commits: a data-path change, a mosaic change, a settings
+tier, a device-configuration repair and a build-system change.
+
+**IT IS BUILT AND IT IS IN PEOPLE'S HANDS.** Olav bumped the manifest to **1.39** on 18 Sept —
+the only edit he made, and `resources/version.txt` followed on its own, which is the version
+derivation confirmed working in the field — built it, published it to **Google Play internal
+test**, and gave it to **two internal testers who both hold expert codes**. So the v2 seed puts
+them straight into v2, and the Transducer and Down scan groups are open to them. Olav: *"I think
+this is good as only I have the experience so far."*
+
+**THE FIRST QUESTION OF THE NEXT SESSION IS THEREFORE NOT "does it build" BUT "WHAT EXACTLY IS
+IN 1.39".** The manifest bump landed in the working tree after `e776b696`, which is the
+fifteenth of the nineteen commits, and the four after it include `b1710aa4` (frequency, ping
+period, dynamic resolution) and `d4f89e5b` (Expert info's forty-eight rows). **If 1.39 was cut
+before `d4f89e5b`, the testers are looking at four categories that still read "Not built yet"**
+— which is a confusing thing to be given and not a fault to chase. Ask Olav which commit the
+build came from before reading any report against the code.
 
 FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` — the **P3** section and **the handover set**,
 which between them hold every device check in the order to run them. Then this document's last
 session close, "17 Sept 2026, P3 and the handover set". Do not re-derive any of it.
 
-## THIS SESSION: the build, and nothing new until it has run
+## THIS SESSION: the testers are the instrument now
 
 `moc` must re-run — **`qPlot2D.h` and `core.h` both gained `Q_INVOKABLE`s**. New files:
 `src/scene2d/echogram_blend.{h,cpp}` and `src/data_processor/mosaic_nadir.{h,cpp}`, both
@@ -7556,7 +7569,24 @@ it and a failure means the change did not land rather than that a number wants t
    `DEV_PARAM: chart offset on the device is 25 and must be 0 - reconfiguring, attempt 1 of 3`.
 5. Everything else is in the backlog's two check lists.
 
-**Do not start new work until that build has run.** If it is clean, the branch wants pushing and
+**Two testers who did not write any of this are worth more than another pass by the people who
+did**, and the standing lesson says so in as many words: the instrument is the device and the
+user is its operator. Every diagnosis this project has arrived at quickly came from a sentence
+someone wrote after using the app. So the work of this session is to take what they report,
+match it against the check lists rather than against a guess, and resist starting anything new
+until the reports are in.
+
+**They cannot read a logcat and do not need to.** The app log is a row under Troubleshooting now
+— the path is on screen and the file is under `Documents/KoggerApp/AppLogs/` on the device. That
+is the thing to ask them for alongside any report, because every `BLEND:`, `NADIR:`, `MODE:`,
+`RANGE:`, `THEME:` and `DEV_PARAM:` line is already in it.
+
+**Two things to warn them about rather than let them find:** the mosaic keeps already-traced
+tiles until the update action is used, so the nadir fill reads half-and-half on a log that was
+open before the change; and a `(device N)` suffix in the Transducer group that appears and then
+goes is normal — one that stays is the finding.
+
+Once the reports are in and the branch is clean, it wants pushing, and
 `feature/pulse-ui-v2-rail` wants the merge decision.
 
 ## WHAT IS LEFT, once the build is good
