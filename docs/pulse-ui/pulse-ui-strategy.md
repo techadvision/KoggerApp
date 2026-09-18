@@ -7537,13 +7537,16 @@ test**, and gave it to **two internal testers who both hold expert codes**. So t
 them straight into v2, and the Transducer and Down scan groups are open to them. Olav: *"I think
 this is good as only I have the experience so far."*
 
-**THE FIRST QUESTION OF THE NEXT SESSION IS THEREFORE NOT "does it build" BUT "WHAT EXACTLY IS
-IN 1.39".** The manifest bump landed in the working tree after `e776b696`, which is the
-fifteenth of the nineteen commits, and the four after it include `b1710aa4` (frequency, ping
-period, dynamic resolution) and `d4f89e5b` (Expert info's forty-eight rows). **If 1.39 was cut
-before `d4f89e5b`, the testers are looking at four categories that still read "Not built yet"**
-— which is a confusing thing to be given and not a fault to chase. Ask Olav which commit the
-build came from before reading any report against the code.
+**1.39 IS THE WHOLE BRANCH.** Olav confirmed it: every one of the nineteen commits is in it,
+including the version derivation and the manifest bump itself. So Expert info's forty-eight rows,
+the Transducer group's frequency, ping period and dynamic resolution rows, and the chart offset
+repair are all in the testers' hands — nothing in this branch is missing from what they are
+looking at, and any "Not built yet" or absent control they report is a real finding rather than
+a build that ran early.
+
+**The branch is pushed and at 0/0** (`d11eb46f`, "Version 1.39 published to internal expert
+testers"), so it is no longer the unmanaged risk that `feature/pulse-ui-v2-rail` was for 180
+commits. `master` is still 71 ahead of `origin/master`.
 
 FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` — the **P3** section and **the handover set**,
 which between them hold every device check in the order to run them. Then this document's last
