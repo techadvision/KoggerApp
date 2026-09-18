@@ -7409,7 +7409,7 @@ twice the slant resolution.
 
 ---
 
-# Nineteen, again: the four checks all pass on a file that does not load — 17 Sept 2026
+# Twenty-two: the four checks all pass on a file that does not load — 17 Sept 2026
 
 `pulse-qml-structure-check.js`, written the day it would have earned its place. A patch
 inserted two rows into `PulseSettingsList.qml` at the wrong offset and produced an orphan
@@ -7439,117 +7439,169 @@ failure direction a check is allowed to have.
 
 ---
 
+# Session close — 17 Sept 2026, P3 and the handover set
+
+**Nineteen commits, and NOT ONE OF THEM HAS BEEN ON A DEVICE.** That is the single most
+important fact about this branch. `feature/pulse-p3-downscan-nadir` carries a data-path change,
+a mosaic change, a settings tier, a device-configuration repair and a build-system change, all
+of it compiled by nobody.
+
+| | |
+|---|---|
+| `746d199d` `d93f3364` `57d2d848` `57ed6248` | the down scan blend, its expert group, a corrected check, the hand balance |
+| `5295580d` | the mosaic nadir, interpolated across between the two sides' trusted edges |
+| `ebbb81ef` `022ecff8` `88c63c4f` | the app log as a row, a fifth check, the `CHANNELS:` line |
+| `c426ef6e` | an expert starts in v2, About, and the Transducer group |
+| `3d700266` `b1710aa4` `e776b696` | the chart offset repair, three more adjusters, the version derivation |
+| `d4f89e5b` | Expert info's forty-eight rows — **tier 3 is complete** |
+
+## Twenty-one: a comparison whose outcome is fixed before it runs
+
+Twice in one day, once in their code and once in mine.
+
+`DeviceItem` assigned `chartOffset_Copy = dev.chartOffset` and then, on the next line, asked
+whether `chartOffset_Copy != dev.chartOffset`. It never has been. That is why units in the field
+have carried a chart offset of 25 since the factory: the one thing meant to notice was comparing
+a number with itself.
+
+And the device check I wrote for the blend said *"RMS should be the brighter of the two; if Mean
+is brighter the byte is not linear amplitude."* **RMS is brighter than the arithmetic mean for
+every possible pair of samples** — power-mean inequality — so that outcome was settled before
+the app was built. Olav ran it and reported the only result it could have given.
+
+> **A test whose result is determined by arithmetic rather than by the system is not a test.**
+> The tell is the same in both: the two sides of the comparison share a source. One line apart
+> in the code, or one inequality apart in the maths.
+
+The repair is the same too — ask the question you meant. `dev.chartOffset` against **what the
+app intends**; RMS against Mean as a **channel-mismatch diagnostic**, because divergence between
+those two estimators happens only when the channels are mismatched.
+
+## Twenty-three: safety is where the value lives, not how far the control goes
+
+Olav asked for the hidden transducer setters back and for them to be safe. The reflex is to
+clamp the ranges, and it would have been the wrong answer: the ranges are the hardware's, and
+narrowing them would have blocked exactly the tuning the request was for.
+
+`liveParams` was already the safety. Built on 14 September with three rules — **runtime**, so no
+experiment outlives its session; **keyed by profile**, so red's and blue's never mix;
+**readonly**, so nothing can destroy the binding that follows the device — it already refuses
+everything dangerous about an expert's experiment.
+
+> **When asked to make something safe, first read what already protects it.** The two things
+> missing were not limits. They were a **way back** that does not need a restart — `clearParams()`,
+> which had sat unused since the day the map was built — and a **read-back on the row**, so a
+> value the transducer refused is visible where it was set rather than in a category further
+> down the panel.
+
+## Twenty-four: two files with the same name and the same job
+
+There are two `version.txt`. The qrc compiles `resources/version.txt`, correct at the shipping
+version. A second sits at the repository root, last touched by three commits titled "Version",
+four decimal places out of date, referenced by nothing. **I read that one**, concluded the
+version had drifted, and wrote a fix for a problem that did not exist.
+
+> **The duplication is the fault; the stale copy is only the symptom.** Nothing on either file
+> says which one the build reads, so being careful does not help — the next reader has the same
+> fifty-fifty chance I had.
+
+The derivation stayed, with its justification rewritten: not to fix today's number, which was
+right, but to retire the job of keeping any number in step by hand. The manifest wins because it
+*has* to be right before every upload to Play. **Confirmed working in the field the same day** —
+Olav bumped the manifest to 1.39 and `resources/version.txt` followed on his next configure
+without anyone touching it.
+
+## And the standing one, twice more
+
+A confident derivation is a hypothesis. The "one derivation, two consumers" shape the last
+next-session prompt set for P3 did not survive contact — the blended trace cannot rescue the
+nadir wedge, because inside it both channels are in the beam null and the ground-to-slant
+mapping has collapsed. And the version drift was a hypothesis that survived long enough to be
+written into a commit message before it was checked.
+
+---
+
 # Next-session prompt
 
 Repo `Documents/GitHub/KoggerApp`. Ask for folder access and delete permission before any branch
 switch or file removal.
 
-**P3 IS ON ITS OWN BRANCH, off the pushed tip of `feature/pulse-ui-v2-rail`** — Olav, 16 Sept:
-*"I suggest that I will push to github and then isolate the changes we now do for the nadir band
-and downscan. I feel this is a bit risky."* He is right, and the reason is worth stating so the
-isolation is kept rather than quietly abandoned halfway:
+**THE BRANCH IS `feature/pulse-p3-downscan-nadir`**, off the pushed tip of
+`feature/pulse-ui-v2-rail`. **NINETEEN COMMITS, NONE COMPILED, NONE ON A DEVICE.** It carries a
+data-path change, a mosaic change, a settings tier, a device-configuration repair and a
+build-system change. That is far more unverified work than this project usually holds at once,
+and it is the reason the first item below is not negotiable.
 
-- **P3 is the first work of this project that changes the DATA rather than the interface.** A
-  derived channel lives in `Epoch`/`Dataset`, underneath the echogram, the mosaic, the bottom
-  track and both UI variants. Everything since 11 Sept has been QML and presentation, where a
-  mistake is visible and local; this one can be wrong everywhere at once and look fine in the
-  place you are testing.
-- **`feature/pulse-ui-v2-rail` is a known-good point worth being able to return to.** Seven
-  fixes verified on hardware on 16 Sept, then tonight's file-open work verified too.
-- **The cache discipline is the specific hazard.** `bd14130f` established that every buffer
-  derived from `amplitude` joins `Echogram::invalidateDerived()`. A new derived channel that
-  does not join it is that exact fault again, and it is silent — a stale buffer draws
-  faithfully.
+FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` — the **P3** section and **the handover set**,
+which between them hold every device check in the order to run them. Then this document's last
+session close, "17 Sept 2026, P3 and the handover set". Do not re-derive any of it.
 
-Confirm the branch is at 0/0 before branching. **And `master` is still 71 commits ahead of
-`origin/master`** — unrelated to P3, still the residual risk these documents keep naming, and
-worth doing in the same visit to GitHub Desktop.
+## THIS SESSION: the build, and nothing new until it has run
 
-FIRST: read `docs/pulse-ui/pulse-bug-backlog.md` — "WHAT IS LEFT", and especially **P3**, the
-mosaic-and-downscan section, plus the earlier section *"The mosaic and the water body filter"*
-where the nadir band was diagnosed and parked. Then this document's last two session closes,
-"16 Sept 2026 (evening), the phone" and "16 Sept 2026 (late), the file open". Do not re-derive
-any of it.
+`moc` must re-run — **`qPlot2D.h` and `core.h` both gained `Q_INVOKABLE`s**. New files:
+`src/scene2d/echogram_blend.{h,cpp}` and `src/data_processor/mosaic_nadir.{h,cpp}`, both
+registered in the top-level `CMakeLists.txt`, which also gained the version derivation at the
+top. A clean-ish build rather than an incremental one.
 
-THIS SESSION: **P3 — the nadir band and the downscan, which are one piece of work.** Olav chose
-the treatment on 16 Sept: **interpolate across the nadir, because that IS the downscan.**
+**The checks that matter most, in this order**, because each is an A/B against the build before
+it and a failure means the change did not land rather than that a number wants tuning:
 
-## What is already settled, and must not be re-litigated
+1. **`Channel blend` = Single must look exactly like the previous build**, and `Channel balance`
+   at 0 must be bit-identical. Both are the "did I change anything I did not mean to" test.
+2. **`Fill the mosaic nadir` off must restore today's mosaic exactly.** Tiles already traced
+   keep their pixels — use the mosaic update action or a fresh log, or it reads half-and-half.
+3. **Start as an expert**: v2 once, then switch to classic in Experimental, restart, and it
+   **must stay classic**. That is the seed-not-override test.
+4. **The chart offset repair**, on a unit known to sit at 25 if one can be reached. The line is
+   `DEV_PARAM: chart offset on the device is 25 and must be 0 - reconfiguring, attempt 1 of 3`.
+5. Everything else is in the backlog's two check lists.
 
-- **Our geometry is not at fault.** The mosaic's sample lookup is honest slant range —
-  `segFCurrPhPos.distanceToPoint(segFBoatPos)` with z = the processed depth — so a ground point
-  at horizontal offset *x* reads the sample at `sqrt(x² + depth²)`. Checked end to end. **There
-  is no slant-range error to find.**
-- **The dark band along the track is the nadir null and it is PHYSICAL.** A side scan transducer
-  has no useful return directly beneath it. Upstream paints that wedge anyway, near black, which
-  is why it reads as a strip of water body laid into the map.
-- **The two honest treatments** are blanking the wedge (needs a per-epoch width from the bottom
-  track and a transparency path through the tile writer that may not exist) and interpolating
-  across it. **Interpolating is chosen**, and the reason is Olav's own standing note: *"We should
-  work with interpolating the two channels into one view for downscan."* Closing the nadir and
-  building the downscan are the same work, so it is done once rather than twice.
+**Do not start new work until that build has run.** If it is clean, the branch wants pushing and
+`feature/pulse-ui-v2-rail` wants the merge decision.
 
-## The landing place already exists, which is what makes this tractable
+## WHAT IS LEFT, once the build is good
 
-`split_side_down` is shipping as a deliberate stand-in. `PulseRuntimeSettings.qml` says so in
-`offersSplitSideDown`'s own note: there is no true down scan on the wire, so **the split draws
-BOTH panes from the one channel** and the difference between the halves is the grid and the
-range rather than the data. Olav: *"Allow downscan view already now. We use the same source as
-for downscan today. Fix it later."*
+- **P1 — the rest of Group E.** The rail, the panel, the setup card, the paused gutter and the
+  depth readout have still not been walked in a split. The two named items landed on 16 Sept;
+  this is the pass Olav predicted *"there may be multiple things to adjust"* for. **The phone is
+  parked** — his call, the tablet is the test device.
+- **P2b — the three source choices.** Drop the simulation caption, add **Stream a file** (the
+  demo transport with the FILE flags), rename **View a file** to **Open a file**. One reading
+  needs confirming before building and the backlog says which.
+- **Two unread instruments**, both waiting on a log line and neither to be coded against first:
+  the `MOSAIC:` line (which of `view3dToggleAvailable`'s three terms refuses the phone's mosaic)
+  and the `METRICS:` line (`qPlot2D::paint`'s integer-versus-fractional dpr cliff, which selects
+  between two opposite repairs for the loupe). **The app log is now a row under Troubleshooting,
+  so neither needs logcat.**
+- **`applyEchogramMode`'s `setParam("chartOffset", 0)` is unguarded on a recording** — and this
+  matters more than it did, now that the offset is something the app actively enforces: a file
+  being played should not be writing to a transducer.
+- **`applyViewId` is dead code carrying two hardware writes.**
+- **`soundSpeed` has no v2 expert row.** It is deliberately outside the parameter map, being a
+  property of the water rather than of the device, and wants the one-binding-one-override shape.
+- **P4**, any spare half-session: the speed gauge the professional dealer asked for; classic's
+  mosaic filter wiring; the water body filter's *meaning* per device; the per-pane range;
+  backlog item 9's other half.
+- **Housekeeping.** `master` is **71 commits ahead of `origin/master`**, still the residual risk
+  these documents keep naming. The stale root `version.txt` is named in `CMakeLists.txt` but not
+  removed. And `c426ef6e` carries three ideas in one commit, against the rule — Olav was offered
+  a split and has not asked for one.
 
-> **"When the interpolated down scan exists it replaces the bottom pane's source and nothing in
-> this table changes."**
+WATCH FOR: the fault shapes in this document's session closes, now twenty-four. The four added
+this session are **a comparison whose outcome is fixed before it runs** (tell: both sides share
+a source, one line apart or one inequality apart), **the checks all pass on a file that does not
+load** (a file that cannot be parsed is not a category any scanner has an opinion about),
+**safety is where the value lives rather than how far the control goes** (read what already
+protects it before adding limits), and **two files with the same name and the same job** (the
+duplication is the fault; the stale copy is only the symptom).
 
-So the deliverable has a defined shape before a line is written: **a second channel derived from
-the two side scan channels**, which the bottom pane of `split_side_down` reads instead of
-channel 1, and which the mosaic reads across the nadir wedge. One derivation, two consumers.
-
-## Where to read first
-
-`src/data_processor/mosaic_processor.cpp` for the wedge and the tile writer; `Epoch`/`Dataset`
-for where a derived channel would live (`Echogram::invalidateDerived()` in `epoch.h` is the
-cache discipline any new derived buffer must join — `bd14130f` is the commit that established
-it, and a new buffer that does not join it is the same stale-cache fault again); and
-`PulseRuntimeSettings.screenViewsAll` for the table that does not change.
-
-**Before writing anything visual, show Olav the design.** The interpolation is a picture, and
-what the nadir looks like afterwards is his call, not an implementation detail.
-
-ALSO OPEN, none of it blocking P3:
-
-- **P2b — the three source choices** (backlog): drop the simulation caption, add **Stream a
-  file** (the demo transport with the FILE flags), rename **View a file** to **Open a file**.
-  One reading in it needs confirming — the backlog says which.
-- **The mosaic on the phone.** Still the one functional fault, still instrumented (`262be7fe`)
-  and still unread. The tablet reads `available true` with `mavlink true`, which weakens the
-  "empty `core.filePath` in a demo" candidate, because a replay raises MAVLink itself.
-- **The loupe's buttons on the phone**, waiting on the `METRICS:` line. `qPlot2D::paint`'s
-  integer-versus-fractional dpr cliff decides which of two opposite repairs is right.
-- ~~**The `CHANNELS:` line**~~ — **DONE `88c63c4f`.** It now says what the count *would* say and
-  then names who is actually deciding: the demo prescan, the log prescan, the count itself when
-  the prescan had nothing, or the committed device.
-- **`applyEchogramMode`'s `setParam("chartOffset", 0)`** is unguarded on a recording.
-- **`applyViewId` is dead code** carrying two hardware writes.
-- ~~**A settings row for `revealAppLogFolder()`**~~ — **DONE `ebbb81ef`.** Two rows at the foot of
-  Troubleshooting: a read-only row naming the current file, refreshed when the category opens
-  because `appLogFilePath()` has no change signal and the log rolls at 8 MB; and a Show button
-  that is **absent on Android**, where `Core::revealInFolder`'s whole body is `Q_UNUSED`. The
-  logs are at `Documents/KoggerApp/AppLogs/kogger*.log`; logcat is not needed and never was.
-- **`master` is 71 commits ahead of `origin/master`.**
-
-WATCH FOR: the fault shapes in this document's session closes, now eighteen. The four added
-tonight are **a state change whose only repaint lives in a call that returns early in the state
-where it matters** (tell: a setter and its opposite disagreeing about `plotUpdate()`), **two
-options weighed as one when one of them was two things**, **a declaration placed by where it
-looks at home rather than by where it is used** (tell: a member inside an `#ifdef` its readers
-are outside), and **a static check earns its place by what it is silent about**.
-
-And the standing one: **a confident derivation about behaviour is a hypothesis.** It held again
-tonight — the dual crosshair was reasoned about at length and yielded to one sentence from Olav
-and one file read.
+And the standing one: **a confident derivation about behaviour is a hypothesis.** It went wrong
+twice this session — the "one derivation, two consumers" shape P3 was set up with, and a version
+drift that reached a commit message before it was checked.
 
 HOW WE WORK: show me the design before building anything visual; one idea per commit; I build in
 Qt Creator and report back — the sandboxed shell has no Qt and no GitHub credentials, and pushes
 happen from GitHub Desktop. Run `node tools/pulse-profile-check.js` after any profile change and
 `pulse-qml-version-check.js` / `pulse-icon-check.js` / `pulse-qml-binding-check.js` /
-**`pulse-qml-structure-check.js`** after any QML or icon change. Nothing under `build/`. Patch the strategy document by anchored replacement.
+`pulse-qml-structure-check.js` after any QML or icon change. Nothing under `build/`. Patch the
+strategy document by anchored replacement.
