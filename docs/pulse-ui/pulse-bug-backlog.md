@@ -1713,3 +1713,28 @@ Java in `PulseActivity`, so `moc` re-runs and gradle picks up the Java.
    `kogger*.log`. Expert: *View the log* shows the tail, Refresh reloads it.
 9. **chartOffset**: open a blue log in down scan with a red connected — no
    `PARAM: … chartOffset -> 0` line.
+
+### Device report on the field-fix set, and two follow-ups — 27 Sept 2026
+
+**Passed on the device:** Open / Stream, the app log and Send, the speed gauge, the rail order
+and the position dot, the demo device question, live scroll-back, the 2.5x cap. Speed of sound
+is present and seen in simulation, **live check still owed**. The chartOffset guard and the
+applyViewId removal cannot be exercised directly; nothing misbehaves.
+
+- **`41d2edb9` — the Colours icon.** Olav: the painted floor made the icon hard to read. New
+  `pulse_color_bucket.svg` is the bucket and the drop only, with the viewBox cropped so it reads
+  the size of the sun and the filter. Checked by rendering the three side by side.
+- **`3e61b72a` — automatic range in a simulation.** Olav: *"for simulation, either the end depth or the
+  start depth kind of determines the automatic range to be fixed."* **Cause:** the display level
+  is `calculateAutoLevel(lastStableDepth)` and `lastStableDepth` is written only by the dynamic
+  resolution updaters, which `calculateDynamicResolution()` skips in a demo on purpose. So the
+  range read a frozen depth: 0 on a cold start (the start range), or the last session's depth (the
+  end range). The display level now has its own tracker (same step, same stable-reading count),
+  used whenever the resolution tracker did not run, reset when a demo starts or ends.
+  **The same fault would have hit a live transducer the dynamic resolution does not manage** — the
+  tracker covers that too. Live red is unchanged.
+
+**To check:** start a red simulation with automatic on and watch the range step with the bottom,
+deeper and shallower, within about a third of a second of each change. Let it loop: the range must
+come back to the start depth rather than holding the end. Live red on the water must behave as
+before.
