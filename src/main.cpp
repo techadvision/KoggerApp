@@ -374,6 +374,9 @@ void bringWindowToFront(QWindow* window)
 int main(int argc, char *argv[])
 {
 #ifdef Q_OS_ANDROID
+    // STARTUP breadcrumb (fix/startup-hang). Before the message handler below, so it goes
+    // to logcat only; the line after the handler is installed also lands in pulse.log.
+    qInfo("STARTUP: main() entered");
     // Disable Qt's automatic per-screen scaling: we drive our own DPI-aware
     // UI sizing via Themes::resCoeff (see themes.h). QT_SCALE_FACTOR=0.5
     // halves Qt's internal coordinate system so a high-density tablet
@@ -426,6 +429,7 @@ int main(int argc, char *argv[])
 #endif
 
     previousMessageHandler = qInstallMessageHandler(videoLogHandler);
+    qInfo("STARTUP: main() is running, the log handler is installed");
 
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGLRhi);
 

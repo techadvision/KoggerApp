@@ -89,6 +89,12 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
 {
     Q_UNUSED(reserved);
 
+    // STARTUP breadcrumb (fix/startup-hang). qInfo, not qCDebug: this category's debug
+    // level is off in a release build, and the hang leaves no Qt line at all. Runs on
+    // Qt's qtMainLoopThread while the Android UI thread waits inside onCreate, so if the
+    // "entered" line prints and "done" does not, the UI thread is blocked right here.
+    qInfo("STARTUP: JNI_OnLoad entered - the UI thread waits in onCreate until it returns");
+
     qCDebug(AndroidInitLog) << Q_FUNC_INFO;
 
     JNIEnv *env;
@@ -108,6 +114,7 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
 
     QNativeInterface::QAndroidApplication::hideSplashScreen(333);
 
+    qInfo("STARTUP: JNI_OnLoad done");
     return JNI_VERSION_1_6;
 }
 

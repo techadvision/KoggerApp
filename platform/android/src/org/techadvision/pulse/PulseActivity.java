@@ -87,6 +87,16 @@ public class PulseActivity extends QtActivity {
         private PowerManager.WakeLock m_wakeLock;
         private WifiManager.MulticastLock m_wifiMulticastLock;
         private boolean multiWindow = false;
+
+        // STARTUP breadcrumbs (fix/startup-hang, 27 Sept 2026). The hang shows no Qt line
+        // and no splash, so the question is WHERE the Android UI thread stopped. These
+        // counters are static, so they survive an activity being recreated in the SAME
+        // process - a second onCreate in one pid is the process-reuse path, which Qt
+        // answers with restartApplication() -> Runtime.exit(0) inside super.onCreate.
+        // grep logcat for "STARTUP:" - every line below carries it.
+        private static int s_createCount = 0;
+        private static int s_destroyCount = 0;
+        private int m_cancelledDraws = 0;
         
         // Native C++ functions
         public native boolean nativeInit();
@@ -112,9 +122,21 @@ public class PulseActivity extends QtActivity {
 
         @Override
         public void onCreate(Bundle savedInstanceState) {
+            ++s_createCount;
+            Log.i(TAG, "STARTUP: onCreate #" + s_createCount + " in pid " + android.os.Process.myPid()
+                    + (s_createCount > 1
+                       ? " - this process already ran the activity, Qt restarts the app from super.onCreate"
+                       : " - fresh process, loading the Qt libraries"));
+
             super.onCreate(savedInstanceState);
 
-            nativeInit();
+            // The libraries are loaded and JNI_OnLoad has run by here. Qt does NOT start
+            // main() yet: QtActivityDelegate.startNativeApplicationImpl waits for the
+            // first global layout of its root layout.
+            Log.i(TAG, "STARTUP: Qt libraries loaded, main() starts at the first layout");
+
+            final boolean nativeOk = nativeInit();
+            Log.i(TAG, "STARTUP: nativeInit -> " + nativeOk);
 
             // 1) LANDSCAPE ENFORCE (when not multi-window).
             // Applied now AND re-posted after first layout: on some OEM ROMs
@@ -134,10 +156,29 @@ public class PulseActivity extends QtActivity {
 
             // upstream USB integration (keep this)
             KoggerUsbSerialManager.initialize(this);
+
+            final View decor = getWindow().getDecorView();
+            decor.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override public void onGlobalLayout() {
+                    decor.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    Log.i(TAG, "STARTUP: first global layout - Qt's own listener starts main() on this same callback");
+                }
+            });
+
+            Log.i(TAG, "STARTUP: onCreate returned");
         }
 
         @Override
         protected void onDestroy() {
+            ++s_destroyCount;
+            // QtActivityBase.onDestroy (super, below) calls QtNative.terminateQt(), which
+            // WAITS for the native main() to return and then System.exit(0)s the process.
+            // With android.app.background_running=true nothing asks Qt to quit first, so
+            // if this is the LAST line of a pid, that wait is where the UI thread is -
+            // and the next launch lands in this same, stuck process.
+            Log.i(TAG, "STARTUP: onDestroy #" + s_destroyCount + " in pid " + android.os.Process.myPid()
+                    + ", finishing " + isFinishing() + ", changing configuration " + isChangingConfigurations()
+                    + " - Qt now waits for main() to return, then exits the process");
             try {
                 releaseMulticastLock();
                 releaseWakeLock();
@@ -318,6 +359,8 @@ public class PulseActivity extends QtActivity {
 
                 int imeBottom = Math.max(0, ime.bottom);
 
+                if (!insetsReady.get())
+                    Log.i(TAG, "STARTUP: first insets delivered - the window may draw");
                 Log.d(TAG, "INSETS: base top inset =" + top);
 
 
@@ -398,8 +441,13 @@ public class PulseActivity extends QtActivity {
 
             root.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
                 @Override public boolean onPreDraw() {
-                    if (!insetsReady.get()) return false;
+                    if (!insetsReady.get()) {
+                        if (m_cancelledDraws++ == 0)
+                            Log.i(TAG, "STARTUP: first frame held back - waiting for the insets");
+                        return false;
+                    }
                     root.getViewTreeObserver().removeOnPreDrawListener(this);
+                    Log.i(TAG, "STARTUP: first frame drawn after " + m_cancelledDraws + " held back");
                     return true;
                 }
             });
