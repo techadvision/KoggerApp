@@ -1748,3 +1748,53 @@ before.
   range roughly doubles and the second echo comes into view; toggle off and it returns. On the
   water, confirm it did not already look doubled before this build (if it did, the doubling
   exists somewhere this reading missed and the factor must come out again).
+
+---
+
+## THE NEXT STAGES — planned 27 Sept 2026, one chat session each
+
+The field-fix set is device-verified (live water checks still owed: speed of sound, the
+second-echo range). What follows is ordered by risk to a customer, not by size.
+
+| # | Session | Branch | Needs before it starts |
+|---|---|---|---|
+| 0 | **Push `feature/pulse-v2-field-fixes`**, publish 1.40 to internal test, push `master` (71 ahead of origin) | — | Olav, GitHub Desktop |
+| 1 | **The startup hang** (splash never shown) + the manifest's six duplicated `splash_screen_drawable` lines | `fix/startup-hang` off field-fixes | the stack of the hung main thread (below) |
+| 2 | **Measure, do not fix**: the `METRICS:` line (`b753c340`) from tablet, S23 Ultra, Skydroid G30 and two or three emulators | none | the lines, pasted |
+| 3 | **Base scale, fonts and the loupe** — the two opposite fixes recorded under P1 are chosen by the dpr numbers from session 2 | `feature/pulse-small-screens` | session 2 |
+| 4 | **Layout on small screens**: scrollable rail, compact connection screen, Group E's split-pane walk | same branch | session 3 |
+| 5 | **Mosaic on the phone** — the `MOSAIC:` line (`262be7fe`) says which of three terms is false | same branch | one log line from the S23 |
+| 6 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
+
+**Why the hang is first.** It happens outside Qt Creator too, and a customer who meets it
+thinks the app is broken. **Why measuring is its own session.** P1 recorded that the dpr decides
+between two fixes that are wrong for each other; guessing buys the wrong one.
+
+### The startup hang — what the log already says
+
+The log stops at `ProfileInstaller` with **no line from Qt at all**. Qt's messages are forwarded to
+logcat by `videoLogHandler`, so a hang after `main()` would show Qt lines. So the process stops
+**before or while the native libraries load** — in Java, in `PulseActivity.onCreate` or Qt's
+loader — or it is **waiting for a debugger** (`-Xcheck:jni` means a debuggable build; an
+intermittent "Waiting for debugger" would look exactly like this under Qt Creator).
+
+**What to capture the next time it hangs**, without stopping the app:
+
+```
+adb shell pidof org.techadvision.pulse
+adb shell kill -3 <pid>          # SIGQUIT: ART writes every thread's stack, the app keeps running
+adb logcat -d | grep -A40 '"main"'
+```
+
+The `"main"` thread's stack is the answer. Also useful: `adb logcat -d -b all > hang.txt` (the
+unfiltered buffer, not the app-only view), and whether `pulse.log` got a new
+`--- log opened` line for that start — if it did, `main()` ran and the hang is later than it looks.
+
+### Emulators
+
+Qt Creator reads the same SDK's AVD folder as Android Studio, so AVDs made in Android Studio's
+Device Manager appear in Creator's device list; Creator can boot a stopped one itself. On Apple
+Silicon use **arm64-v8a** system images, which match the kit. Suggested set: a small phone
+(~720 x 1280, ~320 dpi), a mid phone (1080 x 2400, ~420 dpi), and a 7-8" tablet. An emulator
+cannot reach a transducer, so it tests demo and files only, and its GPU is the host's through
+translation — **do not judge the mosaic on an emulator**, use the S23 for session 5.
