@@ -167,12 +167,12 @@ Item {
         //The auto DISPLAY level in autoLevelCalculate() is deliberately left
         //running - it only changes what the echogram shows, and it looks right.
         if (pulseRuntimeSettings.isInDemoMode) {
-            return;
+            return false;
         }
 
         if (pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRed
                 && pulseRuntimeSettings.userManualSetName !== pulseRuntimeSettings.modelPulseRedProto) {
-            return;
+            return false;
         }
 
         const margin = pulseRuntimeSettings.dynamicResolutionMargin; // e.g., default 2 m.
@@ -190,6 +190,7 @@ Item {
         } else {
             updateDynamicSamplesAndPeriod (depth, candidateRes)
         }
+        return true
     }
 
     function updateDynamicSamplesAndPeriod (depth, candidateRes) {
@@ -241,10 +242,59 @@ Item {
         lastStableDepth = depth
     }
 
+    // ---- The display level's own depth tracker (27 Sept 2026) -----------------
+    //
+    // Olav: automatic range works on the water, but in a SIMULATION "either the end depth or
+    // the start depth kind of determines the automatic range to be fixed."
+    //
+    // THE DISPLAY LEVEL WAS FED BY THE RESOLUTION TRACKER. autoLevel is
+    // calculateAutoLevel(lastStableDepth), and lastStableDepth is written ONLY inside the two
+    // dynamic-resolution updaters - which calculateDynamicResolution() deliberately never
+    // reaches in a demo (the resolution is baked into the recording). So in a demo the
+    // display level read a frozen number: 0 on a cold start (the shallow start range), or
+    // whatever depth the last live session or demo pass left behind (the "end depth").
+    // The comment in calculateDynamicResolution said the display level was "deliberately
+    // left running" - the timer was, its input was not.
+    //
+    // THE SAME TRACKER SHAPE, ON ITS OWN STATE: the same step and the same stable-reading
+    // count as the resolution's, so a demo's range moves exactly as a live one does. Used
+    // whenever the resolution tracker did not run this tick - a demo, and also a live
+    // transducer the dynamic resolution does not manage. The live red path is unchanged.
+    property double displayStableDepth: 0
+    property int    displayStableCount: 0
+
+    function trackDisplayDepth(depth) {
+        if (!Number.isFinite(depth) || depth <= 0)
+            return
+        const step = pulseRuntimeSettings.autoDepthLevelStep || 1;
+        if (Math.floor(depth / step) === Math.floor(displayStableDepth / step)) {
+            displayStableCount = 0
+            return
+        }
+        displayStableCount++
+        if (displayStableCount < pulseRuntimeSettings.requiredStableReading)
+            return
+        displayStableDepth = depth
+        displayStableCount = 0
+    }
+
+    // A new demo, or leaving one, starts the tracker from nothing, so no depth from the
+    // previous source can hold the range.
+    Connections {
+        target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+        function onIsInDemoModeChanged() {
+            depthEngine.displayStableDepth = 0
+            depthEngine.displayStableCount = 0
+        }
+    }
+
     function autoLevelCalculate () {
         let currentDepth = currentDepthValue()
-        calculateDynamicResolution(currentDepth)
-        let newLevel = calculateAutoLevel(depthEngine.lastStableDepth);
+        const resolutionTracked = calculateDynamicResolution(currentDepth) === true
+        if (!resolutionTracked)
+            trackDisplayDepth(currentDepth)
+        let newLevel = calculateAutoLevel(resolutionTracked ? depthEngine.lastStableDepth
+                                                            : depthEngine.displayStableDepth);
         if (newLevel !== depthEngine.autoLevel) {
             depthEngine.autoLevel = newLevel;
             if (pulseRuntimeSettings !== null) {
