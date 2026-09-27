@@ -94,6 +94,8 @@ Item {
     property bool   openingFile:     false
     property string openingName:     ""
     property int    openingProgress: 0
+    // OPEN A FILE covers the picture until the parse ends; STREAM A FILE does not.
+    property bool   openingCovers:   false
 
     // Olav's two words, and neither is new. "Stop" is what the demo pill already says for
     // "stop feeding me, keep what is on screen"; "Close" is what the file pill already says
@@ -173,6 +175,53 @@ Item {
     // them in one file, so there is no z value for two files to agree about and no way for
     // the blocker to end up above the buttons it exists to protect. The rail, the panel and
     // both panes are siblings declared earlier in main.qml, so this covers all of them.
+    // THE COVER, for "Open a file" (27 Sept). Opaque, over the rail and both panes, so
+    // the half-read file is never seen and the finished one appears in one go - the old
+    // "please wait" behaviour Olav asked to keep, but with the progress and the two answers
+    // the old one never had. The opening pill below stays on top of it, so Stop and Close
+    // are exactly where they are for a stream.
+    Rectangle {
+        anchors.fill: parent
+        visible: pillColumn.openingFile && pillColumn.openingCovers
+        color: "#0f1317"
+
+        Column {
+            anchors.centerIn: parent
+            spacing: Math.round(14 * pillColumn.uiScale)
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: qsTr("Opening the file")
+                color: "#eaf1f8"
+                font.pixelSize: Math.round(24 * pillColumn.uiScale)
+            }
+
+            // A BAR HERE, where the percentage alone was right for a stream: with the
+            // picture covered there is nothing else to watch.
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width:  Math.round(360 * pillColumn.uiScale)
+                height: Math.round(8 * pillColumn.uiScale)
+                radius: height / 2
+                color: "#1d3446"
+
+                Rectangle {
+                    width: parent.width * Math.max(0, Math.min(100, pillColumn.openingProgress)) / 100
+                    height: parent.height
+                    radius: parent.radius
+                    color: "#3d7fd0"
+                }
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: pillColumn.openingProgress + " %"
+                color: "#8fa6bd"
+                font.pixelSize: Math.round(16 * pillColumn.uiScale)
+            }
+        }
+    }
+
     MouseArea {
         anchors.fill: parent
         visible: pillColumn.openingFile

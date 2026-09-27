@@ -203,6 +203,12 @@ QtObject {
     property bool   isSideScan2DView:       false   // Side scan is detected, but user wants to show it as a 2D transducer (aka downscan)
     property bool   isSideScanLeftHand:     false   // Side scan mounted on the left side
     property bool   isOpeningKlfFile:       false
+    //OPEN, NOT STREAM (27 Sept). The connection screen's two file rows are the same parse
+    //and differ only in what the user sees while it runs: "Stream a file" lets the picture
+    //fill as it reads, "Open a file" covers the echogram until the whole file is in and then
+    //shows it in one go. main.qml clears it when the open ends, so a drag and drop or the
+    //menu bar's open - which never set it - always stream.
+    property bool   fileOpenCovers:         false
     property bool   wasKlfFileOpened:       false
     //DEMO MODE (Stage 1) — see demo_mode_plan.md.
     //A .plog file is replayed as if a live transducer were streaming it. This is

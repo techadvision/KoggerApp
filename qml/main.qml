@@ -350,7 +350,7 @@ ApplicationWindow  {
 
             // THE FILE-OPEN PATH'S CALL, and it is here rather than beside any one of the
             // file dialogs because THIS is where every route to an opened file arrives -
-            // the connection screen's "View a file", the drag and drop above, and the menu
+            // the connection screen's "Open a file" and "Stream a file", the drag and drop above, and the menu
             // bar's open. A call at each dialog would be three places to forget, which is
             // the shape Group B is about in the first place.
             //
@@ -359,6 +359,13 @@ ApplicationWindow  {
             // log IS has not arrived while this is true.
             if (!isFileOpening && pulseRuntimeSettings.wasKlfFileOpened)
                 pulseRuntimeSettings.sourceChosen("file")
+
+            // THE COVER COMES OFF WHEN THE OPEN ENDS, however it ended - finished, Stop or
+            // Close - and the next open starts as a stream unless its row says otherwise.
+            if (!isFileOpening && pulseRuntimeSettings.fileOpenCovers) {
+                console.log("FILE: the open has ended - the picture is uncovered")
+                pulseRuntimeSettings.fileOpenCovers = false
+            }
 
             if (isFileOpening) {
                 pulseRuntimeSettings.wasKlfFileOpened = true
@@ -3054,6 +3061,7 @@ ApplicationWindow  {
                     return name
                 }
                 openingProgress: deviceManagerWrapper ? deviceManagerWrapper.fileOpenProgress : 0
+                openingCovers: pulseRuntimeSettings ? pulseRuntimeSettings.fileOpenCovers : false
 
                 // THE TWO ANSWERS GO STRAIGHT TO THE WORKER. openFile() is running on this
                 // very thread inside its own processEvents(), so the flag these set is read

@@ -378,6 +378,11 @@ Item {
     //
     // Both make isPresentingLog true, so this screen closes itself either way and needs no
     // dismissal path of its own.
+    // WHICH OF THE TWO FILE ROWS OPENED THE DIALOG. One dialog serves both, because they
+    // accept the same files and differ only in whether the picture is covered while the
+    // file is read.
+    property bool fileRowCovers: false
+
     FileDialog {
         id: viewFileDialog
         title: "Choose a recording to view"
@@ -398,7 +403,9 @@ Item {
             const fileStr = file.toString()
             const localPath = fileStr.replace("file:///",
                                               Qt.platform.os === "windows" ? "" : "/")
-            console.log("CONN_SCREEN: view a file ->", localPath)
+            console.log("CONN_SCREEN:", connectionScreen.fileRowCovers ? "open a file" : "stream a file",
+                        "->", localPath)
+            pulseRuntimeSettings.fileOpenCovers = connectionScreen.fileRowCovers
             core.openLogFile(localPath, false, false)
             pulseRuntimeSettings.klfFilePath = localPath
         }
@@ -872,17 +879,54 @@ Item {
                         Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 1
+                            visible: openPill.visible
+                        }
+
+                        // OPEN A FILE and STREAM A FILE, 27 Sept - Olav's two names for two
+                        // ways of reading the same file. Open waits and shows the whole file
+                        // at once, with the progress and Stop/Close over a covered picture;
+                        // Stream lets the picture fill as it reads, which is what "View a
+                        // file" did. Hidden during a swap for the reason the simulation is.
+                        //
+                        // Outlined like the simulation rather than filled: none of the three
+                        // is the primary answer to "which transducer".
+                        Rectangle {
+                            id: openPill
+                            visible: !connectionScreen.swapPending
+                            Layout.alignment: Qt.AlignTop
+                            implicitWidth:  openLabel.implicitWidth
+                                            + Math.round(40 * connectionScreen.uiScale)
+                            implicitHeight: Math.round(44 * connectionScreen.uiScale)
+                            radius: height / 2
+                            color: openArea.pressed ? "#223243" : "#182430"
+                            border.width: 1
+                            border.color: "#3d7fd0"
+
+                            Text {
+                                id: openLabel
+                                anchors.centerIn: parent
+                                text: "Open a file"
+                                color: "#cfe0f2"
+                                font.pixelSize: Math.round(15 * connectionScreen.uiScale)
+                            }
+
+                            MouseArea {
+                                id: openArea
+                                anchors.fill: parent
+                                onClicked: {
+                                    connectionScreen.fileRowCovers = true
+                                    viewFileDialog.title = "Choose a recording to open"
+                                    viewFileDialog.open()
+                                }
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
                             visible: viewPill.visible
                         }
 
-                        // VIEW A FILE sits between the simulation and Keep, where Olav put
-                        // it. Hidden during a swap for the same reason the simulation is:
-                        // the screen is asking one question then, and a third answer that
-                        // does not answer it is clutter.
-                        //
-                        // Outlined like the simulation rather than filled: neither is the
-                        // primary answer to "which transducer", they are both ways of
-                        // getting a picture without one.
                         Rectangle {
                             id: viewPill
                             visible: !connectionScreen.swapPending
@@ -898,7 +942,7 @@ Item {
                             Text {
                                 id: viewLabel
                                 anchors.centerIn: parent
-                                text: "View a file"
+                                text: "Stream a file"
                                 color: "#cfe0f2"
                                 font.pixelSize: Math.round(15 * connectionScreen.uiScale)
                             }
@@ -906,7 +950,11 @@ Item {
                             MouseArea {
                                 id: viewArea
                                 anchors.fill: parent
-                                onClicked: viewFileDialog.open()
+                                onClicked: {
+                                    connectionScreen.fileRowCovers = false
+                                    viewFileDialog.title = "Choose a recording to stream"
+                                    viewFileDialog.open()
+                                }
                             }
                         }
 
@@ -962,27 +1010,9 @@ Item {
                         }
                     }
 
-                    // The caption is NOT in the chain. It is wider than either button, so
-                    // as a chain item it made the simulation button's slot far wider than
-                    // the button, and the three gaps came out equal between the SLOTS
-                    // while looking wrong between the buttons. Out here it costs the chain
-                    // nothing and still sits under the button it explains rather than
-                    // under the middle of a panel it is not talking about.
-                    Text {
-                        id: simCaption
-                        // Goes with the pill it explains - and its x reads simPill.x,
-                        // which means nothing while that pill is not laid out.
-                        visible: !connectionScreen.swapPending
-                        x: Math.max(0, Math.min(panelCol.width - width,
-                                                simPill.x + (simPill.width - width) / 2))
-                        topPadding: Math.round(6 * connectionScreen.uiScale)
-                        width: Math.min(implicitWidth, panelCol.width)
-                        text: "Replays a recording as if the transducer were live."
-                        color: "#69727d"
-                        font.pixelSize: Math.round(12 * connectionScreen.uiScale)
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignHCenter
-                    }
+                    // NO CAPTION UNDER THE SIMULATION any more - Olav, 16 Sept: "Remove the
+                    // sub text under button for simulation". With three ways to get a picture
+                    // without a transducer, the names carry it.
                 }
             }
         }
