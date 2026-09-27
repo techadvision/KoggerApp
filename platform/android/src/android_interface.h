@@ -40,6 +40,10 @@ namespace AndroidInterface
                                    const QString &mimeType,
                                    bool append);
 
+    // Android's share sheet for one file, through the manifest's FileProvider.
+    bool shareFile(const QString &path, const QString &mimeType,
+                   const QString &email, const QString &subject, const QString &body);
+
     void setKeepScreenOn(bool on);
     void moveTaskToBack();
 

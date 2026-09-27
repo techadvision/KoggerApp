@@ -1763,6 +1763,75 @@ void Core::revealAppLogFolder()
     revealInFolder(path);
 }
 
+// ONE FILE, BUILT FRESH. The live log is still being written and may be split across
+// rotations, so the share gets a snapshot: every kept file concatenated oldest first into
+// <AppData>/share/pulse.log. AppData is the Android files dir, which the manifest's
+// FileProvider already maps (files-path "/"), so the share needs no new provider path.
+static QString buildAppLogSnapshot()
+{
+    const QStringList parts = AppLog::instance().filePathsOldestFirst();
+    if (parts.isEmpty())
+        return QString();
+
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                        + QStringLiteral("/share");
+    if (!QDir().mkpath(dir))
+        return QString();
+
+    const QString out = dir + QStringLiteral("/pulse.log");
+    QFile target(out);
+    if (!target.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return QString();
+
+    for (const QString& part : parts) {
+        QFile in(part);
+        if (!in.open(QIODevice::ReadOnly))
+            continue;
+        while (!in.atEnd())
+            target.write(in.read(256 * 1024));
+    }
+    target.close();
+    return out;
+}
+
+bool Core::shareAppLog(const QString& email, const QString& subject, const QString& body)
+{
+    qInfo().noquote() << "APP_LOG: sharing the log with" << email;
+    const QString snapshot = buildAppLogSnapshot();
+    if (snapshot.isEmpty()) {
+        consoleWarning(QStringLiteral("App log: nothing to share"));
+        return false;
+    }
+#if defined(Q_OS_ANDROID)
+    return AndroidInterface::shareFile(snapshot, QStringLiteral("text/plain"), email, subject, body);
+#else
+    Q_UNUSED(subject);
+    Q_UNUSED(body);
+    revealInFolder(snapshot);
+    return true;
+#endif
+}
+
+QString Core::appLogTail(int maxLines) const
+{
+    const QStringList parts = AppLog::instance().filePathsOldestFirst();
+    if (parts.isEmpty())
+        return QString();
+
+    // Newest file only, read from its end: enough for a screenshot, and bounded.
+    QFile in(parts.last());
+    if (!in.open(QIODevice::ReadOnly))
+        return QString();
+    const qint64 window = 256 * 1024;
+    if (in.size() > window)
+        in.seek(in.size() - window);
+    QStringList lines = QString::fromUtf8(in.readAll()).split(QLatin1Char('\n'));
+    const int keep = qBound(1, maxLines, 2000);
+    if (lines.size() > keep)
+        lines = lines.mid(lines.size() - keep);
+    return lines.join(QLatin1Char('\n'));
+}
+
 qint64 Core::activeLogSizeBytes() const
 {
     return logger_.activeLogSizeBytes();

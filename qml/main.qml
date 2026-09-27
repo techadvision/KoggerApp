@@ -2685,6 +2685,13 @@ ApplicationWindow  {
                         pulseRuntimeSettings.clearParams()
                         return
                     }
+                    if (id === "shareAppLog") {
+                        console.log("SETTINGS: action - send the app log")
+                        core.shareAppLog("olav.aamaas@techadvision.com",
+                                         "Pulse Echo Sounder log - " + core.appVersion(),
+                                         "Please describe what happened, and roughly when:\n\n")
+                        return
+                    }
                     if (id === "revealAppLog") {
                         console.log("SETTINGS: action - show the app log folder")
                         core.revealAppLogFolder()

@@ -221,6 +221,30 @@ QString AppLog::currentFilePath() const
     return dir_.isEmpty() ? QString() : filePathUnlocked(0);
 }
 
+QStringList AppLog::filePathsOldestFirst() const
+{
+    QMutexLocker locker(&mutex_);
+    QStringList out;
+    if (dir_.isEmpty())
+        return out;
+    for (int i = maxFiles_ - 1; i >= 0; --i) {
+        const QString path = filePathUnlocked(i);
+        if (QFile::exists(path))
+            out << path;
+    }
+    return out;
+}
+
+void AppLog::removeLegacyLogs(const QString& dirPath)
+{
+    QDir dir(dirPath);
+    if (!dir.exists())
+        return;
+    const QStringList legacy = dir.entryList(QStringList{ QStringLiteral("kogger*.log") }, QDir::Files);
+    for (const QString& name : legacy)
+        QFile::remove(dir.filePath(name));
+}
+
 QString AppLog::filePathIn(const QString& dir, int index) const
 {
     return index == 0 ? QStringLiteral("%1/%2.log").arg(dir, base_)

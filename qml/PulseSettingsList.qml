@@ -66,6 +66,15 @@ Item {
     // binding - the af857891 lesson, which is why this one is imperative.
     property string appLogPath: ""
 
+    // THE LOG VIEWER (27 Sept, experts). The tail is read when the viewer opens and on
+    // Refresh - never bound, because appLogTail() reads a file.
+    property bool   logViewerOpen: false
+    property string logTail:       ""
+
+    function refreshLogTail() {
+        logTail = (typeof core !== "undefined" && core) ? core.appLogTail(300) : ""
+    }
+
     // WHAT THE APP INTENDS, AND WHAT THE DEVICE SAYS IT TOOK.
     //
     // Every managed parameter has a _Copy read-back, written when the device reports its
@@ -740,7 +749,7 @@ Item {
                     uiScale: list.uiScale
 
                     label: qsTr("App log")
-                    hint:  qsTr("every line the app prints, kept on the device")
+                    hint:  qsTr("pulse.log - every line the app prints, kept on the device, at most 6 MB")
                     value: list.appLogPath === "" ? qsTr("not active") : list.appLogPath
                 },
 
@@ -759,6 +768,99 @@ Item {
                     actionText: qsTr("Show")
 
                     onActivated: list.actionRequested("revealAppLog")
+                },
+
+                // SEND IT TO US, for everybody (27 Sept, Olav's choice). A regular user
+                // describing a problem can attach the evidence in two taps: this builds one
+                // pulse.log from the kept files and opens the share sheet with
+                // olav.aamaas@techadvision.com filled in. On a desktop it reveals that file.
+                PulseActionRow {
+                    width: troubleGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Send the log to Techadvision")
+                    hint:  qsTr("attach it to a mail describing what happened")
+                    actionText: qsTr("Send")
+
+                    onActivated: list.actionRequested("shareAppLog")
+                },
+
+                // AND READ IT HERE, for experts - the last lines, enough to see what the app
+                // just said without a computer. Not for everyone: to a customer it is noise.
+                PulseActionRow {
+                    width: troubleGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.expertOnly
+                    uiScale: list.uiScale
+
+                    label: qsTr("View the log")
+                    hint:  qsTr("the last 300 lines")
+                    actionText: list.logViewerOpen ? qsTr("Hide") : qsTr("View")
+
+                    onActivated: {
+                        list.logViewerOpen = !list.logViewerOpen
+                        if (list.logViewerOpen)
+                            list.refreshLogTail()
+                    }
+                },
+
+                Rectangle {
+                    width: troubleGroup.contentWidth
+                    height: visible ? Math.round(380 * list.uiScale) : 0
+                    visible: list.expertOnly && list.logViewerOpen
+                    color: "#0b0d11"
+                    border.width: 1
+                    border.color: "#28ffffff"
+                    radius: Math.round(6 * list.uiScale)
+                    clip: true
+
+                    Flickable {
+                        id: logFlick
+                        anchors.fill: parent
+                        anchors.margins: Math.round(8 * list.uiScale)
+                        contentWidth: width
+                        contentHeight: logText.height
+                        clip: true
+                        // Newest line at the foot, so open at the foot.
+                        onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
+
+                        Text {
+                            id: logText
+                            width: logFlick.width
+                            text: list.logTail === "" ? qsTr("The log is empty or not active.") : list.logTail
+                            color: "#b9c6d3"
+                            font.family: "monospace"
+                            font.pixelSize: Math.round(11 * list.uiScale)
+                            wrapMode: Text.WrapAnywhere
+                            textFormat: Text.PlainText
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: Math.round(8 * list.uiScale)
+                        width:  refreshLabel.width + Math.round(20 * list.uiScale)
+                        height: Math.round(30 * list.uiScale)
+                        radius: height / 2
+                        color: refreshArea.pressed ? "#2f7fb5" : "#1d3446"
+                        border.width: 1
+                        border.color: "#3d7fd0"
+
+                        Text {
+                            id: refreshLabel
+                            anchors.centerIn: parent
+                            text: qsTr("Refresh")
+                            color: "#cfe0f2"
+                            font.pixelSize: Math.round(13 * list.uiScale)
+                        }
+
+                        MouseArea {
+                            id: refreshArea
+                            anchors.fill: parent
+                            onClicked: list.refreshLogTail()
+                        }
+                    }
                 }
             ]
         }

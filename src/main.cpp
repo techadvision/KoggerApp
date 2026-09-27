@@ -412,10 +412,17 @@ int main(int argc, char *argv[])
 #endif
     QLoggingCategory::setFilterRules(loggingRules);
 
+    // pulse.log, 27 Sept - it was upstream's "kogger". BOUNDED: the file rotates at the
+    // size below and only the newest few are kept, so the whole log never exceeds
+    // size x count on the device (6 MB on Android, 12 MB on a desktop). 2 MB is several
+    // hours of an ordinary session, which is more than a bug report needs. The old
+    // kogger*.log set is removed once from both places it may have been left.
+    AppLog::removeLegacyLogs(AppLog::fallbackDirectory());
+    AppLog::removeLegacyLogs(AppLog::defaultDirectory());
 #if defined(Q_OS_ANDROID)
-    AppLog::instance().start(AppLog::fallbackDirectory(), QStringLiteral("kogger"), 4 * 1024 * 1024, 3);
+    AppLog::instance().start(AppLog::fallbackDirectory(), QStringLiteral("pulse"), 2 * 1024 * 1024, 3);
 #else
-    AppLog::instance().start(AppLog::defaultDirectory(), QStringLiteral("kogger"), 8 * 1024 * 1024, 5);
+    AppLog::instance().start(AppLog::defaultDirectory(), QStringLiteral("pulse"), 4 * 1024 * 1024, 3);
 #endif
 
     previousMessageHandler = qInstallMessageHandler(videoLogHandler);

@@ -534,6 +534,58 @@ public class PulseActivity extends QtActivity {
          *
          * @return true if permissions are granted, false otherwise
          */
+        /**
+         * Hands one file to Android's share sheet (27 Sept - "send the log to Olav").
+         * The file must be under the app's files dir, which qtprovider_paths maps.
+         * EXTRA_EMAIL pre-fills the recipient in a mail app; other targets ignore it.
+         */
+        public static boolean shareFile(String path, String mimeType, String email,
+                                        String subject, String body) {
+            final PulseActivity activity = m_instance;
+            if (activity == null) {
+                Log.e(TAG, "shareFile: activity instance is null");
+                return false;
+            }
+            try {
+                final File file = new File(path);
+                if (!file.exists()) {
+                    Log.e(TAG, "shareFile: no such file " + path);
+                    return false;
+                }
+                final Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                        activity, activity.getPackageName() + ".qtprovider", file);
+
+                final Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType(mimeType);
+                send.putExtra(Intent.EXTRA_STREAM, uri);
+                if (email != null && !email.isEmpty())
+                    send.putExtra(Intent.EXTRA_EMAIL, new String[] { email });
+                if (subject != null)
+                    send.putExtra(Intent.EXTRA_SUBJECT, subject);
+                if (body != null)
+                    send.putExtra(Intent.EXTRA_TEXT, body);
+                send.setClipData(android.content.ClipData.newRawUri("pulse.log", uri));
+                send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                final Intent chooser = Intent.createChooser(send, "Send the Pulse log");
+                chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            activity.startActivity(chooser);
+                        } catch (Exception e) {
+                            Log.e(TAG, "shareFile: could not start the share sheet", e);
+                        }
+                    }
+                });
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "shareFile failed", e);
+                return false;
+            }
+        }
+
         public static boolean checkStoragePermissions() {
             if (m_instance == null) {
                 Log.e(TAG, "Activity instance is null");

@@ -242,6 +242,29 @@ int openPulseLogFileDescriptor(const QString &fileName,
 
 //
 
+bool shareFile(const QString &path, const QString &mimeType,
+               const QString &email, const QString &subject, const QString &body)
+{
+    const QJniObject jPath    = QJniObject::fromString(path);
+    const QJniObject jMime    = QJniObject::fromString(mimeType);
+    const QJniObject jEmail   = QJniObject::fromString(email);
+    const QJniObject jSubject = QJniObject::fromString(subject);
+    const QJniObject jBody    = QJniObject::fromString(body);
+
+    const bool ok = QJniObject::callStaticMethod<jboolean>(
+        kJniPulseActivityClassName,
+        "shareFile",
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z",
+        jPath.object<jstring>(), jMime.object<jstring>(), jEmail.object<jstring>(),
+        jSubject.object<jstring>(), jBody.object<jstring>());
+
+    if (cleanJavaException()) {
+        qCWarning(AndroidInterfaceLog) << "shareFile threw";
+        return false;
+    }
+    return ok;
+}
+
 void setKeepScreenOn(bool on)
 {
     Q_UNUSED(on);

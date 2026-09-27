@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QMutex>
 #include <QString>
+#include <QStringList>
 #include <QtLogging>
 
 class QMessageLogContext;
@@ -22,6 +23,10 @@ public:
 
     QString directory() const;
     QString currentFilePath() const;
+    // Every file this log has kept, OLDEST FIRST, so concatenating them reads in time order.
+    QStringList filePathsOldestFirst() const;
+    // Removes the upstream "kogger*.log" set from a directory (27 Sept: the log is pulse.log).
+    static void removeLegacyLogs(const QString& dirPath);
     bool isActive() const;
 
     static QString defaultDirectory();

@@ -138,6 +138,12 @@ public:
     Q_INVOKABLE QString appVersion() const;
     Q_INVOKABLE QString appLogFilePath() const;
     Q_INVOKABLE void    revealAppLogFolder();
+    // 27 Sept. The log as ONE file, pulse.log, oldest line first - handed to the share
+    // sheet on Android (mail with Olav's address filled in), revealed in a folder elsewhere.
+    Q_INVOKABLE bool    shareAppLog(const QString& email, const QString& subject, const QString& body);
+    // The last lines of the log, for the in-app viewer. Capped, so a 6 MB log is never
+    // handed to a Text item whole.
+    Q_INVOKABLE QString appLogTail(int maxLines) const;
     Q_INVOKABLE void    powerOffSystem();
     bool getUseGPS() const;
     bool getNeedForceZooming() const { return needForceZooming_; }
