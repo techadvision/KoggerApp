@@ -1903,6 +1903,51 @@ with a timestamp. It needs no reproduction and nothing running.
 devices, or 1.75 / 1.0) has happened. The first `METRICS: startup` line (`427x607`, clamped) comes
 from before the landscape resize, as designed.
 
+#### ANSWERED for Qt Creator, 27 Sept evening: the deploy kills its own launch
+
+Olav's `exit-info` and the `-b all` log from 18:02–18:35 show all 17 process ends for the
+package. **Not one was a crash, a hang or an ANR.** They are 7 × `PACKAGE UPDATED`
+(`installPackageLI`), 9 × `USER REQUESTED / FORCE STOP` and 1 × `DEPENDENCY DIED`.
+
+**Every failed run has the same four lines**, and no successful run has them:
+
+```
+18:14:02.335  am_kill   6924  stop org.techadvision.pulse due to installPackageLI   <- the install kills the running app
+18:14:02.993  Start proc 7286 for next-top-activity                                 <- Android relaunches it, because it was the top activity
+18:14:03.188  am_kill   7286  stop org.techadvision.pulse due to from pid 7315       <- 0.2 s later: `am force-stop` from the deploy
+              (no further Start proc)                                                -> 18:14:48 Qt Creator: "target died"
+```
+
+The same shape appears at 18:07:37 (6236), 18:17:35 (8508, killed between `JNI_OnLoad done` and
+`Qt libraries loaded`) and 18:34:11 (14280, the "clean" run at 18:34:56). **The app is killed
+by the deploy, from outside.** Qt Creator's install kills the running app. Android relaunches it
+because it was on top. Qt Creator's force-stop then kills that relaunch, and no start follows.
+The screen shows nothing because nothing is running, and Qt Creator gives up after about
+45 seconds and reports the pid it was watching as dead.
+
+**Every start that was not force-stopped reached `first frame drawn after 0 held back`**, and
+there are 11 of those. On this evidence the app's own start path is fine.
+
+**Workaround:** press Home on the tablet (so the app is not the top activity) before Run in
+Qt Creator. If "target died" still appears, tap the icon or press Run again. There is nothing
+to fix in the app for this.
+
+**Still open, and not seen tonight:** a hang on an ordinary start, away from Qt Creator. The
+breadcrumbs stay on `fix/startup-hang` for that. If it is seen, capture `pidof` before the tap,
+then `kill -3`.
+
+**Two other findings in the same log, not acted on:**
+- **A real native crash this morning:** `07:25:40 Fatal signal 6 (SIGABRT) in tid 11446
+  (SerialInputOutp), pid 11097`. `SerialInputOutputManager` is the USB serial library's Java
+  reader thread, so an abort on it is most likely a JNI call into our C++ from that thread. On
+  a debuggable build `-Xcheck:jni` aborts on JNI misuse. **Wants `adb logcat -d -b crash`** (the
+  tombstone summary, if it has not rotated out) and its own session. This is the kind of crash
+  a customer with a USB transducer would meet.
+- **`DEPENDENCY DIED` at 18:02:11:** Android killed the app (in the background, importance 400)
+  because `com.android.externalstorage` died while the app held its provider, most likely from
+  a file picked with the system picker. A background app vanishing is normal on Android, but
+  the reason is worth knowing: it is a kill, not a crash of ours.
+
 #### The manifest, and what keeps adding the lines
 
 **Qt Creator's manifest editor adds one `splash_screen_drawable` line every time it saves.** The
