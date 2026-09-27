@@ -2914,7 +2914,23 @@ ApplicationWindow  {
 
                 // ONE WRITER, shared with the pinch on the picture, and it is the runtime
                 // object's - because the key it writes is the key displayMaxRange reads.
-                onRangeMoved: function (v) { pulseRuntimeSettings.storeDisplayMaxRange(v) }
+                onRangeMoved: function (v) {
+                    // THE SLIDER HANDS THE RANGE BACK TO THE USER, as the classic selector did.
+                    if (pulseSettings.autoRange) {
+                        console.log("RANGE: the slider ends automatic range")
+                        pulseSettings.autoRange = false
+                    }
+                    pulseRuntimeSettings.storeDisplayMaxRange(v)
+                }
+
+                // 2D ONLY, as in classic: the upstream auto range fits the DEPTH axis, and a
+                // side scan's range is a swath width, which the bottom does not decide.
+                offersAutoRange: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : false
+                autoRange: mainview.displayAutoRange
+                onAutoRangeToggled: function (on) {
+                    console.log("RANGE: automatic ->", on)
+                    pulseSettings.autoRange = on
+                }
 
                 // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE, the same
                 // rule the view and cone choosers follow: resolveScreenId() answers
@@ -4089,6 +4105,12 @@ ApplicationWindow  {
         function onDisplayMaxRangeChanged() { mainview.applyMaxRange() }
     }
 
+    // AND IT FOLLOWS THE AUTOMATIC SWITCH, which changes nothing displayMaxRange reads.
+    onDisplayAutoRangeChanged: {
+        if (pulseSettings.uiVariant === "v2")
+            applyMaxRange()
+    }
+
     // AND THE SAME FOR INTENSITY AND THE FILTER, now that they are per-picture too.
     //
     // THESE USED TO WATCH intensityRealValue AND filterRealValue on pulseSettings, and that
@@ -4421,9 +4443,35 @@ ApplicationWindow  {
         waterViewSecond.updatePlot()
     }
 
+    // AUTOMATIC RANGE IS A 2D QUESTION. The stored flag is shared with classic, and it is
+    // read through the display model so a blue on screen is ranged by hand whatever the
+    // flag says - and a red log after it gets automatic back without anything restoring it.
+    readonly property bool displayAutoRange:
+        pulseSettings.autoRange
+        && (pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : false)
+
     function applyMaxRange() {
         if (pulseSettings.uiVariant !== "v2")
             return
+
+        var panesAll = waterViewSecond.enabled ? [waterViewFirst, waterViewSecond] : [waterViewFirst]
+
+        // THE UPSTREAM AUTO RANGE, the one classic calls: plotDistanceAutoRange(0) makes the
+        // plot fit its distance axis to the bottom it is seeing, -1 hands the axis back. It
+        // is set on every apply rather than on the switch alone, because setDataChannel
+        // re-derives the range on every channel list rebuild (d8510413) and this is what
+        // runs after it. shouldDoAutoRange is what DeviceItem and the depth engine read.
+        pulseRuntimeSettings.shouldDoAutoRange = displayAutoRange
+        if (displayAutoRange) {
+            console.log("RANGE: automatic |", waterViewFirst.isViewHorizontal() ? "2D law" : "side scan law")
+            for (var a = 0; a < panesAll.length; ++a) {
+                panesAll[a].plotDistanceAutoRange(0)
+                panesAll[a].updatePlot()
+            }
+            return
+        }
+        for (var m = 0; m < panesAll.length; ++m)
+            panesAll[m].plotDistanceAutoRange(-1)
 
         var v = pulseRuntimeSettings.displayMaxRange
         if (v <= 0)

@@ -85,6 +85,13 @@ Item {
 
     signal rangeMoved(int v)
 
+    // AUTOMATIC RANGE, 27 Sept - the classic UI's auto max depth, back as a switch under
+    // the drag handle. offersAutoRange is false where the picture has no depth axis to fit.
+    property bool   offersAutoRange: false
+    property bool   autoRange:       false
+
+    signal autoRangeToggled(bool on)
+
     // ---- Settings, tier 2 ---------------------------------------------------
     //
     // ONE SIGNAL FOR EVERY SETTING IN THE LIST. The rows bind their values straight to the
@@ -308,9 +315,26 @@ Item {
             maxValue: panel.rangeCeiling
             stepSize: panel.rangeStep
             value: panel.rangeValue
-            valueText: panel.rangeValue + " m"
+            valueText: panel.autoRange ? qsTr("auto") : (panel.rangeValue + " m")
+            // DIMMED, NOT DISABLED, while automatic is on. The slider still works, and
+            // moving it hands the range back to the user - the classic selector's rule - so
+            // there is no dead control to explain.
+            opacity: panel.autoRange ? 0.5 : 1.0
 
             onMoved: function (v) { panel.rangeMoved(v) }
+        }
+
+        PulseSwitchRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "range" && panel.offersAutoRange
+            uiScale: panel.uiScale
+
+            label: qsTr("Automatic")
+            hint:  qsTr("follows the bottom - moving the slider or pinching turns it off")
+            checked: panel.autoRange
+
+            onToggled: function (v) { panel.autoRangeToggled(v) }
         }
 
         PulseChoiceGroup {

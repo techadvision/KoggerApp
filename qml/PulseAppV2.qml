@@ -37,8 +37,14 @@ Item {
     property real maxDepthValue: 0
 
     onMaxDepthValueChanged: {
-        if (maxDepthValue > 0 && pulseRuntimeSettings)
+        if (maxDepthValue > 0 && pulseRuntimeSettings) {
+            // A PINCH IS A HAND-SET RANGE, and it ends automatic - the classic rule.
+            if (pulseSettings.autoRange) {
+                console.log("RANGE: a pinch ends automatic range")
+                pulseSettings.autoRange = false
+            }
             pulseRuntimeSettings.storeDisplayMaxRange(Math.round(maxDepthValue))
+        }
     }
 
     function applyFiltering(value) {
