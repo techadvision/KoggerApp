@@ -201,7 +201,7 @@ Item {
 
             // THE SPEED IS CARRIED AS TENTHS. The slider row is integer by design - a
             // stepped control with a named step is easier to hit than a continuous one -
-            // and the echogram speed is 1.0 to 5.0 in tenths. Ten to fifty here, divided
+            // and the echogram speed is 1.0 to 2.5 in tenths. Ten to twenty-five here, divided
             // on the way out, so the row needs no float mode it would use exactly once.
             //
             // AND IT WRITES THE PERSISTENT KEY, like the pinch in Plot2D does.
@@ -217,7 +217,7 @@ Item {
                 label: qsTr("2D echogram speed")
                 hint:  qsTr("stretches the picture, it does not ping faster")
                 minValue: 10
-                maxValue: 50
+                maxValue: Math.round((pulseSettings ? pulseSettings.echogramSpeedMax : 2.5) * 10)
                 stepSize: 1
                 value: Math.round((pulseSettings ? pulseSettings.echogramSpeed : 1) * 10)
                 valueText: ((pulseSettings ? pulseSettings.echogramSpeed : 1)).toFixed(1) + "\u00D7"

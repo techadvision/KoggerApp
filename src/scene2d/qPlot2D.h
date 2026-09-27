@@ -65,7 +65,13 @@ public:
 
     float viewportRatio() const {
         if (!datasetPtr_ || datasetPtr_->size() <= 0) return 1.0f;
-        const float dim = (_isHorizontal ? static_cast<float>(width()) : static_cast<float>(height())) * static_cast<float>(deviceScale_);
+        // DATA COLUMNS ON SCREEN, not pixels. At an echogram speed above 1.0 a horizontal
+        // picture spends horizontalStretch() pixels per column, so a screen holds fewer
+        // columns and the oldest one reaches the left edge at a smaller position. Without
+        // the division the clamp stopped the scroll-back a stretch-factor early.
+        const float dim = (_isHorizontal ? static_cast<float>(width()) : static_cast<float>(height()))
+                          * static_cast<float>(deviceScale_)
+                          / static_cast<float>(_isHorizontal ? horizontalStretch() : 1.0);
         return qBound(0.0f, dim / static_cast<float>(datasetPtr_->size()), 1.0f);
     }
 

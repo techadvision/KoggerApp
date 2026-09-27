@@ -108,7 +108,11 @@ Settings {
     property bool   v2RailCollapsed:            false
     property int    bottomCompositionAddition:  0
     property bool   doubleEchoOptimize:         false
-    property double echogramSpeed:              1.0
+    property double echogramSpeed:              1.0     //1.0 .. echogramSpeedMax
+    //THE CEILING, named once. Olav, 27 Sept: 2.5 for the 2D scan. Above it the picture is
+    //stretched so far that a screen holds too little history to read. The pinch, the
+    //settings row and the classic selector all read this.
+    readonly property double echogramSpeedMax:  2.5
     property double echogramWidth:              25
     property double pulseBlueOffset:            20
 
@@ -305,6 +309,16 @@ Settings {
                         filterDisplayValue)
             if (filterDisplayValue2D < 0)       filterDisplayValue2D       = filterDisplayValue
             if (filterDisplayValueSideScan < 0) filterDisplayValueSideScan = filterDisplayValue
+        }
+
+        //THE SPEED CEILING, 27 Sept. A value stored by an earlier build may be anything up
+        //to 5.0; it is brought down to the ceiling and written back, so it is persistent
+        //from the first start of this build and the user never sees the old number again.
+        //Safe on every start: it writes only while the value is above the ceiling.
+        if (echogramSpeed > echogramSpeedMax) {
+            console.log("SETTINGS: echogram speed", echogramSpeed, "is above the ceiling - set to",
+                        echogramSpeedMax)
+            echogramSpeed = echogramSpeedMax
         }
 
         //ONE-SHOT MIGRATION: positional view/cone preference -> stable entry id.

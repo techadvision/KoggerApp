@@ -47,6 +47,16 @@ public:
     int rightmostEpochOnScreen() const { return rightmostEpochOnScreen_; }
     int visibleColsOnScreen()   const { return visibleColsOnScreen_; }
 
+    // THE HORIZONTAL STRETCH getImage() paints with - device pixels per data column. 1.0
+    // unless a horizontal, unflipped picture runs above 1.0x. ONE DEFINITION, because the
+    // painter, the cursor reindex and the scroll clamp all have to agree on it: the clamp
+    // (qPlot2D::viewportRatio) used to assume one column per pixel, so at 2.5x the oldest
+    // 60% of a screen of data could never be scrolled into view while live.
+    double horizontalStretch() const {
+        const bool flipImage = isSideScanLeftHand_ && isSideScan2DView_;
+        return (isHorizontal_ && !flipImage && echogramSpeed_ > 1.0) ? echogramSpeed_ : 1.0;
+    }
+
     // Optional setters if other C++ wants to push directly
     // THE PER-PANE GRID (Stage 4 b, side over down). "" follows the settings bus, which is
     // what every pane did until now; "side" or "down" pins THIS pane's grid whatever the bus

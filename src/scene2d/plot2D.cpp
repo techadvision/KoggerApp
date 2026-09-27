@@ -1612,11 +1612,7 @@ void Plot2D::reindexingCursor() {
     // In getImage(): for horizontal && !flipImage we do:
     //   translate(W,0); scale(s,1); translate(-W,0)  with  s = echogramSpeed_ (>1)
     // So one data column spans 's' device pixels, right-anchored at the screen's right edge.
-    const bool flipImage = isSideScanLeftHand_ && isSideScan2DView_;
-    const double s_applied = (isHorizontal_ && !flipImage && echogramSpeed_ > 1.0)
-                                 ? double(echogramSpeed_)
-                                 : 1.0;
-    const double hor_ratio = s_applied; // device pixels per data column when stretched
+    const double hor_ratio = horizontalStretch(); // device pixels per data column when stretched
 
     // Dataset "head" (right edge + 1)
     const int head = int(std::round(double(timelinePosition()) * double(data_width)));

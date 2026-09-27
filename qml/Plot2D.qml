@@ -606,12 +606,13 @@ WaterFall {
                 if (pulseRuntimeSettings.is2DTransducer && !pulseRuntimeSettings.echogramPause) {
                     // 1) compute horizontal “ratio”
                     var hRatio = (pinch.scale - pinch.previousScale) * 50;
-                    // 2) fraction of the 4-unit speed range
-                    var deltaS = (hRatio * 0.01) * (5.0 - 1.0);
+                    // 2) fraction of the speed range - 1.0 up to pulseSettings.echogramSpeedMax
+                    var speedMax = pulseSettings.echogramSpeedMax
+                    var deltaS = (hRatio * 0.01) * (speedMax - 1.0);
                     // 3) apply, clamp, round
                     //var raw     = pulseRuntimeSettings.echogramSpeed + deltaS;
                     var raw     = pulseSettings.echogramSpeed + deltaS;
-                    var clamped = Math.min(5.0, Math.max(1.0, raw));
+                    var clamped = Math.min(speedMax, Math.max(1.0, raw));
                     var rounded = Math.round(clamped * 10) / 10;
 
                     // 4) only write (and thus emit) if it really changed
