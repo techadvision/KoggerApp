@@ -857,11 +857,13 @@ void DeviceManager::openFile(QString filePath)
 // ---------------------------------------------------------------------------
 
 namespace {
-// Pacing fallbacks, used only when the log carries no usable timestamps.
-// Source of truth is ch1Period in PulseRuntimeSettings.qml: PulseRed (2D) 50,
-// PulseBlue (side scan) 70.
+// Pacing fallbacks, used only when the log carries no usable timestamps - which
+// for Pulse logs is the normal case (see logPrescan). These started as copies of
+// ch1Period in PulseRuntimeSettings.qml (red 50, blue 70); the side scan one was
+// lowered to 50 on 28 Sept 2026 so a blue simulation runs faster at exhibitions.
+// Replay pace only - ch1Period, what a live blue is asked for, is unchanged.
 constexpr int kDemoPeriod2dMs       = 50;
-constexpr int kDemoPeriodSideScanMs = 70;
+constexpr int kDemoPeriodSideScanMs = 50;
 // A measured period outside this band means the timestamps lied; fall back.
 constexpr int kDemoPeriodMinMs      = 20;
 constexpr int kDemoPeriodMaxMs      = 500;

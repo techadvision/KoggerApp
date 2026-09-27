@@ -93,7 +93,11 @@ Settings {
     //not recognise back to classic, so a value written by a future build or a half-finished
     //experiment can never start the app without an interface. Persisted on purpose: a
     //comparison on the water has to survive the app being closed between runs.
-    property string uiVariant:                  "classic"
+    //
+    //V2 IS THE DEFAULT FOR EVERYBODY from 28 Sept 2026 (Olav, before the closed-test
+    //release to twenty more testers). Classic stays in the tree as the fallback and as the
+    //expert's way back through the Experimental row.
+    property string uiVariant:                  "v2"
     //AN EXPERT STARTS IN V2, ONCE. "classic" above stays the declared default, because it
     //is still what an ordinary user should meet; an expert is someone who has typed a key
     //code, and the v2 interface is what they are here to test.
@@ -104,6 +108,13 @@ Settings {
     //row STAYS in classic. An override would drag them back to v2 on every start and there
     //would be no way to say no that survived a restart.
     property bool   uiVariantSeededForExpert:   false
+    //AND ONCE FOR EVERYBODY (28 Sept). The declared default above only reaches a fresh
+    //install - an existing one may already have "classic" stored - so every install is moved
+    //to v2 once, on the first start of a build that has this. Same seed-not-override rule
+    //as the expert seed: the flag stops it running twice, so an expert who goes back to
+    //classic afterwards stays there. An expert whose expert seed already ran and who is in
+    //classic CHOSE classic, so that install is left alone.
+    property bool   uiVariantSeededV2Default:   false
     //THE RAIL IS COLLAPSED. Direction C's "minimise promoted to a proper collapse
     //affordance", which the canvas kept as worth borrowing. Its own key rather than
     //areUiControlsVisible: that one hides the classic quick controls, and one value
@@ -246,9 +257,28 @@ Settings {
         uiVariantSeededForExpert = true
     }
 
+    function seedUiVariantV2Default() {
+        if (uiVariantSeededV2Default)
+            return
+        uiVariantSeededV2Default = true
+        if (uiVariant === "v2")
+            return
+        if (uiVariantSeededForExpert) {
+            console.log("SETTINGS: v2 is now the default, but this expert chose", uiVariant,
+                        "after being moved to v2 - left as it is")
+            return
+        }
+        console.log("SETTINGS: v2 is now the default interface - moving this install from",
+                    uiVariant, "to v2, once")
+        uiVariant = "v2"
+    }
+
     onIsExpertChanged: seedUiVariantForExpert()
 
     Component.onCompleted: {
+        //ORDER MATTERS: the default seed first, so it reads the expert flag as it was
+        //stored and not as the expert seed below is about to set it.
+        seedUiVariantV2Default()
         seedUiVariantForExpert()
 
         favoriteThemes2DNew = favoriteThemes2DNew.map(function(x) {
