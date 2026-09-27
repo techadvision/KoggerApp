@@ -284,7 +284,7 @@ Item {
             uiScale: rail.uiScale
             buttonId: "colours"
             label: "Colours"
-            iconSource: "./icons/ui/pulse_color_choice.svg"
+            iconSource: "./icons/ui/pulse_color_bucket.svg"
             onActivated: rail.buttonActivated(buttonId)
         }
 
