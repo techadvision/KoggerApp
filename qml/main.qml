@@ -4407,7 +4407,7 @@ ApplicationWindow  {
         }
     }
 
-    // THE SCREEN PREFERENCE REACHES THE PICTURE (Stage 4 b). This is what applyViewId below
+    // THE SCREEN PREFERENCE REACHES THE PICTURE (Stage 4 b). This is what the old applyViewId
     // used to do, minus the half that was never the screen's business.
     //
     // ONLY THE THREE FULL SCREENS ACT TODAY, on Olav's own sequencing: "The first ability to
@@ -4496,7 +4496,7 @@ ApplicationWindow  {
         // fires. One re-range, after the writes, in the one place that already does it.
     }
 
-    // THE MODE HALF, lifted out of applyViewId unchanged. The property writes decide the grid
+    // THE MODE HALF, lifted out of the old applyViewId unchanged. The property writes decide the grid
     // and which range call is made; the ten milliseconds in the timers are the classic ones,
     // because the writes have to land before the plot is told to re-range or it ranges
     // against the grid it is leaving.
@@ -4563,7 +4563,14 @@ ApplicationWindow  {
         // CHARTOFFSET MOVES WITH THE POLARITY, not with `down`. It is a blue-in-downscan
         // correction and a 2D transducer has nothing to offset - and it is a setParam, a
         // DEVICE WRITE, which D-1 says should not fire on a file path without a reason.
-        if (sideScanShownAs2D)
+        //
+        // AND NOT UNDER A RECORDING, 27 Sept - the same guard applyConeId carries and for the
+        // same reason: a file is not a transducer. applyForSource runs this on the demo, the
+        // file-open and the presentedModel paths, so without the guard a blue log shown as
+        // down scan wrote chartOffset to whatever device happened to be linked. The live
+        // path still gets the write; DeviceItem's own connect-time repair (3d700266) is the
+        // belt to this brace.
+        if (sideScanShownAs2D && !pulseRuntimeSettings.logIsOnScreen)
             pulseRuntimeSettings.setParam("chartOffset", 0)
 
         var v = pulseRuntimeSettings.displayMaxRange
@@ -4575,34 +4582,6 @@ ApplicationWindow  {
             plotDistanceRange2dV2Timer.restart()
         else
             plotDistanceRangeV2Timer.restart()
-    }
-
-    // DEAD FROM THIS COMMIT, and kept only until the view chooser is removed with the rest of
-    // what it belonged to. Nothing calls it: the rail opens "screen" rather than "view", so
-    // ecoViewId can no longer be written and its change handler is gone.
-    function applyViewId(id) {
-        if (pulseSettings.uiVariant !== "v2" || !pulseRuntimeSettings.offersViewChoice)
-            return
-        var v = pulseRuntimeSettings.viewForId(id)
-        if (!v)
-            return
-
-        console.log("VIEW: applying", v.id, "-", v.mode, v.freq, "kHz")
-
-        // Carried over verbatim from the classic applier. The mode decides the grid and the
-        // range call; the frequency is a device parameter and DeviceItem picks it up.
-        if (v.mode === "side") {
-            pulseRuntimeSettings.isSideScan2DView = false
-            pulseRuntimeSettings.isHorizontalGrid = false
-            waterViewFirst.quickChangeMaxRangeValue = pulseSettings.maxDepthValuePulseBlueFixed
-            plotDistanceRangeV2Timer.restart()
-        } else {
-            pulseRuntimeSettings.isSideScan2DView = true
-            pulseRuntimeSettings.isHorizontalGrid = true
-            pulseRuntimeSettings.setParam("chartOffset", 0)
-            plotDistanceRange2dV2Timer.restart()
-        }
-        pulseRuntimeSettings.setParam("transFreq", v.freq)
     }
 
     function applyConeId(id) {
