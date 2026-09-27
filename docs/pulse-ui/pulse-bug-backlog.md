@@ -1629,3 +1629,87 @@ The boat run with two transducers, the real device swap, the PULSEblue-IP accept
    decision rather than a repair.
 6. **P3 — the nadir band and downscan**, after P1.
 7. **P4** — whenever there is a spare half-session.
+
+---
+
+## The field-fix set — 27 Sept 2026, `feature/pulse-v2-field-fixes`
+
+Olav's list after a week of reviewing and testing, cut as its own branch off the pushed
+tip of `feature/pulse-p3-downscan-nadir` (1.39 plus one docs commit). Twelve items, eleven
+commits. **Not compiled** — the shell has no Qt. C++ in four places (`plot2D.h`,
+`qPlot2D.h`, `core.{h,cpp}` with two new `Q_INVOKABLE`s, `app_log.{h,cpp}`, `main.cpp`) and
+Java in `PulseActivity`, so `moc` re-runs and gradle picks up the Java.
+
+| commit | item |
+|---|---|
+| `b212a569` | `chartOffset` not written under a recording; `applyViewId` deleted (no caller, no handler outside classic) |
+| `ba3860e8` | echogram speed ceiling 2.5, stored values above it clamped and written back; **live scroll-back reaches the start at any speed** |
+| `1ab201cd` | rail order: range, intensity, filter, colours, cone/screen, pause, record; **Pause wears a green dot while positions arrive** |
+| `63e2f502` | speed of sound row under Screen & echogram, for everybody (runtime override) |
+| `f82b04fd` | the speed gauge |
+| `dbec72c7` | automatic max range, a switch under the range slider |
+| `3df64699` | **Open a file** and **Stream a file**; the simulation caption is gone (P2b) |
+| `737f2291` | a demo asks the device question an opened file asks |
+| `41818ef3` | `pulse.log`, bounded, **Send the log to Techadvision**, expert viewer |
+| `44ded246` | the speed ceiling moves off the Settings object |
+
+### Findings worth keeping
+
+- **The scroll-back limit was the clamp, not the painter.** `qPlot2D::viewportRatio()` returned
+  `width / N` — one data column per pixel. Above 1.0x a horizontal picture spends
+  `echogramSpeed` pixels per column, so the oldest `1 - 1/s` of a screen could never be reached
+  while live. The stretch is now one function, `Plot2D::horizontalStretch()`, read by the
+  painter's reindex and the clamp. Paused worked only because pausing resets the speed to 1.0.
+- **`applyViewId` was dead**: no caller, and `onEcoViewIdChanged` exists only in classic. The
+  panel's "view" branch still writes `ecoViewId` harmlessly and nothing reads it in v2.
+- **Positions**: `dataset.hasPositionData` is sticky (set on the first fix, cleared only with the
+  dataset) and V1's green used `mavlinkDetected`, also sticky. The dot follows
+  `dataset.lastPositionChanged` with a 3 s staleness timer; for an opened (not streamed or demo)
+  file it reads `hasPositionData`, since nothing arrives after the open.
+- **Speed of sound had machinery and no row** — `soundSpeedOverride` was built 14 Sept. It
+  reaches a live device only; a recording carries its own.
+- **A demo swap is a commit only.** `acceptDeviceSwap` normally raises `swapDeviceNow`, whose
+  DeviceItem handler closes the log file and clears every setup state — under a running replay
+  that would stall. The demo branch commits the model and re-marks the demo's setup states;
+  `exitDemoMode` still re-detects. A declined demo swap does not block that model on hardware.
+- **A readonly property on a Qt.labs `Settings` object is a trap** — everything declared there
+  is persisted. The ceiling lives on `pulseRuntimeSettings`.
+
+### Decisions taken with Olav
+
+- Log: **everyone** gets Send (share sheet, `olav.aamaas@techadvision.com` pre-filled); the
+  viewer (last 300 lines) is expert-only. 2 MB x 3 on Android.
+- Open a file: **the echogram is covered** by an opaque card with a progress bar until the open
+  ends; Stream a file is the old View a file. Drag and drop and the menu bar stream.
+- Demo device: **ask the swap, like Open.**
+- Speed gauge: absent (settings rows and line) without MAVLink; `-.-` after 3 s without a
+  velocity update. Default unit km/h.
+- Auto range: 2D only, as in classic. The slider and the pinch end it.
+
+### To check on the device
+
+1. **Echogram speed**: set 2.5x (the slider now stops there). Scroll back while live — the start
+   of the file must be reachable. A phone that had 4.0 stored shows
+   `SETTINGS: echogram speed 4 is above the ceiling - set to 2.5` once, then never again.
+2. **Rail**: order is range, intensity, filter, colours, cone/screen, pause. With a boat sending
+   GNSS the Pause button carries a green dot; kill the autopilot link — it goes out within ~3 s.
+   `POSITION: available` / `not available` in the log. An opened file with positions: dot on.
+3. **Speed of sound** under Screen & echogram: move it on a live red, the depth scale must follow;
+   the hint then names the profile's value and a Reset row appears. Restart: back to the profile.
+4. **Speed gauge**: third line under depth (and temperature). Switch units; imperial shows mph/kn.
+   Only present with MAVLink. Pull the telemetry: `-.-`.
+5. **Auto range** on a red: switch on in the Max range panel, the slider reads *auto* and dims,
+   the range follows the bottom. Pinch or move the slider: automatic goes off. Let a demo loop —
+   automatic must survive it (`RANGE: automatic` after the rebuild). A blue never shows the switch.
+6. **Open a file**: the picture is covered with *Opening the file* and a bar; Stop and Close still
+   work; the file appears in one go. **Stream a file** behaves as View a file did.
+   `FILE: the open has ended - the picture is uncovered`.
+7. **Demo device**: commit red, start a blue simulation: *Switch to PULSE blue* appears. Accept —
+   no *Configuring transducer…* stall, the connection screen shows *Keep PULSE blue*. Stop the
+   demo: re-detection as before. Decline instead: the demo continues as a picture, and a real blue
+   later is still offered.
+8. **Log**: Troubleshooting → *Send the log to Techadvision* opens the share sheet with
+   `pulse.log` attached and the address filled in. The folder holds `pulse.log`, and no
+   `kogger*.log`. Expert: *View the log* shows the tail, Refresh reloads it.
+9. **chartOffset**: open a blue log in down scan with a red connected — no
+   `PARAM: … chartOffset -> 0` line.
