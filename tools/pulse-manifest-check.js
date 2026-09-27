@@ -10,8 +10,9 @@
 // entries are harmless - Android keeps the last value of a repeated key - but the file
 // grows without bound and hides a real duplicate that DISAGREES among copies that agree.
 //
-// So this asks one question of the manifest: is any meta-data name, or any
+// So this asks two questions of the manifest: is any meta-data name, or any
 // uses-permission / uses-feature name, declared twice inside the same parent element?
+// And has the editor written a package attribute into <manifest>?
 //
 // Run it after touching the manifest in Qt Creator's editor, beside the other checks.
 // Exit code 1 on a duplicate.
@@ -50,6 +51,16 @@ text.split(/\r?\n/).forEach((line, i) => {
 });
 
 let failed = false;
+
+// Qt Creator's manifest editor also writes package="" into the <manifest> element when it
+// opens the file. The gradle build refuses a package attribute (the namespace lives in
+// build.gradle), so Olav removes it by hand in the source view. Say so before the build does.
+const manifestTag = text.match(/<manifest\b[^>]*>/);
+if (manifestTag && /\spackage\s*=/.test(manifestTag[0])) {
+    console.log('PACKAGE ATTRIBUTE on <manifest>: remove package="..." - Qt Creator\'s editor adds it');
+    failed = true;
+}
+
 for (const [key, lines] of seen) {
     if (lines.length > 1) {
         const [scope, tag, name] = key.split("|");
@@ -58,9 +69,10 @@ for (const [key, lines] of seen) {
     }
 }
 
-if (failed) {
+if (failed && [...seen.values()].some(l => l.length > 1)) {
     console.log("\nIf the duplicate is android.app.splash_screen_drawable, Qt Creator's manifest editor wrote it.");
     console.log("Keep one line and delete the rest; the value is the same in every copy.");
-    process.exit(1);
 }
+if (failed)
+    process.exit(1);
 console.log(`manifest check: ${seen.size} declarations, no duplicates`);
