@@ -606,8 +606,8 @@ WaterFall {
                 if (pulseRuntimeSettings.is2DTransducer && !pulseRuntimeSettings.echogramPause) {
                     // 1) compute horizontal “ratio”
                     var hRatio = (pinch.scale - pinch.previousScale) * 50;
-                    // 2) fraction of the speed range - 1.0 up to pulseSettings.echogramSpeedMax
-                    var speedMax = pulseSettings.echogramSpeedMax
+                    // 2) fraction of the speed range - 1.0 up to pulseRuntimeSettings.echogramSpeedMax
+                    var speedMax = pulseRuntimeSettings.echogramSpeedMax
                     var deltaS = (hRatio * 0.01) * (speedMax - 1.0);
                     // 3) apply, clamp, round
                     //var raw     = pulseRuntimeSettings.echogramSpeed + deltaS;

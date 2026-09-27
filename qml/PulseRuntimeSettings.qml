@@ -468,6 +468,11 @@ QtObject {
     property double hysterisisThreshold:    0.1     // resolution hysterisis for dynamic resolution
     property int    requiredStableReading:  3       // resolution shift count threshold
     property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
+    //THE 2D ECHOGRAM SPEED CEILING, named once (Olav, 27 Sept: 2.5). Above it a screen
+    //holds too little history to read. The pinch, the settings row, the classic selector
+    //and PulseSettings' start-up clamp all read this. Here and not on PulseSettings,
+    //because every property of a Settings object is persisted.
+    readonly property double echogramSpeedMax: 2.5
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
     property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
     property int    echogramCompensationFile:0      // 0 raw, 1 side scan AGC, 2 PULSE 2D TVG, 3 side scan TVG, 4 upstream TGC ramp

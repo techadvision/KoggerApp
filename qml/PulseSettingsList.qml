@@ -229,7 +229,7 @@ Item {
                 label: qsTr("2D echogram speed")
                 hint:  qsTr("stretches the picture, it does not ping faster")
                 minValue: 10
-                maxValue: Math.round((pulseSettings ? pulseSettings.echogramSpeedMax : 2.5) * 10)
+                maxValue: Math.round((pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeedMax : 2.5) * 10)
                 stepSize: 1
                 value: Math.round((pulseSettings ? pulseSettings.echogramSpeed : 1) * 10)
                 valueText: ((pulseSettings ? pulseSettings.echogramSpeed : 1)).toFixed(1) + "\u00D7"

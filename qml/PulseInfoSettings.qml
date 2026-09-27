@@ -187,7 +187,7 @@ Flickable {
                 //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
                 //only on a real user step. See HorizontalControllerDoubleSettings.
                 emitOnUserActionOnly: true
-                //PULSE 2026-09-27: capped at pulseSettings.echogramSpeedMax (2.5)
+                //PULSE 2026-09-27: capped at pulseRuntimeSettings.echogramSpeedMax (2.5)
                 values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
                     2.0, 2.1, 2.2, 2.3, 2.4, 2.5]
                 height: 80
