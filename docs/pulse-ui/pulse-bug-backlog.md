@@ -1738,3 +1738,13 @@ applyViewId removal cannot be exercised directly; nothing misbehaves.
 deeper and shallower, within about a third of a second of each change. Let it loop: the range must
 come back to the start depth rather than holding the end. Live red on the water must behave as
 before.
+
+- **`7b86ef0a` — automatic range and the second echo.** Olav: users who turn on *Optimise for a
+  second echo* want automatic range to show the first two echoes. The code doubled only the
+  **dynamic resolution** (what the transducer samples, `2 x depth + margin`); the **display
+  level** followed the single depth everywhere, live included. It now takes `2 x depth` when the
+  preference is on and the picture is 2D, in every mode. The preference is the user's, so nothing
+  is read from the log. **To check:** red simulation, automatic on, toggle the preference — the
+  range roughly doubles and the second echo comes into view; toggle off and it returns. On the
+  water, confirm it did not already look doubled before this build (if it did, the doubling
+  exists somewhere this reading missed and the factor must come out again).
