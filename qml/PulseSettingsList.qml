@@ -131,6 +131,9 @@ Item {
     readonly property bool offersSecondEcho: offers && offers.doubleEchoOptimize === true
     readonly property bool offersWidth:      offers && offers.scanWidthMeters === true
     readonly property bool offersTemp:       pulseRuntimeSettings ? pulseRuntimeSettings.useTemperature : false
+    // ABSENT, not dashed, without an autopilot - the list's own rule. The speed comes from
+    // MAVLink's GLOBAL_POSITION_INT and nothing else supplies it.
+    readonly property bool offersBoatSpeed:  pulseRuntimeSettings ? pulseRuntimeSettings.mavlinkDetected : false
 
     readonly property bool offersMounting:   offers && offers.sideScanMounting === true
     readonly property bool offersMtw:        offers && offers.nmeaMtw === true
@@ -338,6 +341,42 @@ Item {
 
                 onChosen: function (v) {
                     list.settingChanged("persistent", "useMetricTemperature", v)
+                }
+            },
+
+            // THE SPEED GAUGE, 27 Sept - asked for by the professional dealer. Same pair of
+            // rows as the temperature: a switch, and the unit under it only while it is on.
+            PulseSwitchRow {
+                width: screenGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offersBoatSpeed
+                uiScale: list.uiScale
+
+                label: qsTr("Display boat speed on screen")
+                hint:  qsTr("from the autopilot")
+                checked: pulseSettings ? pulseSettings.showSpeedInUi : false
+
+                onToggled: function (v) {
+                    list.settingChanged("persistent", "showSpeedInUi", v)
+                }
+            },
+
+            PulseSegmentRow {
+                width: screenGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offersBoatSpeed
+                         && (pulseSettings ? pulseSettings.showSpeedInUi : false)
+                uiScale: list.uiScale
+
+                label: qsTr("Speed in")
+                options: [ { value: "ms",  title: qsTr("m/s") },
+                           { value: "kmh", title: qsTr("km/h") },
+                           { value: "kn",  title: qsTr("knots") },
+                           { value: "mph", title: qsTr("mph") } ]
+                current: pulseSettings ? pulseSettings.speedUnit : "kmh"
+
+                onChosen: function (v) {
+                    list.settingChanged("persistent", "speedUnit", v)
                 }
             },
 

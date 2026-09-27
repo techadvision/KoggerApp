@@ -80,6 +80,10 @@ Settings {
     property bool   useMetricDepth:             true  //Metric split for depth and temperature
     property bool   useMetricTemperature:       true  //Metric split for depth and temperature
     property bool   showTemperatureInUi:        true
+    //THE SPEED GAUGE, 27 Sept - the autopilot's ground speed under depth and temperature.
+    //Unit is one of "ms", "kmh", "kn", "mph"; PulseDepthReadout converts from m/s.
+    property bool   showSpeedInUi:              true
+    property string speedUnit:                  "kmh"
     property int    colorMapIndexSideScan:      0
     property int    colorMapIndex2D:            0
     property int    colorMapIndexReal:          0

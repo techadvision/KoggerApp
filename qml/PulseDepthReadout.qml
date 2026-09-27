@@ -80,11 +80,49 @@ Item {
         && (pulseRuntimeSettings ? pulseRuntimeSettings.pulseBetaName === "..." : false)
         && (pulseSettings ? pulseSettings.showTemperatureInUi : false)
 
+    // THE SPEED LINE, 27 Sept. The autopilot's horizontal ground speed, which
+    // DeviceManager reduces from GLOBAL_POSITION_INT's vx/vy (cm/s) to m/s and publishes as
+    // deviceManagerWrapper.vruVelocityH. Shown only where there is an autopilot to say it -
+    // the settings rows are absent without one, and so is this line.
+    readonly property bool showSpeed:
+        (pulseRuntimeSettings ? pulseRuntimeSettings.mavlinkDetected : false)
+        && (pulseSettings ? pulseSettings.showSpeedInUi : false)
+    readonly property string speedUnit: pulseSettings ? pulseSettings.speedUnit : "kmh"
+    readonly property string speedUnitText:
+          speedUnit === "ms"  ? "m/s"
+        : speedUnit === "kn"  ? "kn"
+        : speedUnit === "mph" ? "mph"
+        :                       "km/h"
+
+    // A LAST VALUE IS NOT A SPEED. vruVelocityH keeps whatever the autopilot said last, so
+    // a lost MAVLink link would freeze the number on screen. Three seconds without a
+    // velocity update and the line says "-.-" instead.
+    property double lastSpeedMs: 0
+
+    Connections {
+        target: (typeof deviceManagerWrapper !== "undefined") ? deviceManagerWrapper : null
+        function onVruChanged() { readout.lastSpeedMs = Date.now() }
+    }
+
     // ONE WRITER EACH, NO BINDING ON EITHER. The engine's key changes at the ping rate;
     // reading it straight into the text would make the last digit unreadable. Classic damps
     // it at 250 ms and 1 s and that is the behaviour being kept, not a new idea.
     property string depthShown: "-.-"
     property string tempShown:  "-.-"
+    property string speedShown: "-.-"
+
+    function _formatSpeed() {
+        if (typeof deviceManagerWrapper === "undefined" || !deviceManagerWrapper)
+            return "-.-"
+        var v = deviceManagerWrapper.vruVelocityH
+        if (!Number.isFinite(v) || Date.now() - lastSpeedMs > 3000)
+            return "-.-"
+        var k = speedUnit === "ms"  ? 1.0
+              : speedUnit === "kn"  ? 1.943844
+              : speedUnit === "mph" ? 2.236936
+              :                       3.6
+        return (v * k).toFixed(1)
+    }
 
     function _formatDepth() {
         var m = pulseRuntimeSettings ? pulseRuntimeSettings.depthMeters : 0
@@ -114,6 +152,16 @@ Item {
         onTriggered: readout.tempShown = readout._formatTemp()
     }
 
+    // Damped like the temperature: a ground speed from GNSS moves in the first decimal at
+    // the fix rate, and a number that flickers cannot be read.
+    Timer {
+        interval: 500
+        running: readout.showSpeed
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: readout.speedShown = readout._formatSpeed()
+    }
+
     // ---- Where the block sits ------------------------------------------------
     //
     // The whole flow rule, in one number. Top of the picture when it flows sideways, foot
@@ -121,6 +169,7 @@ Item {
     // edge.
     readonly property real blockHeight:
         depthLine.height + (showTemp ? lineGap + tempLine.height : 0)
+                         + (showSpeed ? lineGap + speedLine.height : 0)
 
     readonly property real blockY:
         displayIs2D ? (topInset + edgeGap)
@@ -227,6 +276,61 @@ Item {
             x: tempFrac.x + tempFrac.width + readout.unitGap
             anchors.baseline: tempWhole.baseline
             text: readout.metricTemp ? "°C" : "°F"
+            color: "#eaf1f8"
+            style: Text.Outline
+            styleColor: "black"
+            renderType: Text.NativeRendering
+            font.pixelSize: readout.fTempUnit
+        }
+    }
+    // ---- The speed line ------------------------------------------------------
+    //
+    // Under the temperature when it is shown, under the depth when it is not. Same weight
+    // and colour as the temperature: both are secondary to the depth.
+    Item {
+        id: speedLine
+
+        visible: readout.showSpeed
+        x: readout.blockX
+        y: readout.showTemp ? (tempLine.y + tempLine.height + readout.lineGap)
+                            : (depthLine.y + depthLine.height + readout.lineGap)
+        width:  speedUnitLabel.x + speedUnitLabel.width
+        height: speedWhole.height
+
+        Text {
+            id: speedWhole
+            x: 0
+            y: 0
+            text: readout.speedShown.split(".")[0] + "."
+            color: "#eaf1f8"
+            style: Text.Outline
+            styleColor: "black"
+            renderType: Text.NativeRendering
+            font.bold: true
+            font.pixelSize: readout.fTempInt
+        }
+
+        Text {
+            id: speedFrac
+            x: speedWhole.width
+            anchors.baseline: speedWhole.baseline
+            text: {
+                var parts = readout.speedShown.split(".")
+                return parts[1] ? parts[1] : ""
+            }
+            color: "#eaf1f8"
+            style: Text.Outline
+            styleColor: "black"
+            renderType: Text.NativeRendering
+            font.bold: true
+            font.pixelSize: readout.fTempDec
+        }
+
+        Text {
+            id: speedUnitLabel
+            x: speedFrac.x + speedFrac.width + readout.unitGap
+            anchors.baseline: speedWhole.baseline
+            text: readout.speedUnitText
             color: "#eaf1f8"
             style: Text.Outline
             styleColor: "black"
