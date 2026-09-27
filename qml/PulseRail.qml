@@ -87,6 +87,10 @@ Item {
 
     property bool paused: false
 
+    // WHETHER POSITIONS ARE ARRIVING NOW (live, demo, stream) or, for an opened file,
+    // whether the file carries any. main.qml derives it; the rail only wears it on Pause.
+    property bool positionsAvailable: false
+
     signal buttonActivated(string id)
     signal sourceActivated()
     signal collapseToggled()
@@ -249,6 +253,33 @@ Item {
         // line that replaces one line per button, of which exactly one was ever written.
         property string openGroup: rail.openGroup
 
+        // THE ORDER, from Olav 27 Sept: the three setters a user reaches for most first -
+        // max range, intensity, filter - then colours, cone/screen and pause. Record stays
+        // last of the group because it is the one that asks before it acts.
+        PulseRailButton {
+            uiScale: rail.uiScale
+            buttonId: "range"
+            label: "Max range"
+            iconSource: "./icons/ui/pulse_ruler.svg"
+            onActivated: rail.buttonActivated(buttonId)
+        }
+
+        PulseRailButton {
+            uiScale: rail.uiScale
+            buttonId: "intensity"
+            label: "Intensity"
+            iconSource: "./icons/ui/pulse_sun.svg"
+            onActivated: rail.buttonActivated(buttonId)
+        }
+
+        PulseRailButton {
+            uiScale: rail.uiScale
+            buttonId: "filter"
+            label: "Water body filter"
+            iconSource: "./icons/ui/pulse_filter.svg"
+            onActivated: rail.buttonActivated(buttonId)
+        }
+
         PulseRailButton {
             uiScale: rail.uiScale
             buttonId: "colours"
@@ -282,36 +313,17 @@ Item {
 
         PulseRailButton {
             uiScale: rail.uiScale
-            buttonId: "range"
-            label: "Max range"
-            iconSource: "./icons/ui/pulse_ruler.svg"
-            onActivated: rail.buttonActivated(buttonId)
-        }
-
-        PulseRailButton {
-            uiScale: rail.uiScale
-            buttonId: "intensity"
-            label: "Intensity"
-            iconSource: "./icons/ui/pulse_sun.svg"
-            onActivated: rail.buttonActivated(buttonId)
-        }
-
-        PulseRailButton {
-            uiScale: rail.uiScale
-            buttonId: "filter"
-            label: "Water body filter"
-            iconSource: "./icons/ui/pulse_filter.svg"
-            onActivated: rail.buttonActivated(buttonId)
-        }
-
-        PulseRailButton {
-            uiScale: rail.uiScale
             buttonId: "pause"
             label: "Pause and inspect"
             // Never true while the rail is showing - pausing replaces the rail with the
             // gutter - but the property is what a later "pause is pending" state would use,
             // and a button that cannot show its own state is a button to fix later.
             active: rail.paused
+            // POSITIONS ARE ARRIVING - the V1 UI made this button green on mavlinkDetected,
+            // which never went out again. This one follows the positions themselves, so a
+            // lost fix takes the mark away: at a glance, and on a customer's screenshot,
+            // it says whether a waypoint could be placed right now.
+            indicator: rail.positionsAvailable
             iconSource: "./icons/ui/pulse_play_pause.svg"
             onActivated: rail.buttonActivated(buttonId)
         }

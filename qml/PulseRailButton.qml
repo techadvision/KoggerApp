@@ -25,6 +25,11 @@ Item {
     // is on, the filter is not at zero. PENDING means "its panel is open".
     property bool   active:  false
 
+    // INDICATOR means "this control has what it needs to be useful" - a small green dot
+    // in the corner, the same green as the source button's "talking". Pause wears it while
+    // positions arrive. Separate from `active` so the two can never be confused.
+    property bool   indicator: false
+
     // PENDING IS DERIVED, NOT SET AT THE CALL SITE, and that is the whole of the fix for
     // "the rail says nothing about what is open". It was one line per button before, and
     // exactly one of eleven buttons carried it: Colours lit up and Cone, Max range,
@@ -72,6 +77,20 @@ Item {
         fillMode: Image.PreserveAspectFit
         smooth: true
         opacity: railButton.enabled ? 1.0 : 0.35
+    }
+
+    Rectangle {
+        visible: railButton.indicator
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin:  Math.round(7 * railButton.uiScale)
+        anchors.bottomMargin: Math.round(7 * railButton.uiScale)
+        width:  Math.round(10 * railButton.uiScale)
+        height: width
+        radius: width / 2
+        color: "#3ec46d"
+        border.width: 1
+        border.color: "#cc0f1317"
     }
 
     MouseArea {

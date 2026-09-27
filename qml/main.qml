@@ -2502,6 +2502,7 @@ ApplicationWindow  {
                 offersCone:  pulseRuntimeSettings ? pulseRuntimeSettings.offersConeChoice : false
 
                 recording: pulseRuntimeSettings ? pulseRuntimeSettings.isRecordingKlf : false
+                positionsAvailable: mainview.positionsAvailable
 
                 // THE CONDITION THE RECORDING TAB HAS ALWAYS USED, not isPresentingLog.
                 // A replay records as a confusing second-generation log; an opened file,
@@ -3977,6 +3978,43 @@ ApplicationWindow  {
                             "|", decider())
             pulseRuntimeSettings.numberOfDatasetChannels = channels
         }
+    }
+
+    // POSITIONS, NOW (27 Sept) - what the rail's Pause button wears. Two different
+    // questions depending on what is on screen, and both are "could a waypoint be placed":
+    //
+    //  - a feed (live, demo, stream): has a valid position ARRIVED in the last few seconds.
+    //    Freshness, not dataset.hasPositionData, because that flag is sticky - it is set by
+    //    the first fix and never cleared until the dataset is - and a lost fix must take
+    //    the mark away. The V1 UI's green used mavlinkDetected and had the same fault.
+    //  - an opened file: nothing arrives after the open, so freshness would always go out.
+    //    The question there is whether the file carries positions at all.
+    property bool   positionsFresh: false
+    readonly property bool positionsAvailable:
+        (pulseRuntimeSettings && pulseRuntimeSettings.wasKlfFileOpened
+         && !pulseRuntimeSettings.isInDemoMode)
+            ? (dataset ? dataset.hasPositionData : false)
+            : positionsFresh
+
+    onPositionsAvailableChanged: console.log("POSITION:", positionsAvailable ? "available" : "not available")
+
+    Connections {
+        target: dataset ? dataset : undefined
+        function onLastPositionChanged () {
+            if (!dataset.isBoatCoordinateValid)
+                return
+            mainview.positionsFresh = true
+            positionStaleTimer.restart()
+        }
+    }
+
+    // 3 s: a GNSS fix arrives at 1 to 10 Hz, so three missed seconds is a lost fix and not
+    // a slow one.
+    Timer {
+        id: positionStaleTimer
+        interval: 3000
+        repeat: false
+        onTriggered: mainview.positionsFresh = false
     }
 
     Connections {
