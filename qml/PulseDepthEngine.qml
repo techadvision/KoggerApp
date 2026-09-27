@@ -293,8 +293,19 @@ Item {
         const resolutionTracked = calculateDynamicResolution(currentDepth) === true
         if (!resolutionTracked)
             trackDisplayDepth(currentDepth)
-        let newLevel = calculateAutoLevel(resolutionTracked ? depthEngine.lastStableDepth
-                                                            : depthEngine.displayStableDepth);
+        // THE SECOND ECHO (27 Sept). A user who turns on "Optimise for a second echo" wants
+        // automatic range to show the first TWO echoes, and the second one sits at twice the
+        // depth. Until now only the dynamic resolution honoured it (candidateRes from
+        // 2 x depth in calculateDynamicResolution) - that sizes what the transducer SAMPLES,
+        // and the display level still followed the single depth, so the second echo was
+        // sampled and then ranged off the screen. The same doubling now reaches the display
+        // level, in every mode: live, simulation and file. It is the user's preference, not
+        // a property of the recording, so nothing has to be read from the log. 2D only - the
+        // same scope as the preference row and as automatic range itself.
+        const echoFactor = (pulseSettings && pulseSettings.doubleEchoOptimize
+                            && pulseRuntimeSettings.displayIs2DTransducer) ? 2 : 1
+        let newLevel = calculateAutoLevel(echoFactor * (resolutionTracked ? depthEngine.lastStableDepth
+                                                                          : depthEngine.displayStableDepth));
         if (newLevel !== depthEngine.autoLevel) {
             depthEngine.autoLevel = newLevel;
             if (pulseRuntimeSettings !== null) {
