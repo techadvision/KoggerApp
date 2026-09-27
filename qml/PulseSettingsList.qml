@@ -227,6 +227,50 @@ Item {
                 }
             },
 
+            // SPEED OF SOUND, 27 Sept - for everybody, not only experts, on Olav's call. The
+            // machinery was built on 14 Sept (soundSpeedOverride in PulseRuntimeSettings) and
+            // never given a row. RUNTIME by design: kept for the session, gone on restart,
+            // and it survives a device swap because it is a property of the water. It writes
+            // the override and never the bound value, so the profile keeps its say the moment
+            // the override is cleared.
+            //
+            // The transducer uses it for its own range calculation, so it reaches a LIVE
+            // device only; a recording carries the speed it was made with.
+            PulseSliderRow {
+                width: screenGroup.contentWidth
+                uiScale: list.uiScale
+                showNudges: true
+
+                label: qsTr("Speed of sound")
+                hint: (pulseRuntimeSettings && pulseRuntimeSettings.soundSpeedOverride > 0)
+                      ? qsTr("set by you for this session - the profile says %1 m/s")
+                            .arg(Math.round(pulseRuntimeSettings.committedProfile.soundSpeed / 1000))
+                      : qsTr("the profile's value - fresh water is about 1480, sea water about 1500 to 1540")
+                minValue: 1400
+                maxValue: 1600
+                stepSize: 1
+                value: pulseRuntimeSettings ? Math.round(pulseRuntimeSettings.soundSpeed / 1000) : 1480
+                valueText: (pulseRuntimeSettings ? Math.round(pulseRuntimeSettings.soundSpeed / 1000) : 1480)
+                           + " m/s"
+
+                onMoved: function (v) {
+                    list.settingChanged("runtime", "soundSpeedOverride", Math.round(v) * 1000)
+                }
+            },
+
+            PulseActionRow {
+                width: screenGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: pulseRuntimeSettings ? pulseRuntimeSettings.soundSpeedOverride > 0 : false
+                uiScale: list.uiScale
+
+                label: qsTr("Speed of sound back to the profile")
+                hint:  qsTr("forgets the value set above")
+                actionText: qsTr("Reset")
+
+                onActivated: list.settingChanged("runtime", "soundSpeedOverride", 0)
+            },
+
             // THE SWATH, which is also the side scan's true range ceiling - backlog item
             // 11 reads this same key for the max-range slider, so the two cannot drift.
             PulseSegmentRow {
