@@ -289,16 +289,24 @@ QtObject {
     property bool   deviceSwapAutomatic:    false   // expert: swap without asking
     readonly property bool deviceSwapPending: pendingSwapToModel !== ""
 
-    function requestDeviceSwap(fromModel, toModel) {
+    //A DEMO CAN ASK TOO (27 Sept), on Olav's answer: a blue simulation started over a
+    //committed red now asks "Switch to PULSE blue" exactly as opening a blue file does, so
+    //the two paths agree and the setup matches what is on screen. forDemo is the ONLY way
+    //past the demo guard - detection underneath a demo still cannot ask, because the links
+    //are closed and whatever it sees is the replay.
+    property bool   pendingSwapIsDemo:      false
+
+    function requestDeviceSwap(fromModel, toModel, forDemo) {
         if (toModel === "" || toModel === "..." || toModel === fromModel)
             return
         //Not a swap: nothing was committed yet. Let the caller commit normally.
         if (fromModel === "" || fromModel === "...")
             return
-        if (isInDemoMode) {
+        if (isInDemoMode && forDemo !== true) {
             console.log("DEV_SWAP: ignored, demo mode")
             return
         }
+        pendingSwapIsDemo = (forDemo === true)
         //A different device from the one that was refused: the refusal was about that one.
         if (declinedSwapToModel !== "" && declinedSwapToModel !== toModel)
             declinedSwapToModel = ""
@@ -321,11 +329,27 @@ QtObject {
     //device; committing it first would be undone a line later.
     function acceptDeviceSwap() {
         var target = pendingSwapToModel
+        var demo   = pendingSwapIsDemo
         pendingSwapFromModel = ""
         pendingSwapToModel   = ""
+        pendingSwapIsDemo    = false
         declinedSwapToModel  = ""
         if (target === "")
             return
+
+        //A DEMO'S SWAP IS A COMMIT AND NOTHING MORE. swapDeviceNow runs DeviceItem's full
+        //re-setup, which closes the log file and clears every setup state - under a running
+        //replay that would stall on "Configuring transducer..." with the links closed. The
+        //demo already marks its setup states done (setConfigStatesForDemo), so they are
+        //marked again for the new model, and exitDemoMode() puts userManualSetName back to
+        //"..." and re-detects when the demo stops - the real transducer still decides then.
+        if (demo) {
+            console.log("DEV_SWAP: accepted for the demo -> the app is set up as", target,
+                        "until the demo stops")
+            userManualSetName = target
+            setConfigStatesForDemo(true)
+            return
+        }
         console.log("DEV_SWAP: accepted -> re-running setup for", target)
         swapDeviceNow = true
         userManualSetName = target
@@ -333,7 +357,11 @@ QtObject {
 
     function declineDeviceSwap() {
         console.log("DEV_SWAP: declined", pendingSwapToModel, "- keeping", pendingSwapFromModel)
-        declinedSwapToModel  = pendingSwapToModel
+        //A refused DEMO swap says nothing about the hardware, so it must not stop a real
+        //transducer of that model from being offered later.
+        if (!pendingSwapIsDemo)
+            declinedSwapToModel  = pendingSwapToModel
+        pendingSwapIsDemo    = false
         pendingSwapFromModel = ""
         pendingSwapToModel   = ""
     }
@@ -1031,6 +1059,18 @@ QtObject {
 
         //AND THE PICTURE'S OWN SETTINGS, which a demo got none of before Group B.
         sourceChosen("demo")
+
+        //AND THE DEVICE QUESTION, the same one opening a file raises (27 Sept). Asked by
+        //PICTURE CLASS rather than by name: a red demo over a committed black, or a blue
+        //demo over a blue-IP, is the same kind of transducer and there is nothing to ask.
+        var committed = userManualSetName
+        var committedIsSideScan = (committed === modelPulseBlue || committed === modelPulseBlueIp)
+        if (committed !== "" && committed !== "..." && committedIsSideScan !== demoIsSideScan) {
+            var target = demoIsSideScan ? modelPulseBlue : modelPulseRed
+            console.log("DEMO: the replay is", modelDisplayName(target), "while set up as",
+                        modelDisplayName(committed), "- asking")
+            requestDeviceSwap(committed, target, true)
+        }
     }
 
     //STOPPING THE REPLAY WITHOUT COMING BACK TO THE TRANSDUCER.
@@ -1044,9 +1084,20 @@ QtObject {
     //userManualSetName, and raise the connection screen over the file that is loading.
     //So this is the other half on its own, and it is the mirror of what enterDemoMode
     //already does to a file view it is replacing.
+    //A DEMO'S QUESTION MUST NOT OUTLIVE THE DEMO. Called from both ways a demo ends.
+    function dropDemoSwapQuestion(why) {
+        if (!pendingSwapIsDemo)
+            return
+        console.log("DEV_SWAP: the demo's question is withdrawn -", why)
+        pendingSwapFromModel = ""
+        pendingSwapToModel   = ""
+        pendingSwapIsDemo    = false
+    }
+
     function stopDemoPlayback(why) {
         if (!isInDemoMode)
             return
+        dropDemoSwapQuestion(why)
         console.log("DEMO: stopping the replay -", why)
         core.stopDemo()
         isInDemoMode = false
@@ -1060,6 +1111,7 @@ QtObject {
             return
         }
         console.log("DEMO: leaving demo mode")
+        dropDemoSwapQuestion("the demo stopped")
 
         // No-op when core already stopped itself at end of file.
         core.stopDemo()
