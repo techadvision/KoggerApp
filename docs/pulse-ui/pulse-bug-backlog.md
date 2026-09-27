@@ -1870,6 +1870,39 @@ On a good start, in this order: `onCreate #1 in pid N`, `JNI_OnLoad entered` / `
 - **The pre-draw gate has no way out** if the insets never come. It is left as it is so the
   breadcrumbs can show whether it was ever the cause.
 
+#### The first device run of the breadcrumbs, 27 Sept evening
+
+**A good start prints every breadcrumb in the predicted order.** `first frame drawn after 0 held
+back`: on this tablet, the pre-draw gate never held a single frame.
+
+**`ProfileInstaller` comes LAST on a good start**, after `App is created` and `METRICS: settled`.
+It is the final app line of a successful start, not an early one. So the original report, a
+log that "ends at ProfileInstaller with no Qt line", **came from a process that had already
+started completely**. The Qt lines were missing from that view, not from the process. That
+supports Olav's suspicion of the dev environment: Qt Creator's output following a different pid
+from the one on screen.
+
+**The two failed runs were deaths, not hangs.** Qt Creator reported `Android target
+"org.techadvision.pulse" died`, and `pidof` returned nothing. So the process was gone and
+`kill -3` had nothing to read. **The tool for a death after the fact is
+`adb shell dumpsys activity exit-info org.techadvision.pulse`.** Android keeps the reason for
+each recent process end (crash, native crash, ANR, signal, killed by install, user request),
+with a timestamp. It needs no reproduction and nothing running.
+
+**Seen in the build log, not the cause:**
+- `link_manager_wrapper.cpp:267` — `getUuidFromString` returns `QUuid` and has no `return`.
+  That is undefined behaviour, but nothing calls the function (no C++ caller, no QML caller).
+  Worth a one-line commit of its own.
+- `installtoken.cpp` includes `"InstallToken.h"` and the file on disk is `installtoken.h`.
+  Harmless on macOS, which ignores case. A Linux or CI build would fail.
+
+**Session 2's first number arrived with this log**, from the tablet (1920 x 1200 device px):
+`METRICS: settled | window 2560x1600 logical | dpr 0.75 | … | raw 1.333 -> s 1.333 (not clamped)
+| resCoeff 1.5`. **The dpr is 0.75, a fraction**, so the tablet takes the FRACTIONAL branch of
+`qPlot2D::paint`'s `deviceScale_` test. Neither of the two outcomes P1 predicted (≈2.0 on both
+devices, or 1.75 / 1.0) has happened. The first `METRICS: startup` line (`427x607`, clamped) comes
+from before the landscape resize, as designed.
+
 #### The manifest, and what keeps adding the lines
 
 **Qt Creator's manifest editor adds one `splash_screen_drawable` line every time it saves.** The
