@@ -1790,6 +1790,96 @@ The `"main"` thread's stack is the answer. Also useful: `adb logcat -d -b all > 
 unfiltered buffer, not the app-only view), and whether `pulse.log` got a new
 `--- log opened` line for that start — if it did, `main()` ran and the hang is later than it looks.
 
+### Session 1, 27 Sept 2026 — `fix/startup-hang`, off master at 1.40
+
+**No hang log was available yet**, so this session read the start path end to end in Qt 6.8.3's
+own Java and C++ (`QtActivityBase`, `QtActivityDelegate`, `QtLoader`, `QtThread`,
+`androidjnimain.cpp`) and in `PulseActivity`. **No fix is committed for the hang. Nothing gets
+fixed until one hang has been captured.**
+
+| commit | what |
+|---|---|
+| `e4c259ce` | the manifest keeps one `splash_screen_drawable` line; `tools/pulse-manifest-check.js` |
+| `433a05f6` | `STARTUP:` breadcrumbs from the first line of `onCreate` to `main()` (logging only) |
+
+#### What the start path actually is, in Qt 6.8.3
+
+1. `PulseActivity.onCreate` → `super.onCreate` → `QtLoader.loadQtLibraries()`. **The libraries
+   are loaded on `qtMainLoopThread` while the UI thread waits** on a semaphore (`QtThread.run`).
+   libPulse's static constructors (`Core core`, `Themes theme`, …) and then our `JNI_OnLoad`
+   run in there.
+2. `QtActivityDelegate.startNativeApplicationImpl` **does not start `main()`**. It adds a
+   global-layout listener, and `main()` starts on the first layout.
+3. After that the window can draw. **Our pre-draw gate holds every frame until the insets
+   listener has run once.**
+
+**So "no splash and no Qt line" means the UI thread never drew.** Either it is blocked, or its
+frames are being cancelled. If `main()` alone were stuck, the window background, which *is* the
+splash drawable, would still draw. And **`ProfileInstaller` needs the main looper twice**, once
+for a frame callback and once for a ~1 s delayed message, so its line suggests the looper did
+run at some point in that pid.
+
+#### The leading candidate, and it can be checked with no build
+
+`QtActivityBase.onDestroy` calls `QtNative.terminateQt()`, which **waits for the native `main()`
+to return** and only then calls `System.exit(0)`. What would make `main()` return is Qt's
+suspend path, which only calls `QCoreApplication::quit()` when event loops are blocked while
+suspended. **Our manifest has `android.app.background_running=true`, which turns that off.** So
+when the activity is destroyed with the process still alive, nothing tells `app.exec()` to
+return. **The UI thread waits in `onDestroy` forever, and the process stays alive with its wake
+lock held.** The next tap on the icon goes to that same process, its main looper is blocked, and
+nothing is ever drawn. That matches what is seen on an ordinary start.
+
+The second route to the same place: an activity recreated in a live process makes Qt call
+`restartApplication()`, which does `startActivity` + `Runtime.exit(0)` **on the UI thread**. The
+exit runs libPulse's static destructors (`~Core` → `shutdownBackgroundWorkers`, which includes
+`BlockingQueuedConnection`) while `app.exec()` is still running.
+
+**Not yet explained by this:** the Qt Creator case. An install kills the process, so that start
+is a fresh one. It may be a second fault. The breadcrumbs cover both cases.
+
+**Check before tapping the icon, when the app seems closed:** `adb shell pidof
+org.techadvision.pulse`. **If there is a pid, the process is still alive, and a tap will land in
+it.** Then `kill -3` that pid: the `"main"` stack will show `terminateQt` / `sem_wait` under
+`onDestroy`, or `Runtime.exit`.
+
+#### What the breadcrumbs say (`adb logcat -d | grep STARTUP`)
+
+On a good start, in this order: `onCreate #1 in pid N`, `JNI_OnLoad entered` / `done`,
+`Qt libraries loaded`, `nativeInit -> true`, `onCreate returned`, `first insets delivered`,
+`first global layout`, `first frame drawn after K held back`, `main() entered`,
+`main() is running, the log handler is installed` (also the second line of `pulse.log`).
+**The last line printed is the step that did not finish.** Also:
+
+- **`onDestroy #…` as a pid's last line** → the wait described above.
+- **`onCreate #2` in one pid** → the process was reused. Qt then restarts the whole app.
+- **Nothing after `onCreate #1`** → stuck in library loading or in a static constructor
+  (these run before `JNI_OnLoad entered`).
+- **`first frame held back` with no `first frame drawn`** → the pre-draw gate, and the insets
+  never arrived.
+
+#### Noted, not changed
+
+- **`JNI_OnLoad` calls `hideSplashScreen(333)`**, so Qt's own splash overlay starts fading at
+  library load, before anything has drawn. What the user sees is the theme's window
+  background. Harmless, but pointless.
+- **`notifyInsets_native` posts to `qApp` before `main()` has built it.** The first insets
+  always arrive before `main()` starts (Qt starts it from the layout that follows them), and
+  `invokeMethod` returns false on a null receiver, so **the first insets are dropped**. Its
+  own commit if the top inset is ever wrong at startup.
+- **The pre-draw gate has no way out** if the insets never come. It is left as it is so the
+  breadcrumbs can show whether it was ever the cause.
+
+#### The manifest, and what keeps adding the lines
+
+**Qt Creator's manifest editor adds one `splash_screen_drawable` line every time it saves.** The
+history shows it one "Version update" commit at a time: 2 → 5 → 6 → 7. It also happened during
+this session: the file was rewritten with one new line about a minute after the fix was
+committed, while Qt Creator was open. **Seven identical copies are harmless** (Android keeps the
+last value) **and are not the hang.** Set the version in the XML source view or in a text
+editor, not in the manifest editor's form view, and run `node tools/pulse-manifest-check.js`
+after any change to the manifest.
+
 ### Emulators
 
 Qt Creator reads the same SDK's AVD folder as Android Studio, so AVDs made in Android Studio's
