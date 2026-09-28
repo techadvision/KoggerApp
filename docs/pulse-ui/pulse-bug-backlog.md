@@ -1766,9 +1766,9 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 | 1 | **The startup hang** (splash never shown) + the manifest's six duplicated `splash_screen_drawable` lines | `fix/startup-hang` off field-fixes | the stack of the hung main thread (below) |
 | 2 | ~~**Measure, do not fix**~~ **DONE 27–28 Sept**: see *Session 2* below. The two P1 fixes are not alternatives; both are needed | none | — |
 | 3 | ~~**Base scale, fonts and the loupe**~~ **DONE 28 Sept, `f7e97415` + `3c5b6408`, verified on five devices** (see *Session 3*): first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
-| 4 | **Layout on small screens**: ~~insets, scrollable rail, the tab, the brand~~ **built 28 Sept** (see *Session 4*); compact connection screen and Group E's split-pane walk still open | same branch | session 3 |
-| 5 | ~~**The mosaic is offered when none can be made**~~ **built 28 Sept, `83cf8e7a`** (see *Session 5, built*) | same branch | — |
-| 6 | **Finish the UI.** Session 4's remainder: the compact connection screen and Group E's split-pane walk (rail, panel, setup card, gutter, readout in a split). The split-direction question (side-by-side, or following the pane's aspect ratio) belongs here. | same branch | — |
+| 4 | ~~**Layout on small screens**: insets, scrollable rail, the tab, the brand~~ **DONE 28 Sept, verified on the G30 and the 320 phone** (see *Session 4*). Its remainder moved into session 6 | `feature/pulse-small-screens` | — |
+| 5 | ~~**The mosaic is offered when none can be made**~~ **DONE 28 Sept, `83cf8e7a`, verified.** Plus the mosaic view fixes (`38a2f662`, verified), Pause (`82296a2b`, verified; Wipe withdrawn), nadir fill off by default, TVG release defaults (`f853bae8`) | same branch | — |
+| 6 | **Finish the UI** - the breakdown is under *Session 6, the breakdown* below: 6a device checks owed, 6b split-pane walk, 6c split direction, 6d compact connection screen, 6e small UI leftovers | same branch | the next build |
 | 7 | **Side scan waypoints are BROKEN - and a desk check to prove the fix** (Olav, 28 Sept). **Only after the UI is complete.** First build the desk check: an expert switch that swaps the side scan between **460 and 820 kHz** and actually sends the command to the transducer, so waypoint placement can be verified at the desk against a map with contours and the SITL autopilot, with no trip to real water. Then find and fix the waypoint placement. | its own branch | session 6 |
 | 8 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
 | 9 | **Mosaic quality and tools** (Olav's list, 28 Sept; items 1-4 are done, `38a2f662`): **(a) Wipe and pause** - a pill on the mosaic to wipe what is drawn (the slide-in from shore and the drive out) and to pause/resume while the boat turns. **(b) The nadir fill** is not very successful yet, untested properly. **(c) Is the render slightly wrong?** An object moves about 1.5 m between passes in opposite directions with an M10 (about 0.5 m expected) and a well-tuned yaw; rule out our own geometry. **(d) KMZ export.** See *Mosaic, the later list* below. | its own branch | session 6 for (a) |
@@ -2635,6 +2635,68 @@ for autopilot passes. It fits into the same mask as one more rule in `excludes()
   ALONG the track means a latency; a shift ACROSS it means a heading or an offset.
 - **(d) KMZ export.** Users will ask for it. The tiles are already georeferenced, so a KMZ of
   `GroundOverlay`s (one per tile, or the mosaic resampled onto one image) is the natural format.
+
+### STATUS AT CLOSE, 28 Sept 2026 (evening)
+
+- **Branch `feature/pulse-small-screens`**, 23 commits ahead of `master`, **NOT PUSHED** (no
+  `origin/feature/pulse-small-screens`). `master` is 7 ahead of `origin/master`. Push both from GitHub
+  Desktop.
+- **Verified on a device today:** session 3 (five devices), session 4 (G30, 320 phone), session 5,
+  the mosaic view fixes 1-4, Pause.
+- **Built, not yet seen on a device:** `f853bae8` (Pause only, the TVG release defaults) and the moc fix
+  `9aea3203`. Nadir fill off by default (`a8996372`) was in the build Olav ran.
+
+### Session 6, the breakdown — FINISH THE UI
+
+In this order. 6a is checks only and should be run first on the next build. 6b-6d are the real work.
+
+- **6a. Checks owed from today (no code unless one fails).**
+  - The TVG release defaults are live: Expert → side scan TVG reads 0 / 7.5 / 0 / 10 / 0.9 on a fresh start.
+  - The mosaic pill shows **Pause only**.
+  - **Galaxy Tab Pro 8": is the dual side scan ruler still under the system bar?** It was probably
+    one of the two inset faults fixed in `4c919e0e`. Read the `INSETS:` lines.
+  - **The PULSE black card looked washed out** on the emulated 320 dpi tablet (session 2 finding).
+    Asset or a dimmed state; look at it on a real device first.
+- **6b. The split-pane walk (Group E's remainder).** Every surface that takes width or height from a pane,
+  walked in each split (side + down, side + mosaic, down + mosaic), on a tablet and on the 320 phone:
+  the rail, the panel, the setup card, the paused gutter, the depth readout and speed gauge, the pills
+  (demo/file pill against the mosaic pill), the connection screen over a split. Fix what overlaps or clips.
+  **Known and accepted:** the loupe's *Add waypoint* clips on the 320 phone in side + down.
+- **6c. The split direction.** Olav, 28 Sept: *"Is the decision to show side and down split horizontally the
+  best way to fix dual screens?"* On a landscape phone height is what there is least of. Options: a
+  side-by-side split, or a split that follows the pane's aspect ratio. **A decision for Olav first**:
+  draw the options, then build the one he picks. It goes before 6b's fixes if it changes the layout.
+- **6d. The compact connection screen.** The connection screen on the 320 phone and in a narrow split:
+  cards, the three source rows (Start a simulation / Stream a file / Open a file), the link strip. Make it
+  fit without scrolling where it can, and scroll cleanly where it cannot.
+- **6e. Small UI leftovers**, as time allows:
+  - Gesture-navigation devices give up their thin bottom inset from the loupe's room. Keep, or have the
+    Java side pass `tappableElement` separately.
+  - The rail scroll does not snap to half a button. Only if the fade and chevron prove not to be enough.
+  - The two base-scale laws (`UiMetrics` vs v2's `uiScale`) could merge; classic is in the blast radius.
+  - The forced-landscape deadline (P1 item 4): design the portrait/narrow case before Google forces it.
+
+**After 6:** session 7 (side scan waypoints, which start with the 460/820 desk check, only once the UI is
+complete), session 8 (the P4 list), session 9 (mosaic: wipe revisited, the nadir fill, the accuracy analysis, KMZ).
+
+### THE PROMPT FOR THE NEXT SESSION
+
+```
+We continue the Pulse Echo Sounder UI work (project "Modernize UI of the Pulse Echo Sounder
+app"). Repo: my KoggerApp folder, branch feature/pulse-small-screens (23 commits ahead of
+master, not pushed yet - remind me). Read claude/pulse-bug-backlog.md first: the section
+"STATUS AT CLOSE, 28 Sept 2026 (evening)" and "Session 6, the breakdown".
+
+Today is session 6, FINISH THE UI. Start with 6a: I will build and report the four checks.
+Then 6c before 6b: show me the options for the split direction (side-by-side, or following
+the pane's aspect ratio) as simple drawings, and let me choose before anything is built.
+Then 6b, the split-pane walk, and 6d, the compact connection screen. 6e only if time allows.
+
+Working rules as before: nothing is fixed before its log line is read when a diagnosis is
+uncertain; one idea per commit; Classic is not touched without cause; run moc on any
+changed header in the cloud shell (apt qt6-base-dev-tools) and the tools/pulse-*-check.js
+scripts before telling me to build; update the backlog in the repo AND the project doc.
+```
 
 ### Emulators
 
