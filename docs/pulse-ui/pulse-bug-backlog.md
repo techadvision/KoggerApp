@@ -2595,6 +2595,21 @@ turns the pill amber and it reads "Mosaic paused".
 **Not built, offered:** an **automatic pause on a turn**, from the yaw rate, is the hands-free version
 for autopilot passes. It fits into the same mask as one more rule in `excludes()`.
 
+#### Device report, and `9aea3203` + `f853bae8`
+
+- **`9aea3203`**: moc refused a `Q_PROPERTY` placed among the `Q_INVOKABLE`s in `core.h`
+  (`Parse error at ";"`). It moved to the top of the class. **moc now runs in the cloud shell**
+  (`/usr/lib/qt6/libexec/moc`, Qt 6.4, from apt `qt6-base-dev-tools`), so a changed header can be
+  checked before a build; `qt6-base-dev` gives QtCore headers for `-fsyntax-only` on plain files.
+- **Pause works "great". Wipe is withdrawn** from the pill: Olav, *"The wipe is unpredictable, I
+  struggled to get the rendering back."* `Core::mosaicWipe` and `MosaicMask::wipe` stay, for the
+  expert mosaic testing (session 9); restoring it is the pill Repeater's model. The likely suspect is
+  `resetProcessingPipeline` closing the tile database, which the check list above named as the risk.
+- **Side scan TVG release defaults** (runtime, so every start; the C++ constants agree): noise floor
+  subtraction **0.0** (was 0.1), spreading **7.5** (was 5), absorption **0.0**, reference range **10**
+  (was 15), detail boost **0.9** (was 1.2). No stored value exists for any of them, so every user gets
+  these from the first start of this build.
+
 ### Mosaic, the later list (session 9)
 
 - **(a) Wipe and pause — BUILT 28 Sept (`82296a2b`), see above.** The design as first written: Olav: *"If I could wipe, start, pause then
