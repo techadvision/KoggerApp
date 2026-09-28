@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window
+import Echo.UI 1.0
 
 // THE NEW PULSE UI - the edge-rail design decided on 11 Sept 2026.
 //
@@ -94,7 +95,7 @@ Item {
     function insetRight()  { return _hasInsets() ? Insets.right  : 0; }
 
     readonly property real shortSide: Math.min(Screen.width, Screen.height)
-    readonly property real s: Math.max(1.0, shortSide / 1100)
+    readonly property real s: Math.max(1.0, shortSide / 1100) * Ui.userScale   // = mainview.s
 
     // ---- Rule 1: which model answers which question -------------------------
     //

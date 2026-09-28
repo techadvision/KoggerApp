@@ -15,6 +15,13 @@ import WaterFall 1.0
 WaterFall {
     id: plot
 
+    // The ruler and the loupe read UiMetrics on every paint, so a changed Interface size (or
+    // window) needs one repaint - a paused picture would otherwise keep the old sizes.
+    Connections {
+        target: Ui
+        function onMetricsChanged() { plot.updatePlot() }
+    }
+
     property bool is3dVisible: false
     property int indx: 0
     property int instruments: instrumentsGradeList.currentIndex

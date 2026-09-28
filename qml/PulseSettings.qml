@@ -84,6 +84,11 @@ Settings {
     //Unit is one of "ms", "kmh", "kn", "mph"; PulseDepthReadout converts from m/s.
     property bool   showSpeedInUi:              true
     property string speedUnit:                  "kmh"
+    //INTERFACE SIZE, 28 Sept - the user's own factor on top of the size the screen gives,
+    //in percent: 90, 100, 115 or 130. main.qml hands it to Ui.userScale, which multiplies
+    //the ruler, the loupe and every v2 control. PERSISTED: it is how this person reads this
+    //screen, not a session experiment.
+    property int    interfaceSize:              100
     property int    colorMapIndexSideScan:      0
     property int    colorMapIndex2D:            0
     property int    colorMapIndexReal:          0

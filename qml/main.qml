@@ -28,7 +28,16 @@ ApplicationWindow  {
     readonly property real platformScale: _isAndroid ? 0.9 : 0.75
     //readonly property real s: Ui.scale * platformScale
     readonly property real shortSide: Math.min(Screen.width, Screen.height)
-    readonly property real s: Math.max(1.0, shortSide / 1100) // tune 800 to your “10-inch baseline”
+    // Times the user's Interface size (Ui.userScale). The same factor reaches the ruler and
+    // the loupe through UiMetrics::scale(), so one setting moves everything together.
+    readonly property real s: Math.max(1.0, shortSide / 1100) * Ui.userScale
+
+    // The persistent setting is the one writer of Ui.userScale.
+    Binding {
+        target: Ui
+        property: "userScale"
+        value: (pulseSettings && pulseSettings.interfaceSize > 0) ? pulseSettings.interfaceSize / 100 : 1.0
+    }
 
     function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
     // Safe accessors (0 on non-Android or when Insets missing)
@@ -644,7 +653,7 @@ ApplicationWindow  {
         var dpr = Screen.devicePixelRatio
         var shortSide = Math.min(Ui.windowWidth, Ui.windowHeight)
         var raw = shortSide / 1200
-        var clamped = (raw < 0.75) || (raw > 1.35)
+        var clamped = (raw < 1.0) || (raw > 1.35)   // the floor is 1.0 since session 3
         console.log("METRICS:", reason,
                     "| window", Ui.windowWidth + "x" + Ui.windowHeight, "logical",
                     "| dpr", dpr,
@@ -652,6 +661,7 @@ ApplicationWindow  {
                     Math.round(Screen.width * dpr) + "x" + Math.round(Screen.height * dpr), "device px",
                     "| short side", shortSide, "/ 1200 -> raw", raw.toFixed(3),
                     "-> s", Ui.scale, clamped ? "(CLAMPED)" : "(not clamped)",
+                    "| interface size", Ui.userScale, "| uiScale", mainview.s,
                     "| resCoeff", theme.resCoeff,
                     "| fontS", Ui.fontS, "fontM", Ui.fontM, "iconTouchSmall", Ui.iconTouchSmall)
     }

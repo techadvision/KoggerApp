@@ -62,13 +62,38 @@ qreal UiMetrics::computeScale() const
     qreal s = shortSide / qreal(refShortSide);
 
     // Clamp so things don't get crazy on very small/large windows.
-    const qreal minScale = 0.75;
+    //
+    // THE FLOOR IS 1.0, NOT 0.75 (session 3, 28 Sept 2026). s follows the LOGICAL short side,
+    // and an Android logical unit is close to physical (dpr = density x 0.5), so s measures
+    // how big the screen is. A floor below 1.0 made everything smaller in millimetres on a
+    // smaller screen: the phones sat at 0.75 and were reported hard to read on every one of
+    // them. 1.0 is also the floor the v2 QML's own uiScale has always had
+    // (Math.max(1.0, shortSide / 1100)), so the ruler and the loupe now stop shrinking where
+    // the rail and the panel already did. Measured in the backlog, "Session 2".
+    const qreal minScale = 1.0;
     const qreal maxScale = 1.35;
 
     if (s < minScale) s = minScale;
     if (s > maxScale) s = maxScale;
 
-    return s;
+    // The user's own factor comes after the clamp, so "larger" means larger on every device,
+    // the floor included.
+    return s * m_userScale;
+}
+
+qreal UiMetrics::userScale() const
+{
+    return m_userScale;
+}
+
+void UiMetrics::setUserScale(qreal f)
+{
+    f = qBound(0.8, f, 1.5);
+    if (qFuzzyCompare(1.0 + f, 1.0 + m_userScale))
+        return;
+
+    m_userScale = f;
+    emit metricsChanged();
 }
 
 qreal UiMetrics::scale() const

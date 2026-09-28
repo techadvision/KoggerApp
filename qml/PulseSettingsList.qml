@@ -211,6 +211,27 @@ Item {
             // from `parent` - see PulseSettingsGroup for both reasons.
             content: [
 
+            // INTERFACE SIZE, session 3. The screen gives a size (the short side, floored at
+            // 1.0); this is the person's own factor on top, for everybody. The G30 and the
+            // Galaxy Tab 8" sit at almost the same scale and were judged "very OK" and "too
+            // small" - no single curve can serve both, so the reader chooses.
+            PulseSegmentRow {
+                width: screenGroup.contentWidth
+                uiScale: list.uiScale
+
+                label: qsTr("Interface size")
+                hint:  qsTr("text, buttons, the ruler and the zoom box")
+                options: [ { value: 90,  title: qsTr("Small") },
+                           { value: 100, title: qsTr("Normal") },
+                           { value: 115, title: qsTr("Large") },
+                           { value: 130, title: qsTr("Larger") } ]
+                current: pulseSettings ? pulseSettings.interfaceSize : 100
+
+                onChosen: function (v) {
+                    list.settingChanged("persistent", "interfaceSize", v)
+                }
+            },
+
             // THE SPEED IS CARRIED AS TENTHS. The slider row is integer by design - a
             // stepped control with a named step is easier to hit than a continuous one -
             // and the echogram speed is 1.0 to 2.5 in tenths. Ten to twenty-five here, divided

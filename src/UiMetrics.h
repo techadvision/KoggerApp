@@ -12,8 +12,13 @@ class UiMetrics : public QObject
     Q_PROPERTY(int windowWidth  READ windowWidth  WRITE setWindowWidth  NOTIFY windowSizeChanged)
     Q_PROPERTY(int windowHeight READ windowHeight WRITE setWindowHeight NOTIFY windowSizeChanged)
 
-    // Overall scaling factor derived from window size
+    // Overall scaling factor derived from window size, times userScale
     Q_PROPERTY(qreal scale READ scale NOTIFY metricsChanged)
+
+    // THE USER'S "Interface size" (Screen & echogram), as a factor: 0.9, 1.0, 1.15, 1.3.
+    // Written from QML (main.qml binds it to pulseSettings.interfaceSize); multiplies scale()
+    // AFTER the window-size clamp, and the v2 roots multiply their own uiScale by it too.
+    Q_PROPERTY(qreal userScale READ userScale WRITE setUserScale NOTIFY metricsChanged)
 
     // Margins / spacing
     Q_PROPERTY(int marginXS READ marginXS NOTIFY metricsChanged)
@@ -52,6 +57,9 @@ public:
 
     qreal scale() const;
 
+    qreal userScale() const;
+    void setUserScale(qreal f);
+
     int marginXS() const;
     int marginS()  const;
     int marginM()  const;
@@ -77,6 +85,7 @@ private:
     static UiMetrics* s_instance;
     int m_windowWidth  = 1280;  // default / reference
     int m_windowHeight = 800;   // default / reference
+    qreal m_userScale  = 1.0;
 
     qreal computeScale() const;
 };
