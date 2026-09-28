@@ -2388,13 +2388,37 @@ What is read or tapped steps inside instead:
 - `PulseAppV2`'s bottom/right insets are real again. **The left is kept from `dcc7850a`**: with no
   rail or side gutter on that edge the panes start after a left-hand bar.
 
-**The G30 photo is still open on one question.** The loupe's buttons sat on the taskbar (the dock
+**The G30 photo was open on one question (ANSWERED, below: the inset was right, the photo predated `86abfc09`).** The loupe's buttons sat on the taskbar (the dock
 with the app icons and the back button), and the pane in that photo seemed to run to the screen
 bottom even on the `dcc7850a` build. That would fit if **the reported bottom inset is smaller than
 the visible taskbar**: Android reports a *transient* taskbar as a thin handle only. The pulse.log
 lines decide it: `INSETS: at startup … px -> logical …` and `INSETS: pane WxH logical lies under the
 bars by l r b`. If the bottom reads 0 or about 16–24 dp while the dock is about 48–60 dp, the fix is
 on the Java side (read the taskbar's height), not in the loupe.
+
+#### VERIFIED on the G30 and the 320 phone, 28 Sept — session 4 is closed
+
+Olav: *"For me this is great!"* The loupe stays above the G30's bottom bar and clear of the phone's
+right-hand bar, every button is reachable, and the crosshair can still be moved into the covered
+areas, so the whole screen is used.
+
+**The log answers the open question, and confirms the startup diagnosis:**
+
+```
+I/default : INSETS: 0 46 0 115 (l t r b, device px) held until the application exists
+I/default : INSETS: applied the insets held from before main() - 0 46 0 115
+D/qml     : INSETS: at startup l t r b 0 46 0 115 px -> logical 0 48 0 120 | dpr 0.95625
+D/default : INSETS: pane 1921x627 logical lies under the bars by l 0 r 0 b 115 canvas px
+```
+
+- **The first insets really were arriving before `main()`**, and until `4c919e0e` they were lost.
+  That was the G30's clipped PAUSED.
+- **115 px is the full taskbar** (60 dp at density 1.9125), so the insets were never under-reported
+  on the G30. The earlier photo came from before `86abfc09`. The Java side needs nothing.
+- The unit conversion is right: 115 px → 120 logical at dpr 0.956.
+- `pane 1921x627 … b 115`: the lower pane of the split, overlapped by exactly the bar.
+- **`pane 58x58 … b 95`** is a small `Plot2D` (a preview), not an echogram pane. Harmless; noted
+  so the line is not mistaken for a fault later.
 
 ### Session 5, redefined by Olav, 28 Sept: the mosaic is offered when none can be made
 
