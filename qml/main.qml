@@ -40,12 +40,35 @@ ApplicationWindow  {
     }
 
     function _hasInsets() { return _isAndroid && (typeof Insets !== "undefined"); }
-    // Safe accessors (0 on non-Android or when Insets missing)
-    function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top    : 0; }
-    function insetBottom() { return _hasInsets() ? Insets.bottom : 0; }
-    function insetLeft()   { return _hasInsets() ? Insets.left   : 0; }
-    function insetRight()  { return _hasInsets() ? Insets.right  : 0; }
-    function insetsIme()   { return _hasInsets() ? Insets.ime  : 0; }
+
+    // THE INSETS ARRIVE IN DEVICE PIXELS AND EVERYTHING HERE IS LAID OUT IN LOGICAL UNITS.
+    // Android's WindowInsets are px; Qt's logical unit on Android is px / dpr, and dpr is the
+    // device density x 0.5 (QT_SCALE_FACTOR). So a 48 dp button bar is 2 x 48 = 96 logical
+    // units on EVERY device, while the raw number was 72 on the Tab 10" (dpr 0.75), 92 on
+    // the G30 (0.956) and 135 on the S23 (1.406): too small below dpr 1, too large above it.
+    //
+    // The painter is the one reader that is right with the raw number - plot2D_grid works in
+    // device coordinates after resetTransform() - so InsetsHelper stays in px and the
+    // conversion happens here, once, for every QML reader.
+    function _lu(px) { return Math.round(px / Math.max(0.01, Screen.devicePixelRatio)) }
+
+    // Safe accessors (0 on non-Android or when Insets missing), in LOGICAL units
+    function insetTop()    { return _hasInsets() && Insets.dexEnabled ? _lu(Insets.top) : 0; }
+    function insetBottom() { return _hasInsets() ? _lu(Insets.bottom) : 0; }
+    function insetLeft()   { return _hasInsets() ? _lu(Insets.left)   : 0; }
+    function insetRight()  { return _hasInsets() ? _lu(Insets.right)  : 0; }
+    function insetsIme()   { return _hasInsets() ? _lu(Insets.ime)    : 0; }
+
+    // ONE LINE PER CHANGE, both units, so a device report can say which number was wrong.
+    Connections {
+        target: mainview._hasInsets() ? Insets : null
+        function onInsetsChanged() {
+            console.log("INSETS: l t r b", Insets.left, Insets.top, Insets.right, Insets.bottom,
+                        "px -> logical", mainview.insetLeft(), mainview._lu(Insets.top),
+                        mainview.insetRight(), mainview.insetBottom(),
+                        "| dpr", Screen.devicePixelRatio, "| DeX", Insets.dexEnabled)
+        }
+    }
 
     header: Item {
         Behavior on height { NumberAnimation { duration: 500 } }
@@ -679,6 +702,10 @@ ApplicationWindow  {
     }
 
     Component.onCompleted: {
+        if (_hasInsets())
+            console.log("INSETS: at startup l t r b", Insets.left, Insets.top, Insets.right, Insets.bottom,
+                        "px -> logical", insetLeft(), _lu(Insets.top), insetRight(), insetBottom(),
+                        "| dpr", Screen.devicePixelRatio)
         Ui.windowWidth = width
         Ui.windowHeight = height
         pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide

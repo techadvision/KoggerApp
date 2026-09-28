@@ -487,6 +487,14 @@ int main(int argc, char *argv[])
     if (ih->thread() != qApp->thread())
         ih->moveToThread(qApp->thread());
 
+    // THE INSETS THAT ARRIVED BEFORE qApp DID. Android delivers the first ones during
+    // onCreate/onResume, before Qt has started main(), and they used to be dropped.
+    if (ih->applyHeld())
+        qInfo("INSETS: applied the insets held from before main() - %d %d %d %d (l t r b, device px)",
+              ih->left(), ih->top(), ih->right(), ih->bottom());
+    else
+        qInfo("INSETS: nothing was held from before main()");
+
     // now expose it to QML as "Insets"
     engine.rootContext()->setContextProperty("Insets", ih);
 #endif

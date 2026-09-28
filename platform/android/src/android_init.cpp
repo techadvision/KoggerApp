@@ -120,6 +120,13 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved)
 
 static void notifyInsets_native(JNIEnv*, jclass, jint l, jint t, jint r, jint b, jint ime)
 {
+    // Always recorded, so main() can apply what arrived before qApp existed - see
+    // InsetsHelper::hold(). The queued set below is the path once the app is running.
+    InsetsHelper::hold(l, t, r, b, ime);
+    if (!qApp) {
+        qInfo("INSETS: %d %d %d %d (l t r b, device px) held until the application exists", l, t, r, b);
+        return;
+    }
     QMetaObject::invokeMethod(qApp, [=] {
         auto *ih = InsetsHelper::instance();
         if (ih->thread() != qApp->thread())
@@ -130,6 +137,9 @@ static void notifyInsets_native(JNIEnv*, jclass, jint l, jint t, jint r, jint b,
 
 static void notifyDexState_native(JNIEnv*, jclass, jboolean enabled, jboolean fullscreen)
 {
+    InsetsHelper::holdDex(enabled, fullscreen);
+    if (!qApp)
+        return;
     QMetaObject::invokeMethod(qApp, [=] {
         auto *ih = InsetsHelper::instance();
         if (ih->thread() != qApp->thread())

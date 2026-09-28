@@ -89,10 +89,13 @@ Item {
     // construction, and it is why nothing in this file needs the insets passed in.
     readonly property bool _isAndroid: Qt.platform.os === "android"
     function _hasInsets()  { return _isAndroid && (typeof Insets !== "undefined"); }
-    function insetTop()    { return _hasInsets() && Insets.dexEnabled ? Insets.top : 0; }
-    function insetBottom() { return _hasInsets() ? Insets.bottom : 0; }
-    function insetLeft()   { return _hasInsets() ? Insets.left   : 0; }
-    function insetRight()  { return _hasInsets() ? Insets.right  : 0; }
+    // Device px in, LOGICAL units out - the same conversion as main.qml's, for the same
+    // reason (see _lu there). Kept as a copy because this file cannot reach mainview.
+    function _lu(px)       { return Math.round(px / Math.max(0.01, Screen.devicePixelRatio)) }
+    function insetTop()    { return _hasInsets() && Insets.dexEnabled ? _lu(Insets.top) : 0; }
+    function insetBottom() { return _hasInsets() ? _lu(Insets.bottom) : 0; }
+    function insetLeft()   { return _hasInsets() ? _lu(Insets.left)   : 0; }
+    function insetRight()  { return _hasInsets() ? _lu(Insets.right)  : 0; }
 
     readonly property real shortSide: Math.min(Screen.width, Screen.height)
     readonly property real s: Math.max(1.0, shortSide / 1100) * Ui.userScale   // = mainview.s
