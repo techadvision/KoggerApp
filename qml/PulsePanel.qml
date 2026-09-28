@@ -73,6 +73,8 @@ Item {
     property var    screenEntries:   []
     property string screenCurrentId: ""
     property string screenCaption:   ""
+    property bool   screenMosaicChoosable: true
+    property string screenMosaicNote:      ""
 
     signal screenChosen(string id)
 
@@ -382,6 +384,8 @@ Item {
             entries:   panel.screenEntries
             currentId: panel.screenCurrentId
             caption:   panel.screenCaption
+            mosaicChoosable: panel.screenMosaicChoosable
+            mosaicNote:      panel.screenMosaicNote
 
             onChosen: function (id) { panel.screenChosen(id) }
         }

@@ -975,6 +975,8 @@ void Dataset::addAtt(float yaw, float pitch, float roll)
 
     if (isfinite(yaw) || isfinite(pitch) || isfinite(roll))
         markDataAvailable(hasAttitudeData_);
+    if (isfinite(yaw))
+        markDataAvailable(hasYawData_);
     emit attitudeAdded(lastIndx);
     emit dataUpdate();
 }
@@ -1137,6 +1139,10 @@ void Dataset::addArtificalYaw()
     lastAYaw_ = aYaw;
     lastAPitch_ = aPitch;
     lastARoll_ = aRoll;
+
+    // Only reached when a yaw WAS derived: every early return above is a case with no
+    // heading (fewer than two epochs, an invalid position, or no movement between them).
+    markDataAvailable(hasYawData_);
 
     interpolator_.interpolateArtificalAtt(false);
 

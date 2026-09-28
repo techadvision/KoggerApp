@@ -1391,13 +1391,16 @@ ApplicationWindow  {
                                || (screenEntry.bottom !== "" && screenEntry.bottom !== "mosaic"))
                             : true
 
-            // Toggle is only offered when the 3D/mosaic view is meaningful: a side-scan transducer
-            // is attached (NOT a 2D/downscan-only model) AND we have position data — live MAVLink
-            // (mavlinkDetected, same flag that greens the play/pause checkbox) OR a loaded log file
-            // (so file-replay testing still works). Relax this line for broader internal testing.
-            readonly property bool view3dToggleAvailable:
-                !pulseRuntimeSettings.is2DTransducer
-                && (pulseRuntimeSettings.mavlinkDetected || (core.filePath && core.filePath.length > 0))
+            // CAN THIS SOURCE MAKE A MOSAIC - one fact, kept on mainview (mosaicPossible) so the
+            // screen chooser, this pane and the Pause button's dot all read the same answer.
+            //
+            // THE OLD TEST NEVER ASKED THE RECORDING (session 5, 28 Sept). It was
+            // `!is2DTransducer && (mavlinkDetected || core.filePath)`: any opened file passed,
+            // mavlinkDetected is sticky so one file with MAVLink made every later source pass,
+            // and is2DTransducer is the COMMITTED device where every other screen question reads
+            // the display model. Olav: "it is the option to even select the mosaic when none can
+            // be made that is the problem ... There were never a UI error here."
+            readonly property bool view3dToggleAvailable: mainview.mosaicPossible
 
             // NO HANDLER. has3DView reads view3dToggleAvailable directly, so losing the fix
             // drops the mosaic and regaining it brings the mosaic back, both without anything
@@ -1496,9 +1499,9 @@ ApplicationWindow  {
                             "| screen", (screenEntry ? screenEntry.id : "(no entry)"),
                             "| wantsMosaic", wantsMosaic,
                             "| available", view3dToggleAvailable,
-                            "= committed is2D", pulseRuntimeSettings.is2DTransducer,
-                            "/ display is2D", pulseRuntimeSettings.displayIs2DTransducer,
-                            "| mavlink", pulseRuntimeSettings.mavlinkDetected,
+                            "= display is2D", pulseRuntimeSettings.displayIs2DTransducer,
+                            "/ positions", dataset ? dataset.hasPositionData : "(no dataset)",
+                            "/ heading", dataset ? dataset.hasYawData : "(no dataset)",
                             "| file", hasFile,
                             "| demo", pulseRuntimeSettings.isInDemoMode,
                             "-> has3DView", has3DView,
@@ -2965,6 +2968,11 @@ ApplicationWindow  {
                                  : ""
                 screenCaption: qsTr("What the screen shows. Side scan sits on top in every split.")
 
+                // THE MOSAIC LAYOUTS ARE SHOWN AND CANNOT BE CHOSEN when this source cannot make
+                // a mosaic - the cone chooser's treatment under a recording, 2cf5c267.
+                screenMosaicChoosable: mainview.mosaicPossible
+                screenMosaicNote: qsTr("This source has no position and heading, so no mosaic can be made. A mosaic layout you chose is kept and returns by itself when positions arrive.")
+
                 // A REAL TAP IS THE ONLY THING THAT WRITES THE PREFERENCE - classic's own
                 // rule, kept. Applying is what happens when the preference moves.
                 // ---- Max range ----------------------------------------------
@@ -4082,18 +4090,68 @@ ApplicationWindow  {
     readonly property bool positionsAvailable:
         (pulseRuntimeSettings && pulseRuntimeSettings.wasKlfFileOpened
          && !pulseRuntimeSettings.isInDemoMode)
-            ? (dataset ? dataset.hasPositionData : false)
+            ? sourceHasPositions
             : positionsFresh
 
     onPositionsAvailableChanged: console.log("POSITION:", positionsAvailable ? "available" : "not available")
 
+    // ── CAN THIS SOURCE MAKE A MOSAIC (session 5, 28 Sept 2026) ─────────────────────────
+    //
+    // A side scan picture AND positions AND a heading - the same three things
+    // MosaicProcessor needs to place an epoch (geoOk is posFinite && yawFinite). The heading
+    // is the AHRS yaw or the one derived from the track (Dataset::hasYawData).
+    //
+    // PER SOURCE, NOT PER RUN. Both flags live on the Dataset and are cleared by
+    // resetDataAvailability, which every route to a new source goes through - an open, a
+    // stream, a demo start and a demo loop all reset the dataset. So a file without positions
+    // after one with them answers false, and a live boat answers true from its first fix.
+    //
+    // ONE FACT, TWO CONSUMERS. The screen chooser disables the mosaic layouts on it, and the
+    // mosaic pane is shown on it. The Pause button's dot is the positions half: for an opened
+    // file it IS sourceHasPositions; for a feed it is the fresher "has one arrived in the last
+    // three seconds", because a lost fix must take the dot away while a mosaic already drawn
+    // stays worth looking at.
+    //
+    // THE PREFERENCE IS NEVER REWRITTEN (Olav, 28 Sept): the picture falls back and the
+    // preference waits. The one thing that has to be DONE rather than bound is Mosaic alone,
+    // which has no echogram mode of its own - see applyScreenId and the handler below.
+    readonly property bool sourceHasPositions: dataset ? dataset.hasPositionData : false
+    readonly property bool sourceHasHeading:   dataset ? dataset.hasYawData      : false
+    readonly property bool mosaicPossible:
+        !!pulseRuntimeSettings && !pulseRuntimeSettings.displayIs2DTransducer
+        && sourceHasPositions && sourceHasHeading
+
+    onMosaicPossibleChanged: {
+        console.log("MOSAIC:", mosaicPossible ? "possible" : "not possible",
+                    "| positions", sourceHasPositions, "| heading", sourceHasHeading,
+                    "| display is2D", pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : "?")
+        // MOSAIC ALONE FALLS BACK TO SIDE SCAN ALONE. Only on the way down: on the way up the
+        // mosaic pane simply appears over it, and nothing has to be put back.
+        if (!mosaicPossible && pulseSettings.uiVariant === "v2" && pulseRuntimeSettings
+                && pulseRuntimeSettings.offersScreenChoice) {
+            var e = pulseRuntimeSettings.screenForId(pulseSettings.screenViewId)
+            if (e && e.top === "mosaic" && e.bottom === "")
+                applyScreenId(pulseSettings.screenViewId)
+        }
+    }
+
     Connections {
         target: dataset ? dataset : undefined
         function onLastPositionChanged () {
-            if (!dataset.isBoatCoordinateValid)
+            // hasPositionData as well: resetDataset() ends by emitting lastPositionChanged
+            // with the previous boat coordinate still valid, which lit the dot for three
+            // seconds on a source that has no positions at all.
+            if (!dataset.isBoatCoordinateValid || !dataset.hasPositionData)
                 return
             mainview.positionsFresh = true
             positionStaleTimer.restart()
+        }
+        // A NEW SOURCE PUTS THE DOT OUT AT ONCE rather than after the three stale seconds.
+        function onDataAvailabilityChanged () {
+            if (!dataset.hasPositionData && mainview.positionsFresh) {
+                mainview.positionsFresh = false
+                positionStaleTimer.stop()
+            }
         }
     }
 
@@ -4633,6 +4691,13 @@ ApplicationWindow  {
         var firstMode = (e.top !== "mosaic")
                         ? e.top
                         : ((e.bottom !== "" && e.bottom !== "mosaic") ? e.bottom : "")
+
+        // MOSAIC ALONE, WITH NO MOSAIC TO SHOW, IS SIDE SCAN ALONE (Olav, 28 Sept). The pane
+        // layout already falls back - has2DView puts the echogram up - but with no mode the
+        // echogram kept whatever the previous layout left, which read as "nothing happens".
+        // The stored preference is not touched: when positions arrive the mosaic covers this.
+        if (firstMode === "" && !mainview.mosaicPossible)
+            firstMode = "side"
         var secondMode = (e.top !== "mosaic" && e.bottom !== "" && e.bottom !== "mosaic")
                          ? e.bottom
                          : ""

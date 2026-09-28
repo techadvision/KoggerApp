@@ -22,6 +22,15 @@ Item {
     property string currentId: ""
     property string caption:   ""
 
+    // THE MOSAIC LAYOUTS, WHEN THIS SOURCE CANNOT MAKE A MOSAIC (session 5, 28 Sept).
+    // Shown and not choosable - the cone chooser's rule under a recording (2cf5c267):
+    // absent is right when a device does not HAVE an ability; here it has it and the source
+    // does not feed it, so a row that vanished and returned would read as a bug. The rows
+    // drop to 0.45 and take no taps, and the note says why. A mosaic row that is the
+    // CURRENT preference keeps its mark: the preference is kept, and the note says that too.
+    property bool   mosaicChoosable: true
+    property string mosaicNote:      ""
+
     signal chosen(string id)
 
     implicitHeight: column.height
@@ -46,6 +55,16 @@ Item {
             bottomPadding: Math.round(4 * group.uiScale)
         }
 
+        Text {
+            visible: !group.mosaicChoosable && group.mosaicNote !== ""
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: group.mosaicNote
+            color: "#d8a21f"
+            font.pixelSize: Math.round(14 * group.uiScale)
+            bottomPadding: Math.round(4 * group.uiScale)
+        }
+
         // A 2D transducer needs none of this - there is one picture and no second pane to
         // offer - so the rail offers no Screen button at all and this list is never built.
         // An empty list here can therefore only mean the entry table went wrong.
@@ -66,6 +85,11 @@ Item {
                 id: row
 
                 readonly property bool isCurrent: modelData.id === group.currentId
+                readonly property bool isMosaic:  modelData.top === "mosaic"
+                                                  || (modelData.bottom !== undefined && modelData.bottom === "mosaic")
+                readonly property bool choosable: !isMosaic || group.mosaicChoosable
+
+                opacity: choosable ? 1.0 : 0.45
                 readonly property real pad: Math.round(14 * group.uiScale)
 
                 width: column.width
@@ -138,6 +162,7 @@ Item {
                 MouseArea {
                     id: rowArea
                     anchors.fill: parent
+                    enabled: row.choosable
                     onClicked: group.chosen(modelData.id)
                 }
             }

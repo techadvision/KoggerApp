@@ -132,6 +132,12 @@ public:
     Q_PROPERTY(bool hasDopplerBeamData READ hasDopplerBeamData NOTIFY dataAvailabilityChanged)
     Q_PROPERTY(bool hasDvlSolutionData READ hasDvlSolutionData NOTIFY dataAvailabilityChanged)
     Q_PROPERTY(bool hasPositionData    READ hasPositionData    NOTIFY dataAvailabilityChanged)
+    // A HEADING, from the attitude (AHRS yaw) or from the track (the artificial yaw
+    // addArtificalYaw derives from two positions that differ). The mosaic needs both a
+    // position and a heading for every epoch it places - MosaicProcessor's geoOk is exactly
+    // posFinite && yawFinite - so this is the second half of "can this source make a
+    // mosaic". Reset with the others, so it answers for the CURRENT source only.
+    Q_PROPERTY(bool hasYawData         READ hasYawData         NOTIFY dataAvailabilityChanged)
     Q_PROPERTY(bool hasUsblData        READ hasUsblData        NOTIFY dataAvailabilityChanged)
 
     /*methods*/
@@ -474,6 +480,7 @@ public:
     bool hasDopplerBeamData() const { return hasDopplerBeamData_; };
     bool hasDvlSolutionData() const { return hasDvlSolutionData_; };
     bool hasPositionData() const    { return hasPositionData_;    };
+    bool hasYawData() const         { return hasYawData_;         };
     bool hasUsblData() const        { return hasUsblData_;        };
 
 public slots:
@@ -628,12 +635,14 @@ protected:
     bool hasDopplerBeamData_ = false;
     bool hasDvlSolutionData_ = false;
     bool hasPositionData_    = false;
+    bool hasYawData_         = false;
     bool hasUsblData_        = false;
 
     void markDataAvailable(bool& flag) { if (!flag) { flag = true; emit dataAvailabilityChanged(); } }
     void resetDataAvailability() {
         hasChartData_ = hasRangefinderData_ = hasAttitudeData_ = hasTemperatureData_ = false;
         hasDopplerBeamData_ = hasDvlSolutionData_ = hasPositionData_ = hasUsblData_ = false;
+        hasYawData_ = false;
         emit dataAvailabilityChanged();
     }
 
