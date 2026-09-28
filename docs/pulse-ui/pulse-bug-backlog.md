@@ -2554,9 +2554,50 @@ from the last one, and the blue line moving from the first new ping. No purple l
 visibly smaller with a white edge on the golden mosaic and on the map. **Watch the loop pause:** the
 worker wait is bounded at 1.5 s, and it only happens if a mosaic job is running.
 
+**VERIFIED by Olav, 28 Sept:** the leftover tiles are gone, the purple path is gone, the scan line
+behaves predictably, and the boat icon is "much better".
+
+### Wipe and Pause, and the nadir fill off by default — 28 Sept 2026, not compiled
+
+| commit | what |
+|---|---|
+| `a8996372` | **the nadir fill is OFF by default.** Olav: better that the first version ships with the slight open area along the track than with the current fill. The expert row turns it on; it goes back on when it works |
+| `82296a2b` | **Wipe and Pause / Resume** on the mosaic |
+
+**How it works.** `MosaicMask` (new, `src/data_processor/mosaic_mask.{h,cpp}`, in `CMakeLists.txt`)
+keeps the user's choice as **epoch ranges**: a wipe excludes everything before now, and a pause excludes
+from the pause until the resume. `MosaicProcessor::updateData` refuses masked epochs on every path. That
+matters because tiles are rebuilt from the dataset whenever the view needs them again, so a plain clear
+would bring a wiped area back. **While paused the blue scan line still follows the boat.** A new source
+resets the mask (`resetRealtimeSessionState`). `Core::mosaicWipe()` masks up to now and runs the 3D
+toolbar's existing reset-processing path (mosaic, surface and isobaths plus their caches; **the bottom
+track is untouched**), then clears the render. `Core::mosaicSetPaused(bool)` and `core.mosaicPaused`.
+
+**The pill** (`PulseMosaicPill.qml`) sits at the top centre of the mosaic pane, only while the mosaic is
+shown. **Wipe asks once**: the first tap shows "Tap to wipe" for 3 s, and only a second tap wipes. Pause
+turns the pill amber and it reads "Mosaic paused".
+
+#### To check
+
+1. Demo or live with positions, mosaic on screen: **Wipe**, tap twice. The map empties, and the
+   mosaic carries on painting from the boat's position onward. `MOSAIC: wiped - wiped before N …`.
+2. **Zoom and pan after a wipe**, and use the mosaic update action if there is one to hand: **the wiped
+   area must not come back.** That is what the mask is for.
+3. **Pause** before a turn, **Resume** after it: nothing is painted in between, and the blue line keeps
+   moving with the boat throughout. The pill is amber while paused.
+4. **Wipe while paused**: the map empties and it stays paused.
+5. **A demo loop or a new file** resets both (`MOSAIC: the wipe and pause are reset - a new source`), and
+   the pill is back to "Mosaic".
+6. **The risk to watch:** after a wipe the pipeline reset also closes the tile database. If the mosaic
+   does **not** resume painting after a wipe, that is where to look (`resetProcessingPipeline`,
+   `closeDB`), and the fallback is to clear only the mosaic's own caches.
+
+**Not built, offered:** an **automatic pause on a turn**, from the yaw rate, is the hands-free version
+for autopilot passes. It fits into the same mask as one more rule in `excludes()`.
+
 ### Mosaic, the later list (session 9)
 
-- **(a) Wipe and pause — the design, for when it is built.** Olav: *"If I could wipe, start, pause then
+- **(a) Wipe and pause — BUILT 28 Sept (`82296a2b`), see above.** The design as first written: Olav: *"If I could wipe, start, pause then
   the resulting render could become amazing"*, and a 90° turn now smears about 35 m each side. **A
   plain clear is not enough**, because the mosaic re-traces from the dataset's epochs, so a wiped area
   would come back on the next re-trace. The shape that holds is **an epoch mask in `MosaicProcessor`**:
