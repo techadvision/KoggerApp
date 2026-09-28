@@ -1413,30 +1413,27 @@ ApplicationWindow  {
             // rail's own `inset`, so there is still no second mechanism to keep in step.
             readonly property real controlInset: mainview.pulseRailInset + mainview.pulsePanelInset
                                                  + paneLeftInset
-            readonly property real contentWidth: Math.max(0, width - controlInset - paneRightInset)
+            readonly property real contentWidth: Math.max(0, width - controlInset)
 
-            // ── THE V2 PANES STOP AT THE SYSTEM BARS (28 Sept 2026) ─────────────────────────
+            // ── THE V2 ECHOGRAM RUNS EDGE TO EDGE UNDER THE SYSTEM BARS (28 Sept 2026) ─────
             //
-            // The echogram used to run under the Android navigation bar, and everything that
-            // is drawn INSIDE a pane had to know that and step aside on its own. Most QML
-            // overlays did; the loupe, which is painted in C++, never could: on a Skydroid
-            // G30 with the three-button bar, Dismiss and Add waypoint sat more than halfway
-            // under it. The ruler's labels were only CLIPPED to the safe rectangle, not moved.
+            // Tried the other way first (dcc7850a): the panes stopped at the bottom and right
+            // bars. Safe, and Olav turned it down on the phone - with the button bar on the
+            // right it left a black band beside the ruler: "we waste valuable space ... it is
+            // also not a pure edge to edge look. There is rarely any need to press at the right
+            // hand side." So the picture goes under the bars again, and what the user reads or
+            // taps steps inside instead: QML overlays through their safe* insets as before, and
+            // the two things painted in C++ - the loupe and the ruler's labels - through
+            // Plot2D::systemBarOverlap, the part of each pane that is actually covered.
             //
-            // So the pane itself ends where the bar begins, and nothing inside it has to know
-            // there is a bar. The loupe's fit clamp already measures the pane, so it keeps its
-            // buttons on screen with no change of its own. Bottom, right, and left when no rail
-            // or side gutter already covers that edge (both include safeLeft in their width).
-            // The TOP stays full-bleed as before: insetTop() is 0 outside DeX by design.
-            //
-            // V2 ONLY. Classic's panes and its own inset handling are left exactly as shipped.
-            // plot2D_grid, which subtracted the insets itself, is told v2 owns them.
+            // THE LEFT EDGE IS THE ONE EXCEPTION, and it was the case before too: when no rail
+            // or side gutter covers it (collapsed rail, 2D foot gutter), the panes start after
+            // a left-hand bar rather than under it, because that is where the depth readout
+            // and the setup card are drawn. V2 only; classic is as shipped.
             readonly property bool paneOwnsInsets:  pulseSettings.uiVariant === "v2"
-            readonly property real paneBottomInset: paneOwnsInsets ? mainview.insetBottom() : 0
-            readonly property real paneRightInset:  paneOwnsInsets ? mainview.insetRight()  : 0
             readonly property real paneLeftInset:   (paneOwnsInsets && mainview.pulseRailInset === 0)
                                                     ? mainview.insetLeft() : 0
-            readonly property real paneHeight:      Math.max(0, height - paneBottomInset)
+            readonly property real paneHeight:      height
 
             // THE MOSAIC IS NOT ALWAYS POSSIBLE - it wants a side scan transducer and a
             // position - so availability is ANDed in here rather than checked at the point of
@@ -2381,13 +2378,7 @@ ApplicationWindow  {
                     // AND AT THE FOOT, for a 2D picture's paused gutter. Zero at every
                     // other moment, through the gutter's own binding - so there is no
                     // second mechanism deciding when the bottom is taken.
-                    //
-                    // LESS WHAT THE PANE ALREADY GAVE UP to the system bar. The foot gutter
-                    // runs to the screen edge and keeps its controls above safeBottom itself,
-                    // while the pane now stops at the bar - so only the gutter's height above
-                    // the bar is still to be taken here.
-                    anchors.bottomMargin: Math.max(0, mainview.pulsePausedFootInset
-                                                      - visualisationLayout.paneBottomInset)
+                    anchors.bottomMargin: mainview.pulsePausedFootInset
 
                     rows    : 2
                     columns : 1

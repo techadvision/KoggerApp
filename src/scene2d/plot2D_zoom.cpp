@@ -507,8 +507,15 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
     //
     // 60 px is the existing floor, kept. Below it the honest next step is a different
     // LAYOUT - the buttons beside the tile rather than beneath it - and not a smaller one.
-    const int availW = in.viewport.width()  - 2 * margin;
-    const int availH = in.viewport.height() - 2 * margin;
+    // THE ROOM IS THE PANE LESS WHAT LIES UNDER THE SYSTEM BARS (28 Sept 2026). The echogram
+    // runs under the navigation bar, edge to edge; the loupe's buttons must not. On a Skydroid
+    // G30 with the bottom button bar, Dismiss and Add waypoint sat more than halfway under it.
+    // Both the fit clamp and the placement clamp below measure against this, so the tile is
+    // what shrinks - the same rule as bf80ab02 - and the chrome stays above the bar.
+    const QRect room = in.viewport.adjusted(0, 0, -qMax(0, in.safeRightPx), -qMax(0, in.safeBottomPx));
+
+    const int availW = room.width()  - 2 * margin;
+    const int availH = room.height() - 2 * margin;
 
     for (int pass = 0; pass < 2; ++pass) {
         const int chromeH = headerH + gapS + gapM + (2 * rowH) + gapM
@@ -536,7 +543,7 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
     const int xShift = px(40);
     const int yShift = px(30);
 
-    const bool onTheRight = (in.viewport.width() - in.anchorPx.x() - (xShift + px(15))) < panelW;
+    const bool onTheRight = (room.width() - in.anchorPx.x() - (xShift + px(15))) < panelW;
     const bool placeAbove = (in.anchorPx.y() < panelH + (yShift + px(15)));
 
     QPoint topLeft;
@@ -548,10 +555,10 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
                              : QPoint(in.anchorPx.x() + xShift,          in.anchorPx.y() + yShift);
     }
 
-    topLeft.setX(clampi(topLeft.x(), in.viewport.left() + margin,
-                        qMax(in.viewport.left() + margin, in.viewport.right() - margin - panelW)));
-    topLeft.setY(clampi(topLeft.y(), in.viewport.top() + margin,
-                        qMax(in.viewport.top() + margin, in.viewport.bottom() - margin - panelH)));
+    topLeft.setX(clampi(topLeft.x(), room.left() + margin,
+                        qMax(room.left() + margin, room.right() - margin - panelW)));
+    topLeft.setY(clampi(topLeft.y(), room.top() + margin,
+                        qMax(room.top() + margin, room.bottom() - margin - panelH)));
 
     const QRect panelRect(topLeft, QSize(panelW, panelH));
 

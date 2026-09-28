@@ -93,15 +93,13 @@ Item {
     // reason (see _lu there). Kept as a copy because this file cannot reach mainview.
     function _lu(px)       { return Math.round(px / Math.max(0.01, Screen.devicePixelRatio)) }
     function insetTop()    { return _hasInsets() && Insets.dexEnabled ? _lu(Insets.top) : 0; }
-    // BOTTOM, LEFT AND RIGHT ARE ZERO IN HERE ON PURPOSE. This file is drawn inside a
-    // pane, and since 28 Sept the v2 panes stop at the system bars (main.qml,
-    // visualisationLayout.paneOwnsInsets) - so the bar is already outside this item, and
-    // adding it again would push the depth readout and its neighbours a bar's height away
-    // from the edge for nothing. The left edge was already double-counted before: the pane
-    // starts after the rail, and the rail's width includes safeLeft.
-    function insetBottom() { return 0; }
+    // THE LEFT IS ZERO ON PURPOSE: a v2 pane never starts under a left-hand bar - the rail
+    // or side gutter covers that edge and includes safeLeft in its width, or the pane is
+    // moved past the bar (main.qml, paneLeftInset). Bottom and right are real, because the
+    // echogram runs edge to edge under those bars and the overlays must step inside them.
+    function insetBottom() { return _hasInsets() ? _lu(Insets.bottom) : 0; }
     function insetLeft()   { return 0; }
-    function insetRight()  { return 0; }
+    function insetRight()  { return _hasInsets() ? _lu(Insets.right)  : 0; }
 
     readonly property real shortSide: Math.min(Screen.width, Screen.height)
     readonly property real s: Math.max(1.0, shortSide / 1100) * Ui.userScale   // = mainview.s

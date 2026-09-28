@@ -8,6 +8,7 @@
 #include <QPixmap>
 #include <QPainter>
 #include <QEvent>
+#include <QMargins>
 
 
 #include "plot2D_aim.h"
@@ -261,7 +262,20 @@ public:
     void setMosaicLOffset(float val);
     void setMosaicROffset(float val);
 
+    // HOW MUCH OF THIS PANE LIES UNDER THE SYSTEM BARS, in CANVAS px, per edge.
+    //
+    // The v2 echogram is drawn edge to edge, under the navigation bar - Olav, 28 Sept: the
+    // picture is the point, and there is rarely a reason to press at the far edge. What must
+    // NOT go under a bar is anything the user reads or taps: the loupe's buttons and the
+    // ruler's labels. Those are painted in C++ and cannot see QML's insets, and the old
+    // grid code assumed every pane touched the right and bottom edges of the screen, which a
+    // split pane does not. So qPlot2D::paint measures the real overlap of THIS pane with the
+    // bars on every frame, and the layers read it here. Zero wherever a pane does not reach
+    // a bar, and zero off Android.
+    QMargins systemBarOverlap() const { return systemBarOverlap_; }
+
 protected:
+    QMargins systemBarOverlap_;
     Canvas canvas_;
     DatasetCursor cursor_;
 

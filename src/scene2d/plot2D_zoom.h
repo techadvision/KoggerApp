@@ -39,6 +39,12 @@ public:
         // commit's job to move it. Drop the flag, and the classic path with it, once V2
         // is the only UI.
         bool           v2Style = false;
+
+        // THE PART OF THE PANE UNDER THE SYSTEM BARS, canvas px (Plot2D::systemBarOverlap).
+        // The v2 loupe fits and places itself in the viewport LESS these, so its buttons are
+        // always above a bottom bar and left of a right-hand one. Classic ignores them.
+        int            safeRightPx  = 0;
+        int            safeBottomPx = 0;
     };
 
     struct Output {

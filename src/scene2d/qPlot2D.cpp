@@ -142,6 +142,34 @@ void qPlot2D::paint(QPainter *painter)
         const int w = qRound(lw * deviceScale_);
         const int h = qRound(lh * deviceScale_);
 
+        // THE PANE'S OVERLAP WITH THE SYSTEM BARS, in canvas px (see Plot2D::systemBarOverlap).
+        // Insets are device px; the scene is logical, so px / dpr; the canvas is
+        // deviceScale_ px per logical unit. The top is left at 0: it only matters under DeX,
+        // and the DeX path below has its own handling.
+        {
+            QMargins overlap;
+#ifdef Q_OS_ANDROID
+            if (QQuickWindow* win = window()) {
+                const InsetsHelper* ih = InsetsHelper::instance();
+                const qreal d    = dpr > 0.01 ? dpr : 1.0;
+                const QPointF tl = mapToScene(QPointF(0, 0));
+                const QPointF br = mapToScene(QPointF(lw, lh));
+                const qreal winW = win->width();
+                const qreal winH = win->height();
+                const auto cpx = [this](qreal logical) { return qMax(0, qRound(logical * deviceScale_)); };
+                overlap.setLeft  (cpx((ih->left()   / d) - tl.x()));
+                overlap.setRight (cpx(br.x() - (winW - ih->right()  / d)));
+                overlap.setBottom(cpx(br.y() - (winH - ih->bottom() / d)));
+            }
+#endif
+            if (overlap != systemBarOverlap_) {
+                systemBarOverlap_ = overlap;
+                qDebug().noquote() << QStringLiteral("INSETS: pane %1x%2 logical lies under the bars by l %3 r %4 b %5 canvas px")
+                                      .arg(lw).arg(lh)
+                                      .arg(overlap.left()).arg(overlap.right()).arg(overlap.bottom());
+            }
+        }
+
         painter->save();
         if (deviceScale_ != 1.0)
             painter->scale(1.0 / deviceScale_, 1.0 / deviceScale_);

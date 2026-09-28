@@ -849,6 +849,8 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         zin.boxSizePx      = isUiVariantV2_ ? 320 : 250;
         zin.zoomFactor     = 3;
         zin.v2Style        = isUiVariantV2_;
+        zin.safeRightPx    = parent->systemBarOverlap().right();
+        zin.safeBottomPx   = parent->systemBarOverlap().bottom();
         zin.dirSide        = cand_.tapSide;
         zin.isDualSideScan = (isSideScan && !isSideScan2DView_);
         zin.isMetric       = isMetric_;
@@ -1285,6 +1287,8 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         zin.boxSizePx      = isUiVariantV2_ ? 320 : 250;
         zin.zoomFactor     = 3;
         zin.v2Style        = isUiVariantV2_;
+        zin.safeRightPx    = parent->systemBarOverlap().right();
+        zin.safeBottomPx   = parent->systemBarOverlap().bottom();
         zin.dirSide        = cand_.tapSide;
         zin.isDualSideScan = (isSideScan && !isSideScan2DView_);
         zin.isMetric       = isMetric_;

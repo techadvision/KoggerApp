@@ -157,12 +157,16 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
 #ifdef Q_OS_ANDROID
     // Pull current insets (right > 0 when 3-button bar is on the right in landscape)
-    // In v2 the pane already ends at the bars, so only the IME is still this layer's to
-    // avoid. The top is untouched: it only matters under DeX, and v2 does not move it.
-    const int insetLeft   = isUiVariantV2_ ? 0 : InsetsHelper::instance()->left();
+    // IN V2, THE PANE'S OWN OVERLAP WITH THE BARS (Plot2D::systemBarOverlap), not the
+    // screen's insets. The pane runs edge to edge under the bars, and the labels step inside
+    // by exactly the part of THIS pane that is covered - so a split's upper pane, which does
+    // not reach the bottom bar, no longer loses a bar's height of labels. Classic keeps the
+    // screen insets as shipped. The top is untouched: it only matters under DeX.
+    const QMargins bars   = parent ? parent->systemBarOverlap() : QMargins();
+    const int insetLeft   = isUiVariantV2_ ? bars.left()  : InsetsHelper::instance()->left();
     const int insetTop    = InsetsHelper::instance()->top();
-    const int insetRight  = isUiVariantV2_ ? 0 : InsetsHelper::instance()->right();
-    const int insetBottom = std::max(isUiVariantV2_ ? 0 : InsetsHelper::instance()->bottom(),
+    const int insetRight  = isUiVariantV2_ ? bars.right() : InsetsHelper::instance()->right();
+    const int insetBottom = std::max(isUiVariantV2_ ? bars.bottom() : InsetsHelper::instance()->bottom(),
                                      InsetsHelper::instance()->ime()); // lift above IME if visible
     const bool isDex      = InsetsHelper::instance()->dexEnabled();
 

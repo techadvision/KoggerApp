@@ -69,9 +69,8 @@ protected:
     // the settings bus sends PARTIAL maps, so one variable written by two keys ends up holding
     // whichever of them arrived last. Unset until the key is first seen, so a build or a
     // snapshot that does not carry it behaves exactly as before.
-    // THE V2 PANES STOP AT THE SYSTEM BARS (main.qml, paneOwnsInsets), so in v2 this layer
-    // must not subtract the left/right/bottom insets a second time. Classic keeps its
-    // full-bleed panes and this layer's own safe rectangle exactly as before.
+    // IN V2 this layer steps its labels in by the pane's own overlap with the system bars
+    // (Plot2D::systemBarOverlap) instead of by the screen's insets. Classic is as shipped.
     bool isUiVariantV2_ = false;
     bool displayIs2DTransducer_     = true;
     bool hasDisplayIs2DTransducer_  = false;
