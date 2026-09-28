@@ -1765,9 +1765,9 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 | 0 | **Push `feature/pulse-v2-field-fixes`**, publish 1.40 to internal test, push `master` (71 ahead of origin) | — | Olav, GitHub Desktop |
 | 1 | **The startup hang** (splash never shown) + the manifest's six duplicated `splash_screen_drawable` lines | `fix/startup-hang` off field-fixes | the stack of the hung main thread (below) |
 | 2 | ~~**Measure, do not fix**~~ **DONE 27–28 Sept**: see *Session 2* below. The two P1 fixes are not alternatives; both are needed | none | — |
-| 3 | ~~**Base scale, fonts and the loupe**~~ **BUILT 28 Sept, `f7e97415` + `3c5b6408`, awaiting a device build** (see *Session 3*): first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
+| 3 | ~~**Base scale, fonts and the loupe**~~ **DONE 28 Sept, `f7e97415` + `3c5b6408`, verified on five devices** (see *Session 3*): first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
 | 4 | **Layout on small screens**: scrollable rail, compact connection screen, Group E's split-pane walk | same branch | session 3 |
-| 5 | **Mosaic on the phone** — the `MOSAIC:` line (`262be7fe`) says which of three terms is false | same branch | one log line from the S23 |
+| 5 | **The mosaic is offered when none can be made** (redefined 28 Sept, see *Session 5* below): disable the mosaic layouts for a source with no position/yaw, demote a stored mosaic preference, and put the green dot out | same branch | two questions for Olav, in the section |
 | 6 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
 
 **Why the hang is first.** It happens outside Qt Creator too, and a customer who meets it
@@ -2267,6 +2267,21 @@ keeps the buttons.
    scrollable rail, not a regression: at Normal the rail is unchanged.
 8. **Classic on a phone:** its `Ui.*` rows are a third bigger (the floor). That is expected.
 
+#### Device report on session 3, 28 Sept — **VERIFIED on all five devices**
+
+Olav: *"Visual inspection on all 5 devices: Result is now good."*
+
+- **The loupe on the small (320 dpi) phone, in `split_side_down` only:** most of the "A" and the
+  "t" of *Add waypoint* are cut off, because the pane is short. It is fine in the down scan
+  and in the side scan + mosaic layouts. Olav: *"This is something I can live with."* The label
+  stays as it is.
+- **Asked for later, a design question rather than a bug:** *"Is the decision to show side and
+  down split horizontally the best way to fix dual screens?"* The clipped label is the evidence:
+  a side-above-down split halves the height, and on a landscape phone height is what there is
+  least of. The alternatives worth weighing when it comes up are a side-by-side (vertical)
+  split, and letting the split direction follow the pane's aspect ratio. Belongs with session
+  4's layout work or after it. **Not started.**
+
 #### Left for later, deliberately
 
 - **Two base-scale laws.** `UiMetrics` is short side / 1200 clamped to 1.0–1.35, and v2's
@@ -2277,6 +2292,64 @@ keeps the buttons.
 - **`resCoeff` is a constant 1.5 on Android**, so `renderScale()` never adapts (session 2).
   The aim's crosshair labels are drawn at 27 logical px everywhere and do not follow Interface
   size. They are small and fixed, so they are left as they are.
+
+### Session 5, redefined by Olav, 28 Sept: the mosaic is offered when none can be made
+
+**The mosaic works on every device.** Olav: *"the UI part is good, it is the option to even
+select the mosaic when none can be made that is the problem. Likely I was fooled by this. There
+were never a UI error here."* So the phone finding under P1 (item 1, *"no mosaic at all on the
+phone"*) was a **file without positions**, not a phone fault. The `MOSAIC:` instrument
+(`262be7fe`) is no longer needed to answer it.
+
+**Why testers ask "why is the mosaic not working".** `view3dToggleAvailable` is
+
+```
+!pulseRuntimeSettings.is2DTransducer
+&& (pulseRuntimeSettings.mavlinkDetected || (core.filePath && core.filePath.length > 0))
+```
+
+**It never asks whether the recording carries a position or a heading.** Any opened file
+passes the second term, and `mavlinkDetected` is sticky, so one file with MAVLink makes every
+later source "available". When it is not really available, `has2DView`'s fallback puts an
+echogram on screen instead, with the chooser row still marked, and that looks like a broken
+mosaic.
+
+#### What Olav asked for
+
+1. **When the source (a demo, an opened file or a streamed file) has no position AND yaw,
+   the mosaic layouts are shown but cannot be chosen.** That is the cone chooser's treatment
+   under a recording (`2cf5c267`): the rows stay visible, drop to 0.45 opacity, take no taps,
+   and a note above them says why.
+2. **A stored preference that includes the mosaic is changed** when a source without positions
+   is played:
+   - `split_down_mosaic` → **down**
+   - `split_side_mosaic` → **side**
+   - Olav: *"If he had mosaic and down then he should have his preference altered to down,
+     mosaic and side then preference altered to side."*
+3. **The Pause button's green dot must go out** when a file without positions follows one with
+   them. Today it stays green.
+
+#### Notes for whoever builds it
+
+- **One fact, two consumers.** *"This source can make a mosaic"* is: a side scan display model
+  AND positions AND yaw. The green dot is the positions half of the same fact. Both belong on
+  one property, so the dot and the chooser cannot disagree.
+- **The raw material exists.** `Dataset::probeMosaicEpochs()` already reports `posFinite` and
+  `yawFinite` per epoch. The file-side prescan (`ea5cf3d3`) and `demoPrescan` already read ahead
+  of rendering, so they are the natural place to answer the question before the first frame.
+- **`is2DTransducer` is the committed device.** Every other screen question reads the display
+  model (`displayIs2DTransducer`), so that term moves too.
+- **The dot's sticky source.** For an opened or streamed file it reads `dataset.hasPositionData`,
+  which is cleared only by `Dataset::resetRenderBuffers()` (`resetDataAvailability`). The first
+  thing to check is whether that runs between two files on every path: open, stream, demo and
+  a demo swap. The prediction is that one of them does not reset it.
+- **Two questions to settle with Olav before building:**
+  - **`single_mosaic`** (the mosaic alone) is not in his list. The shape of the other two says
+    **side**. Confirm.
+  - **"Altered" means the preference is rewritten**, so a later file *with* positions does not
+    bring the mosaic back by itself. Today's code does the opposite on purpose: `has3DView` ANDs
+    availability in, so the preference waits and returns with a fix. Take Olav's rule as given,
+    but confirm he wants the mosaic not to come back on its own.
 
 ### Emulators
 
