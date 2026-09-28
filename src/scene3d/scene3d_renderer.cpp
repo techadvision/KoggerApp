@@ -339,7 +339,11 @@ void GraphicsScene3dRenderer::drawObjects()
             float distance =  m_camera.distToFocusPoint();
             float perspFixFovRad = qDegreesToRadians(perspFixFov);
             float factor = 2.0f * distance * std::tan(perspFixFovRad * 0.5f) / m_viewSize.height();
-            float worldScale = factor * 7.f * scaleFactor_;
+            // 5, not 7 (28 Sept 2026): Olav, "the boat icon is a bit big". The cursor is 7
+            // model units tall, so this is 35 px on the desktop and 70 on Android (was 49 / 98)
+            // before the size setting multiplies it.
+            constexpr float kArrowPxPerUnit = 5.f;
+            float worldScale = factor * kArrowPxPerUnit * scaleFactor_;
             float navigationArrowSizeFactor = 1.0f;
             switch (qBound(1, navigationArrowRenderImpl_.getSize(), 5)) {
             case 1: navigationArrowSizeFactor = 1.0f; break;
@@ -350,6 +354,11 @@ void GraphicsScene3dRenderer::drawObjects()
             default: break;
             }
             nModel.scale(worldScale * navigationArrowSizeFactor);
+            // 2 screen px of white ring, in the model units this matrix scales by. On Android
+            // scaleFactor_ doubles everything else, so the ring doubles with it: the same
+            // proportion of the icon on every screen.
+            navigationArrowRenderImpl_.setOutlineUnits(
+                (2.0f * scaleFactor_) / (kArrowPxPerUnit * scaleFactor_ * navigationArrowSizeFactor));
             navigationArrowRenderImpl_.render(this, projection * view * nModel, m_shaderProgramMap);
 
             glDisable(GL_DEPTH_TEST);

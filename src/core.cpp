@@ -451,10 +451,30 @@ void Core::resetRealtimeSessionState()
 
     releasePlotCaches();
 
+    // THE OLD PASS MUST BE FINISHED BEFORE THE MAP IS WIPED (28 Sept 2026). Olav, on a demo
+    // loop: old tiles stay on the map and go "in two turns the first 5+ seconds", and the
+    // blue scan line is left at the end-of-file position. Both are the old pass's results
+    // arriving AFTER scene3dViewPtr_->clear():
+    //
+    //  - clearProcessing only REQUESTS a cancel, so a mosaic job already running in the
+    //    compute worker finishes and posts its tiles and trace lines anyway;
+    //  - those reach SurfaceView through queued connections that are never disconnected, so
+    //    anything already in the GUI thread's queue is delivered after the clear;
+    //  - a late trace line carries an end-of-file epoch index, and setTraceLines refuses every
+    //    line with a lower index - so the stale one froze for most of the next pass.
+    //
+    // So: suppress and WAIT for the worker (prepareForFileClose - what startDemo and the file
+    // close already do), then clear, then DELIVER whatever the old pass left queued for the
+    // surface, and clear the surface once more so none of it survives.
+    QMetaObject::invokeMethod(dataProcessor_, "prepareForFileClose", Qt::BlockingQueuedConnection, Q_ARG(int, 1500));
     QMetaObject::invokeMethod(dataProcessor_, "clearProcessing", Qt::BlockingQueuedConnection);
 
     if (scene3dViewPtr_) {
+        if (auto surface = scene3dViewPtr_->getSurfaceViewPtr())
+            QCoreApplication::sendPostedEvents(surface.get(), QEvent::MetaCall);
         scene3dViewPtr_->clear();
+        if (auto surface = scene3dViewPtr_->getSurfaceViewPtr())
+            surface->clear();
         scene3dViewPtr_->getNavigationArrowPtr()->resetPositionAndAngle();
     }
 }

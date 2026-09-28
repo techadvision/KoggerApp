@@ -2954,5 +2954,9 @@ void DataProcessor::onDbAnyTileForZoom(int zoom, bool exists)
 
 void DataProcessor::postTraceLines(const QVector3D &leftBeg, const QVector3D &leftEnd, const QVector3D &rightBeg, const QVector3D &rightEnd, int epochIndex)
 {
+    // The same gate postSurfaceTiles has: a trace line from a pass that is being torn down
+    // must not reach the map, where its end-of-file epoch index would block every new line.
+    if (suppressResults_.load())
+        return;
     emit sendTraceLines(leftBeg, leftEnd, rightBeg, rightEnd, epochIndex);
 }

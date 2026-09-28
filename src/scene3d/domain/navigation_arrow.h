@@ -27,8 +27,15 @@ public:
         float getAngle() const;
         int getSize() const;
 
+        // THE CONTRAST OUTLINE, in MODEL units, set by the renderer every frame from its own
+        // pixels-per-unit so the ring is a constant 2 screen px at any zoom (28 Sept 2026).
+        // Zero draws no outline.
+        void setOutlineUnits(float units) { outlineUnits_ = units; }
+
     private:
         friend class NavigationArrow;
+
+        float outlineUnits_ = 0.0f;
 
         QVector3D position_;
         float angle_ = 0.0f;

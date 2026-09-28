@@ -201,7 +201,8 @@ void BoatTrack::BoatTrackRenderImplementation::render(QOpenGLFunctions *ctx,
     if(!m_isVisible)
         return;
 
-    SceneObject::RenderImplementation::render(ctx, mvp, shaderProgramMap);
+    // THE DRIVEN PATH IS NOT DRAWN (28 Sept 2026). See the other overload.
+    Q_UNUSED(ctx); Q_UNUSED(mvp); Q_UNUSED(shaderProgramMap);
 }
 
 void BoatTrack::BoatTrackRenderImplementation::render(QOpenGLFunctions *ctx,
@@ -213,7 +214,13 @@ void BoatTrack::BoatTrackRenderImplementation::render(QOpenGLFunctions *ctx,
     if (!m_isVisible)
         return;
 
-    SceneObject::RenderImplementation::render(ctx, model, view, projection, shaderProgramMap);
+    // THE PURPLE DRIVEN PATH IS NOT DRAWN (28 Sept 2026). Olav: "I have no way to set options
+    // for it to show or not to show. We should not show it at all." Its only switch lives on
+    // the 3D toolbar that main.qml keeps hidden, and it read as unpredictable: the line is a
+    // GL_LINE_STRIP at width 6 through glLineWidth, which most GLES drivers clamp to 1 px,
+    // so over a mosaic it was sometimes visible and sometimes not. The DATA is kept - other
+    // layers and the selected-epoch mark below still use it - only the line is skipped.
+    // The red selected-epoch point (the loupe's position on the map) is still drawn.
 
     //------------->Drawing selected vertice<<---------------//
     if (boatTrackVertice_.isNull()) {

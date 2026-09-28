@@ -1,6 +1,7 @@
 #include "navigation_arrow.h"
 
 #include <QtMath>
+#include <QVector2D>
 #include <QtGlobal>
 #include <cmath>
 #include <draw_utils.h>
@@ -310,6 +311,56 @@ void NavigationArrow::NavigationArrowRenderImplementation::render(QOpenGLFunctio
 
     if ((qFuzzyIsNull(angle_) && position_.isNull()) || (!litShaderProgram && !lineShaderProgram)) {
         return;
+    }
+
+    // ── THE 2 PX CONTRAST RING (28 Sept 2026) ────────────────────────────────────────────
+    //
+    // Olav: the icon "would benefit with a 2 px line around it to create contrast with the
+    // background". The existing dark-green ribs sit ON the green fill and are drawn with
+    // glLineWidth(2), which most GLES drivers clamp to 1 px - so there was no edge against a
+    // dark mosaic at all. This is geometry instead of a wide line: the same cursor, offset
+    // outward by outlineUnits_ with true miters, drawn first in white.
+    //
+    // DEPTH TEST OFF FOR THE RING ONLY. The ring and the fill both lie at z = 0; with the
+    // test on, the fill drawn second at an equal depth would fail GL_LESS and vanish. With
+    // it off the ring writes no depth either, so the fill tests against the mosaic exactly
+    // as before.
+    if (!isBoat && outlineUnits_ > 0.0f && lineShaderProgram && lineShaderProgram->bind()) {
+        // The cursor's perimeter, CLOCKWISE seen from above: tip, starboard stern, notch,
+        // port stern. Must match makeArrowVertices().
+        const QVector2D poly[4] = { QVector2D( 0.0f,  4.0f), QVector2D( 2.6f, -3.0f),
+                                    QVector2D( 0.0f, -1.4f), QVector2D(-2.6f, -3.0f) };
+        QVector2D out[4];
+        for (int i = 0; i < 4; ++i) {
+            const QVector2D a = poly[(i + 3) % 4], v = poly[i], b = poly[(i + 1) % 4];
+            // Outward normals of the two edges meeting at v (clockwise: outward is (-dy, dx)).
+            const QVector2D e1 = (v - a).normalized(), e2 = (b - v).normalized();
+            const QVector2D n1(-e1.y(), e1.x()), n2(-e2.y(), e2.x());
+            // Exact miter: offset = (n1 + n2) * d / (1 + n1.n2), limited at the sharp tip.
+            const float denom = qMax(0.25f, 1.0f + QVector2D::dotProduct(n1, n2));
+            out[i] = v + (n1 + n2) * (outlineUnits_ / denom);
+        }
+        const QVector<QVector3D> ring = {
+            QVector3D(out[0], 0.0f), QVector3D(out[3], 0.0f), QVector3D(out[2], 0.0f),   // T L N
+            QVector3D(out[0], 0.0f), QVector3D(out[2], 0.0f), QVector3D(out[1], 0.0f)    // T N R
+        };
+
+        const GLboolean depthWasOn = ctx->glIsEnabled(GL_DEPTH_TEST);
+        ctx->glDisable(GL_DEPTH_TEST);
+
+        const int posLoc    = lineShaderProgram->attributeLocation("position");
+        const int colorLoc  = lineShaderProgram->uniformLocation("color");
+        const int matrixLoc = lineShaderProgram->uniformLocation("matrix");
+        lineShaderProgram->setUniformValue(matrixLoc, mvp);
+        lineShaderProgram->setUniformValue(colorLoc, DrawUtils::colorToVector4d(QColor(255, 255, 255)));
+        lineShaderProgram->enableAttributeArray(posLoc);
+        lineShaderProgram->setAttributeArray(posLoc, ring.constData());
+        ctx->glDrawArrays(GL_TRIANGLES, 0, ring.size());
+        lineShaderProgram->disableAttributeArray(posLoc);
+        lineShaderProgram->release();
+
+        if (depthWasOn)
+            ctx->glEnable(GL_DEPTH_TEST);
     }
 
     EffectiveShadowParams shadow;
