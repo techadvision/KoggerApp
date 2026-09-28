@@ -689,11 +689,14 @@ QtObject {
           sideScanTvgOverride === 1 ? true
         : sideScanTvgOverride === 2 ? false
         : (activeProfile !== undefined ? activeProfile.sideScanTvgEnabled : false)
-    property double sideScanTvgSpreading:    5      // S in dB/decade (field-tuned 2026-08-16; deeper water/chirp may want more)
-    property double sideScanTvgAbsorption:   0.0    // a in dB/m (field-tuned: 0 on 25 m ranges; matters for chirp long range)
-    property double sideScanTvgRefRange:     15     // gain = 1 at this range (m): near field keeps familiar brightness
-    property double sideScanTvgNoiseFloor:   0.1    // noise-floor subtraction strength 0..1 (0 = off; base level for partner testing 2026-08-17)
-    property double sideScanTvgBoost:        1.2    // detail boost beta (field-tuned: essential for crispness)
+    //THE RELEASE DEFAULTS, from Olav 28 Sept 2026: what users get in the first release of the
+    //new UI; the experts tune from here. Runtime, so every start begins with these. The C++
+    //constants in echogram_sidescan_tvg.h agree.
+    property double sideScanTvgSpreading:    7.5    // S in dB/decade (was 5, field-tuned 2026-08-16)
+    property double sideScanTvgAbsorption:   0.0    // a in dB/m (unchanged)
+    property double sideScanTvgRefRange:     10     // gain = 1 at this range (m) (was 15)
+    property double sideScanTvgNoiseFloor:   0.0    // noise-floor subtraction strength 0..1, 0 = off (was 0.1)
+    property double sideScanTvgBoost:        0.9    // detail boost beta (was 1.2)
     //THE MOSAIC'S GAIN LAW, and it is PROFILE DATA for the same reason the waterfall's is.
     //
     //It was a bare `false`, buried in the expert tier, and that is the whole of the defect

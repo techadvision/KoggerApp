@@ -1,6 +1,7 @@
 import QtQuick 2.15
 
-// THE MOSAIC PILL (28 Sept 2026) - Wipe, and Pause / Resume, on the mosaic itself.
+// THE MOSAIC PILL (28 Sept 2026) - Pause / Resume on the mosaic itself. (Wipe was built too
+// and is withdrawn for now - see the Repeater's model below.)
 //
 // Olav: "If I could wipe, start, pause then the resulting render could become amazing."
 // The boat is switched on ashore, slid in and driven out - all of it painted - and a turn
@@ -67,7 +68,11 @@ Item {
 
             Repeater {
                 // Two buttons, one shape.
-                model: [ "wipe", "pause" ]
+                // WIPE IS WITHDRAWN (28 Sept 2026). Olav: "The wipe is unpredictable, I
+                // struggled to get the rendering back. The pause works great." Pause only for the
+                // first release; the wipe comes back with the expert mosaic testing. Core's
+                // mosaicWipe() and MosaicMask::wipe stay, so it is this one line to restore.
+                model: [ "pause" ]
 
                 delegate: Rectangle {
                     id: btn

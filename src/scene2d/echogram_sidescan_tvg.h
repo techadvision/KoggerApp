@@ -52,11 +52,11 @@
 class EchogramSideScanTvg
 {
 public:
-    static constexpr float kDefaultSpreadingDbDec = 5.0f;  // field-tuned (Olav, shallow lake 2026-08-16); SS-log fit was 15 — deeper water / chirp may want more
+    static constexpr float kDefaultSpreadingDbDec = 7.5f;  // RELEASE DEFAULT (Olav 2026-09-28; was 5.0, field-tuned 2026-08-16); SS-log fit was 15
     static constexpr float kMaxSpreadingDbDec     = 40.0f;
     static constexpr float kDefaultAbsorptionDbM  = 0.0f;  // field-tuned: 0 best on 25 m ranges; matters for chirp long range
     static constexpr float kMaxAbsorptionDbM      = 1.0f;
-    static constexpr float kDefaultRefRangeM      = 15.0f; // gain = 1 here (field-tuned)
+    static constexpr float kDefaultRefRangeM      = 10.0f; // gain = 1 here - RELEASE DEFAULT (Olav 2026-09-28; was 15)
     static constexpr float kMinRefRangeM          = 1.0f;
     static constexpr float kMaxRefRangeM          = 50.0f;
     static constexpr float kDefaultCapDb          = 40.0f;
@@ -66,8 +66,8 @@ public:
     static constexpr float kNoiseWinLoM           = 0.8f;   // noise-floor estimation window
     static constexpr float kNoiseWinHiM           = 2.5f;   //   (water column, past ring-down)
     static constexpr float kNoiseFloorMax         = 80.0f;  // never subtract more than this (8-bit)
-    static constexpr float kDefaultNoiseFloorStrength = 0.1f; // fraction of the estimated floor actually subtracted (base level, field-tuned)
-    static constexpr float kDefaultBoostBeta      = 1.2f;   // field-tuned: boost is essential (0 = "beautify" smear)
+    static constexpr float kDefaultNoiseFloorStrength = 0.0f; // fraction of the floor subtracted - RELEASE DEFAULT off (Olav 2026-09-28; was 0.1)
+    static constexpr float kDefaultBoostBeta      = 0.9f;   // RELEASE DEFAULT (Olav 2026-09-28; was 1.2); 0 = "beautify" smear
     static constexpr float kMaxBoostBeta          = 2.0f;
     static constexpr float kBoostWinM             = 0.4f;   // unsharp window along range
 
