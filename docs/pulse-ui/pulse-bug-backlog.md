@@ -2368,6 +2368,34 @@ stays full-bleed.
   If that is too much, Java can pass `tappableElement` separately so only a button bar is taken.
 - Snap-to-half-a-button was not built; the fade and chevron are the cue.
 
+#### Device report on session 4, 28 Sept, and `86abfc09`
+
+**Good on the device:** the scrolling rail, the tab at the foot, the panel wordmark. On the phone the
+mark never shows, which is the rule working (the body needs every unit).
+
+**Reverted in part: the panes no longer stop at the bottom and right bars.** Olav, phone with the
+button bar on the right: *"we waste valuable space ... it is also not a pure edge to edge look.
+There is rarely any need to press at the right hand side."* The echogram runs under the bars again.
+What is read or tapped steps inside instead:
+
+- **`Plot2D::systemBarOverlap()`**, measured in `qPlot2D::paint` every frame: how much of *this*
+  pane lies under the left/right/bottom bars, in canvas px (`mapToScene` against the window less the
+  insets). Zero for a pane that does not reach a bar.
+- **The v2 loupe** fits and places itself in the viewport less that overlap, so the **tile shrinks**
+  (the `bf80ab02` rule) and the buttons stay above a bottom bar / left of a right one.
+- **`plot2D_grid`** uses the same overlap in v2, not the screen insets, so a split's upper pane
+  keeps its bottom labels.
+- `PulseAppV2`'s bottom/right insets are real again. **The left is kept from `dcc7850a`**: with no
+  rail or side gutter on that edge the panes start after a left-hand bar.
+
+**The G30 photo is still open on one question.** The loupe's buttons sat on the taskbar (the dock
+with the app icons and the back button), and the pane in that photo seemed to run to the screen
+bottom even on the `dcc7850a` build. That would fit if **the reported bottom inset is smaller than
+the visible taskbar**: Android reports a *transient* taskbar as a thin handle only. The pulse.log
+lines decide it: `INSETS: at startup … px -> logical …` and `INSETS: pane WxH logical lies under the
+bars by l r b`. If the bottom reads 0 or about 16–24 dp while the dock is about 48–60 dp, the fix is
+on the Java side (read the taskbar's height), not in the loupe.
+
 ### Session 5, redefined by Olav, 28 Sept: the mosaic is offered when none can be made
 
 **The mosaic works on every device.** Olav: *"the UI part is good, it is the option to even
