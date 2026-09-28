@@ -13,6 +13,7 @@
 #include "compute_worker.h"
 #include "echogram_sidescan_tvg.h" // PULSE: mosaic source switch (AGC vs side scan TVG)
 #include "mosaic_nadir.h" // PULSE: the nadir band fill
+#include "mosaic_mask.h"  // PULSE: the user's wipe and pause
 
 
 static constexpr int sampleLimiter    = 2;
@@ -748,6 +749,8 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
     QVector<int>        epochIndxs;
     QVector3D           lastLeftBeg, lastLeftEnd, lastRightBeg, lastRightEnd;
     bool                haveNewTraceLine = false;
+    QVector3D           maskedLeftBeg, maskedLeftEnd, maskedRightBeg, maskedRightEnd;
+    int                 maskedTraceEpoch = -1;
 
     // update matrix
     for (const auto& i : indxs) {
@@ -758,6 +761,43 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
 
         auto pos = epoch.getSonarPosition().ned;
         auto yaw = epoch.tryRetValidYaw();
+
+        // WIPED OR PAUSED (MosaicMask): the epoch paints nothing - here, on every path, first
+        // paint and re-trace alike, which is what keeps a wiped area from coming back. The
+        // SCAN LINE still follows it, so the blue line keeps moving with the boat while the
+        // mosaic is paused instead of freezing where the pause began.
+        if (MosaicMask::excludes(i)) {
+            if (isfinite(pos.n) && isfinite(pos.e) && isfinite(yaw) && i > lastTraceLineEpoch_) {
+                const double azRad = qDegreesToRadians(yaw);
+                bool any = false;
+                if (segFIsValid) {
+                    if (auto c = epoch.chart(segFChannelId_, segFSubChannelId_); c) {
+                        const double a = azRad - M_PI_2 + qDegreesToRadians(lAngleOffset_);
+                        const float d = c->range();
+                        const float dep = static_cast<float>(c->bottomProcessing.getDistance());
+                        const float z = (std::isfinite(dep) && dep > 0.0f) ? -dep : 0.0f;
+                        maskedLeftBeg = QVector3D(pos.n + d * qCos(a), pos.e + d * qSin(a), z);
+                        maskedLeftEnd = QVector3D(pos.n, pos.e, z);
+                        any = true;
+                    }
+                }
+                if (segSIsValid) {
+                    if (auto c = epoch.chart(segSChannelId_, segSSubChannelId_); c) {
+                        const double a = azRad + M_PI_2 - qDegreesToRadians(rAngleOffset_);
+                        const float d = c->range();
+                        const float dep = static_cast<float>(c->bottomProcessing.getDistance());
+                        const float z = (std::isfinite(dep) && dep > 0.0f) ? -dep : 0.0f;
+                        maskedRightBeg = QVector3D(pos.n, pos.e, z);
+                        maskedRightEnd = QVector3D(pos.n + d * qCos(a), pos.e + d * qSin(a), z);
+                        any = true;
+                    }
+                }
+                if (any)
+                    maskedTraceEpoch = std::max(maskedTraceEpoch, i);
+            }
+            continue;
+        }
+
         if (isfinite(pos.n) && isfinite(pos.e) && isfinite(yaw)) {
             bool acceptedEven = false, acceptedOdd = false;
             double azRad = qDegreesToRadians(yaw);
@@ -805,6 +845,20 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
     }
 
     if (measLinesVertices.empty()) {
+        // A chunk of nothing but wiped or paused epochs: paint nothing, but move the scan line.
+        if (maskedTraceEpoch > lastTraceLineEpoch_) {
+            lastLeftBeg_  = maskedLeftBeg;
+            lastLeftEnd_  = maskedLeftEnd;
+            lastRightBeg_ = maskedRightBeg;
+            lastRightEnd_ = maskedRightEnd;
+            lastTraceLineEpoch_ = maskedTraceEpoch;
+            QMetaObject::invokeMethod(dataProcessor_, "postTraceLines", Qt::QueuedConnection,
+                Q_ARG(QVector3D, lastLeftBeg_),
+                Q_ARG(QVector3D, lastLeftEnd_),
+                Q_ARG(QVector3D, lastRightBeg_),
+                Q_ARG(QVector3D, lastRightEnd_),
+                Q_ARG(int, lastTraceLineEpoch_));
+        }
         return;
     }
 

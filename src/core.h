@@ -238,6 +238,14 @@ public slots:
     // plain state setter with exactly one caller.
     Q_INVOKABLE void setDemoPaused(bool state);
 
+    // THE MOSAIC'S WIPE AND PAUSE (28 Sept 2026) - see src/data_processor/mosaic_mask.h.
+    // Wipe clears what is drawn and keeps it from ever being drawn again; pause stops the
+    // mosaic taking new pings until resumed. Both are per source: a new source starts clean.
+    Q_PROPERTY(bool mosaicPaused READ mosaicPaused NOTIFY mosaicMaskChanged)
+    Q_INVOKABLE void mosaicWipe();
+    Q_INVOKABLE void mosaicSetPaused(bool paused);
+    bool mosaicPaused() const;
+
     Q_INVOKABLE void setPosZeroing(bool state);
     Q_INVOKABLE void setBottomTrackZeroing(bool state);
     Q_INVOKABLE void setTgcGainNear(float val);
@@ -319,6 +327,7 @@ signals:
     void mapTileLoadingEnabledChanged();
     //PULSE demo mode
     void demoModeChanged();
+    void mosaicMaskChanged();
     void demoPeriodChanged(int periodMs, bool isSideScan);
     void demoStopped();
     void demoLooped(int passNumber);

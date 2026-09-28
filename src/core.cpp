@@ -21,6 +21,7 @@
 #include <QThreadPool>
 #include "app_log.h"
 #include "bottom_track.h"
+#include "mosaic_mask.h"
 #include "hotkeys_manager.h"
 
 #include "udp_broadcaster.h"
@@ -469,6 +470,15 @@ void Core::resetRealtimeSessionState()
     QMetaObject::invokeMethod(dataProcessor_, "prepareForFileClose", Qt::BlockingQueuedConnection, Q_ARG(int, 1500));
     QMetaObject::invokeMethod(dataProcessor_, "clearProcessing", Qt::BlockingQueuedConnection);
 
+    // A NEW SOURCE STARTS WITH A CLEAN MOSAIC MASK: epoch indices begin again from 0, so a
+    // wipe or pause from the last source would mask the wrong pings of this one.
+    const bool wasMasked = !MosaicMask::isEmpty();
+    MosaicMask::reset();
+    if (wasMasked) {
+        qInfo().noquote() << "MOSAIC: the wipe and pause are reset - a new source";
+        emit mosaicMaskChanged();
+    }
+
     if (scene3dViewPtr_) {
         if (auto surface = scene3dViewPtr_->getSurfaceViewPtr())
             QCoreApplication::sendPostedEvents(surface.get(), QEvent::MetaCall);
@@ -477,6 +487,41 @@ void Core::resetRealtimeSessionState()
             surface->clear();
         scene3dViewPtr_->getNavigationArrowPtr()->resetPositionAndAngle();
     }
+}
+
+void Core::mosaicWipe()
+{
+    const int now = datasetPtr_ ? datasetPtr_->size() : 0;
+    MosaicMask::wipe(now);
+    qInfo().noquote() << "MOSAIC: wiped -" << MosaicMask::describe();
+
+    // The same reset the 3D toolbar's "reset processing" performs: the mosaic, surface and
+    // isobath pipelines and their tile caches, NOT the bottom track. The mask above is what
+    // keeps the wiped epochs from being traced back in afterwards.
+    if (dataProcessor_)
+        QMetaObject::invokeMethod(dataProcessor_, "resetProcessingPipeline", Qt::QueuedConnection);
+    if (scene3dViewPtr_)
+        scene3dViewPtr_->clearSurfaceViewRender();
+
+    emit mosaicMaskChanged();
+}
+
+void Core::mosaicSetPaused(bool paused)
+{
+    if (paused == MosaicMask::paused())
+        return;
+    const int now = datasetPtr_ ? datasetPtr_->size() : 0;
+    if (paused)
+        MosaicMask::pause(now);
+    else
+        MosaicMask::resume(now);
+    qInfo().noquote() << "MOSAIC:" << (paused ? "paused -" : "resumed -") << MosaicMask::describe();
+    emit mosaicMaskChanged();
+}
+
+bool Core::mosaicPaused() const
+{
+    return MosaicMask::paused();
 }
 
 void Core::releasePlotCaches()

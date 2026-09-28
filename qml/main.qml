@@ -3091,6 +3091,28 @@ ApplicationWindow  {
                 }
             }
 
+            // THE MOSAIC PILL (28 Sept 2026): Wipe and Pause / Resume, on the mosaic pane and
+            // only while it is up. See PulseMosaicPill.qml and src/data_processor/mosaic_mask.h.
+            PulseMosaicPill {
+                id: pulseMosaicPill
+
+                visible: pulseSettings.uiVariant === "v2" && visualisationLayout.has3DView
+                enabled: visible
+
+                readonly property real topInset: Math.max(mainview.insetTop(),
+                                                          Qt.platform.os === "android" ? Math.round(34 * mainview.s) : 0)
+                x: renderer.x + Math.round((renderer.width - width) / 2)
+                y: renderer.y + topInset + Math.round(10 * mainview.s)
+                width:  implicitWidth
+                height: implicitHeight
+
+                uiScale: mainview.s
+                paused:  core.mosaicPaused
+
+                onWipeRequested: core.mosaicWipe()
+                onPauseRequested: function (p) { core.mosaicSetPaused(p) }
+            }
+
             // THE INDICATOR PILLS (Stage 4 a). Beside the rail and for the same reason:
             // what they report is app-wide rather than pane-wide, so one instance above
             // both panes. They draw ON the picture and take no width from it, so unlike

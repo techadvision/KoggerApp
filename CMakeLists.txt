@@ -264,6 +264,7 @@ list(APPEND APP_HEADERS
     src/data_processor/data_processor.h
     src/data_processor/data_processor_defs.h
     src/data_processor/isobaths_processor.h
+    src/data_processor/mosaic_mask.h
     src/data_processor/mosaic_nadir.h
     src/data_processor/mosaic_processor.h
     src/data_processor/surface_processor.h
@@ -277,6 +278,7 @@ list(APPEND APP_SOURCES
     src/data_processor/bottom_track_processor.cpp
     src/data_processor/data_processor.cpp
     src/data_processor/isobaths_processor.cpp
+    src/data_processor/mosaic_mask.cpp
     src/data_processor/mosaic_nadir.cpp
     src/data_processor/mosaic_processor.cpp
     src/data_processor/surface_processor.cpp
