@@ -1767,7 +1767,7 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 | 2 | ~~**Measure, do not fix**~~ **DONE 27–28 Sept**: see *Session 2* below. The two P1 fixes are not alternatives; both are needed | none | — |
 | 3 | ~~**Base scale, fonts and the loupe**~~ **DONE 28 Sept, `f7e97415` + `3c5b6408`, verified on five devices** (see *Session 3*): first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
 | 4 | **Layout on small screens**: scrollable rail, compact connection screen, Group E's split-pane walk | same branch | session 3 |
-| 5 | **The mosaic is offered when none can be made** (redefined 28 Sept, see *Session 5* below): disable the mosaic layouts for a source with no position/yaw, demote a stored mosaic preference, and put the green dot out | same branch | two questions for Olav, in the section |
+| 5 | **The mosaic is offered when none can be made** (redefined 28 Sept, see *Session 5* below): a true availability test (position AND yaw), the mosaic layouts disabled when it fails, `single_mosaic` falling back to side, and the green dot out; the preference is never rewritten | same branch | — |
 | 6 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
 
 **Why the hang is first.** It happens outside Qt Creator too, and a customer who meets it
@@ -2320,12 +2320,21 @@ mosaic.
    the mosaic layouts are shown but cannot be chosen.** That is the cone chooser's treatment
    under a recording (`2cf5c267`): the rows stay visible, drop to 0.45 opacity, take no taps,
    and a note above them says why.
-2. **A stored preference that includes the mosaic is changed** when a source without positions
-   is played:
-   - `split_down_mosaic` → **down**
-   - `split_side_mosaic` → **side**
-   - Olav: *"If he had mosaic and down then he should have his preference altered to down,
-     mosaic and side then preference altered to side."*
+2. **The stored preference is NOT rewritten. The picture falls back, and the preference
+   waits.** Olav, 28 Sept, correcting the first reading: *"Today, if current preference is
+   mosaic with either down or side, down or side already becomes full screen. Then the mosaic
+   can appear when available. We need not change this part, but we do need to ensure that we
+   check for position data and 'close' the mosaic pane when it has no possible use."*
+   - `split_down_mosaic` → **down** full screen, and `split_side_mosaic` → **side** full screen.
+     This is `has2DView`'s existing fallback, and it stays as it is.
+   - **`single_mosaic` → side scan alone.** Olav: *"If Mosaic alone is the current preference,
+     and no position data is available, revert to side scan alone."* **This is the one
+     behaviour change in the layout.** Today `firstMode` is `""` there, so `applyEchogramMode`
+     is never called and the outgoing picture simply stays.
+   - The mosaic comes back **on its own** when a source with positions arrives, because the
+     preference was never touched.
+   - **So the real fault is the availability test**, which says "available" for a file with no
+     positions. That is what keeps the mosaic pane open when it has no possible use.
 3. **The Pause button's green dot must go out** when a file without positions follows one with
    them. Today it stays green.
 
@@ -2343,13 +2352,8 @@ mosaic.
   which is cleared only by `Dataset::resetRenderBuffers()` (`resetDataAvailability`). The first
   thing to check is whether that runs between two files on every path: open, stream, demo and
   a demo swap. The prediction is that one of them does not reset it.
-- **Two questions to settle with Olav before building:**
-  - **`single_mosaic`** (the mosaic alone) is not in his list. The shape of the other two says
-    **side**. Confirm.
-  - **"Altered" means the preference is rewritten**, so a later file *with* positions does not
-    bring the mosaic back by itself. Today's code does the opposite on purpose: `has3DView` ANDs
-    availability in, so the preference waits and returns with a fix. Take Olav's rule as given,
-    but confirm he wants the mosaic not to come back on its own.
+- **Both questions are answered** (28 Sept, above): `single_mosaic` falls back to side alone,
+  and the preference is never rewritten.
 
 ### Emulators
 
