@@ -241,8 +241,29 @@ Item {
         anchors.bottomMargin: panel.safeBottom + Math.round(12 * panel.uiScale)
 
         clip: true
-        contentHeight: body.height
+        // THE WORDMARK SITS IN WHAT IS LEFT, horizontally (28 Sept 2026). It left the rail,
+        // where it had to stand on end in 40 units of width, for the foot of the panel, where
+        // there is width for it. At the bottom of the panel when the group is short, and after
+        // the group's last row when it is long - so it never takes a row's height from a short
+        // landscape screen, and it is never pinned over content.
+        contentHeight: Math.max(height, body.height + wordmarkSlot)
         boundsBehavior: Flickable.StopAtBounds
+
+        readonly property real wordmarkHeight: Math.round(30 * panel.uiScale)
+        readonly property real wordmarkSlot:   wordmarkHeight + Math.round(28 * panel.uiScale)
+
+        // A child of the Flickable lands on its content item, so y is in content coordinates:
+        // the last wordmarkHeight of the content, whichever of the two heights won above.
+        Image {
+            x: Math.round((parent.width - width) / 2)
+            y: Math.max(0, parent.height - height)
+            width:  Math.round(150 * panel.uiScale)
+            height: Math.round(30 * panel.uiScale)
+            source: "./image/logo_techadvision_gray.png"
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            opacity: 0.42
+        }
 
         // A Column, so a group that is not showing takes no height and contentHeight is the
         // one that is. Adding a group is adding a child with its own `visible`.
