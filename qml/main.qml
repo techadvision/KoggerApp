@@ -1412,7 +1412,31 @@ ApplicationWindow  {
             // Zero in the classic UI and zero while the rail is collapsed, both through the
             // rail's own `inset`, so there is still no second mechanism to keep in step.
             readonly property real controlInset: mainview.pulseRailInset + mainview.pulsePanelInset
-            readonly property real contentWidth: Math.max(0, width - controlInset)
+                                                 + paneLeftInset
+            readonly property real contentWidth: Math.max(0, width - controlInset - paneRightInset)
+
+            // ── THE V2 PANES STOP AT THE SYSTEM BARS (28 Sept 2026) ─────────────────────────
+            //
+            // The echogram used to run under the Android navigation bar, and everything that
+            // is drawn INSIDE a pane had to know that and step aside on its own. Most QML
+            // overlays did; the loupe, which is painted in C++, never could: on a Skydroid
+            // G30 with the three-button bar, Dismiss and Add waypoint sat more than halfway
+            // under it. The ruler's labels were only CLIPPED to the safe rectangle, not moved.
+            //
+            // So the pane itself ends where the bar begins, and nothing inside it has to know
+            // there is a bar. The loupe's fit clamp already measures the pane, so it keeps its
+            // buttons on screen with no change of its own. Bottom, right, and left when no rail
+            // or side gutter already covers that edge (both include safeLeft in their width).
+            // The TOP stays full-bleed as before: insetTop() is 0 outside DeX by design.
+            //
+            // V2 ONLY. Classic's panes and its own inset handling are left exactly as shipped.
+            // plot2D_grid, which subtracted the insets itself, is told v2 owns them.
+            readonly property bool paneOwnsInsets:  pulseSettings.uiVariant === "v2"
+            readonly property real paneBottomInset: paneOwnsInsets ? mainview.insetBottom() : 0
+            readonly property real paneRightInset:  paneOwnsInsets ? mainview.insetRight()  : 0
+            readonly property real paneLeftInset:   (paneOwnsInsets && mainview.pulseRailInset === 0)
+                                                    ? mainview.insetLeft() : 0
+            readonly property real paneHeight:      Math.max(0, height - paneBottomInset)
 
             // THE MOSAIC IS NOT ALWAYS POSSIBLE - it wants a side scan transducer and a
             // position - so availability is ANDed in here rather than checked at the point of
@@ -1496,7 +1520,7 @@ ApplicationWindow  {
             // what Olav did when he found this.
             onScreenEntryChanged:           logMosaicAvailability("the layout was chosen")
             onView3dToggleAvailableChanged: logMosaicAvailability("availability moved")
-            readonly property real primaryLength: landscapeMode ? contentWidth : height
+            readonly property real primaryLength: landscapeMode ? contentWidth : paneHeight
             readonly property real splitLength: Math.max(0, primaryLength)
             // THE FIRST PANE IS THE ECHOGRAM NOW, where it used to be the 3D scene. "Side scan
             // first" survives the axis rule as LEADING POSITION rather than as "top": top in
@@ -1619,7 +1643,7 @@ ApplicationWindow  {
                        ? Math.max(0, visualisationLayout.primaryLength - visualisationLayout.firstPaneLength)
                        : visualisationLayout.contentWidth
                 height: visualisationLayout.landscapeMode
-                        ? visualisationLayout.height
+                        ? visualisationLayout.paneHeight
                         : Math.max(0, visualisationLayout.primaryLength - visualisationLayout.firstPaneLength)
                 focus:             true
 
@@ -2335,7 +2359,7 @@ ApplicationWindow  {
                        ? visualisationLayout.firstPaneLength
                        : visualisationLayout.contentWidth
                 height: visualisationLayout.landscapeMode
-                        ? visualisationLayout.height
+                        ? visualisationLayout.paneHeight
                         : visualisationLayout.firstPaneLength
 
                 GridLayout {
@@ -2357,7 +2381,13 @@ ApplicationWindow  {
                     // AND AT THE FOOT, for a 2D picture's paused gutter. Zero at every
                     // other moment, through the gutter's own binding - so there is no
                     // second mechanism deciding when the bottom is taken.
-                    anchors.bottomMargin: mainview.pulsePausedFootInset
+                    //
+                    // LESS WHAT THE PANE ALREADY GAVE UP to the system bar. The foot gutter
+                    // runs to the screen edge and keeps its controls above safeBottom itself,
+                    // while the pane now stops at the bar - so only the gutter's height above
+                    // the bar is still to be taken here.
+                    anchors.bottomMargin: Math.max(0, mainview.pulsePausedFootInset
+                                                      - visualisationLayout.paneBottomInset)
 
                     rows    : 2
                     columns : 1

@@ -157,10 +157,12 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
 
 #ifdef Q_OS_ANDROID
     // Pull current insets (right > 0 when 3-button bar is on the right in landscape)
-    const int insetLeft   = InsetsHelper::instance()->left();
+    // In v2 the pane already ends at the bars, so only the IME is still this layer's to
+    // avoid. The top is untouched: it only matters under DeX, and v2 does not move it.
+    const int insetLeft   = isUiVariantV2_ ? 0 : InsetsHelper::instance()->left();
     const int insetTop    = InsetsHelper::instance()->top();
-    const int insetRight  = InsetsHelper::instance()->right();
-    const int insetBottom = std::max(InsetsHelper::instance()->bottom(),
+    const int insetRight  = isUiVariantV2_ ? 0 : InsetsHelper::instance()->right();
+    const int insetBottom = std::max(isUiVariantV2_ ? 0 : InsetsHelper::instance()->bottom(),
                                      InsetsHelper::instance()->ime()); // lift above IME if visible
     const bool isDex      = InsetsHelper::instance()->dexEnabled();
 
@@ -502,6 +504,8 @@ void Plot2DGrid::setIs2DTransducer(bool is2DTransducer)
 
 void Plot2DGrid::applyRuntime(const QVariantMap& m)
 {
+    if (m.contains("uiVariantIsV2"))
+        isUiVariantV2_ = m.value("uiVariantIsV2").toBool();
     if (m.contains("isSideScan2DView"))
         isSideScan2DView_ = m.value("isSideScan2DView").toBool();
     if (m.contains("isSideScanLeftHand"))
