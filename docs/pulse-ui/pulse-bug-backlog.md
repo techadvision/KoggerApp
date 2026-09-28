@@ -1767,8 +1767,10 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 | 2 | ~~**Measure, do not fix**~~ **DONE 27–28 Sept**: see *Session 2* below. The two P1 fixes are not alternatives; both are needed | none | — |
 | 3 | ~~**Base scale, fonts and the loupe**~~ **DONE 28 Sept, `f7e97415` + `3c5b6408`, verified on five devices** (see *Session 3*): first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
 | 4 | **Layout on small screens**: ~~insets, scrollable rail, the tab, the brand~~ **built 28 Sept** (see *Session 4*); compact connection screen and Group E's split-pane walk still open | same branch | session 3 |
-| 5 | **The mosaic is offered when none can be made** (redefined 28 Sept, see *Session 5* below): a true availability test (position AND yaw), the mosaic layouts disabled when it fails, `single_mosaic` falling back to side, and the green dot out; the preference is never rewritten | same branch | — |
-| 6 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
+| 5 | ~~**The mosaic is offered when none can be made**~~ **built 28 Sept, `83cf8e7a`** (see *Session 5, built*) | same branch | — |
+| 6 | **Finish the UI.** Session 4's remainder: the compact connection screen and Group E's split-pane walk (rail, panel, setup card, gutter, readout in a split). The split-direction question (side-by-side, or following the pane's aspect ratio) belongs here. | same branch | — |
+| 7 | **Side scan waypoints are BROKEN - and a desk check to prove the fix** (Olav, 28 Sept). **Only after the UI is complete.** First build the desk check: an expert switch that swaps the side scan between **460 and 820 kHz** and actually sends the command to the transducer, so waypoint placement can be verified at the desk against a map with contours and the SITL autopilot, with no trip to real water. Then find and fix the waypoint placement. | its own branch | session 6 |
+| 8 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
 
 **Why the hang is first.** It happens outside Qt Creator too, and a customer who meets it
 thinks the app is broken. **Why measuring is its own session.** P1 recorded that the dpr decides
@@ -2481,6 +2483,44 @@ mosaic.
   a demo swap. The prediction is that one of them does not reset it.
 - **Both questions are answered** (28 Sept, above): `single_mosaic` falls back to side alone,
   and the preference is never rewritten.
+
+### Session 5, built 28 Sept 2026 — `83cf8e7a`, not compiled
+
+C++ in `dataset.{h,cpp}` (a new `Q_PROPERTY`, so `moc` re-runs), QML in `main.qml`,
+`PulsePanel.qml`, `PulseScreenGroup.qml`.
+
+- **`Dataset::hasYawData`**: a heading from the AHRS yaw (`addAtt`) or from the track
+  (`addArtificalYaw`, only reached when two positions differ). Reset with the other flags in
+  `resetDataAvailability`, so it answers for the current source.
+- **`mainview.mosaicPossible`** = display side scan && `hasPositionData` && `hasYawData`, the three
+  things `MosaicProcessor` needs to place an epoch. `view3dToggleAvailable` now reads it, so the
+  pane and the chooser cannot disagree.
+- **The chooser**: mosaic rows at 0.45, no taps, and an amber note. A mosaic row that is the
+  current preference keeps its mark.
+- **The preference is never written.** Side + mosaic / Down + mosaic fall back as before. **Mosaic
+  alone now falls back to side scan alone** (`applyScreenId`, and again when `mosaicPossible` goes
+  false).
+- **The dot**: an opened file reads the same `hasPositionData`. A feed's dot goes out at once when
+  a new source clears positions. The fault was predicted in the notes and found: `resetDataset()`
+  ends by emitting `lastPositionChanged` with the old boat coordinate still valid, which relit the
+  dot for three seconds on a source with no positions.
+
+#### To check on the device
+
+1. **A file with no positions, after one with them** (open and stream both): the dot goes out,
+   `MOSAIC: not possible | positions false …`, and the Screen panel shows the three mosaic rows
+   dimmed, untappable, with the note.
+2. **Mosaic alone stored, then that file**: side scan alone comes up, not the previous picture.
+   Open a file with positions: the mosaic appears by itself (`MOSAIC: possible`).
+3. **Side + mosaic / Down + mosaic stored**: side / down full screen without positions, the split
+   back with them. The stored layout never changes (the mark stays on the row).
+4. **A demo with positions**: the mosaic arrives once the first fix and heading do. **Watch the
+   loop boundary**: the dataset is reset there, so the mosaic may drop out for a moment. If that
+   flickers badly, the answer is to take availability from the demo prescan instead.
+5. **A live blue on the boat**: the mosaic is offered from the first fix **and once the boat
+   moves**, if the autopilot sends no yaw (the track heading needs two different positions). A
+   moored boat with no AHRS yaw is correctly "not possible".
+6. **A red**: no Screen button, as before.
 
 ### Emulators
 
