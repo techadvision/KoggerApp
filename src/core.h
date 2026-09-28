@@ -57,6 +57,7 @@ public:
 
     Q_PROPERTY(bool              isGPSAlive                   READ getIsGPSAlive                   NOTIFY isGPSAliveChanged)
     Q_PROPERTY(bool              isFactoryMode                READ isFactoryMode                   CONSTANT)
+    Q_PROPERTY(bool              mosaicPaused                 READ mosaicPaused                    NOTIFY mosaicMaskChanged)
     Q_PROPERTY(ConsoleListModel* consoleList                  READ consoleList                     CONSTANT)
     Q_PROPERTY(ConsoleListModel* consoleListApp               READ consoleListApp                  CONSTANT)
     Q_PROPERTY(ConsoleListModel* consoleListProto             READ consoleListProto                CONSTANT)
@@ -241,7 +242,8 @@ public slots:
     // THE MOSAIC'S WIPE AND PAUSE (28 Sept 2026) - see src/data_processor/mosaic_mask.h.
     // Wipe clears what is drawn and keeps it from ever being drawn again; pause stops the
     // mosaic taking new pings until resumed. Both are per source: a new source starts clean.
-    Q_PROPERTY(bool mosaicPaused READ mosaicPaused NOTIFY mosaicMaskChanged)
+    // (The Q_PROPERTY mosaicPaused is declared with the others at the top of the class:
+    // moc refuses one placed among the Q_INVOKABLEs here.)
     Q_INVOKABLE void mosaicWipe();
     Q_INVOKABLE void mosaicSetPaused(bool paused);
     bool mosaicPaused() const;
