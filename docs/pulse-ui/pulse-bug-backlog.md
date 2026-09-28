@@ -1771,6 +1771,7 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 | 6 | **Finish the UI.** Session 4's remainder: the compact connection screen and Group E's split-pane walk (rail, panel, setup card, gutter, readout in a split). The split-direction question (side-by-side, or following the pane's aspect ratio) belongs here. | same branch | — |
 | 7 | **Side scan waypoints are BROKEN - and a desk check to prove the fix** (Olav, 28 Sept). **Only after the UI is complete.** First build the desk check: an expert switch that swaps the side scan between **460 and 820 kHz** and actually sends the command to the transducer, so waypoint placement can be verified at the desk against a map with contours and the SITL autopilot, with no trip to real water. Then find and fix the waypoint placement. | its own branch | session 6 |
 | 8 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
+| 9 | **Mosaic quality and tools** (Olav's list, 28 Sept; items 1-4 are done, `38a2f662`): **(a) Wipe and pause** - a pill on the mosaic to wipe what is drawn (the slide-in from shore and the drive out) and to pause/resume while the boat turns. **(b) The nadir fill** is not very successful yet, untested properly. **(c) Is the render slightly wrong?** An object moves about 1.5 m between passes in opposite directions with an M10 (about 0.5 m expected) and a well-tuned yaw; rule out our own geometry. **(d) KMZ export.** See *Mosaic, the later list* below. | its own branch | session 6 for (a) |
 
 **Why the hang is first.** It happens outside Qt Creator too, and a customer who meets it
 thinks the app is broken. **Why measuring is its own session.** P1 recorded that the dpr decides
@@ -2521,6 +2522,63 @@ C++ in `dataset.{h,cpp}` (a new `Q_PROPERTY`, so `moc` re-runs), QML in `main.qm
    moves**, if the autopilot sends no yaw (the track heading needs two different positions). A
    moored boat with no AHRS yaw is correctly "not possible".
 6. **A red**: no Screen button, as before.
+
+### Session 5 follow-up: the mosaic view, 28 Sept 2026 — `38a2f662`, not compiled
+
+**Session 5 verified by Olav:** the mosaic rows stay marked on a file with no positions or heading, the
+mosaic comes back on a file with positions, and the green dot now follows the source. A demo run to
+the end had positions all through, so there was no flicker at the loop.
+
+**His mosaic list, items 1-4, built** (C++ only: `core.cpp`, `data_processor.cpp`,
+`boat_track.cpp`, `navigation_arrow.{h,cpp}`, `scene3d_renderer.cpp`; no `moc` change):
+
+1. **Old tiles on a demo loop** ("some remains stay on the map ... eliminated in two turns the first 5+
+   seconds"). **3. The blue scan line frozen at the end-of-file position.** One cause: the old pass's
+   results arrived after `GraphicsScene3dView::clear()`. `clearProcessing` only requests a cancel, a
+   running mosaic job still posts, and the queued connections into `SurfaceView` are never dropped. A
+   late trace line carries an end-of-file epoch, and `setTraceLines` refuses any lower index, so the
+   stale line froze for most of the next pass. `resetRealtimeSessionState` now: waits for the worker
+   (`prepareForFileClose`, 1500 ms), clears, **delivers** what is still queued for `SurfaceView`, then
+   clears the surface once more. `postTraceLines` has the `suppressResults_` gate `postSurfaceTiles`
+   had. **The scan line is kept**, as Olav preferred ("either we make it always appear or it will have
+   to go").
+2. **The purple driven path is not drawn at all.** It only had a switch on the hidden 3D toolbar, and
+   at width 6 through `glLineWidth` (clamped to 1 px on most drivers) it came and went. The data and the
+   red selected-epoch point stay.
+4. **The boat**: 5 px per model unit instead of 7 (35 px desktop / 70 px Android, was 49 / 98), with a
+   **white 2 px ring** drawn as geometry (a mitred outward offset of the cursor), with the depth test
+   off for the ring only.
+
+**To check:** loop a demo with positions. The map must be empty at the start of the new pass: no tiles
+from the last one, and the blue line moving from the first new ping. No purple line ever. The boat is
+visibly smaller with a white edge on the golden mosaic and on the map. **Watch the loop pause:** the
+worker wait is bounded at 1.5 s, and it only happens if a mosaic job is running.
+
+### Mosaic, the later list (session 9)
+
+- **(a) Wipe and pause — the design, for when it is built.** Olav: *"If I could wipe, start, pause then
+  the resulting render could become amazing"*, and a 90° turn now smears about 35 m each side. **A
+  plain clear is not enough**, because the mosaic re-traces from the dataset's epochs, so a wiped area
+  would come back on the next re-trace. The shape that holds is **an epoch mask in `MosaicProcessor`**:
+  - **Wipe** = exclude every epoch before now.
+  - **Pause** = exclude from the pause until the resume.
+  - Both survive a re-trace and a range change, because they are data and not pixels.
+  - **The UI:** a pill on the mosaic pane, shown only while the mosaic is: *Wipe · Pause / Resume*.
+  - **Worth offering too:** an **automatic pause on a turn**, from the yaw rate (a threshold of some
+    degrees per second, with the mosaic resuming once the heading has settled). With the autopilot
+    doing passes, that is the version that needs no hands.
+- **(b) The nadir fill** (`5295580d`) is not very successful. It needs a proper look with the
+  expert rows and the A/B against fill off.
+- **(c) Accuracy.** Olav's two recordings: his own boat (no RTK, poor yaw) moves a feature a lot
+  between opposite passes; a boat with a tuned yaw and an M10 still moves it about 1.5 m, where he
+  expected about 0.5 m. RTK and a GNSS heading are the real cure, and he will tell users so. **Still to
+  rule out on our side:** the transducer's lever arm and mounting offset, the time alignment between a
+  ping and its position (a lag moves features along the track in opposite directions on opposite
+  passes, which is exactly this signature), the slant-range and sound-speed assumptions, and the
+  interpolation of yaw between fixes. **The opposite-pass test is the right instrument**: a shift
+  ALONG the track means a latency; a shift ACROSS it means a heading or an offset.
+- **(d) KMZ export.** Users will ask for it. The tiles are already georeferenced, so a KMZ of
+  `GroundOverlay`s (one per tile, or the mosaic resampled onto one image) is the natural format.
 
 ### Emulators
 
