@@ -788,7 +788,11 @@ QtObject {
     //depth readout and no surface reads any of it. Turning the fill off is also the honest
     //diagnostic — it shows exactly where the band was, which a drawn boundary line would only
     //approximate.
-    property bool   nadirFillEnabled: true
+    //OFF BY DEFAULT since 28 Sept 2026 (Olav): the fill is not good enough yet - "better that
+    //the first version of the new UI comes with the slight open area in the middle than what
+    //now looks like someone went crazy with a sewing machine". Experts switch it on to work on
+    //it; it comes back on when it works.
+    property bool   nadirFillEnabled: false
     property double nadirInnerFactor: 0.3
     property double nadirOuterFactor: 1.0
 

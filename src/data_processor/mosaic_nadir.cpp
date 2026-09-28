@@ -8,7 +8,9 @@ namespace {
 // about three and a half times the slant resolution and the beam is deep in its
 // null; 1.0 is the conventional 45 degree line, by which point both terms are
 // acceptable. The two are expert rows so the pair can be moved on the water.
-std::atomic<bool>  gEnabled{ true };
+// OFF until the fill is good enough (28 Sept 2026); the expert row turns it on. Must agree
+// with pulseRuntimeSettings.nadirFillEnabled, which is what normally sets it.
+std::atomic<bool>  gEnabled{ false };
 std::atomic<float> gInner  { 0.3f };
 std::atomic<float> gOuter  { 1.0f };
 

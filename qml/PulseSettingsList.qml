@@ -1635,7 +1635,7 @@ Item {
 
                     label: qsTr("Fill the mosaic nadir")
                     hint:  qsTr("interpolated, not measured - off shows the band as it is")
-                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : true
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : false
 
                     onToggled: function (v) {
                         list.settingChanged("runtime", "nadirFillEnabled", v)
@@ -1645,7 +1645,7 @@ Item {
                 PulseStepperRow {
                     width: downScanGroup.contentWidth
                     height: visible ? implicitHeight : 0
-                    visible: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : true
+                    visible: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : false
                     uiScale: list.uiScale
 
                     label: qsTr("Fully filled inside")
@@ -1662,7 +1662,7 @@ Item {
                 PulseStepperRow {
                     width: downScanGroup.contentWidth
                     height: visible ? implicitHeight : 0
-                    visible: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : true
+                    visible: pulseRuntimeSettings ? pulseRuntimeSettings.nadirFillEnabled : false
                     uiScale: list.uiScale
 
                     label: qsTr("Fully real outside")
