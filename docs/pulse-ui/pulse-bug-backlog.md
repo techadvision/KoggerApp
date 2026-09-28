@@ -1766,7 +1766,7 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 | 1 | **The startup hang** (splash never shown) + the manifest's six duplicated `splash_screen_drawable` lines | `fix/startup-hang` off field-fixes | the stack of the hung main thread (below) |
 | 2 | ~~**Measure, do not fix**~~ **DONE 27–28 Sept**: see *Session 2* below. The two P1 fixes are not alternatives; both are needed | none | — |
 | 3 | ~~**Base scale, fonts and the loupe**~~ **DONE 28 Sept, `f7e97415` + `3c5b6408`, verified on five devices** (see *Session 3*): first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
-| 4 | **Layout on small screens**: scrollable rail, compact connection screen, Group E's split-pane walk | same branch | session 3 |
+| 4 | **Layout on small screens**: ~~insets, scrollable rail, the tab, the brand~~ **built 28 Sept** (see *Session 4*); compact connection screen and Group E's split-pane walk still open | same branch | session 3 |
 | 5 | **The mosaic is offered when none can be made** (redefined 28 Sept, see *Session 5* below): a true availability test (position AND yaw), the mosaic layouts disabled when it fails, `single_mosaic` falling back to side, and the green dot out; the preference is never rewritten | same branch | — |
 | 6 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
 
@@ -2292,6 +2292,81 @@ Olav: *"Visual inspection on all 5 devices: Result is now good."*
 - **`resCoeff` is a constant 1.5 on Android**, so `renderScale()` never adapts (session 2).
   The aim's crosshair labels are drawn at 27 logical px everywhere and do not follow Interface
   size. They are small and fixed, so they are left as they are.
+
+### Session 4, 28 Sept 2026: insets, the scrolling rail, the tab, the brand — `feature/pulse-small-screens`
+
+**Not compiled.** C++ in `InsetsHelper.h`, `android_init.cpp`, `main.cpp`, `plot2D_grid.{h,cpp}`
+(no new `Q_PROPERTY` or `Q_INVOKABLE`, so no `moc` round is forced), QML, one new image in
+`images.qrc`.
+
+| commit | what |
+|---|---|
+| `4c919e0e` | the insets: none dropped before `main()`, and QML reads them in logical units |
+| `dcc7850a` | the v2 panes stop at the system bars (bottom, right, and left when nothing covers it) |
+| `aa480398` | the rail scrolls below its three setters; the expand tab moves to the foot; the mark replaces the wordmark |
+| `8eef7a03` | the wordmark at the foot of the panel, horizontally |
+
+**Olav's decisions, 28 Sept:** Pause and Record scroll. The expand tab stays in the rail (no tab
+on the echogram); he will judge the 320 phone himself. The G30 report was the **bottom** button
+bar (not a side bar).
+
+#### The two inset faults
+
+- **Dropped.** The first insets arrive from `onCreate`/`onResume` before Qt starts `main()`, so
+  `notifyInsets_native` queued them onto a null `qApp`. The JNI side now always records them in
+  `InsetsHelper` (atomics, not the QObject) and `main()` applies them. **This is the likely cause of
+  the G30's clipped PAUSED**: the gutter already placed it at `safeBottom + 16`, and a PAUSED that
+  sinks under the bar means `safeBottom` read 0.
+- **Units.** `InsetsHelper` carries device px; every QML reader used them as logical units. A 48 dp
+  bar is 96 logical on every Android device (dpr = density × 0.5). The raw value was 72 on the
+  Tab 10", 92 on the G30, 135 on the S23. `main.qml` and `PulseAppV2` convert in their accessors;
+  `plot2D_grid` keeps px because it draws in device coordinates. **Classic is not touched.**
+
+#### The panes own the insets (v2)
+
+`visualisationLayout.paneOwnsInsets`: both panes end at the bottom and right bars, and at the
+left one when no rail or side gutter already covers it. Nothing inside a pane has to know about
+bars any more: the loupe's fit clamp keeps Dismiss / Add waypoint above the bar with no change,
+`PulseAppV2`'s bottom/left/right insets are 0, `plot2D_grid` drops its own subtraction when
+`uiVariantIsV2`, and the 2D foot gutter's margin takes only its height above the bar. The top
+stays full-bleed.
+
+#### The rail
+
+- **HEAD** (range, intensity, filter) and **FOOT** (Hide the rail) are pinned; the **BODY**
+  (colours, cone/screen, pause, record, source, settings) is a Flickable that is interactive only
+  when it overflows. The cue is a fade + Canvas chevron drawn **over** the edge that has more,
+  tappable to scroll ¾ of the body. When it fits, the tablet layout is unchanged.
+- **The expand tab** sits exactly where Hide the rail was, at the foot, 60 u tall like the button.
+- **The mark**: `image/pulse_brand_mark.png`, made from `logo_icon.png` (the smooth original,
+  not the dithered recolour): alpha from the blue, white fill, wordmark cropped off, 256 px. Above
+  the foot, 40 u, opacity 0.45, and **absent whenever the body would otherwise have to scroll**.
+- **The wordmark** moved to the panel's Flickable: at the panel's foot when the group is short,
+  after the last row when it is long.
+
+#### To check on the device
+
+1. `INSETS: at startup …` and `INSETS: applied the insets held from before main()` in the log.
+   **The G30 is the test**: PAUSED fully visible, and the loupe's two buttons above the button bar.
+2. **Tab 10" and S23**: every inset-aware surface moves slightly: the connection screen, the pills and
+   the paused gutter get about a third more room on the Tab 10" and about 30% less on the S23. That is
+   the unit fix. Nothing may end up under a bar.
+3. **Ruler**: the lowest labels on a 2D picture are above the bar, not clipped.
+4. **Rail on the 320 phone, Normal**: probably just scrolls (the estimate says about one button).
+   The chevron shows on the side with more; tap scrolls; the three setters never move. **Larger** on
+   any phone: same. Tablet at Normal: no scrolling, the mark above Hide the rail.
+5. **Collapse and expand** with Pulse as the right-hand app in split screen: the tab is at the
+   foot and no longer meets the divider handle.
+6. **Panel**: the wordmark at the foot of a short group (Intensity), after the list in Settings.
+7. **Classic** must be exactly as before.
+
+#### Left open
+
+- **The Tab Pro 8" ruler under the system bar** is probably one of these two faults. Check on the
+  next build before touching anything else.
+- **Gesture-navigation devices** now lose their thin bottom inset (~16–24 dp) from the echogram too.
+  If that is too much, Java can pass `tappableElement` separately so only a button bar is taken.
+- Snap-to-half-a-button was not built; the fade and chevron are the cue.
 
 ### Session 5, redefined by Olav, 28 Sept: the mosaic is offered when none can be made
 
