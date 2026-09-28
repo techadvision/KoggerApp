@@ -1187,6 +1187,10 @@ three derived sizes — at startup and again 400 ms after the last resize, becau
 forces landscape and the window is resized after QML is up. Raw and clamped both print: `0.75`
 and `0.75-because-the-floor-caught-it` are otherwise the same string.
 
+> **ANSWERED by session 2, 27 Sept 2026: the two fixes below are not opposites, and both
+> are needed.** The branch is consistent; the ruler and the v2 loupe ignore it. See *Session 2*
+> under THE NEXT STAGES. The original reasoning is kept as written.
+
 **THE NUMBER SELECTS BETWEEN TWO OPPOSITE FIXES, which is why the code is not to be touched
 first.** `qPlot2D::paint` contains a cliff:
 
@@ -1760,8 +1764,8 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 |---|---|---|---|
 | 0 | **Push `feature/pulse-v2-field-fixes`**, publish 1.40 to internal test, push `master` (71 ahead of origin) | — | Olav, GitHub Desktop |
 | 1 | **The startup hang** (splash never shown) + the manifest's six duplicated `splash_screen_drawable` lines | `fix/startup-hang` off field-fixes | the stack of the hung main thread (below) |
-| 2 | **Measure, do not fix**: the `METRICS:` line (`b753c340`) from tablet, S23 Ultra, Skydroid G30 and two or three emulators | none | the lines, pasted |
-| 3 | **Base scale, fonts and the loupe** — the two opposite fixes recorded under P1 are chosen by the dpr numbers from session 2 | `feature/pulse-small-screens` | session 2 |
+| 2 | ~~**Measure, do not fix**~~ **DONE 27–28 Sept**: see *Session 2* below. The two P1 fixes are not alternatives; both are needed | none | — |
+| 3 | **Base scale, fonts and the loupe**: first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
 | 4 | **Layout on small screens**: scrollable rail, compact connection screen, Group E's split-pane walk | same branch | session 3 |
 | 5 | **Mosaic on the phone** — the `MOSAIC:` line (`262be7fe`) says which of three terms is false | same branch | one log line from the S23 |
 | 6 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
@@ -1957,6 +1961,192 @@ committed, while Qt Creator was open. **Seven identical copies are harmless** (A
 last value) **and are not the hang.** Set the version in the XML source view or in a text
 editor, not in the manifest editor's form view, and run `node tools/pulse-manifest-check.js`
 after any change to the manifest.
+
+### Session 2, 27 Sept 2026: measured, nothing changed
+
+**No code was changed.** Six `METRICS:` lines, Olav's impressions of each device, and a
+read of the three painter files that draw text (`qPlot2D.cpp`, `plot2D_grid.cpp`,
+`plot2D_zoom.cpp`, `plot2D_aim.cpp`), `UiMetrics.cpp` and `themes.h`.
+
+#### The numbers
+
+`startup` and `settled` are identical on every device except the emulated tablet, whose
+startup line (`320x455` window, `5120x3200` screen) comes from before the landscape resize,
+as designed. The table uses `settled`.
+
+| device | device px | logical | dpr | Android density | `s` | `deviceScale_` branch | Olav |
+|---|---|---|---|---|---|---|---|
+| **Galaxy Tab 10"** (real) | 1920×1200 | 2560×1600 | 0.75 | 1.5 | 1.333 | fractional → 0.75 | generally good; `plot2d_grid` fonts a bit too large |
+| **Skydroid G30** (real) | 1920×1200 | 2008×1255 | 0.956 | 1.9125 | 1.046 | fractional → 0.956 | very OK, the most complete UI; ruler tick values a fraction too big |
+| **Galaxy Tab Pro 8"** (real) | 1920×1200 | 1920×1200 | 1.0 | 2.0 | 1.000 | integer → 1.0 | fonts generally too small; **insets fail** (below) |
+| emulator, 320 dpi tablet | 2560×1600 | 2560×1600 | 1.0 | 2.0 | 1.333 | integer → 1.0 | mostly OK; PULSE black image washed out (below) |
+| emulator, 320 dpi phone | 1280×720 | 1280×720 | 1.0 | 2.0 | 0.75 (raw 0.600, CLAMPED) | integer → 1.0 | a bit small everywhere; sub-texts barely readable; grid OK |
+| emulator, 420 dpi phone | 2401×1080 | 1829×823 | 1.3125 | 2.625 | 0.75 (raw 0.686, CLAMPED) | fractional → 1.3125 | worse: grid really small, connection screen hard to read, loupe buttons too small |
+| **S23 Ultra** (real, FHD+) | 2316×1080 | 1647×768 | 1.40625 | 2.8125 | 0.75 (raw 0.640, CLAMPED) | fractional → 1.40625 | "similar to the 420 phone" |
+
+**The S23 line arrived on 28 Sept** (the first one pasted was the Tab 10" line again). **My
+prediction was half right:** fractional branch and `s` 0.75 clamped, as predicted, but the
+logical short side is **768**, not 823, and the dpr is **1.40625**, neither of the two values I
+gave. The reason: Samsung sets density 2.8125 (450 dpi) at FHD+, which is not a standard Android
+bucket, on a panel that is really about **376 ppi**. So a logical unit on the S23 is about 1/267
+inch, **20% larger than nominal**, and the phone is still reported hard to read. The mm figures
+below use the nominal density for every device, so the S23's real sizes are about 20% larger
+than its row shows. None of this changes the conclusion.
+
+**Three facts every line confirms:**
+
+- **dpr = Android density × 0.5** (`QT_SCALE_FACTOR`), on all six. So on Android a
+  logical unit is about **1/320 inch** on every device, give or take density bucket rounding
+  (the Tab 10" is really 224 dpi against a nominal 240, so its logical units are about 7%
+  larger than nominal).
+- **`resCoeff` is 1.5 on every device.** It is not the density. `checkResolutionCoeff()` is
+  `qBound(0.5, physical/logical dpi × 0.5, 1.5)` and every Android device saturates the
+  ceiling. So **`renderScale()` carries no device information** beyond `deviceScale_`.
+- **`s` is the logical short side over 1200**, so on Android it is really *physical short side
+  ÷ ~3.75 in*. It measures **how big the screen is**, not how dense it is, and the floor at 0.75
+  catches both phones.
+
+#### What the branch actually does — P1 read it wrong
+
+`qPlot2D::paint`:
+
+```
+deviceScale_ = (qAbs(dpr - qRound(dpr)) > 0.01) ? dpr : 1.0;
+const int w = qRound(lw * deviceScale_);        // the canvas
+painter->scale(1.0 / deviceScale_, ...);
+g_plotRenderExtraScale = deviceScale_;          // renderScale() = resCoeff × deviceScale_
+```
+
+**`deviceScale_` is exactly "canvas pixels per logical unit", in both branches.**
+Fractional: the canvas is device-sized and `deviceScale_` = dpr. Integer: the canvas is
+logical-sized and `deviceScale_` = 1. **The branch is internally consistent.** It is not a
+cliff between two coordinate systems. The fault is in the code that draws on the canvas and
+does not ask the branch:
+
+| surface | font law | in which units | physical size |
+|---|---|---|---|
+| `plot2D_aim` crosshair labels | `18 × renderScale()` = 18 × 1.5 × `deviceScale_` | **logical** (converted) | the same on every device, about 2.1 mm |
+| `plot2D_grid` ruler ticks | `UiMetrics::fontM()` = 24·`s` | **canvas px, not converted** | ∝ `s / dpr` |
+| `plot2D_zoom` v2 loupe (text, rows, buttons, tile) | `fontS`/`fontM`/`px(n)` = n·`s`, `iconTouchSmall` | **canvas px, not converted** | ∝ `s / dpr` |
+| every QML control | `Ui.*` = n·`s` | **logical** | ∝ `s` |
+
+**Every integer-branch device in this set has dpr exactly 1.0**, so for them canvas px and
+logical units coincide and the branch makes no difference. The only case in which the two
+branches would behave differently is dpr 2.0 (density 4.0), which no device here has.
+
+**So the painter's ruler and loupe are drawn at `s / dpr` while QML is drawn at `s`.** In
+millimetres, taking the grid's `fontM` and Android's nominal density:
+
+| device | `s / dpr` | ruler / loupe text now | QML `fontM` | aim labels |
+|---|---|---|---|---|
+| Tab 10" | **1.78** | **3.4 mm** | 2.5 mm | 2.1 mm |
+| G30 | 1.09 | 2.1 mm | 2.0 mm | 2.1 mm |
+| Tab 8" | 1.00 | 1.9 mm | 1.9 mm | 2.1 mm |
+| 320 phone | 0.75 | 1.4 mm | 1.4 mm | 2.1 mm |
+| 420 phone | **0.57** | **1.1 mm** | 1.4 mm | 2.1 mm |
+| S23 (FHD+) | **0.53** | **1.0 mm** (really ~1.2) | 1.4 mm (really ~1.7) | 2.1 mm |
+
+**This matches every real-device impression.** On the Tab 10" the ruler is drawn 33% larger
+than the QML around it: *"a bit too large"*. On the G30 the two nearly agree: *"a fraction too
+big"*, and it is the device Olav calls the most complete. The phones get the smallest ruler and
+loupe, getting smaller as density rises. **A 4× spread in ruler size between two devices the
+app already ships on, from one uncorrected unit.**
+
+**Emulator impressions are sizes on the Mac's screen, not on a phone.** An emulator window
+fits the device's pixels to the window, so the 420 phone's 2401 px are shown about 0.53× as
+large as the 320 phone's 1280. That is why the 420 emulator looks *worse* than the 320 one
+even where the two phones should look identical (QML at `s` 0.75 is 1.4 mm on both). The
+ranking agrees with the physics; the magnitudes do not. **The S23 is the real-hardware answer
+for phones**, and it says the 420 impression was right.
+
+#### What it means for the two fixes P1 recorded
+
+**P1 framed them as opposites and asked the dpr to choose one. They are not opposites. Both
+are needed, for two different defects, and the dpr does not choose between them.**
+
+1. **The painter converts. This is a correctness fix, and it is right on every device
+   regardless of branch.** Every `UiMetrics` size that the ruler and the v2 loupe draw on the
+   canvas is multiplied by `deviceScale_` (i.e. `g_plotRenderExtraScale`), exactly as
+   `plot2D_aim` already does through `renderScale()`. Afterwards the painter is drawn at `s`,
+   like QML. What that does per device:
+   - Tab 10": ruler 3.4 → 2.5 mm, **25% smaller**, which is the direction Olav asked for.
+   - G30: 2.1 → 2.0 mm, **unchanged within 5%**. His best device stays as it is.
+   - Tab 8", 320 phone, emulated tablet: **byte-identical** (dpr 1).
+   - 420 phone +31%, S23 +41% (× 1.40625).
+   - The loupe's tile, rows and buttons follow the same law, so `bf80ab02`'s fit clamp keeps
+     working unchanged (it measures in the same canvas pixels it draws in).
+
+   **One correction to what I wrote at the start of this session:** I suggested normalising to
+   the tablet (× dpr / 0.75) so the tablet would not move. Olav's report says the tablet's ruler
+   *should* move, so plain `× deviceScale_` is right and there is nothing to normalise.
+
+2. **The base scale. This is a design fix, and it is what is left after (1).** Once (1) is in,
+   everything the app draws is proportional to `s`, and `s` is proportional to screen size. So
+   on a smaller screen *everything* is smaller in millimetres, which is exactly Olav's *"should
+   increase fonts all over a bit"* and the Tab 8"'s *"fonts generally too small"*. What the real
+   devices say about the target:
+   - `s` 1.333 (Tab 10") — QML *generally good*.
+   - `s` 1.046 (G30) — *very OK*.
+   - `s` 1.000 (Tab 8") — *too small*.
+   - `s` 0.75 (phones) — too small; the S23 is hard to read.
+
+   So **the floor of 0.75 is too low, and the proportional slope is too steep below a
+   ~7–8" screen.** Because an Android logical unit is already close to physical, the natural
+   shape is a base scale that stops shrinking with the screen (a higher floor, or a flatter
+   curve below the reference), not one that looks at the density. Choosing the numbers is
+   session 3's job.
+
+**P1's warning still holds, in a narrower form: do not use `scale()` to fix the painter.**
+`scale()` feeds every QML control, so raising it to make the ruler legible on a phone would
+inflate the whole UI. (1) is done in the painter; (2) is done in `computeScale()`.
+
+**Order for session 3: (1) first, then (2).** (1) is mechanical, and on the three dpr-1 devices
+the effect is nil, so any change seen there after (1) is a bug. (2) then has one law to tune
+instead of two. After (2), the phones' height (720–823 logical) is further over the rail's
+budget (915–983 u) than it is today. That is session 4's scrollable rail, and it is the reason
+(2) goes after `bf80ab02` and before session 4.
+
+**The branch itself** is harmless in this set and should stay until a dpr 2.0 device can be
+measured. If a density-4.0 phone ever turns up, its canvas is logical-sized and upscaled by Qt,
+so the risk there is sharpness, not size.
+
+#### Confirmed on hardware — the S23 screenshot, 28 Sept (the first input for session 3)
+
+Olav sent an S23 screenshot of a paused side scan with the loupe open (2316×1080, saved at
+2000×932): *"Compared to the overall screen size the box seems to occupy less space overall on
+the screen than the 320 DPI device. And the grid ruler up is also offered with very small
+fonts. Making this more of a problem with 420 DPI than 320 DPI, no matter emulator use."*
+
+**The pixels match the arithmetic.** The loupe's tile measures about 207 px in the screenshot,
+which is **240 device px**. That is exactly `boxSizePx` 320 × `s` 0.75, drawn in device pixels
+and not converted. The ruler labels are the grid's `fontM` 18 as **device** px.
+
+- **On the 320 phone** (dpr 1) that tile is 240 of 720 px: **33% of the screen height**.
+- **On the S23** (dpr 1.40625) it is 240 of 1080 px: **22%**. The ratio between the two is
+  1 / dpr, which is the unconverted unit and nothing else.
+- **After fix 1** the S23's tile becomes 240 × 1.40625 = 337 device px, **31%** of the height,
+  the same share as on the 320 phone. The ruler and the loupe text grow by the same factor.
+
+**So this is fix 1 observed on real hardware, not on an emulator**, and it settles what the
+emulator caveat above left open: denser phones really are worse today. The QML parts of the
+same screenshot (the rail's Resume label, the paused gutter, the PAUSED title) are not
+visibly smaller than on the 320 phone, which is also what the model predicts: QML is drawn at
+`s` on both.
+
+#### Found on the way, for later sessions
+
+- **Galaxy Tab Pro 8": the dual side scan ruler is drawn under the Android system bar.** The
+  only device with it. Session 1 already noted that `notifyInsets_native` posts to `qApp` before
+  `main()` has built it, **so the first insets are always dropped**. That is the first thing to
+  check. **Session 4** (layout).
+- **Emulated 320 dpi tablet: the PULSE black card's image looks washed out** next to red and
+  blue in the same screenshot. It could be the image asset or a dimmed state. **Session 4.**
+- **Loupe, from the 320 phone:** *"Add waypoint"* may not fit its button. Olav suggests
+  *"Add WP"*. The buttons are small. **Session 3**, with (1) and (2).
+- **`computeScale()`'s comment** names a 1280×800 reference and the code uses 1200. Its
+  `maxScale` of 1.35 is not reached by any device here (1.333 is the largest).
+- **`resCoeff` is a constant 1.5 on Android**, so `renderScale()`, and anything in classic that
+  reads `theme.resCoeff`, has never adapted to a device. Not a v2 problem.
 
 ### Emulators
 
