@@ -1765,7 +1765,7 @@ second-echo range). What follows is ordered by risk to a customer, not by size.
 | 0 | **Push `feature/pulse-v2-field-fixes`**, publish 1.40 to internal test, push `master` (71 ahead of origin) | — | Olav, GitHub Desktop |
 | 1 | **The startup hang** (splash never shown) + the manifest's six duplicated `splash_screen_drawable` lines | `fix/startup-hang` off field-fixes | the stack of the hung main thread (below) |
 | 2 | ~~**Measure, do not fix**~~ **DONE 27–28 Sept**: see *Session 2* below. The two P1 fixes are not alternatives; both are needed | none | — |
-| 3 | **Base scale, fonts and the loupe**: first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
+| 3 | ~~**Base scale, fonts and the loupe**~~ **BUILT 28 Sept, `f7e97415` + `3c5b6408`, awaiting a device build** (see *Session 3*): first the painter converts (ruler and v2 loupe × `deviceScale_`), then the base scale's floor and slope | `feature/pulse-small-screens` | session 2 |
 | 4 | **Layout on small screens**: scrollable rail, compact connection screen, Group E's split-pane walk | same branch | session 3 |
 | 5 | **Mosaic on the phone** — the `MOSAIC:` line (`262be7fe`) says which of three terms is false | same branch | one log line from the S23 |
 | 6 | **The P4 list and the rest**: classic's mosaic filter wiring, per-pane range, the filter's meaning per device, item 9, the forced-landscape deadline, then High performance mode | as fits | — |
@@ -2034,6 +2034,10 @@ does not ask the branch:
 logical units coincide and the branch makes no difference. The only case in which the two
 branches would behave differently is dpr 2.0 (density 4.0), which no device here has.
 
+> **Correction, session 3:** the v2 QML is drawn at its own `uiScale`
+> (`Math.max(1.0, shortSide / 1100)`), not at `Ui.scale`. The painter columns below are right;
+> the QML column is not, for v2. See *Session 3*.
+
 **So the painter's ruler and loupe are drawn at `s / dpr` while QML is drawn at `s`.** In
 millimetres, taking the grid's `fontM` and Android's nominal density:
 
@@ -2147,6 +2151,132 @@ visibly smaller than on the 320 phone, which is also what the model predicts: QM
   `maxScale` of 1.35 is not reached by any device here (1.333 is the largest).
 - **`resCoeff` is a constant 1.5 on Android**, so `renderScale()`, and anything in classic that
   reads `theme.resCoeff`, has never adapted to a device. Not a v2 problem.
+
+### Session 3, 28 Sept 2026: `feature/pulse-small-screens`, off master
+
+`fix/startup-hang` was merged into master by fast-forward (master = `4637f187`, which is the
+session 2 backlog commit), and the branch was cut from there. **Not compiled.** The shell has
+no Qt. C++ in `themes.h`, `UiMetrics.{h,cpp}` (a new `Q_PROPERTY`, so `moc` re-runs),
+`plot2D_grid.cpp`, `plot2D_zoom.cpp` and `qPlot2D.cpp`, plus QML.
+
+| commit | what |
+|---|---|
+| `f7e97415` | **fix 1**: the ruler and the v2 loupe are drawn in logical units, like the QML around them |
+| `3c5b6408` | **fix 2**: the base scale's floor goes from 0.75 to 1.0, and an **Interface size** setting for everybody |
+
+Olav's choices, 28 Sept: **floor 1.0 plus a size setting**, and **keep "Add waypoint"**
+(change it only if it clips on a device).
+
+#### A correction to session 2, found while building fix 2
+
+**The v2 QML does not use `Ui.scale`.** Session 2's "QML is drawn at `s`" was wrong for v2.
+`mainview.s` and `PulseAppV2.s` are `Math.max(1.0, shortSide / 1100)`, a second law with a
+floor of 1.0 and no ceiling. Every rail, panel, connection screen and overlay size comes from
+it. `Ui.*` (`UiMetrics`) is read by the painter and by classic's settings components only.
+So the v2 controls on the phones were **already at 1.0**, not at 0.75:
+
+| device | v2 QML `uiScale` | `Ui.scale` before | `Ui.scale` after fix 2 |
+|---|---|---|---|
+| Tab 10" | 1.45 | 1.333 | 1.333 |
+| G30 | 1.14 | 1.046 | 1.046 |
+| Tab 8" | 1.09 | 1.000 | 1.000 |
+| phones (320, 420, S23) | 1.00 | 0.75 | **1.00** |
+
+What this changes and what it does not:
+
+- **Fix 1 stands as it was.** The painter was at `s / dpr`, and after fix 1 it is at `Ui.scale`,
+  in logical units like the controls.
+- **Fix 2 is now what makes the painter agree with the controls on a phone.** After it, the
+  ruler and the loupe are at 1.0 there, the same as the rail. On the tablets they are about 8%
+  below the controls (1.333 against 1.45). That is left as it is: Olav wanted the tablet's
+  ruler smaller, and the two laws are a merge for another day (below).
+- **The phones' "a bit small everywhere" is not the floor.** Their v2 controls were at 1.0
+  already, and 1.0 is the reference. **That is what the Interface size setting is for**,
+  and it is why the setting multiplies both laws.
+- The mm column for QML in session 2's table used the wrong law for v2. The painter columns
+  are right.
+
+#### Fix 1 — `f7e97415`
+
+- **`plotCanvasScale()`** in `themes.h`: canvas pixels per logical unit while
+  `qPlot2D::paint` runs (`g_plotRenderExtraScale`, i.e. `deviceScale_`). Its comment carries
+  the measurement.
+- **`plot2D_grid`**: the font (`Ui.fontM × cs`) and every size in the label layout
+  (`textXOffset`, `textYOffset`, the label margin, the backdrop margins, the fixed line
+  length) go through `cpx()`. `sp()` is left as it is, because it is already a dp law.
+- **`Plot2DZoom::drawV2`**: one factor for the whole panel. `s = Ui.scale × cs`, and the
+  fonts are `fpx(Ui.fontX)`. Tile, rows, buttons, crosshair, corners and fonts all follow.
+  **The fit clamp is untouched**, because it measures in the canvas pixels it draws in.
+- **Classic's loupe (`Plot2DZoom::draw`) is left as it shipped.** The grid is shared, so
+  classic's ruler changes too, and that is a correction for classic as well.
+- **`METRICS: plot canvas | dpr … -> … canvas px per logical unit (… branch)`**, once per
+  change, from `qPlot2D::paint`.
+
+#### Fix 2 — `3c5b6408`
+
+- **`UiMetrics::computeScale()`**: `minScale` 1.0 (was 0.75), `maxScale` 1.35 kept, and the
+  result multiplied by **`Ui.userScale`** *after* the clamp, so "larger" is larger on every
+  device, the floor included.
+- **`Ui.userScale`** (`Q_PROPERTY`, bounded 0.8–1.5). Its one writer is a `Binding` in
+  `main.qml` on **`pulseSettings.interfaceSize`** (percent, persisted, default 100).
+- **`mainview.s` and `PulseAppV2.s` are multiplied by `Ui.userScale`** too, so one setting moves
+  the controls, the ruler and the loupe together.
+- **Interface size** is the first row of **Screen & echogram**, for everybody: Small 90 /
+  Normal 100 / Large 115 / Larger 130. Olav's own case for it: the G30 and the Tab 8" sit at
+  almost the same scale and were judged "very OK" and "too small". No single curve serves
+  both, so the person reading the screen chooses.
+- **`Plot2D.qml` repaints on `Ui.metricsChanged`**, so a paused picture follows the setting at
+  once.
+- **`METRICS:`** now also prints `interface size` and `uiScale`, and marks CLAMPED against the
+  new floor.
+
+#### What the numbers should be after this build, at Normal
+
+Ruler text, nominal mm (`Ui.fontM` = 24 × `Ui.scale`, now in logical units):
+
+| device | before | after | change |
+|---|---|---|---|
+| Tab 10" | 3.4 mm | 2.5 mm | −25% (fix 1) |
+| G30 | 2.1 mm | 2.0 mm | −4% (fix 1) |
+| Tab 8", emulated tablet | 1.9 mm / 2.5 mm | same | none |
+| 320 phone | 1.4 mm | 1.9 mm | +33% (fix 2) |
+| 420 phone | 1.1 mm | 1.9 mm | +75% (both) |
+| S23 | 1.0 mm (really ~1.2) | 1.9 mm (really ~2.3) | **×1.875** (both) |
+
+The loupe's tile follows the same law: on the S23 it wants 320 × 1.0 × 1.406 = **450 device
+px** full screen, about **42%** of the height. In a split the fit clamp shrinks the tile and
+keeps the buttons.
+
+#### To check on the device
+
+1. **The two log lines.** `METRICS: plot canvas | dpr 1.40625 -> 1.40625 … (fractional
+   branch)` on the S23, `dpr 1 -> 1 … (integer branch)` on a dpr-1 device. `METRICS: settled`
+   on a phone reads `-> s 1 (CLAMPED) | interface size 1 | uiScale 1`.
+2. **Tab 8" and the emulated tablet at Normal: nothing moves.** Both have dpr 1 and `s` ≥ 1.
+   Any change there is a bug in this build.
+3. **Tab 10": the ruler about a quarter smaller**, the loupe the same. **G30: no visible
+   change.**
+4. **S23: ruler and loupe clearly larger**, the loupe about 42% of the height full screen. The
+   **Add waypoint** button must not clip. If it does, that is the trigger for the shorter
+   label.
+5. **A split on the S23, paused, loupe open:** the buttons stay on the pane, and only the tile
+   shrinks.
+6. **Interface size:** each step moves the rail, the panel, the connection screen, the ruler and
+   the loupe together, **with the echogram paused as well**. It must survive a restart.
+7. **Larger on a phone** may push the rail past its height budget. That is **session 4's**
+   scrollable rail, not a regression: at Normal the rail is unchanged.
+8. **Classic on a phone:** its `Ui.*` rows are a third bigger (the floor). That is expected.
+
+#### Left for later, deliberately
+
+- **Two base-scale laws.** `UiMetrics` is short side / 1200 clamped to 1.0–1.35, and v2's
+  `uiScale` is short side / 1100 floored at 1.0. They agree on phones and are 8% apart on
+  tablets. Merging them into one (`UiMetrics` taking v2's law, and the ~20 files that each
+  compute their own `s` reading `Ui.scale`) is a tidy-up with classic in its blast radius. It is
+  its own commit when classic's settings are next touched.
+- **`resCoeff` is a constant 1.5 on Android**, so `renderScale()` never adapts (session 2).
+  The aim's crosshair labels are drawn at 27 logical px everywhere and do not follow Interface
+  size. They are small and fixed, so they are left as they are.
 
 ### Emulators
 
