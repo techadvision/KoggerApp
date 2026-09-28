@@ -564,4 +564,16 @@ extern Themes theme;
 inline thread_local qreal g_plotRenderExtraScale = 1.0;
 inline qreal renderScale() { return theme.getResolutionCoeff() * g_plotRenderExtraScale; }
 
+// CANVAS PIXELS PER LOGICAL UNIT, while qPlot2D::paint is running (1.0 outside it).
+//
+// qPlot2D::paint draws on a DEVICE-sized canvas when the dpr is fractional and on a
+// LOGICAL-sized one when it is an integer, and sets this to match (deviceScale_). Every
+// UiMetrics number (Ui.fontM, Ui.scale, ...) is a LOGICAL size - that is what QML reads it
+// as - so a painter that draws one on the canvas must multiply by this, or it draws in
+// device pixels on some devices and logical units on others. Measured 27 Sept 2026: the
+// ruler came out at s/dpr, 33% too large on a 10" tablet (dpr 0.75) and 29% too small on
+// an S23 (dpr 1.40625). renderScale() already folds this in; this is the same factor
+// without resCoeff, for code sized off UiMetrics.
+inline qreal plotCanvasScale() { return g_plotRenderExtraScale; }
+
 #endif // THEME_H

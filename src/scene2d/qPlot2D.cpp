@@ -6,6 +6,7 @@
 #include <QPainter>
 #include <QSGSimpleTextureNode>
 #include <QQuickWindow>
+#include <QDebug>
 #include <cmath>
 #include <limits>
 #include "core.h"
@@ -127,6 +128,17 @@ void qPlot2D::paint(QPainter *painter)
 
         const qreal dpr = window() ? window()->effectiveDevicePixelRatio() : 1.0;
         deviceScale_ = (qAbs(dpr - qRound(dpr)) > 0.01) ? dpr : 1.0;
+        {
+            // One line per change, so a device log says which canvas the ruler and the
+            // loupe were converted to. See plotCanvasScale() in themes.h.
+            static qreal lastLogged = -1.0;
+            if (!qFuzzyCompare(1.0 + lastLogged, 1.0 + deviceScale_)) {
+                lastLogged = deviceScale_;
+                qDebug().noquote() << QStringLiteral("METRICS: plot canvas | dpr %1 -> %2 canvas px per logical unit (%3 branch)")
+                                      .arg(dpr).arg(deviceScale_)
+                                      .arg(deviceScale_ != 1.0 ? QStringLiteral("fractional") : QStringLiteral("integer"));
+            }
+        }
         const int w = qRound(lw * deviceScale_);
         const int h = qRound(lh * deviceScale_);
 

@@ -14,6 +14,7 @@
 #include "math_defs.h"
 
 #include "UiMetrics.h"
+#include "themes.h"   // plotCanvasScale()
 
 #include <QFontMetrics>
 
@@ -114,9 +115,17 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     /*
     f.setPixelSize(sp(18));   // pick an sp value
     */
+    // The ruler is sized in LOGICAL units, like the QML around it, and converted to the
+    // canvas here. Without the conversion it was drawn at s/dpr (see plotCanvasScale()).
+    // Everything below that is a size in the label layout goes through cpx() too, so a label
+    // and its backdrop keep their proportions on every device. sp() is left alone: it is
+    // already a physical (dp) law.
+    const qreal cs = plotCanvasScale();
+    const auto cpx = [cs](int v) { return qMax(1, qRound(v * cs)); };
+
     if (UiMetrics* ui = UiMetrics::instance()) {
         // Option A: use one of your standard UI font sizes
-        f.setPixelSize(ui->fontM());
+        f.setPixelSize(qMax(1, qRound(ui->fontM() * cs)));
 
         // Option B: recreate your QML-style Math.round(18 * Ui.scale)
         //const qreal scale = ui->scale();
@@ -131,7 +140,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     QFontMetrics fm(p->font());
 
     const int imageHeight{ canvas.height() }, imageWidth{ canvas.width() },
-        linesCount{ _lines }, textXOffset{ 30 }, textYOffset{ 10 };
+        linesCount{ _lines }, textXOffset{ cpx(30) }, textYOffset{ cpx(10) };
 
     // Device-space size: this is the coordinate system used after resetTransform()
     const int devW = p->device()->width();
@@ -300,7 +309,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
             if (isHorizontalGrid_) {
                 //HORIZONTAL GRID
                 withDeviceSafe([&]{
-                    const int labelMargin = 5;
+                    const int labelMargin = cpx(5);
                     const int desiredX =
                         safeRightEdge - labelMargin - fm.horizontalAdvance(lineText);
 
@@ -311,7 +320,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                                          TextAnchor::BaselineLeft,
                                          labelMargin,
                                          -1,   // do not force right edge
-                                         5);
+                                         cpx(5));
                 });
                 /*
                 withDeviceSafe([&]{
@@ -352,7 +361,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                     drawTextWithBackdrop(p, lineText,
                                          QPoint(labelX, baseY),
                                          TextAnchor::BaselineLeft,
-                                         5,   // margin
+                                         cpx(5),   // margin
                                          -1,  // don’t force right edge
                                          0);
                 });
@@ -376,7 +385,7 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
                 if (isFillWidth()) {
                     p->drawLine(posX, band.top(), posX, band.bottom());
                 } else {
-                    const int fixedLineLength = 50;
+                    const int fixedLineLength = cpx(50);
                     p->drawLine(posX, band.top(), posX, band.top() + fixedLineLength);
                 }
             });

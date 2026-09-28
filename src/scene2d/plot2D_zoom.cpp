@@ -9,6 +9,7 @@
 #include <QCoreApplication>
 #include <cmath>
 #include "UiMetrics.h"
+#include "themes.h"   // plotCanvasScale()
 
 
 // Draw white text with a black outline inside rect, honoring alignment.
@@ -438,7 +439,15 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
 
     UiMetrics* ui = UiMetrics::instance();
     const int   scale = qMax(1, in.scale);
-    const float s     = ui ? ui->scale() : float(scale);
+
+    // UiMetrics is LOGICAL; this panel is drawn on the canvas. cs converts, so the tile, the
+    // rows, the buttons and the fonts all come out at the size QML would draw them - not at
+    // s/dpr, which made the loupe 22% of an S23's height against 33% of a dpr-1 phone's.
+    // One factor for the whole panel, so the fit clamp below is unchanged: it measures in
+    // the same canvas pixels it draws in.
+    const float cs    = float(plotCanvasScale());
+    const float s     = (ui ? float(ui->scale()) : float(scale)) * cs;
+    const auto  fpx   = [cs](int logicalPx) { return qMax(1, qRound(logicalPx * cs)); };
 
     const auto px = [s](int designPx) { return qMax(1, int(designPx * s)); };
 
@@ -455,12 +464,12 @@ Plot2DZoom::Output Plot2DZoom::drawV2(QPainter* p, const Input& in) const
     const bool canAdd = in.showAddBtn;
 
     QFont fLabel("Asap");
-    fLabel.setPixelSize(ui ? ui->fontS() : px(15));
+    fLabel.setPixelSize(ui ? fpx(ui->fontS()) : px(15));
     QFont fValue("Asap");
-    fValue.setPixelSize(ui ? ui->fontM() : px(18));
+    fValue.setPixelSize(ui ? fpx(ui->fontM()) : px(18));
     fValue.setWeight(QFont::DemiBold);
     QFont fNote("Asap");
-    fNote.setPixelSize(ui ? ui->fontS() : px(15));
+    fNote.setPixelSize(ui ? fpx(ui->fontS()) : px(15));
 
     // The sentence wraps, so its height is a measurement rather than a constant - the
     // string is Olav's and may get longer or shorter without this file being touched. It is
