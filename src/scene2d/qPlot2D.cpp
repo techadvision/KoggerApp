@@ -577,6 +577,24 @@ void qPlot2D::sendSyncEvent(int epoch_index, QEvent::Type eventType)
     if (!datasetPtr_) {
         return;
     }
+
+    // WHICH PANE HAS THE FINGER - an instrument, 29 Sept. In a paused side + down split a
+    // drag from the side scan into the down pane gave two loupes over the down pane's empty
+    // columns, and clearing the other pane there made the two loupes blink against each
+    // other instead (reverted). Blinking means BOTH panes are handed positions from one
+    // finger, alternately. This prints only when the pane changes, so a clean drag prints a
+    // line or two and the fault prints a run of 1, 2, 1, 2.
+    if (eventType == EpochSelected2d) {
+        static int lastPane = -2;
+        static int reported = 0;
+        if (indx_ != lastPane && reported < 40) {
+            ++reported;
+            qDebug().noquote() << QStringLiteral("AIM: pane %1 has the finger | epoch %2 | mouse %3,%4")
+                                      .arg(indx_).arg(epoch_index).arg(cursor_.mouseX).arg(cursor_.mouseY);
+        }
+        lastPane = indx_;
+    }
+
     if (epoch_index < 0 && eventType != ContactActiveChanged) {
         return;
     }
