@@ -576,7 +576,13 @@ WaterFall {
 
             else if (zoomY) {
                 //Pulse additions, replacing the logic
-                if (pulseRuntimeSettings.is2DTransducer) {
+                //THE PICTURE DECIDES, NOT THE COMMITTED DEVICE (29 Sept). is2DTransducer is
+                //the committed transducer, so a committed red viewing a blue demo or log
+                //took the 2D branch on the blue's down pane - verZoomEvent -> zoomDistance,
+                //whose left-hand branch writes the range as 0 .. -R, the one form the down
+                //pane's flip draws upside down. Every other screen question already reads
+                //the display model.
+                if (pulseRuntimeSettings.displayIs2DTransducer) {
                     plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
                     let newMaxDepthValue = Math.abs(plot.getMaxDepth())
                     plot.quickChangeMaxRangeValue = newMaxDepthValue
