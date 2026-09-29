@@ -2874,23 +2874,68 @@ lands on no epoch, not for a sync echo). It blinked before only because the side
 finger from outside itself; `8b373a83` makes those positions inert. **To check:** both directions,
 slowly, over black and over data - one loupe, no blinking.
 
+### STATUS AT CLOSE, 29 Sept 2026 (evening) - SESSION 6 CLOSED
+
+**The one-loupe fix is VERIFIED** (Olav: *"YES!!! Finally! Done!"*): `8b373a83` + `f8df7c90`, both
+directions, over black and over data.
+
+**Branch `feature/pulse-small-screens`, 22 commits ahead of origin - push now** (Olav held it until
+the loupe was right). `master` is still 7 ahead of `origin/master`. `hang.zip` sits untracked in the
+repo root - delete it or keep it out of the commit.
+
+| item | state |
+|---|---|
+| 6a | TVG defaults, Pause-only pill, Tab Pro 8" ruler: passed. Card images `71c7e2d0`: built - **one look owed** (below) |
+| 6b | split-pane walk verified; one readout per screen `5d15b967` verified; one loupe verified |
+| 6c | split direction C `c9807738` verified |
+| 6d | compact connection screen: **left as it is** (looks good on the 320 emulator; no real small phone seen) |
+| 6e | gesture-nav inset: OK as is. Rail chevron: seen and OK on a red - **revisit when the new speed button joins the rail**. Base-scale merge: parked. Forced landscape: **a later todo** |
+| down view | never mirrored in v2 `05bc9445`, Single under expert verified; range conform `6ffeaf1d` and the pinch on the display model `d3485f6f` stay |
+| speed | `221affd2` self-heal; not reproduced since. Watch for `MAVLINK: detected late` |
+| phone hang | not reproduced; ruler guard `a4800f81` stays |
+
+**Still owed, small:**
+- **The card images on the 320 phone** (`71c7e2d0`): all three wordmarks and the PULSE black render
+  visible, the blue not faded. Never reported after the fix.
+- **Live water, from 27 Sept:** speed of sound on a live red; the second-echo automatic range.
+
+**The order changes (Olav, 29 Sept):** High performance mode starts NEXT, ahead of the side scan
+waypoints. Its image-manipulation approach changes what the echogram shows, and therefore the base the
+pause-and-set-waypoint function works from - so it has to be settled before waypoints are fixed.
+
+| # | Session | Needs |
+|---|---|---|
+| 7 | **High performance mode - the start.** Read `claude/pulse-high-performance-mode.md` (Olav is updating it) and the project thread "Pulse Blue High Performance mode analysis". Agree the design first; nothing built before. Includes the rail button for echogram speed / boat speed (it will push the rail further - check the chevron then). | Olav's updated doc |
+| 8 | **Side scan waypoints**: the 460/820 kHz desk-check switch, then the placement fix - on top of whatever 7 does to the picture | 7 |
+| 9 | P4 list; forced-landscape design | - |
+| 10 | Mosaic quality and tools (wipe revisited, nadir fill, accuracy, KMZ) | - |
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
-We continue the Pulse Echo Sounder UI work (project "Modernize UI of the Pulse Echo Sounder
-app"). Repo: my KoggerApp folder, branch feature/pulse-small-screens (23 commits ahead of
-master, not pushed yet - remind me). Read claude/pulse-bug-backlog.md first: the section
-"STATUS AT CLOSE, 28 Sept 2026 (evening)" and "Session 6, the breakdown".
+We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
+app"). Repo: my KoggerApp folder. Session 6 (finish the UI) is closed; read
+claude/pulse-bug-backlog.md, section "STATUS AT CLOSE, 29 Sept 2026 (evening)", first.
+Check whether I pushed feature/pulse-small-screens and master - remind me if not - and
+cut the new work as its own branch off the pushed tip.
 
-Today is session 6, FINISH THE UI. Start with 6a: I will build and report the four checks.
-Then 6c before 6b: show me the options for the split direction (side-by-side, or following
-the pane's aspect ratio) as simple drawings, and let me choose before anything is built.
-Then 6b, the split-pane walk, and 6d, the compact connection screen. 6e only if time allows.
+Today is session 7: the START of High performance mode for PULSE blue. Read the updated
+project doc claude/pulse-high-performance-mode.md (I have added input since the last
+session) and the project thread "Pulse Blue High Performance mode analysis". Then:
+1. Summarise what I want, my constraints, and the image-manipulation approach as you
+   understand it, and list the open questions. Nothing is built before I have answered.
+2. Show me how it changes what the echogram shows, and what that means for the paused
+   picture, the loupe and waypoint placement - waypoints (session 8) are fixed on top of
+   this, so the base must be right first.
+3. Propose the first slice, including the rail button for echogram/boat speed, and let me
+   choose.
 
 Working rules as before: nothing is fixed before its log line is read when a diagnosis is
 uncertain; one idea per commit; Classic is not touched without cause; run moc on any
-changed header in the cloud shell (apt qt6-base-dev-tools) and the tools/pulse-*-check.js
-scripts before telling me to build; update the backlog in the repo AND the project doc.
+changed header and a g++ -fsyntax-only check on changed C++ in the cloud shell (apt
+qt6-base-dev qt6-declarative-dev qt6-base-dev-tools libqt6serialport6-dev
+qt6-positioning-dev; -I every src dir, not third_party), plus the tools/pulse-*-check.js
+scripts, before telling me to build; update the backlog in the repo AND the project doc.
 ```
 
 ### Emulators
