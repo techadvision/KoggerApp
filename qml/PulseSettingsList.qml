@@ -466,20 +466,10 @@ Item {
                     }
                 },
 
-                PulseSwitchRow {
-                    width: installationGroup.contentWidth
-                    height: visible ? implicitHeight : 0
-                    visible: list.offersMounting
-                    uiScale: list.uiScale
-
-                    label: qsTr("Mounted on the left-hand side")
-                    hint:  qsTr("which hull the side scan looks past")
-                    checked: pulseSettings ? pulseSettings.isSideScanOnLeftHandSide : false
-
-                    onToggled: function (v) {
-                        list.settingChanged("persistent", "isSideScanOnLeftHandSide", v)
-                    }
-                },
+                // "Mounted on the left-hand side" is gone from v2 (29 Sept): it only chose which
+                // half the down view drew from and flipped it, and v2's down view blends both
+                // channels and is never flipped. See main.qml sideScanLeftHandForPicture().
+                // Classic still offers it. "Cable facing the front" below is a different thing.
 
                 PulseSwitchRow {
                     width: installationGroup.contentWidth

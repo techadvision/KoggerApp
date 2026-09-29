@@ -202,7 +202,7 @@ ApplicationWindow  {
                     nmeaBroadcastAddress:    pulseSettings.nmeaBroadcastAddress,
                     transducerOffsetMount:   pulseSettings.transducerOffsetMount
                 })
-            pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
+            pulseRuntimeSettings.isSideScanLeftHand = mainview.sideScanLeftHandForPicture()
             settingsBus.updateRuntime({
                     isSideScanLeftHand:       pulseRuntimeSettings.isSideScanLeftHand,
                     isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView,
@@ -274,7 +274,7 @@ ApplicationWindow  {
         //the only ON-CHANGE mirror lived inside PulseInfoSettings.qml and
         //PulseAppClassic.qml - both classic. So under v2 the mounting switch would store a
         //value the picture never heard about. One handler here answers for both variants.
-        function onIsSideScanOnLeftHandSideChanged () { pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide            }
+        function onIsSideScanOnLeftHandSideChanged () { pulseRuntimeSettings.isSideScanLeftHand = mainview.sideScanLeftHandForPicture()            }
         function onAutoRangeChanged ()              { pulseRuntimeSettings.shouldDoAutoRange = pulseSettings.autoRange                             }
         //function onUsbSerialBaudChanged ()          { pulseRuntimeSettings.usbSerialBaud = pulseSettings.usbSerialBaud                             }
     }
@@ -297,6 +297,20 @@ ApplicationWindow  {
     // readonly as well, so the echo would throw rather than freeze; this list is what turns
     // a throw into the intended no-op. The C++ only READS these two in applyRuntime and
     // never pushes them, so nothing is lost by refusing them on the way back in.
+    // THE DOWN VIEW IS NEVER MIRRORED IN V2 (29 Sept, Olav's decision). The left-hand mounting
+    // switch made the down pane draw ONE channel from the negative half of the range and flip
+    // it 180 degrees - the way to pick which hull the down view looked past. v2's down pane
+    // blends both channels, so there is no half to pick, and the negation plus the flip were
+    // the two halves of the upside-down down scan (6ffeaf1d). So v2 hands the C++ `false`
+    // always: every consumer - setDistance, getImage, the grid, the aim, the loupe - then draws
+    // the down view 0..R and unflipped, and Single (the expert comparison) shows channel 2.
+    // Classic keeps the switch exactly as it was. NOT THE CABLE SWAP: "Cable facing the front"
+    // swaps which physical channel is channel 1 in Plot2D.qml's channel combos, which is how a
+    // PULSE blue fitted backwards still draws port on the left - it is untouched by this.
+    function sideScanLeftHandForPicture() {
+        return pulseSettings.uiVariant === "v2" ? false : pulseSettings.isSideScanOnLeftHandSide
+    }
+
     readonly property var runtimeKeysQmlOwns: ["uiVariantIsV2",
                                                "is2DTransducer",
                                                "displayIs2DTransducer",
@@ -725,7 +739,7 @@ ApplicationWindow  {
                         "| dpr", Screen.devicePixelRatio)
         Ui.windowWidth = width
         Ui.windowHeight = height
-        pulseRuntimeSettings.isSideScanLeftHand = pulseSettings.isSideScanOnLeftHandSide
+        pulseRuntimeSettings.isSideScanLeftHand = mainview.sideScanLeftHandForPicture()
         pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
         var code     = pulseSettings.keyCode
         var isBeta   = pulseRuntimeSettings.betaKeyCodes.indexOf(code)   !== -1
@@ -4274,6 +4288,8 @@ ApplicationWindow  {
         // Switching INTO v2 has to apply everything v2 believes; classic may have left
         // something else in the plot, and nothing would push it until a value changed.
         function onUiVariantChanged() {
+            // Both ways: classic brings the mounting switch back, v2 retires it.
+            pulseRuntimeSettings.isSideScanLeftHand = mainview.sideScanLeftHandForPicture()
             if (pulseSettings.uiVariant !== "v2")
                 return
             mainview.applyDisplayTheme()
