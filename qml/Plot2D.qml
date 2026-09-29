@@ -682,6 +682,7 @@ WaterFall {
             property int pressButton: Qt.LeftButton
             property bool draggingInPaused: false
             property int dragCommitX: -1
+            property bool aimLeftPane: false
             property int dragCommitY: -1
             //**************
 
@@ -750,6 +751,7 @@ WaterFall {
 
             onPressed: function(mouse) {
 
+                aimLeftPane = false
                 lastMouseX = mouse.x
                 //Pulse addition
                 lastMouseY = mouse.y
@@ -896,9 +898,28 @@ WaterFall {
                 }
                 // 4) paused drag (only if we *latched* into draggingInPaused)
                 else if (pulseRuntimeSettings.echogramPause && wasMoved) {
-                    dragCommitX = mouse.x
-                    dragCommitY = mouse.y
-                    plot.plotMousePosition(mouse.x, mouse.y)
+                    // A FINGER THAT HAS LEFT THIS PANE NO LONGER AIMS IN IT (29 Sept). The pane
+                    // a drag started in keeps the touch grab, so Qt goes on handing it positions
+                    // after the finger has crossed into the other pane of a split - and the
+                    // painter clamps them to this pane's edge. The AIM: log showed exactly that:
+                    // pane 1 at its clamped edge epoch 173 alternating with pane 2 under the
+                    // finger, every event, which is the two loupes blinking against each other.
+                    // So outside its own bounds this pane takes its aim down ONCE, quietly
+                    // (isSync, so no clear is broadcast at the pane the finger is now in), and
+                    // aims again the moment the finger comes back.
+                    const outside = mouse.x < 0 || mouse.y < 0
+                                    || mouse.x >= mousearea.width || mouse.y >= mousearea.height
+                    if (outside) {
+                        if (!mousearea.aimLeftPane) {
+                            mousearea.aimLeftPane = true
+                            plot.plotMousePosition(-1, -1, true)
+                        }
+                    } else {
+                        mousearea.aimLeftPane = false
+                        dragCommitX = mouse.x
+                        dragCommitY = mouse.y
+                        plot.plotMousePosition(mouse.x, mouse.y)
+                    }
                     //plotPressed(indx, mouse.x, mouse.y)
                 }
 
