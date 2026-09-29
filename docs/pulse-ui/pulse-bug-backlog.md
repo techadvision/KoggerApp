@@ -2830,6 +2830,26 @@ half the down pane draws from when the blend falls back to Single. v2 could drop
 negation and the flip for the down view altogether (always 0..R, never flipped), which retires
 the whole class. It changes the Single fallback's channel, so it is Olav's call.
 
+#### Device report on the two quirks, 29 Sept - one decision, one revert, one instrument
+
+- **The down view is never mirrored in v2 - `05bc9445`.** Olav: *"Only experts use the option to
+  compare with single side. So let us do it like that."* `mainview.sideScanLeftHandForPicture()`
+  hands the C++ `false` under v2 (all three writers and a variant switch), so every consumer draws
+  the down view 0..R and unflipped; Single shows channel 2. The Installation row *Mounted on the
+  left-hand side* is gone from v2; classic keeps it. **The cable swap is untouched** - *Cable facing
+  the front* swaps the physical channels in Plot2D.qml's channel combos, which is how a PULSE blue
+  fitted backwards still draws port on the left. `6ffeaf1d`'s conform stays: under v2 it simply
+  turns any stray negative two-channel range positive.
+- **`f1de2428` reverted (`5773001b`).** One loupe only, as intended, but slow drags made the two
+  loupes blink against each other - the down pane's appearing and vanishing, a ghost of the side
+  scan's in antiphase. Olav preferred the two loupes over black. **The blinking is the finding:**
+  two panes alternating means both are handed positions from one finger. Also seen: a slight flicker
+  on the side scan alone (it may be pre-existing - look again on this build).
+- **`f96f8402` - instrument.** `AIM: pane N has the finger | epoch E | mouse X,Y`, printed only when
+  the pane changes, capped at 40. **Read it before fixing anything:** a drag from the side scan into
+  the down pane should print two lines (1, then 2). A run of 1, 2, 1, 2 is the fault, and the mouse
+  column says which pane is being fed coordinates outside itself.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
