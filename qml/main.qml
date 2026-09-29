@@ -1518,6 +1518,25 @@ ApplicationWindow  {
             // Mosaic leaves wantsMosaic true, so a handler on it would say nothing about the
             // choice that was just made - and switching between the mosaic layouts is exactly
             // what Olav did when he found this.
+            // THE SIDE + DOWN SPLIT FOLLOWS THE SHAPE OF ITS AREA (29 Sept 2026, Olav's
+            // choice C of three). Side by side when the 2D area is at least as wide as it is
+            // tall, stacked when it is narrower. On a landscape phone a stacked split gave each
+            // pane about 1180 x 360, which is where the loupe's Add waypoint clipped; side by
+            // side gives about 590 x 720. It stacks only in a narrow window (Android split
+            // screen, or the portrait case the forced landscape will one day stop preventing).
+            // The mosaic splits already follow landscapeMode above, so all three dual views now
+            // answer the same question. "Side scan first" is kept as LEADING position: left
+            // when side by side, top when stacked. v2 only - classic's numPlots split is left
+            // as it shipped. A plain binding, no hysteresis: the flip is at a square area, which
+            // only a window being dragged ever passes through.
+            readonly property bool panesSideBySide:
+                pulseSettings.uiVariant === "v2" && splitEchograms
+                && plotsContainer.width > 0 && plotsContainer.width >= plotsContainer.height
+            onPanesSideBySideChanged:
+                console.log("SPLIT: side and down ->", panesSideBySide ? "side by side" : "stacked",
+                            "| 2D area", Math.round(plotsContainer.width), "x",
+                            Math.round(plotsContainer.height), "logical")
+
             onScreenEntryChanged:           logMosaicAvailability("the layout was chosen")
             onView3dToggleAvailableChanged: logMosaicAvailability("availability moved")
             readonly property real primaryLength: landscapeMode ? contentWidth : paneHeight
@@ -2383,8 +2402,9 @@ ApplicationWindow  {
                     // second mechanism deciding when the bottom is taken.
                     anchors.bottomMargin: mainview.pulsePausedFootInset
 
-                    rows    : 2
-                    columns : 1
+                    // See visualisationLayout.panesSideBySide.
+                    rows    : visualisationLayout.panesSideBySide ? 1 : 2
+                    columns : visualisationLayout.panesSideBySide ? 2 : 1
                     columnSpacing: 0
                     rowSpacing: 0
 
