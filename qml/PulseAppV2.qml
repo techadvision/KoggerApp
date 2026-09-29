@@ -142,7 +142,12 @@ Item {
 
         anchors.fill: parent
 
+        // ONE READOUT PER SCREEN, 29 Sept (testers, and Olav: "It is messy when both windows
+        // has it"). Pane 2 exists only in the side + down split, where it is the down pane,
+        // so the readout stays on the side scan pane and pane 2 never draws one. The depth
+        // and speed are the same numbers in both panes; only their place was doubled.
         visible: !(pulseRuntimeSettings && pulseRuntimeSettings.echogramPause)
+                 && !(plot && plot.indx === 2)
 
         uiScale:     pulseAppV2.s
         safeTop:     pulseAppV2.insetTop()
