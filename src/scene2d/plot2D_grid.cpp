@@ -96,6 +96,23 @@ bool Plot2DGrid::draw(Plot2D* parent, Dataset* dataset)
     float toDepth = cursor.distance.to;
     float logicalMaxDepth = std::max(std::abs(fromDepth), std::abs(toDepth));
 
+    // THE RULER CANNOT BE ASKED FOR AN ABSURD RANGE. calculateRulerTicks walks every step
+    // from 1 to the range and, at step 1, builds a vector with one entry per unit - so an
+    // infinite range (int cast of inf saturates to INT_MAX on arm64) asks for 2^31 ints,
+    // about 8 GB, on the render thread. That is the 29 Sept phone hang's leading suspect:
+    // the ANR showed the render thread throttled at 2.4 GB RSS while the Qt thread waited
+    // on it. No echogram is ever ranged beyond this, so a range outside it is not drawn.
+    constexpr float kMaxRulerRange = 10000.0f;
+    if (!std::isfinite(fromDepth) || !std::isfinite(toDepth) || logicalMaxDepth > kMaxRulerRange) {
+        static int reported = 0;
+        if (reported < 5) {
+            ++reported;
+            qWarning().noquote() << QStringLiteral("GRID: ruler skipped - range %1 .. %2 is not drawable | canvas %3x%4")
+                                        .arg(fromDepth).arg(toDepth).arg(canvas.width()).arg(canvas.height());
+        }
+        return false;
+    }
+
 
     float totalRange = toDepth - fromDepth;
     if (totalRange == 0.0f)
