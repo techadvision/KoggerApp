@@ -8,6 +8,7 @@
 
 #include "qmath.h"
 #include <cmath>
+#include <algorithm>
 
 MiniPreviewPlot2D::MiniPreviewPlot2D()
 {
@@ -251,6 +252,8 @@ void Plot2D::applyRuntime(const QVariantMap& mIn)
 
     if (m.contains("isSideScanLeftHand"))  isSideScanLeftHand_ = m.value("isSideScanLeftHand").toBool();
     if (m.contains("isSideScan2DView"))    isSideScan2DView_   = m.value("isSideScan2DView").toBool();
+    if (m.contains("isSideScanLeftHand") || m.contains("isSideScan2DView"))
+        conformDownRange("the flip flags changed");
     if (m.contains("echogramSpeed"))       echogramSpeed_      = m.value("echogramSpeed").toDouble();
     if (m.contains("is2DTransducer"))      is2DTransducer_     = m.value("is2DTransducer").toBool();
     if (m.contains("shouldDoAutoRange"))   shouldDoAutoRange_  = m.value("shouldDoAutoRange").toBool();
@@ -718,6 +721,7 @@ void Plot2D::setDataChannel(bool fromGui, const ChannelId& channel, uint8_t subC
 
         if (isfinite(from) && isfinite(to) && (to - from) > 0) {
             cursor_.distance.set(from, to);
+            conformDownRange("the channels were set");
         }
     }
 
@@ -1022,6 +1026,7 @@ void Plot2D::setDistance(float from, float to) {
     } else {
         cursor_.distance.set(from, to);
     }
+    conformDownRange("the range was set");
 
     //cursor_.distance.set(from, to);
 }
@@ -1098,7 +1103,54 @@ void Plot2D::zoomDistance(float ratio)
        cursor_.distance.to = cursor_.distance.from + new_range;
     }
 
+    conformDownRange("the range was zoomed");
     plotUpdate();
+}
+
+// THE DOWN PANE'S RANGE AND ITS FLIP ARE TWO HALVES OF ONE FACT (29 Sept, Olav: "ONE
+// occurrence of the down scan painted upside down, water surface at the bottom").
+//
+// With the side scan mounted left-handed (isSideScanOnLeftHandSide defaults to TRUE) the down
+// view is drawn from the negative half: setDistance writes 0..R as -R..0, and getImage()
+// flips the picture vertically on isSideScanLeftHand_ && isSideScan2DView_. The two must
+// agree. They were decided at DIFFERENT MOMENTS: the range when it is set, the flip at every
+// paint from whatever the two flags say by then. So a range set while the pane was not yet a
+// down pane (applyMaxRange runs before the 10 ms orientation timer, and setGridMode("down")
+// can land after the range) stays 0..R and is then flipped - upside down. And zoomDistance's
+// left-hand branch writes 0 .. -R, the mirror of -R..0, which is upside down under the flip
+// by construction.
+//
+// So the range is conformed, not trusted: any two-channel range that does not cross zero (a
+// side scan range does, and is never touched; a one-channel 2D picture is never touched) is
+// rewritten into the form the CURRENT flags want - -hi .. -lo when flipped, lo .. hi
+// when not - whenever the range is written and whenever either flag changes. The flip stays
+// where it is; only the half the range points at follows it.
+void Plot2D::conformDownRange(const char* why)
+{
+    const float a = cursor_.distance.from;
+    const float b = cursor_.distance.to;
+    if (!std::isfinite(a) || !std::isfinite(b))
+        return;
+    if ((a < 0.0f && b > 0.0f) || (a > 0.0f && b < 0.0f))
+        return;                                   // crosses zero: a side scan range
+    if (!cursor_.isChannelDoubled())
+        return;                                   // one channel: a 2D picture, never a down view
+    const float lo = std::min(std::fabs(a), std::fabs(b));
+    const float hi = std::max(std::fabs(a), std::fabs(b));
+    if (hi <= 0.0f)
+        return;
+    const bool flipped = isSideScanLeftHand_ && isSideScan2DView_;
+    const float nf = flipped ? -hi : lo;
+    const float nt = flipped ? -lo : hi;
+    if (nf == a && nt == b)
+        return;
+    qDebug().noquote() << QStringLiteral("RANGE: down range conformed %1 .. %2 -> %3 .. %4 | left hand %5, down view %6 | %7")
+                              .arg(a).arg(b).arg(nf).arg(nt)
+                              .arg(isSideScanLeftHand_ ? "true" : "false")
+                              .arg(isSideScan2DView_ ? "true" : "false")
+                              .arg(QString::fromLatin1(why));
+    cursor_.distance.from = nf;
+    cursor_.distance.to = nt;
 }
 
 void Plot2D::scrollDistance(float ratio)

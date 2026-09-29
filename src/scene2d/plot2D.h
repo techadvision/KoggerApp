@@ -222,6 +222,9 @@ public:
 
     void setDistance(float from, float to);
     void zoomDistance(float ratio);
+    //PULSE, 29 Sept: a range that does not cross zero is written in the ONE form the current
+    //left-hand/down flip draws upright. See the definition for why.
+    void conformDownRange(const char* why);
     void scrollDistance(float ratio);
 
     void setMousePosition(int x, int y, bool isSync = false);
