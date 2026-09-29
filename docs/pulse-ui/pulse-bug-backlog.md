@@ -2850,6 +2850,22 @@ the whole class. It changes the Single fallback's channel, so it is Olav's call.
   the down pane should print two lines (1, then 2). A run of 1, 2, 1, 2 is the fault, and the mouse
   column says which pane is being fed coordinates outside itself.
 
+#### The AIM: log read, and the fix - `8b373a83`
+
+Olav's drag from the side scan into the down pane's empty columns printed `pane 1 | epoch 173 |
+mouse 737,926+` alternating with `pane 2 | epoch -1 | mouse 2..37,46x` on every event. **Pane 1 keeps
+the touch grab** - Qt goes on handing the pane the drag began in every position after the finger has
+left it, and the painter clamps them to its edge (the constant epoch 173). Pane 2 is fed the same
+finger at the same time. The reverse drag (down into side) printed one line per pane: no fault.
+**Verified on the same build:** with `f1de2428` reverted, no flicker at all, the loupe follows the
+finger smoothly, and Single under expert is good (so `05bc9445` checks out).
+
+**Fix:** in `Plot2D.qml`'s paused drag, a position outside the pane's own bounds takes that pane's aim
+down once, quietly (`plotMousePosition(-1, -1, true)` - isSync, so nothing is broadcast at the pane
+the finger is in), and it aims again when the finger returns. **To check:** side into down, slowly,
+over the black and over data: one loupe, no blinking, and the `AIM:` lines still alternate (the grab
+is Qt's) but pane 1's box never reappears while the finger is in pane 2.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
