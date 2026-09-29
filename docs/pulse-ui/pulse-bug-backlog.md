@@ -2866,6 +2866,14 @@ the finger is in), and it aims again when the finger returns. **To check:** side
 over the black and over data: one loupe, no blinking, and the `AIM:` lines still alternate (the grab
 is Qt's) but pane 1's box never reappears while the finger is in pane 2.
 
+**After `8b373a83`, 29 Sept:** side into down is fixed. Down into the side scan's EMPTY columns left the
+down pane's loupe up - the original fault the other way round. The down pane does not keep the grab
+(the reverse-drag log had one line per pane), so only the side scan is fed, at epoch -1, and nothing
+retires the down pane's aim. **`f8df7c90` re-applies `f1de2428`** (clear the other panes when an aim
+lands on no epoch, not for a sync echo). It blinked before only because the side scan was fed the
+finger from outside itself; `8b373a83` makes those positions inert. **To check:** both directions,
+slowly, over black and over data - one loupe, no blinking.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
