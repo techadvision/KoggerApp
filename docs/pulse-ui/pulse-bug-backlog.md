@@ -2773,6 +2773,25 @@ before the first frame.
 
 `hang.zip` (the bugreport) is sitting untracked in the repo root - do not commit it.
 
+#### 6b, the split-pane walk, 29 Sept - 5 of 6 passed; two commits from the sixth
+
+Passed: loupe, paused gutter, pills, rail and panel, connection screen over a split.
+
+- **`5d15b967` - one depth/speed readout per screen.** Testers asked, Olav agreed: in side + down
+  both panes showed the same 5.2 m. Pane 2 exists only in that split and is the down pane, so it no
+  longer draws the readout; the side scan pane keeps it. The mosaic splits have one echogram anyway.
+- **`221affd2` - the speed that never came back.** On the 320 phone the speed line was absent for a
+  whole run (any unit) while the tablet showed it on the same file; a restart brought it back. **It
+  CAN happen, and this is how:** the line needs `pulseRuntimeSettings.mavlinkDetected`, whose ONLY
+  writer is Plot2D's handler on `mavlinkWasDetected` - and `DeviceManager` emits that exactly once
+  per process, on the first MAVLink frame, then latches `mavlinkDetected_` and never emits again. One
+  lost delivery is permanent until a restart. The screenshot fits: Pause's green dot lit (positions
+  arriving from MAVLink) and no speed line. The exact loss route is not pinned. The fix makes it a
+  level: on every `vruChanged` (each telemetry frame), if the C++ says MAVLink and the UI copy says
+  not, the copy is set and `MAVLINK: detected late - the one-shot mavlinkWasDetected never reached the
+  UI` is logged. **That line is the proof** - if it ever appears, the loss happened; the log around it
+  says which source was starting.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
