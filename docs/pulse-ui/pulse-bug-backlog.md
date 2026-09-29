@@ -2679,6 +2679,45 @@ In this order. 6a is checks only and should be run first on the next build. 6b-6
 **After 6:** session 7 (side scan waypoints, which start with the 460/820 desk check, only once the UI is
 complete), session 8 (the P4 list), session 9 (mosaic: wipe revisited, the nadir fill, the accuracy analysis, KMZ).
 
+### Session 6, 29 Sept 2026 — 6a, the device checks
+
+**Status correction:** `feature/pulse-small-screens` WAS pushed (`origin` at 0/0 when the session
+opened). `master` is still 7 ahead of `origin/master` - push it.
+
+| check | result |
+|---|---|
+| Side scan TVG reads 0 / 7.5 / 0 / 10 / 0.9 on a fresh start | **passed** |
+| The mosaic pill shows Pause only | **passed** |
+| Tab Pro 8": dual side scan ruler under the system bar | **passed** - it was one of the two inset faults (`4c919e0e`) |
+| PULSE black card washed out | **FAILED**, and worse than reported - fixed in `71c7e2d0` |
+
+#### The cards, `71c7e2d0` (QML only, no moc)
+
+Olav, on the 320 phone: *"The black is not washed out, it is completely missing. The blue is washed
+out. All labels are missing."* The taglines under the plates were there; the three wordmarks and the
+black render were not.
+
+**The pattern is the size ratio, not the colour.** Every card image drawn SMALLER than its file was
+missing or faded, in exact order of how much it was shrunk: the wordmarks (500 x 99, drawn about
+220 wide) and PULSE black (560 x 330) gone; PULSE blue (328 x 281) faded; PULSE red (116 x 229, drawn at
+about its own size) perfect. That is `mipmap: true` sampling a mip chain that came back empty on this
+GPU: a minified image reads mip levels 1+, a non-minified one only level 0. The emulated tablet's
+larger cards shrink less, which is why it showed only "washed out" on the black.
+
+**Fix:** `mipmap: false`, and each image is decoded at the size it is drawn (`sourceSize` from the
+plate's own geometry x `Screen.devicePixelRatio`), so the GPU never minifies on any driver. No asset
+changed - all six PNGs are plain 8-bit RGBA and look right.
+
+**To check:** all three wordmarks and the black render visible on the 320 phone and the tablets, the
+blue no longer faded. One line per card:
+`CONN_SCREEN: card <id> | plate W x H | art box W x H | logo box W x H | decoded at dpr D | stacked S`.
+**If anything is still missing, that line is the next reading** - a zero or tiny box means the
+scaling after all, not the sampling.
+
+**Same shape, not touched:** `PulseRail.qml:595` (the brand mark, 256 px drawn at 40 u) has
+`mipmap: true`. It never shows on a phone by the fit rule and looked right on the tablets. Its own
+commit if it is ever seen missing.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
