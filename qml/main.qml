@@ -370,6 +370,23 @@ ApplicationWindow  {
             pulseRuntimeSettings.wasKlfFileOpened = false
             pulseRuntimeSettings.connectionScreenRequested = true
         }
+
+        // MAVLINK CANNOT BE MISSED FOR GOOD ANY MORE (29 Sept). pulseRuntimeSettings keeps
+        // its own copy of "is there an autopilot", and its ONLY writer is Plot2D's handler on
+        // mavlinkWasDetected - which DeviceManager emits exactly once per process, on the
+        // first MAVLink frame, and then latches. So one lost delivery hides the speed line,
+        // the boat speed settings and the waypoint gating until the app is restarted. On the
+        // 320 phone that was seen: positions arriving (Pause's green dot lit) and no speed.
+        // vruChanged arrives with every autopilot telemetry frame, so it is a level rather
+        // than an edge: if the C++ says MAVLink is here and the copy says not, the copy is
+        // wrong, and the line below says it happened.
+        function onVruChanged() {
+            if (pulseRuntimeSettings && !pulseRuntimeSettings.mavlinkDetected
+                    && deviceManagerWrapper.mavlinkDetected) {
+                console.log("MAVLINK: detected late - the one-shot mavlinkWasDetected never reached the UI")
+                pulseRuntimeSettings.mavlinkDetected = true
+            }
+        }
     }
 
     Connections {
