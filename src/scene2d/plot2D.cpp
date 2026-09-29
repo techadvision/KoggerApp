@@ -1284,18 +1284,6 @@ void Plot2D::setMousePosition(int x, int y, bool isSync) {
     cursor_.lastEpochIndx = cursor_.currentEpochIndx;
     sendSyncEvent(epoch_index, EpochSelected2d);
 
-    // AN AIM ON NO EPOCH STILL TAKES THE AIM FROM THE OTHER PANES (29 Sept). Olav, split
-    // side + down, paused: a drag from the side scan into the down pane's still-empty
-    // (black) columns gave TWO zoom boxes, and the side scan's went away only once the
-    // finger reached filled columns. The only thing that retires another pane's aim is
-    // qPlot2D::sendSyncEvent's broadcastEpochCursor, and that returns early without an
-    // epoch - so over empty columns nothing told the side scan pane the aim had moved.
-    // A clear is the honest message: there is no epoch to point the other panes at.
-    // NOT FOR A SYNC ECHO - the same rule as the x == -1 branch above: a mirrored pane
-    // landing on empty columns must not wipe the aim on the pane the user is touching.
-    if (epoch_index < 0 && !isSync)
-        syncClearAim();
-
     if(cursor_.tool() > MouseToolNothing && !isSync) {
 
         for(int x_ind = 0; x_ind < x_length; x_ind++) {
