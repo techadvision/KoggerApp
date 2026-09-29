@@ -2718,6 +2718,21 @@ scaling after all, not the sampling.
 `mipmap: true`. It never shows on a phone by the fit rule and looked right on the tablets. Its own
 commit if it is ever seen missing.
 
+#### 6c, the split direction - Olav chose C, built as `c9807738` (QML only)
+
+Three options were drawn: A today's stacked split, B always side by side, C follows the shape of
+the area. **Olav chose C.** `visualisationLayout.panesSideBySide` is true when the 2D area is at
+least as wide as it is tall; the 2D GridLayout then runs 1 x 2 instead of 2 x 1. On every landscape
+device that means side by side (320 phone: each pane about 590 x 720 instead of 1180 x 360); it
+stacks only in a narrow window. **The mosaic splits already did this** (`landscapeMode`), so the
+three dual views now agree. Side scan stays in the LEADING position (left, or top). v2 only.
+
+**To check, before 6b's walk:** side + down on the 320 phone and a tablet comes up side by side,
+side scan on the left, `SPLIT: side and down -> side by side | 2D area W x H logical` in the log.
+Pulse as one half of an Android split screen: stacked. Classic with two plots: unchanged. Then the
+6b walk runs on this layout - the loupe's Add waypoint on the phone is the first thing to look at,
+since its clipping was the reason for the question.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
