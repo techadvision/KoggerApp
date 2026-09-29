@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window
 import QtQuick.Controls 2.15
 import QtQuick.Dialogs
 import QtCore
@@ -240,6 +241,20 @@ Item {
     readonly property real plateH:
         stacked ? platePad * 2 + artH + innerGap + logoH + badgeH
                 : platePad * 2 + Math.max(artH, logoH) + badgeH
+
+    // THE CARD IMAGES ARE DECODED AT THE SIZE THEY ARE DRAWN, and never mipmapped.
+    // With `mipmap: true` a minified image is sampled from the mip chain, and on the
+    // phone that chain came back empty: every image drawn SMALLER than its file was
+    // missing or faded, in exact order of how much it was shrunk - the wordmarks
+    // (500 px wide) and PULSE black (560 px) gone, PULSE blue (328 px) faded, and
+    // PULSE red (116 px, drawn at or above its own size) perfect. Decoding at the drawn
+    // size means the GPU never minifies at all, so there is no mip level to sample, on
+    // any driver. The boxes are the plate's own geometry, in device pixels.
+    readonly property real imageDpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1.0
+    readonly property real plateInnerW: Math.max(1, cardW - pad - platePad * 2)
+    readonly property real artBoxW: stacked ? plateInnerW : Math.round(artH * 1.35)
+    readonly property real logoBoxW: stacked ? plateInnerW
+                                             : Math.max(1, plateInnerW - artBoxW - innerGap)
 
     // ---- Behaviour ----------------------------------------------------------
 
@@ -684,8 +699,11 @@ Item {
                                                                        : Math.round(connectionScreen.artH * 1.35)
                                                 source: card.rec.art
                                                 fillMode: Image.PreserveAspectFit
+                                                sourceSize: Qt.size(
+                                                    Math.round(connectionScreen.artBoxW * connectionScreen.imageDpr),
+                                                    Math.round(connectionScreen.artH * connectionScreen.imageDpr))
                                                 smooth: true
-                                                mipmap: true
+                                                mipmap: false
                                                 // Three small PNGs out of the qrc.
                                                 // Decoding them on the loading thread
                                                 // is what made the screen assemble
@@ -704,10 +722,13 @@ Item {
                                                     anchors.fill: parent
                                                     source: card.rec.logo
                                                     fillMode: Image.PreserveAspectFit
+                                                    sourceSize: Qt.size(
+                                                        Math.round(connectionScreen.logoBoxW * connectionScreen.imageDpr),
+                                                        Math.round(connectionScreen.logoH * connectionScreen.imageDpr))
                                                     horizontalAlignment: Image.AlignHCenter
                                                     verticalAlignment: Image.AlignVCenter
                                                     smooth: true
-                                                    mipmap: true
+                                                    mipmap: false
                                                     asynchronous: false
                                                     cache: true
                                                 }
@@ -746,6 +767,15 @@ Item {
                                                              ? Text.AlignHCenter : Text.AlignLeft
                                     }
                                 }
+
+                                Component.onCompleted: Qt.callLater(function() {
+                                    console.log("CONN_SCREEN: card", card.rec.id,
+                                                "| plate", Math.round(card.width - connectionScreen.pad), "x", connectionScreen.plateH,
+                                                "| art box", connectionScreen.artBoxW, "x", connectionScreen.artH,
+                                                "| logo box", connectionScreen.logoBoxW, "x", connectionScreen.logoH,
+                                                "| decoded at dpr", connectionScreen.imageDpr,
+                                                "| stacked", connectionScreen.stacked)
+                                })
 
                                 MouseArea {
                                     id: cardArea
