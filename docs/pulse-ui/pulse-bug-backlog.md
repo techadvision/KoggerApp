@@ -2792,6 +2792,44 @@ Passed: loupe, paused gutter, pills, rail and panel, connection screen over a sp
   UI` is logged. **That line is the proof** - if it ever appears, the loss happened; the log around it
   says which source was starting.
 
+#### Two quirks from the 6b testing, 29 Sept - three commits, C++ syntax-checked, not built
+
+**1. Two zoom boxes in side + down while the down pane is not yet filled - `f1de2428`.** Paused,
+drag from the side scan into the down pane's black (empty) columns: two loupes, until the finger
+reached data. Only `qPlot2D::sendSyncEvent`'s `broadcastEpochCursor` retires another pane's aim,
+and it returns early without an epoch, so over empty columns nobody told the side scan pane.
+`Plot2D::setMousePosition` now sends `syncClearAim()` when its epoch is -1 - **not for a sync
+echo**, the same rule as the `x == -1` branch beside it (16 Sept: an echo must not echo).
+
+**2. The down scan painted upside down, once.** Two routes found, both fixed:
+
+- **`d3485f6f` - the pinch asked the committed device.** `Plot2D.qml`'s pinch branched on
+  `is2DTransducer` (committed). A committed red viewing a blue demo or log took the 2D branch on the
+  blue's down pane: `verZoomEvent` -> `zoomDistance`, whose left-hand branch writes the range as
+  **0 .. -R**, the mirror of the normal **-R .. 0**, and therefore upside down under the flip. Now
+  `displayIs2DTransducer`, like every other screen question.
+- **`6ffeaf1d` - the range and the flip were decided at different moments.** Left-handed mounting
+  (`isSideScanOnLeftHandSide` defaults to TRUE) draws the down view from the negative half:
+  `setDistance` writes 0..R as -R..0, and `getImage()` flips on `isSideScanLeftHand_ &&
+  isSideScan2DView_`. The range was fixed when set; the flip is read at every paint. A range set
+  before the pane became a down pane (`applyMaxRange` runs before the orientation timer, and
+  `setGridMode("down")` can land after the range) stayed 0..R and was then flipped. **The range is
+  now conformed, not trusted:** any two-channel range that does not cross zero is rewritten into the
+  form the current flags want, whenever it is written or either flag changes. Logged as
+  `RANGE: down range conformed A .. B -> C .. D | left hand X, down view Y | why`. Side scan ranges
+  (cross zero) and one-channel 2D ranges are untouched. **Shared C++, so classic's down view gets
+  the same repair** - it is the same old quirk.
+
+**To check:** the two-loupe drag again (one loupe only, the side scan's goes the moment the finger
+enters the black area). For the down scan: commit PULSE red, run a blue demo in side + down, pinch
+on the down pane - it must stay upright. Any `RANGE: down range conformed` line in the log marks
+a moment the picture would have been upside down before this build.
+
+**Offered, not done:** with the two-channel blend on, the left-hand choice only decides which
+half the down pane draws from when the blend falls back to Single. v2 could drop the left-hand
+negation and the flip for the down view altogether (always 0..R, never flipped), which retires
+the whole class. It changes the Single fallback's channel, so it is Olav's call.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
