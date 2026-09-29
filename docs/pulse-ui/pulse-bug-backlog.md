@@ -2733,6 +2733,33 @@ Pulse as one half of an Android split screen: stacked. Classic with two plots: u
 6b walk runs on this layout - the loupe's Add waypoint on the phone is the first thing to look at,
 since its clipping was the reason for the question.
 
+#### The phone hang after 6c, 29 Sept - suspect guarded in `a4800f81`, NOT yet confirmed
+
+The Tab Pro 5 was good. **The 320 phone emulator opened black and went ANR.** Log: the last Pulse
+line is `SPLIT: side and down -> side by side | 2D area 1204 x 0 logical`, and `METRICS: startup`,
+`CONN_SCREEN: built` and `App is created` never came, so `engine.load()` never returned. The two
+`uwb-service` SIGABRTs in the same log are the emulator's own UWB daemon, not Pulse.
+
+**The ANR trace had no native stacks** (tombstoned failed), but it had the numbers: **RSS 2.4 GB, 1 GB
+swapped**, the thread that logs the GL driver lines (the render thread) stuck in
+`mem_cgroup_handle_over_high`, and the Qt thread waiting on a futex. So the render thread was
+allocating without bound while the GUI thread waited for it.
+
+**The one unbounded allocation in the painter:** `Plot2DGrid::calculateRulerTicks` walks every step
+from 1 to the range and at step 1 pushes one int per unit. An infinite range becomes INT_MAX on arm64,
+i.e. an 8 GB vector. `a4800f81` refuses any range that is not finite or is above 10 000 and prints
+`GRID: ruler skipped - range A .. B is not drawable | canvas WxH` (at most 5 times).
+
+**To read on the next start of the phone:**
+- It starts **and** the `GRID:` line appears → confirmed. Then the real question is *who gave the pane
+  an infinite range*, most likely a divide by a pane size of 0 in the new side-by-side geometry. Not
+  fixed yet; the guard only stops it hurting.
+- It still hangs, **no** `GRID:` line → it is not the ruler. Bisect: `git revert --no-commit c9807738`,
+  build, `git revert --abort` (or `git checkout HEAD -- qml/main.qml` + `git revert --quit`).
+- It starts with no `GRID:` line → something else changed; say so before anything else is touched.
+
+`hang.zip` (the bugreport) is sitting untracked in the repo root - do not commit it.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
