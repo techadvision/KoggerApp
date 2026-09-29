@@ -2758,6 +2758,19 @@ i.e. an 8 GB vector. `a4800f81` refuses any range that is not finite or is above
   build, `git revert --abort` (or `git checkout HEAD -- qml/main.qml` + `git revert --quit`).
 - It starts with no `GRID:` line → something else changed; say so before anything else is touched.
 
+**NOT REPRODUCED, 29 Sept evening.** After a clean restart of the emulators and Qt Creator, a clear
+of storage and a reinstall, the 320 phone started in side + down (demo, then a committed blue) with
+**no `GRID:` line** and cache at 3 MB. The 420 phone and the Pro 4 were fine throughout. So the ruler
+was never handed an infinite range on these starts, and the hang has no confirmed cause. The most
+likely one is the host: an 8 GB Mac running two emulators and Qt Creator (the emulator itself warns
+it wants 16 GB), with the ANR showing 1 GB of Pulse swapped. **`a4800f81` is kept** as a guard - it
+costs nothing and turns an unbounded allocation into a log line. **If the black start ever returns on
+a real phone**, capture the `qtMainLoopThread` stack before anything else.
+
+The start log also shows the side + down split flipping once during Android's portrait-first start
+(`221 x 0` side by side -> `221 x 455` stacked -> `1204 x 455` side by side). Harmless: three relayouts
+before the first frame.
+
 `hang.zip` (the bugreport) is sitting untracked in the repo root - do not commit it.
 
 ### THE PROMPT FOR THE NEXT SESSION
