@@ -494,6 +494,8 @@ WaterFall {
         property point pinchStartPos: Qt.point(-1, -1)
         //Pulse additions
         property bool zoomX: false
+        // near-diagonal: the fingers are neither clearly side by side nor clearly stacked
+        property bool zoomAmbiguous: false
         property double oldSpeed: pulseSettings.echogramSpeed
         //property double oldSpeed: pulseRuntimeSettings.echogramSpeed
         property bool isLiveView: true
@@ -505,6 +507,8 @@ WaterFall {
             zoomY = false
             //Pulse additions
             zoomX = false
+            zoomAmbiguous = false
+            _lastPinchLog = ""
             //oldSpeed = pulseRuntimeSettings.echogramSpeed
             oldSpeed = pulseSettings.echogramSpeed
             // Reset the side-scan max-depth step accumulator at the start/end of every pinch.
@@ -513,6 +517,31 @@ WaterFall {
             // zoom-out (increase) ever registered. Resetting makes both directions symmetric.
             depthStepAccum = 0.0
             //***************
+        }
+
+        // A SPEED BY PINCH: fingers apart = faster (the picture stretches), together = slower.
+        // The same rate as the 2D echogram speed pinch always had - the whole range for a
+        // doubling of the finger spread - rounded to a tenth, written to the persistent key so
+        // the pill and the panel follow.
+        function pinchSpeed(key, lo, hi, decimals, hRatio) {
+            var raw     = pulseSettings[key] + (hRatio * 0.01) * (hi - lo)
+            var clamped = Math.min(hi, Math.max(lo, raw))
+            var f       = Math.pow(10, decimals)
+            var rounded = Math.round(clamped * f) / f
+            if (rounded !== pulseSettings[key])
+                pulseSettings[key] = rounded
+        }
+
+        property string _lastPinchLog: ""
+        function logPinch(downPane, alongFlow) {
+            var line = (downPane ? "down scan" : "side scan") + " | "
+                     + (zoomY ? "vertical" : "horizontal") + " pinch -> "
+                     + (alongFlow ? (downPane ? "down scan speed" : "boat speed")
+                                  : (downPane ? "max range down" : "max range side"))
+            if (line !== _lastPinchLog) {
+                _lastPinchLog = line
+                console.log("PINCH: pane", plot.indx, "|", line)
+            }
         }
 
         onPinchStarted: {
@@ -536,8 +565,10 @@ WaterFall {
             } else if (Math.abs(dy) > Math.abs(dx) * 1.3) {
                 zoomY = true       // fingers are stacked more vertically
             } else {
-                // ambiguous (near diagonal) → fall back to vertical zoom
+                // ambiguous (near diagonal) → fall back to vertical zoom on 2D; a blue does
+                // nothing, because its two directions now mean two different things
                 zoomY = true
+                zoomAmbiguous = true
             }
             //***************
         }
@@ -574,76 +605,55 @@ WaterFall {
             }
             //***************
 
-            else if (zoomY) {
+            else if (zoomY || zoomX) {
                 //Pulse additions, replacing the logic
-                //THE PICTURE DECIDES, NOT THE COMMITTED DEVICE (29 Sept). is2DTransducer is
-                //the committed transducer, so a committed red viewing a blue demo or log
-                //took the 2D branch on the blue's down pane - verZoomEvent -> zoomDistance,
-                //whose left-hand branch writes the range as 0 .. -R, the one form the down
-                //pane's flip draws upside down. Every other screen question already reads
-                //the display model.
+                //THE PICTURE DECIDES, NOT THE COMMITTED DEVICE (29 Sept) - displayIs2DTransducer.
                 if (pulseRuntimeSettings.displayIs2DTransducer) {
-                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
-                    let newMaxDepthValue = Math.abs(plot.getMaxDepth())
-                    plot.quickChangeMaxRangeValue = newMaxDepthValue
-                    pulseUi.setMaxDepth(newMaxDepthValue)
-                } else {
-                    // To overcome the complexity of blue, we modify the max depth picker directly instead of through the echogram
-                    if (plot.isViewHorizontal()) {
-                        let pinchDelta  = (pinch.previousScale - pinch.scale) * 10
-                        depthStepAccum += pinchDelta
-                        let steps = depthStepAccum > 0 ? Math.floor(depthStepAccum)
-                                                       : Math.ceil(depthStepAccum)
-                        if (steps !== 0) {
-                            depthStepAccum -= steps   // keep the fractional remainder
-                            let newVal = plot.quickChangeMaxRangeValue + steps
-                            if (newVal < 1) newVal = 1
-                            if (newVal > pulseRuntimeSettings.maximumDepth)
-                                newVal = pulseRuntimeSettings.maximumDepth
-
-                            plot.quickChangeMaxRangeValue = newVal
-                            pulseUi.setMaxDepthForPane(newVal, plot.isViewHorizontal())
-                        }
-                    } else {
-                        plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
+                    // 2D (red, black): vertical pinch = max depth, horizontal pinch = speed
+                    if (zoomY) {
+                        plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
                         let newMaxDepthValue = Math.abs(plot.getMaxDepth())
                         plot.quickChangeMaxRangeValue = newMaxDepthValue
-                        pulseUi.setMaxDepthForPane(newMaxDepthValue, plot.isViewHorizontal())
+                        pulseUi.setMaxDepth(newMaxDepthValue)
+                    } else if (!pulseRuntimeSettings.echogramPause) {
+                        pinchSpeed("echogramSpeed", 1.0, pulseRuntimeSettings.echogramSpeedMax, 1,
+                                   (pinch.scale - pinch.previousScale) * 50)
                     }
+                    return
                 }
-                //***************
-            }
 
-            //Pulse additions, replacing the logic
-            else if  (zoomX) {
-                if (pulseRuntimeSettings.displayIs2DTransducer && !pulseRuntimeSettings.echogramPause) {
-                    // 1) compute horizontal “ratio”
-                    var hRatio = (pinch.scale - pinch.previousScale) * 50;
-                    // 2) fraction of the speed range - 1.0 up to pulseRuntimeSettings.echogramSpeedMax
-                    var speedMax = pulseRuntimeSettings.echogramSpeedMax
-                    var deltaS = (hRatio * 0.01) * (speedMax - 1.0);
-                    // 3) apply, clamp, round
-                    //var raw     = pulseRuntimeSettings.echogramSpeed + deltaS;
-                    var raw     = pulseSettings.echogramSpeed + deltaS;
-                    var clamped = Math.min(speedMax, Math.max(1.0, raw));
-                    var rounded = Math.round(clamped * 10) / 10;
+                // A BLUE, ONE RULE PER PANE (Olav, 30 Sept): the pinch along the flow sets the
+                // speed and the pinch across it sets the range, on both panes.
+                //   side scan (flows vertically):   vertical = boat speed,  horizontal = max range side
+                //   down scan (flows horizontally): vertical = max range down, horizontal = down scan speed
+                // The down scan then matches a red. A near-diagonal pinch does nothing on a blue.
+                if (zoomAmbiguous)
+                    return
+                const downPane = plot.isViewHorizontal()
+                const alongFlow = downPane ? zoomX : zoomY
+                logPinch(downPane, alongFlow)
 
-                    // 4) only write (and thus emit) if it really changed
-                    if (rounded !== pulseSettings.echogramSpeed) {
-                        pulseSettings.echogramSpeed = rounded;
-                        //console.log("TAV: zoomX → echogramSpeed changed to", rounded);
-                    }
-                } else if (!pulseRuntimeSettings.displayIs2DTransducer && plot.isViewHorizontal()) {
-                    // Pulse: side scan shows the cross-track range on the X axis, so the intuitive
-                    // range zoom is a horizontal (zoomX) pinch. Mirror the zoomY horizontal-view path:
-                    // fingers apart -> scale up -> smaller range (zoom in); fingers together ->
-                    // larger range (flatten). Bidirectional by construction.
-                    let pinchDelta = (pinch.previousScale - pinch.scale) * 10
+                if (alongFlow) {
+                    if (pulseRuntimeSettings.echogramPause)
+                        return
+                    if (downPane)
+                        pinchSpeed("echogramSpeedDown", 1.0, pulseRuntimeSettings.echogramSpeedMax, 1,
+                                   (pinch.scale - pinch.previousScale) * 50)
+                    else
+                        pinchSpeed("boatSpeedKmh", pulseRuntimeSettings.boatSpeedKmhMin,
+                                   pulseRuntimeSettings.boatSpeedKmhMax, 1,
+                                   (pinch.scale - pinch.previousScale) * 50)
+                    return
+                }
+
+                if (downPane) {
+                    // the down scan's range in whole metres, stepped, as before
+                    let pinchDelta  = (pinch.previousScale - pinch.scale) * 10
                     depthStepAccum += pinchDelta
                     let steps = depthStepAccum > 0 ? Math.floor(depthStepAccum)
                                                    : Math.ceil(depthStepAccum)
                     if (steps !== 0) {
-                        depthStepAccum -= steps
+                        depthStepAccum -= steps   // keep the fractional remainder
                         let newVal = plot.quickChangeMaxRangeValue + steps
                         if (newVal < 1) newVal = 1
                         if (newVal > pulseRuntimeSettings.maximumDepth)
@@ -651,6 +661,12 @@ WaterFall {
                         plot.quickChangeMaxRangeValue = newVal
                         pulseUi.setMaxDepthForPane(newVal, true)
                     }
+                } else {
+                    // the side scan's swath, through the plot's own distance zoom, as before
+                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
+                    let newMaxDepthValue = Math.abs(plot.getMaxDepth())
+                    plot.quickChangeMaxRangeValue = newMaxDepthValue
+                    pulseUi.setMaxDepthForPane(newMaxDepthValue, false)
                 }
             }
         }
