@@ -616,7 +616,7 @@ WaterFall {
 
             //Pulse additions, replacing the logic
             else if  (zoomX) {
-                if (pulseRuntimeSettings.is2DTransducer && !pulseRuntimeSettings.echogramPause) {
+                if (pulseRuntimeSettings.displayIs2DTransducer && !pulseRuntimeSettings.echogramPause) {
                     // 1) compute horizontal “ratio”
                     var hRatio = (pinch.scale - pinch.previousScale) * 50;
                     // 2) fraction of the speed range - 1.0 up to pulseRuntimeSettings.echogramSpeedMax
@@ -633,7 +633,7 @@ WaterFall {
                         pulseSettings.echogramSpeed = rounded;
                         //console.log("TAV: zoomX → echogramSpeed changed to", rounded);
                     }
-                } else if (!pulseRuntimeSettings.is2DTransducer && plot.isViewHorizontal()) {
+                } else if (!pulseRuntimeSettings.displayIs2DTransducer && plot.isViewHorizontal()) {
                     // Pulse: side scan shows the cross-track range on the X axis, so the intuitive
                     // range zoom is a horizontal (zoomX) pinch. Mirror the zoomY horizontal-view path:
                     // fingers apart -> scale up -> smaller range (zoom in); fingers together ->
