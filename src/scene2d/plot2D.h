@@ -65,8 +65,11 @@ public:
     //
     // No orientation, flip or "above 1" condition: the flip is a vertical mirror and does
     // not touch the columns, and below 1 is a compressed picture, not an error.
+    //
+    // FROZEN WHILE PAUSED: a speed or model change under a paused picture must not reflow it
+    // under the crosshair. The value in force when the pause began holds until the resume.
     double stretch() const {
-        const double s = echogramSpeed_;
+        const double s = echogramPause_ ? pausedStretch_ : echogramSpeed_;
         return (std::isfinite(s) && s >= 0.05) ? s : 1.0;
     }
 
@@ -339,6 +342,7 @@ private:
     int rightmostEpochOnScreen_ = 0;
     int visibleColsOnScreen_ = 0;
     double painterStretch_ = 1.0;  // the horizontal painter scale getImage() applied last
+    double pausedStretch_  = 1.0;  // echogramSpeed_ when the pause began; see stretch()
     int  frozenHead_   = -1;   // headAtPause = lastCap + 1 (newest = head-1)
     int  frozenH_      = 0;    // canvas height at pause
     bool frozenValid_  = false;

@@ -4598,25 +4598,18 @@ ApplicationWindow  {
     // ENTERING AND LEAVING THE PAUSE, in one place. The classic control does this inside a
     // checkbox handler, mixed in with the old-data warning machinery that lives beside it.
     //
-    // THE SPEED SWAP IS THE PART THAT MATTERS. A 2D echogram scrolls at a configured speed;
-    // while it is frozen that speed means nothing, so it goes to 1.0 and comes back from
-    // pulseSettings on resume. Classic asks is2DTransducer - the COMMITTED device - and this
-    // asks displayIs2DTransducer, which is a deliberate correction: echogram speed is about
-    // the picture that is frozen, not about what is plugged in, and a blue log presenting on
-    // a committed red would otherwise swap a speed that does not apply.
+    // THE PAUSED PICTURE IS THE LIVE PICTURE (session 7, 30 Sept). Until now the speed went
+    // to 1.0 here and came back on resume - a workaround, because the stretch was a painter
+    // scale the tap mapping did not know about, so only 1.0 put a waypoint where the finger
+    // was. It also re-drew the picture at a different scale at the moment the user stopped to
+    // look at it. The stretch is now the column table itself (Plot2D::stretch()) and C++
+    // holds it frozen while paused, so nothing is swapped: what was on screen stays on screen.
+    // Classic keeps its own swap.
     function setEchogramPaused(paused) {
         if (pulseSettings.uiVariant !== "v2")
             return
         if (pulseRuntimeSettings.echogramPause === paused)
             return
-
-        if (paused) {
-            if (pulseRuntimeSettings.displayIs2DTransducer)
-                pulseRuntimeSettings.echogramSpeed = 1.0
-        } else {
-            if (pulseRuntimeSettings.displayIs2DTransducer)
-                pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
-        }
 
         // A PANEL OVER A FROZEN PICTURE IS WRONG, and the button that opened it has just
         // gone with the rail. Same rule the rail's own collapse follows.

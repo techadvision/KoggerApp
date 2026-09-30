@@ -262,7 +262,10 @@ void Plot2D::applyRuntime(const QVariantMap& mIn)
     if (m.contains("maximumDepth"))        maximumDepth_       = m.value("maximumDepth").toInt();
     if (m.contains("autoRange"))           autoRange_          = m.value("autoRange").toInt();
     if (m.contains("echogramPause")) {
-        echogramPause_ = m.value("echogramPause").toBool();
+        const bool newPause = m.value("echogramPause").toBool();
+        if (newPause && !echogramPause_)
+            pausedStretch_ = echogramSpeed_;
+        echogramPause_ = newPause;
         echogramDragActive_ = false;
     }
 
