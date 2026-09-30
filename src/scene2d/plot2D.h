@@ -54,14 +54,20 @@ public:
     QString stretchReport() const;
     int visibleColsOnScreen()   const { return visibleColsOnScreen_; }
 
-    // THE HORIZONTAL STRETCH getImage() paints with - device pixels per data column. 1.0
-    // unless a horizontal, unflipped picture runs above 1.0x. ONE DEFINITION, because the
-    // painter, the cursor reindex and the scroll clamp all have to agree on it: the clamp
-    // (qPlot2D::viewportRatio) used to assume one column per pixel, so at 2.5x the oldest
-    // 60% of a screen of data could never be scrolled into view while live.
-    double horizontalStretch() const {
-        const bool flipImage = isSideScanLeftHand_ && isSideScan2DView_;
-        return (isHorizontal_ && !flipImage && echogramSpeed_ > 1.0) ? echogramSpeed_ : 1.0;
+    // THE STRETCH - screen columns per epoch, in BOTH flow directions (session 7, 30 Sept).
+    //
+    // It lives in the column table (reindexingCursor) and nowhere else: a stretch of 3
+    // repeats an epoch over three columns, 0.5 puts every other epoch in a column. Until
+    // 30 Sept it was ALSO a painter scale in getImage(), so a horizontal picture got it
+    // twice (px per epoch = s squared) and a tap, which reads the table in screen columns,
+    // disagreed with what was drawn - the reason pause used to drop the speed to 1.0.
+    // Now drawing, taps, the loupe, markers and the scroll clamp read one mapping.
+    //
+    // No orientation, flip or "above 1" condition: the flip is a vertical mirror and does
+    // not touch the columns, and below 1 is a compressed picture, not an error.
+    double stretch() const {
+        const double s = echogramSpeed_;
+        return (std::isfinite(s) && s >= 0.05) ? s : 1.0;
     }
 
     // Optional setters if other C++ wants to push directly

@@ -462,13 +462,8 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
         //Pulse
         const bool flipImage = isSideScanLeftHand_ && isSideScan2DView_;
 
+        // No painter scale any more: the stretch is in the column table (stretch()).
         painterStretch_ = 1.0;
-        if (echogramSpeed_ > 1.0 && !flipImage) {
-            painter->translate(width, 0);
-            painter->scale(echogramSpeed_, 1.0);
-            painter->translate(-width, 0);
-            painterStretch_ = echogramSpeed_;
-        }
         if (flipImage) {
             painter->translate(0, height);
             painter->scale(1.0, -1.0);
@@ -532,7 +527,7 @@ QString Plot2D::stretchReport() const
         .arg(isHorizontal_ ? QStringLiteral("horizontal") : QStringLiteral("vertical"))
         .arg(echogramSpeed_, 0, 'f', 2)
         .arg(painterStretch_, 0, 'f', 2)
-        .arg(horizontalStretch(), 0, 'f', 2)
+        .arg(stretch(), 0, 'f', 2)
         .arg(W).arg(first).arg(last).arg(epochs)
         .arg(pxEpoch, 0, 'f', 1)
         .arg(cursor_.numZeroEpoch > 0 ? QStringLiteral(" (screen not full)") : QString());
@@ -1708,11 +1703,11 @@ void Plot2D::reindexingCursor() {
     }
     cursor_.last_dataset_size = data_width;
 
-    // --- Mirror draw-time transform ---
-    // In getImage(): for horizontal && !flipImage we do:
-    //   translate(W,0); scale(s,1); translate(-W,0)  with  s = echogramSpeed_ (>1)
-    // So one data column spans 's' device pixels, right-anchored at the screen's right edge.
-    const double hor_ratio = horizontalStretch(); // device pixels per data column when stretched
+    // THE STRETCH IS THE MAPPING. Column x (0 = oldest edge, W-1 = the live edge) shows
+    // the epoch (x - W) / stretch() columns back from the head. Nothing scales the painter,
+    // so a screen column IS a canvas column and every reader of cursor_.indexes - the
+    // echogram, the tap, the loupe, the markers - sees the picture as it is drawn.
+    const double hor_ratio = stretch();
 
     // Dataset "head" (right edge + 1)
     const int head = int(std::round(double(timelinePosition()) * double(data_width)));
