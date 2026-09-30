@@ -100,6 +100,7 @@ Item {
     property string speedUnit:         "kmh"
     property real   echogramSpeed:     1.0
     property real   echogramSpeedMax:  2.5
+    property real   downScanSpeed:     1.0
 
     readonly property real   _speedFactor:
           speedUnit === "ms"  ? 1.0 / 3.6
@@ -380,7 +381,7 @@ Item {
             uiScale: panel.uiScale
             showNudges: true
 
-            label: qsTr("Boat speed")
+            label: qsTr("Boat speed (side scan)")
             hint:  qsTr("Set to the speed you drive. Shapes are true at that speed.")
             minValue: Math.ceil(panel.boatSpeedKmhMin * panel._speedFactor * 10 - 1e-6)
             maxValue: Math.floor(panel.boatSpeedKmhMax * panel._speedFactor * 10 + 1e-6)
@@ -410,6 +411,25 @@ Item {
             valueText: panel.echogramSpeed.toFixed(1) + "\u00D7"
 
             onMoved: function (v) { panel.settingChanged("persistent", "echogramSpeed", Math.round(v) / 10) }
+        }
+
+        // THE DOWN SCAN'S OWN SPEED, beside the boat speed on a blue (Olav, 30 Sept): it acts
+        // on the down pane full screen and in a split, and never on the side scan.
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "speed" && panel.speedIsSideScan
+            uiScale: panel.uiScale
+
+            label: qsTr("Down scan speed")
+            hint:  qsTr("stretches the down scan, it does not ping faster")
+            minValue: 10
+            maxValue: Math.round(panel.echogramSpeedMax * 10)
+            stepSize: 1
+            value: Math.round(panel.downScanSpeed * 10)
+            valueText: panel.downScanSpeed.toFixed(1) + "\u00D7"
+
+            onMoved: function (v) { panel.settingChanged("persistent", "echogramSpeedDown", Math.round(v) / 10) }
         }
 
         PulseSwitchRow {

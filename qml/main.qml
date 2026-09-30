@@ -144,6 +144,7 @@ ApplicationWindow  {
             settingsBus.updateRuntime({ sideScanTrueProportions: pulseRuntimeSettings.sideScanTrueProportions })
         }
         function onBoatSpeedMpsChanged()            { settingsBus.updateRuntime({ boatSpeedMps:             pulseRuntimeSettings.boatSpeedMps               }) }
+        function onDownScanSpeedChanged()           { settingsBus.updateRuntime({ downScanSpeed:            pulseRuntimeSettings.downScanSpeed              }) }
         function onTruePingPeriodMsChanged() {
             console.log("PERIOD: true proportions use", pulseRuntimeSettings.truePingPeriodMs, "ms -",
                         pulseRuntimeSettings.truePingPeriodSource)
@@ -222,6 +223,7 @@ ApplicationWindow  {
                     sideScanTrueProportions:  pulseRuntimeSettings.sideScanTrueProportions,
                     boatSpeedMps:             pulseRuntimeSettings.boatSpeedMps,
                     truePingPeriodMs:         pulseRuntimeSettings.truePingPeriodMs,
+                    downScanSpeed:            pulseRuntimeSettings.downScanSpeed,
                     is2DTransducer:           pulseRuntimeSettings.is2DTransducer,
                     displayIs2DTransducer:    pulseRuntimeSettings.displayIs2DTransducer,
                     shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange,
@@ -340,6 +342,7 @@ ApplicationWindow  {
                                                "sideScanTrueProportions",
                                                "boatSpeedMps",
                                                "truePingPeriodMs",
+                                               "downScanSpeed",
                                                "echogramTvgEnabled",
                                                "sideScanTvgEnabled",
                                                "sideScanTvgMosaicEnabled"]
@@ -2766,6 +2769,7 @@ ApplicationWindow  {
                 speedUnit:        pulseSettings ? pulseSettings.speedUnit : "kmh"
                 echogramSpeed:    pulseSettings ? pulseSettings.echogramSpeed : 1.0
                 echogramSpeedMax: pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeedMax : 2.5
+                downScanSpeed:    pulseSettings ? pulseSettings.echogramSpeedDown : 1.0
 
                 onCloseRequested: openGroup = ""
 
@@ -3276,6 +3280,7 @@ ApplicationWindow  {
                 // true-proportions cap. The side scan is always the first pane when there is
                 // one; the larger of the two is taken so a pane order never hides the label.
                 boatSpeedKmh: pulseSettings ? pulseSettings.boatSpeedKmh : 3.0
+                downScanSpeedSetting: pulseSettings ? pulseSettings.echogramSpeedDown : 1.0
                 speedUnit:    pulseSettings ? pulseSettings.speedUnit    : "kmh"
                 shortenedBy:  Math.max(waterViewFirst ? waterViewFirst.trueShortenedBy : 1.0,
                                        (waterViewSecond && waterViewSecond.visible) ? waterViewSecond.trueShortenedBy : 1.0)

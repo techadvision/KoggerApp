@@ -491,6 +491,10 @@ QtObject {
           ch1Period_Copy > 0 ? ch1Period_Copy
         : ch1Period > 0      ? ch1Period
         :                      70
+    //THE DOWN SCAN'S SPEED - read by Plot2D only for a down scan pane (isSideScan2DView and
+    //horizontal), so it needs no display-model gate of its own.
+    readonly property double downScanSpeed:
+        Math.min(echogramSpeedMax, Math.max(1.0, pulseSettings ? pulseSettings.echogramSpeedDown : 1.0))
     readonly property string truePingPeriodSource:
           ch1Period_Copy > 0 ? "confirmed by the echosounder"
         : ch1Period > 0      ? "the profile (nothing confirmed)"

@@ -94,9 +94,15 @@ public:
         if (!isTrueProportionsPane()) return 1.0;
         return std::max(1.0, trueStretchWanted() / kTrueStretchCap);
     }
+    // THE DOWN SCAN HAS ITS OWN SPEED (Olav, 30 Sept): a blue's down pane is a horizontal
+    // pane drawn from a side scan (isSideScan2DView, per pane under the split's override),
+    // and it takes downScanSpeed_ instead of the 2D echogram speed, full screen or split.
+    bool isDownScanPane() const { return isSideScan2DView_ && isHorizontal_; }
     double liveStretch() const {
         if (isTrueProportionsPane())
             return std::clamp(trueStretchWanted(), 0.05, kTrueStretchCap);
+        if (isDownScanPane())
+            return downScanSpeed_;
         return echogramSpeed_;
     }
 
@@ -373,6 +379,7 @@ private:
     bool   trueProportions_  = false;  // runtime "sideScanTrueProportions"
     double boatSpeedMps_     = 3.0 / 3.6;
     double truePingPeriodMs_ = 70.0;
+    double downScanSpeed_    = 1.0;    // runtime "downScanSpeed"
     int  frozenHead_   = -1;   // headAtPause = lastCap + 1 (newest = head-1)
     int  frozenH_      = 0;    // canvas height at pause
     bool frozenValid_  = false;

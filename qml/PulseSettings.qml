@@ -133,6 +133,10 @@ Settings {
     //1.0 .. 5.0 with one decimal, whatever unit the user reads it in (the speed gauge's
     //speedUnit). The speed the user drives: at that speed shapes on the side scan are true.
     property double boatSpeedKmh:               3.0
+    //THE DOWN SCAN'S OWN SPEED (session 7, 30 Sept): a blue's down pane, full screen or split,
+    //as a stretch factor like the 2D echogram speed, 1.0 .. pulseRuntimeSettings.echogramSpeedMax.
+    //Its own key, so a red's 2D speed and a blue's down scan speed never overwrite each other.
+    property double echogramSpeedDown:          1.0
     property double echogramWidth:              25
     property double pulseBlueOffset:            20
 

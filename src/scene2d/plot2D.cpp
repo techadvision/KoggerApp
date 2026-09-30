@@ -259,6 +259,7 @@ void Plot2D::applyRuntime(const QVariantMap& mIn)
     if (m.contains("sideScanTrueProportions")) trueProportions_  = m.value("sideScanTrueProportions").toBool();
     if (m.contains("boatSpeedMps"))        boatSpeedMps_       = m.value("boatSpeedMps").toDouble();
     if (m.contains("truePingPeriodMs"))    truePingPeriodMs_   = m.value("truePingPeriodMs").toDouble();
+    if (m.contains("downScanSpeed"))       downScanSpeed_      = m.value("downScanSpeed").toDouble();
     if (m.contains("is2DTransducer"))      is2DTransducer_     = m.value("is2DTransducer").toBool();
     if (m.contains("shouldDoAutoRange"))   shouldDoAutoRange_  = m.value("shouldDoAutoRange").toBool();
     if (m.contains("autoDepthMaxLevel"))   autoDepthMaxLevel_  = m.value("autoDepthMaxLevel").toDouble();
@@ -542,8 +543,9 @@ QString Plot2D::stretchReport() const
     const int    dataCols = std::max(1, W - x0 - cursor_.numZeroEpoch);
     const double pxEpoch  = double(dataCols) / double(epochs);
     return QStringLiteral("%1 | setting %2 | painter %3 | mapping %4 | canvas %5 | on screen %6..%7 = %8 epochs | %9 px per epoch%10")
-        .arg(isHorizontal_ ? QStringLiteral("horizontal") : QStringLiteral("vertical"))
-        .arg(echogramSpeed_, 0, 'f', 2)
+        .arg(isHorizontal_ ? (isDownScanPane() ? QStringLiteral("horizontal down scan") : QStringLiteral("horizontal"))
+                           : QStringLiteral("vertical"))
+        .arg(isDownScanPane() ? downScanSpeed_ : echogramSpeed_, 0, 'f', 2)
         .arg(painterStretch_, 0, 'f', 2)
         .arg(stretch(), 0, 'f', 2)
         .arg(W).arg(first).arg(last).arg(epochs)

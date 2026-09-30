@@ -93,6 +93,9 @@ Item {
     //
     // AND NOTHING WHILE PAUSED (Olav, 30 Sept): the user paused to look at the picture.
     property real   boatSpeedKmh:  3.0
+    property real   downScanSpeedSetting: 1.0
+    // which of the three speeds the pill is reporting: "2d", "boat" or "down"
+    property string speedKind:     "2d"
     property string speedUnit:     "kmh"
     property real   shortenedBy:   1.0
     property bool   paused:        false
@@ -171,6 +174,7 @@ Item {
         // boat speed instead (below).
         if (!displayIs2D)
             return
+        speedKind = "2d"
         speedShown = true
         speedHideTimer.restart()
     }
@@ -178,6 +182,15 @@ Item {
     onBoatSpeedKmhChanged: {
         if (!_speedArmed || displayIs2D)
             return
+        speedKind = "boat"
+        speedShown = true
+        speedHideTimer.restart()
+    }
+
+    onDownScanSpeedSettingChanged: {
+        if (!_speedArmed || displayIs2D)
+            return
+        speedKind = "down"
         speedShown = true
         speedHideTimer.restart()
     }
@@ -742,7 +755,9 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: pillColumn.displayIs2D ? qsTr("Echogram speed") : qsTr("Boat speed")
+                    text: pillColumn.speedKind === "boat" ? qsTr("Boat speed")
+                        : pillColumn.speedKind === "down" ? qsTr("Down scan speed")
+                        :                                   qsTr("Echogram speed")
                     color: "#9fb3c8"
                     font.pixelSize: Math.round(17 * pillColumn.uiScale)
                 }
@@ -751,10 +766,12 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     // THE RUNTIME VALUE - what the picture is running at. See the two
                     // properties at the top of this file for why it is not the other one.
-                    text: pillColumn.displayIs2D
-                          ? pillColumn.echogramSpeed.toFixed(1) + "\u00D7"
-                          : (pillColumn.boatSpeedKmh * pillColumn._unitFactor).toFixed(1)
+                    text: pillColumn.speedKind === "boat"
+                          ? (pillColumn.boatSpeedKmh * pillColumn._unitFactor).toFixed(1)
                             + " " + pillColumn._unitText
+                        : pillColumn.speedKind === "down"
+                          ? pillColumn.downScanSpeedSetting.toFixed(1) + "\u00D7"
+                          : pillColumn.echogramSpeed.toFixed(1) + "\u00D7"
                     color: "#eaf1f8"
                     font.pixelSize: Math.round(19 * pillColumn.uiScale)
                     font.bold: true
