@@ -80,6 +80,34 @@ Item {
     property real   echogramSpeed:        1.0
     property real   echogramSpeedSetting: 1.0
 
+    // ---- THE SIDE SCAN'S BOAT SPEED AND ITS CAP (session 7, slice B) ---------------------
+    //
+    // A side scan is always drawn in true proportions (Olav, 30 Sept), so what the user sets
+    // there is the speed he drives, and the pill reports it in the speed gauge's own unit.
+    // boatSpeedKmh is the trigger, exactly as echogramSpeedSetting is for 2D.
+    //
+    // shortenedBy is the side scan pane's own answer (qPlot2D.trueShortenedBy): above 1 the
+    // true stretch is beyond the cap and the picture is drawn shorter along the track than it
+    // really is. That is not a transient - it holds as long as the range and speed ask for it
+    // - so it has its own small label, up for as long as it is true.
+    //
+    // AND NOTHING WHILE PAUSED (Olav, 30 Sept): the user paused to look at the picture.
+    property real   boatSpeedKmh:  3.0
+    property string speedUnit:     "kmh"
+    property real   shortenedBy:   1.0
+    property bool   paused:        false
+
+    readonly property real   _unitFactor:
+          speedUnit === "ms"  ? 1.0 / 3.6
+        : speedUnit === "kn"  ? 0.539957
+        : speedUnit === "mph" ? 0.621371
+        :                       1.0
+    readonly property string _unitText:
+          speedUnit === "ms"  ? "m/s"
+        : speedUnit === "kn"  ? "kn"
+        : speedUnit === "mph" ? "mph"
+        :                       "km/h"
+
     // ---- THE FILE BEING OPENED (P2) -----------------------------------------
     //
     // The old UI had none of this: you chose a file and the app went dead until it
@@ -139,17 +167,27 @@ Item {
     onEchogramSpeedSettingChanged: {
         if (!_speedArmed)
             return
-        // RULE 1 AGAIN: the speed only applies to a picture that flows sideways. On a side
-        // scan the number is real but it is not what the user is looking at.
+        // RULE 1 AGAIN: this speed only applies to a 2D picture. A side scan reports its
+        // boat speed instead (below).
         if (!displayIs2D)
             return
         speedShown = true
         speedHideTimer.restart()
     }
 
+    onBoatSpeedKmhChanged: {
+        if (!_speedArmed || displayIs2D)
+            return
+        speedShown = true
+        speedHideTimer.restart()
+    }
+
+    onPausedChanged: if (paused) speedShown = false
+
+    // FIVE SECONDS (Olav, 30 Sept): long enough to notice what he just did.
     Timer {
         id: speedHideTimer
-        interval: 1500
+        interval: 5000
         repeat: false
         onTriggered: pillColumn.speedShown = false
     }
@@ -688,7 +726,7 @@ Item {
         Rectangle {
             id: speedPill
 
-            visible: pillColumn.speedShown
+            visible: pillColumn.speedShown && !pillColumn.paused
             height:  Math.round(46 * pillColumn.uiScale)
             width:   speedRow.width + Math.round(28 * pillColumn.uiScale)
             radius:  height / 2
@@ -704,7 +742,7 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: qsTr("Echogram speed")
+                    text: pillColumn.displayIs2D ? qsTr("Echogram speed") : qsTr("Boat speed")
                     color: "#9fb3c8"
                     font.pixelSize: Math.round(17 * pillColumn.uiScale)
                 }
@@ -713,11 +751,39 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     // THE RUNTIME VALUE - what the picture is running at. See the two
                     // properties at the top of this file for why it is not the other one.
-                    text: pillColumn.echogramSpeed.toFixed(1) + "\u00D7"
+                    text: pillColumn.displayIs2D
+                          ? pillColumn.echogramSpeed.toFixed(1) + "\u00D7"
+                          : (pillColumn.boatSpeedKmh * pillColumn._unitFactor).toFixed(1)
+                            + " " + pillColumn._unitText
                     color: "#eaf1f8"
                     font.pixelSize: Math.round(19 * pillColumn.uiScale)
                     font.bold: true
                 }
+            }
+        }
+
+        // SHORTENED BEYOND THE CAP. The side scan wants more than 3 px per ping to be true
+        // (close range, fast boat), so it is drawn shorter along the track; "1 : 3.1" says by
+        // how much. Up while it is true, and never while paused.
+        Rectangle {
+            id: shortenedPill
+
+            visible: !pillColumn.displayIs2D && !pillColumn.paused && pillColumn.shortenedBy >= 1.05
+            height:  Math.round(40 * pillColumn.uiScale)
+            width:   shortenedText.width + Math.round(24 * pillColumn.uiScale)
+            radius:  height / 2
+
+            color: "#cc0f1317"
+            border.width: 1
+            border.color: "#6a7784"
+
+            Text {
+                id: shortenedText
+                anchors.centerIn: parent
+                text: "1 : " + pillColumn.shortenedBy.toFixed(1)
+                color: "#c8d3de"
+                font.pixelSize: Math.round(17 * pillColumn.uiScale)
+                font.bold: true
             }
         }
     }

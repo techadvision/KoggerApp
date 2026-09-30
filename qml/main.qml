@@ -3263,6 +3263,15 @@ ApplicationWindow  {
                 echogramSpeed:        pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeed : 1.0
                 echogramSpeedSetting: pulseSettings        ? pulseSettings.echogramSpeed        : 1.0
 
+                // THE SIDE SCAN'S BOAT SPEED, and how much its pane is shortened beyond the
+                // true-proportions cap. The side scan is always the first pane when there is
+                // one; the larger of the two is taken so a pane order never hides the label.
+                boatSpeedKmh: pulseSettings ? pulseSettings.boatSpeedKmh : 3.0
+                speedUnit:    pulseSettings ? pulseSettings.speedUnit    : "kmh"
+                shortenedBy:  Math.max(waterViewFirst ? waterViewFirst.trueShortenedBy : 1.0,
+                                       (waterViewSecond && waterViewSecond.visible) ? waterViewSecond.trueShortenedBy : 1.0)
+                paused:       pulseRuntimeSettings ? pulseRuntimeSettings.echogramPause : false
+
                 presentingLog: pulseRuntimeSettings ? pulseRuntimeSettings.isPresentingLog : false
                 isDemo:        pulseRuntimeSettings ? pulseRuntimeSettings.isInDemoMode    : false
                 presentedName: pulseRuntimeSettings
