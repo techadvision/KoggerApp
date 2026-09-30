@@ -305,6 +305,17 @@ Item {
             onActivated: rail.buttonActivated(buttonId)
         }
 
+        // SPEED, pinned beside the range (Olav, 30 Sept: the non-scrolling part). How deep
+        // and how fast are the two controls anyone reaches for. On a side scan it sets the
+        // boat speed that makes the picture true; on 2D the echogram speed.
+        PulseRailButton {
+            uiScale: rail.uiScale
+            buttonId: "speed"
+            label: "Speed"
+            iconSource: "./icons/ui/pulse_speed.svg"
+            onActivated: rail.buttonActivated(buttonId)
+        }
+
         PulseRailButton {
             uiScale: rail.uiScale
             buttonId: "intensity"

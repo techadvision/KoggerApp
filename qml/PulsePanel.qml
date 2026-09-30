@@ -89,6 +89,29 @@ Item {
 
     // AUTOMATIC RANGE, 27 Sept - the classic UI's auto max depth, back as a switch under
     // the drag handle. offersAutoRange is false where the picture has no depth axis to fit.
+    // ---- Speed (session 7) -----------------------------------------------------------
+    // A side scan is always true, so its speed IS the boat speed, shown in the speed gauge's
+    // unit and stored in km/h. A 2D picture keeps the echogram speed factor for now (Olav:
+    // 2D goes to km/h too, later). Both write through settingChanged like the settings list.
+    property bool   speedIsSideScan:   false
+    property real   boatSpeedKmh:      3.0
+    property real   boatSpeedKmhMin:   1.0
+    property real   boatSpeedKmhMax:   5.0
+    property string speedUnit:         "kmh"
+    property real   echogramSpeed:     1.0
+    property real   echogramSpeedMax:  2.5
+
+    readonly property real   _speedFactor:
+          speedUnit === "ms"  ? 1.0 / 3.6
+        : speedUnit === "kn"  ? 0.539957
+        : speedUnit === "mph" ? 0.621371
+        :                       1.0
+    readonly property string _speedUnitText:
+          speedUnit === "ms"  ? "m/s"
+        : speedUnit === "kn"  ? "kn"
+        : speedUnit === "mph" ? "mph"
+        :                       "km/h"
+
     property bool   offersAutoRange: false
     property bool   autoRange:       false
 
@@ -121,6 +144,7 @@ Item {
         : openGroup === "intensity" ? qsTr("Intensity")
         : openGroup === "filter"    ? qsTr("Water body filter")
         : openGroup === "range"     ? qsTr("Max range")
+        : openGroup === "speed"     ? qsTr("Speed")
         : openGroup === "screen"    ? qsTr("Screen")
         : openGroup === "view"      ? qsTr("View")
         : openGroup === "cone"      ? qsTr("Cone")
@@ -345,6 +369,47 @@ Item {
             opacity: panel.autoRange ? 0.5 : 1.0
 
             onMoved: function (v) { panel.rangeMoved(v) }
+        }
+
+        // BOAT SPEED - tenths of the user's unit on the slider, km/h in the store. The ends
+        // are the km/h limits converted and rounded inwards, so no unit can reach past them.
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "speed" && panel.speedIsSideScan
+            uiScale: panel.uiScale
+            showNudges: true
+
+            label: qsTr("Boat speed")
+            hint:  qsTr("Set to the speed you drive. Shapes are true at that speed.")
+            minValue: Math.ceil(panel.boatSpeedKmhMin * panel._speedFactor * 10 - 1e-6)
+            maxValue: Math.floor(panel.boatSpeedKmhMax * panel._speedFactor * 10 + 1e-6)
+            stepSize: 1
+            value: Math.round(panel.boatSpeedKmh * panel._speedFactor * 10)
+            valueText: (panel.boatSpeedKmh * panel._speedFactor).toFixed(1) + " " + panel._speedUnitText
+
+            onMoved: function (v) {
+                var kmh = (v / 10) / panel._speedFactor
+                kmh = Math.min(panel.boatSpeedKmhMax, Math.max(panel.boatSpeedKmhMin, kmh))
+                panel.settingChanged("persistent", "boatSpeedKmh", Math.round(kmh * 100) / 100)
+            }
+        }
+
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "speed" && !panel.speedIsSideScan
+            uiScale: panel.uiScale
+
+            label: qsTr("Echogram speed")
+            hint:  qsTr("stretches the picture, it does not ping faster")
+            minValue: 10
+            maxValue: Math.round(panel.echogramSpeedMax * 10)
+            stepSize: 1
+            value: Math.round(panel.echogramSpeed * 10)
+            valueText: panel.echogramSpeed.toFixed(1) + "\u00D7"
+
+            onMoved: function (v) { panel.settingChanged("persistent", "echogramSpeed", Math.round(v) / 10) }
         }
 
         PulseSwitchRow {

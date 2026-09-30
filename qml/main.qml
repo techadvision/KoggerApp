@@ -2729,7 +2729,7 @@ ApplicationWindow  {
                     // place, and the console line at the bottom is what says so.
                     if (id === "colours" || id === "intensity" || id === "filter"
                             || id === "screen" || id === "cone" || id === "range"
-                            || id === "settings") {
+                            || id === "speed" || id === "settings") {
                         pulsePanel.openGroup = (pulsePanel.openGroup === id) ? "" : id
                         console.log("PANEL:", pulsePanel.openGroup === "" ? "closed" : "showing " + id)
                         return
@@ -2757,6 +2757,15 @@ ApplicationWindow  {
                 safeBottom: mainview.insetBottom()
 
                 announceEchogramStop: pulseSettings.stopEchogramToConfigure
+
+                // Speed (session 7)
+                speedIsSideScan:  pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTrueProportions : false
+                boatSpeedKmh:     pulseSettings ? pulseSettings.boatSpeedKmh : 3.0
+                boatSpeedKmhMin:  pulseRuntimeSettings ? pulseRuntimeSettings.boatSpeedKmhMin : 1.0
+                boatSpeedKmhMax:  pulseRuntimeSettings ? pulseRuntimeSettings.boatSpeedKmhMax : 5.0
+                speedUnit:        pulseSettings ? pulseSettings.speedUnit : "kmh"
+                echogramSpeed:    pulseSettings ? pulseSettings.echogramSpeed : 1.0
+                echogramSpeedMax: pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeedMax : 2.5
 
                 onCloseRequested: openGroup = ""
 
