@@ -8,6 +8,7 @@
 
 #include "qmath.h"
 #include <cmath>
+#include <climits>
 #include <algorithm>
 
 MiniPreviewPlot2D::MiniPreviewPlot2D()
@@ -361,13 +362,29 @@ QPoint Plot2D::getMousePosByDepthAndEpochIndx(float depth, int epochIndx, bool i
         return QPoint(-1, -1);
     }
 
-    int column = -1;
-    int sizeIndxs = cursor_.indexes.size();
+    // THE CENTRE OF THE EPOCH'S BAND, not its first column (session 7). At a stretch of 3
+    // an epoch is drawn over three columns and a marker belongs in the middle of them. At a
+    // stretch below 1 some epochs are drawn in no column at all; the nearest drawn neighbour
+    // stands in, as long as it is within the one column's worth of epochs it replaced.
+    int firstCol = -1, lastCol = -1;
+    int nearCol = -1, nearDist = INT_MAX;
+    const int sizeIndxs = int(cursor_.indexes.size());
     for (int i = 0; i < sizeIndxs; ++i) {
-        if (cursor_.indexes[i] == epochIndx) {
-            column = i;
-            break;
+        const int e = cursor_.indexes[i];
+        if (e == epochIndx) {
+            if (firstCol < 0) firstCol = i;
+            lastCol = i;
+        } else if (e >= 0 && firstCol < 0) {
+            const int d = std::abs(e - epochIndx);
+            if (d < nearDist) { nearDist = d; nearCol = i; }
         }
+    }
+
+    int column = -1;
+    if (firstCol >= 0) {
+        column = (firstCol + lastCol) / 2;
+    } else if (nearCol >= 0 && nearDist <= int(std::ceil(1.0 / stretch()))) {
+        column = nearCol;
     }
 
     if (column == -1) {
