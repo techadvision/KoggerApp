@@ -516,6 +516,7 @@ WaterFall {
             // the next zoom-in need a much larger move before a step fires, so in practice only
             // zoom-out (increase) ever registered. Resetting makes both directions symmetric.
             depthStepAccum = 0.0
+            zoomAccum = 0.0
             //***************
         }
 
@@ -523,6 +524,30 @@ WaterFall {
         // The same rate as the 2D echogram speed pinch always had - the whole range for a
         // doubling of the finger spread - rounded to a tenth, written to the persistent key so
         // the pill and the panel follow.
+        // A RANGE PINCH THAT IS THE SAME EFFORT BOTH WAYS (session 7). Two faults made opening
+        // the range (fingers together) about three times the work of closing it on a red:
+        // the delta was LINEAR in pinch.scale, which moves half as far closing (1 -> 0.5) as
+        // opening (1 -> 2) for the same finger travel, and verZoomEvent takes an INT, so the
+        // small per-frame deltas of a closing pinch truncated to 0 and were lost. The delta is
+        // now the log of the scale ratio - equal and opposite for equal finger travel - and
+        // it is accumulated, so the fractions are carried to the next frame, not dropped.
+        // The gain is the old factor: near scale 1 the feel is unchanged.
+        property real zoomAccum: 0.0
+        // and the speed pinches take the same symmetric delta
+        function pinchLogRatio(scale, prevScale) {
+            return (scale > 0 && prevScale > 0) ? Math.log(scale / prevScale) : 0
+        }
+        function pinchZoomDistance(prevScale, scale, gain) {
+            if (!(prevScale > 0) || !(scale > 0))
+                return
+            zoomAccum += Math.log(prevScale / scale) * gain
+            var whole = zoomAccum > 0 ? Math.floor(zoomAccum) : Math.ceil(zoomAccum)
+            if (whole !== 0) {
+                zoomAccum -= whole
+                plot.verZoomEvent(whole)
+            }
+        }
+
         function pinchSpeed(key, lo, hi, decimals, hRatio) {
             var raw     = pulseSettings[key] + (hRatio * 0.01) * (hi - lo)
             var clamped = Math.min(hi, Math.max(lo, raw))
@@ -611,13 +636,13 @@ WaterFall {
                 if (pulseRuntimeSettings.displayIs2DTransducer) {
                     // 2D (red, black): vertical pinch = max depth, horizontal pinch = speed
                     if (zoomY) {
-                        plot.verZoomEvent((pinch.previousScale - pinch.scale)*100.0)
+                        pinchZoomDistance(pinch.previousScale, pinch.scale, 100.0)
                         let newMaxDepthValue = Math.abs(plot.getMaxDepth())
                         plot.quickChangeMaxRangeValue = newMaxDepthValue
                         pulseUi.setMaxDepth(newMaxDepthValue)
                     } else if (!pulseRuntimeSettings.echogramPause) {
                         pinchSpeed("echogramSpeed", 1.0, pulseRuntimeSettings.echogramSpeedMax, 1,
-                                   (pinch.scale - pinch.previousScale) * 50)
+                                   pinchLogRatio(pinch.scale, pinch.previousScale) * 50)
                     }
                     return
                 }
@@ -638,17 +663,20 @@ WaterFall {
                         return
                     if (downPane)
                         pinchSpeed("echogramSpeedDown", 1.0, pulseRuntimeSettings.echogramSpeedMax, 1,
-                                   (pinch.scale - pinch.previousScale) * 50)
+                                   pinchLogRatio(pinch.scale, pinch.previousScale) * 50)
                     else
                         pinchSpeed("boatSpeedKmh", pulseRuntimeSettings.boatSpeedKmhMin,
                                    pulseRuntimeSettings.boatSpeedKmhMax, 1,
-                                   (pinch.scale - pinch.previousScale) * 50)
+                                   pinchLogRatio(pinch.scale, pinch.previousScale) * 50)
                     return
                 }
 
                 if (downPane) {
-                    // the down scan's range in whole metres, stepped, as before
-                    let pinchDelta  = (pinch.previousScale - pinch.scale) * 10
+                    // the down scan's range in whole metres, stepped. Log of the scale ratio, so
+                    // opening and closing are the same effort, and a gain of 7 (was 10 on the
+                    // linear delta) because Olav found it a little trigger happy.
+                    let pinchDelta  = (pinch.previousScale > 0 && pinch.scale > 0)
+                                      ? Math.log(pinch.previousScale / pinch.scale) * 7 : 0
                     depthStepAccum += pinchDelta
                     let steps = depthStepAccum > 0 ? Math.floor(depthStepAccum)
                                                    : Math.ceil(depthStepAccum)
@@ -663,7 +691,7 @@ WaterFall {
                     }
                 } else {
                     // the side scan's swath, through the plot's own distance zoom, as before
-                    plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
+                    pinchZoomDistance(pinch.previousScale, pinch.scale, 50.0)
                     let newMaxDepthValue = Math.abs(plot.getMaxDepth())
                     plot.quickChangeMaxRangeValue = newMaxDepthValue
                     pulseUi.setMaxDepthForPane(newMaxDepthValue, false)
