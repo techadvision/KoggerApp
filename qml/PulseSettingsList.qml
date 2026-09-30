@@ -1119,6 +1119,35 @@ Item {
                     }
                 },
 
+                // THE BLUE'S TWO FREQUENCIES, for the waypoint desk check (session 7-8). 460 kHz
+                // is the ordinary side scan; 820 kHz reaches less far but draws finer, so the
+                // same target seen at both is a test of where a tapped waypoint lands. Classic
+                // had this as "Pulse blue High/Low Frequenzy" in its experimental category; v2
+                // had no way to it - the Frequency slider below is bounded by the cones, and a
+                // blue has none. Written through setParam, so it goes to the transducer, lives
+                // in the runtime liveParams and is 460 again on the next start.
+                PulseSegmentRow {
+                    width: transducerGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: pulseRuntimeSettings
+                             ? pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
+                             : false
+                    uiScale: list.uiScale
+
+                    label: qsTr("Side scan frequency")
+                    hint:  qsTr("sent to the transducer; back to 460 kHz on the next start")
+                    options: [ { value: 460, title: qsTr("460 kHz") },
+                               { value: 820, title: qsTr("820 kHz") } ]
+                    current: list.paramNum("transFreq", 460)
+
+                    onChosen: function (v) {
+                        console.log("PARAM: side scan frequency ->", v, "kHz (expert)")
+                        list.settingChanged("param", "transFreq", v)
+                        if (pulseRuntimeSettings)
+                            pulseRuntimeSettings.useBlueHighFrequency = (v === 820)
+                    }
+                },
+
                 // FREQUENCY, AND IT SHARES ITS KEY WITH THE RAIL'S CONE CHOOSER. Both write
                 // transFreq: the chooser writes one of the profile's three cone frequencies,
                 // this writes anything between the widest and the narrowest. Olav, 17 Sept:
