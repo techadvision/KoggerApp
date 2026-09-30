@@ -146,6 +146,7 @@ ApplicationWindow  {
             console.log("VALUE_CHANGE: publishing displayIs2DTransducer",
                         pulseRuntimeSettings.displayIs2DTransducer)
             settingsBus.updateRuntime({ displayIs2DTransducer:  pulseRuntimeSettings.displayIs2DTransducer      })
+            pulseRuntimeSettings.echogramSpeed = mainview.echogramSpeedForPicture()
         }
         function onShouldDoAutoRangeChanged()       { settingsBus.updateRuntime({ shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange          }) }
         function onAutoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel          }) }
@@ -226,10 +227,7 @@ ApplicationWindow  {
             }
             //Other stuff
             dataset.setTransducerOffsetMount(pulseSettings.transducerOffsetMount)
-            if (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue ||
-                    pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlueProto) {
-                pulseRuntimeSettings.echogramSpeed = 1
-            }
+            pulseRuntimeSettings.echogramSpeed = mainview.echogramSpeedForPicture()
 
 
         }
@@ -267,7 +265,7 @@ ApplicationWindow  {
         function onNmeaBroadcastAddressChanged()    { settingsBus.updatePersistent({ nmeaBroadcastAddress:  pulseSettings.nmeaBroadcastAddress  }) }
         function onTransducerOffsetMountChanged()   { settingsBus.updatePersistent({ transducerOffsetMount: pulseSettings.transducerOffsetMount }) }
         //Echogram speed moved to the persistent settings, workaround to keep the runtime integration as is:
-        function onEchogramSpeedChanged ()          { pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed                             }
+        function onEchogramSpeedChanged ()          { pulseRuntimeSettings.echogramSpeed = mainview.echogramSpeedForPicture()                      }
         //THE SIDE-SCAN MOUNTING MIRROR, WHICH ONLY CLASSIC HAD. isSideScanLeftHand is the
         //runtime key the bus carries to Plot2D and the grid; the persistent one is
         //isSideScanOnLeftHandSide. main.qml copied it at startup and on a link event, but
@@ -309,6 +307,17 @@ ApplicationWindow  {
     // PULSE blue fitted backwards still draws port on the left - it is untouched by this.
     function sideScanLeftHandForPicture() {
         return pulseSettings.uiVariant === "v2" ? false : pulseSettings.isSideScanOnLeftHandSide
+    }
+
+    // THE ECHOGRAM SPEED FOLLOWS THE PICTURE ON SCREEN (session 7, 30 Sept). The stretch now
+    // works in both flow directions (Plot2D::stretch()), so the side scan would take the 2D
+    // setting too. Until the side scan has its own stretch (true proportions, slice B) it runs
+    // at 1.0, and that is decided by the DISPLAY model, not the committed device: before, only
+    // committing a blue forced 1.0, and nothing put the 2D speed back when a red came after it
+    // (the pill's own comment named that defect). One writer's answer, used at startup, on a
+    // commit, when the setting moves and when the picture changes model.
+    function echogramSpeedForPicture() {
+        return pulseRuntimeSettings.displayIs2DTransducer ? pulseSettings.echogramSpeed : 1.0
     }
 
     readonly property var runtimeKeysQmlOwns: ["uiVariantIsV2",
@@ -740,7 +749,7 @@ ApplicationWindow  {
         Ui.windowWidth = width
         Ui.windowHeight = height
         pulseRuntimeSettings.isSideScanLeftHand = mainview.sideScanLeftHandForPicture()
-        pulseRuntimeSettings.echogramSpeed = pulseSettings.echogramSpeed
+        pulseRuntimeSettings.echogramSpeed = mainview.echogramSpeedForPicture()
         var code     = pulseSettings.keyCode
         var isBeta   = pulseRuntimeSettings.betaKeyCodes.indexOf(code)   !== -1
         var isExpert = pulseRuntimeSettings.expertKeyCodes.indexOf(code) !== -1
