@@ -636,10 +636,27 @@ WaterFall {
                 if (pulseRuntimeSettings.displayIs2DTransducer) {
                     // 2D (red, black): vertical pinch = max depth, horizontal pinch = speed
                     if (zoomY) {
-                        pinchZoomDistance(pinch.previousScale, pinch.scale, 100.0)
-                        let newMaxDepthValue = Math.abs(plot.getMaxDepth())
-                        plot.quickChangeMaxRangeValue = newMaxDepthValue
-                        pulseUi.setMaxDepth(newMaxDepthValue)
+                        // THE DOWN SCAN'S WAY, which Olav found natural (30 Sept): whole-metre
+                        // steps from the log of the scale ratio, set directly. The plot's own
+                        // zoom could not be used: getMaxDepth() is ceil() of the range, and the
+                        // value is stored and re-applied every frame, so each small closing
+                        // step was rounded back up to the metre it came from (12 -> 6 took
+                        // 10-13 pinches) while each opening step was rounded up to the next
+                        // metre (6 -> 12 in under 3).
+                        let pinchDelta  = (pinch.previousScale > 0 && pinch.scale > 0)
+                                          ? Math.log(pinch.previousScale / pinch.scale) * 7 : 0
+                        depthStepAccum += pinchDelta
+                        let steps = depthStepAccum > 0 ? Math.floor(depthStepAccum)
+                                                       : Math.ceil(depthStepAccum)
+                        if (steps !== 0) {
+                            depthStepAccum -= steps
+                            let newVal = plot.quickChangeMaxRangeValue + steps
+                            if (newVal < 1) newVal = 1
+                            if (newVal > pulseRuntimeSettings.maximumDepth)
+                                newVal = pulseRuntimeSettings.maximumDepth
+                            plot.quickChangeMaxRangeValue = newVal
+                            pulseUi.setMaxDepth(newVal)
+                        }
                     } else if (!pulseRuntimeSettings.echogramPause) {
                         pinchSpeed("echogramSpeed", 1.0, pulseRuntimeSettings.echogramSpeedMax, 1,
                                    pinchLogRatio(pinch.scale, pinch.previousScale) * 50)
