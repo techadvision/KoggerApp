@@ -3093,6 +3093,18 @@ ApplicationWindow  {
                     pulseRuntimeSettings.storeDisplayMaxRange(v)
                 }
 
+                // A BLUE HAS TWO: the side scan's and the down scan's, each its own key.
+                rangePerPane:      pulseRuntimeSettings ? !pulseRuntimeSettings.displayIs2DTransducer : false
+                rangeSideValue:    pulseRuntimeSettings ? pulseRuntimeSettings.blueSideMaxRange      : 0
+                rangeSideFloor:    pulseRuntimeSettings ? pulseRuntimeSettings.blueSideMaxRangeFloor : 10
+                rangeSideStep:     pulseRuntimeSettings ? pulseRuntimeSettings.blueSideMaxRangeStep  : 5
+                rangeDownValue:    pulseRuntimeSettings ? pulseRuntimeSettings.blueDownMaxRange      : 0
+                rangeDownFloor:    pulseRuntimeSettings ? pulseRuntimeSettings.blueDownMaxRangeFloor : 1
+                rangeDownStep:     pulseRuntimeSettings ? pulseRuntimeSettings.blueDownMaxRangeStep  : 1
+                rangeBlueCeiling:  pulseRuntimeSettings ? pulseRuntimeSettings.blueMaxRangeCeiling   : 35
+                onRangeSideMoved: function (v) { pulseRuntimeSettings.storeMaxRangeForPane(v, false) }
+                onRangeDownMoved: function (v) { pulseRuntimeSettings.storeMaxRangeForPane(v, true) }
+
                 // 2D ONLY, as in classic: the upstream auto range fits the DEPTH axis, and a
                 // side scan's range is a swath width, which the bottom does not decide.
                 offersAutoRange: pulseRuntimeSettings ? pulseRuntimeSettings.displayIs2DTransducer : false
@@ -4358,6 +4370,8 @@ ApplicationWindow  {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
         function onDisplayMaxRangeChanged() { mainview.applyMaxRange() }
+        function onBlueSideMaxRangeChanged() { mainview.applyMaxRange() }
+        function onBlueDownMaxRangeChanged() { mainview.applyMaxRange() }
     }
 
     // AND IT FOLLOWS THE AUTOMATIC SWITCH, which changes nothing displayMaxRange reads.
@@ -4674,10 +4688,25 @@ ApplicationWindow  {
     // THE VALUE IS STILL THE FIRST PANE'S, and that is the parked per-pane range question
     // showing through: the side half's range is a swath width and the down half's is a
     // depth, and until there is somewhere to keep two numbers they share one.
+    // WHICH PICTURE A PANE SHOWS, from the layout rather than from the pane's current grid -
+    // the grid is flipped by a 10 ms timer and can still be the outgoing one when a range is
+    // applied. The second pane exists only in side over down, and it is the down pane; the
+    // first is the side pane in that split and otherwise whatever the full screen shows.
+    function paneShowsDown(pane) {
+        if (pane === waterViewSecond)
+            return true
+        return waterViewSecond.enabled ? false : pulseRuntimeSettings.isSideScan2DView
+    }
+
+    function paneMaxRange(pane) {
+        return pulseRuntimeSettings.psInt(pulseRuntimeSettings.maxRangeKeyForPane(paneShowsDown(pane)), 0)
+    }
+
     function rangeSecondPane() {
         if (!waterViewSecond.enabled)
             return
-        var v = waterViewFirst.quickChangeMaxRangeValue * 1.0
+        // ITS OWN NUMBER (session 7): the down pane's key, no longer the first pane's value.
+        var v = paneMaxRange(waterViewSecond) * 1.0
         if (v <= 0)
             return
         waterViewSecond.quickChangeMaxRangeValue = v
@@ -4721,17 +4750,22 @@ ApplicationWindow  {
         for (var m = 0; m < panesAll.length; ++m)
             panesAll[m].plotDistanceAutoRange(-1)
 
-        var v = pulseRuntimeSettings.displayMaxRange
+        var v = paneMaxRange(waterViewFirst)
         if (v <= 0)
             return
 
-        console.log("RANGE: applying", v, "from", pulseRuntimeSettings.displayMaxRangeKey,
-                    "|", waterViewFirst.isViewHorizontal() ? "2D law" : "side scan law")
-
         pulseRuntimeSettings.manualSetLevel = v * 1.0
 
+        // EACH PANE ITS OWN NUMBER (session 7). On a 2D picture both keys are the same key.
         var panes = waterViewSecond.enabled ? [waterViewFirst, waterViewSecond] : [waterViewFirst]
         for (var i = 0; i < panes.length; ++i) {
+            var pv = paneMaxRange(panes[i])
+            if (pv <= 0)
+                continue
+            console.log("RANGE: applying", pv, "to pane", i + 1, "from",
+                        pulseRuntimeSettings.maxRangeKeyForPane(paneShowsDown(panes[i])),
+                        "|", panes[i].isViewHorizontal() ? "2D law" : "side scan law")
+            v = pv
             panes[i].quickChangeMaxRangeValue = v
             if (panes[i].isViewHorizontal())
                 panes[i].plotDistanceRange2d(v * 1.0)
@@ -4976,6 +5010,8 @@ ApplicationWindow  {
         repeat: false
         interval: 10
         onTriggered: {
+            if (mainview.paneMaxRange(waterViewFirst) > 0)
+                waterViewFirst.quickChangeMaxRangeValue = mainview.paneMaxRange(waterViewFirst)
             waterViewFirst.setVerticalNow()
             waterViewFirst.plotDistanceRange(waterViewFirst.quickChangeMaxRangeValue * 1.0)
             waterViewFirst.updatePlot()
@@ -4991,6 +5027,8 @@ ApplicationWindow  {
         repeat: false
         interval: 10
         onTriggered: {
+            if (mainview.paneMaxRange(waterViewFirst) > 0)
+                waterViewFirst.quickChangeMaxRangeValue = mainview.paneMaxRange(waterViewFirst)
             waterViewFirst.setHorizontalNow()
             waterViewFirst.plotDistanceRange2d(waterViewFirst.quickChangeMaxRangeValue * 1.0)
             waterViewFirst.updatePlot()

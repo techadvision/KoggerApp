@@ -602,13 +602,13 @@ WaterFall {
                                 newVal = pulseRuntimeSettings.maximumDepth
 
                             plot.quickChangeMaxRangeValue = newVal
-                            pulseUi.setMaxDepth(newVal)
+                            pulseUi.setMaxDepthForPane(newVal, plot.isViewHorizontal())
                         }
                     } else {
                         plot.verZoomEvent((pinch.previousScale - pinch.scale)*50.0)
                         let newMaxDepthValue = Math.abs(plot.getMaxDepth())
                         plot.quickChangeMaxRangeValue = newMaxDepthValue
-                        pulseUi.setMaxDepth(newMaxDepthValue)
+                        pulseUi.setMaxDepthForPane(newMaxDepthValue, plot.isViewHorizontal())
                     }
                 }
                 //***************
@@ -649,7 +649,7 @@ WaterFall {
                         if (newVal > pulseRuntimeSettings.maximumDepth)
                             newVal = pulseRuntimeSettings.maximumDepth
                         plot.quickChangeMaxRangeValue = newVal
-                        pulseUi.setMaxDepth(newVal)
+                        pulseUi.setMaxDepthForPane(newVal, true)
                     }
                 }
             }

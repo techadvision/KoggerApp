@@ -113,6 +113,19 @@ Item {
         : speedUnit === "mph" ? "mph"
         :                       "km/h"
 
+    // A blue's two ranges (session 7): side scan and down scan, shown whenever a blue is on
+    // screen, full screen or split, instead of the single slider.
+    property bool   rangePerPane:     false
+    property int    rangeSideValue:   0
+    property int    rangeSideFloor:   10
+    property int    rangeSideStep:    5
+    property int    rangeDownValue:   0
+    property int    rangeDownFloor:   1
+    property int    rangeDownStep:    1
+    property int    rangeBlueCeiling: 35
+    signal rangeSideMoved(int v)
+    signal rangeDownMoved(int v)
+
     property bool   offersAutoRange: false
     property bool   autoRange:       false
 
@@ -354,7 +367,7 @@ Item {
         PulseSliderRow {
             width: parent.width
             height: visible ? implicitHeight : 0
-            visible: panel.openGroup === "range"
+            visible: panel.openGroup === "range" && !panel.rangePerPane
             uiScale: panel.uiScale
 
             label: qsTr("Max range")
@@ -430,6 +443,40 @@ Item {
             valueText: panel.downScanSpeed.toFixed(1) + "\u00D7"
 
             onMoved: function (v) { panel.settingChanged("persistent", "echogramSpeedDown", Math.round(v) / 10) }
+        }
+
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "range" && panel.rangePerPane
+            uiScale: panel.uiScale
+
+            label: qsTr("Max range side")
+            hint:  panel.rangeSideFloor + " – " + panel.rangeBlueCeiling + " m   ·   " + panel.rangeSideStep + " m steps"
+            minValue: panel.rangeSideFloor
+            maxValue: panel.rangeBlueCeiling
+            stepSize: panel.rangeSideStep
+            value: panel.rangeSideValue
+            valueText: panel.rangeSideValue + " m"
+
+            onMoved: function (v) { panel.rangeSideMoved(v) }
+        }
+
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "range" && panel.rangePerPane
+            uiScale: panel.uiScale
+
+            label: qsTr("Max range down")
+            hint:  panel.rangeDownFloor + " – " + panel.rangeBlueCeiling + " m"
+            minValue: panel.rangeDownFloor
+            maxValue: panel.rangeBlueCeiling
+            stepSize: panel.rangeDownStep
+            value: panel.rangeDownValue
+            valueText: panel.rangeDownValue + " m"
+
+            onMoved: function (v) { panel.rangeDownMoved(v) }
         }
 
         PulseSwitchRow {

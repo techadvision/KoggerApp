@@ -53,6 +53,17 @@ Item {
             ui.maxDepthValue = value
     }
 
+    // A PINCH ON ONE PANE (session 7): a blue's side and down panes keep their own range, so
+    // the pinch says which pane it was. A variant without the function gets the old call.
+    function setMaxDepthForPane(value, showsDown) {
+        if (!ui)
+            return
+        if (typeof ui.setMaxDepthForPane === "function")
+            ui.setMaxDepthForPane(value, showsDown)
+        else
+            ui.maxDepthValue = value
+    }
+
     function applyFiltering(value) {
         if (ui)
             ui.applyFiltering(value)

@@ -48,6 +48,12 @@ Item {
         }
     }
 
+    // THE PINCH ON A BLUE PANE lands in that pane's own key (session 7).
+    function setMaxDepthForPane(value, showsDown) {
+        if (value > 0 && pulseRuntimeSettings)
+            pulseRuntimeSettings.storeMaxRangeForPane(Math.round(value), showsDown)
+    }
+
     function applyFiltering(value) {
         // no-op until stage 4 (b) builds the filter control
     }

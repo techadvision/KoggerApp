@@ -1381,6 +1381,38 @@ QtObject {
 
     readonly property int displayMaxRange: psInt(displayMaxRangeKey, 0)
 
+    // PER PANE ON A BLUE (session 7, Olav 30 Sept): the side scan and the down scan each keep
+    // their own max range, and a split shows each with its own - "Max range side" and "Max
+    // range down" in the panel, and a pinch on a pane changes that pane only. The two keys are
+    // the ones displayMaxRangeKey already names for the two full-screen pictures, so full
+    // screen reads exactly what it read before.
+    readonly property string blueSideMaxRangeKey: "maxDepthValuePulseBlueFixed"
+    readonly property string blueDownMaxRangeKey: "maxDepthValuePulseBlue"
+    readonly property int blueSideMaxRange:      psInt(blueSideMaxRangeKey, 0)
+    readonly property int blueDownMaxRange:      psInt(blueDownMaxRangeKey, 0)
+    readonly property int blueSideMaxRangeFloor: expertMode ? 5 : 10
+    readonly property int blueSideMaxRangeStep:  5
+    readonly property int blueDownMaxRangeFloor: 1
+    readonly property int blueDownMaxRangeStep:  1
+    readonly property int blueMaxRangeCeiling:
+        maxRangeCeilingOverride > 0 ? maxRangeCeilingOverride : psInt("echogramWidth", 0)
+
+    function maxRangeKeyForPane(showsDown) {
+        return displayIs2DTransducer ? "maxDepthValue"
+             : showsDown            ? blueDownMaxRangeKey
+             :                        blueSideMaxRangeKey
+    }
+
+    function storeMaxRangeForPane(v, showsDown) {
+        if (presentedModel === "..." || presentedModel === "")
+            return
+        var key = maxRangeKeyForPane(showsDown)
+        if (pulseSettings[key] === v)
+            return
+        console.log("RANGE: storing", v, "in", key, "|", showsDown ? "down pane" : "side or 2D pane")
+        pulseSettings[key] = v
+    }
+
     // THE ONE WRITER, and both callers reach it: the panel's slider and a pinch on the
     // picture. A preference is never written while nothing is identified - with no device
     // and no log there is no device whose preference this is.
