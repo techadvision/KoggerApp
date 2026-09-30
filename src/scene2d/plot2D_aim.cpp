@@ -305,6 +305,10 @@ void Plot2DAim::setPause(Plot2D* parent, Dataset* dataset, bool on) {
         lastIndexAtPause_   = parent->rightmostEpochOnScreen();
         visibleColsAtPause_ = parent->visibleColsOnScreen();
 
+        qDebug().noquote() << QStringLiteral("PAUSE: aim frozen | newest epoch on screen %1 | columns with data %2 | stretch %3")
+                                  .arg(lastIndexAtPause_).arg(visibleColsAtPause_)
+                                  .arg(parent->stretch(), 0, 'f', 2);
+
         // (Optional) touch the transform for completeness — we don’t use it here now
         (void)dataset;
         auto& canvas = parent->canvas();
@@ -339,7 +343,6 @@ void Plot2DAim::applyRuntime(const QVariantMap& m)
     if (m.contains("isSideScanLeftHand"))  isSideScanLeftHand_ = m.value("isSideScanLeftHand").toBool();
     if (m.contains("isSideScan2DView"))    isSideScan2DView_   = m.value("isSideScan2DView").toBool();
     if (m.contains("useMetricDepth"))      isMetric_           = m.value("useMetricDepth").toBool();
-    if (m.contains("echogramSpeed"))       echogramSpeed_      = m.value("echogramSpeed").toDouble();
     if (m.contains("uiVariantIsV2"))       isUiVariantV2_      = m.value("uiVariantIsV2").toBool();
 }
 

@@ -487,20 +487,12 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
         }
         canvas_.setSize(width, height, painter);
 
-        const QTransform W = painter->worldTransform();
-        const double sxMag = std::hypot(W.m11(), W.m12());
-        const double sx    = std::max(1e-6, sxMag);
-        visibleColsOnScreen_ = std::max(1, int(std::floor(double(canvas_.width())/sx + 0.5)));
     }
     else {
 
         painterStretch_ = 1.0;
         canvas_.setSize(height, width, painter);
 
-        const QTransform W = painter->worldTransform();
-        const double sxMag = std::hypot(W.m11(), W.m12());
-        const double sx    = std::max(1e-6, sxMag);
-        visibleColsOnScreen_ = std::max(1, int(std::floor(double(canvas_.width())/sx + 0.5)));
 
         painter->rotate(-90);
         painter->translate(-height, 0);
@@ -1742,6 +1734,18 @@ void Plot2D::reindexingCursor() {
     }
 
     cursor_.numZeroEpoch = zeros;
+
+    // WHAT THE SCREEN HOLDS, from the table itself (session 7). rightmostEpochOnScreen_ had
+    // a reader (the aim's pause snapshot, freezePauseWindow) and no writer, so it read 0
+    // and the aim's paused position search was capped at epoch 0 before it fell back to
+    // the whole dataset. visibleColsOnScreen_ came from the painter's world transform,
+    // which no longer carries the stretch. Both are now the table's own answer.
+    int newest = -1;
+    for (int x = image_width - 1; x >= 0; --x) {
+        if (cursor_.indexes[x] >= 0) { newest = cursor_.indexes[x]; break; }
+    }
+    rightmostEpochOnScreen_ = std::max(0, newest);
+    visibleColsOnScreen_    = std::max(1, image_width - zeros);
 
     if (cursor_.mouseX >= 0 && !cursor_.indexes.empty()) {
         const int clampedX = std::clamp(cursor_.mouseX, 0, image_width - 1);

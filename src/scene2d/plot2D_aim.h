@@ -107,6 +107,5 @@ private:
     bool hasTap_ = false;
     bool popupJustOpened_ = false;
     Plot2DZoom zoom_;
-    double echogramSpeed_ = 1.0;
 };
 
