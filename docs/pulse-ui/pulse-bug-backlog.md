@@ -2910,6 +2910,54 @@ pause-and-set-waypoint function works from - so it has to be settled before wayp
 | 9 | P4 list; forced-landscape design | - |
 | 10 | Mosaic quality and tools (wipe revisited, nadir fill, accuracy, KMZ) | - |
 
+### Session 7, 30 Sept 2026 - High performance mode starts: slice A, the one mapping
+
+`feature/pulse-echogram-speed`, cut from the pushed tip `9304ea51` (Olav published it). **`master` is still 7 ahead of
+`origin/master`.** Design answers are in `pulse-high-performance-mode.md`, *30 Sept*. Order agreed: **A** (the mapping,
+no new controls), then **B** (side scan true proportions in km/h, the rail button, the pill).
+
+| commit | what |
+|---|---|
+| `2a3fadb9` | `STRETCH:` instrument - what a screen really holds, per pane |
+| `f8f94cf1` | **the stretch is the column mapping, and only the mapping** - no painter scale; `Plot2D::stretch()` for both flow directions and below 1.0 |
+| `f376bd07` | a marker sits at the centre of its epoch's band |
+| `c64575aa` | the aim's pause snapshot reads the column table (`rightmostEpochOnScreen_` had no writer, so it read 0); the aim's unused speed copy is gone |
+| `c4af3266` | the runtime speed follows the DISPLAY model (`echogramSpeedForPicture()`): 2D gets the setting, a side scan 1.0 until slice B |
+| `707f65fa` | **pause keeps the picture**: no swap to 1.0, and `Plot2D` holds the stretch frozen while paused |
+
+**The double stretch, by reading.** `reindexingCursor` spread each epoch over s canvas columns, and `getImage` then
+scaled the painter by s, right-anchored. Only the right W/s canvas columns reached the screen, holding W/s² epochs:
+**a 2D setting of 2.5 drew 6.25 px per epoch.** The tap reads `cursor_.indexes[screen column]`, which named a different
+epoch from the one drawn - the reason pause went to 1.0. `2a3fadb9` alone (the instrument on the old mapping) prints
+`painter 2.00 | mapping 2.00 | … 4.0 px per epoch` at 2.0 if this reading is right.
+
+**Decision on the stored 2D values (question 9), for Olav to review: they are kept as they are.** The number now means
+what it says. At the same setting the 2D picture therefore flows **slower** than before - at 2.5 a screen holds 2.5×
+more history than yesterday, at 1.5 1.5×; 1.0 is unchanged. Not converting, because 2D moves to km/h next and a
+conversion would be thrown away. The alternative, if the old look is wanted: square the stored value (2.5 would need
+6.25, above the 2.5 ceiling, so everything from 1.6 up would land on the ceiling).
+
+**Found on the way, not touched:** the 2D pinch (`Plot2D.qml`, zoomX) asks `is2DTransducer` (committed) - the same
+shape as `d3485f6f`; it belongs with slice B's controls. Classic's pause handler writes the persistent speed on resume
+for a committed red, so a blue log on a committed red now stretches the side scan in classic.
+
+#### To check on the device - slice A
+
+`pulse.log` (Troubleshooting → View the log, or the file) or `adb logcat | grep -E "STRETCH|PAUSE"`.
+
+1. **2D at 2.0 (red demo or log):** `STRETCH: pane 0 | horizontal | setting 2.00 | painter 1.00 | mapping 2.00 | … |
+   2.0 px per epoch`. **px per epoch must equal the setting**: 1.0 at 1.0, 2.5 at 2.5. Anything else is the finding.
+2. **It looks slower than yesterday at the same number.** That is the decision above, not a fault.
+3. **Pause at 2.0:** the picture does not jump or re-scale. `PAUSE: aim frozen | newest epoch on screen N | columns
+   with data C | stretch 2.00` - the stretch is the setting and **N is not 0** (it always was).
+4. **Tap a bright target** at 2.0, then resume, set 1.0, pause and tap the same target: the loupe's crosshair sits on the
+   target both times and its readings (depth, position when the log has them) agree. **This is the base session 8 needs.**
+5. **Scroll back while paused at 2.0**, reach the start, resume: back to live at 2.0 with no 1.0 flash in between. Scroll
+   back while live: the start is still reachable.
+6. **Blue:** side scan, down and both splits: `vertical | setting 1.00 …` / `1.0 px per epoch`, and the picture exactly
+   as before. **A blue log on a committed red** also runs at 1.0; a red log after it gets the 2D setting back untouched.
+7. **Classic:** its 2D speed changes the same way (s, not s²); its pause still goes to 1.0.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
