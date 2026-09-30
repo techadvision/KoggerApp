@@ -3090,32 +3090,68 @@ same `ceil()` round trip - if it feels uneven, it gets the same treatment in 5 m
 
 **To check:** red, 12 -> 6 -> 12 m by pinch: about the same number of pinches each way, and the same feel as the down scan.
 
+### STATUS AT CLOSE, 30 Sept 2026 (night) - SESSION 7 CLOSED, 1.41 to internal test
+
+**Olav: the red pinch "is great".** Everything in slice A, slice B and the follow-ups is verified on the device, except
+what session 8 is for. `feature/pulse-echogram-speed` is **merged into `master` by fast-forward**; Olav builds 1.41 from
+`master` and publishes to Google Play *Internal test*.
+
+| done and verified | commits |
+|---|---|
+| the one stretch mapping, pause keeps the picture, same lat/lon at 2.5x and 1.0x | `2a3fadb9` … `707f65fa` |
+| side scan true proportions, boat speed in the gauge's unit, cap 3 and the 1 : N pill | `2b08b323` … `eb3a57ae` |
+| down scan's own speed; Max range side / down per pane | `902694f2`, `d39968f6` |
+| the blue pinch rule (along the flow = speed, across = range); symmetric pinches; the red depth pinch in whole metres | `4968aa52`, `1c442705`, `2b55a62e` |
+
+**Added at close, not yet on a device:**
+- **`730b38c0` - Expert → Transducer → *Side scan frequency* 460 / 820 kHz**, for a committed PULSE blue. Sends
+  `transFreq` to the transducer (`PARAM: side scan frequency -> 820 kHz (expert)`, and Device parameters shows the
+  confirmed value); runtime, so 460 again on the next start. This is what the waypoint desk check needs.
+- **`912b16ca` - the manifest had two `splash_screen_drawable` lines again** (lines 51 and 54 in the 1.41 commit);
+  `pulse-manifest-check.js` caught it. One is left.
+
+**The manifest routine** (Qt Creator always opens it in *General* and writes `package=""` into `<manifest>`): set the
+version in *General*, switch to the XML source view, remove `package=""`, save, then run
+`node tools/pulse-manifest-check.js`. It fails on a `package` attribute and on any duplicate line.
+
+**Still owed:** `master` must be pushed (it was 7 ahead of `origin/master` all session, and now carries all of session 7).
+The side scan range pinch still reads the range back through `getMaxDepth()` (a `ceil`); it passed, but if it ever feels
+uneven it gets the red's whole-step treatment. The card images on the 320 phone (`71c7e2d0`) and the live-water checks
+from 27 Sept are still owed.
+
+| # | Session | Needs |
+|---|---|---|
+| 8 | **Side scan waypoints, verified end to end** - on 1.41, at the desk with SITL and the 460/820 switch, then on the water. Fix only what a log line proves wrong | 1.41 on the tablet |
+| 9 | High performance mode: Task 2a (blue) / 2b (red, black) - the engine, the persistent preference, the wifi warning (192.168.10.x; none on 192.168.144.x), the expert resolution floor slider 1-16 mm | 8 |
+| 10 | 2D in km/h (Olav, question 5); interpolation above ~1.5x if the blocks bother anyone | - |
+| 11 | P4 list; forced-landscape design; mosaic quality and tools | - |
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
 We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
-app"). Repo: my KoggerApp folder. Session 6 (finish the UI) is closed; read
-claude/pulse-bug-backlog.md, section "STATUS AT CLOSE, 29 Sept 2026 (evening)", first.
-Check whether I pushed feature/pulse-small-screens and master - remind me if not - and
-cut the new work as its own branch off the pushed tip.
+app"). Repo: my KoggerApp folder. Session 7 (echogram speed) is closed and 1.41 is on
+internal test; read claude/pulse-bug-backlog.md, section "STATUS AT CLOSE, 30 Sept 2026
+(night)", first. Check that master is pushed - remind me if not - and cut the new work as
+its own branch off the pushed tip of master.
 
-Today is session 7: the START of High performance mode for PULSE blue. Read the updated
-project doc claude/pulse-high-performance-mode.md (I have added input since the last
-session) and the project thread "Pulse Blue High Performance mode analysis". Then:
-1. Summarise what I want, my constraints, and the image-manipulation approach as you
-   understand it, and list the open questions. Nothing is built before I have answered.
-2. Show me how it changes what the echogram shows, and what that means for the paused
-   picture, the loupe and waypoint placement - waypoints (session 8) are fixed on top of
-   this, so the base must be right first.
-3. Propose the first slice, including the rail button for echogram/boat speed, and let me
-   choose.
+Today is session 8: SIDE SCAN WAYPOINTS, VERIFIED END TO END. The picture is now one
+mapping (the stretch lives only in the column table, pause keeps the picture, the aim's
+pause snapshot is real), and on 30 Sept a target gave the same lat/lon at 2.5x and 1.0x.
+I will test on 1.41 at the desk: SITL autopilot, a map with contours, a blue log or a
+live blue, and Expert -> Transducer -> Side scan frequency 460/820. Then:
+1. Tell me exactly what to test and which log lines to capture (AddWaypoint:, PAUSE:,
+   STRETCH:, the UDP point that is sent), for side scan port and starboard, down scan,
+   and the split, at different boat speeds and ranges.
+2. From my logs, find what is wrong, if anything - nothing is fixed before its log line
+   is read.
+3. Fix one idea per commit.
 
-Working rules as before: nothing is fixed before its log line is read when a diagnosis is
-uncertain; one idea per commit; Classic is not touched without cause; run moc on any
-changed header and a g++ -fsyntax-only check on changed C++ in the cloud shell (apt
-qt6-base-dev qt6-declarative-dev qt6-base-dev-tools libqt6serialport6-dev
-qt6-positioning-dev; -I every src dir, not third_party), plus the tools/pulse-*-check.js
-scripts, before telling me to build; update the backlog in the repo AND the project doc.
+Working rules as before: Classic is not touched; run moc on any changed header and a
+g++ -fsyntax-only check on changed C++ in the cloud shell (apt qt6-base-dev
+qt6-declarative-dev qt6-base-dev-tools libqt6serialport6-dev qt6-positioning-dev; -I every
+src dir, not third_party), plus the tools/pulse-*-check.js scripts, before telling me to
+build; update the backlog in the repo AND the project doc.
 ```
 
 ### Emulators

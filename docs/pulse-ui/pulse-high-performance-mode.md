@@ -5,6 +5,13 @@ tasks, red/black added, 50 ms period), 30 Sept (Olav's answers at the start of s
 `feature/pulse-small-screens`). This is the reference for the implementation prompts. Chapter 12 is the same story told
 for sales.*
 
+## Status, 30 Sept 2026 (night)
+
+**Task 1 is built and verified on the device** (session 7, in 1.41): the stretch is one mapping, pause keeps the
+picture, the side scan is always true in the gauge's unit, the down scan has its own speed, a blue's panes keep their
+own max range, and the pinch follows along-the-flow = speed, across = range. Interpolation above ~1.5x and 2D in km/h
+are not done. **Next is side scan waypoints (session 8); Task 2a/2b come after that.**
+
 ## The plan in one page
 
 **Task 1 — Echogram speed for everyone (all devices, all links, no warning).**
