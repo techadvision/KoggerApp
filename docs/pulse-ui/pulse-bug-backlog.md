@@ -3069,6 +3069,18 @@ mapping holds the cap 3.00 at 3.0 px per epoch and the label goes 1 : 1.2 -> 1 :
 6. **Paused:** range pinches work, speed pinches do nothing.
 7. **Red:** vertical = depth, horizontal = echogram speed, exactly as before.
 
+#### The pinch checks passed (all 8), and `1c442705` - the same effort both ways
+
+Olav: opening a red's depth by pinch took about three times the effort of closing it; the down scan was a little trigger
+happy. **Cause:** the deltas were linear in `pinch.scale` (closing moves it 1 -> 0.5, opening 1 -> 2 for the same finger
+travel), and `verZoomEvent` takes an **int**, so a closing pinch's small per-frame deltas truncated to 0. **Now:** every
+pinch uses the log of the scale ratio, and the depth / side range zooms carry their fractions (`pinchZoomDistance`). Gains
+unchanged near scale 1, except the down scan's range steps, 10 -> 7. Speed pinches use the same symmetric delta.
+
+**To check:** on a red, open and close the depth by the same finger travel - the same change both ways. Same on the side
+scan range and the down scan range (which should now feel calmer). Speed pinches: faster and slower equally easy. If the
+down scan is now too slow, the 7 is the one number to move.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
