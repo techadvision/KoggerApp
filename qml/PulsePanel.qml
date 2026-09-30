@@ -394,7 +394,7 @@ Item {
             uiScale: panel.uiScale
             showNudges: true
 
-            label: qsTr("Boat speed (side scan)")
+            label: qsTr("Boat speed (side)")
             hint:  qsTr("Set to the speed you drive. Shapes are true at that speed.")
             minValue: Math.ceil(panel.boatSpeedKmhMin * panel._speedFactor * 10 - 1e-6)
             maxValue: Math.floor(panel.boatSpeedKmhMax * panel._speedFactor * 10 + 1e-6)
