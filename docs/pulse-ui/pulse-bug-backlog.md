@@ -3081,6 +3081,15 @@ unchanged near scale 1, except the down scan's range steps, 10 -> 7. Speed pinch
 scan range and the down scan range (which should now feel calmer). Speed pinches: faster and slower equally easy. If the
 down scan is now too slow, the 7 is the one number to move.
 
+**Device report on `1c442705`:** red still uneven the other way - 12 -> 6 m took 10-13 pinches, 6 -> 12 under 3; the
+blue down scan (25 -> 6 in two pinches, and back) feels natural. **Cause, read in the code:** the red pinch went through
+the plot's zoom and read the range back with `getMaxDepth()`, which is `ceil()`; the value is stored and re-applied each
+frame, so closing steps were rounded back up and opening steps rounded up again. **`2b55a62e`:** the red uses the down
+scan's stepping (whole metres, log ratio, gain 7). The side scan range pinch still goes through the plot's zoom and the
+same `ceil()` round trip - if it feels uneven, it gets the same treatment in 5 m steps.
+
+**To check:** red, 12 -> 6 -> 12 m by pinch: about the same number of pinches each way, and the same feel as the down scan.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
