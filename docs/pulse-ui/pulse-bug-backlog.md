@@ -2976,7 +2976,7 @@ from now on.**
 | `f5e85ed1` | the sideways pinch asks `displayIs2DTransducer`, not the committed device |
 
 **What a side scan looks like now.** Tablet full screen, P about 1920 canvas px, 3 km/h, 70 ms: 25 m per side ->
-**2.2** px per ping, 35 m -> **1.6**, 15 m -> **3.0** (the cap), 10 m -> wants 5.6, drawn at 3, **1 : 1.9**. A split halves
+**2.2** px per ping, 35 m -> **1.6**, 15 m -> wants 3.7, drawn at 3, **1 : 1.2**; 10 m -> wants 5.6, **1 : 1.9**. A split halves
 P and every number. Changing max range now changes the along-track scale too: the picture zooms like a map.
 
 **Not in this slice:** interpolation between pings above ~1.5 (only worth building if the blocks at 2-3 px look bad);
