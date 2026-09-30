@@ -243,7 +243,10 @@ void qPlot2D::paint(QPainter *painter)
             static int reported = 0;
             const QString line = stretchReport();
             const int slot = qBound(0, indx_, 3);
-            if (!line.isEmpty() && reported < 60) {
+            // Echogram panes only (indx_ 1, 2 - the -1 is a small preview plot), and only once
+            // the screen is full, so a filling screen does not spend the cap line by line.
+            if (!line.isEmpty() && indx_ >= 0 && !line.contains(QStringLiteral("screen not full"))
+                && reported < 60) {
                 // compare without the epoch numbers, which move every ping while live
                 const QString key = line.section(QStringLiteral(" | on screen"), 0, 0)
                                   + line.section(QStringLiteral(" epochs |"), 1);

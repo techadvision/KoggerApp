@@ -537,7 +537,10 @@ QString Plot2D::stretchReport() const
         return QString();
 
     const int    epochs  = last - first + 1;
-    const double pxEpoch = double(W) / double(epochs);   // canvas px on screen per epoch
+    // Over the columns that HOLD data: while the screen is still filling, W / epochs would
+    // count the empty columns too (the 30 Sept device log read 92 px per epoch at 2.98).
+    const int    dataCols = std::max(1, W - x0 - cursor_.numZeroEpoch);
+    const double pxEpoch  = double(dataCols) / double(epochs);
     return QStringLiteral("%1 | setting %2 | painter %3 | mapping %4 | canvas %5 | on screen %6..%7 = %8 epochs | %9 px per epoch%10")
         .arg(isHorizontal_ ? QStringLiteral("horizontal") : QStringLiteral("vertical"))
         .arg(echogramSpeed_, 0, 'f', 2)
