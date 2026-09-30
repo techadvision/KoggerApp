@@ -2958,6 +2958,55 @@ for a committed red, so a blue log on a committed red now stretches the side sca
    as before. **A blue log on a committed red** also runs at 1.0; a red log after it gets the 2D setting back untouched.
 7. **Classic:** its 2D speed changes the same way (s, not s²); its pause still goes to 1.0.
 
+#### Slice A VERIFIED on the device, 30 Sept
+
+Olav: setting and mapping identical at every stretch tried; no jump on pause; **the same target gives the same lat/lon
+in `pulse.log` when a waypoint is added at 2.5x and at 1.0x**; scroll back fine; blue unchanged. Slower 2D at the same
+number is accepted (the ceiling can be raised later). **Classic is not retested and will not be again - v2 is the UI
+from now on.**
+
+### Session 7, slice B - the side scan in true proportions, the Speed button, the pill
+
+| commit | what |
+|---|---|
+| `2b08b323` | **true proportions** in `Plot2D`: a vertical pane with `sideScanTrueProportions` takes stretch = v x T x P / swath, capped at 3; `qPlot2D.trueShortenedBy` beyond it; the paused stretch is the one in force at the pause |
+| `9a597b04` | `pulseSettings.boatSpeedKmh` (3.0, kept within 1.0-5.0) and three readonly, QML-owned runtime keys: `sideScanTrueProportions`, `boatSpeedMps`, `truePingPeriodMs` (confirmed `ch1Period_Copy`, else the profile's, else 70) |
+| `fc8a739c` | the pill: **Boat speed** in the gauge's unit on a side scan, echogram speed on 2D, **5 s**; a **1 : N** pill while shortened; **nothing while paused** |
+| `eb3a57ae` | **Speed** on the rail, **pinned** after Max range; its panel group: Boat speed (side scan, gauge unit, nudges) or Echogram speed (2D); icon `pulse_speed.svg` |
+| `f5e85ed1` | the sideways pinch asks `displayIs2DTransducer`, not the committed device |
+
+**What a side scan looks like now.** Tablet full screen, P about 1920 canvas px, 3 km/h, 70 ms: 25 m per side ->
+**2.2** px per ping, 35 m -> **1.6**, 15 m -> **3.0** (the cap), 10 m -> wants 5.6, drawn at 3, **1 : 1.9**. A split halves
+P and every number. Changing max range now changes the along-track scale too: the picture zooms like a map.
+
+**Not in this slice:** interpolation between pings above ~1.5 (only worth building if the blocks at 2-3 px look bad);
+2D in km/h (Olav's question 5, its own design); the down pane stays at 1.0 as it was full screen.
+
+#### To check on the device - slice B
+
+`pulse.log` or `adb logcat | grep -E "STRETCH|PERIOD|SETTINGS: persistent boatSpeedKmh"`.
+
+1. **Live blue, side scan full screen:** `PERIOD: true proportions use 70 ms - confirmed by the echosounder` once the
+   setup is done. `STRETCH: pane 0 | vertical | … | TRUE 0.83 m/s x 70 ms, across P px over S m -> wants W, shortened 1 : X`.
+   **The first line's `mapping` must equal `wants` up to 3.00**, and `px per epoch` the mapping.
+2. **A blue log or demo:** the PERIOD line names its source. `confirmed by the echosounder` means the log carried the
+   device's answer; `the profile` means it did not - if the log was recorded at another period the shapes will be off by
+   that ratio, and that is the reading that decides whether a recording needs its own period.
+3. **Shapes:** on a recording with a known round or square object, at the speed the boat actually drove, the object
+   should look as long as it is wide. Then change max range 25 -> 15: the object must keep its shape (it gets bigger in
+   both directions).
+4. **Speed button:** pinned under Max range. Side scan: Boat speed in the gauge's unit (switch the unit under Screen &
+   echogram and look again), nudges step one tenth, ends at 1.0 and 5.0 km/h. Red: Echogram speed x, as the settings row.
+5. **The pill:** after a change, *Boat speed 3.4 km/h* (or *Echogram speed 1.8x* on 2D) for 5 s. At a short range, *1 : N*
+   stays up for as long as the picture is shortened and goes when the range is widened. **Pause: both pills go**, and the
+   picture does not move.
+6. **Pause and the loupe on a side scan** at a stretch other than 1: tap a target, add a waypoint, compare with the same
+   target at another boat speed - the lat/lon in `pulse.log` must agree, as in slice A.
+7. **Split side + down:** the side pane follows the boat speed, the down pane does not move. `STRETCH:` prints one line
+   per pane.
+8. **Rail on the 320 phone:** the head is one button taller; the body scrolls sooner. The chevron must still say so.
+9. **Pinch sideways** on a blue log with a red committed: it changes the side scan range, not the 2D speed.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
