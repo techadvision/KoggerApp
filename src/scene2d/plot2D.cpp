@@ -256,6 +256,9 @@ void Plot2D::applyRuntime(const QVariantMap& mIn)
     if (m.contains("isSideScanLeftHand") || m.contains("isSideScan2DView"))
         conformDownRange("the flip flags changed");
     if (m.contains("echogramSpeed"))       echogramSpeed_      = m.value("echogramSpeed").toDouble();
+    if (m.contains("sideScanTrueProportions")) trueProportions_  = m.value("sideScanTrueProportions").toBool();
+    if (m.contains("boatSpeedMps"))        boatSpeedMps_       = m.value("boatSpeedMps").toDouble();
+    if (m.contains("truePingPeriodMs"))    truePingPeriodMs_   = m.value("truePingPeriodMs").toDouble();
     if (m.contains("is2DTransducer"))      is2DTransducer_     = m.value("is2DTransducer").toBool();
     if (m.contains("shouldDoAutoRange"))   shouldDoAutoRange_  = m.value("shouldDoAutoRange").toBool();
     if (m.contains("autoDepthMaxLevel"))   autoDepthMaxLevel_  = m.value("autoDepthMaxLevel").toDouble();
@@ -264,7 +267,7 @@ void Plot2D::applyRuntime(const QVariantMap& mIn)
     if (m.contains("echogramPause")) {
         const bool newPause = m.value("echogramPause").toBool();
         if (newPause && !echogramPause_)
-            pausedStretch_ = echogramSpeed_;
+            pausedStretch_ = liveStretch();
         echogramPause_ = newPause;
         echogramDragActive_ = false;
     }
@@ -542,7 +545,14 @@ QString Plot2D::stretchReport() const
         .arg(stretch(), 0, 'f', 2)
         .arg(W).arg(first).arg(last).arg(epochs)
         .arg(pxEpoch, 0, 'f', 1)
-        .arg(cursor_.numZeroEpoch > 0 ? QStringLiteral(" (screen not full)") : QString());
+        .arg(cursor_.numZeroEpoch > 0 ? QStringLiteral(" (screen not full)") : QString())
+        + (isTrueProportionsPane()
+           ? QStringLiteral(" | TRUE %1 m/s x %2 ms, across %3 px over %4 m -> wants %5, shortened 1 : %6")
+                 .arg(boatSpeedMps_, 0, 'f', 2).arg(truePingPeriodMs_, 0, 'f', 0)
+                 .arg(canvas_.height())
+                 .arg(std::abs(double(cursor_.distance.to) - double(cursor_.distance.from)), 0, 'f', 1)
+                 .arg(trueStretchWanted(), 0, 'f', 2).arg(trueShortenedBy(), 0, 'f', 1)
+           : QString());
 }
 
 void Plot2D::setDragActive(bool active)

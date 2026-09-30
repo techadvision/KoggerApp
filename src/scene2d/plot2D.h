@@ -69,8 +69,35 @@ public:
     // FROZEN WHILE PAUSED: a speed or model change under a paused picture must not reflow it
     // under the crosshair. The value in force when the pause began holds until the resume.
     double stretch() const {
-        const double s = echogramPause_ ? pausedStretch_ : echogramSpeed_;
+        const double s = echogramPause_ ? pausedStretch_ : liveStretch();
         return (std::isfinite(s) && s >= 0.05) ? s : 1.0;
+    }
+
+    // TRUE PROPORTIONS FOR THE SIDE SCAN (session 7, slice B; Olav 30 Sept: the side scan is
+    // always a true render). A metre along the track takes as many pixels as a metre across:
+    //   across px per metre = P / swath        (P = the pane's across-track canvas px)
+    //   along  m per ping   = v x T            (boat speed x the confirmed ping period)
+    //   stretch (px per ping) = v x T x P / swath
+    // Capped at kTrueStretchCap; beyond it the picture is shortened along the track and
+    // trueShortenedBy() says by how much, for the "1 : 3.1" label. Each pane asks its own
+    // width and range, so a split's side pane is true and its down pane is not touched.
+    static constexpr double kTrueStretchCap = 3.0;
+    bool isTrueProportionsPane() const { return trueProportions_ && !isHorizontal_; }
+    double trueStretchWanted() const {
+        const double swath = std::abs(double(cursor_.distance.to) - double(cursor_.distance.from));
+        const int    P     = canvas_.height();
+        if (!(swath > 0.1) || P <= 0 || !(boatSpeedMps_ > 0.0) || !(truePingPeriodMs_ > 0.0))
+            return 1.0;
+        return boatSpeedMps_ * (truePingPeriodMs_ / 1000.0) * double(P) / swath;
+    }
+    double trueShortenedBy() const {
+        if (!isTrueProportionsPane()) return 1.0;
+        return std::max(1.0, trueStretchWanted() / kTrueStretchCap);
+    }
+    double liveStretch() const {
+        if (isTrueProportionsPane())
+            return std::clamp(trueStretchWanted(), 0.05, kTrueStretchCap);
+        return echogramSpeed_;
     }
 
     // Optional setters if other C++ wants to push directly
@@ -342,7 +369,10 @@ private:
     int rightmostEpochOnScreen_ = 0;
     int visibleColsOnScreen_ = 0;
     double painterStretch_ = 1.0;  // the horizontal painter scale getImage() applied last
-    double pausedStretch_  = 1.0;  // echogramSpeed_ when the pause began; see stretch()
+    double pausedStretch_  = 1.0;  // liveStretch() when the pause began; see stretch()
+    bool   trueProportions_  = false;  // runtime "sideScanTrueProportions"
+    double boatSpeedMps_     = 3.0 / 3.6;
+    double truePingPeriodMs_ = 70.0;
     int  frozenHead_   = -1;   // headAtPause = lastCap + 1 (newest = head-1)
     int  frozenH_      = 0;    // canvas height at pause
     bool frozenValid_  = false;

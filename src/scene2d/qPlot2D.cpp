@@ -226,6 +226,14 @@ void qPlot2D::paint(QPainter *painter)
 
         Plot2D::getImage(paintW, paintH, painter, _isHorizontal);
 
+        {
+            const double shown = std::round(trueShortenedBy() * 10.0) / 10.0;
+            if (shown != trueShortenedByShown_) {
+                trueShortenedByShown_ = shown;
+                emit trueShortenedByChanged();
+            }
+        }
+
         // STRETCH: - an instrument, 30 Sept (session 7). Prints what a screen really holds
         // whenever that changes by a tenth of a pixel per epoch, per pane, capped. Settles
         // whether the 2D speed is applied once (px per epoch = setting) or twice

@@ -29,6 +29,9 @@ public:
     Q_PROPERTY(float timelinePosition READ timelinePosition WRITE setTimelinePosition NOTIFY timelinePositionChanged)
     Q_PROPERTY(float viewportRatio READ viewportRatio NOTIFY timelinePositionChanged)
     Q_PROPERTY(bool hasData READ hasData NOTIFY timelinePositionChanged)
+    // TRUE PROPORTIONS, how much the side scan is shortened along the track beyond the cap
+    // (1.0 = true). Rounded to a tenth in paint(), so it only notifies when the label moves.
+    Q_PROPERTY(double trueShortenedBy READ trueShortenedByShown NOTIFY trueShortenedByChanged)
     Q_PROPERTY(bool isEnabled READ getPlotEnabled WRITE setPlotEnabled NOTIFY plotEnabledChanged)
     Q_PROPERTY(QString contactInfo      READ getContactInfo      WRITE setContactInfo     NOTIFY contactChanged)
     Q_PROPERTY(bool    contactVisible   READ getContactVisible   WRITE setContactVisible  NOTIFY contactChanged)
@@ -73,6 +76,8 @@ public:
                           / static_cast<float>(stretch());
         return qBound(0.0f, dim / static_cast<float>(datasetPtr_->size()), 1.0f);
     }
+
+    double trueShortenedByShown() const { return trueShortenedByShown_; }
 
     bool hasData() const {
         return datasetPtr_ != nullptr && datasetPtr_->size() > 0;
@@ -220,6 +225,7 @@ protected:
     qreal deviceScale_ = 1.0;
 
 signals:
+    void trueShortenedByChanged();
     void timelinePositionChanged();
     void contactChanged();
 
@@ -493,6 +499,7 @@ private:
         plotUpdate();
     }
     int indx_ = -1;
+    double trueShortenedByShown_ = 1.0;
     //PULSE
     void wireBus(SettingsBus* bus);
     SettingsBus* bus_ = nullptr;
