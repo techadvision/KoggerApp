@@ -462,10 +462,12 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
         //Pulse
         const bool flipImage = isSideScanLeftHand_ && isSideScan2DView_;
 
+        painterStretch_ = 1.0;
         if (echogramSpeed_ > 1.0 && !flipImage) {
             painter->translate(width, 0);
             painter->scale(echogramSpeed_, 1.0);
             painter->translate(-width, 0);
+            painterStretch_ = echogramSpeed_;
         }
         if (flipImage) {
             painter->translate(0, height);
@@ -480,6 +482,7 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
     }
     else {
 
+        painterStretch_ = 1.0;
         canvas_.setSize(height, width, painter);
 
         const QTransform W = painter->worldTransform();
@@ -501,6 +504,39 @@ bool Plot2D::getImage(int width, int height, QPainter* painter, bool is_horizont
 
 }
 
+
+QString Plot2D::stretchReport() const
+{
+    const int W = int(cursor_.indexes.size());
+    if (W <= 0 || canvas_.width() != W)
+        return QString();
+
+    // The canvas columns that land on screen. The painter scale is right-anchored at the
+    // canvas' right edge, so with a scale p only the right-hand W/p columns are visible.
+    const double p  = std::max(1.0, painterStretch_);
+    const int    x0 = std::clamp(int(std::ceil(double(W) - double(W) / p)), 0, W - 1);
+
+    int first = -1, last = -1;
+    for (int x = x0; x < W; ++x) {
+        const int e = cursor_.indexes[x];
+        if (e < 0) continue;
+        if (first < 0) first = e;
+        last = e;
+    }
+    if (first < 0 || last <= first)
+        return QString();
+
+    const int    epochs  = last - first + 1;
+    const double pxEpoch = double(W) / double(epochs);   // canvas px on screen per epoch
+    return QStringLiteral("%1 | setting %2 | painter %3 | mapping %4 | canvas %5 | on screen %6..%7 = %8 epochs | %9 px per epoch%10")
+        .arg(isHorizontal_ ? QStringLiteral("horizontal") : QStringLiteral("vertical"))
+        .arg(echogramSpeed_, 0, 'f', 2)
+        .arg(painterStretch_, 0, 'f', 2)
+        .arg(horizontalStretch(), 0, 'f', 2)
+        .arg(W).arg(first).arg(last).arg(epochs)
+        .arg(pxEpoch, 0, 'f', 1)
+        .arg(cursor_.numZeroEpoch > 0 ? QStringLiteral(" (screen not full)") : QString());
+}
 
 void Plot2D::setDragActive(bool active)
 {

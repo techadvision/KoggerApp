@@ -46,6 +46,12 @@ public:
         return sizeof(void*) == 4;
     }
     int rightmostEpochOnScreen() const { return rightmostEpochOnScreen_; }
+
+    // WHAT A SCREEN OF ECHOGRAM ACTUALLY HOLDS - an instrument, 30 Sept (session 7).
+    // Screen pixels per epoch, measured from the column table and the painter scale that
+    // getImage() really applied, not from the setting. The setting says what the picture
+    // should do; this says what it did. Empty string until the screen holds data.
+    QString stretchReport() const;
     int visibleColsOnScreen()   const { return visibleColsOnScreen_; }
 
     // THE HORIZONTAL STRETCH getImage() paints with - device pixels per data column. 1.0
@@ -326,6 +332,7 @@ private:
     QObject* qobjectContext_ = nullptr;
     int rightmostEpochOnScreen_ = 0;
     int visibleColsOnScreen_ = 0;
+    double painterStretch_ = 1.0;  // the horizontal painter scale getImage() applied last
     int  frozenHead_   = -1;   // headAtPause = lastCap + 1 (newest = head-1)
     int  frozenH_      = 0;    // canvas height at pause
     bool frozenValid_  = false;

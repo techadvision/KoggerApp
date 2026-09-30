@@ -226,6 +226,27 @@ void qPlot2D::paint(QPainter *painter)
 
         Plot2D::getImage(paintW, paintH, painter, _isHorizontal);
 
+        // STRETCH: - an instrument, 30 Sept (session 7). Prints what a screen really holds
+        // whenever that changes by a tenth of a pixel per epoch, per pane, capped. Settles
+        // whether the 2D speed is applied once (px per epoch = setting) or twice
+        // (px per epoch = setting squared) before the stretch is moved.
+        {
+            static QString lastLine[4];
+            static int reported = 0;
+            const QString line = stretchReport();
+            const int slot = qBound(0, indx_, 3);
+            if (!line.isEmpty() && reported < 60) {
+                // compare without the epoch numbers, which move every ping while live
+                const QString key = line.section(QStringLiteral(" | on screen"), 0, 0)
+                                  + line.section(QStringLiteral(" epochs |"), 1);
+                if (key != lastLine[slot]) {
+                    lastLine[slot] = key;
+                    ++reported;
+                    qDebug().noquote() << QStringLiteral("STRETCH: pane %1 | %2").arg(indx_).arg(line);
+                }
+            }
+        }
+
         if (zoomPreviewMode_) {
             int centerX = qBound(0, canvas().width() / 2, canvas().width() - 1);
 
