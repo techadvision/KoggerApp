@@ -3007,6 +3007,43 @@ P and every number. Changing max range now changes the along-track scale too: th
 8. **Rail on the 320 phone:** the head is one button taller; the body scrolls sooner. The chevron must still say so.
 9. **Pinch sideways** on a blue log with a red committed: it changes the side scan range, not the 2D speed.
 
+#### Device report on slice B, 30 Sept evening - and three follow-ups
+
+**Passed:** proportions hold when max range changes (slider or pinch); the boat speed setting stretches the side scan
+as it should - on a log driven at about 2.5 km/h, 5 km/h stretches objects along the track and 1 km/h squashes them, and
+a sunken boat looks right near the recorded speed. Speed button, pill (5 s, gone on pause), the waypoint check, the
+split (side follows, down does not) and the phone rail all passed. The PERIOD line on a blue log read 50 ms (the
+firmware start value) and then 70 ms, both from the profile - right for this recording.
+
+**Olav's findings, and what was done:**
+
+| finding | commit |
+|---|---|
+| The `STRETCH:` line printed 92 px per epoch for a mapping of 2.98 while the screen filled, and the -1 preview plot filled the log. The mapping was right; the arithmetic counted empty columns | `b16c89c6` - px over the columns with data, echogram panes only, full screens only |
+| **Speed never reached a blue's down pane** - a leftover of the old UI | `902694f2` - the down pane takes its own `echogramSpeedDown` (1.0-2.5x), full screen and split; the Speed group on a blue shows **Boat speed (side scan)** and **Down scan speed** |
+| **In a split both panes took the side scan's range, and a pinch on either changed both** | `d39968f6` - each pane its own key (`maxDepthValuePulseBlueFixed` side, `maxDepthValuePulseBlue` down); the panel shows **Max range side** and **Max range down** whenever a blue is on screen; a pinch changes only its pane |
+
+**Check 9 answered by Olav:** with red committed and the switch to blue declined, the pill says PULSE blue and the log
+renders as a blue - the better choice than a blue drawn in a red UI.
+
+**Open question for Olav:** the pill did not appear on a blue after a pinch. A pinch on a blue changes the range, never
+a speed, so there is no speed pill to show. Should an along-track pinch on the side scan set the boat speed?
+
+#### To check on the device - the three follow-ups
+
+1. **`STRETCH:`** now prints only for panes 1 and 2 and only on a full screen. On a split at 5 km/h: pane 1 `vertical |
+   … | mapping 2.98 | … | 3.0 px per epoch | TRUE …`, pane 2 `horizontal down scan | setting 1.00 …`.
+2. **Down scan speed:** set it to 2.0 on a blue in full-screen down and in side + down. The down pane runs at 2.0x
+   (`horizontal down scan | setting 2.00 | … | mapping 2.00 | 2.0 px per epoch`); the side pane does not change. A red
+   after it keeps its own 2D echogram speed. The pill says *Down scan speed 2.0x*.
+3. **Max range side / down:** open Max range on a blue - two sliders, in full screen and in the split. In side + down,
+   move each: only its pane changes. `RANGE: applying N to pane 1 from maxDepthValuePulseBlueFixed | side scan law` and
+   `… to pane 2 from maxDepthValuePulseBlue | 2D law`.
+4. **Pinch in the split:** pinch the side pane, then the down pane. Each changes only itself, and the matching slider
+   follows. `RANGE: storing N in <key> | down pane` or `| side or 2D pane`.
+5. **Full screen side <-> down:** switching keeps each picture's own number, as before.
+6. **A red:** one Max range slider, automatic range as before.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```

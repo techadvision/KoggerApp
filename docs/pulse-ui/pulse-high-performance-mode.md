@@ -84,6 +84,14 @@ whichever comes second mostly adds a profile.
   1 mm (perhaps 2); High performance mode is a **persistent preference**; the wifi warning is for **192.168.10.x**, while
   the IP link (**192.168.144.x**) needs none.
 
+**30 Sept evening (Olav, after slice B on the device)**
+
+- **The boat speed behaves as intended**: at the recorded speed the side scan shows objects as they are; faster or slower
+  stretches or squashes them along the track.
+- **The down scan gets its own speed** (a factor for now, `echogramSpeedDown`) - no speed ever reached it before.
+- **A blue's side and down panes keep their own max range**, shown as *Max range side* and *Max range down*, in full
+  screen and split; a pinch changes only the pane it is on.
+
 ## 1. What the current code says
 
 **Display (Task 1)**
