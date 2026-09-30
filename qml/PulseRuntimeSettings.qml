@@ -473,6 +473,28 @@ QtObject {
     //and PulseSettings' start-up clamp all read this. Here and not on PulseSettings,
     //because every property of a Settings object is persisted.
     readonly property double echogramSpeedMax: 2.5
+    //THE SIDE SCAN'S TRUE PROPORTIONS, the three inputs Plot2D needs (session 7, slice B).
+    //Readonly bindings, published on the bus and listed in main.qml's runtimeKeysQmlOwns, so
+    //the echo is skipped instead of freezing them (the 3ef7249a lesson).
+    //
+    //  - on for a side scan picture in v2 (Olav: the side scan is always a true render)
+    //  - boat speed from the stored km/h, 1.0 .. 5.0
+    //  - the ping period the ECHOSOUNDER CONFIRMED (Device parameters -> ping period), then
+    //    the profile's value when nothing has been confirmed (a recording, before setup)
+    readonly property double boatSpeedKmhMin: 1.0
+    readonly property double boatSpeedKmhMax: 5.0
+    readonly property bool   sideScanTrueProportions:
+        pulseSettings ? (pulseSettings.uiVariant === "v2" && !displayIs2DTransducer) : false
+    readonly property double boatSpeedMps:
+        Math.min(boatSpeedKmhMax, Math.max(boatSpeedKmhMin, pulseSettings ? pulseSettings.boatSpeedKmh : 3.0)) / 3.6
+    readonly property int    truePingPeriodMs:
+          ch1Period_Copy > 0 ? ch1Period_Copy
+        : ch1Period > 0      ? ch1Period
+        :                      70
+    readonly property string truePingPeriodSource:
+          ch1Period_Copy > 0 ? "confirmed by the echosounder"
+        : ch1Period > 0      ? "the profile (nothing confirmed)"
+        :                      "the 70 ms default"
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
     property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
     property int    echogramCompensationFile:0      // 0 raw, 1 side scan AGC, 2 PULSE 2D TVG, 3 side scan TVG, 4 upstream TGC ramp

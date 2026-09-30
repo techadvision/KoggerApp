@@ -129,6 +129,10 @@ Settings {
     property int    bottomCompositionAddition:  0
     property bool   doubleEchoOptimize:         false
     property double echogramSpeed:              1.0     //1.0 .. pulseRuntimeSettings.echogramSpeedMax
+    //BOAT SPEED FOR THE SIDE SCAN'S TRUE PROPORTIONS (session 7, 30 Sept). Stored in km/h,
+    //1.0 .. 5.0 with one decimal, whatever unit the user reads it in (the speed gauge's
+    //speedUnit). The speed the user drives: at that speed shapes on the side scan are true.
+    property double boatSpeedKmh:               3.0
     property double echogramWidth:              25
     property double pulseBlueOffset:            20
 

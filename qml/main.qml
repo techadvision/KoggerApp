@@ -138,6 +138,17 @@ ApplicationWindow  {
         function onIsSideScanLeftHandChanged()      { settingsBus.updateRuntime({ isSideScanLeftHand:       pulseRuntimeSettings.isSideScanLeftHand         }) }
         function onIsSideScan2DViewChanged()        { settingsBus.updateRuntime({ isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView           }) }
         function onEchogramSpeedChanged()           { settingsBus.updateRuntime({ echogramSpeed:            pulseRuntimeSettings.echogramSpeed              }) }
+        //TRUE PROPORTIONS (session 7): the three inputs of the side scan's own stretch.
+        function onSideScanTrueProportionsChanged() {
+            console.log("STRETCH: side scan true proportions", pulseRuntimeSettings.sideScanTrueProportions ? "on" : "off")
+            settingsBus.updateRuntime({ sideScanTrueProportions: pulseRuntimeSettings.sideScanTrueProportions })
+        }
+        function onBoatSpeedMpsChanged()            { settingsBus.updateRuntime({ boatSpeedMps:             pulseRuntimeSettings.boatSpeedMps               }) }
+        function onTruePingPeriodMsChanged() {
+            console.log("PERIOD: true proportions use", pulseRuntimeSettings.truePingPeriodMs, "ms -",
+                        pulseRuntimeSettings.truePingPeriodSource)
+            settingsBus.updateRuntime({ truePingPeriodMs:        pulseRuntimeSettings.truePingPeriodMs           })
+        }
         function onIs2DTransducerChanged()          { settingsBus.updateRuntime({ is2DTransducer:           pulseRuntimeSettings.is2DTransducer             }) }
         //The DISPLAY answer, published as its OWN key and consumed only by the ruler. The
         //scene draws what is on screen, so its scale follows the picture; is2DTransducer above
@@ -208,6 +219,9 @@ ApplicationWindow  {
                     isSideScanLeftHand:       pulseRuntimeSettings.isSideScanLeftHand,
                     isSideScan2DView:         pulseRuntimeSettings.isSideScan2DView,
                     echogramSpeed:            pulseRuntimeSettings.echogramSpeed,
+                    sideScanTrueProportions:  pulseRuntimeSettings.sideScanTrueProportions,
+                    boatSpeedMps:             pulseRuntimeSettings.boatSpeedMps,
+                    truePingPeriodMs:         pulseRuntimeSettings.truePingPeriodMs,
                     is2DTransducer:           pulseRuntimeSettings.is2DTransducer,
                     displayIs2DTransducer:    pulseRuntimeSettings.displayIs2DTransducer,
                     shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange,
@@ -323,6 +337,9 @@ ApplicationWindow  {
     readonly property var runtimeKeysQmlOwns: ["uiVariantIsV2",
                                                "is2DTransducer",
                                                "displayIs2DTransducer",
+                                               "sideScanTrueProportions",
+                                               "boatSpeedMps",
+                                               "truePingPeriodMs",
                                                "echogramTvgEnabled",
                                                "sideScanTvgEnabled",
                                                "sideScanTvgMosaicEnabled"]
