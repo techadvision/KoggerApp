@@ -3044,6 +3044,31 @@ a speed, so there is no speed pill to show. Should an along-track pinch on the s
 5. **Full screen side <-> down:** switching keeps each picture's own number, as before.
 6. **A red:** one Max range slider, automatic range as before.
 
+#### Device report on the follow-ups, 30 Sept late - all six passed, and the pinch redone
+
+Speed and range are both available and respected; a pinch on one pane of the split changes only that pane. The
+`STRETCH:` lines now read true: at 5 km/h, full-screen side scan, the swath going 40 -> 10 m wants 3.51 -> 14.04, the
+mapping holds the cap 3.00 at 3.0 px per epoch and the label goes 1 : 1.2 -> 1 : 4.7. The down scan at 2.0 reads
+`horizontal down scan | setting 2.00 | … | 2.0 px per epoch`, full screen and split.
+
+| commit | what |
+|---|---|
+| `35dc0708` | "Boat speed (side)" - the longer label ran into the nudges |
+| `4968aa52` | **the blue pinch, Olav's rule**: side scan vertical = boat speed, horizontal = max range side; down scan vertical = max range down, horizontal = down scan speed (as a red). Near-diagonal does nothing on a blue; speed pinches do nothing while paused; red unchanged |
+
+#### To check on the device - the pinch
+
+`adb logcat | grep PINCH` prints one line per gesture: `PINCH: pane N | side scan | vertical pinch -> boat speed`.
+
+1. **Side scan, fingers stacked vertically (within about 37 degrees):** boat speed moves in tenths, the pill shows it,
+   the Speed panel follows. Apart = faster (the picture stretches).
+2. **Side scan, fingers side by side:** max range side, as the slider.
+3. **Down scan, vertical:** max range down. **Horizontal:** down scan speed, pill *Down scan speed*.
+4. **Split:** each pane by its own rule; the other pane never moves.
+5. **A diagonal pinch on a blue:** nothing, and no PINCH line.
+6. **Paused:** range pinches work, speed pinches do nothing.
+7. **Red:** vertical = depth, horizontal = echogram speed, exactly as before.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
