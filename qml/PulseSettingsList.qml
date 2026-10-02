@@ -1324,6 +1324,134 @@ Item {
             ]
         }
 
+        // ---- Performance mode (Task 2a, step 1, 2 Oct 2026) --------------------
+        //
+        // THE EXPERT'S LIMITS, AND THE TWO READINGS THAT TELL HIM WHETHER THEY HOLD. Olav's
+        // four persistent rows (claude/pulse-high-performance-mode.md, 6.2), plus Serial link
+        // and Lost chart samples. STEP 1 SENDS NOTHING TO THE TRANSDUCER: the switch and the
+        // limits are stored, and the engine that reads them is step 2. The read-outs are
+        // what the step-2 engine's 85% headroom is measured with, on the Transducer rows
+        // above, before anything relies on it.
+        //
+        // The readings are measured, not estimated: every frame from a live link is counted
+        // as it arrives (DeviceManagerWrapper.sampleLinkStats), against the baud the
+        // transducer itself reports. The loss is the chart's own seqOffset gaps, in samples;
+        // a ping lost whole is invisible to it.
+        PulseSettingsGroup {
+            id: perfGroup
+
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: list.expertOnly
+
+            uiScale: list.uiScale
+            title: qsTr("Performance mode")
+            open: list.openId === "performance"
+            onToggled: list.toggle("performance")
+
+            content: [
+                PulseSwitchRow {
+                    width: perfGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Enable performance mode")
+                    hint:  qsTr("PULSE blue, expert mode only - stored; the engine comes in the next build")
+                    checked: pulseSettings ? pulseSettings.perfModeEnabled : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("persistent", "perfModeEnabled", v)
+                    }
+                },
+
+                PulseSliderRow {
+                    width: perfGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Max samples")
+                    hint:  qsTr("the most the engine may ask for per ping")
+                    minValue: 500
+                    maxValue: 5000
+                    stepSize: 50
+                    value: pulseSettings ? pulseSettings.perfMaxSamples : 5000
+                    valueText: String(value)
+
+                    onMoved: function (v) {
+                        list.settingChanged("persistent", "perfMaxSamples", v)
+                    }
+                },
+
+                PulseSliderRow {
+                    width: perfGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Min spacing blue")
+                    hint:  qsTr("the finest sample spacing allowed on a side scan")
+                    minValue: 1
+                    maxValue: 50
+                    stepSize: 1
+                    value: pulseSettings ? pulseSettings.perfMinSpacingBlueMm : 15
+                    valueText: value + " " + qsTr("mm")
+
+                    onMoved: function (v) {
+                        list.settingChanged("persistent", "perfMinSpacingBlueMm", v)
+                    }
+                },
+
+                PulseSliderRow {
+                    width: perfGroup.contentWidth
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    label: qsTr("Min spacing 2D")
+                    hint:  qsTr("the finest sample spacing allowed on red and black")
+                    minValue: 1
+                    maxValue: 50
+                    stepSize: 1
+                    value: pulseSettings ? pulseSettings.perfMinSpacing2DMm : 2
+                    valueText: value + " " + qsTr("mm")
+
+                    onMoved: function (v) {
+                        list.settingChanged("persistent", "perfMinSpacing2DMm", v)
+                    }
+                },
+
+                PulseReadOnlyRow {
+                    width: perfGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Serial link")
+                    hint:  qsTr("measured on the live link, against the baud the transducer reports")
+                    value: {
+                        const w = deviceManagerWrapper
+                        if (!w || w.linkBytesPerSecond <= 0)
+                            return w && w.linkBaud > 0 ? w.linkBaud + " " + qsTr("baud, idle") : "\u2014"
+                        const kb = (w.linkBytesPerSecond / 1000).toFixed(1) + " kB/s"
+                        if (w.linkBaud <= 0)
+                            return kb + " | " + qsTr("baud not reported")
+                        return w.linkBaud + " " + qsTr("baud") + " | " + kb + " | "
+                               + w.linkLoadPercent.toFixed(0) + "% " + qsTr("used")
+                    }
+                },
+
+                PulseReadOnlyRow {
+                    width: perfGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Lost chart samples")
+                    hint:  qsTr("gaps inside a ping; a recording or demo counts too")
+                    value: {
+                        const w = deviceManagerWrapper
+                        if (!w || w.chartLossPercentTotal < 0)
+                            return "\u2014"
+                        return (w.chartLossPercent >= 0 ? w.chartLossPercent.toFixed(2) + "% " + qsTr("last 10 s") : qsTr("none flowing"))
+                               + " | " + w.chartLossPercentTotal.toFixed(2) + "% " + qsTr("since start")
+                    }
+                }
+            ]
+        }
+
         // ---- Water body filter ------------------------------------------------
 
         PulseSettingsGroup {

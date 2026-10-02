@@ -138,6 +138,15 @@ Settings {
     //Its own key, so a red's 2D speed and a blue's down scan speed never overwrite each other.
     property double echogramSpeedDown:          1.0
     property double echogramWidth:              25
+    //PERFORMANCE MODE (Task 2a, 2 Oct 2026) - the expert's limits, persistent by design: they
+    //are what the expert has cleared for his hardware (the prototype's 15 mm, for example),
+    //not experiments. The engine only ever tightens the hardware's own limits with them, and
+    //it runs only while expert mode is on (Olav, 2 Oct), so this switch stays stored and does
+    //nothing outside expert mode. PULSE blue only; red and black get link-fit tuning instead.
+    property bool   perfModeEnabled:            false
+    property int    perfMaxSamples:             5000    //500 .. 5000, the firmware's maximum
+    property int    perfMinSpacingBlueMm:       15      //1 .. 50; Basic2D never below its 15
+    property int    perfMinSpacing2DMm:         2       //1 .. 50; red, black, red prototype
     property double pulseBlueOffset:            20
 
     // Transducer telemetry settings
