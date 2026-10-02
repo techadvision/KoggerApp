@@ -3278,20 +3278,37 @@ liveParams map is runtime, so a restart of the app clears any value above it tha
 
 **Bring back:** the `LINK:` lines with the period and samples each was taken at.
 
+#### The link measurement, 2 Oct night - DONE, read in `pulse-high-performance-mode.md` 9a
+
+G30 + blue prototype on the IP link. **5000 samples x 15 mm at 70 ms: ~84% of 921600, stable for 10+ min**; 60 ms ~96%;
+**55 ms killed the link and needed a power cycle**, with no rise in lost samples first (0.1-0.3% at every load - the radio,
+not the UART). At 5000 x 25 mm the firmware holds the listen time (62.5 m per side -> ~87 ms whatever is asked). The
+reported baud read a default 115200 for one whole run.
+
+| commit | what |
+|---|---|
+| `18ce749e` | Ping period row 40-160 ms (was 0-2000; a drag below 30 ms killed the link) |
+| `32aa6e01` | the read-out averages over 10 s (1 s windows read up to 108%), and a reported baud too low for the measured rate is called impossible instead of showing 700% |
+
+**Open, Olav's call:** the Transducer *Sample spacing* row still allows 1 mm on the prototype, whose floor is 15 mm (below
+it the device reports 0 mm and the stream stops). Its minimum could follow *Min spacing blue* on a Basic2D.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
 We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
 app"). Repo: my KoggerApp folder, branch feature/pulse-performance-mode. 1.42 is public
-from master. Read claude/pulse-bug-backlog.md, "Performance mode, step 1", and
-claude/pulse-high-performance-mode.md first. Check whether the branch is pushed.
+from master. Read claude/pulse-high-performance-mode.md (chapter 9a, the link
+measurement) and claude/pulse-bug-backlog.md ("Performance mode, step 1" and "The link
+measurement") first. Check whether the branch is pushed.
 
-I have run the link measurement: <paste the LINK: lines, with samples and period>.
-Read them first and tell me what the real headroom is. Then step 2: the blue engine
-(70 ms fixed; samples and spacing from the visible range per side within the floors and
-the measured headroom; one writer of the ping period while the mode is on; the Side scan
-width workaround off while on; the drag throttle; acting only while expert mode is on).
-Task 2b (red/black link-fit, the version poll) after.
+Today: step 2, the blue engine. 70 ms fixed; samples and spacing from the visible range
+per side within the floors (hardware, Min spacing blue, Max samples) and an 85% budget
+by arithmetic - never searched for on the water, since overload kills the link without
+warning; the real period is max(T, 2R/c + 3 ms); the reported baud is checked against
+the measured rate and falls back to the model table; one writer of the ping period while
+the mode is on; the Side scan width workaround off while on; the drag throttle; acting
+only while expert mode is on. Task 2b (red/black link-fit, the version poll) after.
 
 Working rules as before: Classic is not touched; run moc on any changed header and a
 g++ -fsyntax-only check on changed C++ in the cloud shell (apt qt6-base-dev

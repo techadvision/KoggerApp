@@ -21,8 +21,8 @@ recommended as future hardware (8.4).
 **2 Oct, evening - Task 2a step 1 built** on `feature/pulse-performance-mode` (off the published 1.42): the expert
 *Performance mode* category (6.2's four persistent rows, stored, nothing acting on them yet) and two measured read-outs,
 *Serial link* (reported baud, kB/s on the wire, % used) and *Lost chart samples* (10 s and since start), plus a `LINK:`
-log line every 10 s. **The engine runs only while expert mode is on** (Olav, 2 Oct). Next: the measurement of 9.2 on the
-Transducer rows, then step 2, the blue engine. Measurement procedure: backlog, *Performance mode, step 1*.
+log line every 10 s. **The engine runs only while expert mode is on** (Olav, 2 Oct). The measurement of 9.2 is done (9a): 5000 @ 70 ms
+runs at ~84% and is stable; 55 ms kills the link. Next: step 2, the blue engine. Measurement procedure: backlog, *Performance mode, step 1*.
 
 ## The plan in one page
 
@@ -616,6 +616,54 @@ The black is popular and red is not, so a v2 black is where the 2D detail gain b
 8. **Stretch cap** for True mode, with interpolation on (try 2, 3, 4).
 9. **Drag throttle** constants on the tablet.
 10. **Render check at 5000 samples** on blue (and a black v2 later): no artefacts and no lag on the target tablets.
+
+### 9a. The link measurement, 2 Oct 2026 (night) — G30 + PULSE blue prototype (Basic2D, 921600), on the ground, IP link
+
+Read from the `LINK:` lines (10 s windows; wire bytes counted as they arrive, 8 bytes of framing per frame). "Pings/s" is
+`(B/s − ~330 B/s of version poll) ÷ 5 360 B` per 5000-sample ping (25 fragments × 214 + 10), or ÷ 2 150 for 2000 samples.
+
+| Samples × spacing | Period asked | Measured | Of 921600 | Pings/s implied | What it means |
+|---|---|---|---|---|---|
+| 2000 × 25 mm | 70 ms | 29–34 kB/s | **31–37%** | 14.3 | as shipped; the arithmetic of chapter 2 to within 2% |
+| 5000 × 25 mm | 70 ms | 58–67 kB/s | **63–72%** | **11.5 → 87 ms** | **the firmware holds the listen time**: 62.5 m per side needs `2R/c + 3 ms` ≈ 88 ms |
+| 5000 × 25 mm | 65 → 40 ms | ~62 kB/s, unchanged | ~67% | 11.5 | the period asked is ignored below the listen time |
+| 5000 × 15 mm | 70 ms | 73–84 kB/s, 10+ min | **80–88% (≈ 84)** | 14.3 | **performance mode's operating point**: stable, loss as at 33% |
+| 5000 × 15 mm | 65 ms | 76–91 kB/s | ≈ 90% | 15.4 | |
+| 5000 × 15 mm | 60 ms | 77–100 kB/s | ≈ 96% (1 s peaks 108%) | 16.4 | the edge |
+| 5000 × 15 mm | 55 ms | — | would need ≈ 106% | — | **link lost; the transducer needs a power cycle** |
+
+**What it settles**
+
+1. **The model holds.** Every row agrees with `ceil(S ÷ 200) × 214 + 10` bytes per ping at the commanded (or physics-
+   bound) rate, to within a few percent. The 200-sample fragment is confirmed on a live unit.
+2. **5000 samples at 70 ms runs at ~84% and is stable** for over 10 minutes. **Blue's 70 ms is confirmed** as the
+   operating point, and the 85% budget of 6.1 is the right number: there is ~12% to the edge and no more.
+3. **Overload does not degrade, it kills.** Lost chart samples stayed at 0.1–0.3% at every load from 33% to 96% — that is
+   the radio/IP path, not the UART — and then, at 55 ms, the link died with no warning and the transducer had to be power
+   cycled. **The loss counter is not an early warning.** The engine must budget by arithmetic and stay at or below ~85%;
+   it must never search upward for headroom on the water.
+4. **The firmware stretches a period that is too short for the range** (row 2-3): `samples × spacing ÷ 2` of range per
+   side sets a floor of `2R ÷ c + ~3 ms`. Two consequences:
+   - **True proportions (Task 1) reads the confirmed period**, which then is not the real one: at 5000 × 25 mm the
+     picture would be stretched 24% too little. Not reachable with the shipped settings (25 m per side → 37 ms floor),
+     only with expert values. The engine never asks for more range than the visible range per side (≤ 35 m → 50 ms floor),
+     so it is safe by construction; the expert rows are not.
+   - **The engine must compute the real period** as `max(T, 2R ÷ c + 3 ms)` before it budgets — a longer real period is
+     less load, so this errs on the safe side, but the stretch needs the real number.
+5. **The reported baud is not always there.** One whole 12-minute run read `baud 115200` while ~80 kB/s — seven times what
+   115200 carries — came through; in the other runs it was right from the second line. The value is a default until the
+   device's `ID_UART` answer has settled, and sometimes it does not settle. **The engine must check the reported baud
+   against the measured rate** (it cannot be lower than what is arriving) and fall back to the model's table when it fails
+   — the read-out now does exactly this (`32aa6e01`).
+6. **The prototype's spacing floor is real**: dragging spacing below 15 mm made the device report 0 mm and the chart stream
+   stopped (polls only, ~330 B/s). Known since 27 Sept; the Transducer row still allows 1 mm on it.
+
+**Found with the expert rows, fixed:** Samples ran to 15 000 and above 5000 killed the link (`e3f41c31`, now 5000); the
+Ping period ran 0–2000 ms and a drag fell below 30 ms and killed the link (`18ce749e`, now 40–160).
+
+**For the hardware partner:** the transducer accepts a period its UART cannot carry and then stops answering until power
+is cycled. Clamping the period to what the link carries (or dropping pings rather than locking up) would make a wrong
+setting recoverable.
 
 ## 10. Questions answered
 
