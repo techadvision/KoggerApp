@@ -44,10 +44,10 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     QObject::connect(workerObject_.get(), &DeviceManager::openInterrupted,      this,                &DeviceManagerWrapper::openInterrupted,        ct);
 #endif
 
-    // PULSE, performance mode step 1: the serial link read-outs, on the GUI thread.
+    // PULSE, performance mode step 1: the serial link read-outs, on the GUI thread. Wired
+    // here, STARTED in setSettingsBus() - see there.
     linkStatsTimer_.setInterval(1000);
     QObject::connect(&linkStatsTimer_, &QTimer::timeout, this, &DeviceManagerWrapper::sampleLinkStats);
-    linkStatsTimer_.start();
 }
 
 // ONE SECOND OF THE SERIAL LINK. The wire rate is measured, not estimated: every KP frame
@@ -99,6 +99,16 @@ void DeviceManagerWrapper::sampleLinkStats()
 //PULSE
 void DeviceManagerWrapper::setSettingsBus(SettingsBus* bus)
 {
+    // THE LINK READ-OUT'S TIMER STARTS HERE, NOT IN THE CONSTRUCTOR (2 Oct 2026). This
+    // wrapper belongs to `Core core`, a global in main.cpp, so the constructor runs during
+    // static initialisation - before QGuiApplication exists, with no event dispatcher on the
+    // thread. A QTimer started there never fires: on the G30 with a live blue, no LINK: line
+    // and no read-out ever appeared. main() calls this after the application is built.
+    if (!linkStatsTimer_.isActive()) {
+        linkStatsTimer_.start();
+        qDebug().noquote() << QStringLiteral("LINK: the serial link read-out is running (once a second)");
+    }
+
 #ifdef SEPARATE_READING
     // worker is on its own thread
     QMetaObject::invokeMethod(
