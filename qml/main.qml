@@ -5071,6 +5071,12 @@ ApplicationWindow  {
         id: pulseDepthEngine
     }
 
+    // THE PERFORMANCE ENGINE (step 2). App-wide for the depth engine's reason: one transducer,
+    // one set of managed keys. It acts only while expert mode and its switch are on.
+    PulsePerformanceEngine {
+        id: pulsePerformanceEngine
+    }
+
     // THE CONNECTION SCREEN (Stage 4, step 1). One instance, above both Plot2D panes.
     // Replaces echoSounderSelectorRect, freeContainer, both EchoSounderSelector panels and
     // the windowShadow sheet. Everything it shows hangs off one binding, chooserAsking.

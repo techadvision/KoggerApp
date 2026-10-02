@@ -119,6 +119,7 @@
         <file>PulsePausedGutter.qml</file>
         <file>PulseDepthEngine.qml</file>
         <file>PulsePerfEngine.js</file>
+        <file>PulsePerformanceEngine.qml</file>
         <file>PulseDepthReadout.qml</file>
         <file>PulseSettingsGroup.qml</file>
         <file>PulseSwitchRow.qml</file>
