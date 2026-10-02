@@ -3242,6 +3242,12 @@ prints the first failure and then every 100th. **And the instructions were uncle
 arrive from a **live** link (a demo or a file never counts - it says nothing about a UART), and the four Performance mode
 rows change nothing in step 1, so moving them prints nothing. The measurement is made with the **Transducer** rows.
 
+**Second try, same evening, G30 + live PULSE blue prototype (Basic2D):** still no `LINK:`. **My fault, found by reading:**
+`DeviceManagerWrapper` belongs to `Core core`, a global, so its constructor runs before `QGuiApplication` exists and the
+read-out's `QTimer` never fired. **`445e9111`** starts it in `setSettingsBus()` (after the app is built) and
+prints `LINK: the serial link read-out is running (once a second)` once at startup. The serial lines in that log are a USB
+serial link that cannot open (`bus/usb/002/002`), retried every 500 ms - harmless with the transducer on IP.
+
 #### The measurement (chapter 9, item 2) - on the tablet with a live blue on the IP link
 
 `adb logcat | grep -E "LINK:|PARAM:|chartSamples|ch1Period"`, or `pulse.log`. Expert -> Transducer, with
