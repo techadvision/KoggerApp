@@ -3198,32 +3198,50 @@ WAYPOINT: UDP payload to port 14570 | {"type":"echosounder_target",...}
 
 **Bring back:** the grep output (or `pulse.log`), the hand notes, and a screenshot of the map with the waypoints for T1-T3.
 
+#### 1.42, 2 Oct 2026 - the last tester build before the public release
+
+**Olav, 2 Oct:** the history bar now scrolls both panes, live and paused (`cf33aaa9` verified). The waypoint desk tests
+(T1-T6 above) are still to be run, on 1.42. **1.42 goes to the testers; Olav publishes to all users on Google Play on
+Sunday 4 Oct.** Performance mode gets its own branch off the pushed 1.42 and goes to internal test only until it is
+right, so quick fixes to the public release can still be made from `master`.
+
+| commit | what |
+|---|---|
+| `040bdb16` | **the blue down scan's depth read 0.0 m**, after side + down and *sometimes*. The depth engine chose its source from the view (`!displayIs2DTransducer && !isSideScan2DView`), so a blue drawn as a down scan took the 2D branch: the rangefinder (`isBottomTrackInitiated` is false in v2), which a blue never sends, so 0.0 or a stale value from an earlier source. The split's full-screen picture is the side scan, which is why the readout was right there. The source now follows the data (display model), not the view. `DEPTH: source -> …` is logged on every change |
+| `bc9b0fe4` | **Version 1.42** (`versionCode` 142), edited in the XML; the manifest check passes |
+| `9e853e6d` | Olav's 2 Oct revision of `pulse-high-performance-mode.md`, committed as it was in the tree |
+
+**To check on 1.42:** a blue (log, demo or live) in full-screen down shows the bottom-track depth from the first ping;
+go side + down -> down full screen -> side + down a few times, and it never reads 0.0 while the bottom is tracked. The
+log says `DEPTH: source -> side scan data - bottom track first, rangefinder behind it` for a blue and `2D - rangefinder`
+for a red (red unchanged). **One thing to watch:** if a blue down scan ever shows a depth that differs from the side
+scan's at the same moment, the bottom track is per channel and the down view would need its own read - not expected,
+since `dataset.bottomTrackDepth` is one value.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
 We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
-app"). Repo: my KoggerApp folder. Session 7 (echogram speed) is closed and 1.41 is on
-internal test; read claude/pulse-bug-backlog.md, section "STATUS AT CLOSE, 30 Sept 2026
-(night)", first. Check that master is pushed - remind me if not - and cut the new work as
-its own branch off the pushed tip of master.
+app"). Repo: my KoggerApp folder. 1.42 is published (testers, then everyone on 4 Oct);
+read claude/pulse-bug-backlog.md, "1.42, 2 Oct 2026", and
+claude/pulse-high-performance-mode.md first. Check that master is pushed - remind me if
+not - and cut feature/pulse-performance-mode off the pushed tip of master (if it already
+exists locally, check it sits on that tip).
 
-Today is session 8: SIDE SCAN WAYPOINTS, VERIFIED END TO END. The picture is now one
-mapping (the stretch lives only in the column table, pause keeps the picture, the aim's
-pause snapshot is real), and on 30 Sept a target gave the same lat/lon at 2.5x and 1.0x.
-I will test on 1.41 at the desk: SITL autopilot, a map with contours, a blue log or a
-live blue, and Expert -> Transducer -> Side scan frequency 460/820. Then:
-1. Tell me exactly what to test and which log lines to capture (AddWaypoint:, PAUSE:,
-   STRETCH:, the UDP point that is sent), for side scan port and starboard, down scan,
-   and the split, at different boat speeds and ranges.
-2. From my logs, find what is wrong, if anything - nothing is fixed before its log line
-   is read.
-3. Fix one idea per commit.
+Today: High performance mode, Task 2a (PULSE blue only, 70 ms fixed). Step 1 first: the
+expert "Performance mode" category (four persistent rows) plus the Serial link and Lost
+fragments read-outs, with no change to what the transducer is sent - so I can measure
+5000 samples at 70 ms on the existing Transducer rows before the engine is built. The
+baud comes from the device's ID_UART answer; follow UARTChanged, not the one-time copy
+in ConnectionViewer. Then step 2, the blue engine. Task 2b (red/black link-fit, the
+version poll) after.
 
 Working rules as before: Classic is not touched; run moc on any changed header and a
 g++ -fsyntax-only check on changed C++ in the cloud shell (apt qt6-base-dev
 qt6-declarative-dev qt6-base-dev-tools libqt6serialport6-dev qt6-positioning-dev; -I every
 src dir, not third_party), plus the tools/pulse-*-check.js scripts, before telling me to
-build; update the backlog in the repo AND the project doc.
+build; update the backlog in the repo AND the project doc. Performance mode publishes to
+internal test only; quick fixes to the public release come from master.
 ```
 
 ### Emulators
