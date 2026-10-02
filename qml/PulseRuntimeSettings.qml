@@ -487,16 +487,30 @@ QtObject {
         pulseSettings ? (pulseSettings.uiVariant === "v2" && !displayIs2DTransducer) : false
     readonly property double boatSpeedMps:
         Math.min(boatSpeedKmhMax, Math.max(boatSpeedKmhMin, pulseSettings ? pulseSettings.boatSpeedKmh : 3.0)) / 3.6
-    readonly property int    truePingPeriodMs:
+    //THE REAL PERIOD, NOT ONLY THE CONFIRMED ONE (2 Oct 2026, the link measurement 9a). The
+    //firmware will not ping faster than it can listen to the range it was given: 2R/c + ~3 ms,
+    //R = samples x spacing / 2 per side. At 5000 x 25 mm (62.5 m per side) it runs at ~87 ms
+    //whatever it is asked, and a picture stretched for the confirmed 70 ms was 24% too short.
+    //The performance engine never asks for more than the visible range, so this binds only
+    //for expert values - but then it is what the transducer really does. Live only: with a
+    //recording on screen the device's copies describe the device, not the file.
+    readonly property int    listenTimeMs:
+        (!logIsOnScreen && chartSamples_Copy > 0 && chartResolution_Copy > 0 && soundSpeed > 0)
+            ? Math.ceil(2 * (chartSamples_Copy * chartResolution_Copy / 2000) / (soundSpeed / 1000) * 1000 + 3)
+            : 0
+    readonly property int    askedPingPeriodMs:
           ch1Period_Copy > 0 ? ch1Period_Copy
         : ch1Period > 0      ? ch1Period
         :                      70
+    readonly property int    truePingPeriodMs: Math.max(askedPingPeriodMs, listenTimeMs)
     //THE DOWN SCAN'S SPEED - read by Plot2D only for a down scan pane (isSideScan2DView and
     //horizontal), so it needs no display-model gate of its own.
     readonly property double downScanSpeed:
         Math.min(echogramSpeedMax, Math.max(1.0, pulseSettings ? pulseSettings.echogramSpeedDown : 1.0))
     readonly property string truePingPeriodSource:
-          ch1Period_Copy > 0 ? "confirmed by the echosounder"
+          listenTimeMs > askedPingPeriodMs ? "held by the listen time of " + (chartSamples_Copy * chartResolution_Copy / 2000)
+                                              + " m per side (asked " + askedPingPeriodMs + " ms)"
+        : ch1Period_Copy > 0 ? "confirmed by the echosounder"
         : ch1Period > 0      ? "the profile (nothing confirmed)"
         :                      "the 70 ms default"
     property double echogramSpeed:          1.0     // New solution for speed, fully working and not impacting data rates: Initial value for scrolling speed
