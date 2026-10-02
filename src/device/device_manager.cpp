@@ -143,6 +143,7 @@ int DeviceManager::pilotModeState()
 DeviceManager::LinkStats DeviceManager::linkStats() const
 {
     LinkStats st;
+    quint64 mostChart = 0;
     st.wireBytes = sonarWireBytes_.load(std::memory_order_relaxed);
     for (auto i = devTree_.cbegin(), end = devTree_.cend(); i != end; ++i) {
         const auto& devs = i.value();
@@ -150,11 +151,18 @@ DeviceManager::LinkStats DeviceManager::linkStats() const
             DevQProperty* dev = k.value();
             if (dev == nullptr)
                 continue;
-            st.chartBytes   += dev->chartBytesReceived();
+            const quint64 cb = dev->chartBytesReceived();
+            st.chartBytes   += cb;
             st.missingBytes += dev->chartBytesMissing();
             const int b = dev->getBaudrate();
             if (b > st.baud)
                 st.baud = b;
+            if (cb > mostChart) {
+                mostChart    = cb;
+                st.samples   = dev->chartSamples();
+                st.spacingMm = dev->chartResolution();
+                st.periodMs  = dev->ch1Period();
+            }
         }
     }
     return st;

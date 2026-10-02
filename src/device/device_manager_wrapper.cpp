@@ -2,6 +2,7 @@
 #include "device_defs.h"
 #include "SettingsBus.h"
 #include <QDebug>
+#include <QTime>
 
 
 DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
@@ -84,12 +85,17 @@ void DeviceManagerWrapper::sampleLinkStats()
 
     if (dWire > 0) {
         if (++secondsWithData_ % 10 == 1) {
-            qDebug().noquote() << QStringLiteral("LINK: %1 B/s on the wire | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
+            // SELF-DESCRIBING (Olav, 2 Oct: Qt Creator's output has no time stamps): the
+            // clock time and what the transducer reports it is set to, so a measurement run
+            // can be read from the lines alone. pulse.log stamps every line as well.
+            qDebug().noquote() << QStringLiteral("LINK: %6 | %7 samples, %8 mm, %9 ms | %1 B/s on the wire | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
                                       .arg(dWire)
                                       .arg(st.baud)
                                       .arg(linkLoadPercent_ >= 0 ? QString::number(linkLoadPercent_, 'f', 1) + "% used" : QStringLiteral("load unknown"))
                                       .arg(chartLossPercent_ >= 0 ? QString::number(chartLossPercent_, 'f', 2) + "%" : QStringLiteral("-"))
-                                      .arg(chartLossPercentTotal_ >= 0 ? QString::number(chartLossPercentTotal_, 'f', 2) + "%" : QStringLiteral("-"));
+                                      .arg(chartLossPercentTotal_ >= 0 ? QString::number(chartLossPercentTotal_, 'f', 2) + "%" : QStringLiteral("-"))
+                                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
+                                      .arg(st.samples).arg(st.spacingMm).arg(st.periodMs);
         }
     } else {
         secondsWithData_ = 0;

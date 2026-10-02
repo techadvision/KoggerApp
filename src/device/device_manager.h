@@ -63,6 +63,10 @@ public:
         quint64 chartBytes   = 0;
         quint64 missingBytes = 0;
         int     baud         = 0;
+        // what the transducer reports it is set to, from the device with the most chart data
+        int     samples      = 0;
+        int     spacingMm    = 0;
+        int     periodMs     = 0;
     };
     LinkStats linkStats() const;
     Q_INVOKABLE bool mavlinkDetected() const;
