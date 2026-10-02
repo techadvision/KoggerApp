@@ -1062,7 +1062,14 @@ Item {
                     showNudges: true
 
                     label: qsTr("Samples")
-                    hint:  qsTr("how many points the transducer returns per ping")
+                    // HELD BY PERFORMANCE MODE (step 2): the engine is the one writer of
+                    // samples, spacing and the period while it holds them, so the three rows
+                    // become displays - setParam() would refuse a drag anyway, and a row that
+                    // silently loses its value reads as a bug.
+                    enabled: !(pulseRuntimeSettings && pulseRuntimeSettings.perfEngineOwnsAcquisition)
+                    opacity: enabled ? 1.0 : 0.45
+                    hint:  enabled ? qsTr("how many points the transducer returns per ping")
+                                   : qsTr("held by performance mode")
                     minValue: 100
                     maxValue: 5000
                     stepSize: 50
@@ -1087,7 +1094,10 @@ Item {
                     // Same "who is holding this" rule as Ping period below: while dynamic
                     // resolution is on, DeviceItem drives chartResolution and a hand value
                     // does not survive.
-                    hint: list.paramNum("doDynamicResolution", 0)
+                    enabled: !(pulseRuntimeSettings && pulseRuntimeSettings.perfEngineOwnsAcquisition)
+                    opacity: enabled ? 1.0 : 0.45
+                    hint: !enabled ? qsTr("held by performance mode")
+                        : list.paramNum("doDynamicResolution", 0)
                         ? qsTr("the app is driving this - turn Dynamic resolution off to hold it")
                         : qsTr("millimetres between points - finer costs depth, which can be the point")
                     // THE HARDWARE FLOOR, not 1: the blue prototype loses the link the instant
@@ -1232,7 +1242,10 @@ Item {
                     // resolution is on this row is a display and not a control: the app
                     // writes ch1Period from dynamicPeriod and a hand value does not
                     // survive. A row that silently loses its value reads as a bug.
-                    hint: list.paramNum("doDynamicResolution", 0)
+                    enabled: !(pulseRuntimeSettings && pulseRuntimeSettings.perfEngineOwnsAcquisition)
+                    opacity: enabled ? 1.0 : 0.45
+                    hint: !enabled ? qsTr("held by performance mode")
+                        : list.paramNum("doDynamicResolution", 0)
                         ? qsTr("the app is driving this - turn Dynamic resolution off to hold it")
                         : qsTr("milliseconds between pings - this is the echogram's speed")
                     // 40-160 ms (2 Oct 2026). It ran 0-2000: on the G30 with a live blue
@@ -1365,12 +1378,23 @@ Item {
                     uiScale: list.uiScale
 
                     label: qsTr("Enable performance mode")
-                    hint:  qsTr("PULSE blue, expert mode only - stored; the engine comes in the next build")
+                    hint:  qsTr("PULSE blue, live: spacing and samples follow Max range side; off hands the shipped settings back")
                     checked: pulseSettings ? pulseSettings.perfModeEnabled : false
 
                     onToggled: function (v) {
                         list.settingChanged("persistent", "perfModeEnabled", v)
                     }
+                },
+
+                // WHAT THE ENGINE DID, and what binds it - the same line as ENGINE: in the log.
+                PulseReadOnlyRow {
+                    width: perfGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Engine")
+                    hint:  qsTr("what the transducer was last told, and what limits it")
+                    value: pulseRuntimeSettings && pulseRuntimeSettings.perfEngineStatus !== ""
+                           ? pulseRuntimeSettings.perfEngineStatus : "\u2014"
                 },
 
                 PulseSliderRow {
