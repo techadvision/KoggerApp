@@ -108,6 +108,14 @@ Item {
                 waterViewFirst.setDragActive(false);
                 waterViewSecond.setDragActive(false);
             }
+            // A CANCELLED TOUCH ENDS THE DRAG TOO. Without this a touch taken away by the
+            // system (a gesture, a dialog, the app going to the background) left both panes
+            // in a drag for the rest of the pause, and a paused pane in a drag re-indexes and
+            // accepts timeline moves as if it were live.
+            onCanceled: {
+                waterViewFirst.setDragActive(false);
+                waterViewSecond.setDragActive(false);
+            }
             onClicked: {
                 mouse.accepted = true
                 console.log("SLIDER: Horizontal - Caught onClicked and prevented it from getting throught to the echogram")
