@@ -3236,6 +3236,12 @@ moc and `g++ -fsyntax-only` pass on all seven changed C++ files; the six `tools/
 overflow it. The sample count is the total over both channels (2000 = 2 x 1000 interleaved, chapter 2), so the
 Transducer row's 15 000 still fits. Nothing to do.
 
+**Olav's first try, 2 Oct:** no `LINK:` lines, and the log drowned in `Link::openAsSerial uuid not open, deleting` -
+the auto-connect timer retrying a serial link that cannot open, every 500 ms (pre-existing, upstream code). **`06977775`**
+prints the first failure and then every 100th. **And the instructions were unclear:** `LINK:` appears only while frames
+arrive from a **live** link (a demo or a file never counts - it says nothing about a UART), and the four Performance mode
+rows change nothing in step 1, so moving them prints nothing. The measurement is made with the **Transducer** rows.
+
 #### The measurement (chapter 9, item 2) - on the tablet with a live blue on the IP link
 
 `adb logcat | grep -E "LINK:|PARAM:|chartSamples|ch1Period"`, or `pulse.log`. Expert -> Transducer, with
