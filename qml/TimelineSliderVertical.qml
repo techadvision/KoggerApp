@@ -101,7 +101,13 @@ Item {
             onPressed:{
                 mouse.accepted = true;
                 console.log("SLIDER: Vertical - Caught onPressed and prevented it from getting throught to the echogram")
+                // BOTH PANES, 2 Oct 2026 (1.41 tester: "in history scroll now, only side scan moves").
+                // A paused pane refuses a timeline move unless it is in a drag
+                // (Plot2D::setTimelinePosition), and only the first pane was ever told - so in
+                // side + down core.setTimelinePosition reached both and the down pane threw
+                // its share away. waterViewSecond is simply idle outside that split.
                 waterViewFirst.setDragActive(true);
+                waterViewSecond.setDragActive(true);
                 update(mouse);
             }
             onPositionChanged: {
@@ -111,6 +117,7 @@ Item {
             onReleased: {
                 mouse.accepted = true
                 waterViewFirst.setDragActive(false);
+                waterViewSecond.setDragActive(false);
             }
             onClicked: {
                 mouse.accepted = true
