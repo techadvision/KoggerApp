@@ -18,6 +18,12 @@ Blue's period stays 70 ms. Performance mode is a blue feature; red/black in the 
 AP) get **link-fit tuning** of their dynamic scheme instead (Task 2b, chapter 8), and a **black v2** at 921600 is
 recommended as future hardware (8.4).
 
+**2 Oct, evening - Task 2a step 1 built** on `feature/pulse-performance-mode` (off the published 1.42): the expert
+*Performance mode* category (6.2's four persistent rows, stored, nothing acting on them yet) and two measured read-outs,
+*Serial link* (reported baud, kB/s on the wire, % used) and *Lost chart samples* (10 s and since start), plus a `LINK:`
+log line every 10 s. **The engine runs only while expert mode is on** (Olav, 2 Oct). Next: the measurement of 9.2 on the
+Transducer rows, then step 2, the blue engine. Measurement procedure: backlog, *Performance mode, step 1*.
+
 ## The plan in one page
 
 **Task 1 — Echogram speed for everyone (all devices, all links, no warning).**

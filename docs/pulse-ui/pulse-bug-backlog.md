@@ -3218,23 +3218,56 @@ for a red (red unchanged). **One thing to watch:** if a blue down scan ever show
 scan's at the same moment, the bottom track is per channel and the down view would need its own read - not expected,
 since `dataset.bottomTrackDepth` is one value.
 
+### Performance mode, step 1 - 2 Oct 2026 (evening) - `feature/pulse-performance-mode`
+
+Cut from `master` at `41d5462e` = the pushed and published 1.42 (confirmed: `origin/master` at the same commit). Olav's
+answers: **the engine acts only while expert mode is on**, and **step 1 first, measure, then the engine**. Performance
+mode publishes to internal test only; fixes to the public release come from `master`.
+
+| commit | what |
+|---|---|
+| `784ae677` | **measured, not estimated.** `DeviceManager::frameInput` counts every KP frame from a live link (never a file or a demo) with its 8 bytes of framing; `IDBinChart` counts chart bytes received and the bytes a `seqOffset` gap says never arrived; `DeviceManagerWrapper` samples once a second: `linkBaud` (the device's `ID_UART` answer, read live - not `ConnectionViewer`'s one-time copy), `linkBytesPerSecond`, `linkLoadPercent` (8N1), `chartLossPercent` (10 s) and `chartLossPercentTotal`. `LINK:` every 10 s while data flows |
+| `e6cf56fb` | **Expert -> Performance mode**, after Transducer: Enable (off), Max samples 5000 (500-5000), Min spacing blue 15 mm, Min spacing 2D 2 mm (1-50), persistent; *Serial link* and *Lost chart samples* read-outs. **Nothing reads the four rows yet** - the switch's hint says so |
+
+moc and `g++ -fsyntax-only` pass on all seven changed C++ files; the six `tools/pulse-*-check.js` pass. Three new
+`Q_PROPERTY`s on `DeviceManagerWrapper` (moc re-runs), no `Q_INVOKABLE`.
+
+**Checked on the way:** `IDBinChart` assembles a ping in a fixed 20 000-byte buffer and drops any fragment that would
+overflow it. The sample count is the total over both channels (2000 = 2 x 1000 interleaved, chapter 2), so the
+Transducer row's 15 000 still fits. Nothing to do.
+
+#### The measurement (chapter 9, item 2) - on the tablet with a live blue on the IP link
+
+`adb logcat | grep -E "LINK:|PARAM:|chartSamples|ch1Period"`, or `pulse.log`. Expert -> Transducer, with
+**Dynamic resolution off** (it drives spacing and period otherwise).
+
+1. **Baseline as shipped** (2000 samples, 70 ms): one `LINK:` line. Expected about **28-33%** used and ~0% lost. This
+   checks the counter against the arithmetic of chapter 2 before anything is changed.
+2. **5000 samples, spacing 3 mm, 70 ms**: run **at least 10 minutes** (an hour if you can leave it). Expected about
+   **84%** used and no loss. Read *Serial link* and *Lost chart samples* in the category, and keep the `LINK:` lines.
+3. **Step the ping period down** at 5000 samples: 65, 60, 55, 50 ms, two minutes each. Note where *Lost chart samples*
+   (10 s) leaves 0.00% - and whether the % used stops rising (the link is full) while the loss climbs. That period is the
+   real ceiling; the engine's 85% assumption becomes the measured number.
+4. **Watch the picture** at step 2: no artefacts, no lag on the tablet (chapter 9, item 10).
+5. **Reset** (*Back to the profile*) at the end.
+6. Optional, on the wifi AP instead of the IP link: step 2 again - the loss there is the radio, not the UART (9.5).
+
+**Bring back:** the `LINK:` lines with the period and samples each was taken at.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
 We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
-app"). Repo: my KoggerApp folder. 1.42 is published (testers, then everyone on 4 Oct);
-read claude/pulse-bug-backlog.md, "1.42, 2 Oct 2026", and
-claude/pulse-high-performance-mode.md first. Check that master is pushed - remind me if
-not - and cut feature/pulse-performance-mode off the pushed tip of master (if it already
-exists locally, check it sits on that tip).
+app"). Repo: my KoggerApp folder, branch feature/pulse-performance-mode. 1.42 is public
+from master. Read claude/pulse-bug-backlog.md, "Performance mode, step 1", and
+claude/pulse-high-performance-mode.md first. Check whether the branch is pushed.
 
-Today: High performance mode, Task 2a (PULSE blue only, 70 ms fixed). Step 1 first: the
-expert "Performance mode" category (four persistent rows) plus the Serial link and Lost
-fragments read-outs, with no change to what the transducer is sent - so I can measure
-5000 samples at 70 ms on the existing Transducer rows before the engine is built. The
-baud comes from the device's ID_UART answer; follow UARTChanged, not the one-time copy
-in ConnectionViewer. Then step 2, the blue engine. Task 2b (red/black link-fit, the
-version poll) after.
+I have run the link measurement: <paste the LINK: lines, with samples and period>.
+Read them first and tell me what the real headroom is. Then step 2: the blue engine
+(70 ms fixed; samples and spacing from the visible range per side within the floors and
+the measured headroom; one writer of the ping period while the mode is on; the Side scan
+width workaround off while on; the drag throttle; acting only while expert mode is on).
+Task 2b (red/black link-fit, the version poll) after.
 
 Working rules as before: Classic is not touched; run moc on any changed header and a
 g++ -fsyntax-only check on changed C++ in the cloud shell (apt qt6-base-dev
