@@ -156,6 +156,8 @@ public:
     void setSyncCursor(int epoch, float depth, int channel);
     void clearSyncCursor();
     virtual void syncClearAim() {}
+    // Which pane this is, for log lines only. Plot2D has no index of its own; qPlot2D has.
+    virtual int paneIndexForLog() const { return -1; }
     bool hasSyncDepth() const { return syncDepthValid_; }
 
     // TRUE when this pane's aim did not come from a touch on THIS pane. Two routes get one

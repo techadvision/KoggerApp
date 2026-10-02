@@ -188,6 +188,7 @@ public:
         update();
     }
     Q_INVOKABLE void setIndx(int indx) { indx_ = indx; }
+    int paneIndexForLog() const override { return indx_; }
 
     //PULSE, Stage 4 (b): PIN THIS PANE'S GRID, for a split of side scan over down scan.
     //Pass "" to follow the settings bus again, which is what every pane does otherwise.

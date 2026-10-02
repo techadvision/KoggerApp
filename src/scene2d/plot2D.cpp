@@ -269,6 +269,24 @@ void Plot2D::applyRuntime(const QVariantMap& mIn)
         const bool newPause = m.value("echogramPause").toBool();
         if (newPause && !echogramPause_)
             pausedStretch_ = liveStretch();
+        // A RESUME TAKES THE AIM DOWN, HERE AND NOT ONLY IN THE PAINTER (2 Oct 2026). 1.41
+        // tester: the pause was left with the zoom box still on screen, and nothing would
+        // take it away again. Plot2DAim::draw refuses to draw while not paused, but the
+        // cursor kept the paused mouse position, the selected epoch and any sync depth, so
+        // whatever survived the resume was still pointing at a target. No log of the run
+        // exists, so this clears all of it on every resume, and the line below proves per
+        // pane that the resume was delivered - a loupe still up after it is a repaint fault,
+        // a loupe with no such line is a delivery fault.
+        if (!newPause && echogramPause_) {
+            const bool hadAim = cursor_.mouseX >= 0 || cursor_.selectEpochIndx >= 0
+                                || syncDepthValid_ || aimIsMirrored_;
+            cursor_.setMouse(-1, -1);
+            cursor_.selectEpochIndx = -1;
+            syncDepthValid_ = false;
+            aimIsMirrored_ = false;
+            qDebug().noquote() << QStringLiteral("AIM: pane %1 resumed - the aim is cleared | it had one: %2")
+                                      .arg(paneIndexForLog()).arg(hadAim ? "yes" : "no");
+        }
         echogramPause_ = newPause;
         echogramDragActive_ = false;
     }
