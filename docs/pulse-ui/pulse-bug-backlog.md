@@ -3256,6 +3256,10 @@ device's UART answer had not arrived yet and the value is a default; it is right
 remembering in step 2: **the engine must not budget until the reported baud has settled**). Each `LINK:` line now also
 carries the clock time and the samples/spacing/period the transducer reports (`9febe631`).
 
+**Found by Olav during the measurement:** the Transducer *Samples* slider ran to 15 000, and **a drag above 5000 killed
+the connection** until the transducer was power cycled. **`e3f41c31`** stops it at 5000, the firmware's maximum. The
+liveParams map is runtime, so a restart of the app clears any value above it that is still held.
+
 #### The measurement (chapter 9, item 2) - on the tablet with a live blue on the IP link
 
 `adb logcat | grep -E "LINK:|PARAM:|chartSamples|ch1Period"`, or `pulse.log`. Expert -> Transducer, with
