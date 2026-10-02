@@ -4911,8 +4911,8 @@ ApplicationWindow  {
         // picture", and for a 2D transducer the answer is no however the picture flows.
         // Getting it wrong is not cosmetic: flipImage is isSideScanOnLeftHandSide_ &&
         // isSideScan2DView_ in BOTH plot2D.cpp and plot2D_grid.cpp, so a red would render
-        // mirrored with its ruler inverted, and PulseDepthEngine.pictureIsSideScan would
-        // change its mind about which depth source to trust.
+        // mirrored with its ruler inverted, and PulseDepthEngine's depth source (then read from the view)
+        // would change its mind about which depth source to trust.
         //
         // CLASSIC ALREADY ANSWERS THIS. PulseAppClassic.setUserInterface(), showAs2DTransducer
         // branch: setHorizontalNow(), isHorizontalGrid = true, plotDistanceRange2d(...) - and

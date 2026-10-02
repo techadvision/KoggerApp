@@ -51,14 +51,25 @@ Item {
     // running and the answer must follow it. The publish is a handler because
     // pulseRuntimeSettings.depthMeters has exactly one writer and nothing binds it -
     // which is not the shape rule 2 forbids.
-    // WHAT THE PICTURE IS, not what is connected - rule 1, and here it is load-bearing
-    // rather than decorative. A side scan has no nadir for the rangefinder to answer from,
-    // so dataset.dist never arrives and rangeFinderDepth sits at its initial 0.0. Reading
-    // it anyway is how the readout came to say 0.0 m on every side scan picture.
-    readonly property bool pictureIsSideScan:
-        pulseRuntimeSettings ? (!pulseRuntimeSettings.displayIs2DTransducer
-                                && !pulseRuntimeSettings.isSideScan2DView)
-                             : false
+    // WHAT THE DATA IS, not how it is drawn (2 Oct 2026, for 1.42). Olav: the down scan
+    // full screen "will, after you have used split screen side/down, sometimes only show
+    // 0.0 meters for the depth." The test used to be !displayIs2DTransducer &&
+    // !isSideScan2DView - so a blue's DOWN SCAN counted as a 2D picture and read the 2D
+    // branch below: the rangefinder, because isBottomTrackInitiated is false in v2. A blue
+    // has no nadir rangefinder whichever way it is drawn, so rangeFinderDepth sat at 0.0
+    // (or at whatever a previous source left in it - hence "sometimes"). In the side +
+    // down split the full-screen picture is the side scan, isSideScan2DView is false, and
+    // the readout on the side pane was right; going to full-screen down flipped it.
+    //
+    // Still rule 1 - the DISPLAY model, so a blue log on a committed red is a side scan
+    // here too. Only the view stopped counting.
+    readonly property bool depthFromSideScan:
+        pulseRuntimeSettings ? !pulseRuntimeSettings.displayIs2DTransducer : false
+
+    onDepthFromSideScanChanged: console.log("DEPTH: source ->",
+        depthFromSideScan ? "side scan data - bottom track first, rangefinder behind it"
+                          : "2D - " + ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated)
+                                       ? "bottom track" : "rangefinder"))
 
     // THE SIDE SCAN FOLLOWS THE BOTTOM TRACK PRIMARILY, which is what it always did -
     // Olav, 14 Sept: "Side scan should follow the bottom track depth primarily. Like it
@@ -72,7 +83,7 @@ Item {
     // if it were a reading. Falling back to the rangefinder costs nothing when the bottom
     // track is working and is the difference between a number and a zero when it is not.
     readonly property double selectedDepth:
-        pictureIsSideScan
+        depthFromSideScan
             ? (bottomTrackDepth > 0 ? bottomTrackDepth : rangeFinderDepth)
             : ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated)
                    ? bottomTrackDepth
