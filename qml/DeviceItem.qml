@@ -282,6 +282,10 @@ ColumnLayout {
 
                     function onChartResolutionChanged () {
                         console.log("DEV_PARAM: onChartResolutionChanged")
+                        if (pulseRuntimeSettings.perfEngineOwnsAcquisition) {
+                            sendPerfChartSetup("spacing changed")
+                            return
+                        }
                         if (dev !== null) {
                             if (pulseRuntimeSettings.doDynamicResolution) {
                                 if (dev.chartResolution !== pulseRuntimeSettings.dynamicResolution) {
@@ -381,6 +385,10 @@ ColumnLayout {
                 Connections {
                     target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
                     function onChartSamplesChanged () {
+                        if (pulseRuntimeSettings.perfEngineOwnsAcquisition) {
+                            sendPerfChartSetup("samples changed")
+                            return
+                        }
                         if (dev !== null) {
                             if (dev.chartSamples !== pulseRuntimeSettings.chartSamples) {
                                 dev.chartSamples = pulseRuntimeSettings.chartSamples
@@ -1876,6 +1884,22 @@ ColumnLayout {
             pulseRuntimeSettings.onSoundChanged = true
             //console.log("DEV_PARAM onSoundChanged complete")
         }
+    }
+
+    // PERFORMANCE MODE: SPACING AND SAMPLES AS ONE CHART MESSAGE (step 2, 2 Oct 2026). The
+    // engine writes both keys in one liveParams assignment, so both change handlers fire;
+    // whichever runs first sends the pair and the second finds the device already holding
+    // it. Read through paramValue(), never the other property's binding - QML does not order
+    // two bindings re-evaluating from one source (D-2), and the binding may still be stale.
+    function sendPerfChartSetup(why) {
+        if (dev === null)
+            return
+        var r = pulseRuntimeSettings.paramValue("chartResolution")
+        var n = pulseRuntimeSettings.paramValue("chartSamples")
+        if (dev.chartResolution === r && dev.chartSamples === n)
+            return
+        console.log("DEV_PARAM: one chart setup ->", r, "mm x", n, "samples | performance mode,", why)
+        dev.setChartSetup(r, n)
     }
 
     function logAllDevSetupAsCompleted () {

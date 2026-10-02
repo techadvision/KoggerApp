@@ -2344,6 +2344,16 @@ QtObject {
     }
 
     function setParam(name, value) {
+        // ONE WRITER WHILE PERFORMANCE MODE HOLDS THE ACQUISITION (step 2, 2 Oct 2026). The
+        // engine writes these four through setParams() and nothing else may: the Side scan
+        // width workaround, the dynamic period and samples, onEchogramWidthChanged and the
+        // expert Transducer rows all arrive here and are turned away, by name, in the log.
+        // One refusal in the one writer instead of a guard beside each of six callers.
+        if (perfEngineOwnsAcquisition && perfEngineKeys.indexOf(name) !== -1) {
+            if (paramValue(name) !== value)
+                console.log("PARAM:", name, "->", value, "refused - performance mode holds it")
+            return
+        }
         // THE SPACING FLOOR IS ENFORCED HERE TOO, so no caller can get under it - the row's
         // minimum is the visible half, this is the half that holds.
         if (name === "chartResolution" && value < hardwareSpacingFloorMm) {
@@ -2374,12 +2384,82 @@ QtObject {
     // A FRESH OBJECT rather than a delete on the live one, for the reason setParam above
     // records: a var property handed the same reference has no cause to emit its change
     // signal, and without that nothing re-evaluates.
+    // ======================================================================
+    // PERFORMANCE MODE'S HOLD ON THE ACQUISITION (step 2, 2 Oct 2026)
+    //
+    // Written ONLY by PulsePerformanceEngine.qml. True while the engine is the writer of the
+    // four keys below - while the mode is on for a committed blue, and while it hands the
+    // shipped values back. setParam() refuses those keys while it is true, and DeviceItem
+    // sends spacing and samples as ONE chart message while it is true.
+    property bool   perfEngineOwnsAcquisition: false
+    readonly property var perfEngineKeys: ["chartResolution", "chartSamples", "distMax", "ch1Period"]
+    // What the engine last did, for the expert category's Engine row. Written by the engine.
+    property string perfEngineStatus: ""
+
+    // SEVERAL KEYS IN ONE ASSIGNMENT, so spacing and samples change in the same instant:
+    // both properties re-evaluate from one liveParams change and DeviceItem's handler for
+    // whichever fires first reads both through paramValue() (never through the other
+    // binding, which may not have re-evaluated yet - D-2) and sends one chart setup. The
+    // engine's own writer; it is not refused by the hold, and it applies the hardware floor.
+    function setParams(values, who) {
+        var all  = _copyOf(liveParams)
+        var mine = _copyOf(all[committedProfileKey])
+        var changed = []
+        for (var k in values) {
+            var v = values[k]
+            if (k === "chartResolution" && v < hardwareSpacingFloorMm)
+                v = hardwareSpacingFloorMm
+            if (paramValue(k) === v)
+                continue
+            mine[k] = v
+            changed.push(k + " " + v)
+        }
+        if (changed.length === 0)
+            return false
+        all[committedProfileKey] = mine
+        liveParams = all
+        console.log("PARAM:", committedProfileKey, changed.join(", "), "(" + who + ")")
+        return true
+    }
+
+    // DROP some keys from ONE profile's map, so they fall back to that profile's own values.
+    // For a profile that is not the committed one nothing re-evaluates and nothing is sent -
+    // which is the point: the engine uses it on a blue it no longer holds, after the commit
+    // has moved on.
+    function clearParamsFor(profileKey, keys) {
+        var entry = liveParams[profileKey]
+        if (entry === undefined)
+            return
+        var all  = _copyOf(liveParams)
+        var mine = _copyOf(entry)
+        for (var i = 0; i < keys.length; i++)
+            delete mine[keys[i]]
+        all[profileKey] = mine
+        liveParams = all
+        console.log("PARAMS:", profileKey, "-", keys.join(", "), "back to the profile")
+    }
+
     function clearParams() {
         if (liveParams[committedProfileKey] === undefined) {
             console.log("PARAMS:", committedProfileKey, "- nothing set on top, already the profile's own values")
             return false
         }
         var all = _copyOf(liveParams)
+        // WHILE PERFORMANCE MODE HOLDS THE ACQUISITION its four keys stay: they are the
+        // engine's output, not an experiment, and dropping them would send the profile's
+        // 2000 x 25 mm behind the engine's back.
+        if (perfEngineOwnsAcquisition) {
+            var kept = ({})
+            var mine = all[committedProfileKey]
+            for (var i = 0; i < perfEngineKeys.length; i++)
+                if (mine[perfEngineKeys[i]] !== undefined)
+                    kept[perfEngineKeys[i]] = mine[perfEngineKeys[i]]
+            all[committedProfileKey] = kept
+            liveParams = all
+            console.log("PARAMS:", committedProfileKey, "- overrides cleared, the performance engine's",
+                        perfEngineKeys.join(", "), "kept")
+            return true
+        }
         delete all[committedProfileKey]
         liveParams = all
         console.log("PARAMS:", committedProfileKey, "- every override cleared, back to the profile")
