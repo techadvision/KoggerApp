@@ -124,7 +124,14 @@ void Link::openAsSerial()
     }
     else {
         delete serialPort;
-        qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_;
+        // PULSE (2 Oct 2026): the auto-connect timer retries a serial link that cannot open
+        // on every tick, and this line drowned pulse.log - Olav could not find his LINK:
+        // lines for it. The first failure in a run is printed, then every 100th, with the
+        // count. Log only; the retry itself is unchanged.
+        static int failedOpens = 0;
+        if (failedOpens++ % 100 == 0)
+            qDebug() << "Link::openAsSerial uuid not open, deleting" << uuid_
+                     << "| failed opens so far:" << failedOpens << "(printed every 100th)";
         emit connectionStatusChanged(uuid_);
     }
     baudrateSearchList_ = QList<uint32_t>(baudrateSearchList.cbegin(), baudrateSearchList.cend());
