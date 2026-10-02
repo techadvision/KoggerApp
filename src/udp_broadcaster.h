@@ -110,6 +110,7 @@ public:
         payload += ",\"ts_unix_ms\":" + QByteArray::number(QDateTime::currentMSecsSinceEpoch());
         payload += "}";
         qDebug() << "AddWaypoint: udp_broadcaster sendJsonPoint completed. lat:" <<lat << "lng;" <<lon;
+        qDebug().noquote() << "WAYPOINT: UDP payload to port" << port << "|" << QString::fromUtf8(payload);
         return broadcastWaypoint(payload, port);
     }
 

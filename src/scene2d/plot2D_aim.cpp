@@ -570,6 +570,7 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
                 && debounce_.elapsed() >= kWaypointButtonGuardMs) {
 
                 qDebug() << "AddWaypoint: Hit add, and also triggered the addWaypoint";
+                qDebug().noquote() << cand_.report;
                 UdpBroadcaster::instance().sendJsonPoint(
                     cand_.lat,
                     cand_.lon,
@@ -773,6 +774,40 @@ bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
         cand_.tapIsSS     = isSideScan;
         cand_.tapSide     = side;
         cand_.haveTarget  = haveTarget;
+
+        // THE WAYPOINT INSTRUMENT (session 8, 2 Oct 2026). Everything the target was solved
+        // from, in one line, so a waypoint that lands in the wrong place can be taken apart
+        // from the log alone: which side, which ping, which fix and heading (and how many
+        // pings away they were found), the slant range read off the screen, the depth under
+        // the boat, the across-track distance that came out, and the screen geometry the
+        // slant range was read from. Built here, printed only when Add fires.
+        {
+            const double rCross = (std::isfinite(rSlantAbs) && std::isfinite(depthAbs) && rSlantAbs > depthAbs)
+                                  ? std::sqrt(rSlantAbs * rSlantAbs - depthAbs * depthAbs) : 0.0;
+            const QString view = !isSideScan ? QStringLiteral("2D")
+                               : (isSideScan2DView_ ? QStringLiteral("down scan") : QStringLiteral("side scan"));
+            const QString sideTxt = side < 0 ? QStringLiteral("port (-1)")
+                                  : side > 0 ? QStringLiteral("starboard (+1)") : QStringLiteral("none (0)");
+            cand_.report = QStringLiteral(
+                "WAYPOINT: pane %1 | %2 | side %3 | tap epoch %4 of %5 (newest at pause %6) | "
+                "boat %7, %8 from epoch %9 (%10 away) | yaw %11 deg from epoch %12 (%13 away) | "
+                "slant %14 m | depth %15 m | across %16 m | target %17, %18 | %19 | "
+                "screen y %20 of %21 -> t %22 over range %23 .. %24 | stretch %25")
+                .arg(parent->paneIndexForLog()).arg(view, sideTxt)
+                .arg(epochIdxForTap).arg(data_width).arg(lastIndexAtPause_)
+                .arg(nearestPos.found ? nearestPos.pos.lla.latitude  : NAN, 0, 'f', 7)
+                .arg(nearestPos.found ? nearestPos.pos.lla.longitude : NAN, 0, 'f', 7)
+                .arg(nearestPos.epochIdx).arg(nearestPos.dIdx)
+                .arg(nearestYaw.found ? double(nearestYaw.yawDeg) : NAN, 0, 'f', 1)
+                .arg(nearestYaw.epochIdx).arg(nearestYaw.dIdx)
+                .arg(rSlantAbs, 0, 'f', 2).arg(depthAbs, 0, 'f', 2).arg(rCross, 0, 'f', 2)
+                .arg(txLat, 0, 'f', 7).arg(txLon, 0, 'f', 7)
+                .arg(haveTarget ? (rCross > 0.0 ? QStringLiteral("off track") : QStringLiteral("under the boat"))
+                                : QStringLiteral("NO TARGET"))
+                .arg(rawPt.y(), 0, 'f', 0).arg(H).arg(tDisp, 0, 'f', 3)
+                .arg(double(cursor.distance.from), 0, 'f', 2).arg(double(cursor.distance.to), 0, 'f', 2)
+                .arg(parent->stretch(), 0, 'f', 2);
+        }
         // NOTE: do NOT restart debounce_ here.  debounce_ is restarted only
         // after a successful Add (below), so the 2-second guard purely prevents
         // accidental double-adds rather than delaying the very first Add after

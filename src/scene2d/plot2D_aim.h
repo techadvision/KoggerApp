@@ -86,6 +86,7 @@ private:
         bool   tapIsSS     = false;  // sidescan vs 2D at tap time
         int    tapSide     = 0;      // -1 left, +1 right (useful if you need it later)
         QPixmap zoomTile;            // Image source to be shared with autopilot
+        QString report;              // the WAYPOINT: line, built with the target, printed on Add
 
 
     } cand_;
