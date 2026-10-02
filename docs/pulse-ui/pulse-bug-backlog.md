@@ -3126,6 +3126,78 @@ from 27 Sept are still owed.
 | 10 | 2D in km/h (Olav, question 5); interpolation above ~1.5x if the blocks bother anyone | - |
 | 11 | P4 list; forced-landscape design; mosaic quality and tools | - |
 
+### Session 8, 2 Oct 2026 - side scan waypoints, verified end to end - `feature/pulse-side-scan-waypoints`
+
+Cut from `master` at `cfae0c98`, which was confirmed pushed (`origin/master` at the same commit, 0/0).
+
+**Tester feedback on 1.41:** waypoints *"It works! Done."* Two findings, both fixed first:
+
+| commit | what |
+|---|---|
+| `cf33aaa9` | **history bar, side + down: only the side scan moved.** A paused pane refuses a timeline position unless it is in a drag (`Plot2D::setTimelinePosition`), and the history bar's two sliders only ever set the drag on `waterViewFirst`. `core.setTimelinePosition` reached both panes and the down pane threw its share away. Both sliders now set it on both panes |
+| `c79c8ce3` | **the zoom box that stayed after the pause.** No log of the run exists, and no route was found by reading: `Plot2DAim::draw` refuses to draw unpaused and every resume is delivered with a repaint. But the cursor kept the paused mouse position, selected epoch and sync depth through a resume. `Plot2D::applyRuntime` now clears all four on the resume edge and prints `AIM: pane N resumed - the aim is cleared | it had one: yes/no` per pane. **If it ever happens again:** a box still up after that line for its pane is a repaint fault; a box with no line for its pane is a delivery fault |
+| `0d397250` | **the history bar ignored a cancelled touch**: the panes' drag was cleared on release only, so a touch the system took away left them in a drag for the rest of the pause (a paused pane in a drag re-indexes as if live). `onCanceled` now clears it too |
+| `588f224e` | **the waypoint instrument** - nothing in the solution changed |
+
+QML in the two `TimelineSlider*.qml`; C++ in `plot2D.{h,cpp}`, `qPlot2D.h`, `plot2D_aim.{h,cpp}`, `udp_broadcaster.h`. **moc and `g++ -fsyntax-only` pass on all of them in the cloud shell; the six `tools/pulse-*-check.js` pass.** No new `Q_PROPERTY` or `Q_INVOKABLE`.
+
+#### How a side scan waypoint is solved today (read, 2 Oct)
+
+`Plot2DAim::draw`, on the tap:
+
+1. **Side**: a vertical side scan splits the screen at the middle - left half is **port (-1)**, right half **starboard (+1)**. The down scan and 2D have no side.
+2. **Slant range** from the screen: `|from + (y / H) x (to - from)|` on the range axis.
+3. **Depth** under the boat: the selected channel's bottom track at the tapped ping, the rangefinder behind it.
+4. **Fix and heading**: the nearest ping within 12 that carries a GNSS position (raw or interpolated), and separately the nearest within 12 that carries an AHRS yaw (`ATTITUDE`, degrees). Searched first only up to the newest ping at the pause.
+5. **Target**: if the slant is inside the water column (`<= depth + 0.05 m`), **the boat's own position**. Otherwise `across = sqrt(slant^2 - depth^2)`, bearing = yaw + 90 deg (starboard) or - 90 deg (port), flat-earth offset from the fix.
+6. **Down scan and 2D always send the boat's position** (by design, `forceWaterColumn`).
+7. The UDP point is JSON `{"type":"echosounder_target","lat","lon","depth_m","model":"SS"|"2D","name":"Pulse","latlong","ts_unix_ms"}` to port **14570**, to the MAVLink peer when it is fresh, else broadcast, plus a copy to 127.0.0.1.
+
+**What the solution does not take into account, and what the tests are built to expose:** no lever arm or transducer offset from the GNSS antenna; no latency between a ping and its fix (the nearest ping with a fix is used as is); no check that the fix and the heading come from the same moment; **a side scan with no bottom track at the tapped ping takes the water-column branch and sends the boat's position** for every target; and nothing in the solve knows about *Cable facing the front* - the side comes from the screen half alone, so if that switch ever puts starboard on the left, every side scan target lands on the wrong side.
+
+#### The new log lines
+
+```
+WAYPOINT: pane 1 | side scan | side port (-1) | tap epoch 4120 of 5300 (newest at pause 5299) |
+  boat 59.1234567, 10.1234567 from epoch 4120 (0 away) | yaw 87.3 deg from epoch 4119 (1 away) |
+  slant 18.40 m | depth 4.10 m | across 17.94 m | target 59.1236, 10.1232 | off track |
+  screen y 310 of 1920 -> t 0.161 over range -25.00 .. 25.00 | stretch 2.21
+WAYPOINT: UDP payload to port 14570 | {"type":"echosounder_target",...}
+```
+
+(one line in the log; wrapped here). `under the boat` = the water-column branch; `NO TARGET` = no fix or no heading within 12 pings, and Add then does nothing.
+
+#### What to test - session 8, at the desk on this build
+
+**Capture:** `adb logcat | grep -E "WAYPOINT|AddWaypoint|PAUSE:|STRETCH:|PARAM: side scan frequency|AIM: pane|RANGE: applying"`, or `pulse.log` afterwards. **For every Add, write down by hand:** which half of the screen the target was on, which object it was, and where on the map you expected it.
+
+**Setup:** SITL autopilot connected (so `GLOBAL_POSITION_INT` and `ATTITUDE` arrive), the map with contours open on the receiving app, a blue on screen.
+
+**T1 - a blue log with positions, side scan full screen** (the placement test - the log carries its own positions and heading):
+1. Pick one distinct object on **port**, about mid swath. Pause, tap it, Add. Then one on **starboard**. Two `WAYPOINT:` lines, two payloads, and where each landed on the map.
+2. **Same object, three boat speeds** (Speed -> 1.0, 3.0, 5.0 km/h; pause, tap, Add each time). The target must agree to within about the size of the object - the stretch must not move it.
+3. **Same object, three ranges** (Max range side 15, 25, 40). Same expectation.
+4. **The same object on a pass in the opposite direction**, if the log has one. Opposite passes are the instrument: a shift **along** the track is a latency, a shift **across** it is a heading, a side or an offset error.
+5. **Tap inside the water column** (between the track and the first bottom return): `under the boat`, and the target is the fix.
+
+**T2 - down scan full screen, same log:** tap a bottom feature, Add. Expected: `down scan | side none (0)`, `under the boat`, target = the fix at that ping.
+
+**T3 - split side + down, same log:** the T1 port object again on the **side pane** - same target as full screen (`pane 1`); then a tap on the **down pane** (`pane 2`, the fix). Also scroll the history bar while paused: **both panes must move now** (`cf33aaa9`).
+
+**T4 - live blue + SITL, the geometry test** (positions and heading are the simulator's, so the map cannot judge the picture; the arithmetic can):
+1. SITL boat heading **0 deg**: tap one strong return on starboard at a slant clearly beyond the depth, Add. Then on port.
+2. Repeat with the SITL heading **90, 180 and 270 deg** (same returns, same taps as far as possible).
+3. Expected from the lines: starboard bearing boat -> target = heading + 90, port = heading - 90, distance = `across`. I will compute both from the log, so only the lines are needed.
+
+**T5 - 460 and 820 kHz on the live blue** (Expert -> Transducer -> Side scan frequency):
+1. Switch to **820**: `PARAM: side scan frequency -> 820 kHz (expert)`, and Device parameters must show 820 confirmed.
+2. With the transducer looking at something at a **distance you have measured** (a wall, the far side of a tank): pause, tap it, Add, at **460** and at **820**. **`slant` must match the measured distance at both frequencies** - if one is off by a fixed factor, the range axis does not follow the frequency's sample spacing.
+3. One `STRETCH:` line at each frequency.
+
+**T6 - the two 1.41 fixes:** pause with the loupe up, resume - one `AIM: pane N resumed - the aim is cleared | it had one: yes` per pane, no box left. Any route you find that leaves a box up: say what you did, and send the log.
+
+**Bring back:** the grep output (or `pulse.log`), the hand notes, and a screenshot of the map with the waypoints for T1-T3.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
