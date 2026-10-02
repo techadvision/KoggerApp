@@ -1,9 +1,10 @@
 # Echogram speed and high performance mode — analysis and implementation plan
 
 *PULSE blue, red and black. Revisions: 27 Sept (Olav's answers), 29 Sept (hardware partner's input), 29 Sept (split into
-tasks, red/black added, 50 ms period), 30 Sept (Olav's answers at the start of session 7). Checked against the KoggerApp code (1.39; render and pause code re-checked on
-`feature/pulse-small-screens`). This is the reference for the implementation prompts. Chapter 12 is the same story told
-for sales.*
+tasks, red/black added, 50 ms period), 30 Sept (Olav's answers at the start of session 7), 2 Oct (the serial baud rate is
+the real ceiling; expert "Performance mode" category; Olav's answers on 8N1, the fixed red/black baud and the prototypes). Checked against the KoggerApp code (1.39; render and pause code
+re-checked on `feature/pulse-small-screens`, the chart protocol on `feature/pulse-side-scan-waypoints`). This is the
+reference for the implementation prompts. Chapter 12 is the same story told for sales.*
 
 ## Status, 30 Sept 2026 (night)
 
@@ -12,27 +13,47 @@ picture, the side scan is always true in the gauge's unit, the down scan has its
 own max range, and the pinch follows along-the-flow = speed, across = range. Interpolation above ~1.5x and 2D in km/h
 are not done. **Next is side scan waypoints (session 8); Task 2a/2b come after that.**
 
+**2 Oct:** Task 2 re-planned around the serial baud rate (chapter 2a). Task 2a stays next after the waypoints;
+Blue's period stays 70 ms. Performance mode is a blue feature; red/black in the field (115200, fixed by the delivered wifi
+AP) get **link-fit tuning** of their dynamic scheme instead (Task 2b, chapter 8), and a **black v2** at 921600 is
+recommended as future hardware (8.4).
+
 ## The plan in one page
 
 **Task 1 — Echogram speed for everyone (all devices, all links, no warning).**
 Speed becomes a pure display stretch of the echogram. It never touches the transducer, so it works on wifi and IP alike.
-The side scan gets **True proportions**: the user sets boat speed (1.0–5.0 km/h, one decimal), and the picture keeps a
-metre a metre in both directions. **Free** mode keeps today's look. The hard part is not the stretch itself but keeping
+The side scan gets **True proportions** (always, no Free mode since 30 Sept): the user sets boat speed, and the picture
+keeps a metre a metre in both directions. The hard part is not the stretch itself but keeping
 **pause → tap → loupe → add waypoint** correct under any stretch, including below 1.0. Task 1 is mostly that work.
 Boat speed is user-set; setting it automatically from the autopilot is a later option on top, never a replacement.
+**Built and verified in 1.41 (session 7); unaffected by the baud rate.**
 
-**Task 2a — High performance mode, PULSE blue.**
-On IP, or on wifi after an explicit warning: 5000 samples, finest spacing for the range, ping period 50 ms (51 ms at the
-35 m swath). Across-track detail becomes 2.5× (35 m) to 12× (5 m) finer. The data rate is 3.5× today's blue.
+**The ceiling for Task 2 is the serial link, not the radio.** Between the IP connector (or the wifi AP) and the transducer
+runs a UART: **921600 baud on blue, 115200 on red/black**. One byte per sample, 10 bits per byte on the wire. That caps
+blue at about 86 000 samples/s and red/black at about 10 800, before any headroom (chapter 2a; fragment size measured from
+logs on 2 Oct).
 
-**Task 2b — High performance mode, PULSE red and black.**
-Same idea for the single-channel 2D sounders: keep the depth-following (auto max depth) and dynamic resolution, but with
-5000 samples instead of 500. Spacing becomes **5–10× finer** at every depth. The period is 50 ms down to ~35 m and then
-follows the physics (71 ms at 50 m, against today's 150 ms). The data rate is up to 10× today's red, so **the wifi
-warning matters most here**.
+**Task 2a — High performance mode, PULSE blue.** Expert-only first (chapter 6).
+**The period stays at 70 ms** (settled 2 Oct: the optimal setting; speed is the stretch's job). At 70 ms the UART carries
+the firmware's full 5000 samples at 84%, so performance mode on blue is *the same period, 2.5× the samples*: across-track
+detail 2.5× (35 m) to 12× (5 m) finer at the production floor of 1 mm, or 15 mm everywhere at the expert default floor.
 
-**Order:** Task 1, then 2a and 2b (either order; 2a is smaller). 2a and 2b share one engine and one settings row, so
-whichever comes second mostly adds a profile.
+**Task 2b — PULSE red and black in the field: link-fit tuning, not a performance mode.** For all users, no warning.
+At 115200 there is no data rate to add, so performance mode is a blue feature. But the dynamic scheme can use the link it
+has *better*, through the profile's period and samples, which the app already writes (chapter 8):
+- **Stop overdriving the link in shallow water**: 500 samples at 50 ms needs ~99% of the UART, and the log shows the pings
+  arriving at ~14–15/s instead of 20. Commanding **~59 ms** (57 ms with the slower poll) gives a steady ~17/s at 84%: more pings than today in practice,
+  evenly spaced, with room for the other messages.
+- **Spend the unused headroom in deep water** (today 65–71% load beyond ~30 m): faster pings at the same detail
+  (recommended for 2D), or 1.2–1.3× finer spacing at today's pace.
+- **Slow the app's version poll** while chart data flows (it is the app that polls, every 300 ms, not the firmware):
+  ~2.3% of a 115200 link back, which takes the shallow-water period to ~57 ms. First step of 2b (8.3).
+
+**Task 2c — later, with new hardware: a PULSE black v2** (recommendation in chapter 8.4). Blue's electronics with one
+channel, a new hardware name and a 921600 UART make it a performance-mode device with no new engine: 5000 samples at
+70 ms, 5× finer than today's black in deep water and 10× in the shallows.
+
+**Order:** Task 1 (done), then 2a, then 2b (small, independent, can come any time). 2c when the hardware exists.
 
 ## Settled
 
@@ -99,6 +120,35 @@ whichever comes second mostly adds a profile.
 - **A blue's side and down panes keep their own max range**, shown as *Max range side* and *Max range down*, in full
   screen and split; a pinch changes only the pane it is on.
 
+**2 Oct (partner, via Olav)**
+
+- **The baud rate between the IP connector / wifi AP and the transducer is the most important limit**: 921600 on blue,
+  115200 on red/black.
+- **A new expert category "Performance mode"** with four persistent settings: *Enable performance mode* (default off),
+  *Max samples* (default 5000), *Min spacing blue* (default 15 mm), *Min spacing 2D* (default 2 mm). They let the expert
+  limit the engine himself; the category may be reshaped when the mode opens to all users.
+- **This supersedes the 30 Sept "Task 2 additions"** resolution floor (one slider, 1–16 mm, default 1): there are now two
+  floors, blue 15 mm and 2D 2 mm, plus a samples ceiling. The 30 Sept address rule stays for when the mode opens to all
+  users: the wifi warning is for **192.168.10.x**; the IP link (**192.168.144.x**) needs none.
+
+**2 Oct (Olav's answers)**
+
+- **The UART is 8N1.** The firmware's chart fragment size is not known yet.
+- **The red/black baud rate stays 115200 on units in the field.** The app *could* change it on the transducer
+  persistently, but the wifi AP delivered with the boats cannot easily follow on the receiving end, so it is not done.
+- **Pro versions of the 2D and the pure down scan black are likely**, and they will run at **921600**.
+- **`Basic2D` is the hardware name of two prototypes**: the blue prototype runs at **921600**, the red prototype at
+  **115200**.
+
+**2 Oct (Olav, second)**
+
+- **Blue keeps 70 ms.** It is the optimal setting; echogram speed comes from the image stretch.
+- **Red/black's ping period is set by the app** through the runtime profile (the dynamic scheme already raises it beyond
+  14–15 m), so it can be tuned without firmware work.
+- **Red sells little, black is popular.** A **black v2** with a new hardware name and blue's crystals (one channel) is
+  possible in the not-too-distant future; for now a recommendation only (8.4).
+- **Performance mode is therefore a blue feature** (and a black v2's, later). Red/black in the field get link-fit tuning (8).
+
 ## 1. What the current code says
 
 **Display (Task 1)**
@@ -142,15 +192,86 @@ whichever comes second mostly adds a profile.
 
 ## 2. Background — the budget
 
-Data rate ∝ samples ÷ period. Expressed in samples per second (the byte rate adds the protocol overhead, so measure it in
-the app):
+Data rate ∝ samples ÷ period, **one byte per sample** (confirmed in `IDBinChart::parsePayload`: v0 is the single 2D
+channel, v1 carries the two side scan channels byte-interleaved, which is also why blue's range is `samples × spacing ÷ 2`).
 
-| Device and mode | Samples | Period | Samples/s | vs its wifi today |
+| Device and mode | Samples | Period | Samples/s | UART load |
 |---|---|---|---|---|
-| Blue, wifi today | 2000 | 70 ms | 28.6 k | 1× |
-| Blue, performance | 5000 | 50 ms | 100 k | **3.5×** |
-| Red/black, wifi today | 500–1020 | 50–154 ms | 6.7–10 k | 1× |
-| Red/black, performance | 2500–5000 | 50–71 ms | 50–100 k | **up to 10×** |
+| Blue today | 2000 | 70 ms | 28.6 k | 33% of 921600 |
+| Blue, 29 Sept plan | 5000 | 50 ms | 100 k | **115% — does not fit** |
+| Blue, performance (detail first) | 5000 | 70 ms | 71.4 k | 84% |
+| Red/black today, shallow | 500 | 50 ms (commanded) | 10 k | **≈ 99% of 115200** |
+| Red/black today, deep | 1000 | 150 ms | 6.7 k | 61% |
+
+## 2a. Background — the serial link (new, 2 Oct)
+
+**The arithmetic.** A UART at 8N1 (confirmed 2 Oct) moves `baud ÷ 10` bytes per second. Each chart fragment is a KP1
+frame (`0xBB 0x55`, address, mode, id, 1-byte length, payload, 2-byte Fletcher checksum) whose payload starts with a 6-byte
+chart header (`seqOffset`, `sampleResol`, `absOffset`). **Measured from the two logs (below): the firmware sends 200
+samples per fragment**, 214 bytes on the wire — **93.5% efficiency**. A ping of S samples therefore costs
+`ceil(S ÷ 200) × 214` bytes, plus a 10-byte temperature frame per ping, plus the app's version poll (≈ 95 bytes of answers
+every ~300 ms ≈ 320 bytes/s).
+
+| | Blue, 921600 | Red/black, 115200 |
+|---|---|---|
+| Bytes/s on the wire | 92 160 | 11 520 |
+| Samples/s, framing only | ≈ 86 000 | ≈ 10 800 |
+| **Samples/s at 85% load** (engine budget, after temperature and polls) | **≈ 73 000** | **≈ 8 900** |
+| Samples per ping at 50 ms | ≈ 3 650 | ≈ 400 |
+| Samples per ping at 70 ms | 5 000 (fits, 84%) | ≈ 600 |
+| Shortest period for 5000 samples | 70 ms | ≈ 560 ms |
+
+### Measured from the logs (2 Oct)
+
+Two raw logs in `docs/`, parsed frame by frame (sync, Fletcher checksum, id, `seqOffset`):
+
+| | `2D_pulse_log_2026.07.15_15.50.34.plog` (red, Basic2D prototype) | `SS_pulse_log_2026.01.14_Titan.plog` (blue, larger prototype) |
+|---|---|---|
+| Baud reported by the device (`ID_UART`) | **115200** | **921600** |
+| Ping period commanded (`ID_DATASET` ch 1) | 50 ms | 70 ms |
+| Samples per fragment | **200** (100 for the last) | **200** |
+| Samples per ping | 500 (99%) | 2000 (2× 1000 interleaved); some 1400–1800 |
+| Spacing | 12–30 mm (dynamic resolution) | 25 mm |
+| Pings / version polls | 31 731 / 7 577 | 3 811 / 965 |
+| Pings per second (from the poll clock, ≈) | **≈ 14–15** (20 commanded) | ≈ 13–14 (14.3 commanded) |
+| Fragments lost inside a ping | 186 gaps, 0.13% of samples | **2 031 gaps, ≈ 5% of samples** |
+| UART load implied by what was commanded | **≈ 99%** | ≈ 34% |
+
+What the logs say:
+
+- **The fragment size is 200 samples on both devices**, so the 95% assumed earlier becomes 93.5%; every budget above uses it.
+- **The device reports its baud rate in the stream** (`ID_UART`): 115200 and 921600, exactly as Olav said. The engine can
+  rely on it — this is what tells the two `Basic2D` prototypes apart.
+- **Red does not reach its commanded 50 ms.** 500 samples every 50 ms would need about 99% of the 115200 UART, and the
+  log shows roughly 14–15 pings per second instead of 20, with almost no fragments lost. The firmware (or the AP) is
+  evidently pacing the pings to what the link can carry. *So red is already link-bound today*, which confirms the 2b
+  conclusion from the measurement side. (The ping rate comes from the app's version poll, every 3 × 100 ms while data
+  flows (`link_defs.h`); calibrated against blue, whose commanded rate is known, it is accurate to ~10%.)
+- **Blue's loss is not the UART.** At 34% load the serial link has room; the ≈ 5% lost fragments and the odd sample counts
+  match Olav's warning that this prototype ran with abnormal settings, and a January log predates the IP link, so the
+  5.8 GHz radio is the likely cause. A loss counter in the expert category (6.2) is what separates the two in future.
+- **The version poll costs ≈ 3% of red's UART.** It is harmless on blue, but on a 115200 unit it is not free. Slowing it
+  while chart data is flowing is a small, separate improvement worth noting for red.
+
+The 85% leaves room for the other messages each ping carries (distance, timestamp, attitude, temperature) and for jitter.
+It is an engine constant, not a user setting, and the first device test should tune it (chapter 9).
+
+**What this changes**
+
+- **Blue cannot have 5000 samples and 50 ms at once.** The engine has to pick: detail (5000 @ 70 ms) or ping rate
+  (~3650 @ 50 ms). The partner's rule from 29 Sept, *the full data response first, then speed up with image stretch*,
+  decides it: **detail first**, and Olav settled it on 2 Oct: **blue stays at 70 ms**, which carries 5000 samples at 84%.
+  Blue's performance mode is *the same period, 2.5× the samples*.
+- **Red/black are at their ceiling today.** 500 samples every 50 ms would be ~99% of 115200 (the logs show the pings
+  slowing to fit) — the existing wifi scheme was in
+  practice also a UART scheme, and its period growth at depth keeps it under the UART too. At 115200 there is nothing
+  to add, only to fit better (chapter 8). The baud rate, not wifi, is why.
+- **The wifi warning shrinks.** Blue can at most reach ~2.6× today's data rate (the UART caps it), not 3.5×. Red/black at
+  115200 cannot raise the data rate at all, so a redistribution mode costs no wireless range.
+- **The IP link is not the bottleneck** for either device: 92 kB/s is about 0.75 Mbit/s.
+- **Lost fragments show up as broken pings.** If the engine overruns the UART, `IDBinChart` sees `seqOffset` gaps
+  (`lossHistory_` already counts them). That counter is the natural live check for the 85% assumption, and a candidate
+  expert read-out (chapter 6).
 
 ## 3. Background — limits from physics and hardware
 
@@ -161,29 +282,42 @@ the app):
 |---|---|---|---|---|---|
 | T_min | < 40 ms | 44 ms | 51 ms | 58 ms | 71 ms |
 
-- **Blue**: range is per side, at most the 35 m swath. **50 ms works up to ~34 m per side**; at the 35 m swath use 51 ms.
-  So the partner's 50 ms is the period for blue in practice.
-- **Red/black**: range is the full trace, up to 50 m (+ double echo). **50 ms up to ~35 m**, then the period follows
-  `T_min`, reaching 71 ms at 50 m. That is still half of today's 150 ms at depth.
-- **To confirm on the water**: whether the firmware adds per-ping time on top of listening (for example to ship 5000
-  samples). If the epoch rate at 50 ms falls short of 20/s, the margin grows.
+With the UART now setting blue's period at 50–70 ms, physics never binds on blue. On red/black at 115200 the UART binds
+long before physics.
 
-**Hardware limits belong to the model.** The link decides the budget, the hardware decides the limits:
+**Hardware limits belong to the model — and the baud rate is best read from the device.** The device already reports its
+UART rate: `ConnectionViewer` copies `chosen.baudrate` into `pulseRuntimeSettings.rawDev_devBaudRate`, which Expert info
+shows today. **The engine should use the reported rate** when it is known (> 0) and fall back to the table only when it is
+not. That makes three things right with no special cases:
+
+- **The two `Basic2D` prototypes** share one hardware name (`modelPulseRedProto` and `modelPulseBlueProto` are both
+  `"Basic2D"`), so a model-keyed table cannot tell them apart — but their reported baud (115200 vs 921600) does.
+- **The pro 2D and pro black** get the 921600 budget the moment they report it, before anyone adds a profile.
+- **A field unit someone has reconfigured** gets the budget it actually has.
+
+Fallback table (used only while no rate has been reported):
 
 ```
 hardwareLimits: {
-    "PULSEblue": { spacingFloorMm: 1,  samplesMax: 5000, periodMinMs: 50 },
-    "Basic2D":   { spacingFloorMm: 15, samplesMax: 5000, periodMinMs: 50 },  // blue prototype
-    "PULSEred":  { spacingFloorMm: 2,  samplesMax: 5000, periodMinMs: 50 },  // floor as today's profile; 1 mm to confirm
-    // PULSE black: same as red (confirmed). Red-proto: as red. CHIRP blue: its own entry when its id exists
+    "PULSEblue":      { baud: 921600, spacingFloorMm: 1,  samplesMax: 5000, periodMinMs: 50 },
+    "Basic2D (blue)": { baud: 921600, spacingFloorMm: 15, samplesMax: 5000, periodMinMs: 50 },  // 2 channels
+    "Basic2D (red)":  { baud: 115200, spacingFloorMm: 2,  samplesMax: 5000, periodMinMs: 50 },  // 1 channel
+    "PULSEred":       { baud: 115200, spacingFloorMm: 2,  samplesMax: 5000, periodMinMs: 50 },
+    // PULSE black: as red. Pro 2D / pro black: 921600, own entries when their ids exist. CHIRP blue: likewise.
 }
 ```
 
-The period floor is **the partner's number**. Expert rows are clamped to these limits, so nothing in the UI can push a
-unit past what the partner has cleared.
+The two `Basic2D` rows are told apart by channel count, the same signal the resolver already uses for an unrecognised
+name. *To check in the code before relying on it*: that `dev.baudrate` reflects the transducer's UART over a UDP link, and
+not a default or the last serial setting.
+
+These are **hardware facts and stay in code**. The expert category of chapter 6 can only *tighten* them, never loosen
+them: the engine uses `max(hardware floor, expert min spacing)` and `min(hardware max, expert max samples, what the UART
+allows)`.
 
 **Spacing floor = sample rate** (`c ÷ 2d`). The Basic2D prototype stops at 15 mm, exactly 50 kHz, which suggests its board
-tops out there. Production blue goes to 1 mm (750 kHz), and the partner confirms fine spacing is no strain.
+tops out there. Production blue goes to 1 mm (750 kHz), and the partner confirms fine spacing is no strain. The expert
+default of 15 mm for blue keeps a prototype safe until the expert deliberately lowers it.
 
 ## 4. Background — what is the correct picture?
 
@@ -220,7 +354,8 @@ pixels, one sharper. Keeping proportions while max depth changes simply means **
 - **So: hold true proportions up to a cap** (start at 3), and beyond it let the picture be shortened along-track and **say
   so** with a small label in the pill column, for example **"1 : 3.1"**. With cap 3 at 3 km/h, true proportions hold down to
   ~16 m full-screen at 70 ms, ~11 m at 50 ms, and further in a split screen.
-- **The 50 ms period of Task 2a helps directly**: the same proportions need 30% less stretch.
+- **A shorter period helps directly**: at 50 ms the same proportions need 30% less stretch. Task 2a reaches 50 ms on blue
+  only with fewer samples (chapter 7), so do not count on it.
 
 **For 2D (red, black, blue's down scan)** 1:1 is not best practice. Depth is metres against hundreds of metres travelled,
 and every 2D sounder exaggerates vertically; users read slopes that way. The steeper-looking bottom when max depth
@@ -285,179 +420,277 @@ not part of this work.
 - Cap label appears and disappears at the right range.
 - 2D: echogram speed behaves as today, and pausing no longer changes the picture.
 
-## 6. Shared by Tasks 2a and 2b — the performance engine and the switch
+## 6. The engine and the expert category
 
-**The engine** (one, not per device), run whenever range, mode or model changes:
+### 6.1 The engine
+
+One engine, not per device, run whenever range, mode, model or an expert limit changes:
 
 ```
-limits = hardwareLimits[model]
+hw     = hardwareLimits[model]
+floor  = max(hw.spacingFloorMm, expert.minSpacing(blue or 2D))      // expert can only tighten
+Smax   = min(hw.samplesMax, expert.maxSamples)
+U      = (hw.baud / 10 × 0.85 − 320) × 200 / 214                    // samples/s: headroom, polls, 200-sample fragments
+                                                                    // (10-byte temperature frame per ping on top)
 R      = acquisition range (blue: visible range per side; red/black: see 8)
-T      = max(limits.periodMinMs, ceil(2 × R_oneway ÷ c) + margin)        // 50 ms until physics says otherwise
-S_max  = limits.samplesMax                                                // 5000
-d      = max(limits.spacingFloorMm, ceil(channels × R ÷ S_max))           // whole mm; channels = 2 blue, 1 red/black
-S      = min(ceil(channels × R ÷ d) rounded up to 50, S_max)
+Swant  = min(Smax, channels × R ÷ floor)                            // channels = 2 blue, 1 red/black
+T      = blue: 70 ms (fixed, 2 Oct). Others: clamp(Swant ÷ U, max(hw.periodMinMs, T_min(R)), Tcap)
+S      = min(Swant, U × T)                                          // what actually fits at that period
+d      = max(floor, ceil(channels × R ÷ S))                         // whole mm
+S      = ceil(channels × R ÷ d), rounded up to 50
 ```
 
-Written through `pulseRuntimeSettings.setParam()` into `liveParams`, like `PulseDepthEngine` does today. Runtime only;
-every start returns to profile defaults plus the user's persistent choices.
+- **Blue's period is fixed at 70 ms**, so on blue the engine only chooses samples and spacing. The general form (period
+  from the bytes per ping, never below `T_min`) is what a black v2 and red/black's link-fit tuning (8.2) use.
+- Written through `pulseRuntimeSettings.setParam()` into `liveParams`, like `PulseDepthEngine` does today. The *outputs*
+  are runtime; the *limits* in 6.2 are persistent.
+- **The drag throttle** (max depth): the visible range follows the finger; the transducer is sent a value only when the
+  handle slows below ~2 m/s of range or rests ~300 ms, at most once a second, latest value only, always on release.
 
-**The drag throttle** (max depth): the visible range follows the finger; the transducer is sent a value only when the handle
-slows below ~2 m/s of range or rests ~300 ms, at most once a second, latest value only, always on release. A fast sweep
-sends nothing and leaves no staircase.
+### 6.2 Expert → "Performance mode" (new category, 2 Oct)
 
-**The switch**
+| Row | Type | Persistent key | Default | Range / note |
+|---|---|---|---|---|
+| Enable performance mode | switch | `perfModeEnabled` | **off** | Off = every device exactly as today |
+| Max samples | stepper (50s) | `perfMaxSamples` | **5000** | 500–5000; never above the firmware's 5000 |
+| Min spacing blue | stepper (1 mm) | `perfMinSpacingBlueMm` | **15** | 1–50; also applies to Basic2D, never below its 15 |
+| Min spacing 2D | stepper (1 mm) | `perfMinSpacing2DMm` | **2** | 1–50; red, black, red-proto |
 
-- Persistent **per link type**: `highPerformance.ip` / `highPerformance.wifi`, each unset / on / off. The first
-  `192.168.144.*` connection turns an unset `ip` **on**; `wifi` defaults **off**.
-- *Connection* category: **"High performance mode"**. On wifi, turning it on asks in the row (action-row pattern), and the
-  number is the device's own:
-  > **This sends up to 3.5× (blue) / 10× (red, black) more data over wifi and will shorten your wireless range.** The
-  > echogram may freeze or drop out at distances that work today. Switch on?
-- Off, every device behaves exactly as today, including red's wifi scheme.
+- **Placement**: its own category under the *Expert settings* title, beside Transducer. The settings panel's rules apply as
+  they are: the category exists only while `expertMode` is on, and both spacing rows are always shown so an expert can
+  prepare the other device's limit before swapping.
+- **Recommended: the engine runs only while expert mode is on.** `perfModeEnabled` stays stored, but turning expert mode off
+  returns every device to its standard behaviour without the expert having to remember the switch. It also keeps an
+  ordinary user from inheriting an expert's experiment on a shared tablet.
+- **Persistent by design**, which is different from `liveParams`: these are *limits the expert has cleared for his hardware*
+  (the prototype's 15 mm, for example), not experiments, so they should survive a restart.
+- **Hints** say what binds, so the expert sees why the engine chose what it chose: *"Limited by link: 3 650 samples at
+  50 ms"*, *"Limited by min spacing"*.
+- **Suggested read-outs** in the same category (read-only rows): *Serial link* ("921600 baud, 84% used") and *Lost
+  fragments* from `IDBinChart`'s `lossHistory_`. Together they show whether the 85% headroom holds on the water.
+- **Raw expert rows** (Transducer: samples, spacing, period) keep their take-over rule: an expert write holds that key for
+  the session, *"set by you — Reset to hand back"*, clamped by `hardwareLimits` only. The engine leaves a held key alone.
+- **When the mode opens to all users** (later): the per-link switch from the earlier version returns —
+  `highPerformance.ip` on at the first `192.168.144.*` connection, `highPerformance.wifi` (192.168.10.x) off — with the wifi warning
+  quoting the device's real figure (blue: *up to 2.6× more data*). The four expert limits stay as the ceiling.
 
-**Expert rows** (what the CHIRP work needs now, and useful for testing 2a/2b):
+## 7. Task 2a — PULSE blue (921600 baud, 70 ms)
 
-- Raw samples, spacing and period rows; an expert write takes that key over for the session (*"set by you — Reset to
-  hand back"*); clamped only by `hardwareLimits`, never by the budget. Runtime like all of `liveParams`.
-- Small and independent: it can be built ahead of the engine if the partner needs it sooner.
+**The period is fixed at 70 ms** (settled 2 Oct). The engine of 6.1 then has one job: spend the 5000 samples on the
+finest spacing the range and the floor allow.
 
-## 7. Task 2a — PULSE blue
+| Swath per side | Floor 15 mm (expert default) | Floor 1 mm (production) | vs today | UART load at 5000 |
+|---|---|---|---|---|
+| 35 m | 15 mm × 4700 | 14 mm × 5000 | 2.5× finer | 84% |
+| 25 m | 15 mm × 3350 | 10 mm × 5000 | 2.5× finer | 84% |
+| 15 m | 15 mm × 2000 | 6 mm × 5000 | 4× finer | 84% |
+| 10 m | 15 mm × 1350 | 4 mm × 5000 | 6× finer | 84% |
+| 5 m | 15 mm × 700 | 2 mm × 5000 | 12× finer | 84% |
 
-At 50 ms (51 ms at 35 m), 5000 samples:
+*"vs today" is the 1 mm column against today's 25 mm (35 mm at the 35 m swath).*
 
-| Swath per side | Spacing × samples | vs today | Basic2D (floor 15 mm) |
-|---|---|---|---|
-| 35 m | 14 mm × 5000 @ 51 ms | 2.5× finer | 15 mm × 4700 |
-| 25 m | 10 mm × 5000 | 2.5× finer | 15 mm × 3350 |
-| 15 m | 6 mm × 5000 | 4× finer | 15 mm × 2000 |
-| 10 m | 4 mm × 5000 | 6× finer | 15 mm × 1350 |
-| 5 m | 2 mm × 5000 | 12× finer | 15 mm × 700 |
-
+- **At the 15 mm default, performance mode already improves today's picture** (15 mm against 25/35 mm) and leaves the
+  UART lightly loaded at short range. Lowering the floor is the expert's decision per unit.
+- **Speed is Task 1's stretch**, which reads the reported 70 ms, so True proportions is unaffected.
 - **Acquisition range = visible range per side**, via the drag throttle. Never-captured bottom stays black.
-- **The *Side scan width* row stays as the ceiling** (25/35 m); its data-rate workaround goes away in performance mode.
-- **`PULSEblue-IP`** becomes the first profile that changes the wire: samples max 5000, period from `hardwareLimits`.
+- **The *Side scan width* row stays as the ceiling** (25/35 m); its data-rate workaround goes away while performance mode is on.
+- **`PULSEblue-IP`**: samples max 5000, period 70 ms; the first profile that changes the wire.
 - **Check**: the mosaic and the loupe with mixed-resolution blue epochs; the side scan TVG (`imageType 3`) at changing
-  spacing, which should be fine since it runs in metres, but should be looked at.
-- **Echogram speed**: in True mode the 50 ms period makes the picture flow 1.4× faster at the same boat speed,
-  automatically, because the stretch formula reads the reported period.
+  spacing, which runs in metres and should be fine.
 
-## 8. Task 2b — PULSE red and black
+## 8. Task 2b — PULSE red and black in the field (115200 baud)
 
-**Keep what red is good at, spend the new budget on detail.** The depth-following engine stays: acquisition range follows the
-bottom (depth + margin, or 2 × depth + margin with double-echo optimise) in auto, or the user's max depth in manual. What
-changes is the sample budget: 5000 instead of 500, so the spacing can be fine at every depth.
+**Performance mode is a blue feature.** At 115200 there is no data rate left to add, so red and black get no performance
+mode. What they can get is a **better-fitted dynamic scheme**, for every user and every link, with no warning: it never
+sends more data than today.
 
-Today on wifi against performance mode (margin 2 m):
+### 8.1 What the link can carry
 
-| Bottom depth | Today (wifi) | Performance | Finer |
-|---|---|---|---|
-| 3 m | 10 mm × 500 @ 50 ms | 2 mm × 2500 @ 50 ms | 5× |
-| 8 m | 20 mm × 500 @ 50 ms | 2 mm × 5000 @ 50 ms | 10× |
-| 13 m | 30 mm × 500 @ 50 ms | 3 mm × 5000 @ 50 ms | 10× |
-| 18 m | 40 mm × 500 @ 50 ms | 4 mm × 5000 @ 50 ms | 10× |
-| 28 m | 50 mm × 600 @ 70 ms | 6 mm × 5000 @ 50 ms | 8× |
-| 38 m | 50 mm × 800 @ 110 ms | 8 mm × 5000 @ 58 ms | 6×, and 2× faster |
-| 48 m | 50 mm × 1000 @ 150 ms | 10 mm × 5000 @ 71 ms | 5×, and 2× faster |
+Per ping: `ceil(S ÷ 200)` chart fragments (214 bytes each, the last one shorter) + a 10-byte temperature frame. Per second:
+the app's version poll, ≈ 320 bytes. Budget: 85% of 11 520 bytes/s. Period never below `T_min` of the range.
 
-*Today's column is `calculateDynamicResolution` as written; the ~14 m point where Olav says the spacing stopped rising may
-come from a different constant on the device, to confirm.*
+### 8.2 Today against a link-fitted scheme
 
-- **The spacing stays in the range where rendering has always worked** (2–10 mm, against today's 50 mm ceiling). The old
-  limit was artefacts at coarse spacing, so it should not come back; the new load to check is 5000 samples per epoch
-  (chapter 9, item 7).
-- **Steps get smaller and rarer.** With 5000 samples, one spacing step covers a much larger depth band, so the
-  reconfigurations that produce red's stairway under the bottom become rarer. The existing stable-reading counter stays.
-- **Profile key**: `resolveProfileKey` gains a `keyFor(model, address)` for red as it has for blue; a `PULSEred-IP`
-  record carries the performance limits. The check tool's assertion *"red on the IP gateway is still red"* inverts.
-- **Off, red is exactly today's wifi scheme** — including its period growth, which only ever makes the period longer and so
-  is the safe direction for the hardware (worth a nod from the partner anyway).
-- **TVG**: red's `imageType 2` computes gain in metres, so the finer spacing does not change brightness (confirmed 12 Sept).
-- **Echogram speed**: unchanged control (Task 1). In performance mode the period drops from up to 150 ms to at most 71 ms
-  in deep water, so the deep-water picture also flows up to 2× faster.
+Margin 2 m; "today" is `calculateDynamicResolution` as written.
+
+| Bottom depth | Today (commanded) | Load | **A: same samples, period that fits** (recommended) | B: today's pace, extra samples |
+|---|---|---|---|---|
+| 3–23 m | 10–50 mm × 500 @ 50 ms | **≈ 99%** | × 500 @ **59 ms** — steady 17/s at 84% (**57 ms**, 17.5/s, with the slower poll of 8.3) | — (no headroom) |
+| 28 m | 50 mm × 600 @ 70 ms | 84% | unchanged | unchanged |
+| 38 m | 50 mm × 800 @ 110 ms | 71% | × 800 @ **92 ms** — 10.9/s (was 9.1) | 43 mm × 950 @ 110 ms, 1.2× finer |
+| 48 m | 50 mm × 1000 @ 150 ms | 65% | × 1000 @ **115 ms** — 8.7/s (was 6.7) | 39 mm × 1300 @ 150 ms, 1.3× finer |
+
+- **Shallow water (the common case) is overdriven today.** The log of 15 July shows ~14–15 pings/s against 20 commanded:
+  something (the firmware or the AP) is pacing the pings to the link, irregularly. Commanding 59 ms gives **more pings than
+  today in practice, evenly spaced**, and leaves room for the other messages. No change in detail.
+- **Deep water has headroom that is wasted today.** The period was raised generously to stay under the wifi budget. A
+  link-fitted period gives **~30% more pings at the same detail** (A), or slightly finer spacing at today's pace (B). For a
+  2D picture — fish arches, bait-boat users — **A is the recommendation**; B gains too little to be visible.
+- **Even ping spacing matters for Task 1.** The stretch and any later km/h speed for 2D read the period. A commanded 50 ms
+  that really runs at ~67 ms makes the picture flow slower than the setting says; a period that fits is also a period that
+  is true.
+- **How**: the profile already carries `dynamicPeriodMin` (50), `dynamicSamplesMin/Max` and the period growth in
+  `PulseDepthEngine.updateDynamicSamplesAndPeriod`. The change is to compute the period from the bytes per ping instead of
+  the fixed `2 × res − 50` rule, and to raise `dynamicPeriodMin` to ~59 ms for 500 samples. It applies to red, black and
+  the red prototype alike, because all three report 115200 — the engine can key it on the reported baud.
+- **Partner check**: 59 ms is *longer* than today's 50, so it is the safe direction for the hardware; the deep-water periods
+  stay well above 70 ms.
+
+### 8.3 Slow the version poll — part of Task 2b
+
+**It is the app, not the transducer firmware.** Confirmed in the code and in the logs:
+
+- `Link::onCheckedTimerEnd()` (`src/link/link.cpp`) runs every `linkCheckingTimeInterval` = 100 ms. While data flows it
+  emits `sendDoRequestAll` every `requestAllCntBig` = 3 ticks, i.e. **every 300 ms**, and every tick while no data flows
+  (`requestAllCntSmall` = 1).
+- That reaches `DeviceManager::onSendRequestAll()` → `DevDriver::doRequestAll()` → `idVersion->requestAll()`, which sends
+  three `ID_VERSION` requests (v0, v1, v2).
+- The logs carry those requests as frames of type 3 (7 577 rounds in the red log, 965 in the blue one), each answered by the
+  transducer. **The answers, ≈ 95 bytes per round, are what costs the link**: ≈ 320 bytes/s, **≈ 2.8% of 115200**. The
+  requests themselves travel the other way on a full-duplex UART and cost nothing that matters.
+
+**The poll is not needed to know the link is alive while chart data flows.** Liveness is data-driven: `isReceivesData_`
+follows the count of complete frames and drops after `linkNumTimeoutsBig` = 10 ticks (1 s) without any. What the poll
+still does while data flows is notice a *different* device answering (a swap, which the detection rework relies on) and
+keep the version fields fresh.
+
+**Recommendation**
+
+- **While data flows, poll every ~2 s instead of 300 ms**: `requestAllCntBig` 3 → 20. Keep `requestAllCntSmall` = 1 so
+  discovery and reconnection stay as fast as today.
+- **Effect**: the answers drop from ≈ 320 to ≈ 50 bytes/s, giving back ≈ 2.3% of a 115200 link. With it, red/black's
+  fitted shallow-water period in 8.2 improves from **59 ms to ~57 ms** (≈ 17.5 pings/s). On blue it is irrelevant to the
+  budget but harmless.
+- **Cost**: a swapped transducer is noticed up to ~2 s later than today while data flows. The swap prompt is a user-facing
+  question anyway, so 2 s is invisible in practice. Worth checking on the device with the swap test of the detection rework.
+- **Shared Kogger code**: `link_defs.h` and `link.cpp` are upstream files, so this is one constant in a shared file — note
+  it in `upstream-merge-survey.md` as a deliberate PULSE divergence. If a global change is unwanted, the alternative is a
+  per-link value the app sets through a new small setter on `Link`, used only for links carrying chart data.
+- **Do it first in Task 2b**: it is the smallest change, independent of the period work, and the 8.2 numbers assume it.
+
+### 8.4 Recommendation for a PULSE black v2 (future hardware)
+
+The black is popular and red is not, so a v2 black is where the 2D detail gain belongs.
+
+- **A new hardware name** (not `Basic2D`, not `PULSEred`), so the profile, the limits and the resolver can tell it apart
+  from day one.
+- **921600 baud on the UART**, as blue. It is the one change that unlocks everything else; and the **delivered wifi AP and
+  IP connector must be configured for 921600** for v2 units, since the receiving end is what kept today's units at 115200.
+- **Blue's crystal and front end**, one channel. At 921600, 5000 single-channel samples at 70 ms load the UART to 83%, so
+  the blue engine applies unchanged with `channels = 1`:
+
+| Range | Spacing × samples @ 70 ms | vs today's black |
+|---|---|---|
+| 5 m | 1 mm × 5000 | 10× finer |
+| 10 m | 2 mm × 5000 | 10× finer |
+| 20 m | 4 mm × 5000 | 10× finer |
+| 30 m | 6 mm × 5000 | 8× finer |
+| 50 m | 10 mm × 5000 @ 71 ms | 5× finer, 2× the pings |
+
+- **Keep the period at 70 ms** (above `T_min` up to ~50 m), like blue; the stretch provides the speed.
+- **Firmware**: keep reporting the baud in `ID_UART` and the period in `ID_DATASET` (the app relies on both). Fragments of
+  200 samples are fine; 249 would save another ~1.5% of the link.
+- **App side it is mostly data**: a profile record and a `hardwareLimits` entry. Performance mode, the engine and the expert
+  limits (*Min spacing 2D*) already cover it.
+- **If CHIRP arrives in the same generation**, its pulse length changes how fine a spacing is still useful; its defaults are
+  then a measurement on the water.
 
 ## 9. Measurements before building Task 2
 
-1. **Epoch rate at 50 ms with 5000 samples** (blue at 35 m, red at 30 m): 20 epochs/s means no hidden per-ping overhead.
-2. **IP link at 1.2 km** with 100 kS/s: the echogram must stay solid. Measure the app's received byte rate as well, so the
-   wifi warning quotes a true number.
-3. **Wifi at 3.5× and 10×**: how far does it still work? This sets the warning's tone.
-4. **Red spacing floor**: can red and black go to 1 mm like production blue? It matters in shallow bait-boat water.
-5. **Stretch cap** for True mode, with interpolation on (try 2, 3, 4), and Free's 2.0× ceiling.
-6. **Drag throttle** constants on the tablet.
-7. **Render check at 5000 samples on red**: no artefacts and no lag on the target tablets, full and split screen.
+1. **Fragment size and reported baud**: answered from the logs (200 samples per fragment; `ID_UART` reports 115200 /
+   921600). Still worth checking that `dev.baudrate` in the app shows the same value over the UDP link.
+2. **Blue at 5000 samples, 70 ms**: 14.3 epochs/s and no lost fragments over an hour. Then step the period down to find
+   where fragments start to drop — that is the real headroom (the engine assumes 85%).
+3. **Red/black link-fit (8.2)**: at 500 samples and 59 ms, the epoch rate must be a steady ~17/s (against today's
+   ~14–15/s irregular at 50 ms); in deep water check the faster pings of option A.
+4. **Basic2D**: answered — blue prototype 921600, red prototype 115200.
+5. **Wifi with blue at ~84% UART** (≈ 2.6× today's data): how far does it still work? That sets the warning's tone.
+6. **Red/black UART**: answered — fixed at 115200 in the field; the pro versions will run at 921600.
+7. **Version poll**: after slowing it (8.3), the app must still notice a device that goes away within a few seconds.
+8. **Stretch cap** for True mode, with interpolation on (try 2, 3, 4).
+9. **Drag throttle** constants on the tablet.
+10. **Render check at 5000 samples** on blue (and a black v2 later): no artefacts and no lag on the target tablets.
 
-## 10. Questions answered (29 Sept)
+## 10. Questions answered
 
-1. **The red renderer limit beyond ~15 m was a broken picture (artefacts) at coarse spacing**, not lag. Performance mode
-   keeps red's spacing at 2–10 mm, far below where it broke, so the limit should not return. Rendering 5000 samples per
-   epoch is a different load, though, so Task 2b includes a render check on the target tablets (chapter 9, item 7).
-2. **PULSE black is the same as red** for this work: same profile, limits and dynamic scheme. Task 2b covers both.
+**29 Sept**
+
+1. **The red renderer limit beyond ~15 m was a broken picture (artefacts) at coarse spacing**, not lag. Performance mode keeps
+   spacing far below where it broke.
+2. **PULSE black is the same as red** for this work: same profile, limits, dynamic scheme — and the same 115200 UART.
 3. **2D panes keep today's "echogram speed ×"** control in Task 1, made pause-safe. Boat speed is for the side scan only.
-4. **The side scan defaults to True proportions.** Free is one tap away for users who prefer today's look.
+4. **The side scan is always True proportions** (30 Sept: no Free mode on the side scan).
+
+**2 Oct**
+
+5. **The bottleneck is the UART** (921600 blue, 115200 red/black), not the radio and not the IP link.
+6. **Performance mode starts as an expert category** with four persistent limits, enable default off.
+7. **8N1**; the fragment size is **200 samples** on both devices (measured from the two logs in `docs/`).
+8. **Red/black stay at 115200 in the field** (the delivered wifi AP is fixed); **pro 2D and pro black will be 921600**.
+9. **`Basic2D` is two prototypes**: blue at 921600, red at 115200 — so the engine reads the reported baud rate.
+10. **Blue keeps 70 ms.** Performance mode is a blue feature; red/black get link-fit tuning; a black v2 is recommended (8.4).
 
 ## 11. For later
 
+- Opening performance mode to all users: the per-link switch and the wifi warning (6.2, last bullet).
 - Boat speed from the autopilot (`vruVelocityH`), as an optional "Auto" beside the manual slider.
 - Constant vertical exaggeration for 2D.
-- CHIRP blue's own profile when its hardware id exists.
+- CHIRP blue's own profile and `hardwareLimits` entry when its hardware id exists — including its baud rate.
+- PULSE black v2 (8.4): new hardware name, 921600, blue's front end; then performance mode with `channels = 1`.
 
 ---
 
 ## 12. For sales: PULSE High Performance
 
 *The same features, told as the story a customer will see. Every number comes from the analysis above; ones that still
-depend on water tests are marked "up to".*
+depend on water tests are marked "up to". Revised 2 Oct: High Performance is a PULSE blue feature; today's red/black get a
+smoother picture, and the detail leap waits for a black v2.*
 
 ### The headline
 
 **See it the way it really is — at a kilometre and beyond.**
 
 The new IP telemetry link keeps the echogram rock-solid past 1 km. Bait-boat anglers, surveyors and SAR teams have seen
-it, and they want it. High Performance turns that link into what the customer actually sees: **a far sharper echogram on
-every PULSE, and a side scan in true proportions.** Connect, and it switches itself on.
+it, and they want it. PULSE turns that into what the customer actually sees: **a side scan in true proportions, and on
+PULSE blue up to twelve times the detail.**
 
 ### Selling points
 
-**1. Up to ten times sharper on PULSE red and black.**
-The same transducer, now sending ten times the detail. At 10 m depth the picture is drawn in 2 mm steps where it used to
-be 20 mm. Fish, weed and bottom structure come out crisp instead of blocky, and in deep water the picture scrolls twice as
-fast as before. For bait-boat anglers that is the spot, the fish and the drop-off, clearly visible, a kilometre out.
+**1. True proportions: shapes you can trust — on every PULSE.**
+Most sounders squash or stretch the picture every time you change range or speed. PULSE does the maths for you: set your
+boat speed, and a tyre looks round and a car looks like a car, at every range. Zoom in and the whole picture zooms, like a
+map. And pause, tap, send the boat — the waypoint lands where you tapped. Works on wifi and IP alike.
 
 **2. Up to twelve times sharper on PULSE blue — exactly where you look.**
 Bring the side scan range in and PULSE blue re-tunes itself: down to 2 mm at 5 m, where today's picture uses 25 mm. Less
 range, more detail, every time. For SAR, the difference between "something is down there" and "that is what we are
 looking for".
 
-**3. True proportions: shapes you can trust.**
-Most sounders squash or stretch the picture every time you change range or speed. PULSE does the maths for you: set your
-boat speed, and a tyre looks round and a car looks like a car, at every range. Zoom in and the whole picture zooms, like a
-map. And pause, tap, send the boat — the waypoint lands where you tapped.
+**3. Built to last, simple to use.**
+The transducer runs at the pace our hardware engineers designed it for, and every setting stays inside what its data link
+can carry — no dropped pings, no overheated electronics. The extra speed and shape come from the app. Two controls anyone
+understands: **how deep** and **how fast**.
 
-**4. Built to last, simple to use.**
-The transducer runs at the pace our hardware engineers designed it for; the extra speed and shape come from the app, not
-from wearing out the hardware. Two controls anyone understands: **how deep** and **how fast**.
-
-**5. It just works.**
-PULSE recognises the IP link and switches High Performance on by itself. On wifi? It's there too, with an honest warning
-that it trades wireless range for picture quality, so the customer decides.
+**4. PULSE black: smoother today, sharper tomorrow.**
+Today's PULSE black gets a picture that flows evenly at every depth, and up to 30% more pings in deep water, from the
+same hardware. And a next-generation black is on the drawing board: the electronics of PULSE blue in a single-beam 2D,
+built for up to ten times the detail. *(Black v2 is not announced: no dates, no promises to owners of today's units.)*
 
 ### What the user sees
 
-- Drag max depth: **the picture follows your finger instantly**. Let go, and **it sharpens in front of your eyes**.
+- Drag max depth: **the picture follows your finger instantly**. Let go, and on PULSE blue **it sharpens in front of your eyes**.
 - Set boat speed to 3 km/h, drive at 3 km/h: **the side scan draws the bottom in true shape**.
-- On a red over IP: **every fish arch and weed bed in fine detail**, down to 50 m.
 
 ### One-liners
 
 - *"True shape. Real detail. A kilometre out."*
-- *"PULSE High Performance: the IP link's power, turned into detail you can see."*
+- *"PULSE blue High Performance: the IP link's power, turned into detail you can see."*
 - *"Made in Germany, tuned on the water with SAR professionals, anglers and surveyors."*
 
 ### Honest boundaries (so nothing is oversold)
 
-- The detail gain needs the IP telemetry link; on wifi it costs range, and the app says so.
-- On blue the biggest gain is at short range: about 2.5× at 25–35 m, more than 10× at 5 m. On red/black, 5–10× at every
-  depth.
+- High Performance is expert-only for now, while it is tuned on the water.
+- On blue the biggest gain is at short range: about 2.5× at 25–35 m, up to 12× at 5 m. On wifi it costs some range.
+- Today's PULSE red and black keep their link: a smoother, evener picture, not more detail. The 2D detail leap needs a black v2.
 - True proportions assumes the boat drives at the speed set on the slider; very close in, the picture is marked when it is
   shortened for readability.
-- Final numbers are being tuned on the water before release.
