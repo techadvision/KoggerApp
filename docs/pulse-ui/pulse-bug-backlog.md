@@ -3248,6 +3248,14 @@ read-out's `QTimer` never fired. **`445e9111`** starts it in `setSettingsBus()` 
 prints `LINK: the serial link read-out is running (once a second)` once at startup. The serial lines in that log are a USB
 serial link that cannot open (`bus/usb/002/002`), retried every 500 ms - harmless with the transducer on IP.
 
+**The first reading, 2 Oct night, G30 + live blue prototype at the shipped 2000 samples / 70 ms (step 1 of the
+measurement): the counter agrees with the arithmetic.** 28.7-33.9 kB/s on the wire, **31-37% of 921600**, against the
+predicted ~31 kB/s / 34% (14.3 pings/s x (10 fragments x 214 + 10) + the version poll). Lost chart samples 0.00-0.39% per
+10 s, 0.17% since start - on the ground, close to the antenna. **The very first line read `baud 115200 -> 185.8%`**: the
+device's UART answer had not arrived yet and the value is a default; it is right from the second line on (worth
+remembering in step 2: **the engine must not budget until the reported baud has settled**). Each `LINK:` line now also
+carries the clock time and the samples/spacing/period the transducer reports (`9febe631`).
+
 #### The measurement (chapter 9, item 2) - on the tablet with a live blue on the IP link
 
 `adb logcat | grep -E "LINK:|PARAM:|chartSamples|ch1Period"`, or `pulse.log`. Expert -> Transducer, with
