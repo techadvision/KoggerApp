@@ -1,0 +1,112 @@
+#!/usr/bin/env node
+//
+// pulse-perf-check.js - a standing check on the performance mode arithmetic.
+//
+//   node tools/pulse-perf-check.js
+//
+// qml/PulsePerfEngine.js is a `.pragma library` file with no QML in it, so its functions
+// run here as they are. What is asserted, and why each one matters:
+//
+//   * the wire model reproduces the link measurement of 2 Oct (chapter 9a): the shipped
+//     2000 x 25 mm at 70 ms is ~34%, 5000 at 70 ms ~84%, 60 ms ~96%, 55 ms over 100%
+//   * the engine's table for blue at the 15 mm expert default and at the 1 mm production
+//     floor (chapter 7)
+//   * NOTHING the engine can plan is above the 85% budget - every range 5..35 m, every
+//     floor 1..50 mm, every samples ceiling, at 921600 and at a wrong 115200
+//   * the configurations that killed the link (5000 at 55 and at 60 ms) never come out
+//   * the listen time holds the period: 5000 x 25 mm (62.5 m per side) runs at ~87 ms
+//   * the baud choice: the 12-minute 115200 run of 9a goes to the table
+//
+// Exit code 0 = all checks passed.
+
+const fs = require("fs");
+const path = require("path");
+
+const repo = path.resolve(__dirname, "..");
+const src = fs.readFileSync(path.join(repo, "qml", "PulsePerfEngine.js"), "utf8")
+    .replace(/^\.pragma library\s*$/m, "");
+const E = new Function(src + "\nreturn { bytesPerPing, loadPercent, listenTimeMs, realPeriodMs, rangePerSideM, plan, chooseBaud, BUDGET };")();
+
+let failures = 0;
+function check(cond, what) {
+    if (cond) { console.log("  ok   " + what); }
+    else      { console.log("  FAIL " + what); failures++; }
+}
+function near(a, b, tol) { return Math.abs(a - b) <= tol; }
+
+const BLUE = 921600, RED = 115200, C = 1500;
+
+console.log("the wire model against the 9a measurement");
+check(E.bytesPerPing(5000) === 5360, "5000 samples = 25 fragments x 214 + 10 = 5360 bytes per ping");
+check(near(E.loadPercent(2000, 70, BLUE), 34, 2), "shipped 2000 @ 70 ms ~34% (measured 31-37%): " + E.loadPercent(2000, 70, BLUE).toFixed(1));
+check(near(E.loadPercent(5000, 70, BLUE), 84, 1.5), "5000 @ 70 ms ~84% (measured 80-88): " + E.loadPercent(5000, 70, BLUE).toFixed(1));
+check(near(E.loadPercent(5000, 60, BLUE), 97, 2), "5000 @ 60 ms ~96% (measured, the edge): " + E.loadPercent(5000, 60, BLUE).toFixed(1));
+check(E.loadPercent(5000, 55, BLUE) > 100, "5000 @ 55 ms over 100% (killed the link): " + E.loadPercent(5000, 55, BLUE).toFixed(1));
+check(near(E.realPeriodMs(70, E.rangePerSideM(5000, 25, 2), 1480), 87.5, 1),
+      "5000 x 25 mm = 62.5 m per side: the firmware holds ~87 ms (measured 87): " + E.realPeriodMs(70, 62.5, 1480).toFixed(1));
+
+function blue(rangeM, expertFloor, hwFloor, extra) {
+    return E.plan(Object.assign({ rangeM, channels: 2, hwFloorMm: hwFloor, expertFloorMm: expertFloor,
+                                  maxSamples: 5000, periodMs: 70, baud: BLUE, soundSpeed: C }, extra || {}));
+}
+
+console.log("blue at the 15 mm expert default (chapter 7)");
+const t15 = { 35: [15, 4700], 25: [15, 3350], 15: [15, 2000], 10: [15, 1350], 5: [15, 700] };
+for (const r of Object.keys(t15)) {
+    const p = blue(+r, 15, 15);
+    check(p.spacingMm === t15[r][0] && p.samples === t15[r][1] && p.limitedBy === "min spacing" && p.rangeM >= +r,
+          r + " m -> " + p.spacingMm + " mm x " + p.samples + " (" + p.rangeM.toFixed(2) + " m, " + p.loadPercent.toFixed(0) + "%, " + p.limitedBy + ")");
+}
+
+console.log("production blue at a 1 mm floor (chapter 7)");
+const t1 = { 35: 14, 25: 10, 15: 6, 10: 4, 5: 2 };
+for (const r of Object.keys(t1)) {
+    const p = blue(+r, 1, 1);
+    check(p.spacingMm === t1[r] && p.samples === 5000 && p.rangeM >= +r && p.loadPercent <= 85,
+          r + " m -> " + p.spacingMm + " mm x " + p.samples + " (" + p.loadPercent.toFixed(1) + "%)");
+}
+
+console.log("the hardware floor binds the expert row; the expert can only tighten");
+check(blue(10, 1, 15).spacingMm === 15, "Basic2D with Min spacing blue at 1 mm still gets 15 mm");
+check(blue(10, 20, 15).spacingMm === 20, "Min spacing blue 20 mm on Basic2D gives 20 mm");
+check(blue(25, 1, 1, { maxSamples: 2000 }).samples <= 2000, "Max samples 2000 is a ceiling");
+check(blue(25, 1, 1, { maxSamples: 2000 }).limitedBy === "max samples", "... and is named as what binds");
+
+console.log("nothing above the 85% budget, anywhere");
+let worst = 0, worstAt = "", over = 0, period = 0;
+for (const baud of [BLUE, RED]) {
+    for (let r = 5; r <= 35; r += 1) {
+        for (let f = 1; f <= 50; f++) {
+            for (const sm of [500, 1000, 2000, 3350, 5000]) {
+                const p = blue(r, f, 1, { maxSamples: sm, baud });
+                const l = p.loadPercent;
+                if (l > worst) { worst = l; worstAt = r + " m, floor " + f + ", max " + sm + ", baud " + baud; }
+                if (l > 85.0001) over++;
+                if (p.realPeriodMs < 70) period++;
+                if (p.samples > sm || p.samples > 5000) over++;
+            }
+        }
+    }
+}
+check(over === 0, "no plan over 85% or over its samples ceiling (worst " + worst.toFixed(2) + "% at " + worstAt + ")");
+check(period === 0, "no plan runs faster than 70 ms");
+
+console.log("the configurations that killed the link never come out");
+const at60 = blue(25, 1, 1, { periodMs: 60 }), at55 = blue(25, 1, 1, { periodMs: 55 });
+check(at60.loadPercent <= 85 && at60.samples < 5000 && at60.limitedBy === "link", "asked for 60 ms: " + at60.samples + " x " + at60.spacingMm + " mm, " + at60.loadPercent.toFixed(1) + "%");
+check(at55.loadPercent <= 85 && at55.samples < 5000, "asked for 55 ms: " + at55.samples + " x " + at55.spacingMm + " mm, " + at55.loadPercent.toFixed(1) + "%");
+const wrong = blue(25, 15, 15, { baud: RED });
+check(wrong.loadPercent <= 85 && wrong.limitedBy === "link", "a blue budgeted on 115200 fits 115200: " + wrong.samples + " x " + wrong.spacingMm + " mm");
+
+console.log("which baud to trust");
+let b = E.chooseBaud(115200, false, 80000, BLUE);
+check(b.baud === BLUE, "the 12-minute run of 9a (115200 reported, 80 kB/s arriving) -> the table: " + b.source);
+b = E.chooseBaud(921600, true, 31000, BLUE);
+check(b.baud === BLUE && /reported/.test(b.source), "a settled 921600 is taken as reported");
+b = E.chooseBaud(115200, true, 0, BLUE);
+check(b.baud === 0, "nothing flowing -> wait, never budget on a default");
+b = E.chooseBaud(0, true, 31000, BLUE);
+check(b.baud === BLUE, "nothing reported -> the table");
+
+console.log(failures === 0 ? "\nAll performance arithmetic checks passed." : "\n" + failures + " check(s) FAILED.");
+process.exit(failures === 0 ? 0 : 1);
