@@ -3297,6 +3297,17 @@ Basic2D and not a 2D transducer - else 1); the Transducer row's minimum follows 
 the prototype, and the spacing slider stops at 15. **Confirmed by Olav on the device:** Samples stops at 5000; the
 Ping period row is capped at 40-160 and changes the echogram's height as it should.
 
+#### Noted for later - the false bottom moves out with the range (Olav, 2 Oct night)
+
+On shore (no water), the bottom track's false depth on the blue prototype was **~19 m (16-20) at 2000 samples** and **~33 m
+at 5000**. Both sit near the far end of what the ping covers: 2000 x 25 mm is 25 m per side (19 m = ~0.75 of it), 5000 x
+15 mm is 37.5 m per side (33 m = ~0.9). The likely reading: with no real bottom, the strongest thing in the trace is noise
+that the range-dependent gain has lifted at the far end, so the "bottom" follows the range. **Why it matters for
+performance mode:** the engine changes samples and spacing, and so the range, on its own. On the water a real bottom should
+win, but over a soft or deep bottom a longer acquisition range gives the bottom track more far-out noise to pick. Worth a
+look when the engine is on the water: whether bottom track's search should be bounded by the expected depth rather than the
+full trace. Not started.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
