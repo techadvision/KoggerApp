@@ -258,6 +258,15 @@ public:
     quint64 statChartBytes() const   { return statChartBytes_.load(std::memory_order_relaxed); }
     quint64 statMissingBytes() const { return statMissingBytes_.load(std::memory_order_relaxed); }
 
+    // PULSE, performance mode step 2 (2 Oct 2026): what the LAST COMPLETE PING carried -
+    // its spacing from the chart header and its sample count, both channels counted. This
+    // is the transducer's own word on what it is sending, not the value the app last asked
+    // for (DevDriver's chartResolution() / chartSamples() are the app's copy, written the
+    // moment a setter runs). The performance engine waits for these to match what it sent
+    // before it sends anything else. A ping whose last fragments were lost reads short.
+    int statPingSamples() const { return int(statPingSamples_.load(std::memory_order_relaxed)); }
+    int statPingResol() const   { return int(statPingResol_.load(std::memory_order_relaxed)); }
+
     uint8_t getAverageLosses() const {
         int sum = 0;
         for (uint8_t loss : lossHistory_) {
@@ -289,6 +298,8 @@ private:
     QVector<uint8_t> lossHistory_;
     int lossIndex_ = 0;
     std::atomic<quint64> statChartBytes_{0};
+    std::atomic<quint32> statPingSamples_{0};
+    std::atomic<quint32> statPingResol_{0};
     std::atomic<quint64> statMissingBytes_{0};
 };
 

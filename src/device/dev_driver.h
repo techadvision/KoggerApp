@@ -200,6 +200,9 @@ public:
     // PULSE, performance mode step 1: the chart stream's own byte counts, see IDBinChart.
     quint64 chartBytesReceived() const { return idChart ? idChart->statChartBytes()   : 0; }
     quint64 chartBytesMissing()  const { return idChart ? idChart->statMissingBytes() : 0; }
+    // what the last complete ping carried - see IDBinChart::statPingSamples()
+    int chartStreamSamples()    const { return idChart ? idChart->statPingSamples() : 0; }
+    int chartStreamResolution() const { return idChart ? idChart->statPingResol()   : 0; }
     QUuid getLinkUuid() const;
     void setFirmware(const QByteArray& data);
 

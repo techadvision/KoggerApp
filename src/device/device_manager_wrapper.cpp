@@ -99,6 +99,8 @@ void DeviceManagerWrapper::sampleLinkStats()
     chartLossPercent_ = (wc + wm) > 0 ? double(wm) * 100.0 / double(wc + wm) : -1.0;
     chartLossPercentTotal_ = (st.chartBytes + st.missingBytes) > 0
                              ? double(st.missingBytes) * 100.0 / double(st.chartBytes + st.missingBytes) : -1.0;
+    linkStreamSamples_ = st.streamSamples;
+    linkStreamSpacingMm_ = st.streamSpacingMm;
     emit linkStatsChanged();
 
     if (dWire > 0) {
@@ -106,7 +108,7 @@ void DeviceManagerWrapper::sampleLinkStats()
             // SELF-DESCRIBING (Olav, 2 Oct: Qt Creator's output has no time stamps): the
             // clock time and what the transducer reports it is set to, so a measurement run
             // can be read from the lines alone. pulse.log stamps every line as well.
-            qDebug().noquote() << QStringLiteral("LINK: %6 | %7 samples, %8 mm, %9 ms | %1 B/s on the wire (10 s average) | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
+            qDebug().noquote() << QStringLiteral("LINK: %6 | %7 samples, %8 mm, %9 ms (stream %10 x %11 mm) | %1 B/s on the wire (10 s average) | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
                                       .arg(avgWire)
                                       .arg(st.baud)
                                       .arg(linkLoadPercent_ >= 0 ? QString::number(linkLoadPercent_, 'f', 1) + "% used"
@@ -115,7 +117,8 @@ void DeviceManagerWrapper::sampleLinkStats()
                                       .arg(chartLossPercent_ >= 0 ? QString::number(chartLossPercent_, 'f', 2) + "%" : QStringLiteral("-"))
                                       .arg(chartLossPercentTotal_ >= 0 ? QString::number(chartLossPercentTotal_, 'f', 2) + "%" : QStringLiteral("-"))
                                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
-                                      .arg(st.samples).arg(st.spacingMm).arg(st.periodMs);
+                                      .arg(st.samples).arg(st.spacingMm).arg(st.periodMs)
+                                      .arg(st.streamSamples).arg(st.streamSpacingMm);
         }
     } else {
         secondsWithData_ = 0;

@@ -67,6 +67,10 @@ public:
         int     samples      = 0;
         int     spacingMm    = 0;
         int     periodMs     = 0;
+        // what the last complete ping in the chart stream carried (step 2): the transducer's
+        // own word, from the same device
+        int     streamSamples   = 0;
+        int     streamSpacingMm = 0;
     };
     LinkStats linkStats() const;
     Q_INVOKABLE bool mavlinkDetected() const;

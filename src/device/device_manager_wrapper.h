@@ -46,6 +46,11 @@ public:
     Q_PROPERTY(double linkLoadPercent       READ linkLoadPercent       NOTIFY linkStatsChanged)
     Q_PROPERTY(double chartLossPercent      READ chartLossPercent      NOTIFY linkStatsChanged)
     Q_PROPERTY(double chartLossPercentTotal READ chartLossPercentTotal NOTIFY linkStatsChanged)
+    //Pulse, performance mode step 2: what the last complete ping in the chart stream carried
+    //(spacing from its header, samples over both channels) - the transducer's own word, which
+    //the engine waits for before it sends the next parameter. 0 until a ping has arrived.
+    Q_PROPERTY(int    linkStreamSamples     READ linkStreamSamples     NOTIFY linkStatsChanged)
+    Q_PROPERTY(int    linkStreamSpacingMm   READ linkStreamSpacingMm   NOTIFY linkStatsChanged)
 
     DeviceManager* getWorker();
     QUuid getFileUuid() const;
@@ -81,6 +86,8 @@ public:
     double linkLoadPercent() const       { return linkLoadPercent_; }
     double chartLossPercent() const      { return chartLossPercent_; }
     double chartLossPercentTotal() const { return chartLossPercentTotal_; }
+    int    linkStreamSamples() const     { return linkStreamSamples_; }
+    int    linkStreamSpacingMm() const   { return linkStreamSpacingMm_; }
     int getAverageChartLosses() const {
         return averageChartLosses_;
     };
@@ -156,6 +163,8 @@ private:
     double linkLoadPercent_ = -1.0;
     double chartLossPercent_ = -1.0;
     double chartLossPercentTotal_ = -1.0;
+    int linkStreamSamples_ = 0;
+    int linkStreamSpacingMm_ = 0;
     std::unique_ptr<DeviceManager> workerObject_;
 #ifdef SEPARATE_READING
     std::unique_ptr<QThread> workerThread_;

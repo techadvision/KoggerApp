@@ -236,6 +236,8 @@ Resp IDBinChart::parsePayload(FrameParser &proto) {
             m_absOffset = absOffsetLast_;
 
             m_isCompleteChart = true;
+            statPingSamples_.store(proto.ver() == v1 ? m_chartSize * 2 : m_chartSize, std::memory_order_relaxed);
+            statPingResol_.store(m_sampleResol, std::memory_order_relaxed);
 
             m_chartSizeIncr = 0;
         }
@@ -303,6 +305,8 @@ Resp IDBinChart::parsePayload(FrameParser &proto) {
                 m_absOffset = absOffsetLast_;
 
                 m_isCompleteChart = true;
+                statPingSamples_.store(proto.ver() == v1 ? m_chartSize * 2 : m_chartSize, std::memory_order_relaxed);
+                statPingResol_.store(m_sampleResol, std::memory_order_relaxed);
             }
 
             m_chartSizeIncr = 0;
