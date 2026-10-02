@@ -1208,6 +1208,14 @@ void DevDriver::setChartResolution(int resol) {
     }
 }
 
+void DevDriver::setChartSetup(int resol, int samples) {
+    if(!m_state.connect) return;
+    if (resol == chartResolution() && samples == chartSamples()) return;
+    idChartSetup->setV0(static_cast<U2>(samples), static_cast<U2>(resol), idChartSetup->offset());
+    emit sendChartSetup(getChannelId(), idChartSetup->resolution(), idChartSetup->count(), idChartSetup->offset());
+    emit chartSetupChanged();
+}
+
 int DevDriver::chartOffset() {
     return idChartSetup->offset();
 }

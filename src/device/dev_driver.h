@@ -55,6 +55,12 @@ public:
 
     int chartResolution();
     void setChartResolution(int resol);
+    // PULSE, performance mode step 2: spacing AND samples in ONE chart setup message. The two
+    // setters above each send a full setup carrying the other's CURRENT value, so changing both
+    // is two messages with a mismatched state in between (5000 samples at the old, coarser
+    // spacing is a longer range for one ping). The engine sends one message and waits for the
+    // chart stream to show it before it sends anything else.
+    Q_INVOKABLE void setChartSetup(int resol, int samples);
 
     int chartOffset();
     void setChartOffset(int offset);
