@@ -2196,6 +2196,17 @@ QtObject {
     //the first value it ever reports and the app stops being able to tell a red from a blue.
     readonly property bool is2DTransducer:          committedProfile.is2DTransducer
 
+    //THE HARDWARE'S SPACING FLOOR, in mm (2 Oct 2026). The PULSE blue prototype (hardware
+    //name Basic2D, two channels) loses the link the instant its sample spacing goes below
+    //15 mm; production blue goes to 1 mm. Olav: "a floor is a floor" - this is a hardware
+    //fact, so it binds every writer, the expert's raw Transducer row included, and the
+    //Performance mode engine can only tighten it. The two Basic2D prototypes share the name;
+    //the committed profile tells them apart (the red prototype is a 2D transducer).
+    readonly property int hardwareSpacingFloorMm:
+        (rawDev_devName === modelPulseBlueProto && !is2DTransducer) ? 15 : 1
+    onHardwareSpacingFloorMmChanged: console.log("PARAM: hardware spacing floor ->", hardwareSpacingFloorMm,
+                                                 "mm | device", rawDev_devName, "| 2D", is2DTransducer)
+
     //THE DISPLAY SIDE OF THE SAME QUESTION (backlog items 7 and 10). is2DTransducer above is
     //a fact about the COMMITTED device and is what decides configuration and what the
     //choosers offer. This one is a fact about the PICTURE: what is on screen right now, log
@@ -2333,6 +2344,12 @@ QtObject {
     }
 
     function setParam(name, value) {
+        // THE SPACING FLOOR IS ENFORCED HERE TOO, so no caller can get under it - the row's
+        // minimum is the visible half, this is the half that holds.
+        if (name === "chartResolution" && value < hardwareSpacingFloorMm) {
+            console.log("PARAM: chartResolution", value, "is below the hardware floor -", hardwareSpacingFloorMm, "mm sent instead")
+            value = hardwareSpacingFloorMm
+        }
         if (paramValue(name) === value)
             return
         var all  = _copyOf(liveParams)

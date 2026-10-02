@@ -1090,7 +1090,9 @@ Item {
                     hint: list.paramNum("doDynamicResolution", 0)
                         ? qsTr("the app is driving this - turn Dynamic resolution off to hold it")
                         : qsTr("millimetres between points - finer costs depth, which can be the point")
-                    minValue: 1
+                    // THE HARDWARE FLOOR, not 1: the blue prototype loses the link the instant
+                    // its spacing goes below 15 mm (Olav, 2 Oct). See hardwareSpacingFloorMm.
+                    minValue: pulseRuntimeSettings ? pulseRuntimeSettings.hardwareSpacingFloorMm : 1
                     maxValue: 100
                     stepSize: 1
                     value: list.paramNum("chartResolution", 1)
