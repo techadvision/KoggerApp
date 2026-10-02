@@ -3297,6 +3297,22 @@ Basic2D and not a 2D transducer - else 1); the Transducer row's minimum follows 
 the prototype, and the spacing slider stops at 15. **Confirmed by Olav on the device:** Samples stops at 5000; the
 Ping period row is capped at 40-160 and changes the echogram's height as it should.
 
+### BOTTOM TRACK - TWO OPEN PROBLEMS, TO BE DEALT WITH (Olav, 2 Oct night)
+
+Olav: *"The false readings we need to deal with. As we also need to deal with a seemingly inability to interpret depths
+below 0.5 meters with bottom track."* Both are kept here so they are not lost; neither is started.
+
+1. **False depths when there is no real bottom** - see the note directly below (on shore: ~19 m at 2000 samples, ~33 m
+   at 5000; the false bottom follows the acquisition range). Worse with performance mode, which changes the range itself.
+2. **No depth below ~0.5 m from bottom track.** Known since 14 Sept, and until now only recorded in code:
+   `PulseDepthEngine.qml` (*"The bottomTrackMinDepth crossover - rangefinder below ~0.5 m, bottom track above - is still not
+   implemented here"*) and `plot2D_aim.cpp` (*"Bottom track has serious trouble on the shore and below about half a
+   metre"*). The planned shape: a crossover that keys off the **rangefinder** value - below ~0.5-1 m the rangefinder,
+   above it bottom track - in the depth engine, so the readout, NMEA and the loupe agree. A blue has no nadir rangefinder,
+   so for a side scan the question is what bottom track's own minimum (blanking / dead zone) is set to.
+
+Suggested slot: after Task 2a (the engine changes the range, which feeds problem 1), before or with Task 2b.
+
 #### Noted for later - the false bottom moves out with the range (Olav, 2 Oct night)
 
 On shore (no water), the bottom track's false depth on the blue prototype was **~19 m (16-20) at 2000 samples** and **~33 m
@@ -3312,25 +3328,40 @@ full trace. Not started.
 
 ```
 We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
-app"). Repo: my KoggerApp folder, branch feature/pulse-performance-mode. 1.42 is public
-from master. Read claude/pulse-high-performance-mode.md (chapter 9a, the link
-measurement) and claude/pulse-bug-backlog.md ("Performance mode, step 1" and "The link
-measurement") first. Check whether the branch is pushed.
+app"). Repo: my KoggerApp folder, branch feature/pulse-performance-mode (off master at
+1.42, which is public; performance mode goes to internal test only, quick fixes to the
+public release come from master). Read first: claude/pulse-high-performance-mode.md,
+chapters 6, 7 and 9a (the link measurement), and claude/pulse-bug-backlog.md from
+"Performance mode, step 1" to the end. Check whether the branch is pushed - remind me if
+not.
+
+Where we are: step 1 is built and verified on the G30 with my blue prototype (Basic2D):
+the expert "Performance mode" category (four persistent rows, nothing acting on them),
+the Serial link / Lost chart samples read-outs and the LINK: log line; Samples capped at
+5000, Ping period 40-160 ms, the prototype held at a 15 mm spacing floor
+(hardwareSpacingFloorMm). Measured: 5000 x 15 mm at 70 ms = ~84% of 921600, stable; 60 ms
+~96%; 55 ms kills the link without warning; the firmware holds the listen time
+(2R/c + ~3 ms); the reported baud can stay at a default 115200.
 
 Today: step 2, the blue engine. 70 ms fixed; samples and spacing from the visible range
-per side within the floors (hardware, Min spacing blue, Max samples) and an 85% budget
-by arithmetic - never searched for on the water, since overload kills the link without
-warning; the real period is max(T, 2R/c + 3 ms); the reported baud is checked against
-the measured rate and falls back to the model table; one writer of the ping period while
-the mode is on; the Side scan width workaround off while on; the drag throttle; acting
-only while expert mode is on. Task 2b (red/black link-fit, the version poll) after.
+per side within the floors (hardwareSpacingFloorMm, Min spacing blue, Max samples) and an
+85% budget by arithmetic - never searched for on the water; the real period is
+max(T, 2R/c + 3 ms); the reported baud checked against the measured rate, falling back to
+the model table; one writer of the ping period while the mode is on; the Side scan width
+workaround off while on; the drag throttle; acting only while expert mode is on. Agree
+the design with me before building.
 
-Working rules as before: Classic is not touched; run moc on any changed header and a
-g++ -fsyntax-only check on changed C++ in the cloud shell (apt qt6-base-dev
-qt6-declarative-dev qt6-base-dev-tools libqt6serialport6-dev qt6-positioning-dev; -I every
-src dir, not third_party), plus the tools/pulse-*-check.js scripts, before telling me to
-build; update the backlog in the repo AND the project doc. Performance mode publishes to
-internal test only; quick fixes to the public release come from master.
+Keep on the list (backlog, "BOTTOM TRACK - TWO OPEN PROBLEMS"): false bottom-track depths
+with no real bottom (they follow the range), and no bottom-track depth below ~0.5 m.
+Then Task 2b (red/black link-fit, the version poll). Waypoint desk tests T1-T6 are still
+owed on my side.
+
+Working rules as before: Classic is not touched; one idea per commit; nothing is fixed
+before its log line is read; run moc on any changed header and a g++ -fsyntax-only check
+on changed C++ in the cloud shell (apt qt6-base-dev qt6-declarative-dev
+qt6-base-dev-tools libqt6serialport6-dev qt6-positioning-dev; -I every src dir, not
+third_party), plus the tools/pulse-*-check.js scripts, before telling me to build;
+update the backlog in the repo AND the project doc.
 ```
 
 ### Emulators
