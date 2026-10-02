@@ -249,6 +249,7 @@ Resp IDBinChart::parsePayload(FrameParser &proto) {
         lossIndex_ = (lossIndex_ + 1) % lossHistory_.size();
 
         uint16_t part_len = proto.readAvailable();
+        statChartBytes_.fetch_add(part_len, std::memory_order_relaxed);
         if (m_chartSizeIncr == m_seqOffset) {
             lossHistory_[lossIndex_] = 0;
 
@@ -259,6 +260,7 @@ Resp IDBinChart::parsePayload(FrameParser &proto) {
         }
         else if(m_chartSizeIncr < m_seqOffset) {
             lossHistory_[lossIndex_] = 1;
+            statMissingBytes_.fetch_add(m_seqOffset - m_chartSizeIncr, std::memory_order_relaxed);
 
 
             if (proto.ver() == v0) {
@@ -278,6 +280,7 @@ Resp IDBinChart::parsePayload(FrameParser &proto) {
             //return respErrorPayload;
         }
         else { // first frame loss
+            statMissingBytes_.fetch_add(m_seqOffset, std::memory_order_relaxed);
             if ((m_chartSizeIncr != 0) || (m_sampleResol != sampleResol || m_absOffset != absOffset)) {
                 if(proto.ver() == v0) {
                     memcpy(m_completeChart, m_fillChart, m_chartSizeIncr);

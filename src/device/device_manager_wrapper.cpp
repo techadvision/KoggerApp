@@ -1,6 +1,7 @@
 #include "device_manager_wrapper.h"
 #include "device_defs.h"
 #include "SettingsBus.h"
+#include <QDebug>
 
 
 DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
@@ -42,6 +43,57 @@ DeviceManagerWrapper::DeviceManagerWrapper(QObject* parent) :
     QObject::connect(workerObject_.get(), &DeviceManager::openProgressChanged,  this,                &DeviceManagerWrapper::openProgressChanged,    ct);
     QObject::connect(workerObject_.get(), &DeviceManager::openInterrupted,      this,                &DeviceManagerWrapper::openInterrupted,        ct);
 #endif
+
+    // PULSE, performance mode step 1: the serial link read-outs, on the GUI thread.
+    linkStatsTimer_.setInterval(1000);
+    QObject::connect(&linkStatsTimer_, &QTimer::timeout, this, &DeviceManagerWrapper::sampleLinkStats);
+    linkStatsTimer_.start();
+}
+
+// ONE SECOND OF THE SERIAL LINK. The wire rate is measured, not estimated: every KP frame
+// from a live link is counted where it arrives. The load is that rate against the
+// transducer's own reported baud at 8N1 (10 bits a byte). The loss is the chart samples a
+// seqOffset gap said never arrived, over the last 10 s and since the start. A `LINK:` line
+// every 10 s while data flows is the record a measurement run is read from.
+void DeviceManagerWrapper::sampleLinkStats()
+{
+    const DeviceManager::LinkStats st = getWorker()->linkStats();
+
+    // The counters only grow; a dataset reset does not touch them. Guard anyway, so a
+    // future reset cannot produce a huge unsigned delta.
+    const quint64 dWire    = st.wireBytes    >= lastWireBytes_    ? st.wireBytes    - lastWireBytes_    : 0;
+    const quint64 dChart   = st.chartBytes   >= lastChartBytes_   ? st.chartBytes   - lastChartBytes_   : 0;
+    const quint64 dMissing = st.missingBytes >= lastMissingBytes_ ? st.missingBytes - lastMissingBytes_ : 0;
+    lastWireBytes_ = st.wireBytes;
+    lastChartBytes_ = st.chartBytes;
+    lastMissingBytes_ = st.missingBytes;
+
+    winChart_[winIndex_] = dChart;
+    winMissing_[winIndex_] = dMissing;
+    winIndex_ = (winIndex_ + 1) % kLossWindow;
+    quint64 wc = 0, wm = 0;
+    for (int i = 0; i < kLossWindow; ++i) { wc += winChart_[i]; wm += winMissing_[i]; }
+
+    linkBaud_ = st.baud;
+    linkBytesPerSecond_ = int(dWire);
+    linkLoadPercent_ = (st.baud > 0) ? (double(dWire) * 10.0 * 100.0 / double(st.baud)) : -1.0;
+    chartLossPercent_ = (wc + wm) > 0 ? double(wm) * 100.0 / double(wc + wm) : -1.0;
+    chartLossPercentTotal_ = (st.chartBytes + st.missingBytes) > 0
+                             ? double(st.missingBytes) * 100.0 / double(st.chartBytes + st.missingBytes) : -1.0;
+    emit linkStatsChanged();
+
+    if (dWire > 0) {
+        if (++secondsWithData_ % 10 == 1) {
+            qDebug().noquote() << QStringLiteral("LINK: %1 B/s on the wire | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
+                                      .arg(dWire)
+                                      .arg(st.baud)
+                                      .arg(linkLoadPercent_ >= 0 ? QString::number(linkLoadPercent_, 'f', 1) + "% used" : QStringLiteral("load unknown"))
+                                      .arg(chartLossPercent_ >= 0 ? QString::number(chartLossPercent_, 'f', 2) + "%" : QStringLiteral("-"))
+                                      .arg(chartLossPercentTotal_ >= 0 ? QString::number(chartLossPercentTotal_, 'f', 2) + "%" : QStringLiteral("-"));
+        }
+    } else {
+        secondsWithData_ = 0;
+    }
 }
 
 //PULSE

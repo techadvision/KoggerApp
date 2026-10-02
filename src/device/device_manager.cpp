@@ -140,6 +140,26 @@ int DeviceManager::pilotModeState()
     return vru_.flightMode;
 }
 
+DeviceManager::LinkStats DeviceManager::linkStats() const
+{
+    LinkStats st;
+    st.wireBytes = sonarWireBytes_.load(std::memory_order_relaxed);
+    for (auto i = devTree_.cbegin(), end = devTree_.cend(); i != end; ++i) {
+        const auto& devs = i.value();
+        for (auto k = devs.cbegin(), kend = devs.cend(); k != kend; ++k) {
+            DevQProperty* dev = k.value();
+            if (dev == nullptr)
+                continue;
+            st.chartBytes   += dev->chartBytesReceived();
+            st.missingBytes += dev->chartBytesMissing();
+            const int b = dev->getBaudrate();
+            if (b > st.baud)
+                st.baud = b;
+        }
+    }
+    return st;
+}
+
 int DeviceManager::calcAverageChartLosses()
 {
     int retVal = 0;
@@ -232,6 +252,13 @@ void DeviceManager::frameInput(QUuid uuid, Link* link, Parsers::FrameParser fram
 
         if (frame.completeAsKBP() || frame.completeAsKBP2()) {
             DevQProperty* dev = getDevice(uuid, link, frame.route());
+
+            // PULSE: the serial link's load, counted where every transducer frame passes.
+            // A live link only - a file or a demo replays at whatever pace it likes and says
+            // nothing about a UART. +8 is KP1's sync (2), address, mode, id, length (4) and
+            // checksum (2); PULSE devices speak KP1.
+            if (link != nullptr)
+                sonarWireBytes_.fetch_add(quint64(frame.payloadLen()) + 8u, std::memory_order_relaxed);
 
             if (isConsoled_ && link && frame.id() != 32 && frame.id() != 33) { // link ptr check added
 #ifndef SEPARATE_READING

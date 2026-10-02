@@ -36,6 +36,14 @@ public:
     Q_PROPERTY(bool mavlinkDetected READ mavlinkDetected NOTIFY mavlinkWasDetected)
     //Pulse, P2: how far a file open has got. Readable at all only because openFile() yields.
     Q_PROPERTY(int fileOpenProgress READ fileOpenProgress NOTIFY openProgressChanged)
+    //Pulse, performance mode step 1: the serial link read-outs, refreshed once a second.
+    //linkLoadPercent and the loss figures are -1 while there is nothing to say (no baud
+    //reported, or no chart data in the window).
+    Q_PROPERTY(int    linkBaud              READ linkBaud              NOTIFY linkStatsChanged)
+    Q_PROPERTY(int    linkBytesPerSecond    READ linkBytesPerSecond    NOTIFY linkStatsChanged)
+    Q_PROPERTY(double linkLoadPercent       READ linkLoadPercent       NOTIFY linkStatsChanged)
+    Q_PROPERTY(double chartLossPercent      READ chartLossPercent      NOTIFY linkStatsChanged)
+    Q_PROPERTY(double chartLossPercentTotal READ chartLossPercentTotal NOTIFY linkStatsChanged)
 
     DeviceManager* getWorker();
     QUuid getFileUuid() const;
@@ -65,6 +73,11 @@ public:
     bool getProtoBinConsoled() const { return protoBinConsoledState_; };
     bool getNmeaConsoled() const { return nmeaConsoledState_; };
     bool getUSBLBeaconDirectAsk() const { return USBLBeaconDirectAskState_; };
+    int    linkBaud() const              { return linkBaud_; }
+    int    linkBytesPerSecond() const    { return linkBytesPerSecond_; }
+    double linkLoadPercent() const       { return linkLoadPercent_; }
+    double chartLossPercent() const      { return chartLossPercent_; }
+    double chartLossPercentTotal() const { return chartLossPercentTotal_; }
     int getAverageChartLosses() const {
         return averageChartLosses_;
     };
@@ -123,8 +136,22 @@ signals:
     void protoBinConsoledChanged();
     void nmeaConsoledChanged();
     void USBLBeaconDirectAskChanged();
+    void linkStatsChanged();
 
 private:
+    void sampleLinkStats();
+    QTimer linkStatsTimer_;
+    quint64 lastWireBytes_ = 0, lastChartBytes_ = 0, lastMissingBytes_ = 0;
+    // a 10 s window for the loss figure: one second of 0.13% is a single fragment
+    static constexpr int kLossWindow = 10;
+    quint64 winChart_[kLossWindow] = {}, winMissing_[kLossWindow] = {};
+    int winIndex_ = 0;
+    int secondsWithData_ = 0;
+    int linkBaud_ = 0;
+    int linkBytesPerSecond_ = 0;
+    double linkLoadPercent_ = -1.0;
+    double chartLossPercent_ = -1.0;
+    double chartLossPercentTotal_ = -1.0;
     std::unique_ptr<DeviceManager> workerObject_;
 #ifdef SEPARATE_READING
     std::unique_ptr<QThread> workerThread_;

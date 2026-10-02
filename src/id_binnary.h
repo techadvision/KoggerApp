@@ -2,6 +2,7 @@
 #define IDBINNARY_H
 
 #include <array>
+#include <atomic>
 
 #include <QObject>
 #include <QByteArray>
@@ -248,6 +249,15 @@ public:
     // uint32_t rawDataSize() { return _rawDataSize; }
     // uint8_t rawType() { return type; }
 
+    // PULSE, performance mode step 1 (2 Oct 2026): what the chart stream really carried,
+    // in chart bytes (one byte per sample, both channels counted), since the app started.
+    // `missing` is what a seqOffset gap inside a ping says never arrived - the same gaps
+    // lossHistory_ marks, but measured in samples rather than fragments, so a long gap
+    // weighs what it costs. A ping lost whole is invisible to both. Atomic because the
+    // wrapper reads them from the GUI thread when SEPARATE_READING is on.
+    quint64 statChartBytes() const   { return statChartBytes_.load(std::memory_order_relaxed); }
+    quint64 statMissingBytes() const { return statMissingBytes_.load(std::memory_order_relaxed); }
+
     uint8_t getAverageLosses() const {
         int sum = 0;
         for (uint8_t loss : lossHistory_) {
@@ -278,6 +288,8 @@ signals:
 private:
     QVector<uint8_t> lossHistory_;
     int lossIndex_ = 0;
+    std::atomic<quint64> statChartBytes_{0};
+    std::atomic<quint64> statMissingBytes_{0};
 };
 
 

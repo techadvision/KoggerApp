@@ -19,6 +19,7 @@
 #include "dataset.h"
 #include <QtGlobal>
 #include <limits>
+#include <atomic>
 class SettingsBus;
 
 
@@ -52,6 +53,18 @@ public:
     QList<DevQProperty*> getDevList(BoardVersion ver);
     int calcAverageChartLosses();
     //Pulse
+    // PERFORMANCE MODE STEP 1 (2 Oct 2026): what the transducer's serial link really carries.
+    // wireBytes counts every KP frame that arrived from a live link (never a file or a
+    // demo), with its 8 bytes of sync, header and checksum - which is what crossed the UART.
+    // chartBytes / missingBytes are the chart stream's own counts, summed over devices; baud
+    // is the rate the transducer reports in ID_UART (0 until it has answered).
+    struct LinkStats {
+        quint64 wireBytes    = 0;
+        quint64 chartBytes   = 0;
+        quint64 missingBytes = 0;
+        int     baud         = 0;
+    };
+    LinkStats linkStats() const;
     Q_INVOKABLE bool mavlinkDetected() const;
 
 public slots:
@@ -278,6 +291,7 @@ private:
     QList<DevQProperty*> devList_;
     QHash<QUuid, QHash<int, DevQProperty*>> devTree_;
     QHash<QUuid, int> otherProtocolStat_;
+    std::atomic<quint64> sonarWireBytes_{0};   // see linkStats()
     StreamList streamList_;
     QUuid lastUuid_;
     QUuid proxyLinkUuid_;
