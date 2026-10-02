@@ -1430,7 +1430,7 @@ Item {
                     uiScale: list.uiScale
 
                     label: qsTr("Serial link")
-                    hint:  qsTr("measured on the live link, against the baud the transducer reports")
+                    hint:  qsTr("measured on the live link over 10 s, against the baud the transducer reports")
                     value: {
                         const w = deviceManagerWrapper
                         if (!w || w.linkBytesPerSecond <= 0)
@@ -1438,6 +1438,8 @@ Item {
                         const kb = (w.linkBytesPerSecond / 1000).toFixed(1) + " kB/s"
                         if (w.linkBaud <= 0)
                             return kb + " | " + qsTr("baud not reported")
+                        if (!w.linkBaudPlausible)
+                            return kb + " | " + qsTr("reported baud") + " " + w.linkBaud + " " + qsTr("cannot carry this - load unknown")
                         return w.linkBaud + " " + qsTr("baud") + " | " + kb + " | "
                                + w.linkLoadPercent.toFixed(0) + "% " + qsTr("used")
                     }

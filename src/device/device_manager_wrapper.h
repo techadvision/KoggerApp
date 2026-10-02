@@ -40,6 +40,8 @@ public:
     //linkLoadPercent and the loss figures are -1 while there is nothing to say (no baud
     //reported, or no chart data in the window).
     Q_PROPERTY(int    linkBaud              READ linkBaud              NOTIFY linkStatsChanged)
+    //false when the reported baud cannot carry what is measured on the wire (the load is -1 then)
+    Q_PROPERTY(bool   linkBaudPlausible     READ linkBaudPlausible     NOTIFY linkStatsChanged)
     Q_PROPERTY(int    linkBytesPerSecond    READ linkBytesPerSecond    NOTIFY linkStatsChanged)
     Q_PROPERTY(double linkLoadPercent       READ linkLoadPercent       NOTIFY linkStatsChanged)
     Q_PROPERTY(double chartLossPercent      READ chartLossPercent      NOTIFY linkStatsChanged)
@@ -75,6 +77,7 @@ public:
     bool getUSBLBeaconDirectAsk() const { return USBLBeaconDirectAskState_; };
     int    linkBaud() const              { return linkBaud_; }
     int    linkBytesPerSecond() const    { return linkBytesPerSecond_; }
+    bool   linkBaudPlausible() const     { return linkBaudPlausible_; }
     double linkLoadPercent() const       { return linkLoadPercent_; }
     double chartLossPercent() const      { return chartLossPercent_; }
     double chartLossPercentTotal() const { return chartLossPercentTotal_; }
@@ -144,11 +147,12 @@ private:
     quint64 lastWireBytes_ = 0, lastChartBytes_ = 0, lastMissingBytes_ = 0;
     // a 10 s window for the loss figure: one second of 0.13% is a single fragment
     static constexpr int kLossWindow = 10;
-    quint64 winChart_[kLossWindow] = {}, winMissing_[kLossWindow] = {};
+    quint64 winChart_[kLossWindow] = {}, winMissing_[kLossWindow] = {}, winWire_[kLossWindow] = {};
     int winIndex_ = 0;
     int secondsWithData_ = 0;
     int linkBaud_ = 0;
     int linkBytesPerSecond_ = 0;
+    bool linkBaudPlausible_ = true;
     double linkLoadPercent_ = -1.0;
     double chartLossPercent_ = -1.0;
     double chartLossPercentTotal_ = -1.0;

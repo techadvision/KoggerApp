@@ -71,13 +71,31 @@ void DeviceManagerWrapper::sampleLinkStats()
 
     winChart_[winIndex_] = dChart;
     winMissing_[winIndex_] = dMissing;
+    winWire_[winIndex_] = dWire;
     winIndex_ = (winIndex_ + 1) % kLossWindow;
-    quint64 wc = 0, wm = 0;
-    for (int i = 0; i < kLossWindow; ++i) { wc += winChart_[i]; wm += winMissing_[i]; }
+    quint64 wc = 0, wm = 0, ww = 0;
+    int secondsInWindow = 0;
+    for (int i = 0; i < kLossWindow; ++i) {
+        wc += winChart_[i]; wm += winMissing_[i]; ww += winWire_[i];
+        if (winWire_[i] > 0) ++secondsInWindow;
+    }
 
+    // THE RATE IS A 10 s AVERAGE (2 Oct 2026, the G30 measurement). One-second windows read
+    // up to 108% of 921600 at 5000 samples / 60 ms: the IP link delivers the UART's bytes in
+    // bursts, so a single second can hold more than a second of serial traffic. Over 10 s
+    // the bursts cancel. The read-out and the LINK: line both use the average.
+    const quint64 avgWire = secondsInWindow > 0 ? ww / quint64(secondsInWindow) : 0;
+
+    // AND THE REPORTED BAUD IS CHECKED AGAINST IT. One whole run on the G30 read
+    // `baud 115200` for 12 minutes while 80 kB/s - seven times what 115200 can carry - came
+    // through: the device's UART answer had not settled (or never arrived) and the value was
+    // a default. A baud that cannot carry half again what is measured is not the link's, and
+    // the load is then unknown rather than 700%. The engine must make the same check.
     linkBaud_ = st.baud;
-    linkBytesPerSecond_ = int(dWire);
-    linkLoadPercent_ = (st.baud > 0) ? (double(dWire) * 10.0 * 100.0 / double(st.baud)) : -1.0;
+    linkBytesPerSecond_ = int(avgWire);
+    linkBaudPlausible_ = !(st.baud > 0 && double(avgWire) * 10.0 > 1.5 * double(st.baud));
+    linkLoadPercent_ = (st.baud > 0 && linkBaudPlausible_)
+                       ? (double(avgWire) * 10.0 * 100.0 / double(st.baud)) : -1.0;
     chartLossPercent_ = (wc + wm) > 0 ? double(wm) * 100.0 / double(wc + wm) : -1.0;
     chartLossPercentTotal_ = (st.chartBytes + st.missingBytes) > 0
                              ? double(st.missingBytes) * 100.0 / double(st.chartBytes + st.missingBytes) : -1.0;
@@ -88,10 +106,12 @@ void DeviceManagerWrapper::sampleLinkStats()
             // SELF-DESCRIBING (Olav, 2 Oct: Qt Creator's output has no time stamps): the
             // clock time and what the transducer reports it is set to, so a measurement run
             // can be read from the lines alone. pulse.log stamps every line as well.
-            qDebug().noquote() << QStringLiteral("LINK: %6 | %7 samples, %8 mm, %9 ms | %1 B/s on the wire | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
-                                      .arg(dWire)
+            qDebug().noquote() << QStringLiteral("LINK: %6 | %7 samples, %8 mm, %9 ms | %1 B/s on the wire (10 s average) | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
+                                      .arg(avgWire)
                                       .arg(st.baud)
-                                      .arg(linkLoadPercent_ >= 0 ? QString::number(linkLoadPercent_, 'f', 1) + "% used" : QStringLiteral("load unknown"))
+                                      .arg(linkLoadPercent_ >= 0 ? QString::number(linkLoadPercent_, 'f', 1) + "% used"
+                                           : (!linkBaudPlausible_ ? QStringLiteral("IMPOSSIBLE for the measured rate - load unknown")
+                                                                  : QStringLiteral("load unknown")))
                                       .arg(chartLossPercent_ >= 0 ? QString::number(chartLossPercent_, 'f', 2) + "%" : QStringLiteral("-"))
                                       .arg(chartLossPercentTotal_ >= 0 ? QString::number(chartLossPercentTotal_, 'f', 2) + "%" : QStringLiteral("-"))
                                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
