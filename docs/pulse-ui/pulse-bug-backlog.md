@@ -3290,8 +3290,12 @@ reported baud read a default 115200 for one whole run.
 | `18ce749e` | Ping period row 40-160 ms (was 0-2000; a drag below 30 ms killed the link) |
 | `32aa6e01` | the read-out averages over 10 s (1 s windows read up to 108%), and a reported baud too low for the measured rate is called impossible instead of showing 700% |
 
-**Open, Olav's call:** the Transducer *Sample spacing* row still allows 1 mm on the prototype, whose floor is 15 mm (below
-it the device reports 0 mm and the stream stops). Its minimum could follow *Min spacing blue* on a Basic2D.
+**Decided by Olav:** *"a floor is a floor"* - the prototype loses the link the instant spacing goes below 15 mm, so it
+MUST be held at 15. **`ab3c5d9c`**: `pulseRuntimeSettings.hardwareSpacingFloorMm` (15 on the blue prototype - device name
+Basic2D and not a 2D transducer - else 1); the Transducer row's minimum follows it and `setParam` clamps
+`chartResolution` to it. To check: `PARAM: hardware spacing floor -> 15 mm | device Basic2D | 2D false` after committing
+the prototype, and the spacing slider stops at 15. **Confirmed by Olav on the device:** Samples stops at 5000; the
+Ping period row is capped at 40-160 and changes the echogram's height as it should.
 
 ### THE PROMPT FOR THE NEXT SESSION
 
