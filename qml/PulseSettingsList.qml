@@ -1233,8 +1233,13 @@ Item {
                     hint: list.paramNum("doDynamicResolution", 0)
                         ? qsTr("the app is driving this - turn Dynamic resolution off to hold it")
                         : qsTr("milliseconds between pings - this is the echogram's speed")
-                    minValue: 0
-                    maxValue: 2000
+                    // 40-160 ms (2 Oct 2026). It ran 0-2000: on the G30 with a live blue
+                    // prototype the drag could not be placed finely and fell below 30 ms, which
+                    // lost the link until the transducer was power cycled. Nothing needs more
+                    // than 160 (red's dynamic scheme tops out at 154), and below 40 there is no
+                    // range left to listen to. Twelve times finer per pixel than before.
+                    minValue: 40
+                    maxValue: 160
                     stepSize: 5
                     value: list.paramNum("ch1Period", 50)
                     valueText: list.paramText("ch1Period",
