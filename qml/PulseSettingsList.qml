@@ -1026,7 +1026,10 @@ Item {
         // THE RANGES ARE THE DEVICE'S OWN, taken from DeviceItem.qml's configuration
         // SpinBoxes rather than invented here - those are what the hardware is asked for
         // during setup, so nothing in this group can ask for something setup could not.
-        // Samples runs to 15000, which is Olav's "drag them up into 5000" with room over.
+        // SAMPLES STOPS AT 5000, the firmware's maximum (2 Oct 2026). It ran to 15000 "with room
+        // over", and on the G30 with a live blue prototype a drag above 5000 killed the
+        // connection until the transducer was power cycled. Room over a hardware limit is not
+        // room; the Performance mode engine never asks for more than 5000 either.
         //
         // SLIDERS WITH NUDGES, not steppers. Olav: the +/- stepper is "a bit slow", and
         // over 100-15000 it is unusable. But a drag alone cannot land on an exact value at
@@ -1061,7 +1064,7 @@ Item {
                     label: qsTr("Samples")
                     hint:  qsTr("how many points the transducer returns per ping")
                     minValue: 100
-                    maxValue: 15000
+                    maxValue: 5000
                     stepSize: 50
                     value: list.paramNum("chartSamples", 100)
                     valueText: list.paramText("chartSamples",
