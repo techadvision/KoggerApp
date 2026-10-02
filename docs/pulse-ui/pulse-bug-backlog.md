@@ -3297,6 +3297,85 @@ Basic2D and not a 2D transducer - else 1); the Transducer row's minimum follows 
 the prototype, and the spacing slider stops at 15. **Confirmed by Olav on the device:** Samples stops at 5000; the
 Ping period row is capped at 40-160 and changes the echogram's height as it should.
 
+### Performance mode, step 2 - the blue engine - 2 Oct 2026 (night), not compiled
+
+**Design agreed with Olav before building** (his answers to the six questions):
+
+1. **Max range side decides** the acquisition range - the side scan view, never the down pane's range.
+2. **The Transducer rows go read-only** while the engine holds the acquisition (*"held by performance mode"*), rather
+   than the doc's "an expert write holds the key" rule - one writer.
+3. **distMax follows the range** (`1000 x R`), as the width workaround did.
+4. **True proportions reads the real period**, `max(confirmed, 2R/c + 3 ms)`.
+5. **Off hands the shipped values back** (2000 samples, spacing = *Side scan width*, the profile's 70 ms), keeping any
+   expert Transducer experiments - not `clearParams()`.
+6. **The throttle**: 300 ms of rest, a chart setup at most once a second.
+
+**Olav's note on 6, from the upstream author:** set ONE transducer parameter at a time - set, check, OK, next. Olav's
+setup procedure already follows it. **The engine does too**: period, then the chart (spacing and samples are ONE message),
+then distMax, and nothing is sent until the previous one is confirmed.
+
+| commit | what |
+|---|---|
+| `51822d56` | **the chart stream says what the transducer really sends**: the last complete ping's spacing (chart header) and sample count (both channels) as `linkStreamSamples` / `linkStreamSpacingMm`; the `LINK:` line adds `(stream N x M mm)`. `DevDriver::chartSamples()` / `chartResolution()` are the app's copy, written the moment a setter runs - not a confirmation |
+| `22485e68` | `DevDriver::setChartSetup(resol, samples)` - spacing and samples in ONE chart message (`Q_INVOKABLE`, moc re-runs) |
+| `df8f70b4` | `qml/PulsePerfEngine.js` (pure arithmetic) + **`tools/pulse-perf-check.js`** (reproduces 9a: 34% shipped, 83% at 5000 @ 70, 97% at 60, 106% at 55, 87 ms held for 62.5 m; chapter 7's tables; nothing above 85% or faster than 70 ms anywhere) |
+| `1618efac` | **one writer**: `perfEngineOwnsAcquisition`; while true `setParam()` refuses chartResolution / chartSamples / distMax / ch1Period by name (the width workaround, the dynamic writers, `onEchogramWidthChanged` and the expert rows all arrive there), `clearParams()` keeps them, and DeviceItem sends spacing + samples as one chart setup (`sendPerfChartSetup`, reading `paramValue()` - D-2) |
+| `791e3ee0` | **the engine**, `PulsePerformanceEngine.qml`, one instance in `main.qml` |
+| `b607ef90` | expert rows: an **Engine** read-out; Samples / Sample spacing / Ping period at 0.45, no input, *held by performance mode* |
+| `5fbe48cf` | **true proportions read the real period**; `PERIOD:` says *held by the listen time of N m per side* when it binds |
+
+**How the engine behaves.**
+
+- **Holds** (is the one writer) while expert mode, *Enable performance mode* and a committed blue (side scan) are all
+  true. **Acts** only while that device is live (no demo, no file, connection not lost), configured, and chart data flows.
+- **The baud is decided once per connection, after 10 s of data**, while the shipped settings still run: the reported
+  baud if `linkBaudPlausible`, else 921600 from the table. At the shipped 31 kB/s a default 115200 is always refuted.
+- **The plan**: spacing = max(hardware floor, Min spacing blue, ceil(2R / Max samples)); samples = ceil(2R / spacing),
+  up to the next 50; coarser until the ping fits 85% of the decided baud; 70 ms, real period max(70, 2R/c + 3 ms).
+- **Sends one at a time**: period (only if it differs), chart (one message), distMax. The chart is confirmed by the
+  **stream** (last ping's spacing equal, samples within one fragment); period and distMax by the device's read-back
+  plus 300 ms. **Not confirmed in 6 s -> STALLED**: nothing more is sent until the switch is toggled.
+- **Turning expert mode or the switch off** hands back the shipped values the same way, then lets go. **A commit that
+  moves to another device** drops the engine's values from the old blue's map quietly (nothing on the wire).
+
+At the 15 mm default: 35 m -> 15 mm x 4700 (80%), 25 m -> 15 x 3350 (57%), 15 m -> 15 x 2000 (34%), 10 m -> 15 x 1350
+(24%), 5 m -> 15 x 700 (14%). At a 1 mm floor every range is 5000 samples at 83%.
+
+**Checked in the cloud shell:** moc on the four changed headers, `g++ -fsyntax-only` on the four changed .cpp, `qmlformat`
+parses the four changed QML files, all seven `tools/pulse-*-check.js` pass. **Not built, not on a device.**
+
+#### To check on the device - step 2
+
+G30 + the blue prototype on the IP link. `adb logcat | grep -E "ENGINE:|LINK:|PARAM:|DEV_PARAM: one chart|PERIOD:"`,
+or `pulse.log`. Expert mode on.
+
+1. **Performance mode off (as shipped):** nothing changes. No `ENGINE: holds` line; the Transducer rows are live.
+2. **Switch on, side scan, Max range side 25:** `ENGINE: holds the acquisition of …`, then after about 10 s
+   `ENGINE: budgets on 921600 baud - reported by the device` (or `model table (the reported 115200 cannot carry …)`),
+   then `ENGINE: 25 m per side -> 15 mm x 3350 @ 70 ms (real 70) | 57% of 921600 … | limited by min spacing`,
+   `DEV_PARAM: one chart setup -> 15 mm x 3350 samples`, `ENGINE: confirmed chart after N ms | stream 3350 x 15 mm`,
+   then distMax. **The `LINK:` lines must then read about 57%** and `(stream 3350 x 15 mm)`.
+3. **The Engine row** in Performance mode shows the same line. **Transducer → Samples, Sample spacing, Ping period are
+   dimmed** with *held by performance mode*; dragging them does nothing.
+4. **Max range side 35 / 15 / 10 / 5** (slider and pinch): the picture follows at once; about a second later one chart
+   setup per settled value - **never one per drag tick**. Expected 4700 / 2000 / 1350 / 700 samples at 15 mm.
+5. **Min spacing blue to 20 mm** with the range at 25: 20 mm x 2500. **To 1 mm** on the prototype: still 15 mm
+   (the hardware floor). **Max samples to 2000**: `limited by max samples`.
+6. **The picture**: the side scan sharper at short range, no artefacts, no lag; the mosaic and the loupe still right.
+   **A waypoint on the same target before and after** the switch: the same lat/lon.
+7. **Switch off:** `ENGINE: hands back the shipped values …` and the sends one by one, then `released`; `LINK:` back to
+   ~34% and 2000 x 25 mm (or 2000 x 35 at a 35 m Side scan width). The Transducer rows come back.
+8. **Expert mode off with the switch on:** the same hand-back. Expert mode on again: the engine takes over again.
+9. **Disconnect / power cycle the transducer while holding:** `the baud decision is dropped - the connection was lost`;
+   after the setup, the measuring starts again. **Start a demo while holding:** no sends.
+10. **If `ENGINE: STALLED` ever appears**, send the line: it names what was not confirmed and what the stream showed.
+    The most likely reading would be the stream's spacing in a unit other than mm - that is the first thing to look at.
+11. **True proportions with expert values** (switch off, Transducer 5000 x 25 mm): `PERIOD: … held by the listen time of
+    62.5 m per side (asked 70 ms)` and a side scan stretched for ~88 ms.
+
+**Not in this step:** opening it to all users (the per-link switch, the wifi warning), Task 2b (red/black), a black v2.
+The two bottom-track problems stay on the list below; the engine changes the range by itself, which feeds problem 1.
+
 ### BOTTOM TRACK - TWO OPEN PROBLEMS, TO BE DEALT WITH (Olav, 2 Oct night)
 
 Olav: *"The false readings we need to deal with. As we also need to deal with a seemingly inability to interpret depths
@@ -3331,37 +3410,28 @@ We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo
 app"). Repo: my KoggerApp folder, branch feature/pulse-performance-mode (off master at
 1.42, which is public; performance mode goes to internal test only, quick fixes to the
 public release come from master). Read first: claude/pulse-high-performance-mode.md,
-chapters 6, 7 and 9a (the link measurement), and claude/pulse-bug-backlog.md from
-"Performance mode, step 1" to the end. Check whether the branch is pushed - remind me if
-not.
+chapters 6, 7 and 9a, and claude/pulse-bug-backlog.md from "Performance mode, step 2" to
+the end. Check whether the branch is pushed - remind me if not.
 
-Where we are: step 1 is built and verified on the G30 with my blue prototype (Basic2D):
-the expert "Performance mode" category (four persistent rows, nothing acting on them),
-the Serial link / Lost chart samples read-outs and the LINK: log line; Samples capped at
-5000, Ping period 40-160 ms, the prototype held at a 15 mm spacing floor
-(hardwareSpacingFloorMm). Measured: 5000 x 15 mm at 70 ms = ~84% of 921600, stable; 60 ms
-~96%; 55 ms kills the link without warning; the firmware holds the listen time
-(2R/c + ~3 ms); the reported baud can stay at a default 115200.
+Where we are: step 2, the blue engine, is built (51822d56 .. 5fbe48cf) and NOT yet on a
+device: it holds spacing, samples, distMax and the period while expert mode + Enable
+performance mode + a committed blue; Max range side decides; 70 ms; 85% of a baud decided
+once per connection; one parameter at a time, the chart confirmed by the stream; the
+Transducer rows read-only; true proportions read the real period. I bring the ENGINE: /
+LINK: / PERIOD: lines from the step 2 device checks (backlog, "To check on the device -
+step 2"). Nothing is fixed before its log line is read.
 
-Today: step 2, the blue engine. 70 ms fixed; samples and spacing from the visible range
-per side within the floors (hardwareSpacingFloorMm, Min spacing blue, Max samples) and an
-85% budget by arithmetic - never searched for on the water; the real period is
-max(T, 2R/c + 3 ms); the reported baud checked against the measured rate, falling back to
-the model table; one writer of the ping period while the mode is on; the Side scan width
-workaround off while on; the drag throttle; acting only while expert mode is on. Agree
-the design with me before building.
-
-Keep on the list (backlog, "BOTTOM TRACK - TWO OPEN PROBLEMS"): false bottom-track depths
-with no real bottom (they follow the range), and no bottom-track depth below ~0.5 m.
-Then Task 2b (red/black link-fit, the version poll). Waypoint desk tests T1-T6 are still
-owed on my side.
+Then: the two bottom-track problems (backlog, "BOTTOM TRACK - TWO OPEN PROBLEMS"), then
+Task 2b (red/black link-fit, the version poll). Waypoint desk tests T1-T6 are still owed on
+my side.
 
 Working rules as before: Classic is not touched; one idea per commit; nothing is fixed
 before its log line is read; run moc on any changed header and a g++ -fsyntax-only check
 on changed C++ in the cloud shell (apt qt6-base-dev qt6-declarative-dev
-qt6-base-dev-tools libqt6serialport6-dev qt6-positioning-dev; -I every src dir, not
-third_party), plus the tools/pulse-*-check.js scripts, before telling me to build;
-update the backlog in the repo AND the project doc.
+qt6-base-dev-tools qt6-declarative-dev-tools libqt6serialport6-dev qt6-positioning-dev;
+-I every src dir, not third_party; qmlformat parses changed QML), plus the
+tools/pulse-*-check.js scripts, before telling me to build; update the backlog in the repo
+AND the project doc.
 ```
 
 ### Emulators

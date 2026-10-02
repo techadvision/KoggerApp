@@ -24,6 +24,12 @@ recommended as future hardware (8.4).
 log line every 10 s. **The engine runs only while expert mode is on** (Olav, 2 Oct). The measurement of 9.2 is done (9a): 5000 @ 70 ms
 runs at ~84% and is stable; 55 ms kills the link. Next: step 2, the blue engine. Measurement procedure: backlog, *Performance mode, step 1*.
 
+**2 Oct, night - Task 2a step 2 built (not yet on a device):** the blue engine (`PulsePerformanceEngine.qml`, arithmetic
+in `PulsePerfEngine.js`, checked by `tools/pulse-perf-check.js`). Max range side decides; 70 ms; spacing and samples
+within the floors and an 85% budget of a baud decided once per connection; one writer of the four keys while it holds
+them; one parameter at a time, the chart confirmed by the stream; off hands the shipped values back. True proportions
+now read the real period. Commits and device checks: backlog, *Performance mode, step 2*.
+
 ## The plan in one page
 
 **Task 1 — Echogram speed for everyone (all devices, all links, no warning).**
@@ -154,6 +160,17 @@ channel, a new hardware name and a 921600 UART make it a performance-mode device
 - **Red sells little, black is popular.** A **black v2** with a new hardware name and blue's crystals (one channel) is
   possible in the not-too-distant future; for now a recommendation only (8.4).
 - **Performance mode is therefore a blue feature** (and a black v2's, later). Red/black in the field get link-fit tuning (8).
+
+**2 Oct, night (Olav, the step 2 design)**
+
+- **Max range side decides** the acquisition range; the down pane's range does not.
+- **The Transducer rows (samples, spacing, period) are read-only** while the engine holds them - one writer.
+- **distMax follows the range** (`1000 x R`).
+- **True proportions read the real period**, `max(confirmed, 2R/c + 3 ms)`.
+- **Off hands the shipped values back** and keeps an expert's other Transducer experiments.
+- **The throttle**: 300 ms of rest, a chart setup at most once a second (replaces 6.1's "slows below 2 m/s").
+- **One transducer parameter at a time** (the upstream author's rule; Olav's setup pass follows it): the engine sends
+  the period, then the chart (spacing + samples as one message), then distMax, each confirmed before the next.
 
 ## 1. What the current code says
 
