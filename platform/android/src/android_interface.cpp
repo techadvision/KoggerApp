@@ -19,7 +19,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
 
-KOGGER_LOGGING_CATEGORY(AndroidInterfaceLog, "kogger.android.src.androidinterface")
+KOGGER_LOGGING_CATEGORY(AndroidInterfaceLog, "pulse.android.interface")
 
 namespace {
 

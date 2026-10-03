@@ -12,7 +12,7 @@
 #include <QtCore/qnativeinterface.h>
 
 
-KOGGER_LOGGING_CATEGORY(AndroidInitLog, "kogger.android.androidinit");
+KOGGER_LOGGING_CATEGORY(AndroidInitLog, "pulse.android.init");
 
 static jobject _context = nullptr;
 static jobject _class_loader = nullptr;

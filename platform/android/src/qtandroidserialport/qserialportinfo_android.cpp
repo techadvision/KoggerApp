@@ -12,7 +12,7 @@
 
 #include <QtCore/QStringList>
 
-KOGGER_LOGGING_CATEGORY(QSerialPortInfo_AndroidLog, "kogger.android.libs.qtandroidserialport.qserialportinfo_android")
+KOGGER_LOGGING_CATEGORY(QSerialPortInfo_AndroidLog, "pulse.android.serialportinfo")
 
 QT_BEGIN_NAMESPACE
 

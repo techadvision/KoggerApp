@@ -7,7 +7,7 @@
 #include <qserialport_p.h>
 #include <qserialportinfo_p.h>
 
-KOGGER_LOGGING_CATEGORY(AndroidSerialLog, "kogger.android.androidserial");
+KOGGER_LOGGING_CATEGORY(AndroidSerialLog, "pulse.android.serial");
 
 // TODO: Save Method Lookups
 

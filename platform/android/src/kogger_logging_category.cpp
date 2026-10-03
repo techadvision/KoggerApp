@@ -12,7 +12,7 @@
 #include <QtCore/QGlobalStatic>
 #include <QtCore/QSettings>
 
-KOGGER_LOGGING_CATEGORY(KoggerLoggingCategoryRegisterLog, "Utilities.KoggerLoggingCategoryManager")
+KOGGER_LOGGING_CATEGORY(KoggerLoggingCategoryRegisterLog, "Utilities.LoggingCategoryManager")
 
 Q_GLOBAL_STATIC(KoggerLoggingCategoryManager, _KoggerLoggingCategoryManagerInstance);
 
