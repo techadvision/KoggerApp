@@ -811,9 +811,6 @@ WaterFall {
             }
 
             onPressed: function(mouse) {
-                // instrument (fix/mosaic-aim): a press that really reached this pane
-                console.log("AIM: pane " + indx + " pressed at " + Math.round(mouse.x) + "," + Math.round(mouse.y)
-                            + " | paused " + pulseRuntimeSettings.echogramPause)
 
                 aimLeftPane = false
                 lastMouseX = mouse.x
