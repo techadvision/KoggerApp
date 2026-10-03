@@ -3420,7 +3420,7 @@ the stream confirming each setting, 0.00-0.03% lost.
 **Pulse follows the range (`214e0e4a`), for the partner and two expert testers while Olav is away.** A persistent switch in
 Performance mode (blue only, default off). On: pulse = 4 x spacing x f / c cycles, 4-30 (`PerfMath.pulseCycles`): production
 blue 4 / 5 / 7 / 10 / 12 / 15 / 17 at 5-35 m, 20 / 22 / 25 at 40-50 m; the prototype's 15 mm gives 18 at every range up to
-35 m. Sent as one more confirmed step (period, chart, pulse, distMax). Off again or a hand-back: the profile's 10 cycles, then
+35 m. **SUPERSEDED the same day: capped at 10 cycles, see below.** Sent as one more confirmed step (period, chart, pulse, distMax). Off again or a hand-back: the profile's 10 cycles, then
 the hold ends. While held, the Transducer pulse row is dimmed. The test procedure is section 6 of the partner doc.
 
 **To check before handing over:** switch on at 10 m on a live blue: `ENGINE: … | pulse 5 cycles (follows the range)`, `sent
@@ -3439,6 +3439,14 @@ Enable performance mode off during playback: `RANGE: … above the Side scan wid
 **The partner doc's testing chapter** (section 6) now covers on/off, the settings, wifi vs the IP Connector, the staircase,
 recording (screen + app) and playback limits, and tests A-D; Test B (40-50 m) decides whether 50 m becomes the default.
 Note for testers: Min spacing blue defaults to 15 mm, so a production blue needs it at 1 mm to reach Table 3's detail.
+
+**The pulse is capped at 10 cycles (`0ab9dfb5`) - the hardware partner, 3 Oct.** A longer pulse's extra transmit energy can
+blow resistors on the transducer. `transPulseMaxCycles` = 10 binds setParam (every writer), the expert Transducer pulse row
+(1-10) and Pulse follows the range (4-10). The switch now only SHORTENS the pulse: 4 / 5 / 7 cycles at 5 / 10 / 15 m on a
+production blue, 10 from ~20 m. On the prototype (15 mm) it changes nothing. The partner is not optimistic about the picture
+with a shorter pulse; Olav field-tests it on a lake with tyres and logs (the partner doc, Test C).
+**To check:** Transducer pulse stops at 10; the Engine row never shows more than 10 cycles; at 5 / 10 / 15 m with the switch
+on, `pulse 4 / 5 / 7 cycles (follows the range)` and Device parameters -> Transducer pulse agrees.
 
 **Pulse length as the next lever** (the partner doc, section 5): a pulse that follows the range (count ~ 1.2 x spacing in mm)
 would turn more of the fine spacing into real detail at short range. Desk test first: 5 m per side, 2 mm, pulse 4 / 6 / 10 on
