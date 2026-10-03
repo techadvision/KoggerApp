@@ -3428,6 +3428,18 @@ pulse {"transPulse":5}`, `confirmed pulse`, and Device parameters -> Transducer 
 (fixed)` and `the pulse is the profile's 10 cycles again - released`. Performance mode off with the switch on: the pulse goes
 back to 10 with the rest.
 
+**A recording shows its whole width (`58579a33`).** Olav, 3 Oct: a recording made at 40-50 m could only be shown to the Side scan
+width in playback, because the engine does not hold while a recording plays. With a side scan recording on screen, expert
+mode and Enable performance mode on, the Max range ceiling applies too (`maxRangeCeilingOverride`: live OR playback). The
+pinch's clamp is now `rangeClampM` (maximumDepth raised to that ceiling), published to the C++ as maximumDepth. When the raised
+ceiling ends for any reason, stored blue ranges above the width come down (moved from the engine to PulseRuntimeSettings).
+**To check:** record live at 45 m, stop, play it back with performance mode on: Max range side and the pinch reach 45; turn
+Enable performance mode off during playback: `RANGE: … above the Side scan width once the raised ceiling ended`.
+
+**The partner doc's testing chapter** (section 6) now covers on/off, the settings, wifi vs the IP Connector, the staircase,
+recording (screen + app) and playback limits, and tests A-D; Test B (40-50 m) decides whether 50 m becomes the default.
+Note for testers: Min spacing blue defaults to 15 mm, so a production blue needs it at 1 mm to reach Table 3's detail.
+
 **Pulse length as the next lever** (the partner doc, section 5): a pulse that follows the range (count ~ 1.2 x spacing in mm)
 would turn more of the fine spacing into real detail at short range. Desk test first: 5 m per side, 2 mm, pulse 4 / 6 / 10 on
 a sharp target. Not started.
