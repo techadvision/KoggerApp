@@ -1139,35 +1139,6 @@ Item {
                     }
                 },
 
-                // THE BLUE'S TWO FREQUENCIES, for the waypoint desk check (session 7-8). 460 kHz
-                // is the ordinary side scan; 820 kHz reaches less far but draws finer, so the
-                // same target seen at both is a test of where a tapped waypoint lands. Classic
-                // had this as "Pulse blue High/Low Frequenzy" in its experimental category; v2
-                // had no way to it - the Frequency slider below is bounded by the cones, and a
-                // blue has none. Written through setParam, so it goes to the transducer, lives
-                // in the runtime liveParams and is 460 again on the next start.
-                PulseSegmentRow {
-                    width: transducerGroup.contentWidth
-                    height: visible ? implicitHeight : 0
-                    visible: pulseRuntimeSettings
-                             ? pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseBlue
-                             : false
-                    uiScale: list.uiScale
-
-                    label: qsTr("Side scan frequency")
-                    hint:  qsTr("sent to the transducer; back to 460 kHz on the next start")
-                    options: [ { value: 460, title: qsTr("460 kHz") },
-                               { value: 820, title: qsTr("820 kHz") } ]
-                    current: list.paramNum("transFreq", 460)
-
-                    onChosen: function (v) {
-                        console.log("PARAM: side scan frequency ->", v, "kHz (expert)")
-                        list.settingChanged("param", "transFreq", v)
-                        if (pulseRuntimeSettings)
-                            pulseRuntimeSettings.useBlueHighFrequency = (v === 820)
-                    }
-                },
-
                 // FREQUENCY, AND IT SHARES ITS KEY WITH THE RAIL'S CONE CHOOSER. Both write
                 // transFreq: the chooser writes one of the profile's three cone frequencies,
                 // this writes anything between the widest and the narrowest. Olav, 17 Sept:
@@ -1180,17 +1151,30 @@ Item {
                 // better than a chooser confidently pointing at a cone the transducer is not
                 // transmitting. Picking a cone afterwards overwrites this, as it should.
                 //
-                // The bounds are the profile's own widest and narrowest cone, so this cannot
-                // ask for a frequency outside what the device is configured for.
+                // The bounds on a 2D transducer are the profile's own widest and narrowest
+                // cone, so this cannot ask for a frequency outside what the device is
+                // configured for.
+                //
+                // A SIDE SCAN HAS NO CONES, so its bounds were 460..460 and 820 put the knob
+                // off the end of the track. Olav, 3 Oct: the expert must be free to play,
+                // anywhere from 320 to 850 kHz - which also retires the 460 / 820 buttons
+                // that stood above this row for the waypoint desk check (that check is done).
+                // pulseRuntimeSettings.sideScanFreqMin/Max name the span once; setParam holds it.
                 PulseSliderRow {
                     width: transducerGroup.contentWidth
                     uiScale: list.uiScale
                     showNudges: true
 
+                    readonly property bool sideScan: pulseRuntimeSettings ? !pulseRuntimeSettings.is2DTransducer : false
+
                     label: qsTr("Frequency")
-                    hint:  qsTr("between the widest and narrowest cone - the cone buttons also write this")
-                    minValue: pulseRuntimeSettings ? pulseRuntimeSettings.transFreqWide : 0
-                    maxValue: pulseRuntimeSettings ? pulseRuntimeSettings.transFreqNarrow : 0
+                    hint:  sideScan
+                           ? qsTr("side scan, %1-%2 kHz - the ordinary setting is 460").arg(minValue).arg(maxValue)
+                           : qsTr("between the widest and narrowest cone - the cone buttons also write this")
+                    minValue: !pulseRuntimeSettings ? 0
+                              : sideScan ? pulseRuntimeSettings.sideScanFreqMin : pulseRuntimeSettings.transFreqWide
+                    maxValue: !pulseRuntimeSettings ? 0
+                              : sideScan ? pulseRuntimeSettings.sideScanFreqMax : pulseRuntimeSettings.transFreqNarrow
                     stepSize: 5
                     value: list.paramNum("transFreq", pulseRuntimeSettings ? pulseRuntimeSettings.transFreqWide : 0)
                     valueText: list.paramText("transFreq",

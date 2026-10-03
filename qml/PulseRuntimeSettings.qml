@@ -2368,6 +2368,14 @@ QtObject {
                 console.log("PARAM:", name, "->", value, "refused - performance mode holds it")
             return
         }
+        // A SIDE SCAN'S FREQUENCY SPAN (3 Oct 2026): the expert row offers 320-850 kHz and
+        // this is the half that holds. A 2D transducer's frequency is bounded by its cones.
+        if (name === "transFreq" && !is2DTransducer
+                && (value < sideScanFreqMin || value > sideScanFreqMax)) {
+            var f = Math.max(sideScanFreqMin, Math.min(sideScanFreqMax, value))
+            console.log("PARAM: transFreq", value, "kHz is outside the side scan's", sideScanFreqMin + "-" + sideScanFreqMax, "-", f, "sent instead")
+            value = f
+        }
         // THE PULSE COUNT'S BOUNDS (3 Oct 2026): one byte on the wire, so anything above 255
         // wraps (300 arrives as 44), and 0 transmits nothing. 1-30 cycles is the useful span.
         if (name === "transPulse" && (value < 1 || value > 30)) {
@@ -2413,6 +2421,9 @@ QtObject {
     // shipped values back. setParam() refuses those keys while it is true, and DeviceItem
     // sends spacing and samples as ONE chart message while it is true.
     property bool   perfEngineOwnsAcquisition: false
+    // The span the expert Frequency row offers a side scan, and setParam holds (Olav, 3 Oct).
+    readonly property int sideScanFreqMin: 320
+    readonly property int sideScanFreqMax: 850
     readonly property var perfEngineKeys: ["chartResolution", "chartSamples", "distMax", "ch1Period"]
     // What the engine last did, for the expert category's Engine row. Written by the engine.
     property string perfEngineStatus: ""
