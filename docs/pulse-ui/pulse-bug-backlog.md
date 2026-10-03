@@ -3227,8 +3227,9 @@ brought the zoom box (the `Plot2DAim` loupe) up over the echogram pane, and it c
 |---|---|
 | `24bb9ddd` | instrument: `MOSAIC: press / release`, `AIM: pane N pressed`, `AIM: pane N takes/ignores a 3D epoch selection from <class>`, `AIM: pane N loupe up / down` |
 | `0d3a54db` | **v2: the echogram panes ignore an epoch selected in the 3D view** |
-| `15361f0e` | **v2: no epoch picking on the mosaic** - no red dot |
-| `4093155d` | Version 1.43 (`versionCode` 143), edited in the XML; the manifest check passes |
+| `15361f0e` | v2: no epoch picking on the mosaic - **reverted in `ba3ef127`** (below) |
+| `4093155d` | Version 1.43 (`versionCode` 143), edited in the XML; the manifest check passes; `65a4a948` commits the derived `version.txt` |
+| `0f6ec464` | **v2: the mosaic's selected-epoch red dot is not drawn** |
 
 **What the log proved (Olav's run, 4 Oct 00:07, live side + mosaic on a demo):** every tap on the
 mosaic printed `AIM: pane 1 takes a 3D epoch selection from BottomTrack | epoch 281 | paused no |
@@ -3255,11 +3256,17 @@ none."* So both directions are off in v2:
 - **`0d3a54db`**: under v2, `qPlot2D::eventFilter` logs `ignores` and returns before touching
   the aim or the timeline. One gate covers press and release, every sender (bottom track, boat
   track, contacts), live and paused, every layout and device.
-- **`15361f0e`**: `GraphicsScene3dView::setEpochSyncEnabled` (the upstream switch, now
-  `Q_INVOKABLE`) is turned off under v2 from `main.qml`, at start and when the variant changes:
-  `MOSAIC: epoch picking off (v2)`. No red dot, and an aim in the echogram no longer marks the
-  mosaic either.
-- **Classic keeps the upstream behaviour** in both.
+- **`15361f0e`, reverted in `ba3ef127`**: turning off the 3D view's epoch sync in v2. Olav's
+  device check of the first build: the mosaic no longer scrolls the echogram (*"That was the most
+  important change"*), the red dot was still there, and an aim moved in the paused echogram shows
+  the matching boat position on the mosaic's track. *"This is not bad, per se ... Can we leave the
+  ability, just make that red dot fully transparent?"* So the sync stays on.
+- **`0f6ec464`**: the red dot (and its red line to the bottom) is not drawn in v2.
+  `BoatTrack` keeps making and holding the selection; `GraphicsScene3dView::setSelectedEpochMarkVisible`
+  (`Q_INVOKABLE`) is called from `main.qml` at start and when the variant changes:
+  `MOSAIC: the selected-epoch red dot is not drawn (v2)`. Waypoints are unaffected: Add waypoint
+  places the point at the loupe's crosshair, and the autopilot can hold the boat over it.
+- **Classic keeps the upstream behaviour**, red dot included.
 
 C++ in `plot2D.h`, `plot2D_aim.h`, `qPlot2D.cpp` and `scene3d_view.h` (a new `Q_INVOKABLE`, so moc
 re-runs). moc, `g++ -fsyntax-only`, qmlformat and the six `tools/pulse-*-check.js` pass.
@@ -3269,7 +3276,7 @@ re-runs). moc, `g++ -fsyntax-only`, qmlformat and the six `tools/pulse-*-check.j
 `adb logcat | grep -E " (MOSAIC|AIM): "` (the grep without the spaces also catches Play Store's
 `Finsky … AIM:` lines).
 
-1. At start: `MOSAIC: epoch picking off (v2)`.
+1. At start: `MOSAIC: the selected-epoch red dot is not drawn (v2)`.
 2. **Side + mosaic, live:** tap the mosaic a few times, on and off the track. **No red dot**, the
    echogram does not jump and no *scrolled back* pill. Each tap prints at most
    `AIM: pane 1 ignores a 3D epoch selection …` (the release still posts one).
@@ -3280,6 +3287,7 @@ re-runs). moc, `g++ -fsyntax-only`, qmlformat and the six `tools/pulse-*-check.j
    touches on the echogram.
 5. **Down + mosaic**, the same 2-4. Left- and right-hand layout, tablet and phone.
 6. **The mosaic's own interaction is unchanged:** pan, zoom and the Pause pill.
+7. **Paused, move the loupe's crosshair:** the epoch link to the mosaic still works as before, with no red dot.
 
 #### FUTURE TODO - a strategy for linking the mosaic and the echogram
 
@@ -3297,8 +3305,8 @@ is a clear design.** Questions to answer first:
 - Which direction(s): mosaic -> echogram, echogram -> mosaic, or both.
 - Does it belong with the waypoint flow (pick on the mosaic, confirm in the loupe, Add)?
 
-Turning it back on is the two gates above: `qPlot2D::eventFilter` and `applyEpochSyncForVariant`
-in `main.qml`.
+In 1.43 the mosaic -> echogram direction is off (`qPlot2D::eventFilter`), and the echogram -> mosaic
+direction is kept with its red dot hidden (`applySelectedEpochMarkForVariant` in `main.qml`).
 
 ### THE PROMPT FOR THE NEXT SESSION
 
