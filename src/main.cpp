@@ -28,6 +28,7 @@
 #endif
 #include "qPlot2D.h"
 #include "core.h"
+#include <QRegularExpression>
 #include "themes.h"
 #include "ui_probe.h"
 #include "ui_state_serializer.h"
@@ -399,7 +400,23 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName("TechAdVision");
     QCoreApplication::setOrganizationDomain("techadvision.com");
     QCoreApplication::setApplicationName("Pulse Echo Sounder");
-    QCoreApplication::setApplicationVersion("1-1-1");
+    // THE LOG NAMES ITS BUILD (1.43). This was a hard-coded "1-1-1", so every
+    // "--- log opened" line in pulse.log read "Pulse Echo Sounder 1-1-1" and a log a tester
+    // sent could not say which build made it. The version is the manifest's, by way of the
+    // derived :/version.txt ("Pulse Echo Sounder v. 1.43" -> "1.43"), the same parse as
+    // Core::appVersion(). Read here rather than through Core so that Core's cached answer is
+    // never formed before QGuiApplication exists. The display name (read after the app is
+    // built) already carries the version, so the classic UI-state dump is unaffected.
+    QCoreApplication::setApplicationVersion([]() {
+        QFile f(QStringLiteral(":/version.txt"));
+        if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+            return QStringLiteral("unknown");
+        const QString line = QString::fromUtf8(f.readLine()).trimmed();
+        const QRegularExpressionMatch m =
+            QRegularExpression(QStringLiteral("^(?:.*?)\\bv\\.?\\s*(\\S+)\\s*$"),
+                               QRegularExpression::CaseInsensitiveOption).match(line);
+        return line.isEmpty() ? QStringLiteral("unknown") : (m.hasMatch() ? m.captured(1) : line);
+    }());
 
     migrateSettingsSchema();
 
