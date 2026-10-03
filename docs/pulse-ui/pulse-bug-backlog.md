@@ -3398,6 +3398,19 @@ Classic's selectors (DeviceItem's ParamSetups, PulseInfoExpert's blue high/low) 
 taken. On any blue the Frequency row runs 320-850 with the knob on the track at 820; on a red it still runs between its cones.
 At 5000 samples Sample spacing stops at 40 mm. With performance mode holding, Maximum depth is dimmed.
 
+**Max range ceiling replaces a blue's Maximum depth row (`215af130`).** Olav, 3 Oct: the row moved the range on screen, which
+the sliders and the pinch already do; the expert should set how FAR they may go instead. *Max range ceiling*, persistent
+(`perfMaxRangeSideM`), from the Side scan width (25 or 35) to 50 m in 5 m steps - 50 m is the longest range whose listen time
+(69.7 ms) fits the fixed 70 ms. Active only while performance mode holds the acquisition (`maxRangeCeilingOverride` is now a
+binding on it): the Max range sliders and `displayMaxRangeCeiling` follow it, and the engine sets `maximumDepth` (the pinch's
+clamp, QML and C++) to it. On hand-back `maximumDepth` returns to the width and a stored range above it comes down. A red
+keeps its Maximum depth row. Expected at 40 / 45 / 50 m: 16 / 18 / 20 mm x 5000 at 70 ms, 83%, on both blues.
+
+**To check:** performance mode on, *Max range ceiling* 50: the Max range side slider and a sideways pinch reach 50 m;
+`ENGINE: the range ceiling is 50 m`, then `50 m per side -> 20 mm x 5000 @ 70 ms (real 70)`. With performance mode off the row
+says it waits for performance mode and the sliders stop at 25 / 35. Turn performance mode off at 45 m: `RANGE:
+maxDepthValuePulseBlueFixed 45 -> 25` and the picture back inside the swath.
+
 **Pulse length as the next lever** (the partner doc, section 5): a pulse that follows the range (count ~ 1.2 x spacing in mm)
 would turn more of the fine spacing into real detail at short range. Desk test first: 5 m per side, 2 mm, pulse 4 / 6 / 10 on
 a sharp target. Not started.
