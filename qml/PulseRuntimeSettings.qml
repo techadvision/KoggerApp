@@ -2368,6 +2368,13 @@ QtObject {
                 console.log("PARAM:", name, "->", value, "refused - performance mode holds it")
             return
         }
+        // THE PULSE COUNT'S BOUNDS (3 Oct 2026): one byte on the wire, so anything above 255
+        // wraps (300 arrives as 44), and 0 transmits nothing. 1-30 cycles is the useful span.
+        if (name === "transPulse" && (value < 1 || value > 30)) {
+            var held = Math.max(1, Math.min(30, value))
+            console.log("PARAM: transPulse", value, "is outside 1-30 cycles -", held, "sent instead")
+            value = held
+        }
         // THE SPACING FLOOR IS ENFORCED HERE TOO, so no caller can get under it - the row's
         // minimum is the visible half, this is the half that holds.
         if (name === "chartResolution" && value < hardwareSpacingFloorMm) {

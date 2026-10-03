@@ -1121,9 +1121,14 @@ Item {
                     showNudges: true
 
                     label: qsTr("Transducer pulse")
-                    hint:  qsTr("longer carries further and blurs the first return")
-                    minValue: 0
-                    maxValue: 5000
+                    // CYCLES PER PING, 1-30 (Olav, 3 Oct). It ran 0-5000, but the protocol
+                    // carries it in ONE byte, so 300 arrived as 44; and 0 transmits nothing.
+                    // About 1.6 mm of range cell per cycle at 460 kHz: 4-6 sharpens the short
+                    // ranges, 15-20 reaches further and blurs; past 30 nothing is gained that
+                    // a lower frequency would not do better. setParam holds the same bounds.
+                    hint:  qsTr("cycles per ping - fewer is sharper, more carries further")
+                    minValue: 1
+                    maxValue: 30
                     stepSize: 1
                     value: list.paramNum("transPulse", 0)
                     valueText: list.paramText("transPulse",
