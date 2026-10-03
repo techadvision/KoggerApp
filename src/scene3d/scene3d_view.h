@@ -321,7 +321,7 @@ public:
     void setSyncLoupeZoom(int val);
     void setSyncLoupeZoomAdjusting(bool adjusting);
     void setSyncEpochIndex(int epochIndex);
-    void setEpochSyncEnabled(bool state);
+    Q_INVOKABLE void setEpochSyncEnabled(bool state);   // PULSE: v2 turns it off (main.qml)
     bool isEpochSyncEnabled() const { return epochSyncEnabled_; }
 
     void setActiveZeroing(bool state);

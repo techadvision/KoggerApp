@@ -1745,8 +1745,27 @@ ApplicationWindow  {
                     setSyncLoupeUiAllowed(syncLoupeUiAllowed)
                 }
 
+                // NO EPOCH PICKING ON THE MOSAIC IN V2 (fix/mosaic-aim, 4 Oct). A tap on the
+                // mosaic picked the nearest bottom-track epoch and put a red dot there, and the
+                // echogram followed it (the timeline jumped, the loupe could come up). Olav:
+                // "We should disable this ability for now, I need a clear strategy for using
+                // something like this and I currently have none." The 3D view's own epoch sync
+                // is the upstream switch for exactly this, both ways: no pick and no red dot
+                // from a tap here, and no mark from an aim in the echogram. Classic keeps it.
+                function applyEpochSyncForVariant() {
+                    const on = !pulseRuntimeSettings.uiVariantIsV2
+                    setEpochSyncEnabled(on)
+                    console.log("MOSAIC: epoch picking " + (on ? "on (classic)" : "off (v2)"))
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onUiVariantIsV2Changed() { renderer.applyEpochSyncForVariant() }
+                }
+
                 Component.onCompleted: {
                     setSyncLoupeUiAllowed(syncLoupeUiAllowed)
+                    applyEpochSyncForVariant()
                 }
 
                 onSendDataZoom: function(zoom) {
