@@ -3479,35 +3479,96 @@ win, but over a soft or deep bottom a longer acquisition range gives the bottom 
 look when the engine is on the water: whether bottom track's search should be bounded by the expected depth rather than the
 full trace. Not started.
 
-### THE PROMPT FOR THE NEXT SESSION
+### THE PROMPTS FOR THE NEXT SESSIONS
+
+**Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
+5 / 10 / 15 / 20 / 25 m per side -> 2 / 4 / 6 / 8 / 10 mm x 5000 at 70 ms, 83%, pulse 4 / 5 / 7 / 10 / 10 cycles with Pulse follows
+the range on (Max samples 5000, Min spacing blue 1 mm). The pulse is capped at 10 cycles everywhere (hardware partner).
+
+**Found by Olav, the last known v2 bug - the zoom box that would not go away:** in a split screen with the MOSAIC (side +
+mosaic, and probably down + mosaic too), a press on the MOSAIC pane makes the loupe pop up over the side scan pane. The
+belt-and-braces of `c79c8ce3` / `0d397250` stay. The fix goes to master as 1.43 (prompt 1), then master is merged into
+`feature/pulse-performance-mode`, where the red work continues (prompt 2, 1.44 internal only).
+
+#### Prompt 1 - master, 1.43
 
 ```
 We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
-app"). Repo: my KoggerApp folder, branch feature/pulse-performance-mode (off master at
-1.42, which is public; performance mode goes to internal test only, quick fixes to the
-public release come from master). Read first: claude/pulse-high-performance-mode.md,
-chapters 6, 7 and 9a, and claude/pulse-bug-backlog.md from "Performance mode, step 2" to
-the end. Check whether the branch is pushed - remind me if not.
+app"). Repo: my KoggerApp folder. This is a HOTFIX on master (1.42 is public); it becomes
+1.43, published to internal test and then to the closed test group tomorrow. Cut a branch
+fix/mosaic-aim off master (check that master equals origin/master first - remind me if not),
+and leave feature/pulse-performance-mode alone until the fix is merged.
 
-Where we are: step 2, the blue engine, is built (51822d56 .. 5fbe48cf) and NOT yet on a
-device: it holds spacing, samples, distMax and the period while expert mode + Enable
-performance mode + a committed blue; Max range side decides; 70 ms; 85% of a baud decided
-once per connection; one parameter at a time, the chart confirmed by the stream; the
-Transducer rows read-only; true proportions read the real period. I bring the ENGINE: /
-LINK: / PERIOD: lines from the step 2 device checks (backlog, "To check on the device -
-step 2"). Nothing is fixed before its log line is read.
+Read first: claude/pulse-bug-backlog.md, "THE PROMPTS FOR THE NEXT SESSIONS" and the 1.41/1.42
+notes on the aim (c79c8ce3 "the zoom box that stayed after the pause", 0d397250, 8b373a83 +
+f8df7c90 "one loupe" in session 6). The project memory pulse-aim-zoom has the loupe's design.
 
-Then: the two bottom-track problems (backlog, "BOTTOM TRACK - TWO OPEN PROBLEMS"), then
-Task 2b (red/black link-fit, the version poll). Waypoint desk tests T1-T6 are still owed on
-my side.
+The bug, now reproducible: split screen with the MOSAIC - side + mosaic for certain, very likely
+down + mosaic too. A press on the MOSAIC pane makes the zoom box (Plot2DAim loupe) appear over
+the 2D echogram pane, and it can stay. The upstream aim / cursor sync can probably be activated
+from the 3D/mosaic view (a sync cursor, a shared mouse position, or the press reaching the
+Plot2D underneath). Required behaviour for now: a press, drag or release on the mosaic pane
+must never raise, move or keep a loupe on any echogram pane. Live and paused, side + mosaic and
+down + mosaic, left- and right-hand layout, tablet and phone.
 
-Working rules as before: Classic is not touched; one idea per commit; nothing is fixed
-before its log line is read; run moc on any changed header and a g++ -fsyntax-only check
-on changed C++ in the cloud shell (apt qt6-base-dev qt6-declarative-dev
-qt6-base-dev-tools qt6-declarative-dev-tools libqt6serialport6-dev qt6-positioning-dev;
--I every src dir, not third_party; qmlformat parses changed QML), plus the
-tools/pulse-*-check.js scripts, before telling me to build; update the backlog in the repo
-AND the project doc.
+Find the route first: add an AIM:/MOSAIC: log line on the path(s) that raise the aim from the
+mosaic, ask me for the log, and fix only what the line proves. Keep it minimal - this ships
+tomorrow. Do not touch the mosaic's own interaction (pan/zoom/pause pill) or classic.
+
+Then bump the version to 1.43 (versionCode 143) in the manifest's XML (not Qt Creator's form
+view, no package="" attribute), run node tools/pulse-manifest-check.js. Version.txt is derived.
+
+Working rules as before: Classic is not touched; one idea per commit; nothing is fixed before
+its log line is read; run moc on any changed header and a g++ -fsyntax-only check on changed
+C++ in the cloud shell (apt qt6-base-dev qt6-declarative-dev qt6-base-dev-tools
+qt6-declarative-dev-tools libqt6serialport6-dev qt6-positioning-dev; -I every src dir, not
+third_party; qmlformat parses changed QML), plus all tools/pulse-*-check.js, before telling me
+to build; update the backlog in the repo AND the project doc. When I confirm the fix on the
+device: I merge fix/mosaic-aim into master and push; then merge master into
+feature/pulse-performance-mode (expect a conflict only in the manifest version and the backlog).
+```
+
+#### Prompt 2 - feature/pulse-performance-mode, PULSE red (1.44, internal test only)
+
+```
+We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
+app"). Repo: my KoggerApp folder, branch feature/pulse-performance-mode. First check that
+master (1.43, the mosaic aim fix) has been merged into it and the branch is pushed - remind me
+if not. This branch publishes to INTERNAL TEST ONLY; when I am happy it becomes 1.44.
+
+Read first: claude/pulse-high-performance-mode.md chapters 2a, 8 (Task 2b - red and black in
+the field) and 9 items 3 and 7; claude/pulse-bug-backlog.md from "Performance mode, step 2" to
+the end, including "BOTTOM TRACK - TWO OPEN PROBLEMS".
+
+Performance mode for PULSE blue is done and with the testers. Today: general improvements for
+PULSE red (and black, same profile, same 115200 UART fixed by the delivered 2.4 GHz wifi AP).
+Not a performance mode - for every user, every link, no warning, never more data than today.
+Candidates, in the order I think they should go - agree the order and the design with me
+before building:
+
+1. MEASURE FIRST on a live red: the LINK: line at today's dynamic scheme, shallow (500 samples
+   commanded at 50 ms - chapter 2a predicts ~99% of 115200 and only ~14-15 pings/s) and deep.
+   Add what is missing to read it: the real ping rate (complete pings per second from the
+   chart stream, like linkStreamSamples) in the LINK: line and the Serial link row.
+2. The version poll (8.3): the app polls every 300 ms while data flows; ~2.3% of a 115200 link
+   back by polling every ~2 s while chart data flows (requestAllCntBig 3 -> 20 in
+   link_defs.h, an upstream file - note it in claude/upstream-merge-survey.md). Check the swap
+   prompt still notices a changed transducer.
+3. Link-fit periods (8.2, option A): PulseDepthEngine's dynamic scheme computes the period
+   from the bytes per ping at 85% of the reported baud (reuse PulsePerfEngine.js) instead of
+   the fixed 2 x res - 50 rule: ~57-59 ms at 500 samples in the shallows (steady ~17 pings/s
+   instead of ~14-15 irregular), ~30% more pings in deep water at the same detail. Keyed on the
+   reported 115200 (the red prototype Basic2D reports 115200 too). Never below the listen time.
+4. The two bottom-track problems: false depths with no real bottom (they follow the
+   acquisition range), and no bottom-track depth below ~0.5 m (the rangefinder crossover in
+   the depth engine, so the readout, NMEA and the loupe agree).
+
+Working rules as before: Classic is not touched; one idea per commit; nothing is fixed before
+its log line is read; moc + g++ -fsyntax-only on changed C++ in the cloud shell, qmlformat on
+changed QML, all tools/pulse-*-check.js (extend pulse-perf-check.js for the red arithmetic);
+update the backlog in the repo AND the project docs. Waypoint desk tests T1-T6 are still owed
+on my side. The partner doc "PULSE blue - what performance mode achieves" is the testers'
+reference - their feedback (especially Test B, 40-50 m) may come in during this work.
 ```
 
 ### Emulators
