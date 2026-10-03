@@ -60,7 +60,8 @@ Item {
     readonly property int tableBaud:    921600         // the blue family's UART (both prototypes' blue too)
     // THE PULSE FOLLOWS THE RANGE (Olav, 3 Oct): a switch in Performance mode. On, the engine
     // sets the pulse count from the spacing (PerfMath.pulseCycles: a range cell of about two
-    // samples, 4-30 cycles); off, the transducer keeps the profile's 10 cycles.
+    // samples, 4-10 cycles - never above the standard 10, the hardware partner's limit);
+    // off, the transducer keeps the profile's 10 cycles.
     readonly property bool pulseWanted: pulseSettings.perfPulseFollowsRange
 
     // ---------------------------------------------------------------- the state

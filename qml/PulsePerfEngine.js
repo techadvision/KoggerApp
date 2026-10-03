@@ -115,13 +115,18 @@ function plan(p) {
 
 // THE PULSE THAT SUITS A SPACING (3 Oct 2026, the partner doc section 5). A CW pulse of N
 // cycles at f covers a range cell of c x N / f / 2; two samples per cell is the match, so
-// N = 4 x spacing x f / c - about 1.2 x spacing in mm at 460 kHz. 4-30 cycles: below ~4 a
-// resonant transducer rings longer than it is told anyway; 30 is the expert row's ceiling.
+// N = 4 x spacing x f / c - about 1.2 x spacing in mm at 460 kHz. Bounded 4-10 cycles: below
+// ~4 a resonant transducer rings longer than it is told anyway, and ABOVE 10 THE HARDWARE IS AT
+// RISK - the hardware partner, 3 Oct: the extra transmit energy of a longer pulse can blow
+// resistors. 10 is the standard pulse, so the switch only ever SHORTENS it (up to ~20 m at
+// 460 kHz); beyond that it is the standard 10 cycles.
+var PULSE_MIN_CYCLES = 4
+var PULSE_MAX_CYCLES = 10
 function pulseCycles(spacingMm, freqKHz, soundSpeed) {
     var c = soundSpeed > 0 ? soundSpeed : 1500
     var f = (freqKHz > 0 ? freqKHz : 460) * 1000
     var n = Math.round(4 * (spacingMm / 1000) * f / c)
-    return Math.max(4, Math.min(30, n))
+    return Math.max(PULSE_MIN_CYCLES, Math.min(PULSE_MAX_CYCLES, n))
 }
 
 // WHICH BAUD TO BUDGET ON, decided ONCE per connection while the shipped settings run.

@@ -2421,11 +2421,12 @@ QtObject {
             console.log("PARAM: transFreq", value, "kHz is outside the side scan's", sideScanFreqMin + "-" + sideScanFreqMax, "-", f, "sent instead")
             value = f
         }
-        // THE PULSE COUNT'S BOUNDS (3 Oct 2026): one byte on the wire, so anything above 255
-        // wraps (300 arrives as 44), and 0 transmits nothing. 1-30 cycles is the useful span.
-        if (name === "transPulse" && (value < 1 || value > 30)) {
-            var held = Math.max(1, Math.min(30, value))
-            console.log("PARAM: transPulse", value, "is outside 1-30 cycles -", held, "sent instead")
+        // THE PULSE COUNT'S BOUNDS (3 Oct 2026): 1-10 cycles. Above 10 the extra transmit
+        // energy can blow resistors on the transducer (the hardware partner, 3 Oct), so 10 -
+        // the standard pulse - is a hard ceiling for every writer. 0 transmits nothing.
+        if (name === "transPulse" && (value < 1 || value > transPulseMaxCycles)) {
+            var held = Math.max(1, Math.min(transPulseMaxCycles, value))
+            console.log("PARAM: transPulse", value, "is outside 1-" + transPulseMaxCycles, "cycles -", held, "sent instead")
             value = held
         }
         // THE SPACING FLOOR IS ENFORCED HERE TOO, so no caller can get under it - the row's
@@ -2469,6 +2470,9 @@ QtObject {
     // The span the expert Frequency row offers a side scan, and setParam holds (Olav, 3 Oct).
     readonly property int sideScanFreqMin: 320
     readonly property int sideScanFreqMax: 850
+    // The pulse count's hard ceiling: above 10 cycles the transducer's resistors are at risk
+    // (the hardware partner, 3 Oct). setParam, the expert row and the engine all hold to it.
+    readonly property int transPulseMaxCycles: 10
     // maximumDepth is the app's own range ceiling (the pinch clamps to it, the C++ too) and
     // goes nowhere on the wire; the engine sets it to the side scan's ceiling while it holds.
     // transPulse joins only while the engine sets the pulse (Pulse follows the range, on);

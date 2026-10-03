@@ -1125,17 +1125,17 @@ Item {
                     showNudges: true
 
                     label: qsTr("Transducer pulse")
-                    // CYCLES PER PING, 1-30 (Olav, 3 Oct). It ran 0-5000, but the protocol
-                    // carries it in ONE byte, so 300 arrived as 44; and 0 transmits nothing.
+                    // CYCLES PER PING, 1-10 (3 Oct). It ran 0-5000 (one byte on the wire, so 300
+                    // arrived as 44; 0 transmits nothing), then 1-30 - and the hardware partner
+                    // then capped it at 10: a longer pulse's transmit energy can blow resistors.
                     // About 1.6 mm of range cell per cycle at 460 kHz: 4-6 sharpens the short
-                    // ranges, 15-20 reaches further and blurs; past 30 nothing is gained that
-                    // a lower frequency would not do better. setParam holds the same bounds.
+                    // ranges. setParam holds the same bounds.
                     enabled: !(pulseRuntimeSettings && pulseRuntimeSettings.perfEngineHoldsPulse)
                     opacity: enabled ? 1.0 : 0.45
-                    hint:  enabled ? qsTr("cycles per ping - fewer is sharper, more carries further")
+                    hint:  enabled ? qsTr("cycles per ping, at most 10 - fewer is sharper, more carries further")
                                    : qsTr("held by performance mode - Pulse follows the range is on")
                     minValue: 1
-                    maxValue: 30
+                    maxValue: pulseRuntimeSettings ? pulseRuntimeSettings.transPulseMaxCycles : 10
                     stepSize: 1
                     value: list.paramNum("transPulse", 0)
                     valueText: list.paramText("transPulse",
@@ -1471,8 +1471,9 @@ Item {
 
                 // THE PULSE FOLLOWS THE RANGE (Olav, 3 Oct 2026) - for the testers to see the
                 // difference on the water and in recordings: off, every ping is the profile's 10
-                // cycles; on, the engine sets about 1.2 cycles per mm of spacing (4-30), so the
-                // short ranges get a short, sharp pulse and the long ones a longer, stronger one.
+                // cycles; on, the engine sets about 1.2 cycles per mm of spacing, 4-10 - capped
+                // at the standard 10 by the hardware partner (resistors). So it only ever
+                // SHORTENS the pulse: up to about 20 m, for finer object separation.
                 // Sends no extra data. The Engine row and the ENGINE: line name the count.
                 PulseSwitchRow {
                     width: perfGroup.contentWidth
@@ -1482,7 +1483,7 @@ Item {
 
                     label: qsTr("Pulse follows the range")
                     hint:  checked
-                           ? qsTr("on: short pulse close in separates nearby objects, longer pulse far out reaches further")
+                           ? qsTr("on: a shorter pulse up to ~20 m to separate nearby objects; 10 cycles beyond")
                            : qsTr("off: the same 10-cycle pulse at every range")
                     checked: pulseSettings ? pulseSettings.perfPulseFollowsRange : false
 

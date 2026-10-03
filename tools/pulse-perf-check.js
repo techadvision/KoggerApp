@@ -108,14 +108,19 @@ const wrong = blue(25, 15, 15, { baud: RED });
 check(wrong.loadPercent <= 85 && wrong.limitedBy === "link", "a blue budgeted on 115200 fits 115200: " + wrong.samples + " x " + wrong.spacingMm + " mm");
 
 console.log("the pulse that suits a spacing (Pulse follows the range)");
-const pc = { 2: 4, 4: 5, 6: 7, 8: 10, 10: 12, 14: 17, 15: 18, 20: 25 };
+const pc = { 2: 4, 4: 5, 6: 7, 8: 10, 10: 10, 14: 10, 15: 10, 20: 10 };
 for (const sp of Object.keys(pc)) {
     const n = E.pulseCycles(+sp, 460, C);
     check(n === pc[sp], sp + " mm at 460 kHz -> " + n + " cycles");
 }
 check(E.pulseCycles(8, 460, C) === 10, "8 mm keeps today's 10 cycles - the match point");
-check(E.pulseCycles(1, 460, C) === 4 && E.pulseCycles(60, 460, C) === 30, "bounded 4-30 cycles");
-check(E.pulseCycles(8, 820, C) === 17, "the count scales with frequency: 8 mm at 820 kHz -> " + E.pulseCycles(8, 820, C));
+check(E.pulseCycles(1, 460, C) === 4, "never below 4 cycles");
+let longest = 0;
+for (let sp = 1; sp <= 100; sp++)
+    for (const f of [320, 460, 820, 850])
+        longest = Math.max(longest, E.pulseCycles(sp, f, C));
+check(longest === 10, "NEVER above 10 cycles, at any spacing or frequency (the hardware partner: resistors) - longest " + longest);
+check(E.pulseCycles(4, 820, C) === 9, "the count follows the frequency: 4 mm at 820 kHz -> " + E.pulseCycles(4, 820, C));
 
 console.log("which baud to trust");
 let b = E.chooseBaud(115200, false, 80000, BLUE);
