@@ -1293,7 +1293,12 @@ Item {
                     showNudges: true
 
                     label: qsTr("Maximum depth")
-                    hint:  qsTr("how deep the device searches - metres")
+                    // HELD BY PERFORMANCE MODE like the three rows above: the engine sets
+                    // distMax from the range (1000 x R) and setParam refuses anyone else.
+                    enabled: !(pulseRuntimeSettings && pulseRuntimeSettings.perfEngineOwnsAcquisition)
+                    opacity: enabled ? 1.0 : 0.45
+                    hint:  enabled ? qsTr("how deep the device searches - metres")
+                                   : qsTr("held by performance mode")
                     minValue: 1000
                     maxValue: 50000
                     stepSize: 1000
