@@ -3376,6 +3376,32 @@ or `pulse.log`. Expert mode on.
 **Not in this step:** opening it to all users (the per-link switch, the wifi warning), Task 2b (red/black), a black v2.
 The two bottom-track problems stay on the list below; the engine changes the range by itself, which feeds problem 1.
 
+### The expert Transducer rows reviewed - 3 Oct 2026, not compiled
+
+Olav asked for moderation of every setter in Expert -> Transducer. Each row checked against what the protocol carries:
+
+| row | before | now | commit |
+|---|---|---|---|
+| Samples | 100-5000 | unchanged (capped 2 Oct, `e3f41c31`) | - |
+| Sample spacing | floor-100 mm | floor to **min(100, 200 000 / samples)**: `IDBinChartSetup::setV0` silently cut anything above to a multiple of 10 mm (5000 x 100 sent 40) | `f4d427bb` |
+| Transducer pulse | 0-5000 | **1-30 cycles**, also clamped in `setParam`: one byte on the wire (300 arrived as 44), 0 sends nothing | `84c60524` |
+| Side scan frequency (460 / 820 buttons) | PULSEblue only | **removed** - the waypoint desk check is done | `4e61bfb5` |
+| Frequency | cone bounds; a side scan has none, so 460..460 and 820 sat off the track | side scan **320-850 kHz** (`sideScanFreqMin/Max`, clamped in `setParam`); 2D keeps its cones | `4e61bfb5` |
+| Transmit boost, Dynamic resolution | switches | unchanged | - |
+| Ping period | 40-160 ms | unchanged (2 Oct, `18ce749e`) | - |
+| Bottom confidence | 0-100 | unchanged | - |
+| Maximum depth | live while performance mode held distMax | **held by performance mode**, dimmed like the other three | `994e6218` |
+
+Classic's selectors (DeviceItem's ParamSetups, PulseInfoExpert's blue high/low) are not touched.
+
+**To check on the device:** Transducer pulse stops at 1 and 30, `PARAM: transPulse` in the log, Device parameters shows the value
+taken. On any blue the Frequency row runs 320-850 with the knob on the track at 820; on a red it still runs between its cones.
+At 5000 samples Sample spacing stops at 40 mm. With performance mode holding, Maximum depth is dimmed.
+
+**Pulse length as the next lever** (the partner doc, section 5): a pulse that follows the range (count ~ 1.2 x spacing in mm)
+would turn more of the fine spacing into real detail at short range. Desk test first: 5 m per side, 2 mm, pulse 4 / 6 / 10 on
+a sharp target. Not started.
+
 ### BOTTOM TRACK - TWO OPEN PROBLEMS, TO BE DEALT WITH (Olav, 2 Oct night)
 
 Olav: *"The false readings we need to deal with. As we also need to deal with a seemingly inability to interpret depths
