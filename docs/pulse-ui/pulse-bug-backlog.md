@@ -3413,7 +3413,9 @@ maxDepthValuePulseBlueFixed 45 -> 25` and the picture back inside the swath.
 
 **Tested OK with a live transducer (not in water), 3 Oct.** The *Max range ceiling* row then moved to the Performance mode
 category, after Min spacing blue (`8f9fb9e1`): it only works while performance mode holds the acquisition. The partner doc
-now shows 40-50 m as expert-only rows (16 / 18 / 20 mm x 5000, predicted 83%), 30-35 m as optional, standard mode stopping at 35.
+now shows 40-50 m as expert-only rows, 30-35 m as optional, standard mode stopping at 35. **Measured on the production blue,
+3 Oct 16:01-16:02:** 40 m 16 mm x 5000 at 83.3-84.1%, 45 m 18 mm at 82.6-84.1%, 50 m 20 mm at 80.8-82.7%, all at 70 ms,
+the stream confirming each setting, 0.00-0.03% lost.
 
 **Pulse length as the next lever** (the partner doc, section 5): a pulse that follows the range (count ~ 1.2 x spacing in mm)
 would turn more of the fine spacing into real detail at short range. Desk test first: 5 m per side, 2 mm, pulse 4 / 6 / 10 on
