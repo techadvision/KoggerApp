@@ -3417,6 +3417,17 @@ now shows 40-50 m as expert-only rows, 30-35 m as optional, standard mode stoppi
 3 Oct 16:01-16:02:** 40 m 16 mm x 5000 at 83.3-84.1%, 45 m 18 mm at 82.6-84.1%, 50 m 20 mm at 80.8-82.7%, all at 70 ms,
 the stream confirming each setting, 0.00-0.03% lost.
 
+**Pulse follows the range (`214e0e4a`), for the partner and two expert testers while Olav is away.** A persistent switch in
+Performance mode (blue only, default off). On: pulse = 4 x spacing x f / c cycles, 4-30 (`PerfMath.pulseCycles`): production
+blue 4 / 5 / 7 / 10 / 12 / 15 / 17 at 5-35 m, 20 / 22 / 25 at 40-50 m; the prototype's 15 mm gives 18 at every range up to
+35 m. Sent as one more confirmed step (period, chart, pulse, distMax). Off again or a hand-back: the profile's 10 cycles, then
+the hold ends. While held, the Transducer pulse row is dimmed. The test procedure is section 6 of the partner doc.
+
+**To check before handing over:** switch on at 10 m on a live blue: `ENGINE: … | pulse 5 cycles (follows the range)`, `sent
+pulse {"transPulse":5}`, `confirmed pulse`, and Device parameters -> Transducer pulse reads 5. Switch off: `pulse 10 cycles
+(fixed)` and `the pulse is the profile's 10 cycles again - released`. Performance mode off with the switch on: the pulse goes
+back to 10 with the rest.
+
 **Pulse length as the next lever** (the partner doc, section 5): a pulse that follows the range (count ~ 1.2 x spacing in mm)
 would turn more of the fine spacing into real detail at short range. Desk test first: 5 m per side, 2 mm, pulse 4 / 6 / 10 on
 a sharp target. Not started.
