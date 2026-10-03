@@ -1520,14 +1520,24 @@ QtObject {
     // assigners were copying into maximumDepth anyway. So read the live value instead of a
     // copy of it, and the freeze cannot happen.
     //
-    // ONE OVERRIDE, for the expert dist-max control when tier 3 reaches the panel. It writes
-    // THIS, never the binding - which is the whole shape rule 2 asks for. Nothing writes it
-    // yet, and zero means "no override".
-    property int maxRangeCeilingOverride: 0
+    // ONE OVERRIDE, and as of 3 Oct 2026 it has its writer: the expert's Max range ceiling
+    // (pulseSettings.perfMaxRangeSideM), a SIDE SCAN's ceiling above the Side scan width, up
+    // to 50 m. It counts only while performance mode holds the acquisition: the engine then
+    // sizes samples and spacing to the range, so the range beyond 25 / 35 m is really
+    // acquired. Without it the transducer still covers just the Side scan width and a slider
+    // past it would draw black. Zero means "no override". A binding, never assigned.
+    readonly property int sideScanRangeCeilingMax: 50    // 2R/c + 3 ms = 70 ms at 50 m
+    readonly property int maxRangeCeilingOverride: {
+        if (!perfEngineOwnsAcquisition || is2DTransducer)
+            return 0
+        var width = psInt("echogramWidth", 0)
+        var asked = Math.min(sideScanRangeCeilingMax, psInt("perfMaxRangeSideM", 0))
+        return asked > width ? asked : 0
+    }
 
     readonly property int displayMaxRangeCeiling:
-          maxRangeCeilingOverride > 0 ? maxRangeCeilingOverride
-        : displayIs2DTransducer       ? committedProfile.maximumDepth
+          displayIs2DTransducer       ? committedProfile.maximumDepth
+        : maxRangeCeilingOverride > 0 ? maxRangeCeilingOverride
         :                               psInt("echogramWidth", 0)
 
     // The floor and the step are the picture's questions too - a side scan steps in 5 m and
@@ -2424,7 +2434,9 @@ QtObject {
     // The span the expert Frequency row offers a side scan, and setParam holds (Olav, 3 Oct).
     readonly property int sideScanFreqMin: 320
     readonly property int sideScanFreqMax: 850
-    readonly property var perfEngineKeys: ["chartResolution", "chartSamples", "distMax", "ch1Period"]
+    // maximumDepth is the app's own range ceiling (the pinch clamps to it, the C++ too) and
+    // goes nowhere on the wire; the engine sets it to the side scan's ceiling while it holds.
+    readonly property var perfEngineKeys: ["chartResolution", "chartSamples", "distMax", "ch1Period", "maximumDepth"]
     // What the engine last did, for the expert category's Engine row. Written by the engine.
     property string perfEngineStatus: ""
 

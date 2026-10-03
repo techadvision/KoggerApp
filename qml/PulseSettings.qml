@@ -147,6 +147,10 @@ Settings {
     property int    perfMaxSamples:             5000    //500 .. 5000, the firmware's maximum
     property int    perfMinSpacingBlueMm:       15      //1 .. 50; Basic2D never below its 15
     property int    perfMinSpacing2DMm:         2       //1 .. 50; red, black, red prototype
+    //THE SIDE SCAN'S RANGE CEILING IN PERFORMANCE MODE (Olav, 3 Oct): how far the Max range
+    //sliders and the pinch may go, from the Side scan width (25 or 35) up to 50 m - the longest
+    //range whose listen time (2R/c + 3 ms) still fits the fixed 70 ms. 0 = the Side scan width.
+    property int    perfMaxRangeSideM:          0
     property double pulseBlueOffset:            20
 
     // Transducer telemetry settings

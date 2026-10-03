@@ -66,6 +66,15 @@ for (const r of Object.keys(t1)) {
           r + " m -> " + p.spacingMm + " mm x " + p.samples + " (" + p.loadPercent.toFixed(1) + "%)");
 }
 
+console.log("the Max range ceiling's 50 m (3 Oct): the longest range 70 ms still listens to");
+check(E.listenTimeMs(50, C) <= 70 && E.listenTimeMs(55, C) > 70,
+      "listen time 50 m = " + E.listenTimeMs(50, C).toFixed(1) + " ms, 55 m = " + E.listenTimeMs(55, C).toFixed(1) + " ms");
+for (const [r, f, sp, n] of [[40, 15, 16, 5000], [45, 15, 18, 5000], [50, 15, 20, 5000], [50, 1, 20, 5000]]) {
+    const p = blue(r, f, f);
+    check(p.spacingMm === sp && p.samples === n && p.realPeriodMs === 70 && p.loadPercent <= 85,
+          r + " m at a " + f + " mm floor -> " + p.spacingMm + " mm x " + p.samples + " @ " + p.realPeriodMs + " ms, " + p.loadPercent.toFixed(1) + "%");
+}
+
 console.log("the hardware floor binds the expert row; the expert can only tighten");
 check(blue(10, 1, 15).spacingMm === 15, "Basic2D with Min spacing blue at 1 mm still gets 15 mm");
 check(blue(10, 20, 15).spacingMm === 20, "Min spacing blue 20 mm on Basic2D gives 20 mm");

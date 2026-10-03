@@ -113,7 +113,7 @@ Item {
             // blue comes back with its own; nothing is sent, it is not on the wire any more.
             rs.clearParamsFor(heldKey, rs.perfEngineKeys)
             log("released", heldKey, "- the committed device is now", key, "(" + why + ")")
-            release()
+            release(false)
         }
 
         if (wantsHold && heldKey === "") {
@@ -122,6 +122,7 @@ Item {
             stalled = false
             forgetConnection("a new hold")
             rs.perfEngineOwnsAcquisition = true
+            applyCeiling("the hold starts")
             log("holds the acquisition of", key, "| range per side", rangeM, "m | floor",
                 Math.max(rs.hardwareSpacingFloorMm, expertFloorMm), "mm | max samples", maxSamples, "(" + why + ")")
         } else if (wantsHold && handingBack) {
@@ -138,14 +139,44 @@ Item {
         kick()
     }
 
-    function release() {
+    function release(handedBack) {
         heldKey = ""
         handingBack = false
         stalled = false
         lastPlan = null
         forgetConnection("released")
         rs.perfEngineOwnsAcquisition = false
+        if (handedBack)
+            restoreShippedCeiling()
         setStatus(userWantsIt ? qsTr("waiting for a committed PULSE blue") : qsTr("off"))
+    }
+
+    // THE RANGE CEILING (Olav, 3 Oct). While the engine holds, the side scan's ceiling is the
+    // expert's Max range ceiling (pulseRuntimeSettings.blueMaxRangeCeiling, up to 50 m); the
+    // sliders read it directly, and maximumDepth - the pinch's clamp, in QML and in the C++ -
+    // is set to it here. maximumDepth goes nowhere on the wire, so it needs no confirmation.
+    function applyCeiling(why) {
+        if (heldKey === "" || handingBack)
+            return
+        if (rs.setParams({ maximumDepth: ceilingM }, "performance mode ceiling"))
+            log("the range ceiling is", ceilingM, "m (" + why + ")")
+    }
+
+    // Back to the Side scan width when the engine lets go of the device it handed back: the
+    // pinch's ceiling, and any stored range above it (it would draw black beyond what the
+    // transducer then covers). Written straight to the two blue keys, not through
+    // storeMaxRangeForPane, which picks its key from the picture on screen.
+    function restoreShippedCeiling() {
+        var width = shippedValues().chartResolution
+        rs.setParam("maximumDepth", width)
+        var keys = [rs.blueSideMaxRangeKey, rs.blueDownMaxRangeKey]
+        for (var i = 0; i < keys.length; i++) {
+            if (pulseSettings[keys[i]] > width) {
+                console.log("RANGE:", keys[i], pulseSettings[keys[i]], "-> " + width,
+                            "| above the Side scan width once performance mode let go")
+                pulseSettings[keys[i]] = width
+            }
+        }
     }
 
     function startHandBack(why) {
@@ -157,7 +188,7 @@ Item {
             // them as one chart message if a device is there at all) and let go.
             rs.setParams(v, "performance mode off")
             log("handed back without confirmation - no live data (" + why + ")")
-            release()
+            release(true)
             return
         }
         log("hands back the shipped values (" + why + "):", v.chartSamples, "x", v.chartResolution, "mm @", v.ch1Period, "ms")
@@ -238,7 +269,7 @@ Item {
         if (queue.length === 0) {
             if (handingBack) {
                 log("the shipped values are back on the transducer - released")
-                release()
+                release(true)
             }
             return
         }
@@ -322,6 +353,7 @@ Item {
     }
 
     onRangeMChanged:        settleTimer.restart()
+    onCeilingMChanged:      applyCeiling("the ceiling changed")
     onExpertFloorMmChanged: settleTimer.restart()
     onMaxSamplesChanged:    settleTimer.restart()
 
