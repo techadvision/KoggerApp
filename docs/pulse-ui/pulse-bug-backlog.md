@@ -3218,6 +3218,88 @@ for a red (red unchanged). **One thing to watch:** if a blue down scan ever show
 scan's at the same moment, the bottom track is per channel and the down view would need its own read - not expected,
 since `dataset.bottomTrackDepth` is one value.
 
+### 1.43 - the mosaic aim hotfix, 4 Oct 2026 - `fix/mosaic-aim` off master (1.42)
+
+**The bug:** in a split with the mosaic (side + mosaic, down + mosaic), a press on the MOSAIC
+brought the zoom box (the `Plot2DAim` loupe) up over the echogram pane, and it could stay.
+
+| commit | what |
+|---|---|
+| `24bb9ddd` | instrument: `MOSAIC: press / release`, `AIM: pane N pressed`, `AIM: pane N takes/ignores a 3D epoch selection from <class>`, `AIM: pane N loupe up / down` |
+| `0d3a54db` | **v2: the echogram panes ignore an epoch selected in the 3D view** |
+| `15361f0e` | **v2: no epoch picking on the mosaic** - no red dot |
+| `4093155d` | Version 1.43 (`versionCode` 143), edited in the XML; the manifest check passes |
+
+**What the log proved (Olav's run, 4 Oct 00:07, live side + mosaic on a demo):** every tap on the
+mosaic printed `AIM: pane 1 takes a 3D epoch selection from BottomTrack | epoch 281 | paused no |
+… | selected epoch -1 -> 281`, and the release printed the same with epoch -1. This is the upstream
+3D picking route: `BottomTrack::mousePressEvent` / `mouseReleaseEvent` (and `BoatTrack` with no
+bottom track) post `EpochSelected3d`, and `Core` installs every echogram pane as an event filter
+on them. `qPlot2D::eventFilter` then called `setAimEpochEventState(true)` and
+`setTimelinePositionByEpoch(epoch)`:
+
+- **live**, the picked epoch moved the echogram's timeline (the yellow *scrolled back* pill Olav
+  saw) and stayed in `selectEpochIndx`. Nothing clears that on pause, and `Plot2DAim::draw`
+  raises a loupe from `selectEpochIndx`, so **the loupe came up at the picked epoch on the next
+  pause**;
+- the release (epoch -1) still armed the aim's epoch-event flag, which is a pending tap.
+
+The same pick also put the **red dot** on the mosaic. Not a press reaching the Plot2D underneath:
+no `AIM: pane N pressed` line came with any mosaic press.
+
+**Olav's decision:** *"The touch on mosaic will help identify on the echogram where captured.
+Which kind of makes sense. I however fear that this will confuse my users. We should disable this
+ability for now, I need a clear strategy for using something like this and I currently have
+none."* So both directions are off in v2:
+
+- **`0d3a54db`**: under v2, `qPlot2D::eventFilter` logs `ignores` and returns before touching
+  the aim or the timeline. One gate covers press and release, every sender (bottom track, boat
+  track, contacts), live and paused, every layout and device.
+- **`15361f0e`**: `GraphicsScene3dView::setEpochSyncEnabled` (the upstream switch, now
+  `Q_INVOKABLE`) is turned off under v2 from `main.qml`, at start and when the variant changes:
+  `MOSAIC: epoch picking off (v2)`. No red dot, and an aim in the echogram no longer marks the
+  mosaic either.
+- **Classic keeps the upstream behaviour** in both.
+
+C++ in `plot2D.h`, `plot2D_aim.h`, `qPlot2D.cpp` and `scene3d_view.h` (a new `Q_INVOKABLE`, so moc
+re-runs). moc, `g++ -fsyntax-only`, qmlformat and the six `tools/pulse-*-check.js` pass.
+
+#### To check on the device - 1.43
+
+`adb logcat | grep -E " (MOSAIC|AIM): "` (the grep without the spaces also catches Play Store's
+`Finsky … AIM:` lines).
+
+1. At start: `MOSAIC: epoch picking off (v2)`.
+2. **Side + mosaic, live:** tap the mosaic a few times, on and off the track. **No red dot**, the
+   echogram does not jump and no *scrolled back* pill. Each tap prints at most
+   `AIM: pane 1 ignores a 3D epoch selection …` (the release still posts one).
+3. **Pause after those taps:** no loupe. Tap the side scan: the loupe comes up where the finger
+   is, as before.
+4. **Paused, with a loupe up on the side scan:** tap and drag on the mosaic. The loupe does not
+   move, does not go and no second one appears. `AIM: pane N loupe up / down` lines come only from
+   touches on the echogram.
+5. **Down + mosaic**, the same 2-4. Left- and right-hand layout, tablet and phone.
+6. **The mosaic's own interaction is unchanged:** pan, zoom and the Pause pill.
+
+#### FUTURE TODO - a strategy for linking the mosaic and the echogram
+
+Upstream links the two both ways: a tap on the mosaic picks the nearest bottom-track epoch and
+scrolls the echogram there (red dot), and an aim in the echogram marks the same epoch on the
+mosaic. It is useful (*"the touch on mosaic will help identify on the echogram where
+captured"*), but as it was it confused more than it helped: the echogram jumped with no
+explanation, live, and the loupe came up later on pause. **Disabled in v2 from 1.43 until there
+is a clear design.** Questions to answer first:
+
+- Live or paused only? A live pick fights the live follow; paused, it is a navigation tool.
+- What does the echogram show for a picked point: scroll only, a marker column, or the loupe on
+  it (and on which pane in a split)?
+- How does the user leave it: the *scrolled back* pill, a dismiss on the dot, a timeout?
+- Which direction(s): mosaic -> echogram, echogram -> mosaic, or both.
+- Does it belong with the waypoint flow (pick on the mosaic, confirm in the loupe, Add)?
+
+Turning it back on is the two gates above: `qPlot2D::eventFilter` and `applyEpochSyncForVariant`
+in `main.qml`.
+
 ### THE PROMPT FOR THE NEXT SESSION
 
 ```
