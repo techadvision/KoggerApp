@@ -1527,13 +1527,48 @@ QtObject {
     // acquired. Without it the transducer still covers just the Side scan width and a slider
     // past it would draw black. Zero means "no override". A binding, never assigned.
     readonly property int sideScanRangeCeilingMax: 50    // 2R/c + 3 ms = 70 ms at 50 m
+    //
+    // AND DURING PLAYBACK (3 Oct 2026). A recording made in performance mode holds data out
+    // to the range it was made at - 40, 45, 50 m - and nothing is acquired while it plays, so
+    // the engine does not hold. With the Side scan width as the ceiling the outer part of
+    // the recording could not be shown. So with a side scan recording on screen, expert mode
+    // and Enable performance mode on, the expert's ceiling applies too. Changing it during
+    // playback changes only how much of the recording is shown, never what was recorded.
     readonly property int maxRangeCeilingOverride: {
-        if (!perfEngineOwnsAcquisition || is2DTransducer)
+        var live     = perfEngineOwnsAcquisition && !is2DTransducer
+        var playback = logIsOnScreen && !displayIs2DTransducer && expertMode
+                       && pulseSettings && pulseSettings.perfModeEnabled
+        if (!live && !playback)
             return 0
         var width = psInt("echogramWidth", 0)
         var asked = Math.min(sideScanRangeCeilingMax, psInt("perfMaxRangeSideM", 0))
         return asked > width ? asked : 0
     }
+
+    // BACK TO THE SIDE SCAN WIDTH when the raised ceiling ends (the engine lets go, a
+    // recording closes, expert mode goes off): a stored blue range above the width would
+    // draw black beyond what the transducer then covers.
+    onMaxRangeCeilingOverrideChanged: {
+        if (maxRangeCeilingOverride > 0 || !pulseSettings)
+            return
+        var width = psInt("echogramWidth", 0)
+        if (width <= 0)
+            return
+        var keys = [blueSideMaxRangeKey, blueDownMaxRangeKey]
+        for (var i = 0; i < keys.length; i++) {
+            if (pulseSettings[keys[i]] > width) {
+                console.log("RANGE:", keys[i], pulseSettings[keys[i]], "->", width,
+                            "| above the Side scan width once the raised ceiling ended")
+                pulseSettings[keys[i]] = width
+            }
+        }
+    }
+
+    // THE PINCH'S CLAMP, published to the C++ as maximumDepth (Plot2D's zoomDistance) and read
+    // by Plot2D.qml's pinch: the device's maximumDepth, raised to the side scan's ceiling
+    // whenever that is raised - live in performance mode and during playback alike.
+    readonly property int rangeClampM:
+        (!displayIs2DTransducer && maxRangeCeilingOverride > maximumDepth) ? maxRangeCeilingOverride : maximumDepth
 
     readonly property int displayMaxRangeCeiling:
           displayIs2DTransducer       ? committedProfile.maximumDepth

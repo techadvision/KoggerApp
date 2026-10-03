@@ -652,8 +652,8 @@ WaterFall {
                             depthStepAccum -= steps
                             let newVal = plot.quickChangeMaxRangeValue + steps
                             if (newVal < 1) newVal = 1
-                            if (newVal > pulseRuntimeSettings.maximumDepth)
-                                newVal = pulseRuntimeSettings.maximumDepth
+                            if (newVal > pulseRuntimeSettings.rangeClampM)
+                                newVal = pulseRuntimeSettings.rangeClampM
                             plot.quickChangeMaxRangeValue = newVal
                             pulseUi.setMaxDepth(newVal)
                         }
@@ -701,8 +701,8 @@ WaterFall {
                         depthStepAccum -= steps   // keep the fractional remainder
                         let newVal = plot.quickChangeMaxRangeValue + steps
                         if (newVal < 1) newVal = 1
-                        if (newVal > pulseRuntimeSettings.maximumDepth)
-                            newVal = pulseRuntimeSettings.maximumDepth
+                        if (newVal > pulseRuntimeSettings.rangeClampM)
+                            newVal = pulseRuntimeSettings.rangeClampM
                         plot.quickChangeMaxRangeValue = newVal
                         pulseUi.setMaxDepthForPane(newVal, true)
                     }

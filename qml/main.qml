@@ -162,7 +162,9 @@ ApplicationWindow  {
         }
         function onShouldDoAutoRangeChanged()       { settingsBus.updateRuntime({ shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange          }) }
         function onAutoDepthMaxLevelChanged()       { settingsBus.updateRuntime({ autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel          }) }
-        function onMaximumDepthChanged()            { settingsBus.updateRuntime({ maximumDepth:             pulseRuntimeSettings.maximumDepth               }) }
+        // maximumDepth on the bus is the PINCH'S CLAMP (rangeClampM): the device's value, or the
+        // side scan's raised ceiling in performance mode and its playback (3 Oct 2026).
+        function onRangeClampMChanged()             { settingsBus.updateRuntime({ maximumDepth:             pulseRuntimeSettings.rangeClampM                }) }
         function onIsHorizontalGridChanged()        { settingsBus.updateRuntime({ isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid           }) }
         function onUseMetricDepthChanged()          { settingsBus.updateRuntime({ useMetricDepth:           pulseRuntimeSettings.useMetricDepth             }) }
         //WHICH UI IS UP. Consumed only by the aim layer, which paints the rebuilt loupe
@@ -228,7 +230,7 @@ ApplicationWindow  {
                     displayIs2DTransducer:    pulseRuntimeSettings.displayIs2DTransducer,
                     shouldDoAutoRange:        pulseRuntimeSettings.shouldDoAutoRange,
                     autoDepthMaxLevel:        pulseRuntimeSettings.autoDepthMaxLevel,
-                    maximumDepth:             pulseRuntimeSettings.maximumDepth,
+                    maximumDepth:             pulseRuntimeSettings.rangeClampM,
                     isHorizontalGrid:         pulseRuntimeSettings.isHorizontalGrid,
                     useMetricDepth:           pulseRuntimeSettings.useMetricDepth,
                     uiVariantIsV2:            pulseRuntimeSettings.uiVariantIsV2,

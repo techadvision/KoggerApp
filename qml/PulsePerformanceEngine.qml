@@ -173,20 +173,10 @@ Item {
     }
 
     // Back to the Side scan width when the engine lets go of the device it handed back: the
-    // pinch's ceiling, and any stored range above it (it would draw black beyond what the
-    // transducer then covers). Written straight to the two blue keys, not through
-    // storeMaxRangeForPane, which picks its key from the picture on screen.
+    // device's maximumDepth. Stored ranges above the width are brought down by
+    // pulseRuntimeSettings when the raised ceiling ends (whatever ends it).
     function restoreShippedCeiling() {
-        var width = shippedValues().chartResolution
-        rs.setParam("maximumDepth", width)
-        var keys = [rs.blueSideMaxRangeKey, rs.blueDownMaxRangeKey]
-        for (var i = 0; i < keys.length; i++) {
-            if (pulseSettings[keys[i]] > width) {
-                console.log("RANGE:", keys[i], pulseSettings[keys[i]], "-> " + width,
-                            "| above the Side scan width once performance mode let go")
-                pulseSettings[keys[i]] = width
-            }
-        }
+        rs.setParam("maximumDepth", shippedValues().chartResolution)
     }
 
     function startHandBack(why) {
