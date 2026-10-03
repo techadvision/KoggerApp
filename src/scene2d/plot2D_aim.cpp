@@ -369,6 +369,27 @@ bool Plot2DAim::isTapInsideZoom(Plot2D* parent, int devX, int devY) const
 // Draw the aim (upstream cursor correctness + your Plot2DZoom panel/buttons), sync-fixed
 bool Plot2DAim::draw(Plot2D* parent, Dataset* dataset)
 {
+    // LOUPE UP / DOWN, an instrument (fix/mosaic-aim, 3 Oct). Prints when this pane's loupe
+    // appears or goes, with what the aim held when the paint began - a touch on this pane
+    // (mouse), a selected epoch, and whether an epoch event (a tap) was pending. Read beside
+    // the AIM: pressed / MOSAIC: press / AIM: ... 3D epoch selection lines, it names the route.
+    struct LoupeLog {
+        const bool* active; bool was; int pane; int mx, my, sel; bool tap;
+        ~LoupeLog() {
+            static int reported = 0;
+            if (*active == was || reported >= 80)
+                return;
+            ++reported;
+            if (*active)
+                qDebug().noquote() << QStringLiteral("AIM: pane %1 loupe up | aim mouse %2,%3 | selected epoch %4 | epoch event pending %5")
+                                          .arg(pane).arg(mx).arg(my).arg(sel).arg(tap ? QStringLiteral("yes") : QStringLiteral("no"));
+            else
+                qDebug().noquote() << QStringLiteral("AIM: pane %1 loupe down").arg(pane);
+        }
+    } loupeLog { &cand_.active, cand_.active, parent ? parent->paneIndexForLog() : -1,
+                 parent ? parent->cursor().mouseX : -1, parent ? parent->cursor().mouseY : -1,
+                 parent ? parent->cursor().selectEpochIndx : -1, beenEpochEvent_ };
+
     scaleFactor_ = renderScale();
     setPause(parent, dataset, echogramPause_);
 

@@ -1849,6 +1849,9 @@ ApplicationWindow  {
                             renderer.longPressTriggered = false
 
                             lastMouseKeyPressed = mouse.buttons
+                            // instrument (fix/mosaic-aim): a press on the mosaic, to read beside the AIM: lines
+                            console.log("MOSAIC: press at " + Math.round(mouse.x) + "," + Math.round(mouse.y)
+                                        + " | paused " + pulseRuntimeSettings.echogramPause)
                             renderer.mousePressTrigger(mouse.buttons, mouse.x, mouse.y, visualisationLayout.lastKeyPressed)
                         }
 
@@ -1857,6 +1860,7 @@ ApplicationWindow  {
                             wasMoved = false
                             longPressTimer.stop()
 
+                            console.log("MOSAIC: release at " + Math.round(mouse.x) + "," + Math.round(mouse.y))
                             renderer.mouseReleaseTrigger(lastMouseKeyPressed, mouse.x, mouse.y, visualisationLayout.lastKeyPressed)
 
                             if (mouse.button === Qt.RightButton || (Qt.platform.os === "android" && vertexMode)) {

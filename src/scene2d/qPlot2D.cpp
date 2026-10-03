@@ -592,11 +592,26 @@ int qPlot2D::getPreferredLoupeEpochIndex(int preferredEpochIndx) const
 
 bool qPlot2D::eventFilter(QObject *watched, QEvent *event)
 {
-    Q_UNUSED(watched);
 
     auto* epochEvent = dynamic_cast<EpochEvent*>(event);
     if (epochEvent && epochEvent->eventTypeId() == static_cast<int>(EpochSelected3d)) {
         //qDebug() << QString("[Plot 2d]: catched event from 3d view (epoch index is %1)").arg(epochEvent->epochIndex());
+        // MOSAIC -> AIM, an instrument (fix/mosaic-aim, 3 Oct). The 3D scene's bottom track,
+        // boat track and contacts post EpochSelected3d on a press / release in the mosaic,
+        // and every echogram pane filters it here and turns it into an aim. One line per
+        // event says which object sent it, and what the pane's aim held before and after.
+        static int mosaicAimReported = 0;
+        if (mosaicAimReported < 80) {
+            ++mosaicAimReported;
+            qDebug().noquote() << QStringLiteral("AIM: pane %1 takes a 3D epoch selection from %2 | epoch %3 | paused %4 | aim mouse %5,%6 | selected epoch %7 -> %8")
+                                      .arg(indx_)
+                                      .arg(QString::fromLatin1(watched ? watched->metaObject()->className() : "nothing"))
+                                      .arg(epochEvent->epochIndex())
+                                      .arg(isEchogramPaused() ? QStringLiteral("yes") : QStringLiteral("no"))
+                                      .arg(cursor_.mouseX).arg(cursor_.mouseY)
+                                      .arg(cursor_.selectEpochIndx)
+                                      .arg(isEchogramPaused() ? cursor_.selectEpochIndx : epochEvent->epochIndex());
+        }
         setAimEpochEventState(true);
         setTimelinePositionByEpoch(epochEvent->epochIndex());
     }
