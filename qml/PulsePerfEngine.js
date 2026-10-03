@@ -113,6 +113,17 @@ function plan(p) {
     }
 }
 
+// THE PULSE THAT SUITS A SPACING (3 Oct 2026, the partner doc section 5). A CW pulse of N
+// cycles at f covers a range cell of c x N / f / 2; two samples per cell is the match, so
+// N = 4 x spacing x f / c - about 1.2 x spacing in mm at 460 kHz. 4-30 cycles: below ~4 a
+// resonant transducer rings longer than it is told anyway; 30 is the expert row's ceiling.
+function pulseCycles(spacingMm, freqKHz, soundSpeed) {
+    var c = soundSpeed > 0 ? soundSpeed : 1500
+    var f = (freqKHz > 0 ? freqKHz : 460) * 1000
+    var n = Math.round(4 * (spacingMm / 1000) * f / c)
+    return Math.max(4, Math.min(30, n))
+}
+
 // WHICH BAUD TO BUDGET ON, decided ONCE per connection while the shipped settings run.
 // The device reports its UART in ID_UART, but the value is a default (115200) until the
 // answer has settled, and on the G30 one whole 12-minute run never settled (9a, item 5).

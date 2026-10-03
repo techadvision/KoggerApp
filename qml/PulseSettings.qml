@@ -151,6 +151,9 @@ Settings {
     //sliders and the pinch may go, from the Side scan width (25 or 35) up to 50 m - the longest
     //range whose listen time (2R/c + 3 ms) still fits the fixed 70 ms. 0 = the Side scan width.
     property int    perfMaxRangeSideM:          0
+    //THE PULSE FOLLOWS THE RANGE (Olav, 3 Oct): off = the profile's 10 cycles always; on = the
+    //engine shortens the pulse at short range (sharper separation) and lengthens it far out.
+    property bool   perfPulseFollowsRange:      false
     property double pulseBlueOffset:            20
 
     // Transducer telemetry settings

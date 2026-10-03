@@ -58,6 +58,10 @@ Item {
     readonly property int maxSamples:   pulseSettings.perfMaxSamples
     readonly property int askedPeriodMs: 70            // blue keeps 70 ms (settled 2 Oct)
     readonly property int tableBaud:    921600         // the blue family's UART (both prototypes' blue too)
+    // THE PULSE FOLLOWS THE RANGE (Olav, 3 Oct): a switch in Performance mode. On, the engine
+    // sets the pulse count from the spacing (PerfMath.pulseCycles: a range cell of about two
+    // samples, 4-30 cycles); off, the transducer keeps the profile's 10 cycles.
+    readonly property bool pulseWanted: pulseSettings.perfPulseFollowsRange
 
     // ---------------------------------------------------------------- the state
     property string heldKey:       ""      // the profile whose acquisition the engine holds
@@ -96,12 +100,17 @@ Item {
 
     function shippedValues() {
         var width = pulseSettings.echogramWidth > 0 ? pulseSettings.echogramWidth : 25
-        return {
+        var v = {
             chartResolution: width,
             chartSamples:    rs.committedProfile.chartSamples,
             distMax:         1000 * width,
             ch1Period:       rs.committedProfile.ch1Period
         }
+        // only when the engine had taken the pulse: then it goes back to the profile's. Never
+        // an undefined key - setParams would store it.
+        if (rs.perfEngineHoldsPulse)
+            v.transPulse = rs.committedProfile.transPulse
+        return v
     }
 
     // ---------------------------------------------------------------- hold and release
@@ -146,6 +155,7 @@ Item {
         lastPlan = null
         forgetConnection("released")
         rs.perfEngineOwnsAcquisition = false
+        rs.perfEngineHoldsPulse = false
         if (handedBack)
             restoreShippedCeiling()
         setStatus(userWantsIt ? qsTr("waiting for a committed PULSE blue") : qsTr("off"))
@@ -204,6 +214,8 @@ Item {
         if (rs.paramValue("ch1Period") !== v.ch1Period)
             steps.push({ kind: "period", values: { ch1Period: v.ch1Period } })
         steps.push({ kind: "chart", values: { chartResolution: v.chartResolution, chartSamples: v.chartSamples } })
+        if (v.transPulse !== undefined && rs.paramValue("transPulse") !== v.transPulse)
+            steps.push({ kind: "pulse", values: { transPulse: v.transPulse }, letsGo: v.pulseLetsGo === true })
         if (rs.paramValue("distMax") !== v.distMax)
             steps.push({ kind: "dist", values: { distMax: v.distMax } })
         return steps
@@ -223,12 +235,35 @@ Item {
             soundSpeed:    rs.soundSpeed / 1000
         })
         lastPlan = p
+
+        // THE PULSE. On: from the spacing and the frequency the transducer is set to. Off after
+        // it was on: back to the profile's count, and the hold on it ends once that is confirmed.
+        var pulse = undefined
+        var pulseLetsGo = false
+        var profilePulse = rs.committedProfile.transPulse
+        if (pulseWanted) {
+            pulse = PerfMath.pulseCycles(p.spacingMm, rs.transFreq, rs.soundSpeed / 1000)
+            rs.perfEngineHoldsPulse = true
+        } else if (rs.perfEngineHoldsPulse) {
+            if (rs.paramValue("transPulse") === profilePulse) {
+                rs.perfEngineHoldsPulse = false
+                log("the pulse is the profile's", profilePulse, "cycles again - released")
+            } else {
+                pulse = profilePulse
+                pulseLetsGo = true
+            }
+        }
+        var shownPulse = pulse !== undefined ? pulse : rs.paramValue("transPulse")
+
         var line = rangeM + " m per side -> " + p.spacingMm + " mm x " + p.samples + " @ " + p.periodMs
-                 + " ms (real " + p.realPeriodMs.toFixed(0) + ") | " + p.loadPercent.toFixed(0) + "% of " + baud
+                 + " ms (real " + p.realPeriodMs.toFixed(0) + ") | pulse " + shownPulse + " cycles"
+                 + (pulseWanted ? " (follows the range)" : " (fixed)")
+                 + " | " + p.loadPercent.toFixed(0) + "% of " + baud
                  + " (" + baudSource + ") | limited by " + p.limitedBy
         log(line, "(" + why + ")")
         queue = buildSteps({ chartResolution: p.spacingMm, chartSamples: p.samples,
-                             distMax: 1000 * rangeM, ch1Period: askedPeriodMs })
+                             distMax: 1000 * rangeM, ch1Period: askedPeriodMs,
+                             transPulse: pulse, pulseLetsGo: pulseLetsGo })
         setStatus(line)
     }
 
@@ -306,17 +341,23 @@ Item {
             ok = rs.ch1Period_Copy === v.ch1Period && age >= 300
         } else if (current.kind === "dist") {
             ok = rs.distMax_Copy === v.distMax && age >= 300
+        } else if (current.kind === "pulse") {
+            ok = rs.transPulse_Copy === v.transPulse && age >= 300
         }
         if (ok) {
             log("confirmed", current.kind, "after", age, "ms",
                 current.kind === "chart" ? "| stream " + dm.linkStreamSamples + " x " + dm.linkStreamSpacingMm + " mm" : "")
+            if (current.kind === "pulse" && current.letsGo) {
+                rs.perfEngineHoldsPulse = false
+                log("the pulse is the profile's", v.transPulse, "cycles again - released")
+            }
             current = null
             confirmTimer.stop()
             sendNext()
         } else if (age > 6000) {
             log("STALLED -", current.kind, JSON.stringify(v), "not confirmed in 6 s | stream",
                 dm.linkStreamSamples, "x", dm.linkStreamSpacingMm, "mm | period copy", rs.ch1Period_Copy,
-                "| distMax copy", rs.distMax_Copy, "- nothing more is sent until performance mode is toggled")
+                "| distMax copy", rs.distMax_Copy, "| pulse copy", rs.transPulse_Copy, "- nothing more is sent until performance mode is toggled")
             setStatus(qsTr("STALLED - the transducer did not confirm %1; toggle performance mode to retry").arg(current.kind))
             current = null
             queue = []
@@ -354,6 +395,7 @@ Item {
 
     onRangeMChanged:        settleTimer.restart()
     onCeilingMChanged:      applyCeiling("the ceiling changed")
+    onPulseWantedChanged:   settleTimer.restart()
     onExpertFloorMmChanged: settleTimer.restart()
     onMaxSamplesChanged:    settleTimer.restart()
 
@@ -367,6 +409,8 @@ Item {
         function onHardwareSpacingFloorMmChanged() { settleTimer.restart() }
         function onCh1Period_CopyChanged() { engine.checkConfirmed() }
         function onDistMax_CopyChanged()   { engine.checkConfirmed() }
+        function onTransPulse_CopyChanged() { engine.checkConfirmed() }
+        function onTransFreqChanged()      { if (engine.pulseWanted) settleTimer.restart() }
     }
 
     Connections {

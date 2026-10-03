@@ -1130,7 +1130,10 @@ Item {
                     // About 1.6 mm of range cell per cycle at 460 kHz: 4-6 sharpens the short
                     // ranges, 15-20 reaches further and blurs; past 30 nothing is gained that
                     // a lower frequency would not do better. setParam holds the same bounds.
-                    hint:  qsTr("cycles per ping - fewer is sharper, more carries further")
+                    enabled: !(pulseRuntimeSettings && pulseRuntimeSettings.perfEngineHoldsPulse)
+                    opacity: enabled ? 1.0 : 0.45
+                    hint:  enabled ? qsTr("cycles per ping - fewer is sharper, more carries further")
+                                   : qsTr("held by performance mode - Pulse follows the range is on")
                     minValue: 1
                     maxValue: 30
                     stepSize: 1
@@ -1463,6 +1466,28 @@ Item {
 
                     onMoved: function (v) {
                         list.settingChanged("persistent", "perfMaxRangeSideM", v)
+                    }
+                },
+
+                // THE PULSE FOLLOWS THE RANGE (Olav, 3 Oct 2026) - for the testers to see the
+                // difference on the water and in recordings: off, every ping is the profile's 10
+                // cycles; on, the engine sets about 1.2 cycles per mm of spacing (4-30), so the
+                // short ranges get a short, sharp pulse and the long ones a longer, stronger one.
+                // Sends no extra data. The Engine row and the ENGINE: line name the count.
+                PulseSwitchRow {
+                    width: perfGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: pulseRuntimeSettings ? !pulseRuntimeSettings.is2DTransducer : false
+                    uiScale: list.uiScale
+
+                    label: qsTr("Pulse follows the range")
+                    hint:  checked
+                           ? qsTr("on: short pulse close in separates nearby objects, longer pulse far out reaches further")
+                           : qsTr("off: the same 10-cycle pulse at every range")
+                    checked: pulseSettings ? pulseSettings.perfPulseFollowsRange : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("persistent", "perfPulseFollowsRange", v)
                     }
                 },
 

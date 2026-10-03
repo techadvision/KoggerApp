@@ -25,7 +25,7 @@ const path = require("path");
 const repo = path.resolve(__dirname, "..");
 const src = fs.readFileSync(path.join(repo, "qml", "PulsePerfEngine.js"), "utf8")
     .replace(/^\.pragma library\s*$/m, "");
-const E = new Function(src + "\nreturn { bytesPerPing, loadPercent, listenTimeMs, realPeriodMs, rangePerSideM, plan, chooseBaud, BUDGET };")();
+const E = new Function(src + "\nreturn { bytesPerPing, loadPercent, listenTimeMs, realPeriodMs, rangePerSideM, plan, chooseBaud, pulseCycles, BUDGET };")();
 
 let failures = 0;
 function check(cond, what) {
@@ -106,6 +106,16 @@ check(at60.loadPercent <= 85 && at60.samples < 5000 && at60.limitedBy === "link"
 check(at55.loadPercent <= 85 && at55.samples < 5000, "asked for 55 ms: " + at55.samples + " x " + at55.spacingMm + " mm, " + at55.loadPercent.toFixed(1) + "%");
 const wrong = blue(25, 15, 15, { baud: RED });
 check(wrong.loadPercent <= 85 && wrong.limitedBy === "link", "a blue budgeted on 115200 fits 115200: " + wrong.samples + " x " + wrong.spacingMm + " mm");
+
+console.log("the pulse that suits a spacing (Pulse follows the range)");
+const pc = { 2: 4, 4: 5, 6: 7, 8: 10, 10: 12, 14: 17, 15: 18, 20: 25 };
+for (const sp of Object.keys(pc)) {
+    const n = E.pulseCycles(+sp, 460, C);
+    check(n === pc[sp], sp + " mm at 460 kHz -> " + n + " cycles");
+}
+check(E.pulseCycles(8, 460, C) === 10, "8 mm keeps today's 10 cycles - the match point");
+check(E.pulseCycles(1, 460, C) === 4 && E.pulseCycles(60, 460, C) === 30, "bounded 4-30 cycles");
+check(E.pulseCycles(8, 820, C) === 17, "the count scales with frequency: 8 mm at 820 kHz -> " + E.pulseCycles(8, 820, C));
 
 console.log("which baud to trust");
 let b = E.chooseBaud(115200, false, 80000, BLUE);

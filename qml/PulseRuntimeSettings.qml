@@ -2436,7 +2436,12 @@ QtObject {
     readonly property int sideScanFreqMax: 850
     // maximumDepth is the app's own range ceiling (the pinch clamps to it, the C++ too) and
     // goes nowhere on the wire; the engine sets it to the side scan's ceiling while it holds.
-    readonly property var perfEngineKeys: ["chartResolution", "chartSamples", "distMax", "ch1Period", "maximumDepth"]
+    // transPulse joins only while the engine sets the pulse (Pulse follows the range, on);
+    // perfEngineHoldsPulse is written by the engine alone.
+    property bool   perfEngineHoldsPulse: false
+    readonly property var perfEngineKeys: perfEngineHoldsPulse
+        ? ["chartResolution", "chartSamples", "distMax", "ch1Period", "maximumDepth", "transPulse"]
+        : ["chartResolution", "chartSamples", "distMax", "ch1Period", "maximumDepth"]
     // What the engine last did, for the expert category's Engine row. Written by the engine.
     property string perfEngineStatus: ""
 
