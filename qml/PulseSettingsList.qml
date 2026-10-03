@@ -1287,40 +1287,6 @@ Item {
                 // modelPulseRed and modelPulseRedProto, which is what classic does: the
                 // question here is "is this a 2D transducer", and two name comparisons are
                 // two names that will be spelt wrong when a third red arrives.
-                // A SIDE SCAN'S MAX RANGE CEILING (Olav, 3 Oct 2026). This row used to write
-                // distMax and maximumDepth on a blue, so a drag moved the range on screen - which
-                // the Max range sliders and the pinch already do. What the expert needs instead
-                // is to say how FAR those may go: from the Side scan width (25 or 35 m) up to
-                // 50 m, the longest range whose listen time still fits the fixed 70 ms. Stored
-                // (a limit the expert has cleared, like the Performance mode rows), and active
-                // only while performance mode holds the acquisition - only then is the range
-                // beyond the Side scan width really acquired. A blue's distMax is the engine's
-                // (1000 x R) while it holds, and the shipped 1000 x width otherwise.
-                PulseSliderRow {
-                    width: transducerGroup.contentWidth
-                    height: visible ? implicitHeight : 0
-                    visible: pulseRuntimeSettings ? !pulseRuntimeSettings.is2DTransducer : false
-                    uiScale: list.uiScale
-                    showNudges: true
-
-                    readonly property int sideWidth: pulseSettings ? Math.round(pulseSettings.echogramWidth) : 25
-                    readonly property bool active: pulseRuntimeSettings ? pulseRuntimeSettings.perfEngineOwnsAcquisition : false
-
-                    label: qsTr("Max range ceiling")
-                    hint:  active
-                           ? qsTr("how far Max range and the pinch may go - up to %1 m at 70 ms").arg(maxValue)
-                           : qsTr("takes effect with performance mode; until then the Side scan width (%1 m) is the ceiling").arg(sideWidth)
-                    minValue: sideWidth
-                    maxValue: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanRangeCeilingMax : 50
-                    stepSize: 5
-                    value: Math.max(sideWidth, pulseSettings ? pulseSettings.perfMaxRangeSideM : 0)
-                    valueText: value + " " + qsTr("m")
-
-                    onMoved: function (v) {
-                        list.settingChanged("persistent", "perfMaxRangeSideM", v)
-                    }
-                },
-
                 // A 2D TRANSDUCER'S MAXIMUM DEPTH, as before: the rangefinder's search depth
                 // (distMax) and the app's ceiling (maximumDepth) together.
                 PulseSliderRow {
@@ -1461,6 +1427,42 @@ Item {
 
                     onMoved: function (v) {
                         list.settingChanged("persistent", "perfMinSpacingBlueMm", v)
+                    }
+                },
+
+                // A SIDE SCAN'S MAX RANGE CEILING (Olav, 3 Oct 2026), in Performance mode beside
+                // the limits it works with (it began in Transducer). It replaced a blue's
+                // Maximum depth row, which wrote distMax and maximumDepth, so a drag moved the
+                // range on screen - which
+                // the Max range sliders and the pinch already do. What the expert needs instead
+                // is to say how FAR those may go: from the Side scan width (25 or 35 m) up to
+                // 50 m, the longest range whose listen time still fits the fixed 70 ms. Stored
+                // (a limit the expert has cleared, like the Performance mode rows), and active
+                // only while performance mode holds the acquisition - only then is the range
+                // beyond the Side scan width really acquired. A blue's distMax is the engine's
+                // (1000 x R) while it holds, and the shipped 1000 x width otherwise.
+                PulseSliderRow {
+                    width: perfGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: pulseRuntimeSettings ? !pulseRuntimeSettings.is2DTransducer : false
+                    uiScale: list.uiScale
+                    showNudges: true
+
+                    readonly property int sideWidth: pulseSettings ? Math.round(pulseSettings.echogramWidth) : 25
+                    readonly property bool active: pulseRuntimeSettings ? pulseRuntimeSettings.perfEngineOwnsAcquisition : false
+
+                    label: qsTr("Max range ceiling")
+                    hint:  active
+                           ? qsTr("how far Max range and the pinch may go - up to %1 m at 70 ms").arg(maxValue)
+                           : qsTr("takes effect with performance mode; until then the Side scan width (%1 m) is the ceiling").arg(sideWidth)
+                    minValue: sideWidth
+                    maxValue: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanRangeCeilingMax : 50
+                    stepSize: 5
+                    value: Math.max(sideWidth, pulseSettings ? pulseSettings.perfMaxRangeSideM : 0)
+                    valueText: value + " " + qsTr("m")
+
+                    onMoved: function (v) {
+                        list.settingChanged("persistent", "perfMaxRangeSideM", v)
                     }
                 },
 
