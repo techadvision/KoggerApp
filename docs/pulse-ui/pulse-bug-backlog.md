@@ -3220,6 +3220,14 @@ since `dataset.bottomTrackDepth` is one value.
 
 ### 1.43 - the mosaic aim hotfix, 4 Oct 2026 - `fix/mosaic-aim` off master (1.42)
 
+**VERIFIED on the tablet, 4 Oct (Olav: *"It is finally gone."*)** - side + mosaic, down + mosaic and
+mosaic alone, live and paused: taps on the mosaic do not scroll the echogram or raise a loupe, and
+the red dot is gone (`MOSAIC: the selected-epoch red dot is not drawn (v2)` at start).
+
+**Seen in the same log, not touched (pre-existing, not a 1.43 matter):**
+`qrc:/MosaicExtraSettings.qml:18: ReferenceError: updateMosaicButton is not defined`, once per start
+and per source change. Its own commit later.
+
 **The bug:** in a split with the mosaic (side + mosaic, down + mosaic), a press on the MOSAIC
 brought the zoom box (the `Plot2DAim` loupe) up over the echogram pane, and it could stay.
 
