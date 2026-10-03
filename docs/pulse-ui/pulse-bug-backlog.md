@@ -3297,6 +3297,65 @@ re-runs). moc, `g++ -fsyntax-only`, qmlformat and the six `tools/pulse-*-check.j
 6. **The mosaic's own interaction is unchanged:** pan, zoom and the Pause pill.
 7. **Paused, move the loupe's crosshair:** the epoch link to the mosaic still works as before, with no red dot.
 
+#### 1.43, the log a tester sends - 4 Oct
+
+Olav, reading a `pulse.log` from *Troubleshooting -> Send the log to Techadvision*: *"I rather have
+no logs referring to 'kogger'."* The search over C++, QML and Java, and his log, agree: every
+"kogger" in the log was a **category name** in `platform/android/src`, and all 120 lines in his log
+were USB serial. Nothing in `src/` or the QML logs the name.
+
+| commit | what |
+|---|---|
+| `d0d700ce` | the per-tap `MOSAIC: press/release` and `AIM: pane N pressed` lines go (the capped AIM: lines stay) |
+| `6500706b` | **the log names its build**: `--- log opened: Pulse Echo Sounder 1.43` instead of a hard-coded `1-1-1`, read from the derived `:/version.txt` in `main.cpp` |
+| `7c501c88` | the six Android categories become `pulse.android.init / .interface / .serial / .serialport / .serialportinfo` and `Utilities.LoggingCategoryManager` |
+| `99a02975` | v2's connection screen file dialogs: *Pulse recordings (*.plog)* instead of *Kogger log files* |
+
+`main.cpp` passes `g++ -fsyntax-only` (Qt 6.4 in the cloud shell needs a one-line `QtLogging` shim);
+the category edits are string literals in JNI files the cloud shell cannot compile. QML parses and
+the six checks pass.
+
+**To check:** the first line of a new session in `pulse.log` reads `Pulse Echo Sounder 1.43`; a USB
+serial warning reads `pulse.android.serialport: …`; the connection screen's *Open a file* /
+*Stream a file* dialog offers *Pulse recordings*.
+
+**Deliberately NOT renamed - they are data, not names:** `QSettings("KOGGER", "KoggerApp")` (every
+stored setting lives there; renaming resets all users), the `Documents/KoggerApp/...` folders
+(recordings, logs, exports; a migration), the `KoggerGeometryTree` file type, the `KOGGER_*`
+developer environment variables. Classic's texts (welcome, translations, its dialogs) under the
+classic rule. **Worth a later look:** the map tile requests send the user agent
+`KoggerApp/1.0 (contact: support@kogger.tech)` (`tile_downloader.cpp`); the Java USB code logs to
+logcat under the tag `KoggerUsbSerialManager` (logcat only, not `pulse.log`).
+
+#### LATER - make pulse.log a troubleshooting tool (Olav, 4 Oct)
+
+*"To make the log really useful we should add some effort later to reveal what MAY benefit
+troubleshooting. Many debug logs now are remains from where I struggled to create abilities and
+had a need of logs to reveal the cause. While some of the current debug logs may be useful, like
+the app setup of the transducer parameters. Crashes are obviously useful, of course."*
+
+What his log of 30 Sept - 4 Oct shows (43,335 lines, 34 starts, 5.5 MB):
+
+- **92% is DBG** (40,056 lines). The biggest: `AddWaypoint: setMavlinkPeer change` 8,356 (19%),
+  `DEMO:` statistics every 10 s 2,013, `RANGE: applying/storing` ~4,900, `DYNAMIC: avoid ...`
+  1,479, `DistProcessing: ...` ~2,200, `devList: ...` ~1,400, `zoomDistance dualChannel` ~740.
+- **Keep:** crashes and asserts, the transducer setup and `PARAM:` lines, `SOURCE:`/`MODE:`/`DEMO:
+  started`, `LINK:`, `ENGINE:`, `WAYPOINT:`, `INSETS:`/`METRICS:` at start, and every WRN.
+- **The shape:** one pass that sorts every log line into keep / cap / debug-build-only, so a
+  tester's 2 MB covers days rather than hours. Its own session.
+
+Two findings in the same log, each its own session:
+
+- **A crash opening the USB serial link.** Four `FTL ASSERT: "m_buf" in qiodevice_p.h` on 1 Oct
+  (07:30, 07:39 x2, 07:58), each milliseconds after `Link::createAsSerial ... bus/usb/001/002` with
+  a USB blue. The same fault as the 27 Sept `SIGABRT` on `SerialInputOutputManager`. The assert
+  aborts a debug build; a release build compiles it out and the fault is likely still there. USB
+  only, but a customer on USB would meet it.
+- **Two MAVLink peers alternating.** The 8,356 `setMavlinkPeer change` lines swap `127.0.0.1`
+  <-> `192.168.50.92` several times a second (1 Oct morning, probably SITL and the boat both
+  alive). `udp_broadcaster.h`'s own comment predicted it. Not only noise: **the waypoint UDP target
+  swaps with it**, so an Add could go to either. Check during the waypoint desk tests (T1-T6).
+
 #### FUTURE TODO - a strategy for linking the mosaic and the echogram
 
 Upstream links the two both ways: a tap on the mosaic picks the nearest bottom-track epoch and
