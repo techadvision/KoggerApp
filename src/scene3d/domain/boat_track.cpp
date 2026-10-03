@@ -140,6 +140,12 @@ void BoatTrack::setBottomTrackVisibleState(bool state)
     r->bottomTrackVisibleState_ = state;
 }
 
+void BoatTrack::setSelectedEpochMarkVisible(bool state)
+{
+    auto* r = RENDER_IMPL(BoatTrack);
+    r->selectedEpochMarkVisible_ = state;
+}
+
 void BoatTrack::clearSelectedEpoch()
 {
     auto* r = RENDER_IMPL(BoatTrack);
@@ -223,7 +229,11 @@ void BoatTrack::BoatTrackRenderImplementation::render(QOpenGLFunctions *ctx,
     // The red selected-epoch point (the loupe's position on the map) is still drawn.
 
     //------------->Drawing selected vertice<<---------------//
-    if (boatTrackVertice_.isNull()) {
+    // NOT IN V2 (fix/mosaic-aim, 4 Oct 2026). Olav: keep the link between the echogram's aim
+    // and the mosaic, "just make that red dot fully transparent". The selection is still
+    // made and kept (boatTrackVertice_, the sync epoch); only the point and its red line to
+    // the bottom are not drawn. Classic draws both as before.
+    if (boatTrackVertice_.isNull() || !selectedEpochMarkVisible_) {
         return;
     }
 

@@ -1745,8 +1745,24 @@ ApplicationWindow  {
                     setSyncLoupeUiAllowed(syncLoupeUiAllowed)
                 }
 
+                // THE RED DOT IS NOT DRAWN IN V2 (fix/mosaic-aim, 4 Oct). The upstream epoch
+                // link stays: an aim in the echogram still selects its epoch on the mosaic. Olav:
+                // "Can we leave the ability, just make that red dot fully transparent?" A press on
+                // the mosaic no longer reaches the echogram at all (qPlot2D::eventFilter).
+                function applySelectedEpochMarkForVariant() {
+                    const on = !pulseRuntimeSettings.uiVariantIsV2
+                    setSelectedEpochMarkVisible(on)
+                    console.log("MOSAIC: the selected-epoch red dot " + (on ? "is drawn (classic)" : "is not drawn (v2)"))
+                }
+
+                Connections {
+                    target: pulseRuntimeSettings
+                    function onUiVariantIsV2Changed() { renderer.applySelectedEpochMarkForVariant() }
+                }
+
                 Component.onCompleted: {
                     setSyncLoupeUiAllowed(syncLoupeUiAllowed)
+                    applySelectedEpochMarkForVariant()
                 }
 
                 onSendDataZoom: function(zoom) {

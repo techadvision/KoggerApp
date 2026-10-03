@@ -322,6 +322,7 @@ public:
     void setSyncLoupeZoomAdjusting(bool adjusting);
     void setSyncEpochIndex(int epochIndex);
     void setEpochSyncEnabled(bool state);
+    Q_INVOKABLE void setSelectedEpochMarkVisible(bool state);   // PULSE: v2 hides the red dot (main.qml)
     bool isEpochSyncEnabled() const { return epochSyncEnabled_; }
 
     void setActiveZeroing(bool state);
