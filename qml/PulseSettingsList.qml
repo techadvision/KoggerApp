@@ -1103,7 +1103,11 @@ Item {
                     // THE HARDWARE FLOOR, not 1: the blue prototype loses the link the instant
                     // its spacing goes below 15 mm (Olav, 2 Oct). See hardwareSpacingFloorMm.
                     minValue: pulseRuntimeSettings ? pulseRuntimeSettings.hardwareSpacingFloorMm : 1
-                    maxValue: 100
+                    // THE PROTOCOL'S CEILING (3 Oct 2026). IDBinChartSetup::setV0 keeps samples x
+                    // spacing at 200 000 or less and quietly cuts the spacing to a multiple of
+                    // 10 mm when it is over - so at 5000 samples a drag to 100 mm sent 40. The
+                    // row stops where the protocol does instead of showing a value never sent.
+                    maxValue: Math.max(minValue, Math.min(100, Math.floor(200000 / Math.max(1, list.paramNum("chartSamples", 2000)))))
                     stepSize: 1
                     value: list.paramNum("chartResolution", 1)
                     valueText: list.paramText("chartResolution",
