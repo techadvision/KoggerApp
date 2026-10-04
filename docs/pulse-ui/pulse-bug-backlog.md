@@ -3993,6 +3993,77 @@ on my side. The partner doc "PULSE blue - what performance mode achieves" is the
 reference - their feedback (especially Test B, 40-50 m) may come in during this work.
 ```
 
+#### Prompt 3 - feature/pulse-depth-source (off feature/pulse-performance-mode), the shore and the shallows
+
+```
+We continue the Pulse Echo Sounder work (project "Modernize UI of the Pulse Echo Sounder
+app"). Repo: my KoggerApp folder, branch feature/pulse-depth-source, cut from
+feature/pulse-performance-mode after the link-fit scheme and the bottom-track readout fix
+(d18e3f08). Check it is pushed and that feature/pulse-performance-mode has not moved on
+since - remind me if not. This is for my EXPERT testers first (internal test).
+
+Read first: claude/pulse-bug-backlog.md from "Task 2b - PULSE red and black, step 1" to the
+end - above all "BOTTOM TRACK - TWO OPEN PROBLEMS", "The desk run" (the false bottom at
+~0.88 of the acquisition range), "The bottom track dropped from the depth readout" and the
+runaway it uncovers. Project memory pulse-overlays has the depth engine's design.
+
+THE TWO PROBLEMS, PULSE red and black (2D, rangefinder + bottom track):
+1. On the shore (and over a lost or soft bottom) the bottom track reports a false depth at
+   ~0.88 of the acquisition range. Since d18e3f08 the readout stays on the bottom track, so
+   the dynamic scheme then sizes the range from that false depth and the two feed each other
+   up to the maximum (seen: 19.5 m in air -> 22 m -> 42 m). In a bathymetry run the same
+   thing gives "a couple of 40+ m values" that ruin the picture.
+2. Nothing shallower than ~0.25-0.5 m from the bottom track: its processing runs with
+   minDistance 0.25 (distProcessing [1,5,4,0.25,50,2,0,0,0,0]) and in air it reads 0.32-0.36
+   where the rangefinder reads 0.12-0.14 (its usual out-of-water value).
+
+WHAT IS ALREADY KNOWN FROM READING (verify, do not trust):
+- THREE separate depth-source selectors exist and they disagree: the QML readout follows
+  pulseRuntimeSettings.isBottomTrackInitiated (PulseDepthEngine.selectedDepth); NMEA follows
+  the C++ Dataset::getProcessBottomTrack() (_processBottomTrack, main.cpp ~615-645); and
+  Dataset::filterDepthRecords() - the existing big-jump filter (5 m jump, 3 agreeing samples,
+  0.5 m margin) - is active only while the C++ _isBottomTrackInitiated is true, which the
+  readout bug kept false for most sessions. Before d18e3f08 the readout and NMEA could show
+  different depths at the same moment.
+- bottomTrackMinDepth (0.5) exists in PulseRuntimeSettings and nothing reads it.
+- The dynamic scheme (calculateDynamicResolution) reads the readout's depth.
+- What the bathymetry/records actually store per epoch (epoch->setDist, the bottom-track
+  epoch values, the mosaic, the waypoint loupe) is NOT yet traced - do that first.
+
+THE DIRECTION I LEAN TO, open for better ideas - ANALYSE BEFORE BUILDING, agree with me:
+- Do not change the bottom-track ALGORITHM itself unless the analysis shows it is the only
+  way - it is complex upstream code. Prefer a selection/plausibility layer around it.
+- Candidates to weigh, with what each costs and what it breaks:
+  a) ONE depth source, chosen in ONE place (C++ Dataset, so readout, NMEA, records, loupe and
+     the dynamic scheme all agree), with a crossover: rangefinder below ~2 m (with hysteresis,
+     e.g. 1.8/2.2), bottom track above it.
+  b) Out-of-water / shore detection: rangefinder steady at its ringdown value (~0.12-0.14)
+     plus a bottom track near ~0.88 of the range -> "no bottom": show a dash, send no NMEA
+     depth, and hold the dynamic scheme at its shallow range so it cannot run away.
+  c) A plausibility gate on the bottom track: reject values in the far end of the
+     acquisition range (> ~0.8 of it), and jumps far from the last good depth or from a
+     credible rangefinder, unless confirmed for N pings (extend filterDepthRecords rather
+     than add a second filter).
+  d) Bound the bottom track's search (distProcessing maxDistance, today a fixed 50 m) from
+     the last good depth - a parameter, not the algorithm; note that a real change of
+     distProcessing now restarts the bottom track (d18e3f08).
+  e) Lower minDistance for the shallows only if (a) does not already cover them.
+- Measure first where measuring is possible: I will run the depth sweep in water (real
+  distance, then 1.0 / 0.5 / 0.3 / 0.15 m, 10 s each) and on the shore, and I can provide a
+  bathymetry .plog with the 40+ m spikes. Say exactly which log lines you need - add an
+  instrument first if one is missing (e.g. a per-ping line while the two sources disagree by
+  more than X, capped).
+
+Working rules as before: Classic is not touched (DisplaySettings is shared machinery - say
+when a change reaches classic); one idea per commit; nothing is fixed before its log line is
+read; moc + g++ -fsyntax-only on changed C++ in the cloud shell (apt qt6-base-dev
+qt6-declarative-dev qt6-base-dev-tools qt6-declarative-dev-tools libqt6serialport6-dev
+qt6-positioning-dev; -I every src dir, not third_party), qmllint on changed QML (qmlformat
+6.4 fails its own write-out on some unchanged files), all tools/pulse-*-check.js; update the
+backlog in the repo AND the project docs. Waypoint desk tests T1-T6 are still owed on my
+side. Tester feedback on PULSE blue performance mode (Test B, 40-50 m) may come in.
+```
+
 ### Emulators
 
 Qt Creator reads the same SDK's AVD folder as Android Studio, so AVDs made in Android Studio's
