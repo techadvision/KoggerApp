@@ -3983,6 +3983,46 @@ falls back to the rangefinder; the 2D bottom line, the 3D surface and the export
    1 minute and back - recording a `.plog` throughout, plus `pulse.log` (or `adb logcat | grep -E " (DEPTH|BT|DYNAMIC|LINK): "`),
    with the clock time of each step.
 
+#### Olav's answers, 4 Oct - and what they change
+
+- **The 40+ m spikes were the on-screen depth from the RANGEFINDER** (before red moved to the bottom track) - the very
+  reason the bottom track is used: *"it is much better than range finder"*, above all on blue, where the sideways
+  crystals make it happen more often. **So the rangefinder is not trustworthy on its own either.** B4's crossover must
+  not switch to a lone rangefinder reading: below ~2 m only when the bottom track agrees it is shallow (at or near its
+  floor), with hysteresis. The `BT:` *disagree* count is the data for that rule.
+- **On the shore the bottom track gives 19-32 m continuously** - B1 is the fix for that.
+- **In air:** *"If we can be sure that the boat is on shore then let us show either 0.0 or a dash, if not then the 0.13
+  is much better."* So B5 shows a dash only on a positive shore decision (rangefinder at its ringdown AND the bottom
+  track rejected as far end, for N s); otherwise the value.
+- **Order agreed:** I1 + I2 now, the bench in parallel, B1-B5 after the logs.
+
+#### I1 + I2 built - `668d01c9`, `33bf3632` (C++, moc re-runs; no behaviour change)
+
+| commit | what |
+|---|---|
+| `668d01c9` | **the rangefinder, live**: the raw reading and its time are kept before `addRangefinder`'s early return; `Dataset::rangefinderLive()` / `rangefinderLiveAgeS()`; the `DEPTH:` line reads `rangefinder X (now Y, live Z raw, N s old)` |
+| `33bf3632` | **`BT:`** in `onDistCompletedBatch`, live only: `BT: epoch N | bottom track X m raw of R m acquired (ratio) | rangefinder live Y (age) | a gate would reject: far end / disagrees with the rangefinder / no bottom` (1 line/s at most), and `BT: last 10 s | ... | ratio max | bottom track min-max | rangefinder live min-max` |
+
+moc and `g++ -fsyntax-only` pass on `dataset.cpp` and its moc output (Qt 6.4 cloud shell); qmllint finds no error in
+`PulseDepthEngine.qml`; all seven `tools/pulse-*-check.js` pass. `Dataset` is shared - classic gets the two lines too.
+
+#### To run on the device - the sweep (a red or a black, expert mode on, Dynamic resolution ON)
+
+`adb logcat | grep -E " (DEPTH|BT|DYNAMIC|LINK): "`, or `pulse.log`. **Record a `.plog` the whole time** (Record on the
+rail). Note the clock time of each step.
+
+1. **At the commit:** `DEPTH: source -> 2D - bottom track ...`. The first 10 s `DEPTH:` line: **`live` must move while
+   `now` stays put** - that proves F2.
+2. **In the water at the real depth, 1 minute.** Expect `BT: last 10 s` with far end 0 and ratio max < 0.5.
+3. **1.0 / 0.5 / 0.3 / 0.15 m, 10 s each** (the `crossed below 1 m` line prints by itself). Expect the bottom track to
+   stop near 0.32 and `disagree` to count while the live rangefinder goes lower - the numbers set the crossover.
+4. **Out of the water, 1 minute.** Expect the runaway in `DYNAMIC: plan` lines and `BT: ... far end` lines with a ratio
+   of 0.82-0.90 and the live rangefinder at 0.12-0.14 - the shore signature for B1 and B5.
+5. **Back in the water, 1 minute.**
+
+**Bring back to `testlogs/depth-source/`:** the `.plog`, `pulse.log` (or the grep), the clock times; and, if you have
+them, a `.plog` with the old rangefinder spikes and a 1-minute desk `.plog` in air (for the bench).
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
