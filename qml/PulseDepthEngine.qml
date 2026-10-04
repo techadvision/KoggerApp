@@ -92,6 +92,13 @@ Item {
     onSelectedDepthChanged: {
         if (pulseRuntimeSettings)
             pulseRuntimeSettings.depthMeters = selectedDepth
+        // the DEPTH: instrument's 1 m crossing (see logDepthSources)
+        const shallow = selectedDepth < 1.0
+        if (shallow !== depthLogWasShallow) {
+            depthLogWasShallow = shallow
+            if (depthLogLive)
+                logDepthSources(shallow ? "crossed below 1 m" : "crossed above 1 m")
+        }
     }
 
     function currentDepthValue() {
@@ -345,6 +352,48 @@ Item {
                 return
             pulseRuntimeSettings.forceUpdateResolution = true
         }
+    }
+
+    // ---- The DEPTH: instrument (Task 2b step 1, 4 Oct 2026) -----------------
+    //
+    // BOTTOM TRACK - TWO OPEN PROBLEMS (backlog): false depths with no real bottom that
+    // follow the acquisition range, and no bottom-track depth below ~0.5 m. Nothing is
+    // fixed before this line is read. It puts the two sources side by side with what the
+    // readout shows and what the transducer is acquiring, from the chart stream itself:
+    // on a red the dynamic scheme sizes the range from the depth, so a false depth that
+    // follows the range would make the two feed each other - the range column says so.
+    //
+    // Every 10 s from a live device (never a demo or a file), and at once when the shown
+    // depth crosses 1 m either way - the shallow case is the one a 10 s line would miss.
+    readonly property bool depthLogLive:
+        pulseRuntimeSettings ? (pulseRuntimeSettings.devConfigured && !pulseRuntimeSettings.logIsOnScreen) : false
+    property bool depthLogWasShallow: false
+
+    function logDepthSources(why) {
+        const w = (typeof deviceManagerWrapper !== "undefined") ? deviceManagerWrapper : null
+        const ss = w ? w.linkStreamSamples : 0
+        const sp = w ? w.linkStreamSpacingMm : 0
+        const rangeM = (ss > 0 && sp > 0) ? (ss * sp / 1000 / (depthFromSideScan ? 2 : 1)) : -1
+        const raw = (dataset && Number.isFinite(dataset.dist)) ? dataset.dist.toFixed(2) : "-"
+        const bt = (dataset && Number.isFinite(dataset.bottomTrackDepth)) ? dataset.bottomTrackDepth.toFixed(2) : "-"
+        console.log("DEPTH: " + why
+                    + " | shown " + selectedDepth.toFixed(2) + " m from "
+                    + (depthFromSideScan ? (bottomTrackDepth > 0 ? "bottom track" : "rangefinder (no bottom track)")
+                                         : ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated) ? "bottom track" : "rangefinder"))
+                    + " | rangefinder " + rangeFinderDepth.toFixed(2) + " (now " + raw + ")"
+                    + " | bottom track " + bottomTrackDepth.toFixed(2) + " (now " + bt + ")"
+                    + " | acquiring " + (rangeM >= 0 ? rangeM.toFixed(1) + " m (" + ss + " x " + sp + " mm)" : "-")
+                    + " | dynamic " + (pulseRuntimeSettings && pulseRuntimeSettings.doDynamicResolution ? "on" : "off")
+                    + " " + (pulseRuntimeSettings ? pulseRuntimeSettings.dynamicResolution + " mm, "
+                             + pulseRuntimeSettings.dynamicSamples + " x, " + pulseRuntimeSettings.dynamicPeriod + " ms" : "")
+                    + " | last stable " + lastStableDepth.toFixed(1) + " m")
+    }
+
+    Timer {
+        interval: 10000
+        repeat: true
+        running: depthEngine.depthLogLive
+        onTriggered: depthEngine.logDepthSources("every 10 s")
     }
 
     // ---- Where the two sources come from ------------------------------------
