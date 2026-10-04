@@ -3901,6 +3901,88 @@ range (~0.88 of it, measured earlier). On the water a real bottom should win; ov
 the 40+ m records. **That is problem 1 of the bottom track, and it is next** - with Olav's "rangefinder up to ~2 m, then
 the bottom track" and a rejection of values far from the last good depth / the rangefinder.
 
+### The depth source - analysis, 4 Oct 2026 (`feature/pulse-depth-source`, nothing built yet)
+
+Branch pushed at `1a5b9211`, equal to `feature/pulse-performance-mode` and both origins. Read before building, as
+agreed. Five things the prompt assumed turned out different when read.
+
+**F1 - `filterDepthRecords` was never off, and its flag does nothing.** The two branches (`_isBottomTrackInitiated`
+true / false, `dataset.cpp` ~695 and ~730) are the same code: 5 m jump, 3 agreeing within 0.5 m. The C++ flag is also
+never set true (the call in `triggerProcessingTimer` is commented out, the settings-bus hook in `data_processor.cpp`
+~205 too). The filter runs on the bottom track whenever `useFilterWithBottomTrack` (default true). It fails on the
+shore because the false bottom is *steady* - it moves smoothly with the range, so 3 agreeing pings confirm it in a
+quarter of a second. A jump-and-confirm filter cannot catch it, however it is extended.
+
+**F2 - the rangefinder is dead while the bottom track is the source.** `Dataset::addRangefinder` returns on its first
+line when `_processBottomTrack` (a PULSE divergence; upstream always stores it in the epoch). Nothing is recorded:
+not `dataset.dist`, not `lastRangefinderDepth`, not the epoch. The `DEPTH:` line's *rangefinder 0.13 (now 0.13)* is the
+last value before the bottom track took over, frozen - and the *fell to the rangefinder (0.12)* after the 42 m runaway
+was that frozen value. **Any crossover (a) or shore detection (b) needs the rangefinder kept live first.**
+
+**F3 - the records never saw the filter.** Every per-epoch consumer reads `chart->bottomProcessing.distance` - the RAW
+bottom track (no filter, no mount offset): the 2D bottom line, the 3D bottom track / surface / isobaths, the mosaic, the
+CSV export (`core.cpp` ~2452), the waypoint's contact depth (`plot2D.cpp` ~1517) and the loupe (`plot2D_aim.cpp`). The
+filtered value goes only to the readout and NMEA. So the "40+ m values that ruin the picture" were never reachable by
+`filterDepthRecords`: a fix for the records must sit where the epoch is written (`Dataset::onDistCompleted` /
+`onDistCompletedBatch`), not in the readout.
+
+**F4 - why ~0.88: the false bottom is the far edge of the search window, by construction.**
+`bottom_track_processor.cpp` weights each sample by `1000/gainSlope + index` (a linear ramp with distance), and the
+search stops where the kernel's farthest tap (x1.12 for preset 1, *Narrow 2D*) runs off the trace less the averaging
+window. Worked through for 600 x 50 mm (30 m), 800 x 50 (40 m), 1000 x 50 (50 m): the last reportable distance is
+27.0 / 36.1 / 45.1 m = **0.90 of the range**; measured 26 / 34-36 / 41-45 (0.82-0.90). And the threshold
+(`distProcessing[6]` = 0, its checkbox off) means there is no "no bottom" answer: some sample always wins, and with no
+echo the ramp makes it the farthest. A real bottom under the dynamic scheme sits at `d / (2d + 4)` of the range - **always
+below 0.5** - and the scheme's loop gain on a false bottom is 2 x 0.88 = 1.76 > 1, so the runaway is certain once a false
+bottom becomes the depth.
+
+**F5 - why 0.32: the bottom track's own floor.** The search starts at `minDistance` and reports
+`minDistance + 1.04 x (60 mm + spacing)` = 0.25 + 0.068 = **0.318 m** at 5 mm - exactly the 0.32 read in air, where it takes
+its first searchable sample (the ringdown tail). Lowering `minDistance` (e) moves the floor into the ringdown the
+rangefinder sees at 0.12-0.14, so it would report the ring as the bottom. **(e) is out.**
+
+**F6 - a NaN resets the jump filter.** `filterDepthRecords(NaN)` stores NaN as the last good depth; the next value is
+then accepted unconfirmed. The batch path passes a no-bottom NaN straight in. Small, real.
+
+#### The proposal (to agree before building)
+
+**Instruments first, no behaviour change:**
+- **I1** `addRangefinder` records the raw rangefinder value and its time *before* the early return (no epoch, no
+  filter, no `distChanged`); the `DEPTH:` line gains `rangefinder live X (N s old)`. Proves F2 on the device.
+- **I2** `BT:` in `onDistCompletedBatch`, live only, capped (1 line/s + a 10 s count): the raw bottom track, the
+  epoch's acquired range and the ratio, the live rangefinder, and which gate *would* reject it.
+- **The offline bench (cloud, no app change):** a Python reader for `.plog` (`ID_CHART` + `ID_DIST` frames, the raw
+  stream the logger writes) and a faithful port of `bottomTrackProcessing`, validated against the 0.32 floor and the
+  0.88 desk numbers. Then the gates are tried on the bathymetry log, ping by ping, without a device round trip per idea.
+
+**Then, one idea per commit (all in `Dataset`, shared - they reach classic too):**
+- **B1 - the range gate at the epoch write** (c, range half): a bottom-track value beyond ~0.75 of THAT epoch's acquired
+  range is stored as no bottom (NaN). Per epoch, so it survives re-processing; records, readout, NMEA and the dynamic
+  scheme all get it at once, and the runaway is broken because the readout holds its last good depth. The threshold
+  from the bench (F4: real bottoms < 0.5 with the scheme on; the false ones 0.82-0.90).
+- **B2** F6's NaN guard.
+- **B3** the rangefinder always recorded, as upstream does (the epoch too) - only the *choice* depends on the source.
+- **B4 - one selector in C++** (a): rangefinder below 1.8 / above 2.2 m when it is live, bottom track (B1-gated and
+  filtered) beyond; `Dataset` publishes one depth that the readout, NMEA and the dynamic scheme read. The QML
+  `selectedDepth` then only reads it.
+- **B5 - the shore** (b): mostly falls out of B1 + B4. Open: in air the rangefinder says 0.13 - show that, or a dash?
+- **(d) not now:** bounding `maxDistance` from the last good depth restarts the bottom track on every change and ties
+  it to history. If B1 leaves spikes inside 0.5-0.75 (a second echo over a soft bottom), the algorithm already has
+  per-epoch min/max constraints (`setMinMaxDistProc`) that bound the search without a restart.
+- **Alternative to B1 for the bench:** the upstream threshold (`distProcessing[6]`), its own "no bottom" knob, off today.
+  Needs amplitude calibration, which only the bench can do.
+
+**Open: the records in the shallows.** Below 2 m the epoch's bottom track is still the 0.32 floor. The loupe already
+falls back to the rangefinder; the 2D bottom line, the 3D surface and the export would not. Decide after the sweep.
+
+#### Logs wanted, in `testlogs/depth-source/` in the repo (git-ignored)
+1. **The bathymetry `.plog` with the 40+ m spikes**, plus roughly where/when, dynamic resolution on or off, and WHICH
+   picture showed them (in-app 3D / mosaic / CSV export, or a tool fed by NMEA - F3 makes that matter).
+2. **A 1-minute `.plog` at the desk in air**, red or black, dynamic on - validates the bench port.
+3. **The water sweep on a build with I1 + I2**: real depth, 1.0 / 0.5 / 0.3 / 0.15 m, 10 s each, then out of the water
+   1 minute and back - recording a `.plog` throughout, plus `pulse.log` (or `adb logcat | grep -E " (DEPTH|BT|DYNAMIC|LINK): "`),
+   with the clock time of each step.
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
