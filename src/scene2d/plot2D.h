@@ -308,6 +308,7 @@ public:
     int  frozenHead()     const { return frozenHead_; }
     int  frozenHeight()   const { return frozenH_; }
     bool isEchogramPaused() const { return aim_.isPaused(); }
+    bool isUiVariantV2() const { return aim_.isUiVariantV2(); }
     bool isTapInsideZoom(int devX, int devY) const {
         // aim_.isTapInsideZoom needs a Plot2D*, pass this
         return aim_.isTapInsideZoom(const_cast<Plot2D*>(this), devX, devY);

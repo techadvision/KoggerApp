@@ -9,7 +9,7 @@
 
 // TODO: Switch from device ID to serial number to support multiple USB connections
 
-KOGGER_LOGGING_CATEGORY(AndroidSerialPortLog, "kogger.android.libs.qtandroidserialport.qserialport_android")
+KOGGER_LOGGING_CATEGORY(AndroidSerialPortLog, "pulse.android.serialport")
 
 QT_BEGIN_NAMESPACE
 

@@ -592,11 +592,42 @@ int qPlot2D::getPreferredLoupeEpochIndex(int preferredEpochIndx) const
 
 bool qPlot2D::eventFilter(QObject *watched, QEvent *event)
 {
-    Q_UNUSED(watched);
 
     auto* epochEvent = dynamic_cast<EpochEvent*>(event);
     if (epochEvent && epochEvent->eventTypeId() == static_cast<int>(EpochSelected3d)) {
         //qDebug() << QString("[Plot 2d]: catched event from 3d view (epoch index is %1)").arg(epochEvent->epochIndex());
+        // MOSAIC -> AIM, an instrument (fix/mosaic-aim, 3 Oct). The 3D scene's bottom track,
+        // boat track and contacts post EpochSelected3d on a press / release in the mosaic,
+        // and every echogram pane filters it here and turns it into an aim. One line per
+        // event says which object sent it, and what the pane's aim held before and after.
+        //
+        // THE LOG ANSWERED IT, 4 Oct: every press and release on the mosaic printed
+        // "takes a 3D epoch selection from BottomTrack", and a live pane's selected epoch
+        // became the picked one (281, 336, 240 ...). That moved the timeline (the yellow
+        // "scrolled back" pill) and left selectEpochIndx set, which Plot2DAim::draw raises a
+        // loupe from the moment the picture is paused. The release posts epoch -1, and even
+        // that arms the aim's epoch-event flag - a pending "tap".
+        //
+        // V2 DOES NOT TAKE A SELECTION FROM THE 3D VIEW AT ALL, for now. Olav: "We should
+        // disable this ability for now, I need a clear strategy for using something like
+        // this and I currently have none." One gate here covers press and release, every
+        // sender (bottom track, boat track, contacts), live and paused, every layout and
+        // device. Classic keeps the upstream behaviour.
+        const bool ignored = isUiVariantV2();
+        static int mosaicAimReported = 0;
+        if (mosaicAimReported < 80) {
+            ++mosaicAimReported;
+            qDebug().noquote() << QStringLiteral("AIM: pane %1 %2 a 3D epoch selection from %3 | epoch %4 | paused %5 | aim mouse %6,%7 | selected epoch %8")
+                                      .arg(indx_)
+                                      .arg(ignored ? QStringLiteral("ignores") : QStringLiteral("takes"))
+                                      .arg(QString::fromLatin1(watched ? watched->metaObject()->className() : "nothing"))
+                                      .arg(epochEvent->epochIndex())
+                                      .arg(isEchogramPaused() ? QStringLiteral("yes") : QStringLiteral("no"))
+                                      .arg(cursor_.mouseX).arg(cursor_.mouseY)
+                                      .arg(cursor_.selectEpochIndx);
+        }
+        if (ignored)
+            return false;
         setAimEpochEventState(true);
         setTimelinePositionByEpoch(epochEvent->epochIndex());
     }

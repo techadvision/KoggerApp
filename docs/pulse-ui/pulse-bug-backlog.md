@@ -3479,6 +3479,163 @@ win, but over a soft or deep bottom a longer acquisition range gives the bottom 
 look when the engine is on the water: whether bottom track's search should be bounded by the expected depth rather than the
 full trace. Not started.
 
+### 1.43 - the mosaic aim hotfix, 4 Oct 2026 - `fix/mosaic-aim` off master (1.42)
+
+**VERIFIED on the tablet, 4 Oct (Olav: *"It is finally gone."*)** - side + mosaic, down + mosaic and
+mosaic alone, live and paused: taps on the mosaic do not scroll the echogram or raise a loupe, and
+the red dot is gone (`MOSAIC: the selected-epoch red dot is not drawn (v2)` at start).
+
+**Seen in the same log, not touched (pre-existing, not a 1.43 matter):**
+`qrc:/MosaicExtraSettings.qml:18: ReferenceError: updateMosaicButton is not defined`, once per start
+and per source change. Its own commit later.
+
+**The bug:** in a split with the mosaic (side + mosaic, down + mosaic), a press on the MOSAIC
+brought the zoom box (the `Plot2DAim` loupe) up over the echogram pane, and it could stay.
+
+| commit | what |
+|---|---|
+| `24bb9ddd` | instrument: `MOSAIC: press / release`, `AIM: pane N pressed`, `AIM: pane N takes/ignores a 3D epoch selection from <class>`, `AIM: pane N loupe up / down` |
+| `0d3a54db` | **v2: the echogram panes ignore an epoch selected in the 3D view** |
+| `15361f0e` | v2: no epoch picking on the mosaic - **reverted in `ba3ef127`** (below) |
+| `4093155d` | Version 1.43 (`versionCode` 143), edited in the XML; the manifest check passes; `65a4a948` commits the derived `version.txt` |
+| `0f6ec464` | **v2: the mosaic's selected-epoch red dot is not drawn** |
+
+**What the log proved (Olav's run, 4 Oct 00:07, live side + mosaic on a demo):** every tap on the
+mosaic printed `AIM: pane 1 takes a 3D epoch selection from BottomTrack | epoch 281 | paused no |
+… | selected epoch -1 -> 281`, and the release printed the same with epoch -1. This is the upstream
+3D picking route: `BottomTrack::mousePressEvent` / `mouseReleaseEvent` (and `BoatTrack` with no
+bottom track) post `EpochSelected3d`, and `Core` installs every echogram pane as an event filter
+on them. `qPlot2D::eventFilter` then called `setAimEpochEventState(true)` and
+`setTimelinePositionByEpoch(epoch)`:
+
+- **live**, the picked epoch moved the echogram's timeline (the yellow *scrolled back* pill Olav
+  saw) and stayed in `selectEpochIndx`. Nothing clears that on pause, and `Plot2DAim::draw`
+  raises a loupe from `selectEpochIndx`, so **the loupe came up at the picked epoch on the next
+  pause**;
+- the release (epoch -1) still armed the aim's epoch-event flag, which is a pending tap.
+
+The same pick also put the **red dot** on the mosaic. Not a press reaching the Plot2D underneath:
+no `AIM: pane N pressed` line came with any mosaic press.
+
+**Olav's decision:** *"The touch on mosaic will help identify on the echogram where captured.
+Which kind of makes sense. I however fear that this will confuse my users. We should disable this
+ability for now, I need a clear strategy for using something like this and I currently have
+none."* So both directions are off in v2:
+
+- **`0d3a54db`**: under v2, `qPlot2D::eventFilter` logs `ignores` and returns before touching
+  the aim or the timeline. One gate covers press and release, every sender (bottom track, boat
+  track, contacts), live and paused, every layout and device.
+- **`15361f0e`, reverted in `ba3ef127`**: turning off the 3D view's epoch sync in v2. Olav's
+  device check of the first build: the mosaic no longer scrolls the echogram (*"That was the most
+  important change"*), the red dot was still there, and an aim moved in the paused echogram shows
+  the matching boat position on the mosaic's track. *"This is not bad, per se ... Can we leave the
+  ability, just make that red dot fully transparent?"* So the sync stays on.
+- **`0f6ec464`**: the red dot (and its red line to the bottom) is not drawn in v2.
+  `BoatTrack` keeps making and holding the selection; `GraphicsScene3dView::setSelectedEpochMarkVisible`
+  (`Q_INVOKABLE`) is called from `main.qml` at start and when the variant changes:
+  `MOSAIC: the selected-epoch red dot is not drawn (v2)`. Waypoints are unaffected: Add waypoint
+  places the point at the loupe's crosshair, and the autopilot can hold the boat over it.
+- **Classic keeps the upstream behaviour**, red dot included.
+
+C++ in `plot2D.h`, `plot2D_aim.h`, `qPlot2D.cpp` and `scene3d_view.h` (a new `Q_INVOKABLE`, so moc
+re-runs). moc, `g++ -fsyntax-only`, qmlformat and the six `tools/pulse-*-check.js` pass.
+
+#### To check on the device - 1.43
+
+`adb logcat | grep -E " (MOSAIC|AIM): "` (the grep without the spaces also catches Play Store's
+`Finsky … AIM:` lines).
+
+1. At start: `MOSAIC: the selected-epoch red dot is not drawn (v2)`.
+2. **Side + mosaic, live:** tap the mosaic a few times, on and off the track. **No red dot**, the
+   echogram does not jump and no *scrolled back* pill. Each tap prints at most
+   `AIM: pane 1 ignores a 3D epoch selection …` (the release still posts one).
+3. **Pause after those taps:** no loupe. Tap the side scan: the loupe comes up where the finger
+   is, as before.
+4. **Paused, with a loupe up on the side scan:** tap and drag on the mosaic. The loupe does not
+   move, does not go and no second one appears. `AIM: pane N loupe up / down` lines come only from
+   touches on the echogram.
+5. **Down + mosaic**, the same 2-4. Left- and right-hand layout, tablet and phone.
+6. **The mosaic's own interaction is unchanged:** pan, zoom and the Pause pill.
+7. **Paused, move the loupe's crosshair:** the epoch link to the mosaic still works as before, with no red dot.
+
+#### 1.43, the log a tester sends - 4 Oct
+
+Olav, reading a `pulse.log` from *Troubleshooting -> Send the log to Techadvision*: *"I rather have
+no logs referring to 'kogger'."* The search over C++, QML and Java, and his log, agree: every
+"kogger" in the log was a **category name** in `platform/android/src`, and all 120 lines in his log
+were USB serial. Nothing in `src/` or the QML logs the name.
+
+| commit | what |
+|---|---|
+| `d0d700ce` | the per-tap `MOSAIC: press/release` and `AIM: pane N pressed` lines go (the capped AIM: lines stay) |
+| `6500706b` | **the log names its build**: `--- log opened: Pulse Echo Sounder 1.43` instead of a hard-coded `1-1-1`, read from the derived `:/version.txt` in `main.cpp` |
+| `7c501c88` | the six Android categories become `pulse.android.init / .interface / .serial / .serialport / .serialportinfo` and `Utilities.LoggingCategoryManager` |
+| `99a02975` | v2's connection screen file dialogs: *Pulse recordings (*.plog)* instead of *Kogger log files* |
+
+`main.cpp` passes `g++ -fsyntax-only` (Qt 6.4 in the cloud shell needs a one-line `QtLogging` shim);
+the category edits are string literals in JNI files the cloud shell cannot compile. QML parses and
+the six checks pass.
+
+**To check:** the first line of a new session in `pulse.log` reads `Pulse Echo Sounder 1.43`; a USB
+serial warning reads `pulse.android.serialport: …`; the connection screen's *Open a file* /
+*Stream a file* dialog offers *Pulse recordings*.
+
+**Deliberately NOT renamed - they are data, not names:** `QSettings("KOGGER", "KoggerApp")` (every
+stored setting lives there; renaming resets all users), the `Documents/KoggerApp/...` folders
+(recordings, logs, exports; a migration), the `KoggerGeometryTree` file type, the `KOGGER_*`
+developer environment variables. Classic's texts (welcome, translations, its dialogs) under the
+classic rule. **Worth a later look:** the map tile requests send the user agent
+`KoggerApp/1.0 (contact: support@kogger.tech)` (`tile_downloader.cpp`); the Java USB code logs to
+logcat under the tag `KoggerUsbSerialManager` (logcat only, not `pulse.log`).
+
+#### LATER - make pulse.log a troubleshooting tool (Olav, 4 Oct)
+
+*"To make the log really useful we should add some effort later to reveal what MAY benefit
+troubleshooting. Many debug logs now are remains from where I struggled to create abilities and
+had a need of logs to reveal the cause. While some of the current debug logs may be useful, like
+the app setup of the transducer parameters. Crashes are obviously useful, of course."*
+
+What his log of 30 Sept - 4 Oct shows (43,335 lines, 34 starts, 5.5 MB):
+
+- **92% is DBG** (40,056 lines). The biggest: `AddWaypoint: setMavlinkPeer change` 8,356 (19%),
+  `DEMO:` statistics every 10 s 2,013, `RANGE: applying/storing` ~4,900, `DYNAMIC: avoid ...`
+  1,479, `DistProcessing: ...` ~2,200, `devList: ...` ~1,400, `zoomDistance dualChannel` ~740.
+- **Keep:** crashes and asserts, the transducer setup and `PARAM:` lines, `SOURCE:`/`MODE:`/`DEMO:
+  started`, `LINK:`, `ENGINE:`, `WAYPOINT:`, `INSETS:`/`METRICS:` at start, and every WRN.
+- **The shape:** one pass that sorts every log line into keep / cap / debug-build-only, so a
+  tester's 2 MB covers days rather than hours. Its own session.
+
+Two findings in the same log, each its own session:
+
+- **A crash opening the USB serial link.** Four `FTL ASSERT: "m_buf" in qiodevice_p.h` on 1 Oct
+  (07:30, 07:39 x2, 07:58), each milliseconds after `Link::createAsSerial ... bus/usb/001/002` with
+  a USB blue. The same fault as the 27 Sept `SIGABRT` on `SerialInputOutputManager`. The assert
+  aborts a debug build; a release build compiles it out and the fault is likely still there. USB
+  only, but a customer on USB would meet it.
+- **Two MAVLink peers alternating.** The 8,356 `setMavlinkPeer change` lines swap `127.0.0.1`
+  <-> `192.168.50.92` several times a second (1 Oct morning, probably SITL and the boat both
+  alive). `udp_broadcaster.h`'s own comment predicted it. Not only noise: **the waypoint UDP target
+  swaps with it**, so an Add could go to either. Check during the waypoint desk tests (T1-T6).
+
+#### FUTURE TODO - a strategy for linking the mosaic and the echogram
+
+Upstream links the two both ways: a tap on the mosaic picks the nearest bottom-track epoch and
+scrolls the echogram there (red dot), and an aim in the echogram marks the same epoch on the
+mosaic. It is useful (*"the touch on mosaic will help identify on the echogram where
+captured"*), but as it was it confused more than it helped: the echogram jumped with no
+explanation, live, and the loupe came up later on pause. **Disabled in v2 from 1.43 until there
+is a clear design.** Questions to answer first:
+
+- Live or paused only? A live pick fights the live follow; paused, it is a navigation tool.
+- What does the echogram show for a picked point: scroll only, a marker column, or the loupe on
+  it (and on which pane in a split)?
+- How does the user leave it: the *scrolled back* pill, a dismiss on the dot, a timeout?
+- Which direction(s): mosaic -> echogram, echogram -> mosaic, or both.
+- Does it belong with the waypoint flow (pick on the mosaic, confirm in the loupe, Add)?
+
+In 1.43 the mosaic -> echogram direction is off (`qPlot2D::eventFilter`), and the echogram -> mosaic
+direction is kept with its red dot hidden (`applySelectedEpochMarkForVariant` in `main.qml`).
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:

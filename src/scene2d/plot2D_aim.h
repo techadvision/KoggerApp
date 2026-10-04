@@ -26,6 +26,7 @@ public:
     void drawPopup(QPainter* p, const QString& text, int scaleFactor);
     void setPause(Plot2D* parent, Dataset* dataset, bool on);
     bool isPaused() const { return echogramPause_; }
+    bool isUiVariantV2() const { return isUiVariantV2_; }
     int  lastAtPause() const { return lastIndexAtPause_; }
     int  visibleColsAtPause() const { return visibleColsAtPause_; }
     bool isTapInsideZoom(Plot2D* parent, int devX, int devY) const;

@@ -32,6 +32,7 @@ public:
         QVector3D boatTrackVertice_;
         QVector3D bottomTrackVertice_;
         bool bottomTrackVisibleState_ = true;
+        bool selectedEpochMarkVisible_ = true;   // PULSE: false in v2 - the red dot
     };
 
     explicit BoatTrack(GraphicsScene3dView* view = nullptr, QObject* parent = nullptr);
@@ -45,6 +46,7 @@ public Q_SLOTS:
     void clearData() final;
     void selectEpoch(int epochIndex);
     void setBottomTrackVisibleState(bool state);
+    void setSelectedEpochMarkVisible(bool state);
     void clearSelectedEpoch();
     void mousePressEvent(Qt::MouseButtons buttons, qreal x, qreal y) final;
 

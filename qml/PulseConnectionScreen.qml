@@ -357,7 +357,7 @@ Item {
         id: simulationFileDialog
         title: "Choose a recording to replay"
         currentFolder: connectionScreen.lastLogFolder
-        nameFilters: ["Kogger log files (*.plog *.PLOG)"]
+        nameFilters: ["Pulse recordings (*.plog *.PLOG)"]
 
         onCurrentFolderChanged: connectionScreen.lastLogFolder = currentFolder
 
@@ -403,7 +403,7 @@ Item {
         title: "Choose a recording to view"
         currentFolder: connectionScreen.lastLogFolder
         nameFilters: ["Logs (*.plog *.PLOG *.ubx *.UBX *.xtf *.XTF)",
-                      "Kogger log files (*.plog *.PLOG)",
+                      "Pulse recordings (*.plog *.PLOG)",
                       "U-blox (*.ubx *.UBX)"]
 
         onCurrentFolderChanged: connectionScreen.lastLogFolder = currentFolder

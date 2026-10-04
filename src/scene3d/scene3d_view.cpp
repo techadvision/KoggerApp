@@ -1808,6 +1808,13 @@ void GraphicsScene3dView::setSyncEpochIndex(int epochIndex)
     emit syncLoupeStateChanged();
 }
 
+void GraphicsScene3dView::setSelectedEpochMarkVisible(bool state)
+{
+    if (boatTrack_)
+        boatTrack_->setSelectedEpochMarkVisible(state);
+    QQuickFramebufferObject::update();
+}
+
 void GraphicsScene3dView::setEpochSyncEnabled(bool state)
 {
     if (epochSyncEnabled_ == state) {
