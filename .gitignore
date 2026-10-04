@@ -79,3 +79,6 @@ AGENTS.md
 docs/KoggerApp-Docs/
 *.py
 Claude outputs/
+
+# PULSE test logs handed over for analysis (.plog, pulse.log) - never committed
+testlogs/
