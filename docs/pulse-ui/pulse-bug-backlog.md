@@ -3837,6 +3837,22 @@ records users still see).
 5. **Watch the load for 10 minutes** at step 2: 82% with no lost samples and a steady 13.9/s. If the link ever drops,
    that is the finding - 85% held for blue for 10+ minutes, but red's firmware is another one.
 
+#### Step 3 on the device, first run (4 Oct 15:54) - 600 samples planned, 500 sent; the fix below
+
+Olav: `DYNAMIC: plan shallow | … -> 600 x 4 mm @ 72 ms` but `LINK: 500 samples, 4 mm, 72 ms … 13.9 pings/s (asked
+13.9)`. The period (72, now also the profile's) and the spacing arrived; the samples did not. **Cause, by reading:** the
+first plan runs at the initial resolution pass, before the commit; `committedProfileKey` still named `PULSEblue` (the
+start-up key in the log), so `onDynamicSamplesChanged -> setParam("chartSamples", 600)` wrote into blue's map. Every
+later plan asked the same 600, so `dynamicSamples` never changed again and nothing was resent. **Fix:** a plan made
+before `devConfigured` is held (`DYNAMIC: plan … held - the device is not configured yet`) and applied when the device
+is configured; after each plan `chartSamples` / `ch1Period` are checked and set directly if a handler missed them
+(`DYNAMIC: the params had not followed the plan - set directly: …`). **To check:** after the commit, `DYNAMIC: plan the
+device is configured | … 600 x 4 mm @ 72 ms`, then `LINK: 600 samples, 4 mm, 72 ms (stream 600 x 4 mm) | ~9.4 kB/s |
+~82% | 13.9 pings/s`.
+
+**Asked and delivered agree now: 13.9 pings/s at 72 ms.** Olav on the wifi AP: today's ~8.0 kB/s becomes ~9.4 kB/s at
+600 samples (seen with Dynamic resolution off); some wireless range may go, probably not much - to watch on the water.
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
