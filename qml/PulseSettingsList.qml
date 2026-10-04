@@ -1515,7 +1515,7 @@ Item {
                     uiScale: list.uiScale
 
                     label: qsTr("Serial link")
-                    hint:  qsTr("measured on the live link over 10 s, against the baud the transducer reports")
+                    hint:  qsTr("measured on the live link over 10 s, against the baud the transducer reports; pings/s are complete pings received")
                     value: {
                         const w = deviceManagerWrapper
                         if (!w || w.linkBytesPerSecond <= 0)
@@ -1525,8 +1525,11 @@ Item {
                             return kb + " | " + qsTr("baud not reported")
                         if (!w.linkBaudPlausible)
                             return kb + " | " + qsTr("reported baud") + " " + w.linkBaud + " " + qsTr("cannot carry this - load unknown")
+                        // the real ping rate (Task 2b step 1): what arrives, not what was asked
+                        const pings = w.linkPingsPerSecond >= 0
+                                      ? " | " + w.linkPingsPerSecond.toFixed(1) + " " + qsTr("pings/s") : ""
                         return w.linkBaud + " " + qsTr("baud") + " | " + kb + " | "
-                               + w.linkLoadPercent.toFixed(0) + "% " + qsTr("used")
+                               + w.linkLoadPercent.toFixed(0) + "% " + qsTr("used") + pings
                     }
                 },
 
