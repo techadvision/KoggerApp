@@ -3691,6 +3691,51 @@ Expert -> Performance mode -> *Serial link* is visible. The transducer in a buck
 
 **Bring back:** the grep output (or `pulse.log`) and, per step, what you did and when (clock time).
 
+#### Step 1 measured - PULSE red (SN 139) on USB, at the desk, 4 Oct 14:10-14:16
+
+**USB:** clean. `SERIAL: opening … at 921600` -> `opened` -> `silent - trying 115200` -> `frames are arriving at 115200
+baud` within 0.8 s. No abort (the 1 Oct `m_buf` assert did not reproduce). The device reports 115200 in `ID_UART`.
+
+**The link, as shipped (500 samples, 5-6 mm, 50 ms asked), 6 minutes in two runs:**
+
+```
+LINK: 500 samples, 5 mm, 50 ms (stream 500 x 5 mm) | 8041 B/s | 115200 -> 69.8% used | lost 0.00% | 14.0 pings/s (asked 20.0)
+```
+
+- **14.0 pings/s, rock steady (13.9-14.0), at ~70% of the UART, no loss.** Outcome B of the test: **the UART is NOT
+  full; something in the transducer paces the pings at ~71 ms.** The July wifi log's 14-15/s was the same pacing, not
+  the AP.
+- **The exact fragment count is confirmed by the wire rate:** 14.0 x 552 B + ~320 B/s of polls = 8 050 B/s, measured
+  7 960-8 070. With 652 B a ping (PulsePerfEngine's full-fragment count) it would be 9 450. The correction stands.
+- **What it changes for step 3:** a link-fit 57 ms only helps if the 71 ms is not a firmware floor. And today's 2D
+  picture reads 50 ms where the transducer really pings every ~71 ms, so anything that reads the period (the 2D stretch,
+  a later km/h speed) is ~30% off on a red. Not decided; the next measurement says which.
+- The first `LINK:` after connect (100 samples, 0 ms, 10.5% lost, 5 pings/s) is the moment before the setup - harmless.
+
+**Depth, transducer at rest:** `shown 0.32 m from bottom track | rangefinder 0.13 | bottom track 0.32`, constant.
+- **The red readout follows the BOTTOM TRACK now, not the rangefinder**: `DisplaySettings` sets
+  `isBottomTrackInitiated` true during the commit (2 Oct's "2D - rangefinder" is out of date for a live red). The source
+  line did not say so; `6642acfe` makes it follow that flag.
+- **The bottom-track processing runs with `minDistance 0.25`** (`DevDriver: doDistProcessing … minDistance 0.25`), so it
+  cannot report anything shallower than ~0.25 m. With the rangefinder at 0.13 and the bottom track at 0.32, the 0.5 m
+  problem looks like this floor (and the bottom track taking the next peak beyond it), with the rangefinder right.
+  **Ground truth needed:** the real distance. `bottomTrackMinDepth` 0.5 exists in `PulseRuntimeSettings` and nothing
+  reads it - the crossover's planned threshold.
+
+#### Next, on the same desk set-up (expert mode ON - it was off in this run, so the Transducer rows were hidden)
+
+Dynamic resolution OFF, one minute each, note the clock time:
+
+1. **500 / 6 mm / 80 ms** -> expect 12.5/s: the asked period is honoured above the floor.
+2. **500 / 6 mm / 57 ms** -> 17.5/s means link-fit works; **14.0** means a ~71 ms floor, and step 3 shrinks to
+   "command what is delivered".
+3. **300 / 10 mm / 50 ms** and **200 / 15 mm / 50 ms** (same ~3 m range; 338 / 224 B a ping, under 60% even at 20/s):
+   **~20/s** -> the pacing is the per-ping transmit time (~48 ms for 552 B, plus ~23 ms); **14/s at any size** -> a
+   firmware floor of ~71 ms.
+4. Today's deep points: 600/50/70, 800/50/110, 1000/50/150.
+5. **Depth:** the real distance to the bottom first, then 1.0, 0.5, 0.3 and 0.15 m - wait 10 s at each for a `DEPTH:`
+   line (the 1 m crossing prints by itself).
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
