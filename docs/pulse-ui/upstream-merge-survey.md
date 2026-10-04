@@ -510,3 +510,17 @@ engine · `copyVisualConfigTo` · `lastRightTextX_`.
 
 These cost nothing to carry and each is a decision for the new UI rather than for the
 merge.
+
+## Deliberate PULSE divergences in upstream files, since the merge (kept up to date)
+
+Lines a future upstream merge will meet in files Kogger also edits. Each is small and
+commented `PULSE` in place; none changes upstream behaviour for a non-PULSE device unless
+the row says so.
+
+| file | what | commit | changes behaviour? |
+|---|---|---|---|
+| `src/link/link.cpp` | a serial port that cannot open is logged on the first failure and every 100th, not every tick | `06977775` | log only |
+| `src/link/link.cpp` | `SERIAL:` breadcrumbs: open / opened / did not open (with the error), frames arriving / stopped with the baud, the baud search (capped at 30) | `aa69b59c` | log only |
+| `src/id_binnary.{h,cpp}` | `IDBinChart` counters: chart bytes, missing bytes, last complete ping's samples and spacing, complete pings | 2-4 Oct, `eaff303b` | no |
+| `src/device/device_manager.{h,cpp}` | wire bytes per KP frame from a live link; `LinkStats` | 2 Oct | no |
+| `src/link/link_defs.h` | **planned (Task 2b step 2):** `requestAllCntBig` 3 -> 20 - the version poll every ~2 s instead of 300 ms while data flows; ~2.3% of a 115200 link back. **Global**: every device on every link | not yet | yes, the poll rate |
