@@ -104,9 +104,25 @@ void Link::openAsSerial()
     serialPort->setBaudRate(baudrate_);
 
     serialPort->setReadBufferSize(static_cast<qint64>(8) * 1024 * 1024);
+
+    // PULSE, the USB serial desk test (4 Oct 2026): breadcrumbs around the open, so a crash
+    // here can be placed. Four FTL ASSERT "m_buf" (qiodevice_p.h) on 1 Oct each came within
+    // milliseconds of createAsSerial on bus/usb, and the 27 Sept SIGABRT was on the USB
+    // library's SerialInputOutputManager thread. If the log ends between "opening" and
+    // "opened" the abort is inside QSerialPort::open; after "opened", in the first reads.
+    // A port that keeps failing to open is printed on the first failure and every 100th.
+    static int serialOpenAttempts = 0;
+    const bool printThisAttempt = (serialOpenAttempts++ % 100 == 0);
+    if (printThisAttempt)
+        qDebug().noquote() << QStringLiteral("SERIAL: opening %1 at %2 baud%3 | attempt %4")
+                                  .arg(portName_).arg(baudrate_).arg(parity_ ? QStringLiteral(" even parity") : QString())
+                                  .arg(serialOpenAttempts);
     serialPort->open(QIODevice::ReadWrite);
 
     if (serialPort->isOpen()) {
+        qDebug().noquote() << QStringLiteral("SERIAL: opened %1 at %2 baud - handing the port to the link")
+                                  .arg(portName_).arg(serialPort->baudRate());
+        serialOpenAttempts = 0;
         setDev(serialPort);
         emit connectionStatusChanged(uuid_);
         emit opened(uuid_, this);
@@ -123,6 +139,9 @@ void Link::openAsSerial()
         */
     }
     else {
+        if (printThisAttempt)
+            qDebug().noquote() << QStringLiteral("SERIAL: %1 did not open - %2 (error %3)")
+                                      .arg(portName_, serialPort->errorString()).arg(int(serialPort->error()));
         delete serialPort;
         // PULSE (2 Oct 2026): the auto-connect timer retries a serial link that cannot open
         // on every tick, and this line drowned pulse.log - Olav could not find his LINK:
@@ -701,6 +720,13 @@ void Link::onCheckedTimerEnd()
 
     // gui
     if (lastIsReceivesData != isReceivesData_) {
+        // PULSE, the USB serial desk test: when a serial link starts or stops carrying frames,
+        // and at which baud - the transducer UART's rate is what Task 2b budgets on.
+        if (linkType_ == LinkType::kLinkSerial)
+            qDebug().noquote() << QStringLiteral("SERIAL: %1 %2 at %3 baud")
+                                      .arg(portName_, isReceivesData_ ? QStringLiteral("frames are arriving")
+                                                                      : QStringLiteral("no frames for 1 s - the data stopped"))
+                                      .arg(baudrate_);
         emit isReceivesDataChanged(uuid_);
     }
 
@@ -714,6 +740,13 @@ void Link::onCheckedTimerEnd()
         //qDebug() << "   link: timeout ended do emit sendDoRequestAll" << uuid_;
         auto currBaudrate = baudrateSearchList_.at(lastSearchIndx_);
         lastSearchIndx_ = (lastSearchIndx_ + 1) % baudrateSearchList_.size();
+        // PULSE: the baud search, on a serial link only (a UDP link has no baud), capped
+        static int baudSearchLines = 0;
+        if (linkType_ == LinkType::kLinkSerial && baudSearchLines < 30) {
+            ++baudSearchLines;
+            qDebug().noquote() << QStringLiteral("SERIAL: %1 silent - trying %2 baud (search line %3 of at most 30)")
+                                      .arg(portName_).arg(currBaudrate).arg(baudSearchLines);
+        }
         //qDebug() << "   link: trying find" << currBaudrate << "on" << lastSearchIndx_;
         setBaudrate(currBaudrate);
         emit baudrateChanged(uuid_);
