@@ -463,11 +463,16 @@ Item {
         const rangeM = (ss > 0 && sp > 0) ? (ss * sp / 1000 / (depthFromSideScan ? 2 : 1)) : -1
         const raw = (dataset && Number.isFinite(dataset.dist)) ? dataset.dist.toFixed(2) : "-"
         const bt = (dataset && Number.isFinite(dataset.bottomTrackDepth)) ? dataset.bottomTrackDepth.toFixed(2) : "-"
+        // "now" is dataset.dist, frozen while the bottom track is the source (addRangefinder returns
+        // first); "live" is the raw device reading recorded before that return, with its age
+        const rfAge = dataset ? dataset.rangefinderLiveAgeS() : -1
+        const rfLive = (rfAge >= 0 && Number.isFinite(dataset.rangefinderLive()))
+                ? dataset.rangefinderLive().toFixed(2) + " raw, " + rfAge.toFixed(1) + " s old" : "none"
         console.log("DEPTH: " + why
                     + " | shown " + selectedDepth.toFixed(2) + " m from "
                     + (depthFromSideScan ? (bottomTrackDepth > 0 ? "bottom track" : "rangefinder (no bottom track)")
                                          : ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated) ? "bottom track" : "rangefinder"))
-                    + " | rangefinder " + rangeFinderDepth.toFixed(2) + " (now " + raw + ")"
+                    + " | rangefinder " + rangeFinderDepth.toFixed(2) + " (now " + raw + ", live " + rfLive + ")"
                     + " | bottom track " + bottomTrackDepth.toFixed(2) + " (now " + bt + ")"
                     + " | acquiring " + (rangeM >= 0 ? rangeM.toFixed(1) + " m (" + ss + " x " + sp + " mm)" : "-")
                     + " | dynamic " + (pulseRuntimeSettings && pulseRuntimeSettings.doDynamicResolution ? "on" : "off")

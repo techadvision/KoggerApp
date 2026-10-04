@@ -628,6 +628,10 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
         emit didReceiveData();
     }
 
+    // Recorded whatever the source is - see rangefinderLive() (instrument, 4 Oct 2026).
+    _rangefinderLiveRaw = distance;
+    _rangefinderLiveMs  = QDateTime::currentMSecsSinceEpoch();
+
     // When bottom track is the active depth source, skip the rangefinder so it neither
     // updates dataset.dist nor feeds the depth filter (whose state is shared with bottom track).
     if (_processBottomTrack) {
@@ -674,6 +678,13 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
         epoch->setDist(channelId, filteredMeters * 1000);
         emit dataUpdate();
     }
+}
+
+double Dataset::rangefinderLiveAgeS() const
+{
+    if (_rangefinderLiveMs <= 0)
+        return -1.0;
+    return (QDateTime::currentMSecsSinceEpoch() - _rangefinderLiveMs) / 1000.0;
 }
 
 //PULSE

@@ -159,6 +159,12 @@ public:
     double fakeDepthAddition() const { return _fakeDepthAddition; }
     // Active depth-source selector: true = bottom track is the chosen depth source, false = rangefinder.
     bool getProcessBottomTrack() const { return _processBottomTrack; }
+    // THE RANGEFINDER, LIVE (instrument, 4 Oct 2026). addRangefinder returns on its first line while
+    // the bottom track is the depth source, so dist() is frozen at the value from before the
+    // switch. These two are recorded BEFORE that return - raw device distance, no mount offset, no
+    // filter, no epoch, no signal - so the DEPTH: line can say what the rangefinder reads now.
+    Q_INVOKABLE float rangefinderLive() const { return _rangefinderLiveRaw; }
+    Q_INVOKABLE double rangefinderLiveAgeS() const;
     //Pulse setters
     Q_INVOKABLE void setSmallAgreeMargin(double margin);
     Q_INVOKABLE void setLargeJumpThreshold(double threshold);
@@ -767,6 +773,8 @@ private:
     bool   _isBottomTrackInitiated  = false;
     bool   _isBottomTrackActive     = false;
     double _bottomTrackMinDepth     = 0.5;
+    float  _rangefinderLiveRaw      = NAN;   // see rangefinderLive()
+    qint64 _rangefinderLiveMs       = 0;
     float _bottomTrackDepth         = NAN;
     float _lastStableBTDepth1       = NAN;
     float _lastStableBTDepth2       = NAN;
