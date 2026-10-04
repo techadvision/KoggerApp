@@ -66,6 +66,15 @@ Item {
     readonly property bool depthFromSideScan:
         pulseRuntimeSettings ? !pulseRuntimeSettings.displayIs2DTransducer : false
 
+    // The 2D branch follows isBottomTrackInitiated too, so the source line must follow it as
+    // well (4 Oct 2026, the USB red: the line said "2D - rangefinder" once at commit, and
+    // DisplaySettings then turned the bottom track on - every DEPTH: line after it read
+    // "shown 0.32 m from bottom track" while the rangefinder said 0.13).
+    readonly property bool depthSourceIsBottomTrack:
+        depthFromSideScan || (pulseRuntimeSettings ? pulseRuntimeSettings.isBottomTrackInitiated : false)
+    onDepthSourceIsBottomTrackChanged: if (!depthFromSideScan) console.log("DEPTH: source -> 2D - "
+        + (depthSourceIsBottomTrack ? "bottom track (isBottomTrackInitiated went true)" : "rangefinder (isBottomTrackInitiated went false)"))
+
     onDepthFromSideScanChanged: console.log("DEPTH: source ->",
         depthFromSideScan ? "side scan data - bottom track first, rangefinder behind it"
                           : "2D - " + ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated)
