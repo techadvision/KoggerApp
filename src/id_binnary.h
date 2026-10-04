@@ -267,6 +267,13 @@ public:
     int statPingSamples() const { return int(statPingSamples_.load(std::memory_order_relaxed)); }
     int statPingResol() const   { return int(statPingResol_.load(std::memory_order_relaxed)); }
 
+    // PULSE, Task 2b step 1 (4 Oct 2026): how many complete pings the chart stream has
+    // delivered since the app started. A ping counts when it is closed - the moment the
+    // next ping's first fragment arrives - so the rate over 10 s is the ping rate the
+    // transducer really achieves, not the period it was asked for. Chapter 2a predicts a
+    // red asked for 500 samples every 50 ms delivers only ~14-15 of the 20 a second.
+    quint64 statPingCount() const { return statPingCount_.load(std::memory_order_relaxed); }
+
     uint8_t getAverageLosses() const {
         int sum = 0;
         for (uint8_t loss : lossHistory_) {
@@ -300,6 +307,7 @@ private:
     std::atomic<quint64> statChartBytes_{0};
     std::atomic<quint32> statPingSamples_{0};
     std::atomic<quint32> statPingResol_{0};
+    std::atomic<quint64> statPingCount_{0};
     std::atomic<quint64> statMissingBytes_{0};
 };
 

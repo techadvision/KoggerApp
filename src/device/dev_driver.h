@@ -209,6 +209,8 @@ public:
     // what the last complete ping carried - see IDBinChart::statPingSamples()
     int chartStreamSamples()    const { return idChart ? idChart->statPingSamples() : 0; }
     int chartStreamResolution() const { return idChart ? idChart->statPingResol()   : 0; }
+    // complete pings delivered since the start - see IDBinChart::statPingCount()
+    quint64 chartPingCount() const { return idChart ? idChart->statPingCount() : 0; }
     QUuid getLinkUuid() const;
     void setFirmware(const QByteArray& data);
 

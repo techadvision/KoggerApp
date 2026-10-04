@@ -71,6 +71,8 @@ public:
         // own word, from the same device
         int     streamSamples   = 0;
         int     streamSpacingMm = 0;
+        // complete pings since the start, from the same device (Task 2b step 1)
+        quint64 pings           = 0;
     };
     LinkStats linkStats() const;
     Q_INVOKABLE bool mavlinkDetected() const;

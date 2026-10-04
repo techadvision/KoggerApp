@@ -51,6 +51,10 @@ public:
     //the engine waits for before it sends the next parameter. 0 until a ping has arrived.
     Q_PROPERTY(int    linkStreamSamples     READ linkStreamSamples     NOTIFY linkStatsChanged)
     Q_PROPERTY(int    linkStreamSpacingMm   READ linkStreamSpacingMm   NOTIFY linkStatsChanged)
+    //Pulse, Task 2b step 1: complete pings per second the chart stream delivered, over the
+    //same 10 s as the wire rate - the real ping rate, against the period that was asked for.
+    //-1 while no ping has arrived in the window.
+    Q_PROPERTY(double linkPingsPerSecond    READ linkPingsPerSecond    NOTIFY linkStatsChanged)
 
     DeviceManager* getWorker();
     QUuid getFileUuid() const;
@@ -88,6 +92,7 @@ public:
     double chartLossPercentTotal() const { return chartLossPercentTotal_; }
     int    linkStreamSamples() const     { return linkStreamSamples_; }
     int    linkStreamSpacingMm() const   { return linkStreamSpacingMm_; }
+    double linkPingsPerSecond() const    { return linkPingsPerSecond_; }
     int getAverageChartLosses() const {
         return averageChartLosses_;
     };
@@ -155,6 +160,9 @@ private:
     // a 10 s window for the loss figure: one second of 0.13% is a single fragment
     static constexpr int kLossWindow = 10;
     quint64 winChart_[kLossWindow] = {}, winMissing_[kLossWindow] = {}, winWire_[kLossWindow] = {};
+    quint64 winPings_[kLossWindow] = {};
+    quint64 lastPings_ = 0;
+    double linkPingsPerSecond_ = -1.0;
     int winIndex_ = 0;
     int secondsWithData_ = 0;
     int linkBaud_ = 0;

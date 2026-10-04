@@ -164,6 +164,7 @@ DeviceManager::LinkStats DeviceManager::linkStats() const
                 st.periodMs  = dev->ch1Period();
                 st.streamSamples   = dev->chartStreamSamples();
                 st.streamSpacingMm = dev->chartStreamResolution();
+                st.pings           = dev->chartPingCount();
             }
         }
     }

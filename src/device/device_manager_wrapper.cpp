@@ -68,15 +68,22 @@ void DeviceManagerWrapper::sampleLinkStats()
     lastWireBytes_ = st.wireBytes;
     lastChartBytes_ = st.chartBytes;
     lastMissingBytes_ = st.missingBytes;
+    // A change of the device with the most chart data swaps the counter underneath; a delta
+    // no transducer can produce in one second (200 pings) is that swap, not a ping rate.
+    quint64 dPings = st.pings >= lastPings_ ? st.pings - lastPings_ : 0;
+    if (dPings > 200)
+        dPings = 0;
+    lastPings_ = st.pings;
 
     winChart_[winIndex_] = dChart;
     winMissing_[winIndex_] = dMissing;
     winWire_[winIndex_] = dWire;
+    winPings_[winIndex_] = dPings;
     winIndex_ = (winIndex_ + 1) % kLossWindow;
-    quint64 wc = 0, wm = 0, ww = 0;
+    quint64 wc = 0, wm = 0, ww = 0, wp = 0;
     int secondsInWindow = 0;
     for (int i = 0; i < kLossWindow; ++i) {
-        wc += winChart_[i]; wm += winMissing_[i]; ww += winWire_[i];
+        wc += winChart_[i]; wm += winMissing_[i]; ww += winWire_[i]; wp += winPings_[i];
         if (winWire_[i] > 0) ++secondsInWindow;
     }
 
@@ -101,6 +108,10 @@ void DeviceManagerWrapper::sampleLinkStats()
                              ? double(st.missingBytes) * 100.0 / double(st.chartBytes + st.missingBytes) : -1.0;
     linkStreamSamples_ = st.streamSamples;
     linkStreamSpacingMm_ = st.streamSpacingMm;
+    // THE REAL PING RATE (Task 2b step 1, 4 Oct 2026), over the seconds with data in the
+    // same window as the wire rate. A red asked for 50 ms is asked for 20 a second;
+    // chapter 2a predicts ~14-15 arrive, because 500 samples every 50 ms is ~99% of 115200.
+    linkPingsPerSecond_ = (secondsInWindow > 0 && wp > 0) ? double(wp) / double(secondsInWindow) : -1.0;
     emit linkStatsChanged();
 
     if (dWire > 0) {
@@ -108,7 +119,7 @@ void DeviceManagerWrapper::sampleLinkStats()
             // SELF-DESCRIBING (Olav, 2 Oct: Qt Creator's output has no time stamps): the
             // clock time and what the transducer reports it is set to, so a measurement run
             // can be read from the lines alone. pulse.log stamps every line as well.
-            qDebug().noquote() << QStringLiteral("LINK: %6 | %7 samples, %8 mm, %9 ms (stream %10 x %11 mm) | %1 B/s on the wire (10 s average) | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start)")
+            qDebug().noquote() << QStringLiteral("LINK: %6 | %7 samples, %8 mm, %9 ms (stream %10 x %11 mm) | %1 B/s on the wire (10 s average) | baud %2 -> %3 | chart samples lost %4 (10 s) %5 (since start) | %12")
                                       .arg(avgWire)
                                       .arg(st.baud)
                                       .arg(linkLoadPercent_ >= 0 ? QString::number(linkLoadPercent_, 'f', 1) + "% used"
@@ -118,7 +129,13 @@ void DeviceManagerWrapper::sampleLinkStats()
                                       .arg(chartLossPercentTotal_ >= 0 ? QString::number(chartLossPercentTotal_, 'f', 2) + "%" : QStringLiteral("-"))
                                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
                                       .arg(st.samples).arg(st.spacingMm).arg(st.periodMs)
-                                      .arg(st.streamSamples).arg(st.streamSpacingMm);
+                                      .arg(st.streamSamples).arg(st.streamSpacingMm)
+                                      .arg(linkPingsPerSecond_ >= 0
+                                           ? QString::number(linkPingsPerSecond_, 'f', 1) + QStringLiteral(" pings/s")
+                                             + (st.periodMs > 0 ? QStringLiteral(" (asked ") + QString::number(1000.0 / st.periodMs, 'f', 1)
+                                                                  + QStringLiteral(" = ") + QString::number(st.periodMs) + QStringLiteral(" ms)")
+                                                                : QString())
+                                           : QStringLiteral("no complete ping"));
         }
     } else {
         secondsWithData_ = 0;
