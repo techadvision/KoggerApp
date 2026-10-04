@@ -156,7 +156,28 @@ Item {
     // ORDER: DeviceItem sends each of the three as its own message, so a ping that grows is
     // given its longer period first and a ping that shrinks loses its samples first - the
     // link is never asked to carry the bigger ping at the shorter period in between.
+    //
+    // HELD UNTIL THE DEVICE IS CONFIGURED (4 Oct 2026, the first device run). The plan logged
+    // "600 x 4 mm" while the LINK: line kept reading 500 samples. The first plan runs at the
+    // initial resolution pass, before the commit: committedProfileKey still named the
+    // previous device (PULSEblue at start), so DeviceItem's onDynamicSamplesChanged ->
+    // setParam("chartSamples", 600) wrote into THAT profile's map, and the red's own key kept
+    // the profile's 500. Every later plan asked the same 600, dynamicSamples did not change,
+    // and nothing was sent again. So a plan made before devConfigured is held, and applied
+    // the moment the device is configured; and after every plan the three managed params are
+    // checked against it and set directly if a handler did not get them there - a line says so.
+    property real pendingPlanRangeMm: -1
+    property real lastPlanRangeMm: -1
+
     function applyRedPlan(rangeMm, why) {
+        lastPlanRangeMm = rangeMm
+        if (!pulseRuntimeSettings.devConfigured) {
+            if (pendingPlanRangeMm < 0)
+                console.log("DYNAMIC: plan " + why + " for " + (rangeMm / 1000).toFixed(1) + " m held - the device is not configured yet")
+            pendingPlanRangeMm = rangeMm
+            return
+        }
+        pendingPlanRangeMm = -1
         const w = (typeof deviceManagerWrapper !== "undefined") ? deviceManagerWrapper : null
         const baud = (w && w.linkBaud > 0 && w.linkBaudPlausible) ? w.linkBaud : 115200
         const p = PerfMath.redPlan({
@@ -180,6 +201,20 @@ Item {
             pulseRuntimeSettings.dynamicSamples = p.samples
         if (!grows && pulseRuntimeSettings.dynamicPeriod !== p.periodMs)
             pulseRuntimeSettings.dynamicPeriod = p.periodMs
+        // the params must follow (see above); setParam is idempotent, so this is a no-op when
+        // the handlers already did it
+        const missed = []
+        if (pulseRuntimeSettings.paramValue("chartSamples") !== p.samples) {
+            missed.push("chartSamples " + pulseRuntimeSettings.paramValue("chartSamples") + " -> " + p.samples)
+            pulseRuntimeSettings.setParam("chartSamples", p.samples)
+        }
+        if (pulseRuntimeSettings.paramValue("ch1Period") !== p.periodMs) {
+            missed.push("ch1Period " + pulseRuntimeSettings.paramValue("ch1Period") + " -> " + p.periodMs)
+            pulseRuntimeSettings.setParam("ch1Period", p.periodMs)
+        }
+        if (missed.length > 0)
+            console.log("DYNAMIC: the params had not followed the plan - set directly: " + missed.join(", ")
+                        + " | profile " + pulseRuntimeSettings.committedProfileKey)
         console.log("DYNAMIC: plan " + why + " | range wanted " + (rangeMm / 1000).toFixed(1) + " m -> "
                     + p.samples + " x " + p.spacingMm + " mm @ " + p.periodMs + " ms = "
                     + (p.rangeMm / 1000).toFixed(1) + " m | " + p.pingsPerS.toFixed(1) + " pings/s, "
@@ -471,6 +506,17 @@ Item {
 
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
+
+        function onDevConfiguredChanged () {
+            if (!pulseRuntimeSettings.devConfigured)
+                return
+            const r = pendingPlanRangeMm >= 0 ? pendingPlanRangeMm : lastPlanRangeMm
+            if (r >= 0 && !pulseRuntimeSettings.isInDemoMode
+                    && pulseRuntimeSettings.doDynamicResolution
+                    && (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                        || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto))
+                applyRedPlan(r, "the device is configured")
+        }
 
         function onDynamicResolutionInitChanged () {
             if (pulseRuntimeSettings.dynamicResolutionInit) {
