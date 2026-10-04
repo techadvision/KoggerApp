@@ -1679,6 +1679,9 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
     bool haveDepth = false;
     float lastDepth = NAN;
     int maxCompIndx = -1;
+    int   instrEpoch = -1;      // the BT: instrument - the last first-channel epoch in the batch
+    float instrDist  = NAN;
+    float instrRange = NAN;
 
     {
         QWriteLocker wl(&poolMtx_);
@@ -1714,6 +1717,15 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
                 continue;
             }
 
+            // the acquired range of THIS epoch's trace, for the BT: instrument
+            if (ep.chartAvail(update.channelId, 0)) {
+                if (Epoch::Echogram* c = ep.chart(update.channelId, 0)) {
+                    instrEpoch = update.epochIndex;
+                    instrDist  = update.distance;
+                    instrRange = c->offset + c->amplitude.size() * c->resolution;
+                }
+            }
+
             const int guardInterval = bottomTrackParam_.windowSize;
             const int compIndx = update.epochIndex > guardInterval ? update.epochIndex - guardInterval : update.epochIndex;
             if (compIndx > maxCompIndx) {
@@ -1739,8 +1751,75 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
         emit bottomTrackDepthChanged();
     }
 
+    if (instrEpoch >= 0 && getState() == DatasetState::kConnection) {
+        logBottomTrackInstrument(instrEpoch, instrDist, instrRange);
+    }
+
     if (maxCompIndx >= 0) {
         emit bottomTrackAdded(maxCompIndx);
+    }
+}
+
+// THE BT: INSTRUMENT (4 Oct 2026) - no behaviour change. Live only, per epoch the bottom track
+// writes. The two open problems: a false bottom at ~0.9 of the acquired range when there is no
+// echo (the shore, a lost bottom), and the bottom track's own floor (minDistance + ~0.07 m)
+// against the rangefinder in the shallows. One line a second at most while a gate WOULD reject
+// the value, and a 10 s count. The rangefinder is the live raw reading (rangefinderLive()).
+void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, float rangeM)
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (_btWindowStartMs == 0)
+        _btWindowStartMs = now;
+
+    const double rfAge = rangefinderLiveAgeS();
+    const float  rf    = _rangefinderLiveRaw;
+    const bool   rfOk  = std::isfinite(rf) && rfAge >= 0.0 && rfAge < 1.5;
+    const bool   btOk  = std::isfinite(btRaw);
+    const float  ratio = (btOk && rangeM > 0.0f) ? btRaw / rangeM : NAN;
+
+    const bool farEnd   = std::isfinite(ratio) && ratio > 0.75f;
+    const bool disagree = rfOk && btOk
+                          && std::fabs(btRaw - rf) > std::max(0.3f, 0.3f * std::min(btRaw, rf));
+    const bool none     = !btOk;
+
+    ++_btN;
+    if (farEnd)   ++_btFar;
+    if (disagree) ++_btDisagree;
+    if (none)     ++_btNone;
+    if (std::isfinite(ratio) && ratio > _btRatioMax) _btRatioMax = ratio;
+    if (btOk) {
+        _btMin = std::isfinite(_btMin) ? std::min(_btMin, btRaw) : btRaw;
+        _btMax = std::isfinite(_btMax) ? std::max(_btMax, btRaw) : btRaw;
+    }
+    if (rfOk) {
+        _rfMin = std::isfinite(_rfMin) ? std::min(_rfMin, rf) : rf;
+        _rfMax = std::isfinite(_rfMax) ? std::max(_rfMax, rf) : rf;
+    }
+
+    const auto f2 = [](float v) { return std::isfinite(v) ? QString::number(v, 'f', 2) : QStringLiteral("-"); };
+
+    if ((farEnd || disagree || none) && now - _btLastLineMs >= 1000) {
+        _btLastLineMs = now;
+        ++_btLines;
+        QStringList why;
+        if (farEnd)   why << QStringLiteral("far end (> 0.75 of the range)");
+        if (disagree) why << QStringLiteral("disagrees with the rangefinder");
+        if (none)     why << QStringLiteral("no bottom");
+        qDebug().noquote() << QStringLiteral("BT: epoch %1 | bottom track %2 m raw of %3 m acquired (%4) | rangefinder live %5 (%6 s old) | a gate would reject: %7")
+                              .arg(epochIndex).arg(f2(btRaw), f2(rangeM), f2(ratio), f2(rf))
+                              .arg(rfAge >= 0.0 ? QString::number(rfAge, 'f', 1) : QStringLiteral("-"))
+                              .arg(why.join(QStringLiteral(", ")));
+    }
+
+    if (now - _btWindowStartMs >= 10000) {
+        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | far end %2 | disagree %3 | no bottom %4 | ratio max %5 | bottom track %6-%7 m | rangefinder live %8-%9 m | %10 lines")
+                              .arg(_btN).arg(_btFar).arg(_btDisagree).arg(_btNone)
+                              .arg(f2(_btRatioMax), f2(_btMin), f2(_btMax), f2(_rfMin), f2(_rfMax))
+                              .arg(_btLines);
+        _btWindowStartMs = now;
+        _btN = _btFar = _btDisagree = _btNone = _btLines = 0;
+        _btRatioMax = 0;
+        _btMin = _btMax = _rfMin = _rfMax = NAN;
     }
 }
 void Dataset::onLastBottomTrackEpochChanged(const ChannelId& channelId, int val, const BottomTrackParam& btP, bool manual, bool redrawAll)

@@ -165,6 +165,7 @@ public:
     // filter, no epoch, no signal - so the DEPTH: line can say what the rangefinder reads now.
     Q_INVOKABLE float rangefinderLive() const { return _rangefinderLiveRaw; }
     Q_INVOKABLE double rangefinderLiveAgeS() const;
+    void logBottomTrackInstrument(int epochIndex, float btRaw, float rangeM);   // the BT: line, live only
     //Pulse setters
     Q_INVOKABLE void setSmallAgreeMargin(double margin);
     Q_INVOKABLE void setLargeJumpThreshold(double threshold);
@@ -775,6 +776,10 @@ private:
     double _bottomTrackMinDepth     = 0.5;
     float  _rangefinderLiveRaw      = NAN;   // see rangefinderLive()
     qint64 _rangefinderLiveMs       = 0;
+    // the BT: instrument (logBottomTrackInstrument)
+    qint64 _btLastLineMs = 0, _btWindowStartMs = 0;
+    int    _btN = 0, _btFar = 0, _btDisagree = 0, _btNone = 0, _btLines = 0;
+    float  _btRatioMax = 0, _btMin = NAN, _btMax = NAN, _rfMin = NAN, _rfMax = NAN;
     float _bottomTrackDepth         = NAN;
     float _lastStableBTDepth1       = NAN;
     float _lastStableBTDepth2       = NAN;
