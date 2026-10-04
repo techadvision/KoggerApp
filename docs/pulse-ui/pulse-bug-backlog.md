@@ -3750,6 +3750,53 @@ Dynamic resolution OFF, one minute each, note the clock time:
 5. **Depth:** the real distance to the bottom first, then 1.0, 0.5, 0.3 and 0.15 m - wait 10 s at each for a `DEPTH:`
    line (the 1 m crossing prints by itself).
 
+#### The desk run, 4 Oct 14:40-15:13 - red and black, USB and wifi AP, expert mode, dynamic resolution off, in air
+
+| set-up | asked | pings/s | load | reading |
+|---|---|---|---|---|
+| black USB / red USB / black wifi / red wifi, 500 @ 50 ms | 20.0 | **14.0** (13.8-14.1) | ~70% | identical on all four: **not the AP, not the unit** |
+| red wifi, 500 / 6 mm / **80 ms** | 12.5 | **12.5** | 62% | honoured above the floor |
+| 500 / 6 mm / **55 ms**, **60 ms** (57 cannot be set; the row steps by 5) | 18.2 / 16.7 | **14.0** | 70% | not honoured |
+| **300** / 10 mm / 50 ms | 20.0 | **14.0** | 44% | not the data size ... |
+| **200** / 15 mm / 50 ms | 20.0 | **14.0** | 30% | ... at a third of the link |
+| 600 / 50 mm / 70 ms | 14.3 | 14.0 | 82% | at the floor |
+| 800 / 50 mm / 110 ms | 9.1 | **9.1** | 71% | honoured |
+| 1000 / 50 mm / 150 ms | 6.7 | **6.7** | 65% | honoured |
+
+**The answer: red and black have a fixed ping-period floor of ~71.4 ms (14.0 pings/s)**, whatever the sample count, the
+link load, the frequency or the link (USB, wifi AP). Above it the asked period is honoured exactly. Olav: no floor was
+designed in the app; a firmware/hardware limit he did not know of. **A question for the hardware partner:** is ~71 ms
+the red/black firmware's minimum period, and can it go lower?
+
+**What it means for Task 2b:**
+- **Shallow (500 @ 50 ms today):** asking for anything under ~71 ms gains nothing. The link carries 70% there, so it is
+  not the limit. Two honest options: ask **70-72 ms** so the period the app believes is the real one (nothing reads a
+  red's period visibly today; a 2D km/h speed later would), and/or **spend the headroom on detail at the same 14/s**:
+  at 71 ms the 85% budget carries **600 samples** (652 B), i.e. 20% finer spacing in the shallows - at 82%, the load
+  600 @ 70 ms already runs at 28 m today.
+- **Deep (period > 71 ms): link-fit option A still holds** - 800 @ **92 ms** (10.9/s, was 9.1) and 1000 @ **114 ms**
+  (8.8/s, was 6.7), ~85%, both above the floor. Measured loads match the exact-fragment model to within 1-2%.
+- **The version poll (step 2)** buys ~3 ms only in the deep fit. Low value; a global change in an upstream file.
+
+**The false bottom follows the range - seen on a red in air:** bottom track 26 m of 30 m acquired, 34-36 of 40, 41-45 of
+50 (~0.88 of the range), and 1.3-2.7 m wandering at 3 m. **This is the bathymetry run's "couple of 40+ m values":** when
+the real bottom return is weak or lost, the bottom track takes the far-end noise the range-dependent gain has lifted.
+Fix direction for step 4: reject a bottom-track value far from the last good depth / the rangefinder, or bound its search.
+
+**WHY the red readout shows the rangefinder although the bottom track is on - found by reading, matches the 14:11 log:**
+`DisplaySettings.onDistProcessingChanged` (fired by the cone change) sets `isBottomTrackInitiated = false` and starts
+`triggerBottomTrackParameterChange`, whose `prepareDistProcessing()` is then **skipped by its idempotency guard**
+(`skipped - already active for PULSEred|[…]`: same model, same parameters). The only writer that sets the flag back to
+true is `triggerProcessingTimer`, which runs only on the non-skipped path. So after any cone change the flag stays false
+and the readout falls back to the rangefinder for the rest of the session. The bottom track itself keeps running. **Not
+fixed yet** (Olav: matters at hand first); the fix is to restore the flag on the skipped path, or not clear it when the
+key is unchanged.
+
+**TODO (Olav, 4 Oct):** use the rangefinder up to ~2 m and the bottom track beyond it (`bottomTrackMinDepth`, today 0.5
+and read by nothing) - with step 4.
+
+**Still owed:** the depth run in water (real distance, then 1.0 / 0.5 / 0.3 / 0.15 m), on a build with `6642acfe`.
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
