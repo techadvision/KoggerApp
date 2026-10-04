@@ -3853,6 +3853,22 @@ device is configured | … 600 x 4 mm @ 72 ms`, then `LINK: 600 samples, 4 mm, 7
 **Asked and delivered agree now: 13.9 pings/s at 72 ms.** Olav on the wifi AP: today's ~8.0 kB/s becomes ~9.4 kB/s at
 600 samples (seen with Dynamic resolution off); some wireless range may go, probably not much - to watch on the water.
 
+#### Step 3, second run (4 Oct 16:03) - 600 arrive; and the profile now says 600
+
+After `910fc158` the plan reached the transducer: `PARAM: PULSEred chartSamples -> 600`, then **`LINK: 600 samples, 5 mm,
+72 ms (stream 600 x 5 mm) | ~9.4 kB/s | 81.4-82.0% | 0.00% lost | 13.9-14.0 pings/s (asked 13.9)`** - the arithmetic's
+81.5% exactly. **But Olav, rightly:** the setup checked the device against the profile's 500 (`DEV_PARAM chartSamples OK as
+500`) and the plan overrode it afterwards. *"If we want 600 samples for the red it should be in the profile."* (Not linked
+to performance mode - red/black have none; this is for every user.) **`25ab7c16`:** the red profile's `chartSamples` is
+600, `dynamicSamplesMin` 600, `redPlan` reads its floor samples from the profile, and `pulse-perf-check` holds the
+profile to the link (600 @ 72 = 81.5%; 650 would be 89.2%). **To check:** `DEV_PARAM chartSamples OK as 600` in the setup,
+and no `PARAM: … chartSamples -> 600` after it (nothing left to override).
+
+**Also in that log - the cone-change bug, live:** `DEPTH: source -> 2D - bottom track (isBottomTrackInitiated went true)`
+during the setup, then after `DEV_PARAM: use frequency for cone narrow` -> `DEPTH: source -> 2D - rangefinder
+(isBottomTrackInitiated went false)` and `prepareDistProcessing skipped - already active`. Every red session ends on the
+rangefinder. Next after this.
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
