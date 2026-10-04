@@ -3636,6 +3636,61 @@ is a clear design.** Questions to answer first:
 In 1.43 the mosaic -> echogram direction is off (`qPlot2D::eventFilter`), and the echogram -> mosaic
 direction is kept with its red dot hidden (`applySelectedEpochMarkForVariant` in `main.qml`).
 
+### Task 2b - PULSE red and black, step 1: measure - 4 Oct 2026, not compiled
+
+`master` (1.43) merged into `feature/pulse-performance-mode` (`f02156a6`; one conflict, this file). **Branch 16+
+commits ahead of origin - push it.** Internal test only; it becomes 1.44.
+
+**The order agreed with Olav:** (1) measure, with the ping rate and a depth instrument added; (2) the version poll;
+(3) link-fit periods; (4) the two bottom-track problems, designed from step 1's `DEPTH:` lines. Not a performance
+mode: every user, every link, no warning, never more data than today.
+
+**A correction to the plan found while reading, before step 3:** `PulsePerfEngine.bytesPerPing()` charges every
+fragment a full 214 bytes. Exact for blue's 5000 (25 full fragments); at red's 500 the last fragment holds 100
+samples (114 bytes, the logs show it), so it charges 652 instead of 552 and a fitted period would come out ~67 ms
+(~15 pings/s) - no gain. Chapter 8's 57-59 ms uses the exact count. Step 3 makes `bytesPerPing` exact and the poll
+cost a parameter (330 -> ~50 B/s after step 2).
+
+| commit | what |
+|---|---|
+| `eaff303b` | **the real ping rate**: `IDBinChart` counts complete pings; `LINK:` ends with `N pings/s (asked X = P ms)`; `linkPingsPerSecond` (`Q_PROPERTY`, moc re-runs) |
+| `9eb0e015` | the *Serial link* row adds `| N pings/s` |
+| `8278a19b` | **`DEPTH:`** every 10 s from a live device and on every 1 m crossing: shown depth and its source, rangefinder, bottom track, the acquisition range from the chart stream, the dynamic scheme's state |
+| `aa69b59c` | **`SERIAL:`** breadcrumbs for the USB desk test: opening / opened / did not open (error), frames arriving / stopped with the baud, the baud search |
+| `719151c4` | merge survey: the PULSE divergences in upstream files, the planned `link_defs.h` change |
+
+moc and `g++ -fsyntax-only` pass on every changed C++ file; qmllint finds no syntax error in the two QML files
+(qmlformat 6.4 fails its own write-out on the UNCHANGED `PulseDepthEngine.qml` as well, so it is not a check for
+that file); all seven `tools/pulse-*-check.js` pass.
+
+#### To test on the device - PULSE red on USB, at the desk (Olav, 4 Oct)
+
+`adb logcat | grep -E " (SERIAL|LINK|DEPTH|DYNAMIC|PARAM|DEV_PARAM): "`, or `pulse.log`. Expert mode on, so
+Expert -> Performance mode -> *Serial link* is visible. The transducer in a bucket or tank.
+
+0. **Connect.** Expect `SERIAL: opening … at N baud`, `SERIAL: opened …`, `SERIAL: … frames are arriving at 115200
+   baud`. A baud search first (`SERIAL: … silent - trying …`) is normal. **If the app aborts here, the last `SERIAL:`
+   line places it** - send the log, and `adb logcat -d -b crash` if you can (the 1 Oct `m_buf` assert).
+1. **As shipped, shallow** (Dynamic resolution on): 3 `LINK:` lines (30 s). Two outcomes, and this is what step 3
+   depends on:
+   - **~20 pings/s at ~98%** (552 B x 20 + polls): over USB the link carries the 50 ms; the 14-15/s of the July log
+     was the wifi AP, not the UART. Link-fit then trades 20/s at the edge for 17.5/s with headroom.
+   - **~14-15 pings/s at ~72%**: something other than the UART paces the pings (the firmware), and a fitted 57 ms
+     may not deliver 17.5 either. Then step 3's benefit is measured, not assumed (point 3 below).
+2. **Today's deep operating points, by hand** - Expert -> Transducer, Dynamic resolution OFF, then one minute each:
+   samples / spacing / period = **600 / 50 mm / 70 ms**, **800 / 50 / 110**, **1000 / 50 / 150**. Expected about
+   84 / 71 / 65% at 14.3 / 9.1 / 6.7 pings/s.
+3. **Step 3's periods, by hand, before any code**: **500 / 20 mm / 57 ms** and **59 ms**, then **800 / 50 / 92** and
+   **1000 / 50 / 114**. Expected about 86 / 84% at 17.5 / 17 pings/s, then ~10.9 and ~8.8 pings/s at ~85%. **Do not
+   go below 50 ms at 500 samples** - the blue prototype died at ~106% and needed a power cycle.
+4. **Depth** (Dynamic resolution back ON, *Reset* in Transducer first): a `DEPTH:` line every 10 s. Lower the
+   transducer to a known depth, then raise it slowly to ~0.3 m: the `crossed below 1 m` line and the 10 s lines
+   below it show which source stops reporting and when. **Then lift it out of the water for a minute**: watch
+   whether `shown` and `acquiring` climb together (the runaway of problem 1). Back in the water.
+5. **Unplug and replug the USB once**: `SERIAL: … data stopped`, then the open sequence again.
+
+**Bring back:** the grep output (or `pulse.log`) and, per step, what you did and when (clock time).
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
