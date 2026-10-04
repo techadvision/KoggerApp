@@ -1610,11 +1610,11 @@ QtObject {
     property int    dynamicSamplesMin:      500     // When sample spacing is at its coarsest, we alter the number of samples and the period
     property int    dynamicSamplesMax:      1020
     property int    dynamicSamplesStep:     20
-    property int    dynamicPeriodMin:       50      // When sample spacing is at its coarsest, we alter the period and the number of samples
+    property int    dynamicPeriodMin:       72      // The red/black ping floor, measured 4 Oct 2026 (~71.4 ms whatever is asked); the dynamic scheme never asks less
     property int    dynamicPeriodMax:       154
     property int    dynamicPeriodStep:      2
     property int    dynamicSamples:         500     //
-    property int    dynamicPeriod:          50      //
+    property int    dynamicPeriod:          72      //
 
     //APP PULSESETTINGS AND OTHER SYNC C++ PROBLEMS WORKAROUNDS
     property bool   useMetricDepth:         true    // Workaround for missing ability to sync the c++ and qml settings
@@ -2681,7 +2681,10 @@ QtObject {
         "transBoost":                   0,
         "dspHorSmooth":                 0,
         "soundSpeed":                   1480*1000,
-        "ch1Period":                    50,
+        // 72, not 50 (4 Oct 2026): red and black never ping faster than ~71.4 ms whatever
+        // is asked - measured on both, USB and wifi AP, 200-600 samples. Asking 72 makes the
+        // period the app believes the one the transducer runs. PulsePerfEngine.RED_PING_FLOOR_MS.
+        "ch1Period":                    72,
         "datasetChart":                 1,
         "datasetDist":                  0,
         "datasetSDDBT":                 1,
