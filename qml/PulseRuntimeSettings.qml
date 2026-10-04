@@ -1607,7 +1607,7 @@ QtObject {
     property int    dynamicResolutionMargin:(uiProfile && uiProfile.tunable && uiProfile.tunable.resolution) ? uiProfile.tunable.resolution.marginM : 2
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property bool   dynamicResolutionInit:  false   // The initial dynamic resolution was performed
-    property int    dynamicSamplesMin:      500     // When sample spacing is at its coarsest, we alter the number of samples and the period
+    property int    dynamicSamplesMin:      600     // = the red profile's chartSamples (4 Oct 2026); past 600 x 50 mm (30 m) the samples grow with the range
     property int    dynamicSamplesMax:      1020
     property int    dynamicSamplesStep:     20
     property int    dynamicPeriodMin:       72      // The red/black ping floor, measured 4 Oct 2026 (~71.4 ms whatever is asked); the dynamic scheme never asks less
@@ -2671,7 +2671,11 @@ QtObject {
         "is2DTransducer":               true,
         "useTemperature":               true,
         "chartResolution":              2,
-        "chartSamples":                 500,
+        // 600, not 500 (4 Oct 2026, Olav: "if we want 600 samples for the red it should be in
+        // the profile"). At the 72 ms ping floor 600 samples load the 115200 link to ~82%
+        // (measured 81.4-82.0%, 0.00% lost); 650 would be ~90%. The setup sends it and the
+        // dynamic scheme spends it on detail - PulsePerfEngine.redPlan reads it from here.
+        "chartSamples":                 600,
         "chartOffset":                  0,
         "distMax":                      50000,
         "distDeadZone":                 0,

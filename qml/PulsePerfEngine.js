@@ -151,6 +151,7 @@ var RED_PING_FLOOR_MS = 72
 //   coarsestMm   the coarsest spacing (50 mm - beyond it the 2D renderer broke, 29 Sept)
 //   finestMm     the finest spacing the profile allows
 //   samplesMax   the most samples the scheme may use (1020 today)
+//   floorSamples the profile's chartSamples - the samples carried at the floor (600 on red)
 //   pollBytesPerS  the version poll's cost (330 measured)
 // The rule:
 //   * AT THE FLOOR, carry the most samples the link allows at 85% (600 at 115200) and spend
@@ -171,11 +172,18 @@ function redPlan(p) {
     var rMm     = Math.max(1, p.rangeMm)
     var budget  = BUDGET * wireBytesPerSecond(baud) - poll        // bytes/s for the pings
 
-    // the most samples (in steps of 50) one ping may carry at the floor
+    // THE SAMPLES AT THE FLOOR ARE THE PROFILE'S (Olav, 4 Oct: "if we want 600 samples for
+    // the red it should be in the profile"): p.floorSamples is the profile's chartSamples, so
+    // the setup and the plan send the same number. Without it, the most the link allows at
+    // 85% (in steps of 50) - which is how the profile's 600 was chosen, and what
+    // tools/pulse-perf-check.js holds the profile to.
     var sAtFloor = SAMPLE_STEP
     while (sAtFloor + SAMPLE_STEP <= sMax
            && bytesPerPingExact(sAtFloor + SAMPLE_STEP) * 1000 / floorMs <= budget)
         sAtFloor += SAMPLE_STEP
+    var linkMax = sAtFloor
+    if (p.floorSamples > 0)
+        sAtFloor = Math.min(sMax, p.floorSamples)
 
     var s, d, t, limitedBy
     if (rMm <= sAtFloor * coarse) {
@@ -183,6 +191,10 @@ function redPlan(p) {
         d = Math.max(fine, Math.ceil(rMm / s))
         t = floorMs
         limitedBy = "ping floor - samples spent on detail"
+        if (s > linkMax) {      // a profile asking more than the link carries at the floor
+            t = Math.min(tMax, Math.ceil(bytesPerPingExact(s) * 1000 / budget))
+            limitedBy = "link (the profile's " + s + " samples do not fit at the floor)"
+        }
     } else {
         d = coarse
         s = Math.min(sMax, Math.ceil(rMm / d))

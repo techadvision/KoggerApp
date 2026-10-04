@@ -188,6 +188,10 @@ Item {
             coarsestMm:  pulseRuntimeSettings.dynamicResolutionMax,
             finestMm:    pulseRuntimeSettings.dynamicResolutionMin,
             samplesMax:  pulseRuntimeSettings.dynamicSamplesMax,
+            // the PROFILE's samples, not the live param this plan itself writes
+            floorSamples: (pulseRuntimeSettings.committedProfile
+                           && pulseRuntimeSettings.committedProfile.chartSamples > 0)
+                          ? pulseRuntimeSettings.committedProfile.chartSamples : 0,
             soundSpeed:  1480
         })
         const grows = p.samples > pulseRuntimeSettings.dynamicSamples

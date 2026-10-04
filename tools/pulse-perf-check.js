@@ -146,6 +146,23 @@ for (const [smp, t, meas] of desk) {
     check(near(pred, meas, 2.0), smp + " samples at " + t.toFixed(1) + " ms: predicted " + pred.toFixed(1) + "%, measured " + meas + "%");
 }
 
+console.log("red and black - the profile's samples at the floor");
+const rts = fs.readFileSync(path.join(repo, "qml", "PulseRuntimeSettings.qml"), "utf8");
+const redBlock = rts.slice(rts.indexOf("property var pulseRed:"), rts.indexOf("property var pulseRed:") + 2500);
+const profSamples = parseInt((redBlock.match(/"chartSamples":\s*(\d+)/) || [])[1], 10);
+const profPeriod  = parseInt((redBlock.match(/"ch1Period":\s*(\d+)/) || [])[1], 10);
+check(profPeriod === E.RED_PING_FLOOR_MS, "the red profile asks the ping floor: ch1Period " + profPeriod + " ms");
+check(E.loadPercentExact(profSamples, profPeriod, RED, 330) <= 85.0,
+      "the red profile's " + profSamples + " samples at " + profPeriod + " ms fit the 85% budget ("
+      + E.loadPercentExact(profSamples, profPeriod, RED, 330).toFixed(1) + "%)");
+check(E.loadPercentExact(profSamples + 50, profPeriod, RED, 330) > 85.0,
+      "and 50 more would not - the profile spends what the link has (" + (profSamples + 50) + ": "
+      + E.loadPercentExact(profSamples + 50, profPeriod, RED, 330).toFixed(1) + "%)");
+const pp = E.redPlan({ rangeMm: 5000, baud: RED, floorSamples: profSamples, finestMm: 2 });
+check(pp.samples === profSamples && pp.periodMs === 72, "the plan carries the profile's samples at the floor: " + pp.samples + " @ " + pp.periodMs);
+const big = E.redPlan({ rangeMm: 5000, baud: RED, floorSamples: 800, finestMm: 2 });
+check(big.periodMs > 72 && big.loadPercent <= 85.0, "a profile asking too many samples gets a longer period, not an overload (" + big.periodMs + " ms, " + big.loadPercent.toFixed(1) + "%)");
+
 console.log("red and black - the link-fit plan");
 const P = (r) => E.redPlan({ rangeMm: r, baud: RED, finestMm: 2, coarsestMm: 50, samplesMax: 1020, periodMaxMs: 154, floorMs: 72 });
 let p2 = P(25000);
