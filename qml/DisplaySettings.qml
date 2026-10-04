@@ -351,6 +351,7 @@ GridLayout {
             // (userManualSetName / channel updates) re-fire while it is already active for the same
             // device - that reconfigure churn feeds the echogram-reset loop on the 2D sample.
             property string _lastDistKey: ""
+            property int _unchangedNotifies: 0   // capped log of ignored re-notifies (onDistProcessingChanged)
 
             function prepareDistProcessing () {
                 //TODO: Prepare bottom track also for the pulseRed and pulseBlack when user is an expert
@@ -532,6 +533,22 @@ GridLayout {
 
                     if (!pulseRuntimeSettings.processBottomTrack) {
                         console.log("DistProcessing: onDistProcessingChanged - use bottom track", pulseRuntimeSettings.processBottomTrack)
+                        return
+                    }
+                    // ONLY A REAL CHANGE RESTARTS THE BOTTOM TRACK (4 Oct 2026). distProcessing is
+                    // paramValue("distProcessing"), a binding on the whole liveParams map, so it
+                    // re-notifies on EVERY setParam - a cone, a period, the dynamic scheme's samples
+                    // - with the same numbers. This handler then cleared isBottomTrackInitiated, and
+                    // prepareDistProcessing() was skipped by its own idempotency guard (same model,
+                    // same parameters), so nothing set the flag back: the bottom track kept running,
+                    // the depth readout fell to the rangefinder after the first param change of
+                    // every session. Olav saw it on the echogram ("Draw the bottom track" stays) and
+                    // users kept getting the bad records the bottom track was meant to remove. The
+                    // key is the one prepareDistProcessing() itself compares.
+                    var key = pulseRuntimeSettings.userManualSetName + "|" + JSON.stringify(pulseRuntimeSettings.distProcessing)
+                    if (pulseRuntimeSettings.isBottomTrackActive && key === bottomTrackProcessingGroup._lastDistKey) {
+                        if (bottomTrackProcessingGroup._unchangedNotifies++ < 3)
+                            console.log("DistProcessing: distProcessing re-notified with the same values - ignored, the bottom track stays in use")
                         return
                     }
                     console.log("DistProcessing: value of bottom track parameter will be changed")
