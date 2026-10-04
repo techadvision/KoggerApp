@@ -3691,7 +3691,10 @@ Expert -> Performance mode -> *Serial link* is visible. The transducer in a buck
 
 **Bring back:** the grep output (or `pulse.log`) and, per step, what you did and when (clock time).
 
-#### Step 1 measured - PULSE red (SN 139) on USB, at the desk, 4 Oct 14:10-14:16
+#### Step 1 measured - PULSE black (SN 139) on USB, at the desk, in air, 4 Oct 14:10-14:26
+
+*Correction, Olav 4 Oct: the unit is a **black**. It reports `PULSEred` and runs red's profile, so the assumption
+that a black reports PULSEred is confirmed. It was in air: 0.13 m is the rangefinder's usual reading out of water.*
 
 **USB:** clean. `SERIAL: opening … at 921600` -> `opened` -> `silent - trying 115200` -> `frames are arriving at 115200
 baud` within 0.8 s. No abort (the 1 Oct `m_buf` assert did not reproduce). The device reports 115200 in `ID_UART`.
@@ -3721,6 +3724,17 @@ LINK: 500 samples, 5 mm, 50 ms (stream 500 x 5 mm) | 8041 B/s | 115200 -> 69.8% 
   problem looks like this floor (and the bottom track taking the next peak beyond it), with the rangefinder right.
   **Ground truth needed:** the real distance. `bottomTrackMinDepth` 0.5 exists in `PulseRuntimeSettings` and nothing
   reads it - the crossover's planned threshold.
+
+**Frequency 510 / 710 / 810 kHz (14:24-14:26):** the ping rate does not move (13.9-14.1/s at every frequency), so the
+pacing is not the pulse. In air the bottom track reads 0.32 m at 510/710 and 0.36 m at 810 - a false bottom just beyond
+its 0.25 m minimum. **And after the cone change the readout switched to the rangefinder** (`shown 0.13 m from
+rangefinder`): the cone path toggles the bottom track off (`DistProcessing: toggle bottomTrack …`) and the readout's
+source follows `isBottomTrackInitiated`. So which source a red shows depends on whether the user has changed the cone
+since the commit. To confirm with `6642acfe`'s source line, then its own fix.
+
+**Olav on the period (4 Oct):** no designed limit on the ping period exists; there may be hardware limits he did not
+know of. Red uses the bottom track on purpose - the aim is to remove the occasional false readings (a couple of 40+ m
+values in a bathymetric run that ruin the picture); its parameters have not been tuned.
 
 #### Next, on the same desk set-up (expert mode ON - it was off in this run, so the Transducer rows were hidden)
 
