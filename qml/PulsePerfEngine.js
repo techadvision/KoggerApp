@@ -113,6 +113,97 @@ function plan(p) {
     }
 }
 
+// ---- PULSE RED AND BLACK: THE LINK-FIT DYNAMIC SCHEME (Task 2b, 4 Oct 2026) -------------
+//
+// THE EXACT BYTE COUNT. bytesPerPing() above charges every fragment a full 214 bytes. That is
+// exact for blue's 5000 samples (25 full fragments) and errs on the safe side elsewhere, and
+// blue's engine keeps it. A red ping of 500 samples is 2 full fragments and one of 100
+// samples (114 bytes): 552 bytes, not 652. The USB desk run of 4 Oct proved it - 14.0 pings x
+// 552 B + polls = 8 050 B/s against 7 960-8 070 measured; the full-fragment count would be
+// 9 450. A fitted red period needs the exact count or it comes out ~20% too long.
+function bytesPerPingExact(samples) {
+    var full = Math.floor(samples / FRAGMENT_SAMPLES)
+    var rest = samples - full * FRAGMENT_SAMPLES
+    return full * FRAGMENT_BYTES + (rest > 0 ? rest + (FRAGMENT_BYTES - FRAGMENT_SAMPLES) : 0) + TEMP_FRAME_BYTES
+}
+
+function loadPercentExact(samples, periodMs, baud, pollBytesPerS) {
+    if (!(baud > 0) || !(periodMs > 0))
+        return -1
+    var poll = pollBytesPerS >= 0 ? pollBytesPerS : POLL_BYTES_PER_S
+    return (bytesPerPingExact(samples) * 1000 / periodMs + poll) * 100 / wireBytesPerSecond(baud)
+}
+
+// THE PING FLOOR. Red and black do not ping faster than ~71.4 ms (14.0 pings/s), whatever is
+// asked, sent or used: measured 4 Oct on a red and a black, USB and wifi AP, 200 to 600
+// samples, 30-82% of the link (backlog, "The desk run"). Above it the asked period is
+// honoured exactly (80 -> 12.5/s, 110 -> 9.1, 150 -> 6.7). 72 ms is asked so the period the
+// app believes is the period the transducer runs - which the 2D speed reads.
+var RED_PING_FLOOR_MS = 72
+
+// THE PLAN FOR A RED OR BLACK. Olav, 4 Oct: "We will go with the facts: if the transducer
+// cannot go beneath the 71 then we adjust to real life facts ... tune the samples to provide
+// the best possible quality." Input:
+//   rangeMm      the range the dynamic scheme wants acquired (today: 500 x its spacing, i.e.
+//                depth + margin, doubled for the second echo; past 25 m its samples x 50 mm)
+//   baud         the UART rate (115200 on every red and black in the field)
+//   floorMs      the ping floor (RED_PING_FLOOR_MS); periodMaxMs the longest period allowed
+//   coarsestMm   the coarsest spacing (50 mm - beyond it the 2D renderer broke, 29 Sept)
+//   finestMm     the finest spacing the profile allows
+//   samplesMax   the most samples the scheme may use (1020 today)
+//   pollBytesPerS  the version poll's cost (330 measured)
+// The rule:
+//   * AT THE FLOOR, carry the most samples the link allows at 85% (600 at 115200) and spend
+//     them on detail: spacing = range / 600. Same 14 pings/s as today, ~20% finer spacing,
+//     ~82% of the link - the load 600 x 50 mm at 70 ms already runs at 28 m today.
+//   * BEYOND 600 x 50 mm (30 m) the spacing stays at 50 mm, the samples follow the range,
+//     and the period is the shortest the link carries at 85% - never below the floor, never
+//     below the listen time. 800 samples at 92 ms (10.9 pings/s, was 9.1 at 110), 1000 at
+//     115 (8.7/s, was 6.7 at 150): ~20-30% more pings for fish arches at the same detail.
+function redPlan(p) {
+    var baud    = p.baud > 0 ? p.baud : 115200
+    var floorMs = p.floorMs > 0 ? p.floorMs : RED_PING_FLOOR_MS
+    var tMax    = p.periodMaxMs > 0 ? p.periodMaxMs : 154
+    var coarse  = p.coarsestMm > 0 ? p.coarsestMm : 50
+    var fine    = p.finestMm > 0 ? p.finestMm : 2
+    var sMax    = p.samplesMax > 0 ? p.samplesMax : 1020
+    var poll    = p.pollBytesPerS >= 0 ? p.pollBytesPerS : POLL_BYTES_PER_S
+    var rMm     = Math.max(1, p.rangeMm)
+    var budget  = BUDGET * wireBytesPerSecond(baud) - poll        // bytes/s for the pings
+
+    // the most samples (in steps of 50) one ping may carry at the floor
+    var sAtFloor = SAMPLE_STEP
+    while (sAtFloor + SAMPLE_STEP <= sMax
+           && bytesPerPingExact(sAtFloor + SAMPLE_STEP) * 1000 / floorMs <= budget)
+        sAtFloor += SAMPLE_STEP
+
+    var s, d, t, limitedBy
+    if (rMm <= sAtFloor * coarse) {
+        s = sAtFloor
+        d = Math.max(fine, Math.ceil(rMm / s))
+        t = floorMs
+        limitedBy = "ping floor - samples spent on detail"
+    } else {
+        d = coarse
+        s = Math.min(sMax, Math.ceil(rMm / d))
+        t = Math.ceil(bytesPerPingExact(s) * 1000 / budget)
+        limitedBy = "link"
+        if (t < floorMs) { t = floorMs; limitedBy = "ping floor" }
+        var listen = Math.ceil(2 * (s * d / 1000) / (p.soundSpeed > 0 ? p.soundSpeed : 1480) * 1000 + LISTEN_MARGIN_MS)
+        if (t < listen) { t = listen; limitedBy = "listen time" }
+        if (t > tMax) { t = tMax; limitedBy = "longest period" }
+    }
+    return {
+        samples:     s,
+        spacingMm:   d,
+        periodMs:    t,
+        rangeMm:     s * d,
+        loadPercent: loadPercentExact(s, t, baud, poll),
+        pingsPerS:   1000 / t,
+        limitedBy:   limitedBy
+    }
+}
+
 // THE PULSE THAT SUITS A SPACING (3 Oct 2026, the partner doc section 5). A CW pulse of N
 // cycles at f covers a range cell of c x N / f / 2; two samples per cell is the match, so
 // N = 4 x spacing x f / c - about 1.2 x spacing in mm at 460 kHz. Bounded 4-10 cycles: below

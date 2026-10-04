@@ -16,6 +16,9 @@
 //   * the configurations that killed the link (5000 at 55 and at 60 ms) never come out
 //   * the listen time holds the period: 5000 x 25 mm (62.5 m per side) runs at ~87 ms
 //   * the baud choice: the 12-minute 115200 run of 9a goes to the table
+//   * RED AND BLACK (Task 2b, 4 Oct): the exact byte count reproduces the USB/wifi desk run,
+//     and the link-fit plan never goes above 85%, below the 72 ms floor or the listen time,
+//     never coarser than 50 mm, never above 1020 samples, never fewer pings than today
 //
 // Exit code 0 = all checks passed.
 
@@ -25,7 +28,7 @@ const path = require("path");
 const repo = path.resolve(__dirname, "..");
 const src = fs.readFileSync(path.join(repo, "qml", "PulsePerfEngine.js"), "utf8")
     .replace(/^\.pragma library\s*$/m, "");
-const E = new Function(src + "\nreturn { bytesPerPing, loadPercent, listenTimeMs, realPeriodMs, rangePerSideM, plan, chooseBaud, pulseCycles, BUDGET };")();
+const E = new Function(src + "\nreturn { bytesPerPing, loadPercent, listenTimeMs, realPeriodMs, rangePerSideM, plan, chooseBaud, pulseCycles, BUDGET, bytesPerPingExact, loadPercentExact, redPlan, RED_PING_FLOOR_MS };")();
 
 let failures = 0;
 function check(cond, what) {
@@ -131,6 +134,46 @@ b = E.chooseBaud(115200, true, 0, BLUE);
 check(b.baud === 0, "nothing flowing -> wait, never budget on a default");
 b = E.chooseBaud(0, true, 31000, BLUE);
 check(b.baud === BLUE, "nothing reported -> the table");
+
+console.log("red and black - the exact byte count against the desk run of 4 Oct (115200)");
+check(E.bytesPerPingExact(500) === 552, "500 samples = 2 x 214 + 114 + 10 = 552 bytes (the full-fragment count says " + E.bytesPerPing(500) + ")");
+check(E.bytesPerPingExact(5000) === E.bytesPerPing(5000), "at whole fragments the two counts agree (blue untouched)");
+// measured: [samples, period really run (ms), measured % of 115200]
+const desk = [[500, 1000 / 14.0, 69.6], [300, 1000 / 14.0, 43.6], [200, 1000 / 14.0, 29.9],
+              [500, 80, 62.6], [600, 1000 / 14.0, 81.5], [800, 110, 70.7], [1000, 150, 65.2]];
+for (const [smp, t, meas] of desk) {
+    const pred = E.loadPercentExact(smp, t, RED, 330);
+    check(near(pred, meas, 2.0), smp + " samples at " + t.toFixed(1) + " ms: predicted " + pred.toFixed(1) + "%, measured " + meas + "%");
+}
+
+console.log("red and black - the link-fit plan");
+const P = (r) => E.redPlan({ rangeMm: r, baud: RED, finestMm: 2, coarsestMm: 50, samplesMax: 1020, periodMaxMs: 154, floorMs: 72 });
+let p2 = P(25000);
+check(p2.samples === 600 && p2.spacingMm === 42 && p2.periodMs === 72, "25 m (the shallow scheme's deepest): 600 x 42 mm at 72 ms (today 500 x 50 asked at 50, run at 71.4)");
+p2 = P(5000);
+check(p2.samples === 600 && p2.spacingMm === 9 && p2.periodMs === 72, "5 m: 600 x 9 mm at 72 ms (today 500 x 10)");
+p2 = P(40000);
+check(p2.samples === 800 && p2.spacingMm === 50 && p2.periodMs === 92, "40 m: 800 x 50 mm at 92 ms - 10.9 pings/s, today 9.1 at 110");
+p2 = P(50000);
+check(p2.samples === 1000 && p2.periodMs === 115, "50 m: 1000 x 50 mm at 115 ms - 8.7 pings/s, today 6.7 at 150");
+p2 = P(60000);
+check(p2.samples === 1020, "beyond 51 m the samples stop at 1020, as today");
+let redWorst = 0, everBelowFloor = false, everCoarse = false, everFewer = false, shrinks = false;
+for (let r = 1000; r <= 60000; r += 250) {
+    const q = P(r);
+    redWorst = Math.max(redWorst, q.loadPercent);
+    if (q.periodMs < 72) everBelowFloor = true;
+    if (q.spacingMm > 50) everCoarse = true;
+    if (q.rangeMm < Math.min(r, 1020 * 50)) shrinks = true;
+    // today's period for the same range: 50 asked (71.4 real) up to 25 m, then 2 x res - 50
+    const todayT = r <= 25000 ? 1000 / 14.0 : Math.min(154, Math.max(72, 2 * Math.ceil(r / 500) - 50));
+    if (q.periodMs > todayT + 1) everFewer = true;
+}
+check(redWorst <= 85.0, "nothing the plan can produce is above 85% of 115200 (worst " + redWorst.toFixed(1) + "%)");
+check(!everBelowFloor, "never below the 72 ms floor");
+check(!everCoarse, "never coarser than 50 mm");
+check(!shrinks, "always acquires at least the range the scheme asked for");
+check(!everFewer, "never fewer pings than today at the same range");
 
 console.log(failures === 0 ? "\nAll performance arithmetic checks passed." : "\n" + failures + " check(s) FAILED.");
 process.exit(failures === 0 ? 0 : 1);
