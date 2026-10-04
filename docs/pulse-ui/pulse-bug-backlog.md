@@ -3869,6 +3869,38 @@ during the setup, then after `DEV_PARAM: use frequency for cone narrow` -> `DEPT
 (isBottomTrackInitiated went false)` and `prepareDistProcessing skipped - already active`. Every red session ends on the
 rangefinder. Next after this.
 
+### The bottom track dropped from the depth readout - FIXED `d18e3f08`, 4 Oct 2026, not on a device
+
+**Olav:** with *Draw the bottom track* on, the bottom track keeps running and drawing, but the depth display stops
+using it at the end of the setup. Seen several times. **It was not the cone - it was any parameter change.** The 16:18
+log: the setup turns the flag on (`DEPTH: source -> 2D - bottom track (isBottomTrackInitiated went true)`), then the first
+`PARAM: PULSEred ch1Period -> 98` after it is preceded by `DistProcessing: value of bottom track parameter will be changed`
+and `DEPTH: source -> 2D - rangefinder (isBottomTrackInitiated went false)`, followed by `prepareDistProcessing skipped -
+already active`. The same pair precedes every `PARAM:` line.
+
+**Cause:** `distProcessing` is `paramValue("distProcessing")`, a binding on the whole `liveParams` map, so it re-notifies on
+every `setParam` - a cone, a period, the dynamic scheme's samples - with the same numbers. `onDistProcessingChanged`
+cleared `isBottomTrackInitiated`; `prepareDistProcessing()` was skipped by its own idempotency guard (same model, same
+parameters); and the only writer that sets the flag true runs on the non-skipped path. Users have been getting the bad
+records the bottom track was introduced to remove, because their readout ran on the rangefinder after the first
+parameter change of every session.
+
+**Fix:** the handler compares the same key `prepareDistProcessing()` uses and ignores an unchanged one
+(`DistProcessing: distProcessing re-notified with the same values - ignored, the bottom track stays in use`, first three
+only). A real change of the bottom-track parameters still restarts it. Shared machinery: classic gets the repair too.
+
+**To check:** after the setup, `DEPTH: source -> 2D - bottom track (isBottomTrackInitiated went true)` and then **no
+`went false`** - change the cone, let the dynamic scheme change samples/period: the 10 s `DEPTH:` lines keep `shown … from
+bottom track`.
+
+**And what this uncovers - the runaway, seen in the same log (in air):** with the readout on the bottom track, a false
+bottom (19.5 m in air) became the depth; the dynamic scheme asked 22 m, then 42 m (`plan deep … 840 x 50 mm @ 98 ms`);
+then the readout fell to the rangefinder (0.12) and the scheme went back to 2 m. **With this fix the readout STAYS on the
+bottom track, so on a desk in air the range will climb to its maximum and stay there** - the false bottom follows the
+range (~0.88 of it, measured earlier). On the water a real bottom should win; over a lost or soft bottom it is exactly
+the 40+ m records. **That is problem 1 of the bottom track, and it is next** - with Olav's "rangefinder up to ~2 m, then
+the bottom track" and a rejection of values far from the last good depth / the rangefinder.
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
