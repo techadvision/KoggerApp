@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import "PulsePerfEngine.js" as PerfMath
 
 // THE DEPTH ENGINE - the half of DepthAndTemperature.qml that was never a readout.
 //
@@ -144,6 +145,47 @@ Item {
     }
 
     // This is the resolution updater that takes into account both depth integer steps and hysteresis.
+    // ---- The link-fit plan for red and black (Task 2b, 4 Oct 2026) ------------
+    //
+    // ONE WRITER of dynamicResolution / dynamicSamples / dynamicPeriod, which DeviceItem turns
+    // into chartResolution, chartSamples and ch1Period. The arithmetic is PulsePerfEngine's
+    // redPlan, checked by tools/pulse-perf-check.js against the 4 Oct desk run. The baud is the
+    // device's own (ID_UART) when the measured rate does not refute it, else 115200 - every
+    // red and black in the field.
+    //
+    // ORDER: DeviceItem sends each of the three as its own message, so a ping that grows is
+    // given its longer period first and a ping that shrinks loses its samples first - the
+    // link is never asked to carry the bigger ping at the shorter period in between.
+    function applyRedPlan(rangeMm, why) {
+        const w = (typeof deviceManagerWrapper !== "undefined") ? deviceManagerWrapper : null
+        const baud = (w && w.linkBaud > 0 && w.linkBaudPlausible) ? w.linkBaud : 115200
+        const p = PerfMath.redPlan({
+            rangeMm:     rangeMm,
+            baud:        baud,
+            floorMs:     pulseRuntimeSettings.dynamicPeriodMin,
+            periodMaxMs: pulseRuntimeSettings.dynamicPeriodMax,
+            coarsestMm:  pulseRuntimeSettings.dynamicResolutionMax,
+            finestMm:    pulseRuntimeSettings.dynamicResolutionMin,
+            samplesMax:  pulseRuntimeSettings.dynamicSamplesMax,
+            soundSpeed:  1480
+        })
+        const grows = p.samples > pulseRuntimeSettings.dynamicSamples
+        if (grows && pulseRuntimeSettings.dynamicPeriod !== p.periodMs)
+            pulseRuntimeSettings.dynamicPeriod = p.periodMs
+        if (!grows && pulseRuntimeSettings.dynamicSamples !== p.samples)
+            pulseRuntimeSettings.dynamicSamples = p.samples
+        if (pulseRuntimeSettings.dynamicResolution !== p.spacingMm)
+            pulseRuntimeSettings.dynamicResolution = p.spacingMm
+        if (grows && pulseRuntimeSettings.dynamicSamples !== p.samples)
+            pulseRuntimeSettings.dynamicSamples = p.samples
+        if (!grows && pulseRuntimeSettings.dynamicPeriod !== p.periodMs)
+            pulseRuntimeSettings.dynamicPeriod = p.periodMs
+        console.log("DYNAMIC: plan " + why + " | range wanted " + (rangeMm / 1000).toFixed(1) + " m -> "
+                    + p.samples + " x " + p.spacingMm + " mm @ " + p.periodMs + " ms = "
+                    + (p.rangeMm / 1000).toFixed(1) + " m | " + p.pingsPerS.toFixed(1) + " pings/s, "
+                    + p.loadPercent.toFixed(0) + "% of " + baud + " | " + p.limitedBy)
+    }
+
     function updateDynamicResolutionWithStep(depth, candidateRes) {
         const step = pulseRuntimeSettings.autoDepthLevelStep || 1;
 
@@ -172,15 +214,10 @@ Item {
         // Increase resolution size to look further into bottom composition, additional steps of 1 meter
         //candidateRes = candidateRes + (2 * pulseSettings.bottomCompositionAddition)
 
-        pulseRuntimeSettings.dynamicResolution = candidateRes;
-        //Back to the shortest period - numerically the minimum.
-        if (pulseRuntimeSettings.dynamicPeriod !== pulseRuntimeSettings.dynamicPeriodMin) {
-            pulseRuntimeSettings.dynamicPeriod = pulseRuntimeSettings.dynamicPeriodMin
-        }
-        //Back to the fewest samples - numerically the minimum.
-        if (pulseRuntimeSettings.dynamicSamples !== pulseRuntimeSettings.dynamicSamplesMin) {
-            pulseRuntimeSettings.dynamicSamples = pulseRuntimeSettings.dynamicSamplesMin
-        }
+        // LINK-FIT (Task 2b, 4 Oct 2026): candidateRes still says what range is wanted - 500
+        // samples at that spacing, depth + margin - and the plan decides how it is acquired:
+        // at the 72 ms floor, 600 samples spent on finer spacing.
+        applyRedPlan(500 * candidateRes, "shallow")
 
         stableCount = 0
         lastStableDepth = depth
@@ -263,8 +300,10 @@ Item {
             candidatePeriod = candidatePeriod + pulseRuntimeSettings.dynamicPeriodStep
         }
 
-        pulseRuntimeSettings.dynamicSamples = candidateSamples;
-        pulseRuntimeSettings.dynamicPeriod = candidatePeriod;
+        // LINK-FIT (Task 2b, 4 Oct 2026): candidateSamples x the coarsest spacing is the range
+        // wanted, as before; the plan replaces the 2 x res - 50 period with the shortest one the
+        // link carries at 85% (and never below the 72 ms floor). candidatePeriod is no longer sent.
+        applyRedPlan(candidateSamples * pulseRuntimeSettings.dynamicResolutionMax, "deep (today's rule asked " + candidatePeriod + " ms)")
         stableCount = 0
         lastStableDepth = depth
     }
