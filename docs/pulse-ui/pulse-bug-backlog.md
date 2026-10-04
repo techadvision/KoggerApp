@@ -3797,6 +3797,46 @@ and read by nothing) - with step 4.
 
 **Still owed:** the depth run in water (real distance, then 1.0 / 0.5 / 0.3 / 0.15 m), on a build with `6642acfe`.
 
+### Task 2b, step 3 - the red/black link-fit scheme, built 4 Oct 2026, not on a device
+
+**Olav's decision, 4 Oct:** *"We will go with the facts: if the transducer cannot go beneath the 71 then we adjust to
+real life facts. This will enable us also to make it right for auto pilot travel speed. We should then tune the samples
+and so on to provide the best possible quality ... seeing fish arches is usually an important matter as well (speed set
+correctly is likely the most important I think)."* **Step 2 (the slower version poll) is dropped** - ~3 ms in deep water
+only, for a global change in an upstream file. The cone-change bottom-track bug is next after this (it explains the bad
+records users still see).
+
+| commit | what |
+|---|---|
+| `43925659` | `PulsePerfEngine.js`: `bytesPerPingExact`, `RED_PING_FLOOR_MS` 72, **`redPlan`**; `pulse-perf-check.js` reproduces all seven desk loads within 0.6% and asserts the plan (never > 85%, < 72 ms, > 50 mm, fewer pings than today, less range than asked). Blue's engine untouched |
+| `e2963c82` | red/black profile `ch1Period` 50 -> **72**, `dynamicPeriodMin` 50 -> **72** |
+| `738d0d6b` | `PulseDepthEngine`: both branches hand their wanted range to `applyRedPlan` - one writer, grow/shrink ordered, `DYNAMIC: plan` line |
+
+**What a red or black now acquires** (range = what the scheme wanted before: depth + 2 m, doubled with the second echo):
+
+| range | today (asked -> really run) | now | pings/s | load |
+|---|---|---|---|---|
+| 2-25 m | 500 x 4-50 mm @ 50 -> 71.4 ms | **600** x 4-42 mm @ **72** | 13.9 (was 14.0) | 82% |
+| 30 m | 600 x 50 @ 70 -> 71.4 | 600 x 50 @ 72 | 13.9 | 82% |
+| 40 m | 800 x 50 @ 110 | 800 x 50 @ **92** | **10.9** (was 9.1) | 85% |
+| 50 m | 1000 x 50 @ 150 | 1000 x 50 @ **115** | **8.7** (was 6.7) | 84% |
+
+#### To check on the device - step 3 (a red or a black; expert mode on for the read-outs; Dynamic resolution ON)
+
+`adb logcat | grep -E " (DYNAMIC|LINK|DEPTH|PARAM|DEV_PARAM): "`
+
+1. **At the commit:** `DEV_PARAM ch1Period OK as 72` (the setup now asks 72). `PERIOD: true proportions use 72 ms`.
+2. **In air or a bucket:** `DYNAMIC: plan shallow | range wanted 2.3 m -> 600 x 4 mm @ 72 ms … 82% of 115200 | ping
+   floor - samples spent on detail`. The `LINK:` line then reads **`600 samples, 4 mm, 72 ms (stream 600 x 4 mm)`,
+   ~13.9 pings/s (asked 13.9), ~82%, 0.00% lost**. Asked and delivered pings must now agree.
+3. **The picture:** the same flow speed as before (13.9 against 14.0 pings/s), the echogram a little sharper vertically.
+   No artefacts.
+4. **Deep, without a lake:** the deep branch only runs on a real depth > ~23 m. The by-hand rows confirm the periods
+   instead: Dynamic resolution OFF, **800 / 50 / 92** and **1000 / 50 / 115** - expect 10.9 and 8.7 pings/s at ~85%,
+   no loss. A deep lake run later shows `DYNAMIC: plan deep (today's rule asked N ms) | … -> 800 x 50 mm @ 92 ms`.
+5. **Watch the load for 10 minutes** at step 2: 82% with no lost samples and a steady 13.9/s. If the link ever drops,
+   that is the finding - 85% held for blue for 10+ minutes, but red's firmware is another one.
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:

@@ -30,6 +30,13 @@ within the floors and an 85% budget of a baud decided once per connection; one w
 them; one parameter at a time, the chart confirmed by the stream; off hands the shipped values back. True proportions
 now read the real period. Commits and device checks: backlog, *Performance mode, step 2*.
 
+**4 Oct - Task 2b measured and built** (`feature/pulse-performance-mode`, after 1.43 was merged in). Measured on a
+red and a black, USB and wifi AP: **red/black have a ping floor of ~71.4 ms (14.0 pings/s)** whatever is asked, sent or
+used; the link carries 70% at 500 @ 50 ms, so 8.2's "overdriven link" was wrong - the firmware paces, not the UART, and
+not the AP. The exact fragment count (552 B for 500 samples) is confirmed to 0.6%. Built: ask **72 ms**; at the floor
+carry **600 samples** (~20% finer spacing, 82%); past 30 m the period fits the link (800 @ 92, 1000 @ 115: ~20-30% more
+pings). The version poll (8.3) is dropped. Details and device checks: backlog, *Task 2b*.
+
 ## The plan in one page
 
 **Task 1 — Echogram speed for everyone (all devices, all links, no warning).**
