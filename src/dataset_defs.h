@@ -512,6 +512,8 @@ struct BottomTrackUpdate {
     ChannelId channelId;
     float     distance = NAN;
     float     maxDistance = NAN;   // the pass's search end (BottomTrackParam::maxDistance), for the depth gates
+    bool      pending = false;     // NaN because the centred window has not reached this epoch yet (the newest
+                                   // windowSize/2 of a pass) - the next pass fills it; not a "no bottom"
 };
 Q_DECLARE_METATYPE(BottomTrackUpdate) // NOLINT(performance-enum-size)
 Q_DECLARE_METATYPE(QVector<BottomTrackUpdate>) // NOLINT(performance-enum-size)

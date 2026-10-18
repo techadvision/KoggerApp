@@ -63,6 +63,12 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
         return;
     }
 
+    // The window is centred: epoch i gets its value when epoch i + windowSize/2 has been processed, so the
+    // newest windowSize/2 epochs of a pass are published as NaN and filled by the next pass. Live, the dataset
+    // runs ~2 epochs ahead of the pass and the tail is reached; a replay feeding the dataset in bursts leaves
+    // it unreached, and the Dataset's BT: instrument counted those as "no bottom" (18 Oct 2026). They are
+    // flagged pending instead.
+    const int pendingFrom = std::max(epoch_start_index, std::min(datasetSize, epoch_stop_index + btP.windowSize / 2) - btP.windowSize / 2);
     auto publishBatch = [&](auto&& distAt) {
         bool flushEachEpoch = datasetPtr_->getState() == Dataset::DatasetState::kConnection;
 #ifdef SEPARATE_READING
@@ -94,14 +100,14 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
             if (epPtr.chartAvail(channel1.channelId_, channel1.subChannelId_)) {
                 Epoch::Echogram* chart = epPtr.chart(channel1.channelId_, channel1.subChannelId_);
                 if (chart && chart->bottomProcessing.source < Epoch::DistProcessing::DistanceSource::DistanceSourceDirectHand) {
-                    batch.push_back(BottomTrackUpdate{iepoch, channel1.channelId_, dist, btP.maxDistance});
+                    batch.push_back(BottomTrackUpdate{iepoch, channel1.channelId_, dist, btP.maxDistance, !std::isfinite(dist) && iepoch >= pendingFrom});
                 }
             }
 
             if (epPtr.chartAvail(channel2.channelId_, channel2.subChannelId_)) {
                 Epoch::Echogram* chart = epPtr.chart(channel2.channelId_, channel2.subChannelId_);
                 if (chart && chart->bottomProcessing.source < Epoch::DistProcessing::DistanceSource::DistanceSourceDirectHand) {
-                    batch.push_back(BottomTrackUpdate{iepoch, channel2.channelId_, dist, btP.maxDistance});
+                    batch.push_back(BottomTrackUpdate{iepoch, channel2.channelId_, dist, btP.maxDistance, !std::isfinite(dist) && iepoch >= pendingFrom});
                 }
             }
 

@@ -1719,6 +1719,12 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
             if (ep.getChartsSizeByChannelId(update.channelId) <= 0) {
                 continue;
             }
+            if (update.pending) {
+                // the window has not reached this epoch yet (the newest windowSize/2 of the pass): stored as NaN as
+                // before, filled by the next pass - not a verdict, not a "no bottom", not an instrument line
+                gatedByEpoch.insert(update.epochIndex, NAN);
+                continue;
+            }
             GateVerdict verdict;
             const float maxD = std::isfinite(update.maxDistance) ? update.maxDistance : bottomTrackParam_.maxDistance;
             const float gated = gateBottomTrackLocked(ep, update.channelId, update.epochIndex, update.distance, maxD, verdict);
