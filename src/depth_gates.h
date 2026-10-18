@@ -128,9 +128,13 @@ struct ChoiceParams {
     float floorMargin = 0.12f;  // "at its floor": bottom track <= minDistance + this
     float secondEchoMin = 1.7f; // "a second echo": bottom track / rangefinder within this band
     float secondEchoMax = 3.3f;
-    float ringdownM = 0.18f;    // the rangefinder's own ringdown (0.12 red, 0.15-0.18 blue)
+    float ringdownM = 0.22f;    // the rangefinder's own ringdown (0.12 red, 0.15-0.20 blue on the shore, 18 Oct)
     float rfFreshS = 1.5f;      // a rangefinder older than this is silent
 };
+
+// a rangefinder reading that is a reading: the device sends 0.00 when it has none (the blue from 15:25 on 18 Oct)
+inline bool rfIsReading(float rf) { return std::isfinite(rf) && rf > 0.0f; }
+
 
 // the bottom track agrees that it is shallow (btRaw and rf without the mount offset)
 inline bool shallowAgrees(float btRaw, float rf, float minDistance, const ChoiceParams& p = ChoiceParams())

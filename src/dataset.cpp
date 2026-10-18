@@ -1889,7 +1889,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     const float  rangeM = v.rangeM;
     const double rfAge = rangefinderLiveAgeS();
     const float  rf    = _rangefinderLiveRaw;
-    const bool   rfOk  = std::isfinite(rf) && rfAge >= 0.0 && rfAge < 1.5;
+    const bool   rfOk  = depthgates::rfIsReading(rf) && rfAge >= 0.0 && rfAge < 1.5;
     const bool   btOk  = std::isfinite(btRaw);
     const float  ratio = (btOk && rangeM > 0.0f) ? btRaw / rangeM : NAN;
 
@@ -1956,7 +1956,7 @@ void Dataset::logShallowInstrument(int epochIndex, float btRaw, float rangeM)
 {
     const double rfAge = rangefinderLiveAgeS();
     const float  rf    = _rangefinderLiveRaw;
-    const bool   rfOk  = std::isfinite(rf) && rfAge >= 0.0 && rfAge < 1.5;
+    const bool   rfOk  = depthgates::rfIsReading(rf) && rfAge >= 0.0 && rfAge < 1.5;
     const bool   btOk  = std::isfinite(btRaw);
     const bool   shallow = (btOk && btRaw < 1.5f) || (rfOk && rf < 1.5f);
     if (!shallow)
@@ -2017,7 +2017,7 @@ void Dataset::chooseDepth()
     const depthgates::ChoiceParams cp;
     const float  rf      = _rangefinderLiveRaw;
     const double rfAge   = rangefinderLiveAgeS();
-    const bool   rfFresh = std::isfinite(rf) && rfAge >= 0.0 && rfAge < cp.rfFreshS;
+    const bool   rfFresh = depthgates::rfIsReading(rf) && rfAge >= 0.0 && rfAge < cp.rfFreshS;   // 0.00 is "no reading"
     const float  offset  = _transducerOffsetMount + _fakeDepthAddition;
 
     float   chosen = NAN;
@@ -2036,10 +2036,15 @@ void Dataset::chooseDepth()
 
         _shallowMode = depthgates::shallowMode(_shallowMode, rfFresh, rf, btRaw, bottomTrackParam_.minDistance, cp);
 
-        // the shore: the rangefinder steady at its ringdown for the last ~1 s, or silent
-        bool ringdown = _rfRecent.size() >= 2;
-        for (const auto& s : _rfRecent)
-            ringdown = ringdown && std::isfinite(s.second) && s.second <= cp.ringdownM;
+        // the shore: the rangefinder at its ringdown for the last ~1.5 s - two thirds of its readings, because the
+        // red's rangefinder spikes to 40 m on the shore now and then (analysis 1.4) - or silent. A 0.00 is no reading.
+        int readings = 0, atRingdown = 0;
+        for (const auto& s : _rfRecent) {
+            if (!depthgates::rfIsReading(s.second)) continue;
+            ++readings;
+            if (s.second <= cp.ringdownM) ++atRingdown;
+        }
+        const bool ringdown = readings >= 2 && 3 * atRingdown >= 2 * readings;
         onShore = noBottom && (ringdown || !rfFresh);
 
         if (onShore) {
