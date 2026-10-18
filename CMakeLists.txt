@@ -127,6 +127,7 @@ set(APP_HEADERS
     src/internet_manager.h
     src/dataset.h
     src/dataset_defs.h
+    src/depth_gates.h
     src/data_interpolator.h
     src/data_horizon.h
     src/dsp_defs.h

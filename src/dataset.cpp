@@ -1,4 +1,5 @@
 #include "dataset.h"
+#include "depth_gates.h"
 
 #include "core.h"
 
@@ -1625,6 +1626,10 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
 
         Epoch& ep = pool_[epIndx];
 
+        // the depth gates decide what this epoch stores (NaN = no bottom)
+        GateVerdict verdict;
+        dist = gateBottomTrackLocked(ep, channelId, epIndx, dist, bottomTrackParam_.maxDistance, verdict);
+
         // for all sub ch
         const int numSubChs = ep.getChartsSizeByChannelId(channelId);
         for (int subChId = 0; subChId < numSubChs; ++subChId) {
@@ -1680,12 +1685,35 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
     float lastDepth = NAN;
     int maxCompIndx = -1;
     int   instrEpoch = -1;      // the BT: instrument - the last first-channel epoch in the batch
-    float instrDist  = NAN;
-    float instrRange = NAN;
+    float instrDist  = NAN;     // its RAW bottom track, before the gates
+    GateVerdict instrVerdict;
 
     {
         QWriteLocker wl(&poolMtx_);
         const int poolSize = pool_.size();
+
+        // THE GATES, once per epoch (depth_gates.h). The processor sends the same distance for both channels of
+        // an epoch (a blue's two sides); the first channel's verdict is stored for both, so an epoch cannot hold
+        // a bottom on one side and none on the other.
+        QHash<int, float> gatedByEpoch;
+        for (const auto& update : updates) {
+            if (update.epochIndex < 0 || update.epochIndex >= poolSize || gatedByEpoch.contains(update.epochIndex)) {
+                continue;
+            }
+            Epoch& ep = pool_[update.epochIndex];
+            if (ep.getChartsSizeByChannelId(update.channelId) <= 0) {
+                continue;
+            }
+            GateVerdict verdict;
+            const float maxD = std::isfinite(update.maxDistance) ? update.maxDistance : bottomTrackParam_.maxDistance;
+            const float gated = gateBottomTrackLocked(ep, update.channelId, update.epochIndex, update.distance, maxD, verdict);
+            gatedByEpoch.insert(update.epochIndex, gated);
+            if (firstChannelId_.channelId_ == update.channelId && update.epochIndex >= instrEpoch) {
+                instrEpoch   = update.epochIndex;
+                instrDist    = update.distance;
+                instrVerdict = verdict;
+            }
+        }
 
         for (const auto& update : updates) {
             if (update.epochIndex < 0 || update.epochIndex >= poolSize) {
@@ -1693,6 +1721,7 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
             }
 
             Epoch& ep = pool_[update.epochIndex];
+            const float stored = gatedByEpoch.value(update.epochIndex, update.distance);
 
             bool settedChart = false;
             const int numSubChs = ep.getChartsSizeByChannelId(update.channelId);
@@ -1700,7 +1729,7 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
                 if (ep.chartAvail(update.channelId, subChId)) {
                     Epoch::Echogram* chart = ep.chart(update.channelId, subChId);
                     if (chart) {
-                        chart->bottomProcessing.setDistance(update.distance, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
+                        chart->bottomProcessing.setDistance(stored, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
                         settedChart = true;
                     }
                 }
@@ -1710,20 +1739,11 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
                 continue;
             }
 
-            lastDepth = update.distance;
+            lastDepth = stored;
             haveDepth = true;
 
             if (firstChannelId_.channelId_ != update.channelId) {
                 continue;
-            }
-
-            // the acquired range of THIS epoch's trace, for the BT: instrument
-            if (ep.chartAvail(update.channelId, 0)) {
-                if (Epoch::Echogram* c = ep.chart(update.channelId, 0)) {
-                    instrEpoch = update.epochIndex;
-                    instrDist  = update.distance;
-                    instrRange = c->offset + c->amplitude.size() * c->resolution;
-                }
             }
 
             const int guardInterval = bottomTrackParam_.windowSize;
@@ -1752,8 +1772,8 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
     }
 
     if (instrEpoch >= 0 && getState() == DatasetState::kConnection) {
-        logBottomTrackInstrument(instrEpoch, instrDist, instrRange);
-        logShallowInstrument(instrEpoch, instrDist, instrRange);
+        logBottomTrackInstrument(instrEpoch, instrDist, instrVerdict);
+        logShallowInstrument(instrEpoch, instrDist, instrVerdict.rangeM);
     }
 
     if (maxCompIndx >= 0) {
@@ -1761,25 +1781,47 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
     }
 }
 
-// THE BT: INSTRUMENT (4 Oct 2026) - no behaviour change. Live only, per epoch the bottom track
-// writes. The two open problems: a false bottom at ~0.9 of the acquired range when there is no
-// echo (the shore, a lost bottom), and the bottom track's own floor (minDistance + ~0.07 m)
-// against the rangefinder in the shallows. One line a second at most while a gate WOULD reject
-// the value, and a 10 s count. The rangefinder is the live raw reading (rangefinderLive()).
-void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, float rangeM)
+// THE DEPTH GATES AT THE EPOCH WRITE (P3 onwards, 18 Oct 2026). Called under the pool lock with the
+// epoch's RAW bottom track; returns what the epoch stores - the value, or NaN for "no bottom". The
+// verdict says why. Deterministic per epoch: the answer depends on this epoch's trace and value only
+// (and, for the vote of gate B, on epochs before it), never on "the last good value".
+float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v)
+{
+    Q_UNUSED(epochIndex);
+    v = GateVerdict();
+    const Epoch::Echogram* c0 = ep.chartAvail(channelId, 0) ? ep.chart(channelId, 0) : nullptr;
+    if (c0 && c0->resolution > 0.0f) {
+        v.rangeM = c0->offset + c0->amplitude.size() * c0->resolution;
+    }
+    if (!std::isfinite(dist)) {
+        return NAN;
+    }
+
+    // Gate A - geometry: the far end of what the search could reach is the search edge, not a bottom
+    v.gateA = depthgates::gateA(dist, maxDistance, v.rangeM);
+
+    return v.rejected() ? NAN : dist;
+}
+
+// THE BT: INSTRUMENT (4 Oct 2026; counting what the gates REJECT since P3, 18 Oct). Live only, per
+// epoch the bottom track writes. One line a second at most while an epoch is rejected, has no bottom
+// or disagrees with the rangefinder, and a 10 s count. btRaw is the value BEFORE the gates; the
+// rangefinder is the live raw reading (rangefinderLive()).
+void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v)
 {
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (_btWindowStartMs == 0)
         _btWindowStartMs = now;
 
+    const float  rangeM = v.rangeM;
     const double rfAge = rangefinderLiveAgeS();
     const float  rf    = _rangefinderLiveRaw;
     const bool   rfOk  = std::isfinite(rf) && rfAge >= 0.0 && rfAge < 1.5;
     const bool   btOk  = std::isfinite(btRaw);
     const float  ratio = (btOk && rangeM > 0.0f) ? btRaw / rangeM : NAN;
 
-    const bool farEnd   = std::isfinite(ratio) && ratio > 0.75f;
-    const bool disagree = rfOk && btOk
+    const bool farEnd   = v.gateA;
+    const bool disagree = rfOk && btOk && !v.rejected()
                           && std::fabs(btRaw - rf) > std::max(0.3f, 0.3f * std::min(btRaw, rf));
     const bool none     = !btOk;
 
@@ -1803,17 +1845,17 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, float rangeM
         _btLastLineMs = now;
         ++_btLines;
         QStringList why;
-        if (farEnd)   why << QStringLiteral("far end (> 0.75 of the range)");
-        if (disagree) why << QStringLiteral("disagrees with the rangefinder");
+        if (farEnd)   why << QStringLiteral("gate A rejected: far end (> 0.75 of the reachable range)");
+        if (disagree) why << QStringLiteral("kept, disagrees with the rangefinder");
         if (none)     why << QStringLiteral("no bottom");
-        qDebug().noquote() << QStringLiteral("BT: epoch %1 | bottom track %2 m raw of %3 m acquired (%4) | rangefinder live %5 (%6 s old) | a gate would reject: %7")
+        qDebug().noquote() << QStringLiteral("BT: epoch %1 | bottom track %2 m raw of %3 m acquired (%4) | rangefinder live %5 (%6 s old) | %7")
                               .arg(epochIndex).arg(f2(btRaw), f2(rangeM), f2(ratio), f2(rf))
                               .arg(rfAge >= 0.0 ? QString::number(rfAge, 'f', 1) : QStringLiteral("-"))
                               .arg(why.join(QStringLiteral(", ")));
     }
 
     if (now - _btWindowStartMs >= 10000) {
-        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | far end %2 | disagree %3 | no bottom %4 | ratio max %5 | bottom track %6-%7 m | rangefinder live %8-%9 m | %10 lines")
+        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | gate A rejected %2 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | %10 lines")
                               .arg(_btN).arg(_btFar).arg(_btDisagree).arg(_btNone)
                               .arg(f2(_btRatioMax), f2(_btMin), f2(_btMax), f2(_rfMin), f2(_rfMax))
                               .arg(_btLines);

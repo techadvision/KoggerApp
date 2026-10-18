@@ -511,6 +511,7 @@ struct BottomTrackUpdate {
     int       epochIndex = -1;
     ChannelId channelId;
     float     distance = NAN;
+    float     maxDistance = NAN;   // the pass's search end (BottomTrackParam::maxDistance), for the depth gates
 };
 Q_DECLARE_METATYPE(BottomTrackUpdate) // NOLINT(performance-enum-size)
 Q_DECLARE_METATYPE(QVector<BottomTrackUpdate>) // NOLINT(performance-enum-size)

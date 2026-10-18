@@ -165,7 +165,16 @@ public:
     // filter, no epoch, no signal - so the DEPTH: line can say what the rangefinder reads now.
     Q_INVOKABLE float rangefinderLive() const { return _rangefinderLiveRaw; }
     Q_INVOKABLE double rangefinderLiveAgeS() const;
-    void logBottomTrackInstrument(int epochIndex, float btRaw, float rangeM);   // the BT: line, live only
+    // THE DEPTH GATES (P3 onwards, 18 Oct 2026) - see depth_gates.h. One decision per epoch, taken where the
+    // epoch is written: the raw bottom track of the epoch is tested against the epoch's own trace and stored as
+    // NaN (no bottom) when it cannot be one. Every consumer reads the epoch, so all inherit it.
+    struct GateVerdict {
+        bool  gateA = false;     // the far end of the reachable range (geometry)
+        float rangeM = NAN;      // the trace's acquired range
+        bool  rejected() const { return gateA; }
+    };
+    float gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v);
+    void logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v);   // the BT: line, live only
     void logShallowInstrument(int epochIndex, float btRaw, float rangeM);       // the SHALLOW: line, live only (P2)
     //Pulse setters
     Q_INVOKABLE void setSmallAgreeMargin(double margin);

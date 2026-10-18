@@ -94,14 +94,14 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
             if (epPtr.chartAvail(channel1.channelId_, channel1.subChannelId_)) {
                 Epoch::Echogram* chart = epPtr.chart(channel1.channelId_, channel1.subChannelId_);
                 if (chart && chart->bottomProcessing.source < Epoch::DistProcessing::DistanceSource::DistanceSourceDirectHand) {
-                    batch.push_back(BottomTrackUpdate{iepoch, channel1.channelId_, dist});
+                    batch.push_back(BottomTrackUpdate{iepoch, channel1.channelId_, dist, btP.maxDistance});
                 }
             }
 
             if (epPtr.chartAvail(channel2.channelId_, channel2.subChannelId_)) {
                 Epoch::Echogram* chart = epPtr.chart(channel2.channelId_, channel2.subChannelId_);
                 if (chart && chart->bottomProcessing.source < Epoch::DistProcessing::DistanceSource::DistanceSourceDirectHand) {
-                    batch.push_back(BottomTrackUpdate{iepoch, channel2.channelId_, dist});
+                    batch.push_back(BottomTrackUpdate{iepoch, channel2.channelId_, dist, btP.maxDistance});
                 }
             }
 

@@ -9,7 +9,7 @@ def feats(path, npz):
         d=(((ch[0].astype(np.uint16)+ch[1].astype(np.uint16))>>2).astype(float) if len(ch)==2 and len(ch[0])==len(ch[1]) else ch[0].astype(float))
         n=len(d); i0=max(1,int(0.4/res[i]))   # skip the first 0.4 m (ringdown)
         body=d[i0:]
-        med=np.median(body) if len(body) else np.nan
+        med=float(np.sort(body)[(len(body)-1)//2]) if len(body) else np.nan   # the lower middle value, as depth_gates.h's histogram median
         lvl[i]=med
         if f[i]==f[i]:
             k=int(f[i]/res[i]); a=max(0,k-int(0.1/res[i])); b=min(n,k+int(0.1/res[i])+1)
