@@ -197,3 +197,57 @@ bench, binned by the bottom track's own value in the water stretches:
 - **A firm minimum for the blue needs a stationary test** (on the P2 build, `SHALLOW:` lines and a `.plog`): the blue held
   still at about **0.3, 0.5, 0.8, 1.2 and 2 m**, 20 s each, the depth checked by hand (a pole or a line). Then the
   statement for the manual is a measurement, not a guess.
+
+---
+
+## 5. Two clarifications before coding (18 Oct)
+
+### 5.1 Why the crossover is 0.6 m when the bottom track is "stable" only from ~1-2 m
+
+- **Stable is not the same as right.** Between 0.4 and 1 m the red bottom track agreed with the rangefinder whenever both
+  were logged together (15:03:20 0.43 / 0.45, 15:03:30 0.39 / 0.37, 15:05:00 0.44 / 0.44, 15:05:10 0.90 / 0.90). The
+  "unstable" share there is mostly the boat moving over a sloping bottom near the shore; the stability measure counts a
+  real change as instability.
+- **The bottom track is wrong, not just jittery, only below ~0.35 m**: at its floor (0.32) or on the second/third echo
+  (0.44-0.85 m while the real depth is 0.12-0.28 m).
+- **So the switch is keyed on the rangefinder, not on the bottom track**: rangefinder < 0.6 m AND the bottom track at its
+  floor or at ~2-3 x the rangefinder (or no bottom). That catches wrong bottom-track values up to ~0.85 m (and further),
+  which a bottom-track threshold of 0.6 would miss.
+- **Why not higher:** between 0.6 and 2 m both agree, so the rangefinder buys nothing there; it adds its own failures (its
+  0.12 ringdown whenever it loses the bottom, the blue's spikes and zeros); and every switch is a visible step (the blue's
+  rangefinder reads ~0.2 m deeper).
+- **Per model:** 0.6 m is from the red. The blue's band is set by the stationary test (4.1); if the blue needs 1 m, the
+  threshold is a profile value.
+
+### 5.2 The big-jump filter - its purpose, why it fails, what a reliable one needs
+
+Olav: the filter was written to *drop insane values so they do not infect the CSV log of the angler capturing
+bathymetric data*. Today it cannot do that:
+
+- **It never reaches the records.** The 2D line, the 3D bathymetry, the CSV export and the waypoint depth read the raw
+  bottom track of the epoch (F3). The filter only shapes the readout and NMEA.
+- **The live CSV logger** (`Logger::loggingCsvStream`, switched on in ConnectionViewer) writes the epoch's *rangefinder*
+  and a bottom-depth column that is always NaN. While the bottom track is the source, the epoch has no rangefinder (F2),
+  so each row carries **0** as depth. *To confirm with Olav which CSV the anglers use* - this logger, the export, or a
+  third-party app fed by NMEA.
+- **It is fed ~6 re-publishes per ping**, so "3 agreeing samples" are three neighbouring epochs of one pass, ~70 ms.
+- **A NaN resets it** (F6); **5 m is absolute**: a 4 m spike at 1 m depth passes, a real 6 m drop-off at 30 m is held.
+- **It holds the previous value** - in a record that is a fake point, not a gap.
+
+**P5b - the outlier filter, rebuilt** (replaces `filterDepthRecords`, after P3/P4 so it only sees what the gates let through):
+
+1. **At the epoch write in `Dataset`**, the same place as the gates: one decision per epoch that the readout, NMEA, the
+   2D line, the 3D surface, the export and the CSV all inherit.
+2. **Deterministic per epoch**: the same epoch re-published six times gets the same answer.
+3. **Reference = the running median of the last ~1 s of accepted epochs**, not the last value.
+4. **Relative threshold**: an outlier is > max(0.5 m, 30% of the reference) from it - right at 1 m and at 40 m.
+5. **A jump is accepted when it persists for ~1 s of distinct epochs** (time, not samples) - drop-offs persist, spikes do not.
+6. **NaN is ignored**, never a reset.
+7. **A rejected epoch is stored as no value (NaN)**, never the old value - a gap in the CSV and the bathymetry, not a fake
+   point. The readout may hold the last good value meanwhile.
+8. **When a jump is confirmed, the held epochs are rewritten with their real values** (epochs are rewritable; the bottom
+   track already does it), so a real drop-off loses nothing in the records - it only appears ~1 s late on screen.
+9. **Counted and logged** (`BT:` rejected by the outlier filter), and bench-tested on both 18 Oct recordings: zero rejects
+   on the real slopes (red 1.4 -> 5.6 m at 15:01:40-15:02:10; blue 11 -> 2.5 m at 15:15:21-15:15:53), the spikes gone.
+10. **The CSV logger** writes the chosen depth (P7) in its depth column - its own small commit, once Olav says which CSV
+    matters.
