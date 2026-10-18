@@ -1753,6 +1753,7 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
 
     if (instrEpoch >= 0 && getState() == DatasetState::kConnection) {
         logBottomTrackInstrument(instrEpoch, instrDist, instrRange);
+        logShallowInstrument(instrEpoch, instrDist, instrRange);
     }
 
     if (maxCompIndx >= 0) {
@@ -1822,6 +1823,40 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, float rangeM
         _btMin = _btMax = _rfMin = _rfMax = NAN;
     }
 }
+
+// THE SHALLOW: INSTRUMENT (P2 of the depth-source plan, 18 Oct 2026) - no behaviour change. The BT: line
+// prints at most once a second and only on a would-be rejection, so the 18 Oct run left ~85 shallow lines:
+// not enough to set the crossover between the rangefinder and the bottom track (analysis 1.7, 4.1). This
+// line is dense - up to 5 a second - whenever either source reads under 1.5 m: the bottom track raw, the
+// live rangefinder with its age, their ratio (the second echo sits at ~2-3 x the rangefinder), the bottom
+// track's floor (minDistance) and the acquired range. The shallow sweep and the stationary test of the
+// analysis (4.1) are read from these lines.
+void Dataset::logShallowInstrument(int epochIndex, float btRaw, float rangeM)
+{
+    const double rfAge = rangefinderLiveAgeS();
+    const float  rf    = _rangefinderLiveRaw;
+    const bool   rfOk  = std::isfinite(rf) && rfAge >= 0.0 && rfAge < 1.5;
+    const bool   btOk  = std::isfinite(btRaw);
+    const bool   shallow = (btOk && btRaw < 1.5f) || (rfOk && rf < 1.5f);
+    if (!shallow)
+        return;
+
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - _shallowLastLineMs < 200)
+        return;
+    _shallowLastLineMs = now;
+
+    const auto f2 = [](float v) { return std::isfinite(v) ? QString::number(v, 'f', 2) : QStringLiteral("-"); };
+    const float ratio = (btOk && rfOk && rf > 0.0f) ? btRaw / rf : NAN;
+    const float floorM = bottomTrackParam_.minDistance;
+    const bool  atFloor = btOk && btRaw <= floorM + 0.12f;
+    qDebug().noquote() << QStringLiteral("SHALLOW: epoch %1 | bottom track %2 m raw%3 | rangefinder live %4 (%5 s old) | bt/rf %6 | floor %7 m | range %8 m")
+                          .arg(epochIndex)
+                          .arg(f2(btRaw), atFloor ? QStringLiteral(" (at its floor)") : QString(), f2(rf))
+                          .arg(rfAge >= 0.0 ? QString::number(rfAge, 'f', 1) : QStringLiteral("-"))
+                          .arg(f2(ratio), f2(floorM), f2(rangeM));
+}
+
 void Dataset::onLastBottomTrackEpochChanged(const ChannelId& channelId, int val, const BottomTrackParam& btP, bool manual, bool redrawAll)
 {
     bottomTrackParam_ = btP;
