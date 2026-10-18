@@ -639,11 +639,12 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     _rangefinderLiveRaw = distance;
     _rangefinderLiveMs  = QDateTime::currentMSecsSinceEpoch();
 
-    // When bottom track is the active depth source, skip the rangefinder so it neither
-    // updates dataset.dist nor feeds the depth filter (whose state is shared with bottom track).
-    if (_processBottomTrack) {
-        return;
-    }
+    // THE RANGEFINDER IS ALWAYS RECORDED (P6, 18 Oct 2026) - upstream's behaviour: the value and the epoch.
+    // Until now this returned here while the bottom track was the depth source, so dataset.dist froze at the
+    // value from before the switch (the 18 Oct log: 'rangefinder 0.12 (now 0.12, live 1.23 raw)' in the water -
+    // F2) and the epoch carried no rangefinder at all. Only the CHOICE of the depth depends on the source,
+    // and that is made elsewhere (chooseDepth, P7). The depth filter here is the rangefinder's own (the
+    // bottom track has its own at the epoch write since P5b), so its state is no longer shared.
 
     //qDebug() << "addRangefinder triggered";
 
@@ -662,7 +663,9 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     float filteredMeters = 0;
 
     setLastRangefinderDepth(distance); // raw rangefinder depth (getLastRangefinderDepth)
-    setLastDepth(distance);
+    if (!_processBottomTrack) {
+        setLastDepth(distance);        // upstream's extra-info depth follows the chosen source
+    }
 
     epoch->setDist(channelId, distance * 1000);
 
@@ -679,10 +682,11 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
         filteredMeters = corrDistance;
     }
 
+    _dist = filteredMeters;
+    emit distChanged();
+    epoch->setDist(channelId, filteredMeters * 1000);
     if (!_processBottomTrack) {
-        _dist = filteredMeters;
-        emit distChanged();
-        epoch->setDist(channelId, filteredMeters * 1000);
+        // with the bottom track as the source the bottom-track path drives the update; a second emit would double it
         emit dataUpdate();
     }
 }
