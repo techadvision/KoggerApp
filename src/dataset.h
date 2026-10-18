@@ -797,6 +797,15 @@ private:
     depthgates::GateBVoter _gateBVoter;   // gate B's per-epoch vote (depth_gates.h)
     std::vector<uint8_t> _gateTraceBuf;   // the merged trace gate B reads, reused
     int    _btGateB = 0;                  // the BT: 10 s count
+    // ONE VALUE PER PASS (P5). Each realtime pass re-publishes the last ~6 epochs, oldest to newest, each as
+    // its own batch; the readout and NMEA used to see every one of them (~6 writes a ping, the readout jumping
+    // between epochs within milliseconds). The pass is collected here and published once, at its end
+    // (onLastBottomTrackEpochChanged): the newest epoch of the pass with a bottom, or NaN when none has one.
+    bool   _passSeen = false;
+    int    _passNewestEpoch = -1;
+    float  _passNewestValue = NAN;
+    void   notePassEpoch(int epochIndex, float stored);
+    void   publishPass();
     float _bottomTrackDepth         = NAN;
     float _lastStableBTDepth1       = NAN;
     float _lastStableBTDepth2       = NAN;

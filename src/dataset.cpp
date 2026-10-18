@@ -1654,23 +1654,7 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
 
         int guardInterval = bottomTrackParam_.windowSize; // bottomTrack will proceed epIndx - guardInterval in next iteration
         int compIndx = epIndx > guardInterval ? epIndx - guardInterval : epIndx;
-        //PULSE
-        // Same convention as addRangefinder: ADD the mount offset (transducer below surface).
-        float corrDistance = dist + _transducerOffsetMount + _fakeDepthAddition;
-        float filteredMeters = 0;
-        if (_useDepthFilterWithBottomTrack) {
-            filteredMeters = filterDepthRecords(corrDistance);
-        } else {
-            filteredMeters = corrDistance;
-        }
-        _bottomTrackDepth = filteredMeters;
-        emit bottomTrackDepthChanged();
-        /*
-        if (_bottomTrackDepth != dist) {
-            _bottomTrackDepth = dist;
-            emit bottomTrackDepthChanged();
-        }
-        */
+        notePassEpoch(epIndx, dist);   // published once, at the end of the pass (P5)
 
         emit bottomTrackAdded(compIndx);
     }
@@ -1747,6 +1731,8 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
                 continue;
             }
 
+            notePassEpoch(update.epochIndex, stored);
+
             const int guardInterval = bottomTrackParam_.windowSize;
             const int compIndx = update.epochIndex > guardInterval ? update.epochIndex - guardInterval : update.epochIndex;
             if (compIndx > maxCompIndx) {
@@ -1758,18 +1744,7 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
     if (haveDepth) {
         setLastBottomTrackDepth(lastDepth);
         setLastDepth(lastDepth);
-
-        // PULSE: the realtime (batch) path must maintain the SAME corrected/filtered
-        // bottom-track depth as the singular onDistCompleted(), otherwise _bottomTrackDepth
-        // never updates and bottomTrackDepthChanged never fires -> display stuck and no NMEA.
-        // Apply offset (transducer below surface) + the bottom-track depth filter, on the
-        // most recent valid update in this batch.
-        float corrDistance = lastDepth + _transducerOffsetMount + _fakeDepthAddition;
-        float filteredMeters = _useDepthFilterWithBottomTrack
-                                   ? filterDepthRecords(corrDistance)
-                                   : corrDistance;
-        _bottomTrackDepth = filteredMeters;
-        emit bottomTrackDepthChanged();
+        // _bottomTrackDepth is published once per pass, in publishPass() (P5) - not per batch
     }
 
     if (instrEpoch >= 0 && getState() == DatasetState::kConnection) {
@@ -1923,10 +1898,42 @@ void Dataset::logShallowInstrument(int epochIndex, float btRaw, float rangeM)
                           .arg(f2(ratio), f2(floorM), f2(rangeM));
 }
 
+// ONE VALUE PER PASS (P5, 18 Oct 2026). A pass publishes epochs oldest to newest; the newest one that holds a
+// bottom (after the gates) is the pass's value. The gates make NaN common on purpose, so a pass whose every
+// epoch is NaN publishes NaN - "no bottom" - instead of being skipped.
+void Dataset::notePassEpoch(int epochIndex, float stored)
+{
+    _passSeen = true;
+    if (std::isfinite(stored) && epochIndex >= _passNewestEpoch) {
+        _passNewestEpoch = epochIndex;
+        _passNewestValue = stored;
+    }
+}
+
+void Dataset::publishPass()
+{
+    if (!_passSeen)
+        return;
+    const float raw = _passNewestValue;
+    _passSeen = false;
+    _passNewestEpoch = -1;
+    _passNewestValue = NAN;
+
+    if (std::isfinite(raw)) {
+        // Same convention as addRangefinder: ADD the mount offset (transducer below surface).
+        const float corrDistance = raw + _transducerOffsetMount + _fakeDepthAddition;
+        _bottomTrackDepth = _useDepthFilterWithBottomTrack ? filterDepthRecords(corrDistance) : corrDistance;
+    } else {
+        _bottomTrackDepth = NAN;   // no bottom this pass - the filter is not told (F6: a NaN used to reset it)
+    }
+    emit bottomTrackDepthChanged();
+}
+
 void Dataset::onLastBottomTrackEpochChanged(const ChannelId& channelId, int val, const BottomTrackParam& btP, bool manual, bool redrawAll)
 {
     bottomTrackParam_ = btP;
     lastBottomTrackEpoch_ = val;
+    publishPass();
 
     const int minMagicRenderGap = std::max(3, bottomTrackParam_.windowSize);
     const int lEpoch = std::max(0, bottomTrackParam_.indexFrom - minMagicRenderGap);
