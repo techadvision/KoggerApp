@@ -120,10 +120,10 @@ the accident that today finds a deep bottom (see P9).
 | **P4** | **Gate B, echo contrast** (peak at the bottom / trace median < 1.5, majority over 9 epochs) - computed from the epoch's own amplitude, no algorithm change | `Dataset` | bench: blue shore 99.9% gone; device: blue on the shore, nothing above a dash |
 | **P5** | **One value per ping**: the readout and NMEA take the newest finite epoch of each pass, once; `filterDepthRecords` is fed once per epoch and ignores NaN (F6) | `Dataset` | no `crossed` bursts; the jump filter starts to mean something |
 | **P6** | **The rangefinder always recorded** (upstream's behaviour: value and epoch); only the *choice* depends on the source. Fixes F2 | `Dataset` | `DEPTH:` "now" equals "live" |
-| **P7** | **One depth, chosen in C++** - `Dataset` publishes it; readout, NMEA and the dynamic scheme read it; the QML `selectedDepth` only reads. Shallow crossover (thresholds from P2): use the rangefinder only while it reads < ~0.6 m (hysteresis ~0.5/0.7) **and** the bottom track agrees it is shallow - at its floor (<= minDistance + 0.12 m), at ~2-3 x the rangefinder (second echo), or no bottom. Otherwise the bottom track | `Dataset`, `main.cpp` (NMEA), `PulseDepthEngine.qml` | bench + the shallow sweep; a blue rangefinder spike can never be shown |
+| **P7** | **One depth, chosen in C++** - `Dataset` publishes it; readout, NMEA and the dynamic scheme read it; the QML `selectedDepth` only reads. Shallow crossover (**0.6 m, agreed 18 Oct**; exact numbers from P2): use the rangefinder only while it reads < ~0.6 m (hysteresis ~0.5/0.7) **and** the bottom track agrees it is shallow - at its floor (<= minDistance + 0.12 m), at ~2-3 x the rangefinder (second echo), or no bottom. Otherwise the bottom track | `Dataset`, `main.cpp` (NMEA), `PulseDepthEngine.qml` | bench + the shallow sweep; a blue rangefinder spike can never be shown |
 | **P8** | **No bottom and the shore on screen**: no bottom (both gates) for >= 2 s -> hold the last value for those 2 s, then a dash; NMEA sends no depth. "On the shore" = no bottom AND the rangefinder steady at its ringdown (<= 0.18 m) or silent - then the dash immediately, as Olav asked (dash only when sure) | `PulseDepthEngine.qml` | shore: dash, no NMEA; water: unchanged |
 | **P9** | **The dynamic scheme on no bottom**: hold the range, never feed a rejected depth; and a **search**: no bottom for >= 3 s while *not* on the shore -> double the range every ~2 s up to the maximum until a bottom is found, then the normal rule. Today the runaway does this by accident (a red started over 10 m of water at its 3 m range only finds the bottom because the false bottom drags the range out); P3 removes the accident | `PulseDepthEngine.qml` | start live over deep water: `DYNAMIC: search` steps, then the bottom |
-| **P10** | **Blue's `maxDistance` 35** - check it against performance mode's 50 m per side: the bottom track is blind beyond 35 m. A profile number, Olav's call (Q3) | profile | - |
+| ~~P10~~ | ~~Blue's `maxDistance` 35~~ - **withdrawn 18 Oct (Q3)**: it should follow the performance mode max range; fixed in the performance-mode chat, not here | - | - |
 
 **Not in the plan:** changing the algorithm (not needed - P3/P4 sit around it); lowering `minDistance` (F5: it would
 report the ringdown); bounding the search from the last depth (restarts the bottom track, history-dependent); the upstream
@@ -149,3 +149,51 @@ report the ringdown); bounding the search from the last depth (restarts the bott
 - **Q3** Blue's `maxDistance` 35 with performance mode reaching 50 m per side - keep, or raise to the configured swath?
 - **Q4** Gate B gives up ~110 pings of very shallow, confused readings on the blue as it leaves the shore (a dash there
   instead of 0.3-12 m). Acceptable?
+
+---
+
+## 4. Olav's answers, 18 Oct - and what they change
+
+- **Q1 - the blue's false readings:** ~19 m as shipped, ~30 m with performance mode (5000 samples, fine spacing) - the
+  measured 11-19.8 m at 25 m per side and 25-35.1 m at 50 m. Not 40+. Documented in the performance doc, chapter 10a.
+- **Q2 - the crossover: 0.6 m, not 2 m.** *"If the findings are conclusive we need not apply it deeper than 0.6 meters
+  then this is the refinement based on logs and we use that instead of 2 meters."* P7 uses 0.6 m (hysteresis ~0.5/0.7),
+  final numbers from the P2 shallow sweep.
+- **Q3 - blue's maxDistance should follow the performance mode max range.** Overlooked in the performance-mode beta. **Not
+  in this work**: it goes to the performance-mode chat with the 10 m max-range issue. **P10 is withdrawn from this plan.**
+  P3's reachable end already uses min(maxDistance, 0.9 x range), so the gate stays right when that changes.
+- **Q4 - the blue left the shore with only ~5-15 cm of water under it.** So the ~110 confused pings at 15:11 were a
+  transducer too shallow to measure at all, and a dash there is correct. **Gate B's water cost on the blue is in fact
+  zero** on this data.
+
+### 4.1 The shallowest depth the log shows as stable
+
+"Stable" here = 9 consecutive pings within max(3 cm, 5%) of each other, with a clear echo (contrast >= 1.6), from the
+bench, binned by the bottom track's own value in the water stretches:
+
+| bottom track | red: pings | red: stable | blue: pings | blue: stable |
+|---|---|---|---|---|
+| 0.30-0.34 m (its floor) | 337 | 75% - *stuck at the floor, not a reading* | 293 | 67% - *floor* |
+| 0.34-0.40 m | 150 | 69% | 197 | 55% (half at the floor) |
+| 0.40-0.50 m | 317 | 79% | 54 | 22% |
+| 0.50-0.80 m | 249 | ~52% | 128 | ~15% |
+| 0.80-1.00 m | 233 | 73% | 48 | 52% |
+| 1.00-1.50 m | 1260 | **94%** | 88 | 78% |
+| 1.50-2.00 m | 363 | **91%** | 79 | 61% |
+| 2.00-3.00 m | 191 | 81% | 147 | **95%** |
+| 3.00-5.00 m | 367 | 89% | 384 | **99%** |
+| 5.00-12 m | 310 | **97%** | 6526 | **96-100%** |
+
+**What it says, and how far it can be trusted:**
+
+- **Red/black: stable from ~1.0 m**; between 0.4 and 1.0 m about half to three quarters of the pings; below ~0.35 m it
+  cannot read at all (the floor), and with the rangefinder at 0.12-0.28 m it reads the second or third echo (1.7). That is
+  what the 0.6 m crossover is for: the rangefinder below it.
+- **Blue: stable from ~2 m on this data, probably from ~1 m.** But the blue drove through 0.4-2 m in well under a minute
+  each time over a sloping bottom, so "unstable" there is partly a bottom that really changed - only ~300 blue pings lie
+  between 0.4 and 2 m. One quiet moment says more: **at 15:25:01 the blue lay still in ~0.4 m of water for 10 s, bottom
+  track 0.34-0.38, rangefinder 0.37-0.43** - both agreed. So 0.4 m can be read; whether it is reliable cannot be said from
+  this log.
+- **A firm minimum for the blue needs a stationary test** (on the P2 build, `SHALLOW:` lines and a `.plog`): the blue held
+  still at about **0.3, 0.5, 0.8, 1.2 and 2 m**, 20 s each, the depth checked by hand (a pole or a line). Then the
+  statement for the manual is a measurement, not a guess.
