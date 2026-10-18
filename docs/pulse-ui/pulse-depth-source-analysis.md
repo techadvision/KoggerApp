@@ -54,7 +54,7 @@ From the 10 s `BT:` windows in the water (bottom track 0.5-15 m, no far end):
 | red | 18 | **0** | 0 | 0.12 steady; **40-44 m** in 4 of 23 windows |
 | blue | 156 | **31 (20%)** - 24-44 m spikes | 56 (from 15:25 the device sent 0) | 0.15-0.18 steady |
 
-Where both read the bottom they agree closely: red 0.4-5.6 m within ~0.1 m; blue 4-11 m with the rangefinder
+Where both read the bottom they agree closely: red 0.4-5.6 m within ~0.1-0.3 m; blue 4-11 m with the rangefinder
 ~0.2 m deeper. **The rangefinder is only a fallback for the shallows, never a source on its own** - Olav's own reason
 for moving to the bottom track, now in numbers. The `.plog` cannot help here: the device's depth arrives as NMEA `DBT`,
 and the logger does not record NMEA.
