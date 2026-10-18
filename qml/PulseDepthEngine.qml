@@ -21,19 +21,19 @@ import "PulsePerfEngine.js" as PerfMath
 // lastStableDepth and stableCount. That is now impossible by construction.
 //
 // WHAT THE READOUTS GET. One key, pulseRuntimeSettings.depthMeters, written here and
-// nowhere else. The rule for CHOOSING the depth - bottom track first, rangefinder when
-// bottom track is not initiated, NaN never published - lives in this file only, so the
-// two readouts cannot disagree about which source they are showing.
+// nowhere else. THE CHOICE OF THE DEPTH IS NOT MADE HERE ANY MORE (P7, 18 Oct 2026): Dataset
+// chooses - bottom track, gated and outlier-filtered at the epoch write; the rangefinder only
+// in the shallows, and only while the bottom track agrees it is shallow - and publishes ONE
+// depth, dataset.chosenDepth, that NMEA reads too. This file only reads it, so the readouts,
+// NMEA and the dynamic scheme cannot disagree about what the depth is.
 //
 // Deliberately NOT carried over from the old file: newAutoLevel, pulseBlueResSetOnce,
 // initialResolutionSet, dynamicResStableCount, lastDirection and a local
 // forceUpdateResolution shadowing the runtime key of the same name. Each is declared once
 // in DepthAndTemperature.qml and read nowhere, in this file or any other.
 //
-// The bottomTrackMinDepth crossover - rangefinder below ~0.5 m, bottom track above - is
-// still not implemented here. It has to key off the RANGEFINDER value to know which side
-// of the threshold it is on, and it belongs with the depth readout work. It stays on the
-// todo rather than arriving unannounced inside an extraction.
+// The shallow crossover lives in C++ (Dataset::chooseDepth, depth_gates.h ChoiceParams):
+// keyed on the rangefinder, 0.5 m in / 0.7 m out, and only while the bottom track agrees.
 Item {
     id: depthEngine
 
@@ -41,63 +41,24 @@ Item {
     width:   0
     height:  0
 
-    // ---- The two sources, held at their last GOOD value ---------------------
+    // ---- The two sources, for the DEPTH: instrument only -----------------------
+    //
+    // Informational since P7: the choice is dataset.chosenDepth. Held at their last finite value.
 
     property double rangeFinderDepth: 0.0
     property double bottomTrackDepth: 0.0
 
-    // ---- The chosen depth. ONE binding, ONE writer of the runtime key -------
+    // ---- The chosen depth - READ from the dataset, ONE writer of the runtime key ----
     //
-    // The choice is a binding because isBottomTrackInitiated can flip while the app is
-    // running and the answer must follow it. The publish is a handler because
-    // pulseRuntimeSettings.depthMeters has exactly one writer and nothing binds it -
-    // which is not the shape rule 2 forbids.
-    // WHAT THE DATA IS, not how it is drawn (2 Oct 2026, for 1.42). Olav: the down scan
-    // full screen "will, after you have used split screen side/down, sometimes only show
-    // 0.0 meters for the depth." The test used to be !displayIs2DTransducer &&
-    // !isSideScan2DView - so a blue's DOWN SCAN counted as a 2D picture and read the 2D
-    // branch below: the rangefinder, because isBottomTrackInitiated is false in v2. A blue
-    // has no nadir rangefinder whichever way it is drawn, so rangeFinderDepth sat at 0.0
-    // (or at whatever a previous source left in it - hence "sometimes"). In the side +
-    // down split the full-screen picture is the side scan, isSideScan2DView is false, and
-    // the readout on the side pane was right; going to full-screen down flipped it.
-    //
-    // Still rule 1 - the DISPLAY model, so a blue log on a committed red is a side scan
-    // here too. Only the view stopped counting.
-    readonly property bool depthFromSideScan:
-        pulseRuntimeSettings ? !pulseRuntimeSettings.displayIs2DTransducer : false
-
-    // The 2D branch follows isBottomTrackInitiated too, so the source line must follow it as
-    // well (4 Oct 2026, the USB red: the line said "2D - rangefinder" once at commit, and
-    // DisplaySettings then turned the bottom track on - every DEPTH: line after it read
-    // "shown 0.32 m from bottom track" while the rangefinder said 0.13).
-    readonly property bool depthSourceIsBottomTrack:
-        depthFromSideScan || (pulseRuntimeSettings ? pulseRuntimeSettings.isBottomTrackInitiated : false)
-    onDepthSourceIsBottomTrackChanged: if (!depthFromSideScan) console.log("DEPTH: source -> 2D - "
-        + (depthSourceIsBottomTrack ? "bottom track (isBottomTrackInitiated went true)" : "rangefinder (isBottomTrackInitiated went false)"))
-
-    onDepthFromSideScanChanged: console.log("DEPTH: source ->",
-        depthFromSideScan ? "side scan data - bottom track first, rangefinder behind it"
-                          : "2D - " + ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated)
-                                       ? "bottom track" : "rangefinder"))
-
-    // THE SIDE SCAN FOLLOWS THE BOTTOM TRACK PRIMARILY, which is what it always did -
-    // Olav, 14 Sept: "Side scan should follow the bottom track depth primarily. Like it
-    // used to." isBottomTrackInitiated is the wrong question to ask of it: that flag is
-    // written from DisplaySettings and the expert panel, neither of which v2 instantiates,
-    // so in v2 it is false unless an expert has been in and turned it on. The same shape as
-    // the engine itself, which was reachable only through DepthAndTemperature.
-    //
-    // PRIMARILY, not only. A bottom track that has never produced a value leaves
-    // bottomTrackDepth at 0.0, and 0.0 is finite, so the guards upstream let it through as
-    // if it were a reading. Falling back to the rangefinder costs nothing when the bottom
-    // track is working and is the difference between a number and a zero when it is not.
-    readonly property double selectedDepth:
-        depthFromSideScan
-            ? (bottomTrackDepth > 0 ? bottomTrackDepth : rangeFinderDepth)
-            : ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated)
-                   ? bottomTrackDepth
-                   : rangeFinderDepth)
+    // Dataset::chooseDepth() publishes one depth for the readout, NMEA and the dynamic scheme
+    // (P7, 18 Oct 2026), gated and outlier-filtered at the epoch write (P3-P5b), the rangefinder
+    // only in the shallows and only while the bottom track agrees; NaN when there is no depth to
+    // show (no bottom, or the shore). The old rule here - bottom track if isBottomTrackInitiated or
+    // a side scan, else the rangefinder, 0.0 standing in for "never produced a value" - is gone
+    // with its flags: what the Dataset processes (processBottomTrack, a profile value) is what it
+    // chooses from. selectedDepth holds the last finite chosen depth; what happens when the chosen
+    // depth is NaN is P8's (hold 2 s, then a dash).
+    property double selectedDepth: 0.0
 
     onSelectedDepthChanged: {
         if (pulseRuntimeSettings)
@@ -460,7 +421,8 @@ Item {
         const w = (typeof deviceManagerWrapper !== "undefined") ? deviceManagerWrapper : null
         const ss = w ? w.linkStreamSamples : 0
         const sp = w ? w.linkStreamSpacingMm : 0
-        const rangeM = (ss > 0 && sp > 0) ? (ss * sp / 1000 / (depthFromSideScan ? 2 : 1)) : -1
+        const sideScan = pulseRuntimeSettings ? !pulseRuntimeSettings.displayIs2DTransducer : false
+        const rangeM = (ss > 0 && sp > 0) ? (ss * sp / 1000 / (sideScan ? 2 : 1)) : -1
         const raw = (dataset && Number.isFinite(dataset.dist)) ? dataset.dist.toFixed(2) : "-"
         const bt = (dataset && Number.isFinite(dataset.bottomTrackDepth)) ? dataset.bottomTrackDepth.toFixed(2) : "-"
         // "now" is dataset.dist, frozen while the bottom track is the source (addRangefinder returns
@@ -468,10 +430,10 @@ Item {
         const rfAge = dataset ? dataset.rangefinderLiveAgeS() : -1
         const rfLive = (rfAge >= 0 && Number.isFinite(dataset.rangefinderLive()))
                 ? dataset.rangefinderLive().toFixed(2) + " raw, " + rfAge.toFixed(1) + " s old" : "none"
+        const chosen = (dataset && Number.isFinite(dataset.chosenDepth)) ? dataset.chosenDepth.toFixed(2) : "-"
         console.log("DEPTH: " + why
-                    + " | shown " + selectedDepth.toFixed(2) + " m from "
-                    + (depthFromSideScan ? (bottomTrackDepth > 0 ? "bottom track" : "rangefinder (no bottom track)")
-                                         : ((pulseRuntimeSettings && pulseRuntimeSettings.isBottomTrackInitiated) ? "bottom track" : "rangefinder"))
+                    + " | shown " + selectedDepth.toFixed(2) + " m from " + (dataset ? dataset.chosenDepthSource : "?")
+                    + " (chosen now " + chosen + (dataset && dataset.noBottom ? ", no bottom" : "") + (dataset && dataset.onShore ? ", shore" : "") + ")"
                     + " | rangefinder " + rangeFinderDepth.toFixed(2) + " (now " + raw + ", live " + rfLive + ")"
                     + " | bottom track " + bottomTrackDepth.toFixed(2) + " (now " + bt + ")"
                     + " | acquiring " + (rangeM >= 0 ? rangeM.toFixed(1) + " m (" + ss + " x " + sp + " mm)" : "-")
@@ -509,6 +471,14 @@ Item {
             // display keeps the last good value instead of showing NaN.
             if (Number.isFinite(dataset.bottomTrackDepth)) {
                 bottomTrackDepth = dataset.bottomTrackDepth
+            }
+        }
+
+        // THE ONE DEPTH (P7). Once per bottom-track pass, and per rangefinder reading when the
+        // rangefinder is the source.
+        function onChosenDepthChanged () {
+            if (Number.isFinite(dataset.chosenDepth)) {
+                selectedDepth = dataset.chosenDepth
             }
         }
     }

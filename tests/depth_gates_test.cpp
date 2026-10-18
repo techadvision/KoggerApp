@@ -103,6 +103,27 @@ int main()
     k.apply(20, NAN, 14);
     CHECK(k.apply(21, 30.0f, 14).held);
 
+    // The choice. minDistance 0.25 (floor 0.37). Red at 15:03:30: bt 0.39 / rf 0.37 - both read the bottom, the
+    // bottom track is right and keeps the readout (not at its floor, not a second echo); the
+    // transducer touching: bt 0.32 / rf 0.12 -> shallow; the second echo: bt 0.55 / rf 0.22 -> shallow (2.5 x);
+    // bt 0.90 / rf 0.90 -> not shallow (over rfEnter); bt 1.1 / rf 0.46 -> the bottom track does not agree
+    // (2.4 x is a second echo... of 0.46: yes it agrees) -> shallow; bt 5.0 / rf 0.4 -> no (12 x), the blue's
+    // ringdown while the bottom track reads a real 5 m bottom; no bottom / rf 0.3 -> shallow.
+    CHECK(!shallowMode(false, true, 0.37f, 0.39f, 0.25f));
+    CHECK(shallowMode(false, true, 0.12f, 0.32f, 0.25f));
+    CHECK(shallowMode(false, true, 0.22f, 0.55f, 0.25f));
+    CHECK(!shallowMode(false, true, 0.90f, 0.90f, 0.25f));
+    CHECK(shallowMode(false, true, 0.46f, 1.10f, 0.25f));
+    CHECK(!shallowMode(false, true, 0.40f, 5.00f, 0.25f));
+    CHECK(shallowMode(false, true, 0.30f, NAN, 0.25f));
+    // hysteresis: in shallow mode the rangefinder may rise to 0.7 before handing back; a stale rangefinder
+    // hands back at once; a blue spike (rf 24 m) never enters
+    CHECK(shallowMode(true, true, 0.65f, 0.34f, 0.25f));
+    CHECK(!shallowMode(true, true, 0.75f, 0.34f, 0.25f));
+    CHECK(!shallowMode(true, false, 0.30f, 0.34f, 0.25f));
+    CHECK(!shallowMode(false, true, 24.0f, 9.5f, 0.25f));
+    CHECK(!shallowMode(false, true, 0.55f, 0.60f, 0.25f));   // over rfEnter: stays with the bottom track
+
     std::printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails ? 1 : 0;
 }

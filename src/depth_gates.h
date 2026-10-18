@@ -113,6 +113,48 @@ private:
     std::map<int, uint8_t> flags_;
 };
 
+// THE CHOICE (P7) - one depth, chosen in C++ (Dataset::chooseDepth), read by the readout, NMEA and the dynamic
+// scheme alike. The bottom track is the source; the rangefinder only in the shallows, where the bottom track
+// is wrong rather than jittery: at its floor (minDistance + ~0.07 m) or on the second/third echo (0.44-0.85 m
+// while the real depth is 0.12-0.28 m). So the switch is keyed on the RANGEFINDER - under rfEnter, back over
+// rfLeave (hysteresis) - AND the bottom track must agree it is shallow: at its floor, at ~2-3 x the rangefinder,
+// or no bottom. Between 0.6 and 2 m both agree, so the rangefinder buys nothing there and would add its own
+// failures (its 0.12 ringdown when it loses the bottom, the blue's spikes and zeros). 0.6 m is from the red;
+// the blue's number comes from the stationary test (analysis 4.1, 5.1). The shore (P8): no bottom AND the
+// rangefinder steady at its ringdown (<= ringdownM) or silent - then no depth at all, at once.
+struct ChoiceParams {
+    float rfEnter = 0.5f;       // the rangefinder takes over under this
+    float rfLeave = 0.7f;       // and hands back over this
+    float floorMargin = 0.12f;  // "at its floor": bottom track <= minDistance + this
+    float secondEchoMin = 1.7f; // "a second echo": bottom track / rangefinder within this band
+    float secondEchoMax = 3.3f;
+    float ringdownM = 0.18f;    // the rangefinder's own ringdown (0.12 red, 0.15-0.18 blue)
+    float rfFreshS = 1.5f;      // a rangefinder older than this is silent
+};
+
+// the bottom track agrees that it is shallow (btRaw and rf without the mount offset)
+inline bool shallowAgrees(float btRaw, float rf, float minDistance, const ChoiceParams& p = ChoiceParams())
+{
+    if (!std::isfinite(btRaw))
+        return true;                                   // no bottom: nothing contradicts the rangefinder
+    if (btRaw <= minDistance + p.floorMargin)
+        return true;                                   // at its floor
+    if (std::isfinite(rf) && rf > 0.0f) {
+        const float k = btRaw / rf;
+        return k >= p.secondEchoMin && k <= p.secondEchoMax;   // the second or third echo
+    }
+    return false;
+}
+
+// the hysteresis: the new shallow-mode state from the previous one
+inline bool shallowMode(bool wasShallow, bool rfFresh, float rf, float btRaw, float minDistance, const ChoiceParams& p = ChoiceParams())
+{
+    const bool agrees = shallowAgrees(btRaw, rf, minDistance, p);
+    if (wasShallow)
+        return rfFresh && rf <= p.rfLeave && agrees;
+    return rfFresh && rf < p.rfEnter && agrees;
+}
+
 // THE OUTLIER FILTER (P5b) - the big-jump filter rebuilt where it can do its job. Its purpose (Olav): drop
 // insane values so they do not infect the CSV log of the angler capturing bathymetric data. The old one
 // shaped only the readout and NMEA, was fed ~6 re-publishes a ping, used an absolute 5 m, held the previous

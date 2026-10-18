@@ -638,6 +638,9 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     // Recorded whatever the source is - see rangefinderLive() (instrument, 4 Oct 2026).
     _rangefinderLiveRaw = distance;
     _rangefinderLiveMs  = QDateTime::currentMSecsSinceEpoch();
+    _rfRecent.emplace_back(_rangefinderLiveMs, distance);
+    while (!_rfRecent.empty() && _rangefinderLiveMs - _rfRecent.front().first > 1500)
+        _rfRecent.pop_front();
 
     // THE RANGEFINDER IS ALWAYS RECORDED (P6, 18 Oct 2026) - upstream's behaviour: the value and the epoch.
     // Until now this returned here while the bottom track was the depth source, so dataset.dist froze at the
@@ -688,6 +691,10 @@ void Dataset::addRangefinder(const ChannelId& channelId, float distance) {
     if (!_processBottomTrack) {
         // with the bottom track as the source the bottom-track path drives the update; a second emit would double it
         emit dataUpdate();
+    }
+    // the rangefinder is the chosen depth without a bottom track, and in the shallows (P7)
+    if (!_processBottomTrack || _shallowMode) {
+        chooseDepth();
     }
 }
 
@@ -1338,6 +1345,8 @@ void Dataset::resetDataset()
     _gateBVoter.clear();
     _outlierFilter.clear();
     _epochArrivalMs.clear();
+    _rfRecent.clear();
+    _shallowMode = false;
 
     setState(DatasetState::kUndefined);
 
@@ -1988,6 +1997,66 @@ void Dataset::publishPass()
     // adds the mount offset (transducer below surface - the same convention as addRangefinder).
     _bottomTrackDepth = std::isfinite(raw) ? raw + _transducerOffsetMount + _fakeDepthAddition : NAN;
     emit bottomTrackDepthChanged();
+    chooseDepth();
+}
+
+// ONE DEPTH, CHOSEN HERE (P7, 18 Oct 2026; the shore rule of P8). The rule is depth_gates.h's ChoiceParams:
+// the bottom track is the source; the rangefinder takes over under 0.5 m and hands back over 0.7 m, and only
+// while the bottom track agrees it is shallow (at its floor, a second echo, or no bottom) - so a blue
+// rangefinder spike can never be shown. On the shore - no bottom AND the rangefinder steady at its ringdown
+// (<= 0.18 m for ~1 s) or silent - there is no depth at all, at once (Olav: a dash only when sure).
+// Published as chosenDepth (NaN = none), with the source named, and noBottom / onShore for the engine.
+void Dataset::chooseDepth()
+{
+    const depthgates::ChoiceParams cp;
+    const float  rf      = _rangefinderLiveRaw;
+    const double rfAge   = rangefinderLiveAgeS();
+    const bool   rfFresh = std::isfinite(rf) && rfAge >= 0.0 && rfAge < cp.rfFreshS;
+    const float  offset  = _transducerOffsetMount + _fakeDepthAddition;
+
+    float   chosen = NAN;
+    QString source;
+    bool    noBottom = false, onShore = false;
+
+    if (!_processBottomTrack) {
+        // no bottom track: the rangefinder, as filtered by its own path (dataset.dist)
+        chosen = _dist;
+        source = QStringLiteral("rangefinder");
+        _shallowMode = false;
+    } else {
+        const float bt    = _bottomTrackDepth;             // this pass's value, with the offset, or NaN
+        const float btRaw = std::isfinite(bt) ? bt - offset : NAN;
+        noBottom = !std::isfinite(bt);
+
+        _shallowMode = depthgates::shallowMode(_shallowMode, rfFresh, rf, btRaw, bottomTrackParam_.minDistance, cp);
+
+        // the shore: the rangefinder steady at its ringdown for the last ~1 s, or silent
+        bool ringdown = _rfRecent.size() >= 2;
+        for (const auto& s : _rfRecent)
+            ringdown = ringdown && std::isfinite(s.second) && s.second <= cp.ringdownM;
+        onShore = noBottom && (ringdown || !rfFresh);
+
+        if (onShore) {
+            source = QStringLiteral("none (shore)");
+        } else if (_shallowMode) {
+            chosen = rf + offset;
+            source = QStringLiteral("rangefinder (shallow)");
+        } else if (!noBottom) {
+            chosen = bt;
+            source = QStringLiteral("bottom track");
+        } else {
+            source = QStringLiteral("none (no bottom)");
+        }
+    }
+
+    _chosenDepth = chosen;
+    _noBottom = noBottom;
+    _onShore = onShore;
+    if (_chosenSource != source) {
+        qDebug().noquote() << QStringLiteral("DEPTH: chosen source %1 -> %2").arg(_chosenSource, source);
+        _chosenSource = source;
+    }
+    emit chosenDepthChanged();
 }
 
 void Dataset::onLastBottomTrackEpochChanged(const ChannelId& channelId, int val, const BottomTrackParam& btP, bool manual, bool redrawAll)

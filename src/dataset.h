@@ -66,6 +66,12 @@ public:
     Q_PROPERTY(float dist                   READ dist                                                   NOTIFY distChanged)
     Q_PROPERTY(float temp                   READ temp                                                   NOTIFY tempChanged)
     Q_PROPERTY(float bottomTrackDepth       READ bottomTrackDepth                                       NOTIFY bottomTrackDepthChanged)
+    // THE CHOSEN DEPTH (P7, 18 Oct 2026) - the one depth the readout, NMEA and the dynamic scheme read.
+    // NaN = no depth to show (no bottom, or the shore). See chooseDepth() and depth_gates.h (ChoiceParams).
+    Q_PROPERTY(float   chosenDepth          READ chosenDepth        NOTIFY chosenDepthChanged)
+    Q_PROPERTY(QString chosenDepthSource    READ chosenDepthSource  NOTIFY chosenDepthChanged)
+    Q_PROPERTY(bool    noBottom             READ noBottom           NOTIFY chosenDepthChanged)
+    Q_PROPERTY(bool    onShore              READ onShore            NOTIFY chosenDepthChanged)
 
     Q_PROPERTY(float boatLatitude             READ getBoatLatitude          NOTIFY lastPositionChanged)
     Q_PROPERTY(float boatLongitude            READ getBoatLongitude         NOTIFY lastPositionChanged)
@@ -150,6 +156,10 @@ public:
     float dist() const { return _dist; }
     float temp() const { return _temp; }
     float bottomTrackDepth() const { return _bottomTrackDepth; }
+    float   chosenDepth() const { return _chosenDepth; }
+    QString chosenDepthSource() const { return _chosenSource; }
+    bool    noBottom() const { return _noBottom; }
+    bool    onShore() const { return _onShore; }
     double smallAgreeMargin() const { return _kSmallAgreeMargin; }
     double largeJumpThreshold() const { return _kLargeJumpThreshold; }
     int consistNeeded() const { return _kConsistNeeded; }
@@ -596,6 +606,7 @@ signals:
     void distChanged();
     void tempChanged();
     void bottomTrackDepthChanged();
+    void chosenDepthChanged();
     void redrawEpochs(const QSet<int>& indxs);
     //Pulse
     void didReceiveData();
@@ -813,6 +824,14 @@ private:
     float  _passNewestValue = NAN;
     void   notePassEpoch(int epochIndex, float stored);
     void   publishPass();
+    // THE CHOICE (P7) and the shore (P8)
+    void   chooseDepth();
+    float   _chosenDepth = NAN;
+    QString _chosenSource = QStringLiteral("none");
+    bool    _noBottom = false;
+    bool    _onShore = false;
+    bool    _shallowMode = false;
+    std::deque<std::pair<qint64, float>> _rfRecent;   // the rangefinder's last ~1.5 s, for "steady at its ringdown"
     float _bottomTrackDepth         = NAN;
     float _lastStableBTDepth1       = NAN;
     float _lastStableBTDepth2       = NAN;
