@@ -15,6 +15,7 @@ import feat, outlier
 GATE_A_FRACTION = 0.75      # bottom track beyond this fraction of the reachable end is "no bottom"
 GATE_A_RANGE_FRACTION = 0.9 # reachable end = min(maxDistance, this x the trace range)
 GATE_B_CONTRAST = 1.5       # peak at the bottom / trace median (past 0.4 m) below this is "no echo"
+GATE_B_FROM_FRACTION = 0.5  # B judges only a bottom beyond this fraction of the reachable end
 GATE_B_WINDOW = 9           # majority over this many epochs (the epoch and the ones before it)
 GATE_B_SKIP_M = 0.4         # ringdown skipped before the median
 GATE_B_PEAK_M = 0.1         # half-width of the peak search around the found bottom
@@ -61,9 +62,12 @@ def gate_a(bt, rng, maxd):
     reach = np.minimum(maxd, GATE_A_RANGE_FRACTION * rng)
     return np.isfinite(bt) & (bt > GATE_A_FRACTION * reach)
 
-def gate_b(contrast, bt):
-    """Per epoch: the majority of the last GATE_B_WINDOW epochs (this one included) that have a bottom show no echo."""
+def gate_b(contrast, bt, rng=None, maxd=None):
+    """Per epoch: the majority of the last GATE_B_WINDOW epochs (this one included) that have a bottom show no echo.
+    Only a bottom beyond GATE_B_FROM_FRACTION of the reachable end can be weak."""
     weak = np.isfinite(bt) & ~(contrast >= GATE_B_CONTRAST)   # NaN contrast with a bottom counts as weak
+    if rng is not None:
+        weak &= bt > GATE_B_FROM_FRACTION * np.minimum(maxd, GATE_A_RANGE_FRACTION * rng)
     has = np.isfinite(bt)
     out = np.zeros(len(bt), bool)
     for i in range(len(bt)):
@@ -111,7 +115,7 @@ def main():
     print(f'clock from {info[0]} LINK lines; file {start} + {info[1]} s, {len(bt)} epochs')
     shore, water = labels(name, times)
     f, r, con, lvl = feat.feats(plog_path, npz_path)
-    A = gate_a(bt, rng, maxd); B = gate_b(con, bt)
+    A = gate_a(bt, rng, maxd); B = gate_b(con, bt, rng, maxd)
     report(name, bt, shore, water, {'A': A, 'B': B, 'A or B': A | B})
     gated = np.where(A | B, np.nan, bt)
     stored, held, released = run_outlier(gated, times)

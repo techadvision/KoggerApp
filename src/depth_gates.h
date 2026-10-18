@@ -33,6 +33,12 @@ struct Params {
     // gateBSkipM (the ringdown), decided by majority over the last gateBWindow epochs. Catches blue's 35 m cap,
     // which A cannot see (ratio 0.63-0.70 at 50 m).
     float gateBContrast = 1.5f;
+    // B judges only a bottom beyond this fraction of the reachable end. A blue's nadir echo is weak in shallow water
+    // (the side-scan returns beyond nadir raise the trace median), and in the ANDY gravel pit (3.5 m, 25 m per
+    // side) B at 1.5 dashed 5% of the real bottom, in runs of up to 5 s. The false bottoms B exists for sit at
+    // 0.63-0.99 of the reach (the shore, blue's 35 m cap); real bottoms at 0.15-0.5. Nearer false bottoms (the
+    // second echo at 2 x, features at 3-4 x in the gravel pit) are not B's: see the analysis, section 7.
+    float gateBFromFraction = 0.5f;
     int   gateBWindow   = 9;
     float gateBSkipM    = 0.4f;
     float gateBPeakM    = 0.1f;

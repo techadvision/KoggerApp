@@ -329,3 +329,130 @@ taking over - released once it persisted; the blue's 23 are the 9-19 m spikes at
   over deep water for the search. Lines to look for: `BT: last 10 s | ... gate A rejected N | gate B rejected N | outlier
   held N`, `DEPTH: chosen source ... -> none (shore)`, `DEPTH: on the shore ... dash`, `DYNAMIC: search`, and the
   `DEPTH:` 10 s line's `(now x, live x)` agreeing.
+
+---
+
+## 7. After the first replay (18 Oct, evening) - reading the BT: line, the shore as a pill, the bottom track's knobs
+
+### 7.1 The `BT:` lines in Olav's replay, and what was wrong with them
+
+Olav replayed both 18 Oct logs on the new build: the bottom line followed the echogram and the readout was right, yet the
+log said `BT: epoch 1509 | bottom track - m raw of 25.13 m acquired (-) | ... | no bottom` once a second and
+`no bottom 1065` of 4323 publishes in 10 s.
+
+**How to read the line.** `bottom track - m raw` is the value the processor delivered for that epoch *before* the gates
+(`-` = none); `of 25.13 m acquired (-)` the trace's range and the value's fraction of it; `rangefinder live 6.48 (0.1 s
+old)` the raw device depth and its age; and the last field is the **reason the line was printed**, not a count - the line
+only prints (at most once a second) when something is worth saying: `gate A rejected ...`, `gate B rejected ...`, `held by
+the outlier filter`, `kept, disagrees with the rangefinder`, or `no bottom`. The counts are in the `BT: last 10 s` line
+only. So "no number next to it" is not "OK" - it is a reason; a quiet second prints nothing at all.
+
+**Why a quarter of the publishes said "no bottom" while everything looked right.** The window is centred: epoch *i*
+gets its value when epoch *i* + windowSize/2 has been processed, so every pass publishes its newest windowSize/2 epochs
+as NaN and the next pass fills them (~70 ms later). Live, the dataset runs ~2 epochs ahead of the pass and the tail is
+reached; a replay feeds the dataset in bursts and leaves it unreached every pass. The instrument reports the newest
+epoch of each batch - exactly those - and counted them. The readout never saw it (P5 takes the newest epoch *with* a
+bottom), the line was drawn once the value arrived. Fixed in `e99e4fe6`: `BottomTrackUpdate.pending` marks the unreached
+tail; the Dataset stores NaN for it as before but gives no verdict, no vote, no count and no line. The `no bottom` count
+now means what it says.
+
+### 7.2 "Out of the water" as a pill - can it be said with confidence?
+
+The shore state in C++ is: no bottom this pass **and** the rangefinder at its ringdown for the last ~1.5 s, or silent.
+Checked window by window against the 18 Oct log (97 water windows, 10 shore windows across both recordings): **no water
+window meets the rule, every shore window does** - after two corrections made in `ada19e6d`:
+
+- **A rangefinder of 0.00 is no reading.** The blue sent 0.00 from 15:25 on while tracking a 5-11 m bottom; 0 <= 0.18
+  would have counted as "ringdown", and one pass without a bottom there would have been "the shore". Now 0 is treated like
+  silence everywhere the rangefinder is judged (the choice, the shore, the `BT:` and `SHALLOW:` lines).
+- **Ringdown by two thirds of the readings, ceiling 0.22 m.** The red's rangefinder spikes to 40-44 m on the shore now
+  and then (4 of 23 shore windows), which broke an all-readings test; the blue read 0.20 on the shore at 15:20:33.
+
+What "silent" means in practice: with a live device the rangefinder is always there, so the state is driven by the
+ringdown; **in a replay it is always silent** (the logger does not record NMEA), so every no-bottom pass in a replay is
+"the shore" - a dash at once, and a pill would appear in demos. For the pill, therefore: **require the positive evidence**
+(a rangefinder reading at its ringdown), **sustained for ~3 s**, auto-dismissed when a bottom returns; never from silence
+alone. Under that rule the 18 Oct data gives zero false alarms and every shore stretch after 3 s. One day of data is not
+"9x %" - but the rule is built from two independent instruments agreeing (no echo in the trace, the rangefinder hearing
+only itself), and the failure that would fool both is a genuinely unmeasurable situation (a transducer in 10 cm of water),
+where Garmin's wording - "too shallow or out of water" - is honest anyway. Recommendation: build it (small: the engine
+already has the state; a pill like "You scrolled back", text "Out of the water or too shallow"), with the 3 s rule and
+the positive-evidence rule. **Not built yet - waiting for Olav's go.**
+
+### 7.3 The bottom track's three knobs - what each does in the algorithm
+
+From the port (`tools/pulse-bt-bench/bt.py`, line for line `bottom_track_processor.cpp`). Per epoch the trace is turned
+into a **"cash" profile**: a moving average whose width grows with distance (`init_win`, `scale_win`), then an edge
+detector - a weighted sum of the profile at five scaled positions (`c1..c5` at `i`, `1.1 i`, `1.2 i`, ...): negative
+weight just before, positive at and after, so the score peaks where the trace *rises and stays up* - the leading edge of
+a bottom. Then the score is multiplied by a **distance ramp**, and the per-epoch profiles are **summed over the window**;
+the bottom is the argmax of the summed score within [minDistance, maxDistance], refined within the **vertical gap** on the
+centre epoch's own profile.
+
+- **Gain slope** is the ramp: score x (1000/gainSlope + distance in cm). It exists because a far echo is weaker than a
+  near one and the detector would otherwise always prefer the near, loud edge (the ringdown's tail, fish, the thermocline).
+  With gain 2 the factor is 850 at 3.5 m, 1200 at 7 m, 1900 at 14 m, 2500 at 20 m - **a 20 m feature is given three
+  times the weight of a 3.5 m bottom**. That is the whole mechanism of the shore runaway and of the gravel pit's far
+  false bottoms. Lower gain = less far preference; it does not make the near echo any louder.
+- **Window** is the temporal sum: W epochs vote on where the edge is. More W = more robust to one noisy ping, and a slower
+  tracker: the value for epoch *i* is known only after W/2 more pings (the centred window), so **the delay is W/2 pings -
+  0.14 s at W 5, 1.07 s at W 31 at 14 pings/s**, exactly what Olav measured; and on a slope the summed peak smears, so a
+  changing bottom is read late and a short false excursion is *spread* over more epochs rather than removed.
+- **Vertical gap** is the per-epoch refinement: within +-gap x the windowed position, this epoch's own profile picks the
+  exact edge. It sets precision against noise: 0.04 at 3.5 m lets the value wander +-14 cm per ping (the 90th percentile
+  of |delta| was 6 cm at 0.04-0.08 and 3 cm at 0-0.02 in the gravel pit); it has **no effect on false bottoms** - a wrong
+  windowed position is refined wrongly.
+- **Threshold** (minimum summed score) does not separate anything (section 1.6): the ramp lifts far-end noise to the score
+  of a real bottom.
+
+### 7.4 The ANDY gravel-pit log, swept (`tools/pulse-bt-bench/sweep.py`)
+
+`SS_pulse_log_ANDY_2026.10.03_11.16.09.plog`: a blue in ~3.5 m of water with 25 m per side, 5293 epochs, the bottom
+track at 3.3-3.5 m with excursions to 7 m (the second echo, 2 x), 11-15 m (3-4 x) and 18-20 m. There is no ground truth;
+the reference is a +-3 s rolling median of the baseline run (an excursion shorter than ~3 s cannot move it; one 2.7 s
+stretch at 7.06 m does, and shows up as "false" readings at 3.46 - so the raw numbers are ~0.5 point high).
+
+| W | gain | vgap | false (raw) | false after the gates | dash after the gates | |delta| p90 | delay |
+|---|---|---|---|---|---|---|---|
+| **5** | **2** | **0.04** (profile) | 4.84% | **1.79%** | 4.1% | 0.06 m | 0.14 s |
+| 9 | 2 | 0.04 | 4.16% | 1.80% | 3.4% | 0.06 | 0.29 |
+| 15 | 2 | 0.04 | 4.07% | 2.06% | 2.9% | 0.06 | 0.50 |
+| 31 | 2 | 0.04 | 4.43% | 3.38% | 1.7% | 0.03 | 1.07 |
+| 5 | 0.5 | 0.04 | 4.20% | 4.13% | 0.4% | 0.03 | 0.14 |
+| 5 | 1 | 0.04 | 3.67% | 3.46% | 0.6% | 0.03 | 0.14 |
+| 5 | 4 | 0.04 | 10.6% | 2.84% | 9.7% | 0.09 | 0.14 |
+| 5 | 8 | 0.04 | 20.1% | 7.61% | 16.6% | 0.21 | 0.14 |
+| 5 | 2 | 0.00-0.02 | 4.86% | 1.81% | 4.1% | **0.03** | 0.14 |
+| 5 | 2 | 0.08-0.15 | 4.84% | 1.79% | 4.0% | 0.06 | 0.14 |
+| 15 | 1 | 0.04 | 3.97% | 3.83% | 0.4% | 0.03 | 0.50 |
+
+What it says:
+
+1. **The window buys almost nothing here** (4.8 -> 4.1% raw) and costs delay; *with the gates it gets worse* with W
+   (1.8 -> 3.4%), because a long window turns a 0.5 s false excursion into a 1.5 s one that then survives the outlier
+   filter as "persisting". Keep **W 5**. Olav's observation stands: reliability for latency - and after the gates it is
+   not even a trade any more.
+2. **Gain slope is the knob that matters, in both directions.** 4-8 is ruinous (10-20% raw: the ramp hands the bottom
+   to the far features). 0.5-1 lowers the raw rate (3.7-4.2%) but **shifts the false bottoms from far features to the
+   second echo** at 2 x - which the gates cannot see (it sits at 0.3 of the reach with a real, if weaker, echo), so after
+   the gates gain 1 is *worse* (3.5%) than gain 2 (1.8%). **Keep gain 2 and let the gates take the far features.**
+3. **Vertical gap: precision, not reliability.** 0.02 halves the ping-to-ping jitter (3 cm vs 6 cm) with no change in
+   false bottoms. Worth trying **0.02** on the blue; the red's own profile would need its own run.
+4. **Gate B was too eager for a blue in shallow water** - found here, fixed in this round. A blue's nadir echo is weak
+   (peak ~42 of 255 at 3.5 m) and the side-scan returns beyond nadir raise the trace median, so B at 1.5 dashed **5% of
+   the real bottom, in runs of up to 5 s**. B now judges only a bottom beyond **half the reachable end** - where the
+   false bottoms it exists for live (shore 0.78-0.99, blue's cap 0.67-0.88 of the reach; real bottoms 0.15-0.5). Result:
+   ANDY good-dashed 5.2% -> **0.34%**, far features still removed; the 18 Oct blue's water lost 1.43% -> **0.15%** (the
+   15:11 pings are no longer dashed), the red unchanged (100% / 0.45%).
+5. **What is left after the gates is the second echo** (~1.3% of the epochs, in runs of 1-3 s at 7.06 m) and a few
+   3-4 x features inside half the reach. The second echo has a signature the bench confirms: the trace has an echo at
+   **half** the candidate's distance at least as strong as at the candidate (83-100% of the second-echo epochs; 2-3% of
+   good epochs *also* have a loud half-point, so the test alone is not enough) - **and** the half matches the recent
+   reference that the outlier filter already keeps. The two together never fire on a real bottom in this log. That is a
+   candidate **P11**: in the outlier filter, a held value at 1.7-2.3 x the reference whose half has the stronger echo is
+   replaced by the half instead of being held. Not built; bench-verified potential: the residual falls to ~0.3%.
+
+### 7.5 Commits this round
+
+`e99e4fe6` pending tail - `ada19e6d` rangefinder 0.00 / ringdown rule - (this commit) gate B beyond half the reach,
+`sweep.py`, this section.

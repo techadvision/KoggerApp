@@ -1848,7 +1848,8 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
         v.contrast = depthgates::echoContrast(trace, n, c0->resolution, c0->offset, dist);
     }
     const depthgates::Params gp;
-    _gateBVoter.set(epochIndex, true, !(v.contrast >= gp.gateBContrast));
+    const bool farHalf = dist > gp.gateBFromFraction * depthgates::reachableEnd(maxDistance, v.rangeM, gp);
+    _gateBVoter.set(epochIndex, true, farHalf && !(v.contrast >= gp.gateBContrast));
     v.gateB = _gateBVoter.reject(epochIndex);
 
     if (v.gateA || v.gateB) {

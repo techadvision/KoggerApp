@@ -48,7 +48,7 @@ int main()
     for (int i = 495; i < 505; ++i) ring[i] = 200;
     CHECK(std::fabs(echoContrast(ring.data(), 1000, 0.01f, 0.0f, 5.0f) - 200.0f / 21.0f) < 1e-4f);
 
-    // Gate B's vote: 9 epochs, weak in the majority -> reject; a re-published epoch overwrites its own entry;
+    // Gate B's vote (the caller sets weak only beyond gateBFromFraction of the reach): 9 epochs, weak in the majority -> reject; a re-published epoch overwrites its own entry;
     // the vote for e ignores epochs after e
     GateBVoter v;
     for (int e = 0; e < 9; ++e) v.set(e, true, e < 5);        // 5 weak of 9
