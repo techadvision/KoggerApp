@@ -24,8 +24,9 @@ import QtQuick.Window
 // question, not a secret tap on the echogram.
 //
 // WHERE THE NUMBER COMES FROM. pulseRuntimeSettings.depthMeters, written by
-// PulseDepthEngine.qml and nowhere else - bottom track first, the rangefinder when bottom
-// track is not initiated, never a NaN. This file does not choose a source; it formats one.
+// PulseDepthEngine.qml and nowhere else - the dataset's one chosen depth (P7), held 2 s when
+// the bottom is lost, NaN when there is nothing to show (P8: no bottom for 2 s, or the shore) -
+// drawn here as a dash. This file does not choose a source; it formats one.
 Item {
     id: readout
 
@@ -127,7 +128,7 @@ Item {
     function _formatDepth() {
         var m = pulseRuntimeSettings ? pulseRuntimeSettings.depthMeters : 0
         if (!Number.isFinite(m))
-            return depthShown
+            return "-.-"      // no depth to show (P8): no bottom for 2 s, or the shore
         return (metricDepth ? m : m * 3.28084).toFixed(1)
     }
 

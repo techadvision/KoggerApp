@@ -91,6 +91,9 @@ Item {
         let depthInMeters = currentDepthValue()
         let decimalPlaces = 1;
 
+        if (!Number.isFinite(depthInMeters))
+            return isMetric ? '-.- m' : '-.- ft'   // no depth to show (P8): no bottom for 2 s, or the shore
+
         return isMetric
             ? depthInMeters.toFixed(decimalPlaces) + ' m'
             : (depthInMeters * 3.28084).toFixed(decimalPlaces) + ' ft'; // Convert to feet if not metric
@@ -121,11 +124,8 @@ Item {
         repeat: true
         running: true
         onTriggered: {
-            // Only refresh when the current depth is a real number; otherwise keep the last
-            // good displayDepth so the UI never shows "NaN".
-            if (Number.isFinite(depthAndTemperature.currentDepthValue())) {
-                displayDepth = depthAndTemperature.formatDepth()
-            }
+            // a NaN depth is the engine saying "nothing to show" (P8) - formatDepth draws the dash
+            displayDepth = depthAndTemperature.formatDepth()
         }
     }
 

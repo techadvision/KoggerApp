@@ -56,19 +56,66 @@ Item {
     // show (no bottom, or the shore). The old rule here - bottom track if isBottomTrackInitiated or
     // a side scan, else the rangefinder, 0.0 standing in for "never produced a value" - is gone
     // with its flags: what the Dataset processes (processBottomTrack, a profile value) is what it
-    // chooses from. selectedDepth holds the last finite chosen depth; what happens when the chosen
-    // depth is NaN is P8's (hold 2 s, then a dash).
+    // chooses from. selectedDepth holds the last finite chosen depth.
+    //
+    // NO BOTTOM AND THE SHORE ON SCREEN (P8). The chosen depth is NaN when no epoch of the pass
+    // survived the gates. In the water that is a lost bottom for a moment: the readout HOLDS the
+    // last value for 2 s, then shows a dash (shownDepth NaN). On the shore - dataset.onShore: no
+    // bottom AND the rangefinder steady at its ringdown or silent - the dash comes at once (Olav:
+    // a dash only when sure). NMEA follows on its own: Dataset sends it no depth, and its DBT
+    // fields empty after its own stale time. The readouts show a dash for a NaN depthMeters.
     property double selectedDepth: 0.0
+    property double shownDepth: NaN
+    property double noBottomSinceMs: -1
+    readonly property int holdMs: 2000
 
     onSelectedDepthChanged: {
-        if (pulseRuntimeSettings)
-            pulseRuntimeSettings.depthMeters = selectedDepth
         // the DEPTH: instrument's 1 m crossing (see logDepthSources)
         const shallow = selectedDepth < 1.0
         if (shallow !== depthLogWasShallow) {
             depthLogWasShallow = shallow
             if (depthLogLive)
                 logDepthSources(shallow ? "crossed below 1 m" : "crossed above 1 m")
+        }
+    }
+
+    onShownDepthChanged: {
+        if (pulseRuntimeSettings)
+            pulseRuntimeSettings.depthMeters = shownDepth
+    }
+
+    function takeChosenDepth() {
+        if (!dataset)
+            return
+        const c = dataset.chosenDepth
+        if (Number.isFinite(c)) {
+            selectedDepth = c
+            shownDepth = c
+            noBottomSinceMs = -1
+            return
+        }
+        if (dataset.onShore) {
+            if (Number.isFinite(shownDepth) && depthLogLive)
+                console.log("DEPTH: on the shore - no bottom, rangefinder at its ringdown or silent - dash")
+            shownDepth = NaN
+            noBottomSinceMs = -1
+            return
+        }
+        if (noBottomSinceMs < 0)
+            noBottomSinceMs = Date.now()      // hold the last value, holdTimer decides when it goes
+    }
+
+    Timer {
+        id: holdTimer
+        interval: 250
+        repeat: true
+        running: depthEngine.noBottomSinceMs >= 0 && Number.isFinite(depthEngine.shownDepth)
+        onTriggered: {
+            if (Date.now() - depthEngine.noBottomSinceMs >= depthEngine.holdMs) {
+                if (depthEngine.depthLogLive)
+                    console.log("DEPTH: no bottom for " + (depthEngine.holdMs / 1000) + " s - dash")
+                depthEngine.shownDepth = NaN
+            }
         }
     }
 
@@ -432,7 +479,7 @@ Item {
                 ? dataset.rangefinderLive().toFixed(2) + " raw, " + rfAge.toFixed(1) + " s old" : "none"
         const chosen = (dataset && Number.isFinite(dataset.chosenDepth)) ? dataset.chosenDepth.toFixed(2) : "-"
         console.log("DEPTH: " + why
-                    + " | shown " + selectedDepth.toFixed(2) + " m from " + (dataset ? dataset.chosenDepthSource : "?")
+                    + " | shown " + (Number.isFinite(shownDepth) ? shownDepth.toFixed(2) + " m" : "dash") + " from " + (dataset ? dataset.chosenDepthSource : "?")
                     + " (chosen now " + chosen + (dataset && dataset.noBottom ? ", no bottom" : "") + (dataset && dataset.onShore ? ", shore" : "") + ")"
                     + " | rangefinder " + rangeFinderDepth.toFixed(2) + " (now " + raw + ", live " + rfLive + ")"
                     + " | bottom track " + bottomTrackDepth.toFixed(2) + " (now " + bt + ")"
@@ -475,11 +522,9 @@ Item {
         }
 
         // THE ONE DEPTH (P7). Once per bottom-track pass, and per rangefinder reading when the
-        // rangefinder is the source.
+        // rangefinder is the source. NaN is handled (P8), not ignored.
         function onChosenDepthChanged () {
-            if (Number.isFinite(dataset.chosenDepth)) {
-                selectedDepth = dataset.chosenDepth
-            }
+            takeChosenDepth()
         }
     }
 
