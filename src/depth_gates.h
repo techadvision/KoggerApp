@@ -89,6 +89,27 @@ inline float echoContrast(const uint8_t* amp, int n, float resolution, float off
     return float(peak) / float(med + 1);
 }
 
+// A percentile of the trace past skipM, through the same 256-bin histogram. -1 when there is nothing to measure.
+inline int tracePercentile(const uint8_t* amp, int n, float resolution, float offsetM, int pct, const Params& p = Params())
+{
+    if (!amp || n <= 0 || !(resolution > 0.0f))
+        return -1;
+    const int i0 = std::max(1, int((p.gateBSkipM - offsetM) / resolution));
+    if (i0 >= n)
+        return -1;
+    int hist[256] = {0};
+    for (int i = i0; i < n; ++i)
+        ++hist[amp[i]];
+    const int body = n - i0;
+    const int target = std::min(body - 1, (body * pct) / 100);
+    int acc = 0;
+    for (int v = 0; v < 256; ++v) {
+        acc += hist[v];
+        if (acc > target) return v;
+    }
+    return 255;
+}
+
 // Gate B's majority vote. Per epoch it remembers whether the epoch had a bottom and whether its echo was weak
 // (contrast below the threshold, or not computable); reject(e) is true when, of the last gateBWindow epochs up
 // to e that had a bottom, more than half were weak. A re-published epoch overwrites its own entry, so the vote
@@ -134,7 +155,11 @@ struct ChoiceParams {
     float floorMargin = 0.12f;  // "at its floor": bottom track <= minDistance + this
     float secondEchoMin = 1.7f; // "a second echo": bottom track / rangefinder within this band
     float secondEchoMax = 3.3f;
-    float ringdownM = 0.22f;    // the rangefinder's own ringdown (0.12 red, 0.15-0.20 blue on the shore, 18 Oct)
+    float ringdownM = 0.25f;    // the rangefinder's own ringdown (0.12 red; 0.15-0.20 blue on the shore 18 Oct, 0.23 in air)
+    // the shore needs a QUIET TRACE too: in air there is no return at all. 95th percentile of the trace past 0.4 m -
+    // red: shore <= 59, water >= 70 (5th pct 76); blue: shore <= 15, water >= 47 (18 Oct), >= 32 (ANDY, 3.5 m)
+    int   quietP95Red  = 65;
+    int   quietP95Blue = 26;
     float rfFreshS = 1.5f;      // a rangefinder older than this is silent
 };
 
@@ -146,7 +171,8 @@ inline bool rfIsReading(float rf) { return std::isfinite(rf) && rf > 0.0f; }
 inline bool shallowAgrees(float btRaw, float rf, float minDistance, const ChoiceParams& p = ChoiceParams())
 {
     if (!std::isfinite(btRaw))
-        return true;                                   // no bottom: nothing contradicts the rangefinder
+        return false;   // no bottom is not agreement: a pass the gates emptied over 3.5 m of water must not hand the
+                        // readout to a rangefinder reading its ringdown (Olav's ANDY replay with a blue on the desk)
     if (btRaw <= minDistance + p.floorMargin)
         return true;                                   // at its floor
     if (std::isfinite(rf) && rf > 0.0f) {
@@ -186,6 +212,18 @@ struct OutlierParams {
     float rel  = 0.3f;
     int   minReference = 3;     // fewer accepted epochs in the window than this: nothing to compare with, accept
     int   persistTenths = 7;    // a jump persists when this many tenths of the window's epochs hold it
+    // A big jump needs longer: a bottom cannot change by 12 m inside one second under a moving boat (the 18 Oct
+    // blue at its 0.32 floor jumping to 12 m, confirmed after 1 s and drawn as a 5 s block). The persistence window
+    // grows by jumpSecondsPerM for every metre of jump beyond jumpFreeM, up to persistMaxWindows windows.
+    float jumpFreeM = 2.0f;
+    float jumpSecondsPerM = 0.5f;
+    int   persistMaxWindows = 4;
+    // A witness (the live rangefinder, when it is a reading) that agrees with the OLD reference and not with the
+    // candidate vetoes the confirmation - the bottom track says 10 m, the rangefinder still says 0.3-0.6 (the 18 Oct
+    // blue leaving the shore: 6.6 s of 9-10 m over 5-15 cm of water) - for up to witnessMaxWindows windows; after
+    // that the jump is accepted anyway (the witness may be stuck). The veto is remembered for a window, so one
+    // rangefinder spike (8.24 in that stretch) cannot open the door.
+    int   witnessMaxWindows = 8;
 };
 
 class OutlierFilter {
@@ -197,19 +235,21 @@ public:
         std::vector<std::pair<int, float>> released;
     };
 
-    Result apply(int epoch, float value, int windowEpochs, const OutlierParams& p = OutlierParams())
+    Result apply(int epoch, float value, int windowEpochs, float witness = NAN, const OutlierParams& p = OutlierParams())
     {
         Result r;
         const int w = std::max(3, windowEpochs);
-        trim(epoch - 4 * w);
+        trim(epoch - (p.persistMaxWindows + 4) * w);
         accepted_.erase(epoch);
         held_.erase(epoch);
         if (!std::isfinite(value))
             return r;
 
+        // the reference: the last w ACCEPTED epochs before this one - not "the last w epochs", or a held stretch
+        // would empty the reference and the next value would walk in unjudged (the backdoor the first version had)
         std::vector<float> refs;
-        for (auto it = accepted_.lower_bound(epoch - w); it != accepted_.end() && it->first < epoch; ++it)
-            refs.push_back(it->second);
+        for (auto it = accepted_.lower_bound(epoch); it != accepted_.begin() && int(refs.size()) < w;)
+            refs.push_back((--it)->second);
         if (int(refs.size()) < p.minReference) {
             accepted_[epoch] = value;
             r.stored = value;
@@ -224,11 +264,23 @@ public:
 
         held_[epoch] = value;
         r.held = true;
-        // does the jump persist? the held epochs of the last window, agreeing with each other
+        // does the jump persist? the held epochs of the last span, agreeing with each other. The span is one window
+        // (~1 s) for a jump of up to jumpFreeM, longer for a bigger one; a witness agreeing with the old reference
+        // stretches it further, up to witnessMaxWindows.
+        const float jump = std::fabs(value - ref);
+        float spanWindows = 1.0f + std::max(0.0f, jump - p.jumpFreeM) * p.jumpSecondsPerM;
+        spanWindows = std::min(spanWindows, float(p.persistMaxWindows));
+        const bool witnessAgrees = std::isfinite(witness) && std::fabs(witness - ref) <= std::max(p.absM, p.rel * ref)
+                                   && std::fabs(witness - value) > std::max(p.absM, p.rel * value);
+        if (witnessAgrees)
+            lastVeto_ = epoch;
+        if (lastVeto_ >= 0 && epoch - lastVeto_ < w)
+            spanWindows = std::max(spanWindows, float(p.witnessMaxWindows));
+        const int span = int(spanWindows * w + 0.5f);
         std::vector<std::pair<int, float>> hv;
-        for (auto it = held_.lower_bound(epoch - w + 1); it != held_.end() && it->first <= epoch; ++it)
+        for (auto it = held_.lower_bound(epoch - span + 1); it != held_.end() && it->first <= epoch; ++it)
             hv.push_back(*it);
-        const int need = std::max(p.minReference, (p.persistTenths * w + 9) / 10);
+        const int need = std::max(p.minReference, (p.persistTenths * span + 9) / 10);
         if (int(hv.size()) >= need) {
             std::vector<float> vals;
             for (const auto& e : hv) vals.push_back(e.second);
@@ -252,7 +304,7 @@ public:
     }
 
     void noBottom(int epoch) { accepted_.erase(epoch); held_.erase(epoch); }
-    void clear() { accepted_.clear(); held_.clear(); }
+    void clear() { accepted_.clear(); held_.clear(); lastVeto_ = -1; }
 
 private:
     static float median(std::vector<float>& v)
@@ -266,6 +318,7 @@ private:
         held_.erase(held_.begin(), held_.lower_bound(before));
     }
     std::map<int, float> accepted_, held_;
+    int lastVeto_ = -1;
 };
 
 } // namespace depthgates

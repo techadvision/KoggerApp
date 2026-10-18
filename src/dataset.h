@@ -186,6 +186,7 @@ public:
         bool  outlier = false;   // held by the outlier filter (P5b) - an outlier against the last second
         float contrast = NAN;    // this epoch's echo contrast (peak at the bottom / trace median)
         float rangeM = NAN;      // the trace's acquired range
+        int   traceP95 = -1;     // 95th percentile of the trace past 0.4 m (in air there is no return: the shore test)
         std::vector<std::pair<int, float>> released;   // earlier epochs the filter released (a confirmed jump): rewrite them
         bool  rejected() const { return gateA || gateB || outlier; }
     };
@@ -822,7 +823,10 @@ private:
     bool   _passSeen = false;
     int    _passNewestEpoch = -1;
     float  _passNewestValue = NAN;
-    void   notePassEpoch(int epochIndex, float stored);
+    int    _passNewestP95 = -1;      // 95th percentile of the newest epoch's trace past 0.4 m (the quiet-trace test)
+    int    _lastTraceP95 = -1;
+    int    _btP95Min = -1, _btP95Max = -1;   // the BT: 10 s count
+    void   notePassEpoch(int epochIndex, float stored, int traceP95);
     void   publishPass();
     // THE CHOICE (P7) and the shore (P8)
     void   chooseDepth();

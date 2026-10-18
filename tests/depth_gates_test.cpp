@@ -48,6 +48,12 @@ int main()
     for (int i = 495; i < 505; ++i) ring[i] = 200;
     CHECK(std::fabs(echoContrast(ring.data(), 1000, 0.01f, 0.0f, 5.0f) - 200.0f / 21.0f) < 1e-4f);
 
+    // the trace percentile: a flat 20 with a 10-sample 200 echo -> p95 is 20 (the echo is 1% of the trace); all 255 -> 255
+    CHECK(tracePercentile(amp.data(), int(amp.size()), 0.01f, 0.0f, 95) == 20);
+    std::vector<uint8_t> loud(1000, 255);
+    CHECK(tracePercentile(loud.data(), 1000, 0.01f, 0.0f, 95) == 255);
+    CHECK(tracePercentile(nullptr, 0, 0.01f, 0.0f, 95) == -1);
+
     // Gate B's vote (the caller sets weak only beyond gateBFromFraction of the reach): 9 epochs, weak in the majority -> reject; a re-published epoch overwrites its own entry;
     // the vote for e ignores epochs after e
     GateBVoter v;
@@ -81,8 +87,8 @@ int main()
         if (confirmedAt >= 0 && e > confirmedAt) CHECK(!r.held && r.stored == 8.0f);
         if (confirmedAt < 0) CHECK(r.held);
     }
-    CHECK(confirmedAt == 69);            // need = 10 of 14 -> the 10th held epoch confirms
-    CHECK(releasedN == 9);               // the nine before it are released with their real value
+    CHECK(confirmedAt == 73);            // a 2.9 m jump: span 1.45 windows = 20 epochs, need 14 -> the 14th held epoch confirms
+    CHECK(releasedN == 13);              // the thirteen before it are released with their real value
     // a re-published epoch is judged afresh against the epochs before it (the realtime pass re-publishes the
     // last ~6): the same value gets the same answer, a changed value is judged on its own
     CHECK(!f.apply(88, 8.0f, 14).held);
@@ -92,6 +98,36 @@ int main()
     OutlierFilter g; bool anyHeld = false;
     for (int e = 0; e < 420; ++e) anyHeld = anyHeld || g.apply(e, 1.4f + 0.01f * e, 14).held;
     CHECK(!anyHeld);
+    // a 12 m jump from the floor (the 18 Oct blue at 15:11): the span is capped at 4 windows = 56 epochs, so a
+    // 60-epoch excursion is confirmed only at its 40th held epoch; a 30-epoch one never is
+    OutlierFilter j;
+    for (int e = 0; e < 30; ++e) j.apply(e, 0.32f, 14);
+    int jc = -1;
+    for (int e = 30; e < 90; ++e) { auto r = j.apply(e, 12.3f, 14); if (r.confirmed && jc < 0) jc = e; }
+    CHECK(jc == 69);                     // need = 40 of 56
+    OutlierFilter j2;
+    for (int e = 0; e < 30; ++e) j2.apply(e, 0.32f, 14);
+    bool anyConf = false;
+    for (int e = 30; e < 60; ++e) anyConf = anyConf || j2.apply(e, 12.3f, 14).confirmed;
+    CHECK(!anyConf);
+    // the witness: the rangefinder still reading the old reference (0.3) vetoes for 3 windows = 42 epochs; a witness
+    // that agrees with the new value (a real drop-off the rangefinder also sees) does not
+    OutlierFilter wv;
+    for (int e = 0; e < 30; ++e) wv.apply(e, 0.32f, 14, 0.30f);
+    int wc = -1;
+    for (int e = 30; e < 200; ++e) { auto r = wv.apply(e, 3.0f, 14, 0.30f); if (r.confirmed && wc < 0) wc = e; }
+    CHECK(wc == 30 + 79 - 1);            // span 8 windows = 112 epochs, need 79 -> the 79th held epoch; one spike does not open the door
+    OutlierFilter ws;
+    for (int e = 0; e < 30; ++e) ws.apply(e, 0.32f, 14, 0.30f);
+    bool spikeOpened = false;
+    for (int e = 30; e < 80; ++e) spikeOpened = spikeOpened || ws.apply(e, 3.0f, 14, e == 50 ? 8.24f : 0.30f).confirmed;
+    CHECK(!spikeOpened);
+    OutlierFilter wa;
+    for (int e = 0; e < 30; ++e) wa.apply(e, 0.32f, 14, 0.30f);
+    int wac = -1;
+    for (int e = 30; e < 100; ++e) { auto r = wa.apply(e, 3.0f, 14, 3.1f); if (r.confirmed && wac < 0) wac = e; }
+    CHECK(wac == 43);                    // a 2.7 m jump: span 1.34 windows = 19 epochs, need 14
+
     // the first values after a long gap (the shore) are accepted without a reference
     OutlierFilter h;
     for (int e = 0; e < 10; ++e) h.apply(e, 45.0f, 9);
@@ -106,16 +142,16 @@ int main()
     // The choice. minDistance 0.25 (floor 0.37). Red at 15:03:30: bt 0.39 / rf 0.37 - both read the bottom, the
     // bottom track is right and keeps the readout (not at its floor, not a second echo); the
     // transducer touching: bt 0.32 / rf 0.12 -> shallow; the second echo: bt 0.55 / rf 0.22 -> shallow (2.5 x);
-    // bt 0.90 / rf 0.90 -> not shallow (over rfEnter); bt 1.1 / rf 0.46 -> the bottom track does not agree
-    // (2.4 x is a second echo... of 0.46: yes it agrees) -> shallow; bt 5.0 / rf 0.4 -> no (12 x), the blue's
-    // ringdown while the bottom track reads a real 5 m bottom; no bottom / rf 0.3 -> shallow.
+    // bt 0.90 / rf 0.90 -> not shallow (over rfEnter); bt 1.1 / rf 0.46 -> 2.4 x, a second echo of 0.46 -> shallow;
+    // bt 5.0 / rf 0.4 -> no (12 x), the blue's ringdown while the bottom track reads a real 5 m bottom; no bottom /
+    // rf 0.3 -> NOT shallow: no bottom is not agreement.
     CHECK(!shallowMode(false, true, 0.37f, 0.39f, 0.25f));
     CHECK(shallowMode(false, true, 0.12f, 0.32f, 0.25f));
     CHECK(shallowMode(false, true, 0.22f, 0.55f, 0.25f));
     CHECK(!shallowMode(false, true, 0.90f, 0.90f, 0.25f));
     CHECK(shallowMode(false, true, 0.46f, 1.10f, 0.25f));
     CHECK(!shallowMode(false, true, 0.40f, 5.00f, 0.25f));
-    CHECK(shallowMode(false, true, 0.30f, NAN, 0.25f));
+    CHECK(!shallowMode(false, true, 0.30f, NAN, 0.25f));   // no bottom is not agreement (ANDY replay)
     // hysteresis: in shallow mode the rangefinder may rise to 0.7 before handing back; a stale rangefinder
     // hands back at once; a blue spike (rf 24 m) never enters
     CHECK(shallowMode(true, true, 0.65f, 0.34f, 0.25f));

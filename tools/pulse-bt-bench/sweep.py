@@ -5,8 +5,10 @@
 For each parameter set the recording is replayed through the port (bt.realtime), then judged three ways:
   raw        - the bottom track as the algorithm returns it
   gated      - after gates A and B and the outlier filter of the depth-source plan (what the app stores since P3-P5b)
-  reference  - a centred rolling median (+-3 s) of the BASELINE run: an excursion shorter than ~3 s cannot move it,
-               so it stands in for the true bottom on a slowly varying bottom (it is NOT ground truth)
+  reference  - a centred rolling median (+-3 s) of the per-epoch MEDIAN ACROSS ALL SETS of the sweep: an excursion
+               must last ~3 s AND be shared by most settings to move it. It stands in for the true bottom on a slowly
+               varying bottom; it is NOT ground truth. (The first version used the baseline run's own rolling median,
+               which the baseline's 2-3 s excursions dragged along - every other setting then looked worse than it was.)
 Reported per set: false readings (> max(0.5 m, 30%) off the reference), the residual after the gates, what the gates
 turned into a dash, the jitter (90th percentile of |delta| between consecutive epochs, the precision), and the delay the window
 costs (windowSize/2 pings, since the window is centred)."""
@@ -43,8 +45,9 @@ def rolling_median(v, half):
         if len(s): out[i] = np.median(s)
     return out
 
-def judge(eps, cfg, maxd, times, ref):
-    final, _ = bt.realtime([(d, r) for d, r, o in eps], cfg)
+def judge(eps, cfg, maxd, times, ref, final=None):
+    if final is None:
+        final, _ = bt.realtime([(d, r) for d, r, o in eps], cfg)
     rng = np.array([o + len(d) * r for d, r, o in eps])
     con = contrast(eps, final)
     A = gates.gate_a(final, rng, maxd); B = gates.gate_b(con, final, rng, maxd)
@@ -55,9 +58,17 @@ def judge(eps, cfg, maxd, times, ref):
     sfin = np.isfinite(stored)
     soff = np.abs(stored - ref) > np.maximum(0.5, 0.3 * ref)
     d = np.diff(final); d = d[np.isfinite(d)]
+    runs = []; i = 0
+    while i < len(off):
+        if off[i] and fin[i]:
+            j = i
+            while j < len(off) and off[j]: j += 1
+            runs.append(j - i); i = j
+        else: i += 1
     return dict(false=100 * (off & fin).sum() / max(1, fin.sum()), nan=100 * (~fin).mean(),
                 gated_false=100 * (soff & sfin).sum() / max(1, sfin.sum()), gated_dash=100 * (~sfin).mean(),
-                jitter=float(np.percentile(np.abs(d), 90)) if len(d) else np.nan, final=final)
+                jitter=float(np.percentile(np.abs(d), 90)) if len(d) else np.nan, final=final,
+                excursions=len(runs), long=sum(1 for x in runs if x >= 14), longest=max(runs) if runs else 0)
 
 def main():
     path = sys.argv[1]; preset = int(sys.argv[2]); mind = float(sys.argv[3]); maxd = float(sys.argv[4])
@@ -65,12 +76,6 @@ def main():
     pps = float([a for a in sys.argv[5:] if a != 'fill'][0]) if [a for a in sys.argv[5:] if a != 'fill'] else 14.0
     eps = load(path, fill)
     times = np.arange(len(eps)) / pps
-    base = (preset, 5, 0.04, mind, maxd, 2, 0)
-    fb, _ = bt.realtime([(d, r) for d, r, o in eps], base)
-    ref = rolling_median(fb, int(3 * pps))
-    print(f'{os.path.basename(path)}: {len(eps)} epochs, reference = +-3 s rolling median of the baseline {base}; '
-          f'reference depth {np.nanpercentile(ref, 5):.2f}-{np.nanpercentile(ref, 95):.2f} m (5-95%)')
-    print(f'{"W":>3} {"gain":>5} {"vgap":>5} | {"false%":>7} {"nan%":>5} | {"after gates: false%":>19} {"dash%":>6} | {"dd p90 m":>8} {"delay s":>7}')
     sets = []
     for W in (5, 9, 15, 21, 31):
         sets.append((W, 2, 0.04))
@@ -78,14 +83,21 @@ def main():
         sets.append((5, g, 0.04))
     for vg in (0.0, 0.02, 0.04, 0.08, 0.15):
         sets.append((5, 2, vg))
-    for W, g in ((15, 1), (15, 0.5), (31, 1), (9, 1)):
-        sets.append((W, g, 0.04))
-    seen = set()
+    for W, g, vg in ((9, 1, 0.0), (9, 1, 0.02), (15, 1, 0.0), (15, 0.5, 0.0), (21, 1, 0.0), (31, 1, 0.0), (31, 0.5, 0.0), (5, 1, 0.0)):
+        sets.append((W, g, vg))
+    sets = list(dict.fromkeys(sets))
+    finals = {s: bt.realtime([(d, r) for d, r, o in eps], (preset, s[0], s[2], mind, maxd, s[1], 0))[0] for s in sets}
+    # the reference leaves out the sets that are wrong on their face (gain slope > 2: 12-22% off everything else) so
+    # that they cannot vote the excursions they share into the "truth"; +-5 s so that a 4 s excursion cannot either
+    with np.errstate(all='ignore'):
+        med = np.nanmedian(np.vstack([f for s, f in finals.items() if s[1] <= 2]), axis=0)
+    ref = rolling_median(med, int(5 * pps))
+    print(f'{os.path.basename(path)}: {len(eps)} epochs, {len(sets)} sets; reference = +-5 s rolling median of the median across the sets with gain <= 2; '
+          f'reference depth {np.nanpercentile(ref, 5):.2f}-{np.nanpercentile(ref, 95):.2f} m (5-95%)')
+    print(f'{"W":>3} {"gain":>5} {"vgap":>5} | {"false%":>7} {"excurs":>6} {">=1s":>4} {"longest":>7} | {"after gates: false%":>19} {"dash%":>6} | {"dd p90 m":>8} {"delay s":>7}')
     for W, g, vg in sets:
-        if (W, g, vg) in seen: continue
-        seen.add((W, g, vg))
-        r = judge(eps, (preset, W, vg, mind, maxd, g, 0), maxd, times, ref)
-        print(f'{W:>3} {g:>5} {vg:>5} | {r["false"]:>7.2f} {r["nan"]:>5.1f} | {r["gated_false"]:>19.2f} {r["gated_dash"]:>6.1f} | {r["jitter"]:>8.3f} {W // 2 / pps:>7.2f}')
+        r = judge(eps, (preset, W, vg, mind, maxd, g, 0), maxd, times, ref, finals[(W, g, vg)])
+        print(f'{W:>3} {g:>5} {vg:>5} | {r["false"]:>7.2f} {r["excursions"]:>6d} {r["long"]:>4d} {r["longest"]:>7d} | {r["gated_false"]:>19.2f} {r["gated_dash"]:>6.1f} | {r["jitter"]:>8.3f} {W // 2 / pps:>7.2f}')
 
 if __name__ == '__main__':
     main()

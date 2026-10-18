@@ -5,6 +5,10 @@ ABS_M = 0.5
 REL = 0.3
 MIN_REFERENCE = 3
 PERSIST_TENTHS = 7
+JUMP_FREE_M = 2.0
+JUMP_SECONDS_PER_M = 0.5
+PERSIST_MAX_WINDOWS = 4
+WITNESS_MAX_WINDOWS = 8
 
 
 def _median(v):
@@ -16,6 +20,7 @@ class OutlierFilter:
     def __init__(self):
         self.accepted = {}
         self.held = {}
+        self.last_veto = -1
 
     def _trim(self, before):
         self.accepted = {k: x for k, x in self.accepted.items() if k >= before}
@@ -24,14 +29,14 @@ class OutlierFilter:
     def no_bottom(self, epoch):
         self.accepted.pop(epoch, None); self.held.pop(epoch, None)
 
-    def apply(self, epoch, value, window_epochs):
+    def apply(self, epoch, value, window_epochs, witness=None):
         """Returns (stored, held, confirmed, released[(epoch, value)])."""
         w = max(3, int(window_epochs))
-        self._trim(epoch - 4 * w)
+        self._trim(epoch - (PERSIST_MAX_WINDOWS + 4) * w)
         self.accepted.pop(epoch, None); self.held.pop(epoch, None)
         if value is None or not math.isfinite(value):
             return math.nan, False, False, []
-        refs = [x for k, x in self.accepted.items() if epoch - w <= k < epoch]
+        refs = [x for k, x in sorted(self.accepted.items(), reverse=True) if k < epoch][:w]   # the last w ACCEPTED
         if len(refs) < MIN_REFERENCE:
             self.accepted[epoch] = value
             return value, False, False, []
@@ -40,8 +45,15 @@ class OutlierFilter:
             self.accepted[epoch] = value
             return value, False, False, []
         self.held[epoch] = value
-        hv = sorted((k, x) for k, x in self.held.items() if epoch - w + 1 <= k <= epoch)
-        need = max(MIN_REFERENCE, (PERSIST_TENTHS * w + 9) // 10)
+        jump = abs(value - ref)
+        span_w = min(1.0 + max(0.0, jump - JUMP_FREE_M) * JUMP_SECONDS_PER_M, float(PERSIST_MAX_WINDOWS))
+        if witness is not None and math.isfinite(witness) and abs(witness - ref) <= max(ABS_M, REL * ref) and abs(witness - value) > max(ABS_M, REL * value):
+            self.last_veto = epoch
+        if self.last_veto >= 0 and epoch - self.last_veto < w:
+            span_w = max(span_w, float(WITNESS_MAX_WINDOWS))
+        span = int(span_w * w + 0.5)
+        hv = sorted((k, x) for k, x in self.held.items() if epoch - span + 1 <= k <= epoch)
+        need = max(MIN_REFERENCE, (PERSIST_TENTHS * span + 9) // 10)
         if len(hv) >= need:
             hm = _median([x for k, x in hv]); tol = max(ABS_M, REL * hm)
             if all(abs(x - hm) <= tol for k, x in hv):
