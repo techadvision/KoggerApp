@@ -401,8 +401,81 @@ Item {
         }
     }
 
+    // ---- The dynamic scheme on no bottom (P9, 18 Oct 2026) ----------------------
+    //
+    // The scheme used to be fed whatever the bottom track said, so on the shore the false far-end
+    // bottom dragged the range out (3 -> 51 m in three seconds) and the range then let the false
+    // bottom climb further. Since P3-P5 a pass without a bottom publishes NaN, and NaN is never fed
+    // here: the range HOLDS. On the shore (dataset.onShore) it holds, full stop. In the water with no
+    // bottom for 3 s the scheme SEARCHES: it doubles the wanted range every ~2 s up to the maximum
+    // until a bottom is found, then the normal rule takes over with a fresh plan. This is the one
+    // thing the runaway did by accident that was useful - a red started over 10 m of water at its
+    // 3 m range only found the bottom because the false bottom pulled the range out - and P3 removed
+    // the accident, so the search must land with it.
+    property double schemeNoBottomSinceMs: -1
+    property double schemeLastSearchStepMs: -1
+    property bool   schemeSearching: false
+    readonly property int searchAfterMs: 3000
+    readonly property int searchStepMs: 2000
+
+    function schemeManagesThisDevice() {
+        return pulseRuntimeSettings && !pulseRuntimeSettings.isInDemoMode && pulseRuntimeSettings.devConfigured
+                && (pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRed
+                    || pulseRuntimeSettings.userManualSetName === pulseRuntimeSettings.modelPulseRedProto)
+    }
+
+    function searchOnNoBottom() {
+        const now = Date.now()
+        if (dataset && dataset.onShore) {
+            // the range holds; nothing to look for on the shore
+            schemeNoBottomSinceMs = -1
+            if (schemeSearching) {
+                console.log("DYNAMIC: search stopped - on the shore, the range holds at " + (lastPlanRangeMm / 1000).toFixed(1) + " m")
+                schemeSearching = false
+            }
+            return
+        }
+        if (schemeNoBottomSinceMs < 0) {
+            schemeNoBottomSinceMs = now
+            return
+        }
+        if (now - schemeNoBottomSinceMs < searchAfterMs || !schemeManagesThisDevice())
+            return
+        if (now - schemeLastSearchStepMs < searchStepMs)
+            return
+        const maxMm = pulseRuntimeSettings.dynamicSamplesMax * pulseRuntimeSettings.dynamicResolutionMax
+        const fromMm = lastPlanRangeMm > 0 ? lastPlanRangeMm : 500 * pulseRuntimeSettings.dynamicResolutionMin
+        if (fromMm >= maxMm) {
+            if (!schemeSearching || now - schemeLastSearchStepMs >= 10000) {
+                console.log("DYNAMIC: search at the maximum range " + (maxMm / 1000).toFixed(1) + " m, still no bottom")
+                schemeLastSearchStepMs = now
+            }
+            schemeSearching = true
+            return
+        }
+        const wantMm = Math.min(maxMm, 2 * fromMm)
+        schemeSearching = true
+        schemeLastSearchStepMs = now
+        console.log("DYNAMIC: search - no bottom for " + ((now - schemeNoBottomSinceMs) / 1000).toFixed(1)
+                    + " s, range " + (fromMm / 1000).toFixed(1) + " -> " + (wantMm / 1000).toFixed(1) + " m")
+        applyRedPlan(wantMm, "search")
+    }
+
     function autoLevelCalculate () {
-        let currentDepth = currentDepthValue()
+        // THE DEPTH THE SCHEME IS FED is the dataset's chosen depth of this pass - never the held
+        // readout value, never a rejected epoch. NaN means hold (and, in the water, search).
+        const currentDepth = dataset ? dataset.chosenDepth : NaN
+        if (!Number.isFinite(currentDepth)) {
+            searchOnNoBottom()
+            return
+        }
+        schemeNoBottomSinceMs = -1
+        if (schemeSearching) {
+            schemeSearching = false
+            console.log("DYNAMIC: search found a bottom at " + currentDepth.toFixed(2) + " m - the normal rule resumes")
+            if (pulseRuntimeSettings && !pulseRuntimeSettings.isInDemoMode)
+                pulseRuntimeSettings.forceUpdateResolution = true   // a fresh plan from the real depth, no hysteresis wait
+        }
         const resolutionTracked = calculateDynamicResolution(currentDepth) === true
         if (!resolutionTracked)
             trackDisplayDepth(currentDepth)
