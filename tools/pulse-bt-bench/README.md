@@ -13,6 +13,10 @@ epoch per pass, the dataset running ~2 epochs ahead of the chart counter). Built
 - `run2d.py <plog> "<preset,W,vgap,min,max,gain,thr>" <out.npz> [fill]` - runs it and saves values, ranges and the
   per-epoch peak score, mean and 95th percentile of the trace.
 - `feat.py` - per-epoch echo contrast (the trace peak within 0.1 m of the found bottom / the trace median past 0.4 m).
+- `gates.py <plog> <npz> <pulse.log>` - the shore checks: labels every epoch shore / water from the app log of the same
+  run (the clock comes from the `LINK:` ping rates, see the docstring) and reports, per gate of the plan (A geometry,
+  B echo contrast, the outlier filter), the shore epochs removed and the water epochs lost. The constants mirror
+  `src/depth_gates.h`; change them together. Re-run on both 18 Oct recordings after every change to a gate.
 - `match.py` - checks the bench against the app's own `BT: epoch` lines in `pulse.log` (finds the epoch offset).
 
 Profiles: red/black `(1,5,0.04,0.25,50,2,0)`, blue `(2,5,0.04,0.25,35,2,0)` with `fill`.

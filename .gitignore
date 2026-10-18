@@ -82,3 +82,7 @@ Claude outputs/
 
 # PULSE test logs handed over for analysis (.plog, pulse.log) - never committed
 testlogs/
+
+# the bottom-track bench is Python on purpose (tools/pulse-bt-bench/README.md)
+!tools/pulse-bt-bench/*.py
+__pycache__/
