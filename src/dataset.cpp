@@ -1325,6 +1325,7 @@ void Dataset::resetDataset()
     resetRenderBuffers();
 
     resetDistProcessing();
+    _gateBVoter.clear();
 
     setState(DatasetState::kUndefined);
 
@@ -1787,18 +1788,38 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
 // (and, for the vote of gate B, on epochs before it), never on "the last good value".
 float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v)
 {
-    Q_UNUSED(epochIndex);
     v = GateVerdict();
     const Epoch::Echogram* c0 = ep.chartAvail(channelId, 0) ? ep.chart(channelId, 0) : nullptr;
     if (c0 && c0->resolution > 0.0f) {
         v.rangeM = c0->offset + c0->amplitude.size() * c0->resolution;
     }
     if (!std::isfinite(dist)) {
+        _gateBVoter.set(epochIndex, false, false);
         return NAN;
     }
 
     // Gate A - geometry: the far end of what the search could reach is the search edge, not a bottom
     v.gateA = depthgates::gateA(dist, maxDistance, v.rangeM);
+
+    // Gate B - echo contrast, on the trace the bottom track itself saw: a blue's two sides merged as
+    // (a + b) >> 2 (bottom_track_processor.cpp), a red's single channel as is. A bottom with no echo over the
+    // trace's own noise floor is the search edge too - blue's 35 m cap, which A cannot see at 50 m per side.
+    if (c0 && c0->resolution > 0.0f && !c0->amplitude.isEmpty()) {
+        const uint8_t* trace = reinterpret_cast<const uint8_t*>(c0->amplitude.constData());
+        const int n = c0->amplitude.size();
+        const Epoch::Echogram* c1 = ep.chartAvail(channelId, 1) ? ep.chart(channelId, 1) : nullptr;
+        if (c1 && c1->amplitude.size() == n && c1->resolution == c0->resolution) {
+            _gateTraceBuf.resize(n);
+            const uint8_t* b = reinterpret_cast<const uint8_t*>(c1->amplitude.constData());
+            for (int i = 0; i < n; ++i)
+                _gateTraceBuf[i] = uint8_t((uint16_t(trace[i]) + uint16_t(b[i])) >> 2);
+            trace = _gateTraceBuf.data();
+        }
+        v.contrast = depthgates::echoContrast(trace, n, c0->resolution, c0->offset, dist);
+    }
+    const depthgates::Params gp;
+    _gateBVoter.set(epochIndex, true, !(v.contrast >= gp.gateBContrast));
+    v.gateB = _gateBVoter.reject(epochIndex);
 
     return v.rejected() ? NAN : dist;
 }
@@ -1821,12 +1842,14 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     const float  ratio = (btOk && rangeM > 0.0f) ? btRaw / rangeM : NAN;
 
     const bool farEnd   = v.gateA;
+    const bool noEcho   = v.gateB;
     const bool disagree = rfOk && btOk && !v.rejected()
                           && std::fabs(btRaw - rf) > std::max(0.3f, 0.3f * std::min(btRaw, rf));
     const bool none     = !btOk;
 
     ++_btN;
     if (farEnd)   ++_btFar;
+    if (noEcho)   ++_btGateB;
     if (disagree) ++_btDisagree;
     if (none)     ++_btNone;
     if (std::isfinite(ratio) && ratio > _btRatioMax) _btRatioMax = ratio;
@@ -1841,11 +1864,12 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
 
     const auto f2 = [](float v) { return std::isfinite(v) ? QString::number(v, 'f', 2) : QStringLiteral("-"); };
 
-    if ((farEnd || disagree || none) && now - _btLastLineMs >= 1000) {
+    if ((farEnd || noEcho || disagree || none) && now - _btLastLineMs >= 1000) {
         _btLastLineMs = now;
         ++_btLines;
         QStringList why;
         if (farEnd)   why << QStringLiteral("gate A rejected: far end (> 0.75 of the reachable range)");
+        if (noEcho)   why << QStringLiteral("gate B rejected: no echo (contrast %1)").arg(f2(v.contrast));
         if (disagree) why << QStringLiteral("kept, disagrees with the rangefinder");
         if (none)     why << QStringLiteral("no bottom");
         qDebug().noquote() << QStringLiteral("BT: epoch %1 | bottom track %2 m raw of %3 m acquired (%4) | rangefinder live %5 (%6 s old) | %7")
@@ -1855,12 +1879,12 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
 
     if (now - _btWindowStartMs >= 10000) {
-        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | gate A rejected %2 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | %10 lines")
+        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | gate A rejected %2 | gate B rejected %11 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | %10 lines")
                               .arg(_btN).arg(_btFar).arg(_btDisagree).arg(_btNone)
                               .arg(f2(_btRatioMax), f2(_btMin), f2(_btMax), f2(_rfMin), f2(_rfMax))
-                              .arg(_btLines);
+                              .arg(_btLines).arg(_btGateB);
         _btWindowStartMs = now;
-        _btN = _btFar = _btDisagree = _btNone = _btLines = 0;
+        _btN = _btFar = _btGateB = _btDisagree = _btNone = _btLines = 0;
         _btRatioMax = 0;
         _btMin = _btMax = _rfMin = _rfMax = NAN;
     }

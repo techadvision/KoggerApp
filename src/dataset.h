@@ -10,6 +10,7 @@
 #include <QSet>
 #include <QPair>
 #include <QVector>
+#include "depth_gates.h"
 #include <QVector3D>
 #include <QVariantMap>
 #include <QReadWriteLock>
@@ -170,8 +171,10 @@ public:
     // NaN (no bottom) when it cannot be one. Every consumer reads the epoch, so all inherit it.
     struct GateVerdict {
         bool  gateA = false;     // the far end of the reachable range (geometry)
+        bool  gateB = false;     // no echo at the found bottom (contrast, majority of the last 9 epochs)
+        float contrast = NAN;    // this epoch's echo contrast (peak at the bottom / trace median)
         float rangeM = NAN;      // the trace's acquired range
-        bool  rejected() const { return gateA; }
+        bool  rejected() const { return gateA || gateB; }
     };
     float gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v);
     void logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v);   // the BT: line, live only
@@ -791,6 +794,9 @@ private:
     int    _btN = 0, _btFar = 0, _btDisagree = 0, _btNone = 0, _btLines = 0;
     float  _btRatioMax = 0, _btMin = NAN, _btMax = NAN, _rfMin = NAN, _rfMax = NAN;
     qint64 _shallowLastLineMs = 0;   // the SHALLOW: instrument
+    depthgates::GateBVoter _gateBVoter;   // gate B's per-epoch vote (depth_gates.h)
+    std::vector<uint8_t> _gateTraceBuf;   // the merged trace gate B reads, reused
+    int    _btGateB = 0;                  // the BT: 10 s count
     float _bottomTrackDepth         = NAN;
     float _lastStableBTDepth1       = NAN;
     float _lastStableBTDepth2       = NAN;
