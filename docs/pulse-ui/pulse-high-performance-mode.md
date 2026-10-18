@@ -708,6 +708,28 @@ setting recoverable.
 9. **`Basic2D` is two prototypes**: blue at 921600, red at 115200 — so the engine reads the reported baud rate.
 10. **Blue keeps 70 ms.** Performance mode is a blue feature; red/black get link-fit tuning; a black v2 is recommended (8.4).
 
+## 10a. The bottom track's false bottom under performance mode (18 Oct 2026)
+
+From the depth-source analysis (`pulse-depth-source-analysis.md`, 18 Oct field run). With no echo - the boat on the
+shore, or a lost bottom - the bottom track reports a false bottom near the end of what it searches:
+**min(maxDistance, ~0.9 x the range per side)**. So its size follows the acquisition range, which performance mode sets.
+
+| PULSE blue set-up | Range per side | False bottom on the shore |
+|---|---|---|
+| As shipped | 25 m | **11-19.8 m** (log and bench) |
+| Performance mode, 5000 samples, fine spacing, Max range side 50 m | 50 m | **25-35.1 m** - capped by blue's `distProcessing` maxDistance 35 |
+
+Olav, 18 Oct: *"For the blue we do not see the values above 19-ish meters ... If we apply the performance mode settings
+with 5000 samples and spacing down to 1 mm then the size of these false readings increase to 30-ish meters."*
+
+- **The bottom track's search does not follow performance mode** (Olav, 18 Oct: *"simply overlooked"*): blue's
+  maxDistance is a fixed 35 m, so beyond 35 m per side the bottom track is blind. **It should follow the performance mode
+  max range.** To fix in the performance-mode chat, together with the issue Olav sees when the max range is lowered to
+  10 m - neither belongs to the depth-source work.
+- **The false bottom itself** is fixed in the depth-source plan (P3 range gate, P4 echo-contrast gate), which removes
+  99.9% of the blue's shore pings on the bench. Those gates use the *reachable end* (min(maxDistance, 0.9 x range)), so they
+  keep working when maxDistance follows the range.
+
 ## 11. For later
 
 - Opening performance mode to all users: the per-link switch and the wifi warning (6.2, last bullet).
