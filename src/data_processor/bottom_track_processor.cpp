@@ -181,7 +181,7 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
         t1 = 1.2f;
     }
 
-    const int gain_slope_inv = 1000/(gain_slope);
+    const int gain_slope_inv = 1000/std::max(gain_slope, 0.1f);   // a 0 would divide by zero (the classic spinbox starts at 0)
     const int threshold_int = 10*gain_slope_inv*1000*threshold;
     constexpr float kBottomTrackRefResolution = 0.01f; // 10 mm
 

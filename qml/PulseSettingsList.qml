@@ -1991,7 +1991,11 @@ Item {
 
                     label: qsTr("Gain slope")
                     decimals: 1
-                    values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
+                    // 0.3-0.9 added 18 Oct 2026: the gravel-pit sweep (analysis 7.4) puts the blue's best gain slope at
+                    // 0.5-1.0 - the ramp at 2 hands a 3.5 m bottom to 20 m features three to one. 0 is not offered:
+                    // the processor divides by it.
+                    values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,
+                             1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
                              2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
                     value: (pulseRuntimeSettings && pulseRuntimeSettings.distProcessing)
                            ? pulseRuntimeSettings.distProcessing[5] : 1.0

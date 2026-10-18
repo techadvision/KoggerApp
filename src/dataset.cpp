@@ -1638,6 +1638,7 @@ QStringList Dataset::channelsNameList()
 void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist)
 {
     bool settedChart = false;
+    GateVerdict verdict;
 
     {
         QWriteLocker wl(&poolMtx_);
@@ -1649,7 +1650,6 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
         Epoch& ep = pool_[epIndx];
 
         // the depth gates decide what this epoch stores (NaN = no bottom)
-        GateVerdict verdict;
         dist = gateBottomTrackLocked(ep, channelId, epIndx, dist, bottomTrackParam_.maxDistance, verdict);
         for (const auto& rel : verdict.released) {
             if (rel.first < 0 || rel.first >= pool_.size()) continue;

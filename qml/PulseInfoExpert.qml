@@ -1212,7 +1212,8 @@ Flickable {
                 //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
                 //only on a real user step. See HorizontalControllerDoubleSettings.
                 emitOnUserActionOnly: true
-                values: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
+                values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,   // 18 Oct 2026: the blue's best gain slope is 0.5-1.0 (analysis 7.4)
+                        1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0,
                         2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0]
 
                 onPulsePreferenceValueChanged: function(newValue) {
