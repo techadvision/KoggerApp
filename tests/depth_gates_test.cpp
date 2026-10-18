@@ -66,6 +66,43 @@ int main()
     for (int e = 0; e < 9; ++e) w.set(e, e % 3 == 0, true);
     CHECK(w.reject(6));
 
+    // The outlier filter. A steady 5 m bottom at 14 epochs/s; a 2-epoch spike to 44 m is held (NaN), then
+    // the bottom continues and the spike stays out; a real drop to 8 m persists and is released after ~1 s
+    // with the held epochs rewritten; a slope within 30%/s is never touched.
+    OutlierFilter f;
+    for (int e = 0; e < 30; ++e) { auto r = f.apply(e, 5.0f, 14); CHECK(!r.held); CHECK(r.stored == 5.0f); }
+    auto s1 = f.apply(30, 44.0f, 14); CHECK(s1.held); CHECK(std::isnan(s1.stored));
+    auto s2 = f.apply(31, 43.5f, 14); CHECK(s2.held);
+    for (int e = 32; e < 60; ++e) { auto r = f.apply(e, 5.1f, 14); CHECK(!r.held); CHECK(!r.confirmed); }
+    int confirmedAt = -1; size_t releasedN = 0;
+    for (int e = 60; e < 90; ++e) {
+        auto r = f.apply(e, 8.0f, 14);
+        if (r.confirmed && confirmedAt < 0) { confirmedAt = e; releasedN = r.released.size(); }
+        if (confirmedAt >= 0 && e > confirmedAt) CHECK(!r.held && r.stored == 8.0f);
+        if (confirmedAt < 0) CHECK(r.held);
+    }
+    CHECK(confirmedAt == 69);            // need = 10 of 14 -> the 10th held epoch confirms
+    CHECK(releasedN == 9);               // the nine before it are released with their real value
+    // a re-published epoch is judged afresh against the epochs before it (the realtime pass re-publishes the
+    // last ~6): the same value gets the same answer, a changed value is judged on its own
+    CHECK(!f.apply(88, 8.0f, 14).held);
+    CHECK(f.apply(88, 44.0f, 14).held);
+    CHECK(!f.apply(88, 8.0f, 14).held);
+    // a slope: 1.4 -> 5.6 m over 30 s at 14/s (0.01 m per epoch) - never held
+    OutlierFilter g; bool anyHeld = false;
+    for (int e = 0; e < 420; ++e) anyHeld = anyHeld || g.apply(e, 1.4f + 0.01f * e, 14).held;
+    CHECK(!anyHeld);
+    // the first values after a long gap (the shore) are accepted without a reference
+    OutlierFilter h;
+    for (int e = 0; e < 10; ++e) h.apply(e, 45.0f, 9);
+    for (int e = 10; e < 200; ++e) h.noBottom(e);
+    CHECK(!h.apply(200, 0.53f, 14).held);
+    // NaN is ignored, not a reset: the reference survives a no-bottom epoch
+    OutlierFilter k;
+    for (int e = 0; e < 20; ++e) k.apply(e, 5.0f, 14);
+    k.apply(20, NAN, 14);
+    CHECK(k.apply(21, 30.0f, 14).held);
+
     std::printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails ? 1 : 0;
 }

@@ -17,6 +17,8 @@ epoch per pass, the dataset running ~2 epochs ahead of the chart counter). Built
   run (the clock comes from the `LINK:` ping rates, see the docstring) and reports, per gate of the plan (A geometry,
   B echo contrast, the outlier filter), the shore epochs removed and the water epochs lost. The constants mirror
   `src/depth_gates.h`; change them together. Re-run on both 18 Oct recordings after every change to a gate.
+- `outlier.py` - a port of `depthgates::OutlierFilter` (P5b); gates.py runs it over the gated epochs and reports what it held
+  in the water and on the two real slopes of the 18 Oct run (which must stay at zero).
 - `match.py` - checks the bench against the app's own `BT: epoch` lines in `pulse.log` (finds the epoch offset).
 
 Profiles: red/black `(1,5,0.04,0.25,50,2,0)`, blue `(2,5,0.04,0.25,35,2,0)` with `fill`.

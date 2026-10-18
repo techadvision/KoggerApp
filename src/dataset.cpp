@@ -362,6 +362,12 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
 
         if (needNewEpoch) {
             pool_.resize(pool_.size() + 1);
+            if (getState() == DatasetState::kConnection) {   // the ping clock for the outlier filter's window
+                const qint64 now = QDateTime::currentMSecsSinceEpoch();
+                _epochArrivalMs.push_back(now);
+                while (!_epochArrivalMs.empty() && now - _epochArrivalMs.front() > 1000)
+                    _epochArrivalMs.pop_front();
+            }
         }
 
         endIndx = pool_.size() - 1;
@@ -1326,6 +1332,8 @@ void Dataset::resetDataset()
 
     resetDistProcessing();
     _gateBVoter.clear();
+    _outlierFilter.clear();
+    _epochArrivalMs.clear();
 
     setState(DatasetState::kUndefined);
 
@@ -1630,6 +1638,15 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
         // the depth gates decide what this epoch stores (NaN = no bottom)
         GateVerdict verdict;
         dist = gateBottomTrackLocked(ep, channelId, epIndx, dist, bottomTrackParam_.maxDistance, verdict);
+        for (const auto& rel : verdict.released) {
+            if (rel.first < 0 || rel.first >= pool_.size()) continue;
+            Epoch& rep = pool_[rel.first];
+            const int subs = rep.getChartsSizeByChannelId(channelId);
+            for (int s = 0; s < subs; ++s) {
+                if (Epoch::Echogram* chart = rep.chartAvail(channelId, s) ? rep.chart(channelId, s) : nullptr)
+                    chart->bottomProcessing.setDistance(rel.second, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
+            }
+        }
 
         // for all sub ch
         const int numSubChs = ep.getChartsSizeByChannelId(channelId);
@@ -1693,10 +1710,29 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
             const float maxD = std::isfinite(update.maxDistance) ? update.maxDistance : bottomTrackParam_.maxDistance;
             const float gated = gateBottomTrackLocked(ep, update.channelId, update.epochIndex, update.distance, maxD, verdict);
             gatedByEpoch.insert(update.epochIndex, gated);
+            for (const auto& rel : verdict.released) {   // a confirmed jump: the held epochs get their real value back
+                if (!gatedByEpoch.contains(rel.first))
+                    gatedByEpoch.insert(rel.first, rel.second);
+            }
             if (firstChannelId_.channelId_ == update.channelId && update.epochIndex >= instrEpoch) {
                 instrEpoch   = update.epochIndex;
                 instrDist    = update.distance;
                 instrVerdict = verdict;
+            }
+        }
+
+        // released epochs are not in this batch: rewrite them on every channel the batch writes
+        for (auto it = gatedByEpoch.cbegin(); it != gatedByEpoch.cend(); ++it) {
+            bool inBatch = false;
+            for (const auto& update : updates) inBatch = inBatch || update.epochIndex == it.key();
+            if (inBatch || it.key() < 0 || it.key() >= poolSize) continue;
+            Epoch& rep = pool_[it.key()];
+            for (const auto& update : updates) {
+                const int subs = rep.getChartsSizeByChannelId(update.channelId);
+                for (int s = 0; s < subs; ++s) {
+                    if (Epoch::Echogram* chart = rep.chartAvail(update.channelId, s) ? rep.chart(update.channelId, s) : nullptr)
+                        chart->bottomProcessing.setDistance(it.value(), Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
+                }
             }
         }
 
@@ -1796,7 +1832,29 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
     _gateBVoter.set(epochIndex, true, !(v.contrast >= gp.gateBContrast));
     v.gateB = _gateBVoter.reject(epochIndex);
 
-    return v.rejected() ? NAN : dist;
+    if (v.gateA || v.gateB) {
+        _outlierFilter.noBottom(epochIndex);
+        return NAN;
+    }
+
+    // The outlier filter (P5b) - after the gates, so it only judges values that could be a bottom. Held
+    // epochs are stored as NaN; a jump that persists ~1 s releases them with their real values (v.released).
+    if (_useDepthFilterWithBottomTrack) {
+        depthgates::OutlierFilter::Result r = _outlierFilter.apply(epochIndex, dist, epochsPerSecond());
+        v.outlier = r.held;
+        v.released = std::move(r.released);
+        return r.stored;
+    }
+    return dist;
+}
+
+// The ping rate as the outlier filter's window: the epochs that arrived in the last second, live; a file
+// replays faster than real time, so there the window is the rate every Pulse pings at in the water.
+int Dataset::epochsPerSecond() const
+{
+    if (getState() != DatasetState::kConnection)
+        return 14;
+    return std::max<int>(3, int(_epochArrivalMs.size()));
 }
 
 // THE BT: INSTRUMENT (4 Oct 2026; counting what the gates REJECT since P3, 18 Oct). Live only, per
@@ -1818,6 +1876,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
 
     const bool farEnd   = v.gateA;
     const bool noEcho   = v.gateB;
+    const bool outlier  = v.outlier;
     const bool disagree = rfOk && btOk && !v.rejected()
                           && std::fabs(btRaw - rf) > std::max(0.3f, 0.3f * std::min(btRaw, rf));
     const bool none     = !btOk;
@@ -1825,6 +1884,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     ++_btN;
     if (farEnd)   ++_btFar;
     if (noEcho)   ++_btGateB;
+    if (outlier)  ++_btOutlier;
     if (disagree) ++_btDisagree;
     if (none)     ++_btNone;
     if (std::isfinite(ratio) && ratio > _btRatioMax) _btRatioMax = ratio;
@@ -1839,12 +1899,13 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
 
     const auto f2 = [](float v) { return std::isfinite(v) ? QString::number(v, 'f', 2) : QStringLiteral("-"); };
 
-    if ((farEnd || noEcho || disagree || none) && now - _btLastLineMs >= 1000) {
+    if ((farEnd || noEcho || outlier || disagree || none) && now - _btLastLineMs >= 1000) {
         _btLastLineMs = now;
         ++_btLines;
         QStringList why;
         if (farEnd)   why << QStringLiteral("gate A rejected: far end (> 0.75 of the reachable range)");
         if (noEcho)   why << QStringLiteral("gate B rejected: no echo (contrast %1)").arg(f2(v.contrast));
+        if (outlier)  why << QStringLiteral("held by the outlier filter");
         if (disagree) why << QStringLiteral("kept, disagrees with the rangefinder");
         if (none)     why << QStringLiteral("no bottom");
         qDebug().noquote() << QStringLiteral("BT: epoch %1 | bottom track %2 m raw of %3 m acquired (%4) | rangefinder live %5 (%6 s old) | %7")
@@ -1854,12 +1915,12 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
 
     if (now - _btWindowStartMs >= 10000) {
-        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | gate A rejected %2 | gate B rejected %11 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | %10 lines")
+        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | gate A rejected %2 | gate B rejected %11 | outlier held %12 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | %10 lines")
                               .arg(_btN).arg(_btFar).arg(_btDisagree).arg(_btNone)
                               .arg(f2(_btRatioMax), f2(_btMin), f2(_btMax), f2(_rfMin), f2(_rfMax))
-                              .arg(_btLines).arg(_btGateB);
+                              .arg(_btLines).arg(_btGateB).arg(_btOutlier);
         _btWindowStartMs = now;
-        _btN = _btFar = _btGateB = _btDisagree = _btNone = _btLines = 0;
+        _btN = _btFar = _btGateB = _btOutlier = _btDisagree = _btNone = _btLines = 0;
         _btRatioMax = 0;
         _btMin = _btMax = _rfMin = _rfMax = NAN;
     }
@@ -1919,13 +1980,9 @@ void Dataset::publishPass()
     _passNewestEpoch = -1;
     _passNewestValue = NAN;
 
-    if (std::isfinite(raw)) {
-        // Same convention as addRangefinder: ADD the mount offset (transducer below surface).
-        const float corrDistance = raw + _transducerOffsetMount + _fakeDepthAddition;
-        _bottomTrackDepth = _useDepthFilterWithBottomTrack ? filterDepthRecords(corrDistance) : corrDistance;
-    } else {
-        _bottomTrackDepth = NAN;   // no bottom this pass - the filter is not told (F6: a NaN used to reset it)
-    }
+    // The epochs are already gated and outlier-filtered (P3-P5b, at the write); the published value only
+    // adds the mount offset (transducer below surface - the same convention as addRangefinder).
+    _bottomTrackDepth = std::isfinite(raw) ? raw + _transducerOffsetMount + _fakeDepthAddition : NAN;
     emit bottomTrackDepthChanged();
 }
 

@@ -113,4 +113,107 @@ private:
     std::map<int, uint8_t> flags_;
 };
 
+// THE OUTLIER FILTER (P5b) - the big-jump filter rebuilt where it can do its job. Its purpose (Olav): drop
+// insane values so they do not infect the CSV log of the angler capturing bathymetric data. The old one
+// shaped only the readout and NMEA, was fed ~6 re-publishes a ping, used an absolute 5 m, held the previous
+// value (a fake point, not a gap) and was reset by every NaN. This one sits at the epoch write, after the
+// gates, so every consumer inherits it, and:
+//  - the reference is the running median of the epochs accepted in the last ~1 s before this one (never
+//    "the last value"), so the same epoch re-published gets the same answer;
+//  - the threshold is relative: an outlier is more than max(absM, rel x reference) away - right at 1 m and
+//    at 40 m;
+//  - a jump is accepted when it persists for ~1 s of distinct epochs that agree with each other: a drop-off
+//    persists, a spike does not;
+//  - a rejected epoch is stored as NaN - a gap in the CSV and the bathymetry, never the old value;
+//  - when a jump is confirmed, the epochs held meanwhile are released with their real values (the caller
+//    rewrites them), so a real drop-off loses nothing in the records - it appears ~1 s late on screen;
+//  - NaN (no bottom) is ignored, never a reset.
+// windowEpochs is the number of epochs in ~1 s - time, not samples - supplied by the caller from the ping rate.
+struct OutlierParams {
+    float absM = 0.5f;
+    float rel  = 0.3f;
+    int   minReference = 3;     // fewer accepted epochs in the window than this: nothing to compare with, accept
+    int   persistTenths = 7;    // a jump persists when this many tenths of the window's epochs hold it
+};
+
+class OutlierFilter {
+public:
+    struct Result {
+        float stored = NAN;      // what the epoch stores: the value, or NaN while held
+        bool  held = false;      // rejected for now (an outlier against the reference)
+        bool  confirmed = false; // this epoch confirmed a jump: 'released' holds the earlier held epochs
+        std::vector<std::pair<int, float>> released;
+    };
+
+    Result apply(int epoch, float value, int windowEpochs, const OutlierParams& p = OutlierParams())
+    {
+        Result r;
+        const int w = std::max(3, windowEpochs);
+        trim(epoch - 4 * w);
+        accepted_.erase(epoch);
+        held_.erase(epoch);
+        if (!std::isfinite(value))
+            return r;
+
+        std::vector<float> refs;
+        for (auto it = accepted_.lower_bound(epoch - w); it != accepted_.end() && it->first < epoch; ++it)
+            refs.push_back(it->second);
+        if (int(refs.size()) < p.minReference) {
+            accepted_[epoch] = value;
+            r.stored = value;
+            return r;
+        }
+        const float ref = median(refs);
+        if (std::fabs(value - ref) <= std::max(p.absM, p.rel * ref)) {
+            accepted_[epoch] = value;
+            r.stored = value;
+            return r;
+        }
+
+        held_[epoch] = value;
+        r.held = true;
+        // does the jump persist? the held epochs of the last window, agreeing with each other
+        std::vector<std::pair<int, float>> hv;
+        for (auto it = held_.lower_bound(epoch - w + 1); it != held_.end() && it->first <= epoch; ++it)
+            hv.push_back(*it);
+        const int need = std::max(p.minReference, (p.persistTenths * w + 9) / 10);
+        if (int(hv.size()) >= need) {
+            std::vector<float> vals;
+            for (const auto& e : hv) vals.push_back(e.second);
+            const float hm = median(vals);
+            const float tol = std::max(p.absM, p.rel * hm);
+            bool agree = true;
+            for (float x : vals) agree = agree && std::fabs(x - hm) <= tol;
+            if (agree) {
+                for (const auto& e : hv) {
+                    accepted_[e.first] = e.second;
+                    held_.erase(e.first);
+                    if (e.first != epoch)
+                        r.released.push_back(e);
+                }
+                r.held = false;
+                r.confirmed = true;
+                r.stored = value;
+            }
+        }
+        return r;
+    }
+
+    void noBottom(int epoch) { accepted_.erase(epoch); held_.erase(epoch); }
+    void clear() { accepted_.clear(); held_.clear(); }
+
+private:
+    static float median(std::vector<float>& v)
+    {
+        std::sort(v.begin(), v.end());
+        return v[(v.size() - 1) / 2];    // the lower middle value (as the bench)
+    }
+    void trim(int before)
+    {
+        accepted_.erase(accepted_.begin(), accepted_.lower_bound(before));
+        held_.erase(held_.begin(), held_.lower_bound(before));
+    }
+    std::map<int, float> accepted_, held_;
+};
+
 } // namespace depthgates

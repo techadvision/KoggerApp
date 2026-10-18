@@ -11,6 +11,7 @@
 #include <QPair>
 #include <QVector>
 #include "depth_gates.h"
+#include <deque>
 #include <QVector3D>
 #include <QVariantMap>
 #include <QReadWriteLock>
@@ -172,9 +173,11 @@ public:
     struct GateVerdict {
         bool  gateA = false;     // the far end of the reachable range (geometry)
         bool  gateB = false;     // no echo at the found bottom (contrast, majority of the last 9 epochs)
+        bool  outlier = false;   // held by the outlier filter (P5b) - an outlier against the last second
         float contrast = NAN;    // this epoch's echo contrast (peak at the bottom / trace median)
         float rangeM = NAN;      // the trace's acquired range
-        bool  rejected() const { return gateA || gateB; }
+        std::vector<std::pair<int, float>> released;   // earlier epochs the filter released (a confirmed jump): rewrite them
+        bool  rejected() const { return gateA || gateB || outlier; }
     };
     float gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v);
     void logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v);   // the BT: line, live only
@@ -795,6 +798,10 @@ private:
     float  _btRatioMax = 0, _btMin = NAN, _btMax = NAN, _rfMin = NAN, _rfMax = NAN;
     qint64 _shallowLastLineMs = 0;   // the SHALLOW: instrument
     depthgates::GateBVoter _gateBVoter;   // gate B's per-epoch vote (depth_gates.h)
+    depthgates::OutlierFilter _outlierFilter;   // P5b, at the epoch write (depth_gates.h)
+    std::deque<qint64> _epochArrivalMs;   // when new epochs arrived live - the filter's window is ~1 s of them
+    int    epochsPerSecond() const;
+    int    _btOutlier = 0;                // the BT: 10 s count
     std::vector<uint8_t> _gateTraceBuf;   // the merged trace gate B reads, reused
     int    _btGateB = 0;                  // the BT: 10 s count
     // ONE VALUE PER PASS (P5). Each realtime pass re-publishes the last ~6 epochs, oldest to newest, each as

@@ -9,7 +9,7 @@ change them together."""
 import os, re, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import feat
+import feat, outlier
 
 # --- the constants, as in Dataset (keep in step with src/dataset.cpp) -------------------------------------------
 GATE_A_FRACTION = 0.75      # bottom track beyond this fraction of the reachable end is "no bottom"
@@ -72,6 +72,29 @@ def gate_b(contrast, bt):
         out[i] = has[i] and n > 0 and 2 * w > n
     return out
 
+# the real slopes of the 18 Oct run (analysis 5.2 item 9): the outlier filter must reject nothing there
+SLOPES = {
+    '2D_pulse_log_2026.10.18_15.00.29.plog': [('15:01:40', '15:02:10')],   # red 1.4 -> 5.6 m
+    'SS_pulse_log_2026.10.18_15.10.27.plog': [('15:15:21', '15:15:53')],   # blue 11 -> 2.5 m
+}
+
+def run_outlier(gated, times):
+    """The filter over the gated per-epoch values in epoch order, the window = the epochs of the last second
+    (time, not samples, as Dataset counts them). Returns stored values, held mask, released count."""
+    f = outlier.OutlierFilter()
+    stored = np.full(len(gated), np.nan); held = np.zeros(len(gated), bool); released = 0
+    j = 0
+    for i, v in enumerate(gated):
+        while times[i] - times[j] > 1.0: j += 1
+        w = i - j + 1
+        if not np.isfinite(v):
+            f.no_bottom(i); continue
+        s, h, c, rel = f.apply(i, float(v), w)
+        stored[i] = s; held[i] = h
+        for k, x in rel:
+            stored[k] = x; held[k] = False; released += 1
+    return stored, held, released
+
 def report(name, bt, shore, water, gates):
     print(f'{name}: {len(bt)} epochs, shore {shore.sum()} (with bottom {np.isfinite(bt[shore]).sum()}), water {water.sum()} (with bottom {np.isfinite(bt[water]).sum()})')
     hs = shore & np.isfinite(bt); hw = water & np.isfinite(bt)
@@ -90,7 +113,19 @@ def main():
     f, r, con, lvl = feat.feats(plog_path, npz_path)
     A = gate_a(bt, rng, maxd); B = gate_b(con, bt)
     report(name, bt, shore, water, {'A': A, 'B': B, 'A or B': A | B})
-    np.savez(npz_path.replace('.npz', '_gates.npz'), A=A, B=B, times=times, shore=shore, water=water, con=con)
+    gated = np.where(A | B, np.nan, bt)
+    stored, held, released = run_outlier(gated, times)
+    hw = water & np.isfinite(gated)
+    def hms_(x): x = int(x); return f'{x // 3600:02d}:{x % 3600 // 60:02d}:{x % 60:02d}'
+    print(f'  outlier    held in water {held[hw].sum()} of {hw.sum()} epochs ({100 * held[hw].mean():.2f}%), {released} released after a confirmed jump')
+    for a, b in SLOPES[name]:
+        m = (times >= hms(a)) & (times <= hms(b)) & np.isfinite(gated)
+        print(f'  slope {a}-{b}: {np.nanmin(gated[m]):.2f} -> {np.nanmax(gated[m]):.2f} m, {m.sum()} epochs, held {held[m].sum()}')
+    if held[hw].any():
+        ks = np.where(held & hw)[0]
+        print('  held at', sorted(set(hms_(times[k]) for k in ks))[:20], 'values', np.round(gated[ks], 2)[:20])
+    np.savez(npz_path.replace('.npz', '_gates.npz'), A=A, B=B, times=times, shore=shore, water=water, con=con,
+             stored=stored, held=held)
 
 if __name__ == '__main__':
     main()
