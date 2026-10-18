@@ -1,6 +1,6 @@
 # The depth source on the shore and in the shallows - analysis and plan (18 Oct 2026)
 
-Branch `feature/pulse-depth-source` (1.44 for experts, `b0d4711a`). Input: Olav's field run on 18 Oct from 14:58 -
+Branch `feature/pulse-depth-source` (1.44 for experts, `b0d4711a`; built P2-P9 in section 6). Input: Olav's field run on 18 Oct from 14:58 -
 `pulse_181026.log` (1.44 with the `DEPTH:` live-rangefinder field and the `BT:` lines), `2D_pulse_log_2026.10.18_15.00.29.plog`
 (production PULSE red, shore -> water -> shore several times) and `SS_pulse_log_2026.10.18_15.10.27.plog` (beta PULSE blue,
 a mission starting and ending on the shore). Earlier reading: the backlog section "The depth source - analysis, 4 Oct
@@ -251,3 +251,81 @@ bathymetric data*. Today it cannot do that:
    on the real slopes (red 1.4 -> 5.6 m at 15:01:40-15:02:10; blue 11 -> 2.5 m at 15:15:21-15:15:53), the spikes gone.
 10. **The CSV logger** writes the chosen depth (P7) in its depth column - its own small commit, once Olav says which CSV
     matters.
+
+---
+
+## 6. Built - P2 to P9, 18 Oct 2026 (the coding chat)
+
+Ten commits on `feature/pulse-depth-source` after the analysis, one idea each, `a90ae1c7..4c2cb91a`. Nothing has been
+compiled by the coding chat (no Qt in its shell): the pure parts are unit-tested, the gates are bench-tested, the Qt
+and QML parts are read, not run. **First build and the device run are Olav's.**
+
+| # | commit | what landed | proof so far |
+|---|---|---|---|
+| bench | `a90ae1c7` | the bench's Python finally in the repo (`*.py` was ignored repo-wide; P1 had committed only the README) and `gates.py`, the shore checks: labels every epoch shore / water from the app log's clock and scores each gate | baseline below |
+| P2 | `50321441` | `SHALLOW:` line, up to 5 a second under 1.5 m - bottom track raw (flagged at its floor), rangefinder live + age, bt/rf, floor, range | reads correctly in code; the shallow sweep is the test |
+| P3 | `b14dd4b4` | gate A at the epoch write; `BottomTrackUpdate` carries the pass's `maxDistance`; `src/depth_gates.h` (pure C++, `tests/depth_gates_test.cpp` without Qt); `BT:` counts *rejected* | bench: red 100% / 0.45%, blue 92.7% / 0.00% |
+| P4 | `247e12b9` | gate B on the merged `(a + b) >> 2` trace the bottom track itself saw, majority of the last 9 epochs | bench: blue 100% / 1.43% (the 5-15 cm pings, Q4), red 100% / 0.53% |
+| P5 | `55129370` | one value per pass: collected per batch, published once in `onLastBottomTrackEpochChanged` - the newest epoch with a bottom, or NaN | by construction (one emit per pass) |
+| P5b | `6cd181eb` | `depthgates::OutlierFilter` at the epoch write, after the gates: running median of the last ~1 s, relative threshold, ~1 s persistence, held = NaN, released on a confirmed jump; `filterDepthRecords` stays on the rangefinder path only | bench: zero held on both real slopes; 13 / 3753 red and 23 / 7780 blue water epochs held, all spikes or the second-echo step |
+| P6 | `4c7b5a65` | the rangefinder always recorded (value + epoch); `dataUpdate` still only when it is the source | `DEPTH:` "now" must equal "live" on the device |
+| P7 | `300b0931` | `Dataset::chooseDepth()` - `chosenDepth` / `chosenDepthSource` / `noBottom` / `onShore`; NMEA listens to it alone; the QML engine only reads | `tests/depth_gates_test.cpp` (the crossover cases) |
+| P8 | `bc7a4745` | engine: hold 2 s then dash; on the shore the dash at once; both readouts draw `-.-` for NaN | device |
+| P9 | `4c2cb91a` | the scheme reads the chosen depth, never a NaN; on the shore the range holds; in the water no bottom for 3 s -> `DYNAMIC: search`, range doubled every 2 s to the maximum, fresh plan when a bottom is found | device: start over deep water |
+
+### 6.1 The bench, as it now runs
+
+```
+python3 tools/pulse-bt-bench/run2d.py testlogs/depth-source/2D_pulse_log_2026.10.18_15.00.29.plog "(1,5,0.04,0.25,50,2,0)" red.npz
+python3 tools/pulse-bt-bench/run2d.py testlogs/depth-source/SS_pulse_log_2026.10.18_15.10.27.plog "(2,5,0.04,0.25,35,2,0)" blue.npz fill
+python3 tools/pulse-bt-bench/gates.py testlogs/depth-source/2D_pulse_log_2026.10.18_15.00.29.plog red.npz  testlogs/depth-source/pulse_181026.log
+python3 tools/pulse-bt-bench/gates.py testlogs/depth-source/SS_pulse_log_2026.10.18_15.10.27.plog blue.npz testlogs/depth-source/pulse_181026.log
+```
+
+The clock: the `.plog` has no timestamps, so `gates.py` accumulates the `LINK:` lines' ping rates from the file's start
+time; checked against the red's range changes (`DYNAMIC: plan` against the range steps in the file) it is within ~1 s,
+and a 5 s margin around each shore stretch is left unscored. The blue recording ends at 15:20:52 (8812 epochs) - only
+its first 50 m shore stretch is in the file; 15:39 and 15:46 are in the log alone.
+
+| gate | red: shore removed | red: water lost | blue: shore removed | blue: water lost |
+|---|---|---|---|---|
+| A | 100% (527) | 0.45% (17) | 92.7% (771) | 0.00% (0) |
+| B | 100% | 0.53% (20) | 100% | 1.43% (113) |
+| A or B | 100% | 0.56% (21) | 100% | 1.43% (113) |
+| outlier (after the gates) | - | 0.35% held (13), 10 released | - | 0.30% held (23), 0 released |
+| the real slopes | 1.42 -> 5.65 m, 413 epochs: **0 held** | | 2.09 -> 11.14 m, 448 epochs: **0 held** | |
+
+The red's 17-21 "water lost" are the first two seconds after launching (the range still 51 m and the far-end 45 m values
+the readout then showed - removing them is right), one 0.53 and one 4.6 m right after the range shrank. The blue's 113 are
+the 15:11 pings with 5-15 cm of water (Q4). The red's 13 held are the 0.46 -> 1.1 m step at 15:03:53 - a second echo
+taking over - released once it persisted; the blue's 23 are the 9-19 m spikes at 15:20:09-12 and the confused 15:11 pings.
+
+### 6.2 What changed for whoever reads the code next
+
+- **One decision per epoch, in `Dataset::gateBottomTrackLocked`**, under the pool lock, with the raw value from the
+  processor: range -> gate A -> contrast and vote -> gate B -> outlier filter -> stored value (NaN = no bottom). Both the
+  singular and the batch path go through it; a blue's two channels get the first channel's verdict.
+- **The constants live once**, in `src/depth_gates.h` (`Params`, `OutlierParams`, `ChoiceParams`), mirrored by
+  `gates.py` / `outlier.py`. Changing one without the other makes the bench lie.
+- **`_bottomTrackDepth` is per pass**, offset-corrected, NaN allowed. **`chosenDepth`** is what the app shows and sends.
+  `bottomTrackDepth` and `dist` remain as instruments.
+- **The crossover** (`ChoiceParams`): rangefinder < 0.5 in, > 0.7 out, only while the bottom track is at its floor
+  (`minDistance` + 0.12), a second echo (1.7-3.3 x) or absent. At 15:03:30 (bt 0.39 / rf 0.37) the bottom track keeps
+  the readout: both read the bottom and it is right. The blue's band is still the stationary test's to set.
+- **"On the shore"** is computed in C++ (no bottom AND the rangefinder <= 0.18 for the last ~1 s, or silent) so NMEA and
+  the readout agree. **In a replayed file the rangefinder is always silent** (the logger does not record NMEA), so a
+  no-bottom pass in a replay shows the dash at once rather than holding 2 s. Accepted; say so if it surprises in a demo.
+- **The outlier window is time**: the epochs that arrived in the last second (live), 14 in a replay.
+- `filterDepthRecords` is now the rangefinder-only path's filter. `_useDepthFilterWithBottomTrack` switches the new one.
+- The QML engine's `isBottomTrackInitiated` / side-scan source rule is gone with its 0.0 fallback; `processBottomTrack`
+  (a profile value) is what the Dataset chooses from.
+
+### 6.3 Still open
+
+- **5.2 item 10, the CSV logger** writing the chosen depth - waits for Olav's answer on which CSV the anglers use.
+- **Q3 / P10**: blue's `maxDistance` following the performance-mode range - the performance-mode chat.
+- **The P2 shallow sweep and the stationary blue test** (4.1) set the final crossover numbers.
+- **Device after P3-P9**: the 18 Oct run again (shore -> water -> shore with the red, a mission with the blue), one start
+  over deep water for the search. Lines to look for: `BT: last 10 s | ... gate A rejected N | gate B rejected N | outlier
+  held N`, `DEPTH: chosen source ... -> none (shore)`, `DEPTH: on the shore ... dash`, `DYNAMIC: search`, and the
+  `DEPTH:` 10 s line's `(now x, live x)` agreeing.
