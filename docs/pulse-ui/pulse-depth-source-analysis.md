@@ -405,54 +405,99 @@ centre epoch's own profile.
 - **Threshold** (minimum summed score) does not separate anything (section 1.6): the ramp lifts far-end noise to the score
   of a real bottom.
 
-### 7.4 The ANDY gravel-pit log, swept (`tools/pulse-bt-bench/sweep.py`)
+### 7.4 The ANDY gravel-pit log, swept (`tools/pulse-bt-bench/sweep.py`) - corrected the same evening
 
 `SS_pulse_log_ANDY_2026.10.03_11.16.09.plog`: a blue in ~3.5 m of water with 25 m per side, 5293 epochs, the bottom
-track at 3.3-3.5 m with excursions to 7 m (the second echo, 2 x), 11-15 m (3-4 x) and 18-20 m. There is no ground truth;
-the reference is a +-3 s rolling median of the baseline run (an excursion shorter than ~3 s cannot move it; one 2.7 s
-stretch at 7.06 m does, and shows up as "false" readings at 3.46 - so the raw numbers are ~0.5 point high).
+track at 3.3-3.5 m with excursions to 7 m (the second echo, 2 x), 10-15 m (3-4 x) and 18-20 m. There is no ground truth.
 
-| W | gain | vgap | false (raw) | false after the gates | dash after the gates | |delta| p90 | delay |
-|---|---|---|---|---|---|---|---|
-| **5** | **2** | **0.04** (profile) | 4.84% | **1.79%** | 4.1% | 0.06 m | 0.14 s |
-| 9 | 2 | 0.04 | 4.16% | 1.80% | 3.4% | 0.06 | 0.29 |
-| 15 | 2 | 0.04 | 4.07% | 2.06% | 2.9% | 0.06 | 0.50 |
-| 31 | 2 | 0.04 | 4.43% | 3.38% | 1.7% | 0.03 | 1.07 |
-| 5 | 0.5 | 0.04 | 4.20% | 4.13% | 0.4% | 0.03 | 0.14 |
-| 5 | 1 | 0.04 | 3.67% | 3.46% | 0.6% | 0.03 | 0.14 |
-| 5 | 4 | 0.04 | 10.6% | 2.84% | 9.7% | 0.09 | 0.14 |
-| 5 | 8 | 0.04 | 20.1% | 7.61% | 16.6% | 0.21 | 0.14 |
-| 5 | 2 | 0.00-0.02 | 4.86% | 1.81% | 4.1% | **0.03** | 0.14 |
-| 5 | 2 | 0.08-0.15 | 4.84% | 1.79% | 4.0% | 0.06 | 0.14 |
-| 15 | 1 | 0.04 | 3.97% | 3.83% | 0.4% | 0.03 | 0.50 |
+**The first version of this section was wrong, and Olav's eye caught it.** Its reference was the baseline run's own
+rolling median, which the baseline's 2-4 s excursions drag along, so every other setting was scored against the
+baseline's mistakes and looked worse than it was; it concluded "keep W 5 and gain 2". Olav's own tuning (W 30, gain 1.0,
+vgap 0) visibly cleaned the same stretch. The reference is now the +-5 s rolling median of the per-epoch median across
+all sets with gain <= 2 (the gain 4-8 sets are wrong on their face and may not vote), and the table counts excursions.
+Judged after the gates and the outlier filter *as rebuilt below* (7.6):
+
+| W | gain | vgap | false (raw) | excursions (>= 1 s) | longest | after gates+filter: false | dash | delta p90 | delay |
+|---|---|---|---|---|---|---|---|---|---|
+| **5** | **2** | **0.04** (profile) | 6.63% | 37 (7) | 69 ep | **3.41%** | 5.2% | 0.06 m | 0.14 s |
+| 15 | 2 | 0.04 | 5.24% | 15 (6) | 64 | 3.11% | 2.9% | 0.06 | 0.50 |
+| 31 | 2 | 0.04 | 3.41% | 9 (5) | 52 | 2.29% | 1.7% | 0.03 | 1.07 |
+| 5 | 1 | 0.04 | 2.36% | 16 (2) | 41 | 1.66% | 0.9% | 0.03 | 0.14 |
+| 5 | 0.5 | 0.04 | 1.29% | 12 (1) | 26 | 0.72% | 0.8% | 0.03 | 0.14 |
+| 9 | 1 | 0 | 2.02% | 9 (2) | 41 | 1.65% | 0.6% | 0.00 | 0.29 |
+| **15** | **1** | **0** | 1.78% | 7 (3) | 37 | 1.43% | 0.7% | 0.00 | 0.50 |
+| **15** | **0.5** | **0** | 0.81% | 6 (1) | 16 | **0.30%** | 0.7% | 0.00 | 0.50 |
+| 21 | 1 | 0 | 1.63% | 8 (3) | 22 | 0.99% | 1.2% | 0.00 | 0.71 |
+| 31 | 1 | 0 (Olav) | 0.97% | 5 (2) | 16 | 0.36% | 1.0% | 0.00 | 1.07 |
+| 31 | 0.5 | 0 | 0.45% | 3 (0) | 12 | 0.46% | 0.4% | 0.00 | 1.07 |
+| 5 | 4 | 0.04 | 13.5% | 49 (12) | 94 | 4.64% | 11.7% | 0.09 | 0.14 |
+| 5 | 8 | 0.04 | 23.2% | 82 (24) | 124 | 8.59% | 18.9% | 0.21 | 0.14 |
 
 What it says:
 
-1. **The window buys almost nothing here** (4.8 -> 4.1% raw) and costs delay; *with the gates it gets worse* with W
-   (1.8 -> 3.4%), because a long window turns a 0.5 s false excursion into a 1.5 s one that then survives the outlier
-   filter as "persisting". Keep **W 5**. Olav's observation stands: reliability for latency - and after the gates it is
-   not even a trade any more.
-2. **Gain slope is the knob that matters, in both directions.** 4-8 is ruinous (10-20% raw: the ramp hands the bottom
-   to the far features). 0.5-1 lowers the raw rate (3.7-4.2%) but **shifts the false bottoms from far features to the
-   second echo** at 2 x - which the gates cannot see (it sits at 0.3 of the reach with a real, if weaker, echo), so after
-   the gates gain 1 is *worse* (3.5%) than gain 2 (1.8%). **Keep gain 2 and let the gates take the far features.**
-3. **Vertical gap: precision, not reliability.** 0.02 halves the ping-to-ping jitter (3 cm vs 6 cm) with no change in
-   false bottoms. Worth trying **0.02** on the blue; the red's own profile would need its own run.
-4. **Gate B was too eager for a blue in shallow water** - found here, fixed in this round. A blue's nadir echo is weak
-   (peak ~42 of 255 at 3.5 m) and the side-scan returns beyond nadir raise the trace median, so B at 1.5 dashed **5% of
-   the real bottom, in runs of up to 5 s**. B now judges only a bottom beyond **half the reachable end** - where the
-   false bottoms it exists for live (shore 0.78-0.99, blue's cap 0.67-0.88 of the reach; real bottoms 0.15-0.5). Result:
-   ANDY good-dashed 5.2% -> **0.34%**, far features still removed; the 18 Oct blue's water lost 1.43% -> **0.15%** (the
-   15:11 pings are no longer dashed), the red unchanged (100% / 0.45%).
-5. **What is left after the gates is the second echo** (~1.3% of the epochs, in runs of 1-3 s at 7.06 m) and a few
-   3-4 x features inside half the reach. The second echo has a signature the bench confirms: the trace has an echo at
-   **half** the candidate's distance at least as strong as at the candidate (83-100% of the second-echo epochs; 2-3% of
-   good epochs *also* have a loud half-point, so the test alone is not enough) - **and** the half matches the recent
-   reference that the outlier filter already keeps. The two together never fire on a real bottom in this log. That is a
-   candidate **P11**: in the outlier filter, a held value at 1.7-2.3 x the reference whose half has the stronger echo is
-   replaced by the half instead of being held. Not built; bench-verified potential: the residual falls to ~0.3%.
+1. **Gain slope is the knob, and lower is better for the blue** - exactly what the ramp predicts (7.3): at gain 2 a
+   20 m feature outweighs a 3.5 m bottom three to one. Gain 1 halves the false readings, 0.5 halves them again
+   (6.6 -> 2.4 -> 1.3% raw at W 5). The gates then take the far half of what is left.
+2. **The window helps on top**, at its price in delay: at gain 0.5-1, W 15 (0.5 s) removes most of the remaining
+   excursions, W 31 (1.07 s) a few more. Olav's reading - reliability for latency - is right; the gates do not change
+   that trade, they make it cheaper by taking the far features that no window removes.
+3. **Vertical gap 0 (or 0.02)**: precision only - the ping-to-ping jitter halves (3 cm vs 6 cm) with no change in false
+   readings.
+4. **Gate B was too eager for a blue in shallow water** - found here, fixed. A blue's nadir echo is weak (peak ~42 of
+   255 at 3.5 m) and the side-scan returns beyond nadir raise the trace median, so B at 1.5 dashed 5% of the real
+   bottom, in runs of up to 5 s. B now judges only a bottom beyond **half the reachable end**, where the false bottoms
+   it exists for live (shore 0.78-0.99, blue's cap 0.67-0.88 of the reach; real bottoms 0.15-0.5). ANDY good-dashed
+   5.2% -> 0.34% with the far features still removed; the 18 Oct blue's water lost 1.43% -> 0.15%; the red unchanged.
+5. **Recommendation for the blue profile: W 15, gain 0.5, vertical gap 0** - 0.30% residual on ANDY with 0.5 s of
+   delay, and on the 18 Oct blue it removes 100% of the shore, loses 0.00% of the water and holds nothing. Olav's
+   (30, 1.0, 0) is the same picture at 1.07 s. **The profile is not changed in this branch** - Olav's call, and one
+   more log would be good before it is. The red (preset 1) has not been swept at all.
+6. **What is left after everything is the second echo** (runs of 1-3 s at 7.06 m) and near features inside half the
+   reach. The second echo has a bench-confirmed signature: an echo at **half** the candidate's distance at least as
+   strong as at the candidate (83-100% of the second-echo epochs; but 2-3% of good epochs also have a loud half-point,
+   so the test alone is not enough) **and** the half matching the reference the outlier filter already keeps. The two
+   together never fire on a real bottom in this log. Candidate **P11**; not built.
 
 ### 7.5 Commits this round
 
-`e99e4fe6` pending tail - `ada19e6d` rangefinder 0.00 / ringdown rule - (this commit) gate B beyond half the reach,
-`sweep.py`, this section.
+`e99e4fe6` pending tail - `ada19e6d` rangefinder 0.00 / ringdown rule - `82aab06b` gate B beyond half the reach,
+`sweep.py`, this section - `ec950cf1` the shallows and the shore after the second replay (7.6).
+
+### 7.6 Olav's second replay - the shallows are not right yet, and what was wrong
+
+**The ANDY replay with a blue on the desk.** The replay's `rangefinder live 0.23` came from the live device beside the
+tablet (the ANDY `.plog` carries no `ID_DIST` at all; the demo plays into a dataset the connected device also feeds).
+That exposed a real flaw: `DEPTH: chosen source bottom track -> rangefinder (shallow)` flipped every time the gates
+emptied a pass, because "no bottom" counted as the bottom track *agreeing* that it is shallow, and 0.23 < 0.5. **No
+bottom is not agreement** any more: the rangefinder takes over only when the bottom track is at its floor or on a
+second echo. In the field this would have shown 0.2 m for a pass whenever a far feature was gated away.
+
+**The 18 Oct blue leaving the shore (15:11).** Olav's log: the bottom track at its floor (0.32, rangefinder 0.29-0.36)
+jumps to 12.31 m in one epoch; the outlier filter holds it (`held by the outlier filter`), it persists ~1 s and is
+*confirmed*; the held epochs are rewritten and a 9-10 m block stands for 6.6 s over 5-15 cm of water, while the
+rangefinder reads 0.3-0.6 the whole time. Three changes to the filter (`depth_gates.h`, mirrored in `outlier.py`):
+
+- **A big jump needs longer.** Persistence is 1 s for a jump of up to 2 m, +0.5 s per metre beyond, capped at 4 s: a
+  bottom cannot change by 12 m inside one second under a moving boat. A real drop-off from 0.3 to 10 m (a quay wall)
+  now appears up to 4 s late on screen and loses nothing in the record (the release still rewrites).
+- **The rangefinder is a witness** - never a value. While it is a fresh reading that agrees with the old reference and
+  not with the candidate (0.3-0.6 against 0.32, not against 10), the confirmation is vetoed, for up to 8 s; the veto is
+  remembered for a window, so one spike (the 8.24 in that stretch) cannot open the door. A rangefinder that reads the
+  new depth too (a real drop-off) vetoes nothing.
+- **The reference is the last 14 *accepted* epochs**, not the last 14 epochs: a held stretch used to empty the
+  reference, and the next value walked in unjudged - a backdoor past the persistence rule.
+
+The bench cannot carry the witness (no rangefinder in a `.plog`), so on the bench that 15:11 block is still confirmed at
+4 s; on the device it is vetoed for its whole 6.6 s. Both slopes stay at zero held; red and blue 18 Oct otherwise
+unchanged.
+
+**The shore rule got a third instrument.** With the desk device's rangefinder at 0.23 and the ANDY far features gated
+away for 4 s, "no bottom and ringdown" was one centimetre from "the shore". In air there is no return at all: the 95th
+percentile of the trace past 0.4 m is <= 15 on the blue's shore and <= 59 on the red's, against >= 32 (ANDY) / >= 47
+(18 Oct) / >= 70 in the water. The shore now needs **no bottom AND a quiet trace AND (ringdown or silent)** - thresholds
+26 blue, 65 red, by the bottom-track preset; ringdown ceiling 0.25. The `BT: last 10 s` line prints `trace p95 a-b` so
+the thresholds can be checked on every run; `disagree` is counted, not printed.
+
+**Was the build current?** Olav's log shows it was: `no bottom 0` with the pending tail, `gate A rejected ... gate B
+rejected: no echo (contrast 1.14)` at 0.79 of the range, `held by the outlier filter`. Nothing from this section
+(`ec950cf1`) is in it yet.
