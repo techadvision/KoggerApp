@@ -501,3 +501,83 @@ the thresholds can be checked on every run; `disagree` is counted, not printed.
 **Was the build current?** Olav's log shows it was: `no bottom 0` with the pending tail, `gate A rejected ... gate B
 rejected: no echo (contrast 1.14)` at 0.79 of the range, `held by the outlier filter`. Nothing from this section
 (`ec950cf1`) is in it yet.
+
+---
+
+## 8. The test plan for 1.45 (19 Oct 2026)
+
+What every test must deliver: **the `.plog` and the app log of the same run, together.** The `.plog` holds the pings (the
+bench replays them); only the app log holds the clock (`LINK:` lines), the rangefinder (`SHALLOW:` / `BT:` lines), what
+the app chose (`DEPTH:`) and what the scheme did (`DYNAMIC:`). One without the other is half a test. Note the water
+depth where it is known (a pole, a line, a chart) and what the screen showed. Runs of 5-15 minutes are easier to work
+with than one long one.
+
+### 8.1 Olav, this afternoon - every transducer (red, black, blue)
+
+1. **The 18 Oct run again** - shore -> water -> shore with the red and the black, a mission from the shore with the
+   blue. Expected: a dash the moment the transducer leaves the water, no `DYNAMIC: plan` climb on the shore, `DEPTH:
+   chosen source bottom track -> none (shore)` and back, no source flipping in the water. This is the regression test
+   for everything in sections 6-7.
+2. **The search (P9)** - start the app with the red already over deep water (10 m or more) at its 3 m start range.
+   Expected: `DYNAMIC: search` steps every ~2 s, then the bottom and `search found a bottom`. Without this the red
+   over deep water would sit at 3 m for ever now that the false far-end bottom no longer drags the range out.
+3. **The shallow sweep (P2)** - drive slowly from ~1.5 m onto the shore and back, twice, red and blue. The `SHALLOW:`
+   lines set P7's crossover numbers; today's 0.5 / 0.7 m are from one afternoon.
+4. **The stationary blue test (4.1)** - the blue held still at about 0.3, 0.5, 0.8, 1.2 and 2 m, 20 s each, the depth
+   checked by hand. Decides whether the blue's crossover band is the red's 0.6 m or needs ~1 m - and gives the manual a
+   measured minimum depth instead of a guess.
+5. **A real drop-off** - a quay wall, a steep bank, a pontoon edge: a true depth change of 2 m or more within a few
+   seconds, slowly and then at speed. Expected: the readout follows within 1-4 s (the bigger the step the longer the
+   filter waits), and the 2D line / 3D fills in completely once the jump is confirmed (the release rewrites the held
+   epochs). A drop-off that stays hidden or leaves a gap is a bug in the jump rule.
+6. **A lost bottom in the water** - a hard turn, weed, bubbles, lifting the transducer half out. Expected: the last
+   value held 2 s, then a dash, back at once when the bottom returns; **never** "none (shore)" while in the water
+   (check the `DEPTH:` lines). The `trace p95` field of the `BT: last 10 s` line is what keeps that apart.
+7. **The setters, live on the same water** - the blue with the profile (5 / 2 / 4 %) and with (15 / 0.5 / 0 %) over
+   the same stretch, 2-3 minutes each; the red with gain 1.0 and 0.5. **Fish, weed and a thermocline are the risk of
+   a low gain slope** - the ramp was there to make the far, weak bottom beat near, loud echoes - so the red test wants
+   water with fish or weed in it, not a clean sand bottom.
+8. **Replays with no device connected.** The demo plays into the same dataset the connected device feeds; the desk
+   device's rangefinder (0.23, in air) got into Olav's ANDY replay. Unplug or power off before judging a replay.
+
+### 8.2 The testers (France next weekend, Germany maybe)
+
+Their water is the one Norway cannot provide. What to ask for, blue first, red if they have one:
+
+- **A quarry lake or gravel pit**: steep walls, pits and ridges, depth 2-15 m. Two passes over the same ground at
+  25 m per side and 50 m per side; each pass once with the profile and once with (15 / 0.5 / 0 %) from the expert
+  settings. This is the ANDY case with a second site and a second operator.
+- **A wall run**: parallel to a vertical wall or a dam, 2-5 m off it, at 3-8 m depth. The side scan sees the wall
+  nearer than the bottom - the near-feature case the gates cannot touch and only the parameters can.
+- **Shore entries**: into the water and out again from a beach, a ramp and a rocky edge, slowly. Our shore stretches
+  are one lake; the trace-quiet thresholds (26 blue / 65 red) were set from it.
+- **Deep water**: 15-30 m if they can, for the red's search and for gate A at the long ranges (a 50 m red range over
+  a 25 m bottom sits at 0.5 of the reach, where B now leaves it alone).
+- **Fish and weed** (red): a weedy bay, a school of fish under the boat - the low-gain risk.
+
+For each: the two files, the water depth they believe, the settings used, and one sentence on what the screen did. The
+expert panel's gain slope now goes down to 0.3, so they can try without a new build.
+
+### 8.3 What the logs will be read for
+
+| line | what it proves |
+|---|---|
+| `BT: last 10 s | ... gate A rejected n | gate B rejected n | outlier held n | ... trace p95 a-b` | how much each gate works on this water; `trace p95` against the quiet thresholds (shore <= 15/59, water >= 32/70 so far) |
+| `BT: epoch ... gate A rejected / gate B rejected: no echo (contrast x) / held by the outlier filter` | the individual decisions, one a second |
+| `SHALLOW: epoch ... bottom track x (at its floor) | rangefinder y | bt/rf r` | the crossover: where the bottom track is right from, where the second echo sits |
+| `DEPTH: chosen source a -> b` | the source never flips without a reason; `none (shore)` only out of the water |
+| `DEPTH: no bottom for 2 s - dash` / `on the shore ... dash` | P8 on the device |
+| `DYNAMIC: search ...` / `search found a bottom` / `plan` lines | P9; and that the range holds on the shore |
+| `DEPTH: every 10 s ... rangefinder x (now x, live x)` | P6: now equals live |
+
+The bench then replays each `.plog` with `gates.py` (labels from the log) and `sweep.py` (the parameters), as in 7.4.
+
+### 8.4 What 1.45 should carry - and one addition to decide
+
+Ship with the gates, the filter, the choice and the dash on; **the profiles unchanged** (the setters are how the
+values are found); the pill **not** yet (its three-instrument rule is new as of tonight and has one lake behind it).
+
+Worth adding before the testers get it: an expert toggle **"Depth gates (shore and shallows)"** that switches the
+gates and the outlier filter off at the epoch write - the same water, the same settings, with and without, is the
+cleanest A/B a tester can give us, and it is the escape hatch if the gates misbehave somewhere we have not seen.
+A dozen lines (`Dataset::setDepthGatesActive`, one row in the settings list); not built - Olav's call.
