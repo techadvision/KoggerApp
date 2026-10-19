@@ -653,3 +653,28 @@ close to the epoch count; the 2D line empty; the range holding. In the first 20 
 one source, not a flip. The red is the one to watch - its shore trace is quiet only three quarters of the time, so
 the state may still drop out for a second now and then; if it does, the lines will say which of the three
 instruments let go.
+
+### 9.5 The office floor, 19 Oct evening - the shore reproduced indoors
+
+Red and black on a damp cloth over a plastic bag on the wooden floor; a minute pressed down, a minute lifted 3-5 cm;
+before (`a7f77bb7`) and after (`b3710c52`). Recordings `2D_pulse_log_2026.10.19_19.26.43` / `19.30.40` (before) and
+`19.40.53` / `19.44.15` (after), log `pulse - indoor floor tests.log`.
+
+- **The floor is a proxy for the shore.** Before: the red lifted flickered `bottom track` / `none (shore)` once a
+  second, noise 0.5-5 m, the plan bouncing between 3.5 and 6 m; the black showed **0.14 m from the rangefinder, steady,
+  for three minutes** - today's two shore failures, on the office floor.
+- **After, the shore state did what it was built for where it formed**: the red lifted - `shore 836 | gate A 0 | gate B 0`
+  in every 10 s window, nothing drawn, the range held; the black pressed down the same (p95 9-18).
+- **Two gaps, both closed in `cdd161f5`.** The red *pressed* to the damp cloth rang at p95 40-53, over the quiet
+  threshold of 40, so the state never formed; gates A and B still removed all of it (far-end noise at 4.6-8 m of an 8 m
+  range) and the readout stayed a dash through the older rule, with the two `none` states flickering. The 18 Oct shore
+  had reached 59 as well; **the red threshold is 60** - the rangefinder's ringdown is what protects water of 30 cm or
+  more, where the two p95 ranges overlap. And the black *lifted* read **0.41 m - 0.41, 0.41, 0.41 for a minute** - with a
+  loud trace (p95 114-119): not at minDistance + 0.12, not quiet, and the shallow rule took it for a second echo of the
+  0.18 rangefinder and showed 0.18 m again. Its floor is wherever its long ringdown ends, 0.32 on wet gravel, 0.44-0.53
+  on the cloth, 0.41 in the air. **A frozen bottom track** - not moved by more than 3 cm over the last second, under
+  1 m - now votes for the shore like a floored one; a real bottom at 40 cm jitters by centimetres ping to ping.
+- Also seen: at app start the range is whatever the device still had from the last session (51 m before the first red
+  test, 45 m before the others) - the gates handled it (835 of 835 rejected) and the plan came down when a value got
+  through; and the state needs ~1.5 s to form after start, during which one `bottom track` reading and one plan step
+  (3 -> 5 -> 9 m) got through on the red. Startup is the next thing to make quiet, if it shows in the water.
