@@ -164,9 +164,18 @@ struct ChoiceParams {
     // on the shore its bottom track sits at the floor 98% of the time (red 4%, water 4-7%: the 10-20 cm stretches,
     // where a dash is right). A 10-20 cm puddle looks the same as the shore to every instrument we have; "too
     // shallow or out of water" is the honest wording.
-    int   quietP95Red  = 40;
+    // Red 60, not 40 (the office floor, 19 Oct evening): a damp transducer pressed to a damp cloth rang at p95 40-53 and
+    // the 18 Oct shore reached 59; the red's water sits at 51+ (5th pct) but the state also needs the rangefinder's
+    // ringdown, which water of 30 cm or more never gives, so the overlap costs nothing there.
+    int   quietP95Red  = 60;
     int   quietP95Blue = 36;
-    float shoreSeconds = 1.0f;   // the quiet-or-floor vote spans this
+    float shoreSeconds = 1.0f;   // the quiet-or-floor-or-frozen vote spans this
+    // FROZEN: the black lifted off the floor read 0.41 m for a minute - 0.41, 0.41, 0.41 - and 0.53 pressed down; its
+    // floor is wherever its long ringdown ends, not minDistance + 0.12, and its trace is loud. A real bottom at 40 cm
+    // jitters by centimetres ping to ping; a ringdown does not. So a raw bottom track that has not moved by more than
+    // frozenSpreadM over the last second, under frozenMaxM, votes for the shore like a floored one does.
+    float frozenSpreadM = 0.03f;
+    float frozenMaxM = 1.0f;
     float rfFreshS = 1.5f;      // a rangefinder older than this is silent
 };
 

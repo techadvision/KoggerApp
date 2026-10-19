@@ -1348,6 +1348,7 @@ void Dataset::resetDataset()
     _rfRecent.clear();
     _shallowMode = false;
     _passQuietOrFloor.clear();
+    _passRawRecent.clear();
     _shoreState = false;
     _rfRingdown = false;
 
@@ -1952,7 +1953,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
         _btLastLineMs = now;
         ++_btLines;
         QStringList why;
-        if (shore)    why << QStringLiteral("shore: rangefinder at its ringdown, trace quiet / bottom track at its floor");
+        if (shore)    why << QStringLiteral("shore: rangefinder at its ringdown, trace quiet / bottom track at its floor or frozen");
         if (farEnd)   why << QStringLiteral("gate A rejected: far end (> 0.75 of the reachable range)");
         if (noEcho)   why << QStringLiteral("gate B rejected: no echo (contrast %1)").arg(f2(v.contrast));
         if (outlier)  why << QStringLiteral("held by the outlier filter");
@@ -2038,7 +2039,18 @@ void Dataset::publishPass()
         const bool quiet = _passNewestP95 >= 0 && _passNewestP95 <= quietP95;
         const bool floor = std::isfinite(_passNewestRaw) && _passNewestRaw <= bottomTrackParam_.minDistance + cp.floorMargin;
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
-        _passQuietOrFloor.emplace_back(now, quiet || floor);
+        // frozen: the raw bottom track has not moved over the last second (the black's ringdown, wherever it ends)
+        if (std::isfinite(_passNewestRaw))
+            _passRawRecent.emplace_back(now, _passNewestRaw);
+        while (!_passRawRecent.empty() && now - _passRawRecent.front().first > qint64(cp.shoreSeconds * 1000))
+            _passRawRecent.pop_front();
+        bool frozen = _passRawRecent.size() >= 3;
+        if (frozen) {
+            float lo = _passRawRecent.front().second, hi = lo;
+            for (const auto& s : _passRawRecent) { lo = std::min(lo, s.second); hi = std::max(hi, s.second); }
+            frozen = hi - lo <= cp.frozenSpreadM && hi < cp.frozenMaxM;
+        }
+        _passQuietOrFloor.emplace_back(now, quiet || floor || frozen);
         while (!_passQuietOrFloor.empty() && now - _passQuietOrFloor.front().first > qint64(cp.shoreSeconds * 1000))
             _passQuietOrFloor.pop_front();
     }

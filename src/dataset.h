@@ -829,7 +829,8 @@ private:
     int    _passNewestP95 = -1;      // 95th percentile of the newest epoch's trace past 0.4 m (the quiet-trace test)
     int    _lastTraceP95 = -1;
     float  _passNewestRaw = NAN;     // the newest epoch's RAW bottom track (before the gates) - "at its floor"
-    std::deque<std::pair<qint64, bool>> _passQuietOrFloor;   // per pass: quiet trace or bottom track at its floor
+    std::deque<std::pair<qint64, bool>> _passQuietOrFloor;   // per pass: quiet trace, bottom track at its floor, or frozen
+    std::deque<std::pair<qint64, float>> _passRawRecent;     // per pass: the newest epoch's raw bottom track, last ~1 s
     bool   _shoreState = false;      // see chooseDepth(); gates every epoch while true
     bool   _rfRingdown = false;
     int    _btShore = 0;             // the BT: 10 s count
