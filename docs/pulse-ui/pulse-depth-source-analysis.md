@@ -678,3 +678,9 @@ before (`a7f77bb7`) and after (`b3710c52`). Recordings `2D_pulse_log_2026.10.19_
   test, 45 m before the others) - the gates handled it (835 of 835 rejected) and the plan came down when a value got
   through; and the state needs ~1.5 s to form after start, during which one `bottom track` reading and one plan step
   (3 -> 5 -> 9 m) got through on the red. Startup is the next thing to make quiet, if it shows in the water.
+
+**Retest with `cdd161f5` (20:15, black: air -> cloth -> air, `2D_pulse_log_2026.10.19_20.15.14`, `pulse - black in the
+air.log`):** `shore n | gate A 0 | gate B 0 | outlier held 0` in every 10 s window from 20:15:32 to the end, a dash
+throughout - in the air on the frozen vote (0.35-0.37, p95 121), pressed on the floor vote (0.32, p95 61-66), through
+both transitions. The four seconds before the state formed showed the rangefinder's 0.20 m through the shallow rule; a
+rangefinder at its ringdown now never enters shallow mode (`shallowMode` requires rf > 0.25).

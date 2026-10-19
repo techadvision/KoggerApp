@@ -206,7 +206,9 @@ inline bool shallowMode(bool wasShallow, bool rfFresh, float rf, float btRaw, fl
     // second. While the rangefinder stays under rfLeave the two read the same water anyway.
     if (wasShallow)
         return rfFresh && rf <= p.rfLeave;
-    return rfFresh && rf < p.rfEnter && shallowAgrees(btRaw, rf, minDistance, p);
+    // ... and a rangefinder at its own ringdown has nothing to offer: it is not reading water (the black in the air
+    // showed 0.20 m for the four seconds before the shore state formed, 19 Oct evening)
+    return rfFresh && rf > p.ringdownM && rf < p.rfEnter && shallowAgrees(btRaw, rf, minDistance, p);
 }
 
 // THE OUTLIER FILTER (P5b) - the big-jump filter rebuilt where it can do its job. Its purpose (Olav): drop
