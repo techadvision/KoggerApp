@@ -581,3 +581,75 @@ Worth adding before the testers get it: an expert toggle **"Depth gates (shore a
 gates and the outlier filter off at the epoch write - the same water, the same settings, with and without, is the
 cleanest A/B a tester can give us, and it is the escape hatch if the gates misbehave somewhere we have not seen.
 A dozen lines (`Dataset::setDepthGatesActive`, one row in the settings list); not built - Olav's call.
+
+---
+
+## 9. The 19 Oct run - three transducers, shore -> 10-20 cm -> mission -> shore, profile and (15 / 0.5 / 0)
+
+`2D_pulse_log_2026.10.19_17.01.44.plog` (red, the first shore missing), `SS_pulse_log_2026.10.19_17.20.15.plog`
+(blue prototype), `2D_pulse_log_2026.10.19_17.29.29.plog` (black), `pulse app log 19.10.2026.log`. Build `a7f77bb7`
+(everything up to the gain stepper; not the shore state below).
+
+### 9.1 What worked
+
+- **In the water, all three were clean.** Red mission 17:02:32-17:06:30, blue 17:15:25-17:22:28, black
+  17:30:05-17:34:30 and again after the parameter change: `gate A rejected 0 | gate B rejected 0 | outlier held 0`
+  in every 10 s window; the blue's 20-waypoint mission along the road provoked nothing. The black's run through the
+  1-2 m vegetation margins (17:40:29-17:43:09): nothing rejected, nothing held.
+- **The blue on the shore** (25 m per side): gate B removed 99.5% of the shore epochs (A alone 84%), on both
+  entries and both exits, with both parameter sets. Its "water lost" (4.7%) is the 14-19.5 m far-end bottom in the
+  10-20 cm approach to the shore - correctly removed, my labels called it water.
+- **The red's runaway is gone.** On the shore the range stayed at 3 m where it used to go to 51 m in three seconds.
+- **The slopes are untouched**: red 2.4 -> 7.4 m, blue 3.6 -> 7.7 m, black 2.0 -> 7.5 m, zero held.
+- **The parameter change live** (W 15, gain 0.5, gap 0) changed nothing visible in the water of this lake for any of
+  the three - this water has no features to provoke. (Side effect: with W 15 the `no bottom` count runs at 5-15%
+  of the publishes; the processor's partial-window epochs at the start of each pass, refilled by the next pass, not
+  real misses. The instrument's `pending` logic assumes a full window; cosmetic.)
+
+### 9.2 What did not - the shore and the first 20 cm, device by device
+
+**The black** looked fine and was not. On the shore its bottom track sits at its floor (0.32 m, 98% of the shore
+epochs), the rangefinder at 0.12-0.14, and its trace is *louder than its water* - the long crystal rings for metres
+(shore p95 136-187 against 76-128 in the water), so the quiet-trace test could never see it. No gate fires at the
+floor, the shallow rule saw "floor + rangefinder < 0.5" and the readout showed **0.12 m from the rangefinder, steady,
+on dry land** - and the same 0.12-0.14 in the 10-20 cm water, which happened to be about right.
+
+**The red** is a different transducer (a 2 cm disc; the black and the blue have 7 cm bars) and behaves differently.
+On the shore at its 3 m range its noise is 0.6-2.6 m, *with contrast* (median 1.69 - the same as the red's water,
+1.88), coherent for a few epochs at a time; gate A's edge sits at 2.0 m and gate B judges only beyond 1.35 m, so
+**42% of the shore epochs passed**, the source flickered `bottom track` / `none (shore)` once a second, the 2D line
+drew the noise, and - because the shore state was not solid - **the P9 search took the range from 3 to 14 m**
+(17:01:52-17:02:22). Not the old runaway, but the same mechanism in miniature. The red's shore trace *is* quiet
+(p95 20-34; its water 5th percentile 51), and its rangefinder sat at 0.12 the whole time.
+
+**The blue's shore** p95 was 26-31 against my threshold of 26 (set from 18 Oct's <= 15), so "the shore" flickered
+between `none (shore)` and `none (no bottom)` - both a dash, so nothing showed, but the pill would have flickered.
+
+**In 0.3-0.5 m of water** (red 17:02:14-26, 17:06:32-40; blue 17:15:06-08, 17:23:37-44, 17:28:06-16) the source
+flipped `rangefinder (shallow)` / `bottom track` up to five times a second: *staying* in shallow mode required the
+bottom track's agreement, and in that water it alternates between its floor (agrees) and a reading (does not).
+
+### 9.3 What changed (`b3710c52`)
+
+- **A shore state, decided from the rangefinder and the raw trace alone**, never from the gated values (so it cannot
+  feed on itself): the rangefinder at its ringdown (<= 0.25) for 1.5 s AND, for two thirds of the last second's
+  passes, a quiet trace (p95 <= 40 red / 36 blue) **or a bottom track at its floor**. It **gates every epoch** while it
+  holds, so the readout, the 2D line and the record show nothing - the red's coherent noise included. Measured on
+  the 19 Oct recordings, the quiet-or-floor vote alone holds on 75% of the red's shore seconds, 98% of the black's
+  and ~100% of the blue's, against 6-8% of the water seconds, all of them the 10-20 cm stretches - where the
+  rangefinder is at its ringdown too and a dash is the right answer. A 10-20 cm puddle looks like the shore to
+  every instrument we have; "too shallow or out of water" is the honest wording, for the pill as for the manual.
+- **Staying in shallow mode needs only the rangefinder under 0.7 m**; entering still needs the bottom track's
+  agreement.
+- **The P9 search never runs while the rangefinder hears only itself** (`rangefinderAtRingdown`), whatever the
+  shore state says.
+- The `BT: last 10 s` line counts `shore`. The bench cannot carry the rangefinder, so it keeps judging A, B and
+  the filter (the 19 Oct recordings are labelled in `gates.py`); the shore state is judged on the device.
+
+### 9.4 What to look for in the next run
+
+On every shore: `DEPTH: chosen source ... -> none (shore)` once and no flicker; `BT: last 10 s | ... shore n` with n
+close to the epoch count; the 2D line empty; the range holding. In the first 20 cm: a dash, not 0.12. In 0.3-0.5 m:
+one source, not a flip. The red is the one to watch - its shore trace is quiet only three quarters of the time, so
+the state may still drop out for a second now and then; if it does, the lines will say which of the three
+instruments let go.
