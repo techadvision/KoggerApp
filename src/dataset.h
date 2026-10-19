@@ -72,6 +72,7 @@ public:
     Q_PROPERTY(QString chosenDepthSource    READ chosenDepthSource  NOTIFY chosenDepthChanged)
     Q_PROPERTY(bool    noBottom             READ noBottom           NOTIFY chosenDepthChanged)
     Q_PROPERTY(bool    onShore              READ onShore            NOTIFY chosenDepthChanged)
+    Q_PROPERTY(bool    rangefinderAtRingdown READ rangefinderAtRingdown NOTIFY chosenDepthChanged)
 
     Q_PROPERTY(float boatLatitude             READ getBoatLatitude          NOTIFY lastPositionChanged)
     Q_PROPERTY(float boatLongitude            READ getBoatLongitude         NOTIFY lastPositionChanged)
@@ -160,6 +161,7 @@ public:
     QString chosenDepthSource() const { return _chosenSource; }
     bool    noBottom() const { return _noBottom; }
     bool    onShore() const { return _onShore; }
+    bool    rangefinderAtRingdown() const { return _rfRingdown; }
     double smallAgreeMargin() const { return _kSmallAgreeMargin; }
     double largeJumpThreshold() const { return _kLargeJumpThreshold; }
     int consistNeeded() const { return _kConsistNeeded; }
@@ -187,8 +189,9 @@ public:
         float contrast = NAN;    // this epoch's echo contrast (peak at the bottom / trace median)
         float rangeM = NAN;      // the trace's acquired range
         int   traceP95 = -1;     // 95th percentile of the trace past 0.4 m (in air there is no return: the shore test)
+        bool  shore = false;     // the shore state (rangefinder at its ringdown + quiet trace / floor): nothing is a bottom
         std::vector<std::pair<int, float>> released;   // earlier epochs the filter released (a confirmed jump): rewrite them
-        bool  rejected() const { return gateA || gateB || outlier; }
+        bool  rejected() const { return shore || gateA || gateB || outlier; }
     };
     float gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v);
     void logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v);   // the BT: line, live only
@@ -825,8 +828,13 @@ private:
     float  _passNewestValue = NAN;
     int    _passNewestP95 = -1;      // 95th percentile of the newest epoch's trace past 0.4 m (the quiet-trace test)
     int    _lastTraceP95 = -1;
+    float  _passNewestRaw = NAN;     // the newest epoch's RAW bottom track (before the gates) - "at its floor"
+    std::deque<std::pair<qint64, bool>> _passQuietOrFloor;   // per pass: quiet trace or bottom track at its floor
+    bool   _shoreState = false;      // see chooseDepth(); gates every epoch while true
+    bool   _rfRingdown = false;
+    int    _btShore = 0;             // the BT: 10 s count
     int    _btP95Min = -1, _btP95Max = -1;   // the BT: 10 s count
-    void   notePassEpoch(int epochIndex, float stored, int traceP95);
+    void   notePassEpoch(int epochIndex, float stored, int traceP95, float raw);
     void   publishPass();
     // THE CHOICE (P7) and the shore (P8)
     void   chooseDepth();

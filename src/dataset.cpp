@@ -1347,6 +1347,9 @@ void Dataset::resetDataset()
     _epochArrivalMs.clear();
     _rfRecent.clear();
     _shallowMode = false;
+    _passQuietOrFloor.clear();
+    _shoreState = false;
+    _rfRingdown = false;
 
     setState(DatasetState::kUndefined);
 
@@ -1639,6 +1642,7 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
 {
     bool settedChart = false;
     GateVerdict verdict;
+    const float rawDist = dist;
 
     {
         QWriteLocker wl(&poolMtx_);
@@ -1684,7 +1688,7 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
 
         int guardInterval = bottomTrackParam_.windowSize; // bottomTrack will proceed epIndx - guardInterval in next iteration
         int compIndx = epIndx > guardInterval ? epIndx - guardInterval : epIndx;
-        notePassEpoch(epIndx, dist, verdict.traceP95);   // published once, at the end of the pass (P5)
+        notePassEpoch(epIndx, dist, verdict.traceP95, rawDist);   // published once, at the end of the pass (P5)
 
         emit bottomTrackAdded(compIndx);
     }
@@ -1788,7 +1792,7 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
                 continue;
             }
 
-            notePassEpoch(update.epochIndex, stored, gatedP95.value(update.epochIndex, -1));
+            notePassEpoch(update.epochIndex, stored, gatedP95.value(update.epochIndex, -1), update.distance);
 
             const int guardInterval = bottomTrackParam_.windowSize;
             const int compIndx = update.epochIndex > guardInterval ? update.epochIndex - guardInterval : update.epochIndex;
@@ -1831,6 +1835,15 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
     }
     if (!std::isfinite(dist)) {
         _gateBVoter.set(epochIndex, false, false);
+        return NAN;
+    }
+
+    // The shore state (chooseDepth): while the rangefinder hears only itself and the trace is quiet or the bottom
+    // track at its floor, nothing the bottom track finds is a bottom
+    if (_shoreState) {
+        v.shore = true;
+        _gateBVoter.set(epochIndex, false, false);
+        _outlierFilter.noBottom(epochIndex);
         return NAN;
     }
 
@@ -1903,6 +1916,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     const bool   btOk  = std::isfinite(btRaw);
     const float  ratio = (btOk && rangeM > 0.0f) ? btRaw / rangeM : NAN;
 
+    const bool shore    = v.shore;
     const bool farEnd   = v.gateA;
     const bool noEcho   = v.gateB;
     const bool outlier  = v.outlier;
@@ -1915,6 +1929,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
         _btP95Min = _btP95Min < 0 ? v.traceP95 : std::min(_btP95Min, v.traceP95);
         _btP95Max = std::max(_btP95Max, v.traceP95);
     }
+    if (shore)    ++_btShore;
     if (farEnd)   ++_btFar;
     if (noEcho)   ++_btGateB;
     if (outlier)  ++_btOutlier;
@@ -1933,10 +1948,11 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     const auto f2 = [](float v) { return std::isfinite(v) ? QString::number(v, 'f', 2) : QStringLiteral("-"); };
 
     // 'disagree' is counted, not printed: a blue's rangefinder at its ringdown disagrees with every pass
-    if ((farEnd || noEcho || outlier || none) && now - _btLastLineMs >= 1000) {
+    if ((shore || farEnd || noEcho || outlier || none) && now - _btLastLineMs >= 1000) {
         _btLastLineMs = now;
         ++_btLines;
         QStringList why;
+        if (shore)    why << QStringLiteral("shore: rangefinder at its ringdown, trace quiet / bottom track at its floor");
         if (farEnd)   why << QStringLiteral("gate A rejected: far end (> 0.75 of the reachable range)");
         if (noEcho)   why << QStringLiteral("gate B rejected: no echo (contrast %1)").arg(f2(v.contrast));
         if (outlier)  why << QStringLiteral("held by the outlier filter");
@@ -1949,13 +1965,13 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
 
     if (now - _btWindowStartMs >= 10000) {
-        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | gate A rejected %2 | gate B rejected %11 | outlier held %12 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | trace p95 %13-%14 | %10 lines")
+        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | shore %15 | gate A rejected %2 | gate B rejected %11 | outlier held %12 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | trace p95 %13-%14 | %10 lines")
                               .arg(_btN).arg(_btFar).arg(_btDisagree).arg(_btNone)
                               .arg(f2(_btRatioMax), f2(_btMin), f2(_btMax), f2(_rfMin), f2(_rfMax))
-                              .arg(_btLines).arg(_btGateB).arg(_btOutlier).arg(_btP95Min).arg(_btP95Max);
+                              .arg(_btLines).arg(_btGateB).arg(_btOutlier).arg(_btP95Min).arg(_btP95Max).arg(_btShore);
         _btP95Min = _btP95Max = -1;
         _btWindowStartMs = now;
-        _btN = _btFar = _btGateB = _btOutlier = _btDisagree = _btNone = _btLines = 0;
+        _btN = _btShore = _btFar = _btGateB = _btOutlier = _btDisagree = _btNone = _btLines = 0;
         _btRatioMax = 0;
         _btMin = _btMax = _rfMin = _rfMax = NAN;
     }
@@ -1997,11 +2013,12 @@ void Dataset::logShallowInstrument(int epochIndex, float btRaw, float rangeM)
 // ONE VALUE PER PASS (P5, 18 Oct 2026). A pass publishes epochs oldest to newest; the newest one that holds a
 // bottom (after the gates) is the pass's value. The gates make NaN common on purpose, so a pass whose every
 // epoch is NaN publishes NaN - "no bottom" - instead of being skipped.
-void Dataset::notePassEpoch(int epochIndex, float stored, int traceP95)
+void Dataset::notePassEpoch(int epochIndex, float stored, int traceP95, float raw)
 {
     _passSeen = true;
     if (traceP95 >= 0)
         _passNewestP95 = traceP95;   // epochs arrive oldest to newest: the last one wins
+    _passNewestRaw = raw;
     if (std::isfinite(stored) && epochIndex >= _passNewestEpoch) {
         _passNewestEpoch = epochIndex;
         _passNewestValue = stored;
@@ -2014,10 +2031,22 @@ void Dataset::publishPass()
         return;
     const float raw = _passNewestValue;
     _lastTraceP95 = _passNewestP95;
+    {
+        // the shore vote: this pass's newest epoch had a quiet trace, or its bottom track sat at the floor
+        const depthgates::ChoiceParams cp;
+        const int quietP95 = bottomTrackParam_.preset == BottomTrackPreset::BottomTrackSideScan ? cp.quietP95Blue : cp.quietP95Red;
+        const bool quiet = _passNewestP95 >= 0 && _passNewestP95 <= quietP95;
+        const bool floor = std::isfinite(_passNewestRaw) && _passNewestRaw <= bottomTrackParam_.minDistance + cp.floorMargin;
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        _passQuietOrFloor.emplace_back(now, quiet || floor);
+        while (!_passQuietOrFloor.empty() && now - _passQuietOrFloor.front().first > qint64(cp.shoreSeconds * 1000))
+            _passQuietOrFloor.pop_front();
+    }
     _passSeen = false;
     _passNewestEpoch = -1;
     _passNewestValue = NAN;
     _passNewestP95 = -1;
+    _passNewestRaw = NAN;
 
     // The epochs are already gated and outlier-filtered (P3-P5b, at the write); the published value only
     // adds the mount offset (transducer below surface - the same convention as addRangefinder).
@@ -2056,8 +2085,8 @@ void Dataset::chooseDepth()
 
         _shallowMode = depthgates::shallowMode(_shallowMode, rfFresh, rf, btRaw, bottomTrackParam_.minDistance, cp);
 
-        // the shore: the rangefinder at its ringdown for the last ~1.5 s - two thirds of its readings, because the
-        // red's rangefinder spikes to 40 m on the shore now and then (analysis 1.4) - or silent. A 0.00 is no reading.
+        // the rangefinder at its ringdown for the last ~1.5 s - two thirds of its readings, because the red's
+        // rangefinder spikes to 40 m on the shore now and then (analysis 1.4). A 0.00 is no reading.
         int readings = 0, atRingdown = 0;
         for (const auto& s : _rfRecent) {
             if (!depthgates::rfIsReading(s.second)) continue;
@@ -2065,11 +2094,24 @@ void Dataset::chooseDepth()
             if (s.second <= cp.ringdownM) ++atRingdown;
         }
         const bool ringdown = readings >= 2 && 3 * atRingdown >= 2 * readings;
-        // ... and the trace itself must be quiet: in air there is no return. A blue over 3.5 m of water whose far
-        // features the gates emptied for 4 s, with a desk device's rangefinder at 0.23, is not the shore (ANDY replay).
+        _rfRingdown = ringdown;
+
+        // THE SHORE STATE (19 Oct 2026): the rangefinder hears only itself AND, for two thirds of the last second's
+        // passes, the trace is quiet or the bottom track sits at its floor. Decided from the rangefinder and the raw
+        // trace alone - never from the gated values, so it cannot feed on itself - and it gates every epoch while it
+        // holds (gateBottomTrackLocked), so neither the readout nor the 2D line nor the record show the short-range
+        // noise a red produces on the shore (0.6-2.6 m at a 3 m range, with contrast, 42% of it past gates A and B).
+        int votes = 0, forShore = 0;
+        for (const auto& s : _passQuietOrFloor) { ++votes; if (s.second) ++forShore; }
+        _shoreState = ringdown && votes >= 3 && 3 * forShore >= 2 * votes;
+
+        // ... and the older rule for a silent rangefinder (a replay): no bottom, a quiet trace. The ANDY replay with
+        // a desk device's 0.23 and the far features gated for 4 s over 3.5 m is neither: its trace is not quiet.
         const int quietP95 = bottomTrackParam_.preset == BottomTrackPreset::BottomTrackSideScan ? cp.quietP95Blue : cp.quietP95Red;
         const bool quiet = _lastTraceP95 >= 0 && _lastTraceP95 <= quietP95;
-        onShore = noBottom && quiet && (ringdown || !rfFresh);
+        onShore = _shoreState || (noBottom && quiet && (ringdown || !rfFresh));
+        if (_shoreState)
+            noBottom = true;
 
         if (onShore) {
             source = QStringLiteral("none (shore)");

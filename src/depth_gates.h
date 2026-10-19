@@ -156,10 +156,17 @@ struct ChoiceParams {
     float secondEchoMin = 1.7f; // "a second echo": bottom track / rangefinder within this band
     float secondEchoMax = 3.3f;
     float ringdownM = 0.25f;    // the rangefinder's own ringdown (0.12 red; 0.15-0.20 blue on the shore 18 Oct, 0.23 in air)
-    // the shore needs a QUIET TRACE too: in air there is no return at all. 95th percentile of the trace past 0.4 m -
-    // red: shore <= 59, water >= 70 (5th pct 76); blue: shore <= 15, water >= 47 (18 Oct), >= 32 (ANDY, 3.5 m)
-    int   quietP95Red  = 65;
-    int   quietP95Blue = 26;
+    // THE SHORE STATE (19 Oct 2026, from the three-transducer run). The rangefinder at its ringdown for 1.5 s says
+    // the device's own detector hears nothing; with that, the trace must be QUIET or the bottom track AT ITS FLOOR
+    // for two thirds of the last second's passes. Quiet = 95th percentile of the trace past 0.4 m under quietP95:
+    // red shore 20-34 / water 5th pct 51 (18 Oct: 28-59 / 70); blue shore 26-31 / water >= 47 (ANDY 3.5 m: >= 32).
+    // The black cannot be quiet - its long crystal rings for metres (shore p95 136-187, louder than its water) - but
+    // on the shore its bottom track sits at the floor 98% of the time (red 4%, water 4-7%: the 10-20 cm stretches,
+    // where a dash is right). A 10-20 cm puddle looks the same as the shore to every instrument we have; "too
+    // shallow or out of water" is the honest wording.
+    int   quietP95Red  = 40;
+    int   quietP95Blue = 36;
+    float shoreSeconds = 1.0f;   // the quiet-or-floor vote spans this
     float rfFreshS = 1.5f;      // a rangefinder older than this is silent
 };
 
@@ -185,10 +192,12 @@ inline bool shallowAgrees(float btRaw, float rf, float minDistance, const Choice
 // the hysteresis: the new shallow-mode state from the previous one
 inline bool shallowMode(bool wasShallow, bool rfFresh, float rf, float btRaw, float minDistance, const ChoiceParams& p = ChoiceParams())
 {
-    const bool agrees = shallowAgrees(btRaw, rf, minDistance, p);
+    // Entering needs the bottom track's agreement; STAYING does not (19 Oct 2026): in 0.3-0.5 m of water the bottom
+    // track alternates between its floor (agrees) and a reading (does not), and the source flipped five times a
+    // second. While the rangefinder stays under rfLeave the two read the same water anyway.
     if (wasShallow)
-        return rfFresh && rf <= p.rfLeave && agrees;
-    return rfFresh && rf < p.rfEnter && agrees;
+        return rfFresh && rf <= p.rfLeave;
+    return rfFresh && rf < p.rfEnter && shallowAgrees(btRaw, rf, minDistance, p);
 }
 
 // THE OUTLIER FILTER (P5b) - the big-jump filter rebuilt where it can do its job. Its purpose (Olav): drop

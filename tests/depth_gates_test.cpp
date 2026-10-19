@@ -155,6 +155,7 @@ int main()
     // hysteresis: in shallow mode the rangefinder may rise to 0.7 before handing back; a stale rangefinder
     // hands back at once; a blue spike (rf 24 m) never enters
     CHECK(shallowMode(true, true, 0.65f, 0.34f, 0.25f));
+    CHECK(shallowMode(true, true, 0.45f, 0.45f, 0.25f));   // staying needs no agreement (both read 0.45)
     CHECK(!shallowMode(true, true, 0.75f, 0.34f, 0.25f));
     CHECK(!shallowMode(true, false, 0.30f, 0.34f, 0.25f));
     CHECK(!shallowMode(false, true, 24.0f, 9.5f, 0.25f));

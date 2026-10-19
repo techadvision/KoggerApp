@@ -25,6 +25,10 @@ GATE_B_PEAK_M = 0.1         # half-width of the peak search around the found bot
 SHORE = {
     '2D_pulse_log_2026.10.18_15.00.29.plog': ('15:00:29', '15:07:05', [('15:00:00', '15:00:50'), ('15:04:01', '15:04:38'), ('15:06:22', '15:08:00')]),
     'SS_pulse_log_2026.10.18_15.10.27.plog': ('15:10:27', '15:21:05', [('15:10:00', '15:10:52'), ('15:20:23', '15:22:00')]),
+    # 19 Oct 2026 (pulse app log 19.10.2026.log): shore -> 10-20 cm -> mission -> shore, then the same with (15, 0.5, 0)
+    '2D_pulse_log_2026.10.19_17.01.44.plog': ('17:01:44', '17:12:50', [('17:01:00', '17:02:22'), ('17:06:42', '17:07:12'), ('17:12:22', '17:13:00')]),
+    'SS_pulse_log_2026.10.19_17.20.15.plog': ('17:20:15', '17:29:00', [('17:22:38', '17:23:33'), ('17:28:20', '17:29:00')]),
+    '2D_pulse_log_2026.10.19_17.29.29.plog': ('17:29:29', '17:44:00', [('17:29:00', '17:29:50'), ('17:34:55', '17:35:40'), ('17:43:35', '17:44:00')]),
 }
 MARGIN_S = 5.0   # the clock is good to ~1-2 s; the transitions themselves are not scored
 
@@ -80,6 +84,8 @@ def gate_b(contrast, bt, rng=None, maxd=None):
 SLOPES = {
     '2D_pulse_log_2026.10.18_15.00.29.plog': [('15:01:40', '15:02:10')],   # red 1.4 -> 5.6 m
     'SS_pulse_log_2026.10.18_15.10.27.plog': [('15:15:21', '15:15:53')],   # blue 11 -> 2.5 m
+    '2D_pulse_log_2026.10.19_17.01.44.plog': [('17:02:40', '17:03:10')], 'SS_pulse_log_2026.10.19_17.20.15.plog': [('17:24:00', '17:24:30')],
+    '2D_pulse_log_2026.10.19_17.29.29.plog': [('17:30:15', '17:30:55')],
 }
 
 def run_outlier(gated, times):
@@ -110,6 +116,7 @@ def main():
     name = os.path.basename(plog_path)
     z = np.load(npz_path); bt = z['final']; rng = z['rng']
     maxd = 35.0 if name.startswith('SS_') else 50.0
+    log_path = log_path
     start, end = SHORE[name][:2]
     times, info = epoch_times(log_path, len(bt), start, end)
     print(f'clock from {info[0]} LINK lines; file {start} + {info[1]} s, {len(bt)} epochs')

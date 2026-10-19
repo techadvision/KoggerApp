@@ -426,8 +426,10 @@ Item {
 
     function searchOnNoBottom() {
         const now = Date.now()
-        if (dataset && dataset.onShore) {
-            // the range holds; nothing to look for on the shore
+        if (dataset && (dataset.onShore || dataset.rangefinderAtRingdown)) {
+            // the range holds; nothing to look for on the shore - and not while the rangefinder hears only itself:
+            // on 19 Oct the red's shore state flickered, the search took the range from 3 to 14 m and the far-end
+            // noise followed it (no runaway, but no business searching with the rangefinder at 0.12 either)
             schemeNoBottomSinceMs = -1
             if (schemeSearching) {
                 console.log("DYNAMIC: search stopped - on the shore, the range holds at " + (lastPlanRangeMm / 1000).toFixed(1) + " m")
