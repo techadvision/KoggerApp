@@ -684,3 +684,35 @@ air.log`):** `shore n | gate A 0 | gate B 0 | outlier held 0` in every 10 s wind
 throughout - in the air on the frozen vote (0.35-0.37, p95 121), pressed on the floor vote (0.32, p95 61-66), through
 both transitions. The four seconds before the state formed showed the rangefinder's 0.20 m through the shallow rule; a
 rangefinder at its ringdown now never enters shallow mode (`shallowMode` requires rf > 0.25).
+
+---
+
+## 10. The 20 Oct run - red, black, red beta; shore -> water -> mission -> shore -> air (build `c563a7f1`)
+
+`2D_pulse_log_2026.10.20_18.08.44` (red), `18.16.49` (black), `18.23.41` (red beta, the built-in transducer with its
+few mm of clearance), `pulse - 2d QA 20.10.2026.log`. The "TVG" artefacts were motor noise in an unshielded test cable,
+not the processing - the red beta's echogram was normal.
+
+**What held.** Every shore on every transducer was `none (shore)` with the readout a dash, and the state did not drop
+out on wet gravel: red 18:08:45-18:09:08, black 18:16:48-18:17:10, red beta 18:24:03-18:24:17 and again at the end of
+each run (`shore 840 | gate A 0 | gate B 0` for whole windows). The water was clean on all three (nothing rejected,
+nothing held, the slopes untouched). The black is indeed the cleanest - its floor and frozen signatures are the
+strongest - but the red and the red beta were a dash on the shore as well.
+
+**What remained - two, both fixed in `61b2d91b`.**
+
+- **The black in the air read a 40 m rangefinder.** Lifted off the water (18:21:43 on), its rangefinder sent 34-44 m for
+  a minute, jumping by metres. That is a "reading" above the ringdown, so the shore state fell, "no bottom in the
+  water" began and the P9 search doubled the range to 51 m (`DYNAMIC: search` 3.5 -> 7 -> 14 -> 28 -> 51). The readout
+  stayed a dash - gates A and B rejected everything at 0.89 of the range - so nothing false was shown, but the range
+  ballooned and the pings slowed to 8.5/s until the next launch. The red did the same on 18 Oct in 4 of 23 shore
+  windows (40-44 m). Readings beyond 30 m that wander by more than 15% are the device's far-end noise and now count
+  as hearing nothing, for the shore state and the search alike; a true 35 m bottom holds within a few percent.
+- **The red into 10-20 cm of water** (18:13:50-18:14:05): the rangefinder toggled 0.18-0.30 around the 0.25 ringdown
+  ceiling, the bottom track at its floor, and the readout flipped `rangefinder (shallow)` (0.28, 0.30) / `none (shore)`
+  several times a second. The rangefinder now takes over only from **0.35 m**; below that the floor shows (0.32) until
+  the shore state's dash takes it.
+
+**Still to see at the water:** a real drop-off (the jump rule's cost), 30-50 cm of water for longer than a few
+seconds, and the red's shore state on a day with a louder shore trace (today's held). The German lake is for the
+features.
