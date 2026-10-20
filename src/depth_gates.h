@@ -156,6 +156,14 @@ struct ChoiceParams {
     float secondEchoMin = 1.7f; // "a second echo": bottom track / rangefinder within this band
     float secondEchoMax = 3.3f;
     float ringdownM = 0.25f;    // the rangefinder's own ringdown (0.12 red; 0.15-0.20 blue on the shore 18 Oct, 0.23 in air)
+    float rfEnterMin = 0.35f;   // the rangefinder takes over only from here: in 10-20 cm of water it toggles 0.18-0.30 around
+                                // its ringdown (the red at the shore, 20 Oct), and 0.25 would cut right through that
+    // FAR NOISE: out of the water the black's rangefinder read 34-44 m for a minute, jumping by metres (20 Oct), the red's
+    // 40-44 in 4 of 23 shore windows (18 Oct). A reading beyond farNoiseM that wanders by more than farNoiseSpread is
+    // the device's far-end noise, not a depth - the rangefinder hears nothing, as at its ringdown. A real 35 m bottom
+    // holds within a few percent.
+    float farNoiseM = 30.0f;
+    float farNoiseSpread = 0.15f;
     // THE SHORE STATE (19 Oct 2026, from the three-transducer run). The rangefinder at its ringdown for 1.5 s says
     // the device's own detector hears nothing; with that, the trace must be QUIET or the bottom track AT ITS FLOOR
     // for two thirds of the last second's passes. Quiet = 95th percentile of the trace past 0.4 m under quietP95:
@@ -208,7 +216,7 @@ inline bool shallowMode(bool wasShallow, bool rfFresh, float rf, float btRaw, fl
         return rfFresh && rf <= p.rfLeave;
     // ... and a rangefinder at its own ringdown has nothing to offer: it is not reading water (the black in the air
     // showed 0.20 m for the four seconds before the shore state formed, 19 Oct evening)
-    return rfFresh && rf > p.ringdownM && rf < p.rfEnter && shallowAgrees(btRaw, rf, minDistance, p);
+    return rfFresh && rf >= p.rfEnterMin && rf < p.rfEnter && shallowAgrees(btRaw, rf, minDistance, p);
 }
 
 // THE OUTLIER FILTER (P5b) - the big-jump filter rebuilt where it can do its job. Its purpose (Olav): drop

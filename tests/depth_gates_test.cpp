@@ -147,8 +147,9 @@ int main()
     // rf 0.3 -> NOT shallow: no bottom is not agreement.
     CHECK(!shallowMode(false, true, 0.37f, 0.39f, 0.25f));
     CHECK(!shallowMode(false, true, 0.12f, 0.32f, 0.25f));   // 0.12 is the rangefinder's ringdown, not water: never a depth
-    CHECK(shallowMode(false, true, 0.30f, 0.32f, 0.25f));    // 0.30 is a reading, the bottom track at its floor: the rangefinder takes over
-    CHECK(shallowMode(false, true, 0.27f, 0.60f, 0.25f));    // a second echo (2.2 x) of a reading just above the ringdown
+    CHECK(!shallowMode(false, true, 0.30f, 0.32f, 0.25f));   // 0.30 toggles with the ringdown in 10-20 cm of water: not yet
+    CHECK(shallowMode(false, true, 0.38f, 0.32f, 0.25f));    // 0.38 is a reading, the bottom track at its floor: the rangefinder takes over
+    CHECK(shallowMode(false, true, 0.36f, 0.80f, 0.25f));    // a second echo (2.2 x) of a reading above the entry floor
     CHECK(!shallowMode(false, true, 0.90f, 0.90f, 0.25f));
     CHECK(shallowMode(false, true, 0.46f, 1.10f, 0.25f));
     CHECK(!shallowMode(false, true, 0.40f, 5.00f, 0.25f));

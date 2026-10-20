@@ -2099,14 +2099,23 @@ void Dataset::chooseDepth()
 
         // the rangefinder at its ringdown for the last ~1.5 s - two thirds of its readings, because the red's
         // rangefinder spikes to 40 m on the shore now and then (analysis 1.4). A 0.00 is no reading.
-        int readings = 0, atRingdown = 0;
+        // ... or at its far end: readings beyond farNoiseM that wander by more than farNoiseSpread are the device's own
+        // noise (the black out of the water read 34-44 m for a minute, 20 Oct, and the P9 search took the range to 51 m)
+        int readings = 0, atRingdown = 0, far = 0;
+        float farLo = NAN, farHi = NAN;
         for (const auto& s : _rfRecent) {
             if (!depthgates::rfIsReading(s.second)) continue;
             ++readings;
             if (s.second <= cp.ringdownM) ++atRingdown;
+            if (s.second >= cp.farNoiseM) {
+                ++far;
+                farLo = std::isfinite(farLo) ? std::min(farLo, s.second) : s.second;
+                farHi = std::isfinite(farHi) ? std::max(farHi, s.second) : s.second;
+            }
         }
-        const bool ringdown = readings >= 2 && 3 * atRingdown >= 2 * readings;
-        _rfRingdown = ringdown;
+        const bool farNoise = far >= 2 && 2 * far >= readings && (farHi - farLo) > cp.farNoiseSpread * farLo;
+        const bool ringdown = readings >= 2 && 3 * (atRingdown + (farNoise ? far : 0)) >= 2 * readings;
+        _rfRingdown = ringdown;   // "hears nothing": its ringdown, or its far-end noise
 
         // THE SHORE STATE (19 Oct 2026): the rangefinder hears only itself AND, for two thirds of the last second's
         // passes, the trace is quiet or the bottom track sits at its floor. Decided from the rangefinder and the raw

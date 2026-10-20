@@ -72,7 +72,7 @@ public:
     Q_PROPERTY(QString chosenDepthSource    READ chosenDepthSource  NOTIFY chosenDepthChanged)
     Q_PROPERTY(bool    noBottom             READ noBottom           NOTIFY chosenDepthChanged)
     Q_PROPERTY(bool    onShore              READ onShore            NOTIFY chosenDepthChanged)
-    Q_PROPERTY(bool    rangefinderAtRingdown READ rangefinderAtRingdown NOTIFY chosenDepthChanged)
+    Q_PROPERTY(bool    rangefinderAtRingdown READ rangefinderAtRingdown NOTIFY chosenDepthChanged)   // hears nothing: ringdown or far-end noise
 
     Q_PROPERTY(float boatLatitude             READ getBoatLatitude          NOTIFY lastPositionChanged)
     Q_PROPERTY(float boatLongitude            READ getBoatLongitude         NOTIFY lastPositionChanged)
