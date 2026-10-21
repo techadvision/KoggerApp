@@ -841,3 +841,44 @@ places - which is exactly where the test put the boat.
    away (its 0.33 is above the zone; the toggling 0.18 is not steady).
 4. **Moving slowly from 60 cm to 20 cm and back**, red and blue: the hand-overs `bottom track -> rangefinder (shallow)
    -> none (no bottom) -> rangefinder (shallow) -> bottom track`, each once.
+
+### 11.6 Gate B's floor and the far false bottoms, on the bench (`tools/pulse-bt-bench/benchb.py`)
+
+Olav's priority: ANDY's far false bottoms first, no 15 m in a puddle - the shallows second. Gate B's floor
+(`gateBFromFraction`, 0.5) tried at 0.5 / 0.45 / 0.4 / 0.35 / 0.3 on every blue recording; good / false judged against
+the +-3 s rolling median of the run (sweep.py's reference), the 21 Oct file by depth (everything over 1 m is false).
+
+| recording | false (gate A alone) | floor 0.5: false removed / good dashed | 0.4 | 0.3 | good bottoms' reach fraction, median / 99th |
+|---|---|---|---|---|---|
+| ANDY (3.5 m, 25 m per side) | 256 epochs (A: 19%) | **50.0% / 0.79%** | 50.4% / 2.18% | 53.1% / 2.64% | 0.15 / 0.47 |
+| 18 Oct blue (5-11 m) | 41 (A: 0%) | 29.3% / 0.00% | 36.6% / 1.01% | 41.5% / 1.20% | 0.27 / 0.42 |
+| 19 Oct blue | 64 (A: 0%) | 12.5% / 4.66%* | 12.5% / 4.80% | 12.5% / 4.81% | 0.34 / 0.84* |
+| 21 Oct blue (15-60 cm) | 2531 (A: 77%) | 78.5% / 1.35% | 84.1% / 1.35% | 84.1% / 1.57% | 0.01 / 0.01 |
+
+\* the 19 Oct "good" includes the 10-20 cm approach's 14-19.5 m, which persisted long enough to become the rolling
+median's reference; its "good dashed" is false bottom correctly removed.
+
+**Verdict: the floor stays at 0.5.** Lowering it to 0.4 buys half a point on ANDY and costs 1.4 points of real bottom
+(0.79 -> 2.18% dashed); on the puddle it removes 142 of the 233 epochs of the 15 m stretch, not all. The 15 m sits at
+0.41-0.46 of the reach with contrast 1.25-1.75 (median 1.44) - the same contrast ANDY's *real* bottom has at its weak
+end (5th percentile 1.44, median 2.33). Contrast cannot tell the two apart, at any floor.
+
+**What is left on ANDY, and what separates it.** Of the 256 false epochs, 128 survive gates A and B; 110 of those sit
+inside half the reach. The second echo at 2 x (7 m) has the P11 signature - an echo at half the distance at least as
+loud as at the candidate AND the candidate at 1.7-3.3 x the recent reference: **39 false epochs, 0 good** (the
+half-echo test alone fires on 2.0% of good epochs; the band alone on 0.00%). The rest (~70 epochs, 3-4 x features at
+11-15 m with contrast 1.2-3.2) have no signature in the trace that a real bottom lacks; the outlier filter holds them
+for its persistence and the screen shows 1-3 s excursions. **The setters do what the gates cannot**: section 7.4's
+corrected sweep took ANDY's raw false rate from 6.6% (profile) to 0.30% with (15 / 0.5 / 0) and 0.36% with (31 / 1 / 0)
+- twenty times fewer false bottoms before any gate. That remains the fix for the gravel pit, and it is the experts'
+setting to confirm on the German lake (profile first, then 15 / 0.5 / 0, same stretch).
+
+**The puddle's 15 m.** Half-echo test: 25% of those epochs (51% of all the file's false, 12% of its good) - no. Trace
+loudness: in the bench's merged trace the puddle's p95 is 54-56 against ANDY's good 34-59 - no. What the puddle has
+that no real blue bottom in our recordings has: the rangefinder at its ringdown for the whole stretch AND a bottom
+track beyond 0.4 of the reach. Real blue bottoms with the rangefinder lost (0.00 / 0.20, 6% of 18 Oct's deep water)
+sit at <= 0.42 of the reach (99th percentile; 14 m at 35 m per side, 20 m at 50 m would be 0.4-0.44). A rule "blue,
+rangefinder hearing nothing for 1.5 s, bottom track beyond 0.4 of the reach -> no bottom" would dash the puddle and
+cost nothing in our recordings, with a known edge: a blue over 14-22 m at the long ranges whose rangefinder has lost
+the bottom. The blue's rangefinder reads to at least 6.5 m (18 Oct); how far beyond, we have not measured. **Not
+built**; the number to get first is how deep the blue's rangefinder still reads (the German lake again).
