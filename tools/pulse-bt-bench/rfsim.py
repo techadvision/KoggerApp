@@ -1,7 +1,9 @@
 """The rangefinder's steady reading and its veto (depth_gates.h: rfSteadyReading, rfVeto, 21 Oct 2026), replayed
 from an APP LOG's SHALLOW: lines - the .plog has no rangefinder, so this is the only bench these two rules have.
 
-    python3 rfsim.py <app log> <date YYYY-MM-DD> [HH:MM:SS-HH:MM:SS]
+    python3 rfsim.py <app log> <date YYYY-MM-DD> [HH:MM:SS-HH:MM:SS] [blue]
+
+'blue': the blue has no own zone (its rangefinder sits at 0.20 over deep water); only a steady reading above 0.25 counts.
 
 Per 5 s: how many epochs each rule would route where (veto = no bottom from either source; rf = rangefinder shallow
 mode; bt = bottom track; none = no raw bottom), the dominant one and its value range. The shore state, gates A/B
@@ -10,10 +12,13 @@ Mirrors the constants of ChoiceParams; change one and the other."""
 import re, sys, statistics as st
 from collections import defaultdict, Counter
 F = sys.argv[1]; DAY = sys.argv[2]
-win = sys.argv[3] if len(sys.argv) > 3 else None
+BLUE = 'blue' in sys.argv[3:]
+args = [a for a in sys.argv[3:] if a != 'blue']
+win = args[0] if args else None
 def hms(x): h, m, s = map(int, x.split(':')); return h * 3600 + m * 60 + s
 lo, hi = (hms(win.split('-')[0]), hms(win.split('-')[1])) if win else (0, 10**9)
 RINGDOWN, RINGLOW, ENTER, STAY, MAXM, RATIO, RFENTER, FLOORMARGIN, ECHO_MIN, ECHO_MAX = 0.25, 0.16, 0.03, 0.06, 1.0, 4.0, 0.5, 0.12, 1.7, 3.3
+if BLUE: RINGLOW = RINGDOWN
 rows=[]
 for l in open(F,errors='ignore'):
     if not l.startswith(DAY) or 'SHALLOW:' not in l: continue

@@ -1849,11 +1849,11 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
         return NAN;
     }
 
-    // The rangefinder's veto (21 Oct 2026, chooseDepth computes _rfSteady): a steady reading in the rangefinder's own
-    // zone (<= 0.25: the red in 20 cm of water, the black in the air - the app cannot tell which) means too shallow or
-    // out of the water, and a steady reading of the real bottom makes a bottom track at 4 x it a false one (the blue's
-    // 10-34 m in 30 cm of water). Live only: in a replay the rangefinder belongs to whatever device sits on the desk.
-    if (getState() == DatasetState::kConnection && depthgates::rfVeto(_rfSteady, dist)) {
+    // The rangefinder's veto (21 Oct 2026, chooseDepth computes _rfSteady): a 2D's steady reading in the rangefinder's
+    // own zone (<= 0.25: the red in 20 cm of water, the black in the air - the app cannot tell which) means too shallow
+    // or out of the water, and a steady reading of the real bottom makes a bottom track at 4 x it a false one (the
+    // blue's 10-34 m in 30 cm of water). In a replay as live - the .plog carries the rangefinder's DBT sentences.
+    if (depthgates::rfVeto(_rfSteady, dist)) {
         v.rfVeto = true;
         _gateBVoter.set(epochIndex, false, false);
         _outlierFilter.noBottom(epochIndex);
@@ -2090,7 +2090,9 @@ void Dataset::publishPass()
 // Published as chosenDepth (NaN = none), with the source named, and noBottom / onShore for the engine.
 void Dataset::chooseDepth()
 {
-    const depthgates::ChoiceParams cp;
+    depthgates::ChoiceParams cp;
+    if (bottomTrackParam_.preset == BottomTrackPreset::BottomTrackSideScan)
+        cp.rfRingLowM = cp.rfRingLowBlueM;   // the blue's 0.20 over deep water is its ringdown, not a shallow reading
     const float  rf      = _rangefinderLiveRaw;
     const double rfAge   = rangefinderLiveAgeS();
     const bool   rfFresh = depthgates::rfIsReading(rf) && rfAge >= 0.0 && rfAge < cp.rfFreshS;   // 0.00 is "no reading"

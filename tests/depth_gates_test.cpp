@@ -183,6 +183,12 @@ int main()
     CHECK(!std::isfinite(rfSteadyReading({0.12f, 0.12f, 0.12f, 0.12f}, false)));
     CHECK(!std::isfinite(rfSteadyReading({1.20f, 1.20f, 1.21f, 1.20f}, false)));
     CHECK(!std::isfinite(rfSteadyReading({}, false)));
+    // the blue has no own zone: its steady 0.20 over the ANDY gravel pit's 3.5 m is its ringdown (rfRingLowBlueM)
+    {
+        ChoiceParams blue; blue.rfRingLowM = blue.rfRingLowBlueM;
+        CHECK(!std::isfinite(rfSteadyReading({0.20f, 0.20f, 0.20f, 0.20f}, false, blue)));
+        CHECK(std::isfinite(rfSteadyReading({0.30f, 0.31f, 0.32f, 0.32f}, false, blue)));
+    }
 
     // The veto. The red in 20 cm of water (steady 0.22, bottom track 0.55 - and a black in the air reads the same):
     // nothing. The blue in 30 cm (steady 0.32, bottom track 10.4 m): nothing. The red at 30 cm (0.38 / 0.40): kept;

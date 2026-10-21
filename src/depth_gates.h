@@ -158,11 +158,17 @@ struct ChoiceParams {
     // THE RANGEFINDER'S OWN ZONE (21 Oct 2026, the stationary shallow test). Up to ringdownM a reading is unusable: the
     // red's ringdown is a crisp 0.12 and it reads 0.20-0.23 in 20 cm of water, but the black's ringdown IN THE AIR sits
     // at 0.18-0.20 for minutes (20 Oct, 20:15-20:18; the office floor 19 Oct) and the app cannot tell a red from a black.
-    // So a STEADY reading in (rfRingLowM, ringdownM] is "too shallow or out of the water" - no depth from either source
-    // (rfVeto) - and the rangefinder takes over only above ringdownM, when steady. Below rfRingLowM it is the ringdown
-    // proper: the shore state's business.
+    // So, for a 2D, a STEADY reading in (rfRingLowM, ringdownM] is "too shallow or out of the water" - no depth from
+    // either source (rfVeto) - and the rangefinder takes over only above ringdownM, when steady. Below rfRingLowM it is
+    // the ringdown proper: the shore state's business. In every 2D recording (18-21 Oct) the zone is entered only in
+    // 10-20 cm of water and in the air.
+    // THE BLUE HAS NO OWN ZONE: its rangefinder sits at a steady 0.20 over a 3.5 m bottom for 73% of the ANDY
+    // recording and 3% of 18 Oct's 5-11 m - that IS its ringdown, nothing shallow about it - so for the blue the
+    // zone's floor is ringdownM itself (rfRingLowBlueM) and only a steady reading above 0.25 counts. Dataset::chooseDepth
+    // sets rfRingLowM from the preset.
     float ringdownM = 0.25f;    // 0.12 red; 0.12-0.14 black on the shore, 0.18-0.20 in the air; 0.12-0.23 blue
-    float rfRingLowM = 0.16f;
+    float rfRingLowM = 0.16f;       // 2D (red / black)
+    float rfRingLowBlueM = 0.25f;   // blue: = ringdownM, no zone
     // STEADY: a real reading of still water holds within a few centimetres for a second (the red at 20 cm: 0.22, 0.22,
     // 0.23; the blue at 30 cm: 0.30-0.34); a rangefinder toggling with its ringdown (0.18 / 0.30, the red at the shore
     // 20 Oct; 0.18 / 0.33, the black at 30 cm 21 Oct) does not. Entering needs rfSteadyEnterM, staying rfSteadyStayM.
@@ -172,8 +178,9 @@ struct ChoiceParams {
     float rfSteadyMaxM = 1.0f;   // the rangefinder is the trusted instrument only this shallow
     // THE VETO: with the rangefinder steady on a reading, a bottom track at more than rfVetoRatio times it is not a
     // bottom (the blue in 30 cm of water: rangefinder 0.30-0.34, bottom track 10-34 m for a minute, 21 Oct); a second
-    // or third echo (1.7-3.3 x) is the shallow rule's business. Live only - a replay with a device on the desk must not
-    // lose its bottom to that device's rangefinder (8.1 item 8).
+    // or third echo (1.7-3.3 x) is the shallow rule's business. In a replay as live: the .plog carries the DBT
+    // sentences, so the file's own rangefinder is what the steady reading sees (Olav's experts evaluate test passes
+    // in the replay). A device connected during a replay mixes its rangefinder in - unplug it (8.1 item 8).
     float rfVetoRatio = 4.0f;
     // FAR NOISE: out of the water the black's rangefinder read 34-44 m for a minute, jumping by metres (20 Oct), the red's
     // 40-44 in 4 of 23 shore windows (18 Oct). A reading beyond farNoiseM that wanders by more than farNoiseSpread is
@@ -240,7 +247,8 @@ inline bool shallowAgrees(float btRaw, float rf, float minDistance, const Choice
 {
     if (!std::isfinite(btRaw))
         return false;   // no bottom is not agreement: a pass the gates emptied over 3.5 m of water must not hand the
-                        // readout to a rangefinder reading its ringdown (Olav's ANDY replay with a blue on the desk)
+                        // readout to a rangefinder reading its ringdown (the ANDY blue's rangefinder sits at 0.20 over
+                        // its 3.5 m bottom for most of the recording - a replay shows that, the file carries the DBT)
     if (btRaw <= minDistance + p.floorMargin)
         return true;                                   // at its floor
     if (std::isfinite(rf) && rf > 0.0f) {

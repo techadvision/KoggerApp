@@ -763,27 +763,47 @@ Pulled from every `SHALLOW:` line of 18-21 Oct, per device:
   within 3 cm (6 cm once steady - the hysteresis that keeps the black's 0.18 / 0.22 from flickering), above the
   ringdown proper (0.16) and under 1 m. It replaces the 0.35 entry floor: **shallow mode is entered on a steady
   reading above 0.25**, at whatever level, and left when the rangefinder falls back to 0.25 or rises past 0.7.
-- **The rangefinder's own zone, (0.16, 0.25]**: a steady reading there is "too shallow or out of the water" - the red
-  in 20 cm, the black in the air - and **no depth is shown from either source** (the red's second echo included).
-  This is the honest outcome of the red-black ambiguity: the red *could* show 0.22 at 20 cm, and will the day the
-  app knows it is a red (a model name from the device, or a setting). Until then the red's stated minimum stays
-  where the black's is.
+- **The rangefinder's own zone, (0.16, 0.25] - for the 2D only**: a steady reading there is "too shallow or out of
+  the water" - the red in 20 cm, the black in the air - and **no depth is shown from either source** (the red's second
+  echo included). This is the honest outcome of the red-black ambiguity: the red *could* show 0.22 at 20 cm, and will
+  the day the app knows it is a red (a model name from the device, or a serial-number table). Until then the red's
+  stated minimum stays where the black's is. In every 2D recording of 18-21 Oct the zone is entered only in 10-20 cm
+  of water and in the air. **The blue has no own zone** (`485de598`, the correction below): its rangefinder sits at a
+  steady 0.20 over the ANDY gravel pit's 3.5 m bottom for 73% of that recording and over 18 Oct's 5-11 m for 3% - that
+  is its ringdown, and a zone rule would have dashed the ANDY bottom three quarters of the time. For the blue only a
+  steady reading above 0.25 counts.
 - **The veto** (`rfVeto`, at the epoch write after the shore state and before gate A): with a steady reading, a
   bottom track in the own zone's case, or at **more than 4 x the reading**, is stored as no bottom. The blue's
   10-15 m in 30 cm of water is gone; a second or third echo (1.7-3.3 x) is left to the shallow rule, which shows the
-  rangefinder for it. **Live only**: a replay feeds the dataset while whatever device sits on the desk feeds the
-  rangefinder (8.1 item 8), and that device must not veto the file's bottom. Counted as `rangefinder veto` in the
-  `BT: last 10 s` line; the `BT: epoch` line says `rangefinder veto: steady at 0.22 (its own zone ...)` or
-  `(... the bottom track at over 4 x it)`.
+  rangefinder for it. **In a replay as live**: the `.plog` carries the rangefinder's `$SDDBT` sentences (3837 in the
+  red's five minutes), so a replayed file has its own rangefinder and the steady reading, the veto and the shore
+  state all work on it - Olav's experts evaluate test passes in the replay, and it must behave as the water did.
+  Counted as `rangefinder veto` in the `BT: last 10 s` line; the `BT: epoch` line says `rangefinder veto: steady at
+  0.22 (its own zone ...)` or `(... the bottom track at over 4 x it)`.
+
+  **A correction to sections 6.2 and 7.2**: "in a replayed file the rangefinder is always silent" was wrong - the
+  logger writes every frame, NMEA included, and section 7.1's own replay line shows `rangefinder live 6.48`. The
+  "desk device's 0.23" in Olav's ANDY replay (7.2, 8.1 item 8) was the ANDY blue's own rangefinder in the file,
+  reading its ringdown over 3.5 m of water. The conclusion drawn from it - no bottom is not agreement - stands, for a
+  better reason. A device *connected* during a replay still mixes its stream in; unplug it.
 - **No search while the rangefinder reads steadily** (`rangefinderSteady`): the vetoed epochs are "no bottom", and
   P9 would otherwise take the blue's range to its maximum in 30 cm of water.
 
-Replayed from the app logs (`tools/pulse-bt-bench/rfsim.py` - the `.plog` carries no rangefinder, so the two rules
-can only be checked there; the shore state and the gates are not in it): on 21 Oct every red 20 cm stretch and the
-blue's 18:23:20-18:24:35 become a dash, the red's 30 cm goes to the rangefinder (0.33-0.43, where it already showed
-the same from the bottom track) and the 60 cm positions are untouched. On 19 and 20 Oct the veto fires only in the
-10-20 cm shore approaches (where the shore state or gate B already dashed) and on the black in the air. The
-`depth_gates_test` covers the steady reading, the veto and the new `shallowMode`.
+Replayed from the app logs' `SHALLOW:` lines (`tools/pulse-bt-bench/rfsim.py`; the shore state and the gates are
+not in it): on 21 Oct every red 20 cm stretch becomes a dash, the red's 30 cm goes to the rangefinder (0.33-0.43,
+where it already showed the same from the bottom track), the 60 cm positions are untouched, and the blue's **30 cm**
+(18:24:00-18:24:35, rangefinder 0.30-0.34, bottom track 10 m) becomes a dash. On 19 and 20 Oct the veto fires only in
+the 10-20 cm shore approaches (where the shore state or gate B already dashed) and on the black in the air; on the
+ANDY replay never. The `depth_gates_test` covers the steady reading, the veto and the new `shallowMode`.
+
+**What remains on the blue: 15-20 cm of water, 18:23:20-18:23:40.** Rangefinder 0.19-0.21 (its ringdown, as over
+3.5 m), trace p95 105-115 (as loud as its 60 cm water, 121-129; the bridge was 25-31), bottom track 14.5-15.5 m at
+0.48 of the reach - under gate B's 0.5 - with contrast. Nothing we have tells this from a blue over a real 15 m
+bottom except the fraction of the reach: real blue bottoms so far sit at 0.10-0.31 of it (ANDY, 18 Oct), the 19 Oct
+shore approaches' 18-19.8 m at 0.56-0.63 (which B caught). Lowering B's floor to 0.4 for the blue would have caught
+these 20 s; what it would cost is a deep bottom at a long range (20 m at 50 m per side = 0.4) being *judged* by B,
+which dashed 5% of ANDY's real bottom when it judged there. To be measured on the bench before it is touched; for
+now the blue in 15-20 cm can still show a far false bottom for some seconds where the trace is loud.
 
 ### 11.4 Minimum depth to state, after this
 
@@ -791,7 +811,23 @@ the same from the bottom track) and the 60 cm positions are untouched. On 19 and
 |---|---|---|---|
 | **red** | the rangefinder from 0.20 m, the bottom track from ~0.4 m | **0.3 m** (0.26 and up, in practice from 0.30-0.33) | would be 0.2 m if the app knew it was a red |
 | **black** | the rangefinder from ~0.3 m (toggling with 0.18 at 30 cm), the bottom track from ~0.35 m | **0.4 m** | under 0.3 m a dash, by the shore state and the own-zone rule; 0.3-0.4 m is shown but from the bottom track at its floor |
-| **blue** | the rangefinder from 0.30 m, the bottom track from ~0.4 m (0.41-0.46 at 60 cm) | **0.5 m** | 0.3-0.5 m is a dash now (the veto), not 10 m |
+| **blue** | the rangefinder from 0.30 m, the bottom track from ~0.4 m (0.41-0.46 at 60 cm) | **0.5 m** | 0.3-0.5 m is a dash now (the veto), not 10 m - or the rangefinder, with the one change below; 15-20 cm can still show a far false bottom (above) |
+
+**Why the blue dashes at 30 cm instead of showing its 0.32** (Olav's question): the rule "no bottom is not
+agreement" (6.2, 9) - a pass the veto emptied cannot hand the readout to the rangefinder. Now that the veto's reason
+is known per pass, a pass emptied *by the 4 x rule* can count as agreement: a steady reading above 0.25 and under 0.5,
+the bottom track at over 4 x it, the rangefinder shown. In all recordings a blue reading steady at 0.26-0.5 occurs
+only at the 30 cm position and in 18 Oct's 15:11 approach (0.28-0.34 in 5-15 cm of water - it would show 0.3 there);
+0.50 at 60 cm. About ten lines; not built - Olav's call. With it the blue's minimum is 0.3 m like the others, and the
+2D line / the record keep a gap where the rangefinder carries the readout.
+
+**Why the black's 0.4, not 0.3**: under ~35 cm the black's bottom track sits at its floor (0.32-0.35) whatever the
+water - 15 cm, 30 cm, pressed to a floor. Its 0.33 at the 30 cm position was the floor coinciding with the depth, not
+a measurement; its rangefinder there toggled 0.18 / 0.33 and never became steady. From ~0.35-0.4 the bottom track
+leaves the floor (0.55 at 60 cm, moving with the bottom) and the rangefinder reads steadily. At 20 cm the dash came
+from the frozen vote on a 0.55 second echo that happened not to move; the own-zone rule is a second net there, but the
+black's readings toggle by 5-6 cm and will not always pass the steadiness test. For the readout "from 0.3 m" is
+defensible (25-35 cm shows 0.32-0.35); "accurate from 0.4 m" is where it measures.
 
 "Dash" here is `-.-` after the 2 s hold; the pill, if built, would read "too shallow or out of the water" in the same
 places - which is exactly where the test put the boat.
