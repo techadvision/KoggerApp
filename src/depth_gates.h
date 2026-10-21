@@ -42,6 +42,20 @@ struct Params {
     int   gateBWindow   = 9;
     float gateBSkipM    = 0.4f;
     float gateBPeakM    = 0.1f;
+    // P11 - the second echo (21 Oct 2026, from the ANDY gravel pit). The bottom track sometimes picks the bottom's
+    // second (or third) reflection: 7 m over a 3.5 m bottom, in runs of 1-3 s, with a real if weaker echo at it, so
+    // the gates cannot see it and the outlier filter can only hold it. Its signature, bench-verified on ANDY (39
+    // false epochs, 0 good): the value sits at secondEchoMin-secondEchoMax x the filter's reference AND the trace has
+    // an echo at HALF the distance at least as loud as at the value. Alone, the half-echo test fires on 2% of good
+    // epochs and the band on none. AND the half must be the reference's bottom (within the filter's own tolerance):
+    // a blue's merged side-scan trace is nearly flat (~35 everywhere in the gravel pit), so "at least as loud at
+    // half" holds for a far feature at 9.85 m over a 3.65 m bottom too, and its half (4.9) is a side return, not the
+    // bottom - without the match P11 fired on 100 ANDY epochs, 78 of them wrongly; with it on 47, all of them the
+    // second echo. Then the half is the bottom.
+    float secondEchoMin = 1.7f;
+    float secondEchoMax = 3.3f;
+    float secondEchoHalfAbsM = 0.5f;   // = OutlierParams absM / rel
+    float secondEchoHalfRel  = 0.3f;
 };
 
 inline float reachableEnd(float maxDistance, float rangeM, const Params& p = Params())
@@ -87,6 +101,35 @@ inline float echoContrast(const uint8_t* amp, int n, float resolution, float off
     for (int i = a; i < b; ++i)
         peak = std::max<int>(peak, amp[i]);
     return float(peak) / float(med + 1);
+}
+
+// P11: the refined position of the bottom's first echo when bt is a second echo of the reference, else NaN.
+// amp is the trace the bottom track saw (a blue's two sides merged), ref the outlier filter's reference (NaN = none).
+inline float secondEchoHalf(const uint8_t* amp, int n, float resolution, float offsetM, float bt, float ref, const Params& p = Params())
+{
+    if (!amp || n <= 0 || !(resolution > 0.0f) || !std::isfinite(bt) || !std::isfinite(ref) || !(ref > 0.0f))
+        return NAN;
+    const float k = bt / ref;
+    if (k < p.secondEchoMin || k > p.secondEchoMax)
+        return NAN;
+    const int w = int(p.gateBPeakM / resolution);
+    auto peakAround = [&](float m, int& at) {
+        const int c = int((m - offsetM) / resolution);
+        const int a = std::max(0, c - w), b = std::min(n, c + w + 1);
+        int peak = -1; at = -1;
+        for (int i = a; i < b; ++i)
+            if (int(amp[i]) > peak) { peak = amp[i]; at = i; }
+        return peak;
+    };
+    int atFull = -1, atHalf = -1;
+    const int full = peakAround(bt, atFull);
+    const int half = peakAround(bt * 0.5f, atHalf);
+    if (full < 0 || half < 0 || half < full)
+        return NAN;
+    const float h = offsetM + atHalf * resolution;
+    if (std::fabs(h - ref) > std::max(p.secondEchoHalfAbsM, p.secondEchoHalfRel * ref))
+        return NAN;
+    return h;
 }
 
 // A percentile of the trace past skipM, through the same 256-bin histogram. -1 when there is nothing to measure.
@@ -387,6 +430,19 @@ public:
 
     void noBottom(int epoch) { accepted_.erase(epoch); held_.erase(epoch); }
     void clear() { accepted_.clear(); held_.clear(); lastVeto_ = -1; }
+
+    // the reference apply() would judge this epoch against (the median of the last w accepted epochs before it),
+    // NaN when there are too few - for P11, which needs it before the value is judged
+    float reference(int epoch, int windowEpochs, const OutlierParams& p = OutlierParams()) const
+    {
+        const int w = std::max(3, windowEpochs);
+        std::vector<float> refs;
+        for (auto it = accepted_.lower_bound(epoch); it != accepted_.begin() && int(refs.size()) < w;)
+            refs.push_back((--it)->second);
+        if (int(refs.size()) < p.minReference)
+            return NAN;
+        return median(refs);
+    }
 
 private:
     static float median(std::vector<float>& v)

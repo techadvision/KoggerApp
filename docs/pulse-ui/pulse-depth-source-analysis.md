@@ -882,3 +882,39 @@ rangefinder hearing nothing for 1.5 s, bottom track beyond 0.4 of the reach -> n
 cost nothing in our recordings, with a known edge: a blue over 14-22 m at the long ranges whose rangefinder has lost
 the bottom. The blue's rangefinder reads to at least 6.5 m (18 Oct); how far beyond, we have not measured. **Not
 built**; the number to get first is how deep the blue's rangefinder still reads (the German lake again).
+
+### 11.7 P11 built - the second echo (`tools/pulse-bt-bench/benchp11.py`)
+
+`depthgates::secondEchoHalf`, at the epoch write after gates A and B and before the outlier filter: a value at
+1.7-3.3 x the filter's reference (the median of the last second's *accepted* epochs, now exposed as
+`OutlierFilter::reference`), whose trace has an echo at half the distance at least as loud as at the value, **and
+whose half is the reference's bottom** (within the filter's own tolerance, 0.5 m / 30%), is the bottom's second
+reflection; the refined half goes to the filter in its place. Not a rejection: the `BT: last 10 s` line counts
+`second echo n`, the epoch line says `second echo: 7.06 m is a reflection of the 3.53 m bottom (the echo at half is
+louder) - the half stored`. The test covers the four cases.
+
+The third condition was found on the bench. Without it, P11 fired on 100 ANDY epochs and 78 were wrong: a blue's
+merged side-scan trace is nearly flat (~35 everywhere in the gravel pit, the bottom itself a peak of 36-38), so "as
+loud at half" holds for a far feature at 9.85 m over a 3.65 m bottom too, and its half, 4.9 m, is a side return.
+With the match: **47 ANDY epochs, all of them the second echo, none of the real bottom**; the 18 Oct blue's 18 and the
+red's 85 fired in 10-40 cm of water where the bottom track sat on the second echo of a 0.3-0.5 m bottom (the
+rangefinder read 0.12-0.34 there) - right as well.
+
+**A correction on how much is left on ANDY.** Section 7.4 scored against a +-3 s rolling median and reported 1.8%
+false after the gates. A +-3 s median follows an excursion that lasts longer than 3 s - and ANDY's far features do:
+the 9.85-10.5 m stretch from epoch 455 runs for 5 s and more while the trace's peak at 3.65 m never moves. Against a
++-10 s median the honest numbers are: **242 false epochs shown after gates A, B and the filter (4.6%); 189 with P11
+(3.6%)**, 53 held instead of 106, 221 dashed instead of 274. This is what Olav sees in the replay with (15 / 0.5 / 0):
+most of the lines corrected, some still on the far contours - the persistent ones, which the filter accepts after its
+persistence because nothing tells it they are false.
+
+**What does not work for those** (`P12`, bench only, rejected): "the reference's echo is still there, as loud as the
+candidate's, so the bottom has not moved - hold the candidate". On ANDY it halves the residue (103 shown) - and on the
+18 Oct blue it dashes **360 of the 448 epochs of the real 2 -> 11 m slope**: on a side scan the old depth's slant range
+keeps returning from the slope walls after the nadir has dropped away. The red's slope is untouched (0 of 413) - the
+rule is sound for a single beam and wrong for a side scan, and the blue is where the problem is. Not built.
+
+What is left for the gravel pit is therefore the gain slope: (15 / 0.5 / 0) takes the raw false rate from 6.6% to
+0.3% (7.4), twenty times fewer far features before any gate; P11 and the filter clean up behind it. Olav's replay
+observation matches - most lines corrected, some far contours remain - and the remaining ones are the persistent
+features that only a lower far-preference in the tracker itself removes.

@@ -1866,18 +1866,20 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
     // Gate B - echo contrast, on the trace the bottom track itself saw: a blue's two sides merged as
     // (a + b) >> 2 (bottom_track_processor.cpp), a red's single channel as is. A bottom with no echo over the
     // trace's own noise floor is the search edge too - blue's 35 m cap, which A cannot see at 50 m per side.
+    const uint8_t* trace = nullptr;
+    int traceN = 0;
     if (c0 && c0->resolution > 0.0f && !c0->amplitude.isEmpty()) {
-        const uint8_t* trace = reinterpret_cast<const uint8_t*>(c0->amplitude.constData());
-        const int n = c0->amplitude.size();
+        trace = reinterpret_cast<const uint8_t*>(c0->amplitude.constData());
+        traceN = c0->amplitude.size();
         const Epoch::Echogram* c1 = ep.chartAvail(channelId, 1) ? ep.chart(channelId, 1) : nullptr;
-        if (c1 && c1->amplitude.size() == n && c1->resolution == c0->resolution) {
-            _gateTraceBuf.resize(n);
+        if (c1 && c1->amplitude.size() == traceN && c1->resolution == c0->resolution) {
+            _gateTraceBuf.resize(traceN);
             const uint8_t* b = reinterpret_cast<const uint8_t*>(c1->amplitude.constData());
-            for (int i = 0; i < n; ++i)
+            for (int i = 0; i < traceN; ++i)
                 _gateTraceBuf[i] = uint8_t((uint16_t(trace[i]) + uint16_t(b[i])) >> 2);
             trace = _gateTraceBuf.data();
         }
-        v.contrast = depthgates::echoContrast(trace, n, c0->resolution, c0->offset, dist);
+        v.contrast = depthgates::echoContrast(trace, traceN, c0->resolution, c0->offset, dist);
     }
     const depthgates::Params gp;
     const bool farHalf = dist > gp.gateBFromFraction * depthgates::reachableEnd(maxDistance, v.rangeM, gp);
@@ -1892,6 +1894,19 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
     // The outlier filter (P5b) - after the gates, so it only judges values that could be a bottom. Held
     // epochs are stored as NaN; a jump that persists ~1 s releases them with their real values (v.released).
     if (_useDepthFilterWithBottomTrack) {
+        // P11 - the second echo (21 Oct 2026): a value at 1.7-3.3 x the filter's reference whose half-distance echo is
+        // at least as loud is the bottom's second reflection (ANDY: 7 m over 3.5 m, 1-3 s at a time); the first
+        // reflection is the bottom, and it goes to the filter in the value's place
+        if (trace) {
+            const float ref  = _outlierFilter.reference(epochIndex, epochsPerSecond());
+            const float half = depthgates::secondEchoHalf(trace, traceN, c0->resolution, c0->offset, dist, ref);
+            if (std::isfinite(half)) {
+                v.secondEcho = true;
+                v.secondEchoFrom = dist;
+                v.secondEchoHalf = half;
+                dist = half;
+            }
+        }
         // the live rangefinder is a witness against a confirmation (never a value): only when it is a fresh reading
         const double rfAge = rangefinderLiveAgeS();
         const float witness = (depthgates::rfIsReading(_rangefinderLiveRaw) && rfAge >= 0.0 && rfAge < 1.5) ? _rangefinderLiveRaw : NAN;
@@ -1931,6 +1946,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
 
     const bool shore    = v.shore;
     const bool veto     = v.rfVeto;
+    const bool second   = v.secondEcho;
     const bool farEnd   = v.gateA;
     const bool noEcho   = v.gateB;
     const bool outlier  = v.outlier;
@@ -1945,6 +1961,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
     if (shore)    ++_btShore;
     if (veto)     ++_btVeto;
+    if (second)   ++_btSecond;
     if (farEnd)   ++_btFar;
     if (noEcho)   ++_btGateB;
     if (outlier)  ++_btOutlier;
@@ -1963,7 +1980,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     const auto f2 = [](float v) { return std::isfinite(v) ? QString::number(v, 'f', 2) : QStringLiteral("-"); };
 
     // 'disagree' is counted, not printed: a blue's rangefinder at its ringdown disagrees with every pass
-    if ((shore || veto || farEnd || noEcho || outlier || none) && now - _btLastLineMs >= 1000) {
+    if ((shore || veto || second || farEnd || noEcho || outlier || none) && now - _btLastLineMs >= 1000) {
         _btLastLineMs = now;
         ++_btLines;
         QStringList why;
@@ -1972,6 +1989,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
         if (farEnd)   why << QStringLiteral("gate A rejected: far end (> 0.75 of the reachable range)");
         if (noEcho)   why << QStringLiteral("gate B rejected: no echo (contrast %1)").arg(f2(v.contrast));
         if (outlier)  why << QStringLiteral("held by the outlier filter");
+        if (second)   why << QStringLiteral("second echo: %1 m is a reflection of the %2 m bottom (the echo at half is louder) - the half stored").arg(f2(v.secondEchoFrom), f2(v.secondEchoHalf));
         if (disagree) why << QStringLiteral("kept, disagrees with the rangefinder");
         if (none)     why << QStringLiteral("no bottom");
         qDebug().noquote() << QStringLiteral("BT: epoch %1 | bottom track %2 m raw of %3 m acquired (%4) | rangefinder live %5 (%6 s old) | %7")
@@ -1981,13 +1999,13 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
 
     if (now - _btWindowStartMs >= 10000) {
-        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | shore %15 | rangefinder veto %16 | gate A rejected %2 | gate B rejected %11 | outlier held %12 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | trace p95 %13-%14 | %10 lines")
+        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | shore %15 | rangefinder veto %16 | gate A rejected %2 | gate B rejected %11 | second echo %17 | outlier held %12 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | trace p95 %13-%14 | %10 lines")
                               .arg(_btN).arg(_btFar).arg(_btDisagree).arg(_btNone)
                               .arg(f2(_btRatioMax), f2(_btMin), f2(_btMax), f2(_rfMin), f2(_rfMax))
-                              .arg(_btLines).arg(_btGateB).arg(_btOutlier).arg(_btP95Min).arg(_btP95Max).arg(_btShore).arg(_btVeto);
+                              .arg(_btLines).arg(_btGateB).arg(_btOutlier).arg(_btP95Min).arg(_btP95Max).arg(_btShore).arg(_btVeto).arg(_btSecond);
         _btP95Min = _btP95Max = -1;
         _btWindowStartMs = now;
-        _btN = _btShore = _btVeto = _btFar = _btGateB = _btOutlier = _btDisagree = _btNone = _btLines = 0;
+        _btN = _btShore = _btVeto = _btSecond = _btFar = _btGateB = _btOutlier = _btDisagree = _btNone = _btLines = 0;
         _btRatioMax = 0;
         _btMin = _btMax = _rfMin = _rfMax = NAN;
     }

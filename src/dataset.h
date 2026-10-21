@@ -193,6 +193,9 @@ public:
         int   traceP95 = -1;     // 95th percentile of the trace past 0.4 m (in air there is no return: the shore test)
         bool  shore = false;     // the shore state (rangefinder at its ringdown + quiet trace / floor): nothing is a bottom
         bool  rfVeto = false;    // the rangefinder steady in its own zone, or at less than a quarter of this value: not a bottom
+        bool  secondEcho = false;  // P11: the value was the bottom's second reflection; the half was stored (not a rejection)
+        float secondEchoFrom = NAN;   // the value as the bottom track delivered it
+        float secondEchoHalf = NAN;   // what was stored in its place
         std::vector<std::pair<int, float>> released;   // earlier epochs the filter released (a confirmed jump): rewrite them
         bool  rejected() const { return shore || rfVeto || gateA || gateB || outlier; }
     };
@@ -839,6 +842,7 @@ private:
     float  _rfSteady = NAN;          // depthgates::rfSteadyReading() of the last second, computed per pass; the veto's witness
     int    _btShore = 0;             // the BT: 10 s count
     int    _btVeto = 0;              // the BT: 10 s count
+    int    _btSecond = 0;            // the BT: 10 s count
     int    _btP95Min = -1, _btP95Max = -1;   // the BT: 10 s count
     void   notePassEpoch(int epochIndex, float stored, int traceP95, float raw);
     void   publishPass();

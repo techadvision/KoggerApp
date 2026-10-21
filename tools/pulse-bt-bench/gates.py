@@ -88,21 +88,48 @@ SLOPES = {
     '2D_pulse_log_2026.10.19_17.29.29.plog': [('17:30:15', '17:30:55')],
 }
 
-def run_outlier(gated, times):
+SECOND_ECHO_MIN, SECOND_ECHO_MAX = 1.7, 3.3   # P11 (depth_gates.h Params)
+
+def second_echo_half(d, res, off, bt, ref):
+    """P11 (depth_gates.h secondEchoHalf): the refined half position when bt is a second echo of ref, else NaN."""
+    if not (np.isfinite(bt) and np.isfinite(ref) and ref > 0): return np.nan
+    k = bt / ref
+    if k < SECOND_ECHO_MIN or k > SECOND_ECHO_MAX: return np.nan
+    n = len(d); w = int(GATE_B_PEAK_M / res)
+    def peak(m):
+        c = int((m - off) / res); a = max(0, c - w); b = min(n, c + w + 1)
+        if b <= a: return -1, -1
+        seg = d[a:b]; i = int(np.argmax(seg)); return int(seg[i]), a + i
+    full, _ = peak(bt); half, at = peak(bt * 0.5)
+    if full < 0 or half < 0 or half < full: return np.nan
+    h = off + at * res
+    if abs(h - ref) > max(outlier.ABS_M, outlier.REL * ref): return np.nan   # the half must BE the reference's bottom
+    return h
+
+def run_outlier(gated, times, eps=None):
     """The filter over the gated per-epoch values in epoch order, the window = the epochs of the last second
-    (time, not samples, as Dataset counts them). Returns stored values, held mask, released count."""
+    (time, not samples, as Dataset counts them). With eps (the traces, as sweep.load gives them) P11 runs before the
+    filter. Returns stored values, held mask, released count (and the second-echo mask when eps is given)."""
     f = outlier.OutlierFilter()
     stored = np.full(len(gated), np.nan); held = np.zeros(len(gated), bool); released = 0
+    second = np.zeros(len(gated), bool)
     j = 0
     for i, v in enumerate(gated):
         while times[i] - times[j] > 1.0: j += 1
         w = i - j + 1
         if not np.isfinite(v):
             f.no_bottom(i); continue
+        if eps is not None:
+            d, res, off = eps[i]
+            half = second_echo_half(d, res, off, float(v), f.reference(i, w))
+            if np.isfinite(half):
+                second[i] = True; v = half
         s, h, c, rel = f.apply(i, float(v), w)
         stored[i] = s; held[i] = h
         for k, x in rel:
             stored[k] = x; held[k] = False; released += 1
+    if eps is not None:
+        return stored, held, released, second
     return stored, held, released
 
 def report(name, bt, shore, water, gates):

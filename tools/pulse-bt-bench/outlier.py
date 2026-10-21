@@ -29,6 +29,12 @@ class OutlierFilter:
     def no_bottom(self, epoch):
         self.accepted.pop(epoch, None); self.held.pop(epoch, None)
 
+    def reference(self, epoch, window_epochs):
+        """The reference apply() would judge this epoch against (NaN when too few accepted) - for P11."""
+        w = max(3, int(window_epochs))
+        refs = [x for k, x in sorted(self.accepted.items(), reverse=True) if k < epoch][:w]
+        return _median(refs) if len(refs) >= MIN_REFERENCE else math.nan
+
     def apply(self, epoch, value, window_epochs, witness=None):
         """Returns (stored, held, confirmed, released[(epoch, value)])."""
         w = max(3, int(window_epochs))

@@ -190,6 +190,23 @@ int main()
         CHECK(std::isfinite(rfSteadyReading({0.30f, 0.31f, 0.32f, 0.32f}, false, blue)));
     }
 
+    // P11 - the second echo. A trace with the bottom at 3.5 m (amp 60) and its second echo at 7.0 m (amp 40), the
+    // bottom track on the echo, the reference 3.46: the half (3.5) is stored. The same trace with the bottom track
+    // at 3.5: nothing (not in the band). A far feature at 9.85 over 3.65 whose half (4.9) is a side return as loud
+    // as everything else: nothing (the half is not the reference's bottom). No reference: nothing.
+    {
+        std::vector<uint8_t> t(2500, 30);   // 0.01 m per sample, 25 m
+        t[350] = 60; t[351] = 58; t[700] = 40; t[701] = 39;
+        CHECK(std::fabs(secondEchoHalf(t.data(), int(t.size()), 0.01f, 0.0f, 7.0f, 3.46f) - 3.5f) < 0.02f);
+        CHECK(!std::isfinite(secondEchoHalf(t.data(), int(t.size()), 0.01f, 0.0f, 3.5f, 3.46f)));
+        CHECK(!std::isfinite(secondEchoHalf(t.data(), int(t.size()), 0.01f, 0.0f, 7.0f, NAN)));
+        std::vector<uint8_t> flat(2500, 35); flat[365] = 36; flat[985] = 36; flat[490] = 36;
+        CHECK(!std::isfinite(secondEchoHalf(flat.data(), int(flat.size()), 0.01f, 0.0f, 9.85f, 3.65f)));
+        // the echo at the half must be at least as loud: a 7 m value whose half is quieter than it is a bottom
+        std::vector<uint8_t> t2(2500, 30); t2[350] = 35; t2[700] = 60;
+        CHECK(!std::isfinite(secondEchoHalf(t2.data(), int(t2.size()), 0.01f, 0.0f, 7.0f, 3.46f)));
+    }
+
     // The veto. The red in 20 cm of water (steady 0.22, bottom track 0.55 - and a black in the air reads the same):
     // nothing. The blue in 30 cm (steady 0.32, bottom track 10.4 m): nothing. The red at 30 cm (0.38 / 0.40): kept;
     // the red at 60 cm (0.62 / 0.64): kept; a second echo (0.36 / 0.80): kept - the shallow rule's business. Not steady:
