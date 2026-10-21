@@ -155,9 +155,26 @@ struct ChoiceParams {
     float floorMargin = 0.12f;  // "at its floor": bottom track <= minDistance + this
     float secondEchoMin = 1.7f; // "a second echo": bottom track / rangefinder within this band
     float secondEchoMax = 3.3f;
-    float ringdownM = 0.25f;    // the rangefinder's own ringdown (0.12 red; 0.15-0.20 blue on the shore 18 Oct, 0.23 in air)
-    float rfEnterMin = 0.35f;   // the rangefinder takes over only from here: in 10-20 cm of water it toggles 0.18-0.30 around
-                                // its ringdown (the red at the shore, 20 Oct), and 0.25 would cut right through that
+    // THE RANGEFINDER'S OWN ZONE (21 Oct 2026, the stationary shallow test). Up to ringdownM a reading is unusable: the
+    // red's ringdown is a crisp 0.12 and it reads 0.20-0.23 in 20 cm of water, but the black's ringdown IN THE AIR sits
+    // at 0.18-0.20 for minutes (20 Oct, 20:15-20:18; the office floor 19 Oct) and the app cannot tell a red from a black.
+    // So a STEADY reading in (rfRingLowM, ringdownM] is "too shallow or out of the water" - no depth from either source
+    // (rfVeto) - and the rangefinder takes over only above ringdownM, when steady. Below rfRingLowM it is the ringdown
+    // proper: the shore state's business.
+    float ringdownM = 0.25f;    // 0.12 red; 0.12-0.14 black on the shore, 0.18-0.20 in the air; 0.12-0.23 blue
+    float rfRingLowM = 0.16f;
+    // STEADY: a real reading of still water holds within a few centimetres for a second (the red at 20 cm: 0.22, 0.22,
+    // 0.23; the blue at 30 cm: 0.30-0.34); a rangefinder toggling with its ringdown (0.18 / 0.30, the red at the shore
+    // 20 Oct; 0.18 / 0.33, the black at 30 cm 21 Oct) does not. Entering needs rfSteadyEnterM, staying rfSteadyStayM.
+    float rfSteadySeconds = 1.0f;
+    float rfSteadyEnterM = 0.03f;
+    float rfSteadyStayM = 0.06f;
+    float rfSteadyMaxM = 1.0f;   // the rangefinder is the trusted instrument only this shallow
+    // THE VETO: with the rangefinder steady on a reading, a bottom track at more than rfVetoRatio times it is not a
+    // bottom (the blue in 30 cm of water: rangefinder 0.30-0.34, bottom track 10-34 m for a minute, 21 Oct); a second
+    // or third echo (1.7-3.3 x) is the shallow rule's business. Live only - a replay with a device on the desk must not
+    // lose its bottom to that device's rangefinder (8.1 item 8).
+    float rfVetoRatio = 4.0f;
     // FAR NOISE: out of the water the black's rangefinder read 34-44 m for a minute, jumping by metres (20 Oct), the red's
     // 40-44 in 4 of 23 shore windows (18 Oct). A reading beyond farNoiseM that wanders by more than farNoiseSpread is
     // the device's far-end noise, not a depth - the rangefinder hears nothing, as at its ringdown. A real 35 m bottom
@@ -190,6 +207,33 @@ struct ChoiceParams {
 // a rangefinder reading that is a reading: the device sends 0.00 when it has none (the blue from 15:25 on 18 Oct)
 inline bool rfIsReading(float rf) { return std::isfinite(rf) && rf > 0.0f; }
 
+// THE STEADY READING: the median of the last rfSteadySeconds of readings when they hold together, else NaN.
+// `readings` are the readings (rfIsReading) of that window, any order; `wasSteady` selects the hysteresis band.
+inline float rfSteadyReading(std::vector<float> readings, bool wasSteady, const ChoiceParams& p = ChoiceParams())
+{
+    if (readings.size() < 3)
+        return NAN;
+    std::sort(readings.begin(), readings.end());
+    const float spread = readings.back() - readings.front();
+    const float median = readings[readings.size() / 2];
+    if (spread > (wasSteady ? p.rfSteadyStayM : p.rfSteadyEnterM) + 1e-4f)   // the device sends centimetres
+        return NAN;
+    if (median <= p.rfRingLowM || median >= p.rfSteadyMaxM)
+        return NAN;
+    return median;
+}
+
+// THE VETO at the epoch write: true when this bottom track value cannot be a bottom given a steady rangefinder.
+// rfSteady is rfSteadyReading()'s result (NaN when not steady).
+inline bool rfVeto(float rfSteady, float btRaw, const ChoiceParams& p = ChoiceParams())
+{
+    if (!std::isfinite(rfSteady) || !std::isfinite(btRaw))
+        return false;
+    if (rfSteady <= p.ringdownM)
+        return true;                              // the rangefinder's own zone: too shallow or out of the water
+    return btRaw > p.rfVetoRatio * rfSteady;      // a far false bottom over a rangefinder that reads the real one
+}
+
 
 // the bottom track agrees that it is shallow (btRaw and rf without the mount offset)
 inline bool shallowAgrees(float btRaw, float rf, float minDistance, const ChoiceParams& p = ChoiceParams())
@@ -206,17 +250,19 @@ inline bool shallowAgrees(float btRaw, float rf, float minDistance, const Choice
     return false;
 }
 
-// the hysteresis: the new shallow-mode state from the previous one
-inline bool shallowMode(bool wasShallow, bool rfFresh, float rf, float btRaw, float minDistance, const ChoiceParams& p = ChoiceParams())
+// the hysteresis: the new shallow-mode state from the previous one. rfSteady is rfSteadyReading()'s result.
+inline bool shallowMode(bool wasShallow, bool rfFresh, float rf, float rfSteady, float btRaw, float minDistance, const ChoiceParams& p = ChoiceParams())
 {
     // Entering needs the bottom track's agreement; STAYING does not (19 Oct 2026): in 0.3-0.5 m of water the bottom
     // track alternates between its floor (agrees) and a reading (does not), and the source flipped five times a
-    // second. While the rangefinder stays under rfLeave the two read the same water anyway.
+    // second. While the rangefinder stays under rfLeave the two read the same water anyway. In either direction a
+    // rangefinder in its own zone (<= ringdownM) has nothing to offer: it is not reading water (the black in the air
+    // showed 0.20 m for the four seconds before the shore state formed, 19 Oct evening).
     if (wasShallow)
-        return rfFresh && rf <= p.rfLeave;
-    // ... and a rangefinder at its own ringdown has nothing to offer: it is not reading water (the black in the air
-    // showed 0.20 m for the four seconds before the shore state formed, 19 Oct evening)
-    return rfFresh && rf >= p.rfEnterMin && rf < p.rfEnter && shallowAgrees(btRaw, rf, minDistance, p);
+        return rfFresh && rf > p.ringdownM && rf <= p.rfLeave;
+    // Entering needs a STEADY reading (21 Oct 2026): 0.35 as a fixed entry floor was a guess at where the toggling
+    // with the ringdown ends; steadiness is what tells a reading from the toggling, at any level above ringdownM.
+    return rfFresh && std::isfinite(rfSteady) && rfSteady > p.ringdownM && rf < p.rfEnter && shallowAgrees(btRaw, rf, minDistance, p);
 }
 
 // THE OUTLIER FILTER (P5b) - the big-jump filter rebuilt where it can do its job. Its purpose (Olav): drop

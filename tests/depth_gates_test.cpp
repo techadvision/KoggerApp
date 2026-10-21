@@ -145,23 +145,59 @@ int main()
     // bt 0.90 / rf 0.90 -> not shallow (over rfEnter); bt 1.1 / rf 0.46 -> 2.4 x, a second echo of 0.46 -> shallow;
     // bt 5.0 / rf 0.4 -> no (12 x), the blue's ringdown while the bottom track reads a real 5 m bottom; no bottom /
     // rf 0.3 -> NOT shallow: no bottom is not agreement.
-    CHECK(!shallowMode(false, true, 0.37f, 0.39f, 0.25f));
-    CHECK(!shallowMode(false, true, 0.12f, 0.32f, 0.25f));   // 0.12 is the rangefinder's ringdown, not water: never a depth
-    CHECK(!shallowMode(false, true, 0.30f, 0.32f, 0.25f));   // 0.30 toggles with the ringdown in 10-20 cm of water: not yet
-    CHECK(shallowMode(false, true, 0.38f, 0.32f, 0.25f));    // 0.38 is a reading, the bottom track at its floor: the rangefinder takes over
-    CHECK(shallowMode(false, true, 0.36f, 0.80f, 0.25f));    // a second echo (2.2 x) of a reading above the entry floor
-    CHECK(!shallowMode(false, true, 0.90f, 0.90f, 0.25f));
-    CHECK(shallowMode(false, true, 0.46f, 1.10f, 0.25f));
-    CHECK(!shallowMode(false, true, 0.40f, 5.00f, 0.25f));
-    CHECK(!shallowMode(false, true, 0.30f, NAN, 0.25f));   // no bottom is not agreement (ANDY replay)
+    // shallowMode(wasShallow, rfFresh, rf, rfSteady, btRaw, minDistance): rfSteady is the steady reading (NaN = not
+    // steady); since 21 Oct entering needs it, above ringdownM (0.25).
+    CHECK(!shallowMode(false, true, 0.37f, 0.37f, 0.39f, 0.25f));
+    CHECK(!shallowMode(false, true, 0.12f, 0.12f, 0.32f, 0.25f));   // 0.12 is the rangefinder's ringdown, not water: never a depth
+    CHECK(!shallowMode(false, true, 0.30f, NAN,   0.32f, 0.25f));   // 0.30 toggling with the ringdown (10-20 cm of water): not steady, not yet
+    CHECK(shallowMode(false, true, 0.30f, 0.30f, 0.32f, 0.25f));    // 0.30 steady for a second, the bottom track at its floor: the rangefinder takes over
+    CHECK(!shallowMode(false, true, 0.22f, 0.22f, 0.55f, 0.25f));   // the red in 20 cm of water, steady 0.22 and a second echo - but a black in the air
+                                                                     // reads the same: the rangefinder's own zone, nothing from either (the veto below)
+    CHECK(shallowMode(false, true, 0.38f, 0.38f, 0.32f, 0.25f));    // 0.38 is a reading, the bottom track at its floor: the rangefinder takes over
+    CHECK(shallowMode(false, true, 0.36f, 0.36f, 0.80f, 0.25f));    // a second echo (2.2 x) of a steady reading
+    CHECK(!shallowMode(false, true, 0.90f, 0.90f, 0.90f, 0.25f));
+    CHECK(shallowMode(false, true, 0.46f, 0.46f, 1.10f, 0.25f));
+    CHECK(!shallowMode(false, true, 0.40f, 0.40f, 5.00f, 0.25f));
+    CHECK(!shallowMode(false, true, 0.30f, 0.30f, NAN, 0.25f));   // no bottom is not agreement (ANDY replay)
     // hysteresis: in shallow mode the rangefinder may rise to 0.7 before handing back; a stale rangefinder
-    // hands back at once; a blue spike (rf 24 m) never enters
-    CHECK(shallowMode(true, true, 0.65f, 0.34f, 0.25f));
-    CHECK(shallowMode(true, true, 0.45f, 0.45f, 0.25f));   // staying needs no agreement (both read 0.45)
-    CHECK(!shallowMode(true, true, 0.75f, 0.34f, 0.25f));
-    CHECK(!shallowMode(true, false, 0.30f, 0.34f, 0.25f));
-    CHECK(!shallowMode(false, true, 24.0f, 9.5f, 0.25f));
-    CHECK(!shallowMode(false, true, 0.55f, 0.60f, 0.25f));   // over rfEnter: stays with the bottom track
+    // hands back at once; so does one back in its own zone (the black toggling 0.18 / 0.33 at 30 cm); a blue
+    // spike (rf 24 m) never enters
+    CHECK(shallowMode(true, true, 0.65f, NAN, 0.34f, 0.25f));
+    CHECK(shallowMode(true, true, 0.45f, NAN, 0.45f, 0.25f));   // staying needs no agreement (both read 0.45) and no steadiness
+    CHECK(!shallowMode(true, true, 0.75f, 0.75f, 0.34f, 0.25f));
+    CHECK(!shallowMode(true, false, 0.30f, NAN, 0.34f, 0.25f));
+    CHECK(!shallowMode(true, true, 0.18f, NAN, 0.34f, 0.25f));
+    CHECK(!shallowMode(false, true, 24.0f, 24.0f, 9.5f, 0.25f));
+    CHECK(!shallowMode(false, true, 0.55f, 0.55f, 0.60f, 0.25f));   // over rfEnter: stays with the bottom track
+
+    // The steady reading (21 Oct). The red at 20 cm: 0.22 0.22 0.23 0.22 -> 0.22; the blue at 30 cm: 0.30-0.34 within
+    // a second -> enters (spread 0.03 allowed) ... 0.30-0.35 does not; once steady, 0.06 is allowed. The red toggling
+    // at the shore 0.18 / 0.30: not steady. Two readings are not a second. The ringdown proper (0.12) is never "steady":
+    // it is the shore state's business. 1 m and over: the bottom track's water.
+    CHECK(std::fabs(rfSteadyReading({0.22f, 0.22f, 0.23f, 0.22f}, false) - 0.22f) < 1e-4f);
+    CHECK(std::fabs(rfSteadyReading({0.30f, 0.31f, 0.33f, 0.32f, 0.33f}, false) - 0.32f) < 1e-4f);
+    CHECK(!std::isfinite(rfSteadyReading({0.30f, 0.31f, 0.35f, 0.32f, 0.33f}, false)));
+    CHECK(std::isfinite(rfSteadyReading({0.30f, 0.31f, 0.35f, 0.32f, 0.33f}, true)));
+    CHECK(!std::isfinite(rfSteadyReading({0.18f, 0.30f, 0.18f, 0.30f, 0.18f}, false)));
+    CHECK(!std::isfinite(rfSteadyReading({0.22f, 0.22f}, false)));
+    CHECK(!std::isfinite(rfSteadyReading({0.12f, 0.12f, 0.12f, 0.12f}, false)));
+    CHECK(!std::isfinite(rfSteadyReading({1.20f, 1.20f, 1.21f, 1.20f}, false)));
+    CHECK(!std::isfinite(rfSteadyReading({}, false)));
+
+    // The veto. The red in 20 cm of water (steady 0.22, bottom track 0.55 - and a black in the air reads the same):
+    // nothing. The blue in 30 cm (steady 0.32, bottom track 10.4 m): nothing. The red at 30 cm (0.38 / 0.40): kept;
+    // the red at 60 cm (0.62 / 0.64): kept; a second echo (0.36 / 0.80): kept - the shallow rule's business. Not steady:
+    // never a veto. No bottom: nothing to veto.
+    CHECK(rfVeto(0.22f, 0.55f));
+    CHECK(rfVeto(0.22f, 0.32f));
+    CHECK(rfVeto(0.32f, 10.4f));
+    CHECK(rfVeto(0.62f, 2.60f));
+    CHECK(!rfVeto(0.38f, 0.40f));
+    CHECK(!rfVeto(0.62f, 0.64f));
+    CHECK(!rfVeto(0.36f, 0.80f));
+    CHECK(!rfVeto(0.62f, 2.40f));
+    CHECK(!rfVeto(NAN, 10.4f));
+    CHECK(!rfVeto(0.32f, NAN));
 
     std::printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails ? 1 : 0;
