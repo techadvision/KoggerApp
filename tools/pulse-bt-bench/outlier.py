@@ -9,6 +9,7 @@ JUMP_FREE_M = 2.0
 JUMP_SECONDS_PER_M = 0.5
 PERSIST_MAX_WINDOWS = 4
 WITNESS_MAX_WINDOWS = 8
+RETURN_WINDOWS = 15
 
 
 def _median(v):
@@ -21,6 +22,7 @@ class OutlierFilter:
         self.accepted = {}
         self.held = {}
         self.last_veto = -1
+        self.prev_ref = math.nan; self.prev_ref_epoch = -1
 
     def _trim(self, before):
         self.accepted = {k: x for k, x in self.accepted.items() if k >= before}
@@ -50,6 +52,9 @@ class OutlierFilter:
         if abs(value - ref) <= max(ABS_M, REL * ref):
             self.accepted[epoch] = value
             return value, False, False, []
+        if math.isfinite(self.prev_ref) and epoch - self.prev_ref_epoch <= RETURN_WINDOWS * w and abs(value - self.prev_ref) <= max(ABS_M, REL * self.prev_ref):
+            self.accepted[epoch] = value       # the return to the bottom a confirmed jump left behind
+            return value, False, False, []
         self.held[epoch] = value
         jump = abs(value - ref)
         span_w = min(1.0 + max(0.0, jump - JUMP_FREE_M) * JUMP_SECONDS_PER_M, float(PERSIST_MAX_WINDOWS))
@@ -67,5 +72,7 @@ class OutlierFilter:
                 for k, x in hv:
                     self.accepted[k] = x; self.held.pop(k, None)
                     if k != epoch: released.append((k, x))
+                if not math.isfinite(self.prev_ref) or epoch - self.prev_ref_epoch > RETURN_WINDOWS * w or abs(ref - self.prev_ref) > max(ABS_M, REL * self.prev_ref):
+                    self.prev_ref = ref; self.prev_ref_epoch = epoch
                 return value, False, True, released
         return math.nan, True, False, []

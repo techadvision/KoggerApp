@@ -190,6 +190,21 @@ int main()
         CHECK(std::isfinite(rfSteadyReading({0.30f, 0.31f, 0.32f, 0.32f}, false, blue)));
     }
 
+    // The return (Olav's ANDY replay): 3.46 m for a second, a 6.5 m excursion confirmed after its persistence, then
+    // the real 3.46 back - accepted at once, not held; and the excursion coming back is held again (it must earn it)
+    {
+        OutlierFilter q;
+        int e = 0;
+        for (; e < 14; ++e) CHECK(!q.apply(e, 3.46f, 14).held);
+        bool confirmed = false;
+        for (; e < 40 && !confirmed; ++e) confirmed = q.apply(e, 6.5f, 14).confirmed;
+        CHECK(confirmed);
+        OutlierFilter::Result back = q.apply(e++, 3.46f, 14);
+        CHECK(!back.held && back.returned && std::fabs(back.stored - 3.46f) < 1e-4f);
+        for (int i = 0; i < 8; ++i) CHECK(!q.apply(e++, 3.46f, 14).held);   // the reference flips back within a window
+        CHECK(q.apply(e++, 6.5f, 14).held);
+    }
+
     // P11 - the second echo. A trace with the bottom at 3.5 m (amp 60) and its second echo at 7.0 m (amp 40), the
     // bottom track on the echo, the reference 3.46: the half (3.5) is stored. The same trace with the bottom track
     // at 3.5: nothing (not in the band). A far feature at 9.85 over 3.65 whose half (4.9) is a side return as loud

@@ -349,6 +349,12 @@ struct OutlierParams {
     // that the jump is accepted anyway (the witness may be stuck). The veto is remembered for a window, so one
     // rangefinder spike (8.24 in that stretch) cannot open the door.
     int   witnessMaxWindows = 8;
+    // THE RETURN (21 Oct 2026, Olav's ANDY replay): the filter followed a 5 s excursion to 6-8 m (accepted after its
+    // persistence - nothing says it is false) and then HELD the real 3.46 m when it came back, as an outlier against
+    // the 8 m it now believed: a dash where the bottom track was right again. So the reference a confirmed jump left
+    // behind is remembered, and a value that returns to it is accepted at once, for returnWindows windows. Only the
+    // older bottom gets this - the excursion must earn its acceptance again each time, or the two would alternate.
+    int   returnWindows = 15;
 };
 
 class OutlierFilter {
@@ -356,6 +362,7 @@ public:
     struct Result {
         float stored = NAN;      // what the epoch stores: the value, or NaN while held
         bool  held = false;      // rejected for now (an outlier against the reference)
+        bool  returned = false;  // accepted at once as a return to the bottom a confirmed jump left behind
         bool  confirmed = false; // this epoch confirmed a jump: 'released' holds the earlier held epochs
         std::vector<std::pair<int, float>> released;
     };
@@ -384,6 +391,14 @@ public:
         if (std::fabs(value - ref) <= std::max(p.absM, p.rel * ref)) {
             accepted_[epoch] = value;
             r.stored = value;
+            return r;
+        }
+        // the return to the bottom a confirmed jump left behind
+        if (std::isfinite(previousRef_) && epoch - previousRefEpoch_ <= p.returnWindows * w
+            && std::fabs(value - previousRef_) <= std::max(p.absM, p.rel * previousRef_)) {
+            accepted_[epoch] = value;
+            r.stored = value;
+            r.returned = true;
             return r;
         }
 
@@ -423,13 +438,18 @@ public:
                 r.held = false;
                 r.confirmed = true;
                 r.stored = value;
+                if (!std::isfinite(previousRef_) || epoch - previousRefEpoch_ > p.returnWindows * w
+                    || std::fabs(ref - previousRef_) > std::max(p.absM, p.rel * previousRef_)) {
+                    previousRef_ = ref;          // the bottom this jump left; a return to the remembered one keeps it
+                    previousRefEpoch_ = epoch;
+                }
             }
         }
         return r;
     }
 
     void noBottom(int epoch) { accepted_.erase(epoch); held_.erase(epoch); }
-    void clear() { accepted_.clear(); held_.clear(); lastVeto_ = -1; }
+    void clear() { accepted_.clear(); held_.clear(); lastVeto_ = -1; previousRef_ = NAN; previousRefEpoch_ = -1; }
 
     // the reference apply() would judge this epoch against (the median of the last w accepted epochs before it),
     // NaN when there are too few - for P11, which needs it before the value is judged
@@ -457,6 +477,8 @@ private:
     }
     std::map<int, float> accepted_, held_;
     int lastVeto_ = -1;
+    float previousRef_ = NAN;      // the reference a confirmed jump left behind (the return rule)
+    int   previousRefEpoch_ = -1;
 };
 
 } // namespace depthgates

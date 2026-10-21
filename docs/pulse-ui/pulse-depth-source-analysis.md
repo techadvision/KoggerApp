@@ -918,3 +918,42 @@ What is left for the gravel pit is therefore the gain slope: (15 / 0.5 / 0) take
 0.3% (7.4), twenty times fewer far features before any gate; P11 and the filter clean up behind it. Olav's replay
 observation matches - most lines corrected, some far contours remain - and the remaining ones are the persistent
 features that only a lower far-preference in the tracker itself removes.
+
+### 11.8 Olav's ANDY replay on the new build: the dash after an excursion, the return rule, and the blue's gain
+
+Olav replayed ANDY on `e05a6933` and saw dashes on parts of the run, gone with the gain slope at 1.0 or lower. His
+log section (epochs 150-456) is the whole story: the bottom track at 3.46 m, then a 6.2 -> 8.6 m excursion (a slope
+wall, not a second echo - P11 rightly stayed quiet, `second echo 0`), held for a second (`-> none (no bottom)`, the
+first dash), **accepted after its persistence** (`-> bottom track`, 6-8 m shown for 3 s), and then **the real 3.46 m
+held as an outlier** against the 8 m the filter now believed (`BT: epoch 294 | 3.46 m | held by the outlier filter`,
+the second dash) until it had persisted in its turn. `rangefinder veto 0`, `shore 0`: neither of the 21 Oct rules is
+involved; this is the filter of P5b doing what it was built to do, on excursions that gain 2 produces and gain 1 does
+not. (The `1177 epochs` per 10 s are the pass re-writes - each epoch is written ~6 times - not a replay running fast.)
+
+**The return rule** (`OutlierFilter`, `returnWindows` 15): the reference a confirmed jump left behind is remembered,
+and a value that returns to it is accepted at once, for ~15 s. Only the older bottom gets this; the excursion must
+earn its acceptance again each time, so the two cannot alternate. On ANDY the held stretches are now all 1-5 epochs
+(the excursions themselves, before they persist); the real bottom is never held on its return. The 18 Oct slopes:
+unchanged, nothing held. Unit-tested.
+
+**The blue's parameters on ANDY, through the whole pipeline** (`sweep3a.py` / `sweep3b.py`; truth = +-10 s rolling
+median of the cross-set median, so a 5 s feature common to every set is counted as true - the one "5 s run" below is
+that):
+
+| W | gain | gap | raw false | shown false (after A, B, P11, filter) | dashed | P11 fired | readout delay |
+|---|---|---|---|---|---|---|---|
+| 5 | 2 | 0.04 (profile) | 8.56% | 4.14% (7 runs) | **4.2%** | 47 | 0.14 s |
+| 5 | 1 | 0.04 | 4.18% | 2.72% (6) | 0.9% | 38 | 0.14 |
+| 5 | 1 | 0 | 4.14% | 2.70% (5) | 0.9% | 34 | 0.14 |
+| 9 | 1 | 0 | 3.74% | 2.53% (5) | 0.7% | 34 | 0.29 |
+| 9 | 0.5 | 0 | 2.61% | 2.23% (4) | **0.2%** | 15 | 0.29 |
+| 15 | 1 | 0 | 3.39% | 2.42% (5) | 0.7% | 27 | 0.50 |
+| **15** | **0.5** | **0** | **2.25%** | **1.74% (2)** | 0.4% | 15 | 0.50 |
+| 31 | 1 | 0 | 2.20% | 1.59% (2) | 0.7% | 13 | 1.07 |
+
+Gain is the lever, as in 7.4: halving it halves the false bottoms before the gates and takes the dashes from 4.2% to
+under 1% - Olav's observation, quantified. The window buys a little more; its cost is **readout latency only** - the
+window is centred, so the value lands on the right epoch and the 2D line and the record are not shifted. (15 / 0.5 / 0)
+is the best of the measured sets and the one already run live on 19 Oct (nothing visible in featureless water);
+(9 / 0.5 / 0) is close with half the latency. The unmeasured risk of a low gain is near, loud echoes beating a weak
+far bottom - fish, weed, a thermocline, 15 m and deeper - which no recording of ours contains.
