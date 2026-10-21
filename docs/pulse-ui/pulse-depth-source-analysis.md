@@ -768,7 +768,7 @@ Pulled from every `SHALLOW:` line of 18-21 Oct, per device:
   echo included). This is the honest outcome of the red-black ambiguity: the red *could* show 0.22 at 20 cm, and will
   the day the app knows it is a red (a model name from the device, or a serial-number table). Until then the red's
   stated minimum stays where the black's is. In every 2D recording of 18-21 Oct the zone is entered only in 10-20 cm
-  of water and in the air. **The blue has no own zone** (`485de598`, the correction below): its rangefinder sits at a
+  of water and in the air. **The blue has no own zone** (`fcf6f4b9`, the correction below): its rangefinder sits at a
   steady 0.20 over the ANDY gravel pit's 3.5 m bottom for 73% of that recording and over 18 Oct's 5-11 m for 3% - that
   is its ringdown, and a zone rule would have dashed the ANDY bottom three quarters of the time. For the blue only a
   steady reading above 0.25 counts.
