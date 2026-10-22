@@ -11,6 +11,9 @@
 > proposed, waits on how deep the blue's rangefinder reads); the out-of-water pill (7.2, proposed); the "Depth gates"
 > expert toggle (8.4, proposed); the CSV logger writing the chosen depth (6.3); P10 / Q3 (the blue's maxDistance with
 > the performance mode); the red profile (no in-water structured recording yet).
+> **22 Oct (evening), the 2.0 todo review** (backlog, last section): the blue's 0.3 m in the manual needs the 11.4 change built
+> (or the manual says 0.5 m) - before 2.0; the "Depth gates" toggle recommended before 2.0; the pill, the 15-20 cm rule, the
+> CSV logger and P10/Q3 go to 2.0.x; the red profile ships as is.
 
 Branch `feature/pulse-depth-source` (1.44 for experts, `b0d4711a`; built P2-P9 in section 6). Input: Olav's field run on 18 Oct from 14:58 -
 `pulse_181026.log` (1.44 with the `DEPTH:` live-rangefinder field and the `BT:` lines), `2D_pulse_log_2026.10.18_15.00.29.plog`

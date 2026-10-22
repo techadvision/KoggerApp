@@ -80,7 +80,7 @@ channel, a new hardware name and a 921600 UART make it a performance-mode device
 
 - **5000 × 3 mm = 7.5 m per side** (blue), confirmed, so range per side = `samples × spacing ÷ 2` holds for every case.
 - **5000 samples is the firmware maximum.**
-- **Boat speed**: slider, 1 decimal, 1–5 km/h, user-set.
+- **Boat speed**: slider, 1 decimal, 1–5 km/h, user-set (1–8 km/h from 22 Oct 2026, `c9d41dde`; echogram speed 1.0–3.5x).
 - **Bottom that was never captured may stay black.**
 - **Max depth drag**: the visible range follows the finger all the time; the transducer is reconfigured only when the
   drag slows or stops.
@@ -375,6 +375,7 @@ pixels, one sharper. Keeping proportions while max depth changes simply means **
 | 3 km/h, T 70 | 1.33 | 1.87 | 3.1 | 4.7 | 9.3 |
 | 3 km/h, T 50 | 0.95 | 1.33 | 2.2 | 3.3 | 6.7 |
 | 5 km/h, T 70 | 2.22 | 3.1 | 5.2 | 7.8 | 15.6 |
+| 8 km/h, T 70 (22 Oct) | 3.6 | 5.0 | 8.3 | 12.4 | 24.9 |
 
 - **Below 1** (long range, slow boat) the picture is *compressed*: several pings share a pixel row. Showing one ping per row
   is safe, because an object at that range spans tens of pings (the beam's along-track footprint there is decimetres, the
@@ -427,7 +428,7 @@ not part of this work.
 | | **Side scan pane** | **2D and down scan panes** |
 |---|---|---|
 | Mode preference | **"Side scan proportions: True / Free"** (segmented row), **default True** | always Free |
-| True | **Boat speed** 1.0–5.0 km/h, one decimal, default 3.0; stretch = `stretch_true`, capped | — |
+| True | **Boat speed** 1.0–5.0 km/h (8.0 from 22 Oct 2026), one decimal, default 3.0; stretch = `stretch_true`, capped | — |
 | Free | **Echogram speed** 1.0–2.0× (modest, per the partner) | **Echogram speed**, today's control and range, now pause-safe |
 | Max depth | True: zooms both axes. Free: across-track only | across-track (depth) only |
 

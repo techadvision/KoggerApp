@@ -4194,3 +4194,72 @@ Silicon use **arm64-v8a** system images, which match the kit. Suggested set: a s
 (~720 x 1280, ~320 dpi), a mid phone (1080 x 2400, ~420 dpi), and a 7-8" tablet. An emulator
 cannot reach a transducer, so it tests demo and files only, and its GPU is the host's through
 translation — **do not judge the mosaic on an emulator**, use the S23 for session 5.
+
+
+---
+
+## 2.0 release - the todo review (22 Oct 2026)
+
+Branch `feature/pulse-depth-source`, after `e4f7bded`. Every open item in `pulse-ui-strategy.md` (WHAT IS LEFT and the
+dated sections), this backlog's open groups and check lists, `pulse-depth-source-analysis.md` (status block, 6.3) and
+`pulse-high-performance-mode.md`, classified **before 2.0** / **ship as is** / **2.0.x**. Olav: launching with items on the
+todo is fine; the new version is already far better than the current one.
+
+### Before 2.0
+
+| item | why |
+|---|---|
+| **Device build of the six 22 Oct commits** | none built. Check: a red and a black say "Setting up PULSE red/black", tapping the black card then says "PULSE black" (strip, setup card, Keep); boat speed reaches 8.0 km/h (4.3 kn, 4.9 mph, 2.2 m/s) and echogram speed 3.5x by slider, pinch and the classic selector; the pinch over the wider range is not too quick (the whole range per finger doubling: 2D 1.5 -> 2.5, boat 4 -> 7 km/h); a blue shows *Side scan TVG* and *Far-field gain* under Screen & echogram, Medium = the old picture, Low/Bright visibly flatter/brighter in the far field, Off = the AGC picture in waterfall and mosaic (tiles already traced keep their pixels); Expert -> TVG side scan reads 7.5 and boost 1.5, the Spreading hint names the level, a stepped value says "overrides Medium (7.5)" and choosing a level clears it; nothing for a red |
+| **The blue's minimum depth** | the manual says 0.3 m for the blue as Olav asked, but the status block says 0.3 m only "once the ten-line change of 11.4 is in, 0.5 m without it" - and it is not built. Build it (small, C++, its own commit + the 30 cm stationary check) or change the blue row in the manual to 0.5 m |
+| **The manifest in the working copy** | four `splash_screen_drawable` lines (51, 54, 55, 56). `node tools/pulse-manifest-check.js` fails on it. Keep one, then versionCode 200 / "Pulse Echo Sounder v. 2.0" as the last commit |
+| **One USB connect on a release build** | four `FTL ASSERT: "m_buf" in qiodevice_p.h` on 1 Oct right after `Link::createAsSerial` (and the 27 Sept `SIGABRT`), never fixed. A release build compiles the assert out; the fault may still be there. A customer on USB meets it in the first minute or not at all - one check decides |
+| **The release path** | 2.0 is this branch, 117 commits ahead of `master` (1.43, equal to `origin/master`, so a fast-forward). Push the branch, fast-forward `master`, build 2.0 from `master`, tag. `feature/pulse-performance-mode` is contained in it |
+| *recommended*: **"Depth gates" expert toggle** (depth analysis 8.4) | a dozen lines. The gates and the outlier filter are new to the public and have a handful of lakes behind them; a switch that turns them off is the support answer if they misbehave somewhere unseen, and the cleanest A/B a tester can give |
+
+### Ship as is
+
+| item | why |
+|---|---|
+| The red/black profile (no in-water structured recording) | unchanged since 1.42 public; the depth logic was tested on all three in water and on the bridge |
+| The out-of-water pill (7.2) | the dash says it; the manual now says "too shallow or out of water" |
+| The blue at 15-20 cm showing a far false bottom (11.6) | rare (launching); the rule waits on how deep the blue's rangefinder reads -> 2.0.x |
+| Launch flicker on a loud shore (12, Max) | cosmetic, the readout stays a dash |
+| P2b, the three source choices | "Stream a file" and "Open a file" are on the connection screen; the opening pill works |
+| Group E's walk (P1) | verified 29 Sept (6b) - close |
+| MOSAIC: / METRICS: instruments | superseded by sessions 2-5 - close |
+| `chartOffset` written under a recording | guarded since 27 Sept (`main.qml`, `!logIsOnScreen`) - close, WHAT IS LEFT is stale |
+| `soundSpeed` without a v2 row | the Speed of sound row exists for every user since 27 Sept - close |
+| P4: speed gauge, per-pane range | built (27 Sept, `d39968f6`) - close |
+| Forced landscape | the SDK 36 compat property is in the manifest; design before API 37 |
+| Owed looks: card images on the 320 phone, black stripes under TVG (`bd14130f`), speed of sound on a live red, the second-echo range | no report of a fault; check when convenient |
+| True-proportions cap 3.0 | at 8 km/h the "1 : N" pill shows more often - that is it working |
+| The two bottom-track problems of 2 Oct | answered by the depth-source branch - close |
+| `master` 71 ahead / unpushed branches | resolved - `master` equals `origin/master` |
+
+### 2.0.x
+
+| item | why |
+|---|---|
+| Performance-mode engine bugs 1-5 (Max, 5 Oct) | expert-only and off by default. Still in the code: a lethal chart send re-arms after restart; `stalled` not cleared on an abandoned hand-back (`reconsider()`); confirmation fails on a truncating link; no loss check before finer steps; the lost-link text should say "power cycle the transducer" |
+| P10 / Q3 - the blue's `maxDistance` following the performance-mode range | expert-only (beyond 35 m per side) |
+| The CSV logger writing the chosen depth (6.3) | waits on which CSV the anglers use |
+| The blue's far-false-bottom rule (11.6) | needs the blue rangefinder's reach measured |
+| MAVLink peer flaps | log volume; the waypoint UDP target swaps with it - check during the waypoint desk tests (T1-T6, owed) |
+| pulse.log as a troubleshooting tool | 92% DBG; its own session |
+| Item 9's other half (end of file while paused, loop off) | loop is on by default |
+| Water body filter's meaning per device | its own idea |
+| Housekeeping: the stale root `version.txt`, classic's `applyViewId` dead writes, the stale "classic stays the declared default" comment in `PulseSettings.qml` | none user-visible |
+| Mosaic later list (nadir fill, accuracy, KMZ), mosaic <-> echogram linking, CHIRP blue, black v2, autopilot boat speed | after 2.0 by design |
+
+### What a first-time 2.0 user or a reseller meets in the first hour
+
+- **Update from 1.42/1.43**: moved to v2 once (`seedUiVariantV2Default`); a stored echogram speed above the ceiling is
+  clamped at start. A blue owner's picture is the same TVG level, crisper (boost 1.5) - worth a line in the release notes.
+- **First start, no device**: the connection screen; the simulation needs no transducer - the reseller's demo.
+- **Detection**: a black is named "PULSE red/black" until the user taps his card (manual FAQ 9).
+- **File replay**: opens with the pill (Stop keeps, Close discards); a replay from the shore shows the dash at once.
+- **The shore / the launch**: a dash, not a depth (manual FAQ 10); the range holds instead of running away.
+- **A lost link**: amber dot, the picture stays, it reconnects. Only a lethal performance-mode chart needs a power
+  cycle, and only experts can send one.
+- **USB**: the one unknown (above).
+- **Play listing and manual**: the screenshots are 1.x - three to retake per language (marked yellow in the manual).

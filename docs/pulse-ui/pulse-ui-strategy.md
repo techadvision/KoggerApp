@@ -7660,3 +7660,66 @@ a +-3 s rolling median followed every excursion longer than 3 s and reported 1.8
 
 Next: the 2.0 release run-up (red/black setup wording, echogram speed ceilings, side-scan TVG presets for all users,
 the documentation's UI chapter, a todo review) - a new session, prompt in the chat of 22 Oct.
+
+
+---
+
+## 22 Oct 2026 (evening) - the 2.0 run-up: red/black wording, speed ceilings, TVG for every user, the manual, the todo review
+
+Branch `feature/pulse-depth-source`, six commits on `3eda43c1`, **none built yet**. Olav's four uncommitted files
+(`pulse-bug-backlog.md`, `AndroidManifest.xml`, `resources/version.txt`, the blue profile 15 / 0.5 / 0 in
+`PulseRuntimeSettings.qml`) were left as they were; every commit that touched `PulseRuntimeSettings.qml` was staged
+from a copy with his hunk taken out, so his change is still an unstaged diff.
+
+| commit | what |
+|---|---|
+| `ccfbf6af` | **"PULSE red/black"** wherever the app names a detected red or black: `modelDisplayName(PULSEred)`. Where the user tapped a card himself, `liveModelDisplayName()` returns the card's name for the live transducer (setup card and its "is not answering about the ..." line, the connection strip's Connected to / Was connected to, the swap's "from", Keep). Logs, demos and a swap's target keep `modelDisplayName`. The choice is per run, noted before the commit, dropped when a different model is committed. The Transducer group and the `(device N)` suffix carry no model name - checked, nothing to change |
+| `c9d41dde` | **Boat speed 8 km/h, echogram speed 3.5x**, still named once (`boatSpeedKmhMax`, `echogramSpeedMax`). The fallbacks that repeated the old numbers moved with them; the classic selector was a literal list ending at 2.5 that only *claimed* to read the ceiling - now built from it, and its "(1-5)" label too. Nothing in the performance engine reads either |
+| `ea8aeb49` | **TVG levels**: `sideScanTvgPresets` { low 5, medium 7.5, bright 10 } (spreading, dB/decade), `sideScanTvgSpreading` one binding on `pulseSettings.sideScanTvgLevel` + one runtime override for the expert stepper; `pulseSettings.sideScanTvgOn` joins the profile in the waterfall and mosaic bindings (the 0/1/2 expert overrides still win). Classic's expert selector writes the override too - the one classic line touched |
+| `336dec5a` | **Settings -> Screen & echogram**: *Side scan TVG* (on/off) and *Far-field gain* Low / Medium / Bright, shown only for a side scan picture whose profile has the TVG. The switch clears the 0/1/2 overrides; a level clears the Spreading override |
+| `d52ea972` | **Detail boost 1.5** by default (C++ constant and QML default together); the v2 and classic steppers gain 1.8 and 2.0 |
+| `e4f7bded` | `tools/pulse-tvg-presets/` - the offline strips and numbers below |
+
+### The TVG levels - why the spreading and not the reference range
+
+Olav's starting view was the reference range (10 m "bright", 15 and 20-30 m below it). The law is
+`gain_dB(r) = S log10(r / rRef) + a (r - rRef)`; with absorption 0, moving rRef adds the **same** `-S log10(rRef'/10)` at
+every range (15 m -1.3 dB, 20 m -2.3, 30 m -3.6) - the far/near ratio does not move, so it is a second Intensity
+control (20 m = about five Intensity steps). The spreading sets how much of the far field is lifted against the near
+(pivot at rRef). Measured on five blue recordings (bottom pixels only, levels 0..80, far = last 30% of the range):
+
+| far / near | Off (AGC) | S 5 | **S 7.5** | S 10 | S 12.5 |
+|---|---|---|---|---|---|
+| ANDY 25 m | 0.31 | 0.39 | 0.47 | 0.56 | 0.67 |
+| 19 Oct 25 m | 0.59 | 0.78 | 0.92 | 1.09 | 1.29 |
+| Max 22 Oct 25 m | 0.42 | 0.58 | 0.70 | 0.83 | 0.98 |
+| 18 Oct 50 m | 0.30 | 0.35 | 0.42 | 0.50 | 0.60 |
+
+Saturation under 0.5% to S 10; S 12.5 whites out the 19 Oct rock (0.7%). **Olav chose S 5 / 7.5 / 10 with Medium = today**
+(nobody's picture changes; Bright has room for 50 m and Max's quarry), and boost 1.5 (+26-28% bottom detail, +8-22%
+water-column speckle against 0.9). Strips in `testlogs/tvg-presets/` (git-ignored), the scripts in the tools folder.
+
+### The manual (item 4)
+
+`docs/2026_10_Manual_PULSEblack_red_blue_DE_EN_app2.0.docx` beside Olav's December original (both untracked): DE and
+EN *PULSE App starten / Start PULSE App*, *Bedienelemente / Controls* and *Übersicht über die Einstellungen / Pulse settings
+overview* rewritten for the rail, panels, the three tiers, the setup card, the connection screen, the depth readout and
+its dash, the screen chooser, gestures, pills and a lost link; minimum-depth rows in the three spec tables (red 0.3,
+black 0.3 / accurate from 0.4, blue 0.3, "-.-" = too shallow or out of water); two DE FAQ entries (red/black share one
+profile; the dash). Structure unchanged; yellow notes mark the three screenshots to retake in each language.
+
+### The todo review - in the backlog, "2.0 release - the todo review (22 Oct 2026)"
+
+Short of it: **five things before 2.0** - a device build of today's six commits; the blue's 0.3 m (the ten-line 11.4
+change is not built, so either build it or the manual says 0.5 m for the blue); the manifest's four splash lines in
+the working copy; one USB connect on a release build (the `m_buf` assert of 1 Oct was never fixed); and the release path
+(this branch is 117 commits ahead of `master`, which is 1.43 and equal to `origin/master`). The "Depth gates" expert
+toggle is recommended as cheap insurance. Everything else ships or goes to 2.0.x, one line each in the backlog. Several
+"WHAT IS LEFT" items above are stale (the `chartOffset` guard has been in since 27 Sept, Group E's walk was verified
+on 29 Sept, `master` is pushed, a v2 speed-of-sound row exists for everyone) and are closed there.
+
+Lessons: **a comment that claims a consumer is a hypothesis too** - `echogramSpeedMax`'s comment listed "the classic
+selector" among its readers, and the classic selector was a literal list; raising the ceiling would have left it at 2.5.
+And **a knob's name is not its effect** - "reference range" sounds like a shape control; in this law it is a level.
+
+Next: Olav builds, checks the five, decides the blue's 0.3 m; then the version bump to 200 is the last commit.
