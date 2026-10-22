@@ -1,5 +1,17 @@
 # The depth source on the shore and in the shallows - analysis and plan (18 Oct 2026)
 
+> **Status, 22 Oct 2026 (read this first).** Sections 1-5 are the 18 Oct analysis and plan; 6-12 are what was built
+> and learned, one dated section per round, in order. The newest code is `ef8c915b` (section 11.8) on
+> `feature/pulse-depth-source`; 1.45 on Google Play is `c563a7f1` (up to 9.5). The blue profile is now **15 / 0.5 / 0**
+> (Olav, 22 Oct, `distProcPulseBlue`; the red/black profile unchanged). Minimum depth to state: **red 0.3 m, black 0.3 m
+> (accurate from 0.4), blue 0.3 m** once the ten-line change of 11.4 is in, 0.5 m without it. Where a later section
+> corrects an earlier one, the later one is right - in particular: the rangefinder is **not** silent in a replay (6.2,
+> 7.2 wrong; 11.3), the ANDY residue after the gates is 4.6% / 3.6% with P11, not 1.8% (7.4 wrong; 11.7), and "keep gain
+> 2" (7.4 item 2) is superseded by 11.8. Still open: the blue in 15-20 cm showing a far false bottom (11.6, a rule
+> proposed, waits on how deep the blue's rangefinder reads); the out-of-water pill (7.2, proposed); the "Depth gates"
+> expert toggle (8.4, proposed); the CSV logger writing the chosen depth (6.3); P10 / Q3 (the blue's maxDistance with
+> the performance mode); the red profile (no in-water structured recording yet).
+
 Branch `feature/pulse-depth-source` (1.44 for experts, `b0d4711a`; built P2-P9 in section 6). Input: Olav's field run on 18 Oct from 14:58 -
 `pulse_181026.log` (1.44 with the `DEPTH:` live-rangefinder field and the `BT:` lines), `2D_pulse_log_2026.10.18_15.00.29.plog`
 (production PULSE red, shore -> water -> shore several times) and `SS_pulse_log_2026.10.18_15.10.27.plog` (beta PULSE blue,

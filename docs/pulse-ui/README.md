@@ -9,6 +9,9 @@ and every change to them shows up in a diff alongside the code change it describ
 |---|---|
 | `upstream-merge-survey.md` | What is in upstream's 537 commits since 0.14.3, what of it Pulse wants, and the merge shape that follows. Written 12 Sept 2026. |
 | `pulse-ui-strategy.md` | The staged plan: the `PulseApp.qml` extraction, the settings model, the device-profile rework, and the design decisions behind each. Updated at the end of every stage. |
+| `pulse-bug-backlog.md` | The grouped bug backlog of the v2 UI (groups A-E and what followed), each item with its diagnosis, its commit and what to check on the device. |
+| `pulse-high-performance-mode.md` | The PULSE blue performance mode over the IP link: ping period, range and the boat-speed setting. |
+| `pulse-depth-source-analysis.md` | The depth source on the shore and in the shallows: the bottom track's gates, the outlier filter, the rangefinder rules and the chosen depth (branch `feature/pulse-depth-source`), with every field test of Oct 2026 and the bench (`tools/pulse-bt-bench/`). Its status block at the top says what is current. |
 
 The visual prototype these documents describe is a design canvas, linked from the
 Claude project for this work. The canvas is the picture; this folder is the

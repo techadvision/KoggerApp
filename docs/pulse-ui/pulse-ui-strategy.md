@@ -7638,3 +7638,25 @@ happen from GitHub Desktop. Run `node tools/pulse-profile-check.js` after any pr
 `pulse-qml-version-check.js` / `pulse-icon-check.js` / `pulse-qml-binding-check.js` /
 `pulse-qml-structure-check.js` after any QML or icon change. Nothing under `build/`. Patch the
 strategy document by anchored replacement.
+
+---
+
+## 22 Oct 2026 - the depth-source branch, closed for 2.0; the run-up to the release
+
+The depth work of 18-22 Oct lives in its own document, `pulse-depth-source-analysis.md` (status block at the top,
+sections 6-12 for what was built), on `feature/pulse-depth-source`, newest `ef8c915b`. In one paragraph: the depth
+shown and sent is now chosen once, in C++ (`Dataset::chooseDepth`), from a bottom track that is gated at the epoch
+write (geometry, echo contrast, the shore state, the rangefinder's veto, the second echo) and filtered for outliers
+(with a witness and a return rule), and from a rangefinder that is trusted only when steady and agreeing; the dash is
+the honest answer on the shore and under 0.3 m. The blue profile moved to 15 / 0.5 / 0 (gain is the lever against far
+false bottoms; the window's cost is readout latency only). Minimum depth to state: 0.3 m for all three, the black
+accurate from 0.4.
+
+Lessons that join the standing list: **a confident derivation about behaviour is a hypothesis** went wrong twice more
+("the rangefinder is silent in a replay" - the `.plog` carries every DBT sentence; and a rule that fixed the red at
+20 cm would have dashed the ANDY bottom 73% of the time, because the blue's ringdown sits exactly where the red's water
+reading does). And a new shape: **the reference that scores the bench must not be fooled by the fault it measures** -
+a +-3 s rolling median followed every excursion longer than 3 s and reported 1.8% where the truth was 4.6%.
+
+Next: the 2.0 release run-up (red/black setup wording, echogram speed ceilings, side-scan TVG presets for all users,
+the documentation's UI chapter, a todo review) - a new session, prompt in the chat of 22 Oct.
