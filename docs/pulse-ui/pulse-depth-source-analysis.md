@@ -957,3 +957,50 @@ window is centred, so the value lands on the right epoch and the 2D line and the
 is the best of the measured sets and the one already run live on 19 Oct (nothing visible in featureless water);
 (9 / 0.5 / 0) is close with half the latency. The unmeasured risk of a low gain is near, loud echoes beating a weak
 far bottom - fish, weed, a thermocline, 15 m and deeper - which no recording of ours contains.
+
+---
+
+## 12. Max's run, 22 Oct 2026 - a blue (IP) on a German quarry lake, build 1.45 (`c563a7f1`)
+
+`SS_pulse_log_2026.10.22_08.17.44.plog` (18411 epochs, ~19.5 a second over the IP link), `pulse log Max.log`. The
+build is the 19 Oct evening one: shore state, frozen vote, ringdown-never-shallow - **without** the far-noise rule, the
+steady reading, the veto, P11 and the return rule. Olav's observations from the replay: artefacts at the start
+(shallow), the rangefinder noisy throughout, the bottom track clean except for a jumpy glide-in, a short 2.9 m
+excursion early, and dense vegetation later.
+
+**The launch** (08:17:31-08:18:17): the blue on the shore and in the first centimetres - rangefinder 0.12, bottom track
+at its floor 0.34 (98% of the epochs), trace loud (p95 69-123, a quarry shore, not Norway's quiet beach) - so the shore
+state stood on the floor vote alone and flickered `none (shore)` / `none (no bottom)` / `bottom track` whenever the
+floor let go for a pass. The readout was a dash throughout ("shown dash from none (shore)"); the record has 0.34 m
+floor values and a few 4.2-4.4 m noise epochs the filter held. Cosmetic on the readout, a dozen `DEPTH:` lines in the
+log.
+
+**The glide** (08:17:58-08:18:25, `benchmax.py`), the bottom track every 3 s with the profile: 0.3 0.3 0.3 0.7 0.3 0.3
+**2.9** 0.7 0.3 1.0 1.0 1.7 1.7 3.2 5.0 5.7 6.0 6.1 - a quarry edge, 0.3 to 6 m in 25 s. Every parameter set reads the
+same steps at this resolution; the glide "skips the in-between depths" because the bottom really does step (the filter
+held 282 epochs in that window and released them as each step persisted). The differences are finer: the **2.9 m
+excursion at ~18 s is a window matter, not a gap matter** - it is there with W 5 at gap 0.04 *and* at gap 0, with gain
+2 *and* gain 1 (3.0), and gone at W 9 and W 15; and the ping-to-ping jitter is 4 cm at W 5 and under 1 cm at W 15,
+which is the smoother slope Olav saw. Raw false rate over the whole run against a +-10 s cross-set median: profile
+1.95%, (5 / 2 / 0) 1.84%, (5 / 1 / 0) 1.51%, (9 / 1 / 0) 1.35%, (15 / 1 / 0) 1.24%, **(15 / 0.5 / 0) 1.22%** - the same
+order as ANDY, smaller spread (this lake has fewer far features).
+
+**The rangefinder** (the orange line in Olav's photos, 18433 `DBT` readings): in 1-10 m of water it is within 10% of
+the bottom **76%** of the time, at its ringdown (<= 0.25) 7%, and more than 1.5 x the bottom 12% (11.6 m over a 5.8 m
+bottom - its own second echo; 15.1 and 14.7 at 6 m). During the glide it read 0.12 until the bottom track was at
+0.7-0.8, agreed for two readings, then sat at 0.20 while the bottom went 1.0 -> 1.7 m, and only picked the bottom up
+again at 5.6 m. This is the blue's rangefinder as the 21 Oct test and ANDY showed it: a reading when it reads, its
+ringdown or a multiple otherwise - and exactly why the choice is keyed on steadiness and agreement, never on the
+rangefinder alone. On this build nothing of it reached the readout (`rangefinder (shallow)` for 1.4 s at 08:12:18 on
+the first launch, 0.69 against a bottom track of 0.60 - both right).
+
+**Vegetation** (08:19:50-08:20:10): the bottom track at 0.83-1.0 m with the rangefinder at 1.3-1.7 and the trace
+loud (p95 121-139); the tracker reads the top of a dense weed bed as the bottom. The echo is real; neither the gates
+nor the filter can call it false, and a lower gain slope prefers it *more*. Agreed: nothing to do about dense weed in
+the depth logic - it is what the echogram is for.
+
+**What the current build (`ef8c915b`) would add here**: the steady reading never forms on this rangefinder in the
+shallows (0.12 / 0.7 / 0.2 within a second), so no veto and no rangefinder shown - the glide stays the bottom track's;
+the return rule would shorten the 282 held epochs of the glide where a step came back; P11 would not fire (the steps
+are real). The far-noise rule is moot (no 30 m+ readings). The parameters are the lever here as on ANDY: W 15 for the
+jitter and the 2.9 m, the gain for the false rate.
