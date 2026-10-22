@@ -767,14 +767,37 @@ QtObject {
     //The waterfall's law, same shape as the 2D one above - see the note there.
     property int    sideScanTvgOverride: 0
 
+    //THE USER'S SWITCH, 22 Oct 2026 (Settings -> Screen & echogram, every user). It joins the
+    //profile in the binding and never replaces the expert's 0/1/2 override, which still wins:
+    //the profile says whether this device HAS a side scan TVG, the user whether he wants it.
+    readonly property bool sideScanTvgUserOn: pulseSettings ? pulseSettings.sideScanTvgOn !== false : true
+
     readonly property bool sideScanTvgEnabled:      // waterfall uses TVG (3) instead of AGC (1)
           sideScanTvgOverride === 1 ? true
         : sideScanTvgOverride === 2 ? false
-        : (activeProfile !== undefined ? activeProfile.sideScanTvgEnabled : false)
+        : (activeProfile !== undefined ? (activeProfile.sideScanTvgEnabled && sideScanTvgUserOn) : false)
     //THE RELEASE DEFAULTS, from Olav 28 Sept 2026: what users get in the first release of the
     //new UI; the experts tune from here. Runtime, so every start begins with these. The C++
     //constants in echogram_sidescan_tvg.h agree.
-    property double sideScanTvgSpreading:    7.5    // S in dB/decade (was 5, field-tuned 2026-08-16)
+    //
+    //THE PRESETS, 22 Oct 2026 (Olav, for 2.0): Low / Medium / Bright move the SPREADING and
+    //nothing else. The reference range was the first candidate and the offline strips showed
+    //why not: with absorption 0 it adds the same -S*log10(rRef/10) dB at every range, so it is
+    //a second Intensity control; the spreading is what sets how much of the far field is lifted
+    //against the near (pivot at the reference range). Medium is the 28 Sept release default,
+    //so nobody's picture changes on the update. Named once, here; the settings row offers
+    //these keys and the expert stepper says which one it overrides.
+    readonly property var    sideScanTvgPresets: ({ "low": 5.0, "medium": 7.5, "bright": 10.0 })
+    readonly property string sideScanTvgActiveLevel:   // pulseSettings.sideScanTvgLevel, validated
+        (pulseSettings && sideScanTvgPresets[pulseSettings.sideScanTvgLevel] !== undefined)
+            ? pulseSettings.sideScanTvgLevel : "medium"
+    //ONE BINDING, ONE OVERRIDE (rule 2). The expert Spreading stepper writes the override,
+    //never the value; -1 follows the preset. Runtime like every expert TVG tuning, so a fresh
+    //start is the preset again - and choosing a level in Screen & echogram clears it too.
+    property double sideScanTvgSpreadingOverride: -1
+    readonly property double sideScanTvgSpreading:   // S in dB/decade
+        sideScanTvgSpreadingOverride >= 0 ? sideScanTvgSpreadingOverride
+                                          : sideScanTvgPresets[sideScanTvgActiveLevel]
     property double sideScanTvgAbsorption:   0.0    // a in dB/m (unchanged)
     property double sideScanTvgRefRange:     10     // gain = 1 at this range (m) (was 15)
     property double sideScanTvgNoiseFloor:   0.0    // noise-floor subtraction strength 0..1, 0 = off (was 0.1)
@@ -811,7 +834,7 @@ QtObject {
     readonly property bool sideScanTvgMosaicEnabled:
           sideScanTvgMosaicOverride === 1 ? true
         : sideScanTvgMosaicOverride === 2 ? false
-        : (activeProfile !== undefined ? activeProfile.sideScanTvgMosaicEnabled : false)
+        : (activeProfile !== undefined ? (activeProfile.sideScanTvgMosaicEnabled && sideScanTvgUserOn) : false)
 
     //THE DOWN SCAN BLEND — P3, step 1. See src/scene2d/echogram_blend.h for the law.
     //

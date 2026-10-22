@@ -912,7 +912,9 @@ Flickable {
                 values: [0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.sideScanTvgSpreading = newValue
+                    //22 Oct 2026: the override - sideScanTvgSpreading is now the level's
+                    //binding (rule 2), and assigning it would end that binding for the run.
+                    pulseRuntimeSettings.sideScanTvgSpreadingOverride = newValue
                 }
                 height: 80
                 Layout.preferredWidth: 280

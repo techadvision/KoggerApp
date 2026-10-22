@@ -108,6 +108,12 @@ Item {
         return String(v)
     }
 
+    // The side scan TVG level's name on screen. One place, so the chooser and the expert
+    // stepper's hint cannot call the same level two things.
+    function tvgLevelName(key) {
+        return key === "low" ? qsTr("Low") : key === "bright" ? qsTr("Bright") : qsTr("Medium")
+    }
+
     function paramNum(name, fallback) {
         if (!pulseRuntimeSettings)
             return fallback
@@ -1728,9 +1734,18 @@ Item {
                     decimals: 1
                     values: [0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40]
                     value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgSpreading : 0
+                    // The level it stands on, named - the regular user's chooser in Screen &
+                    // echogram is the same number, and an override is easy to forget.
+                    hint: !pulseRuntimeSettings ? ""
+                        : pulseRuntimeSettings.sideScanTvgSpreadingOverride >= 0
+                          ? qsTr("overrides %1 (%2) until the next start or a new level")
+                                .arg(list.tvgLevelName(pulseRuntimeSettings.sideScanTvgActiveLevel))
+                                .arg(pulseRuntimeSettings.sideScanTvgPresets[pulseRuntimeSettings.sideScanTvgActiveLevel])
+                          : qsTr("from the level %1").arg(list.tvgLevelName(pulseRuntimeSettings.sideScanTvgActiveLevel))
 
+                    // The override, never the value: sideScanTvgSpreading is the preset's binding.
                     onStepped: function (v) {
-                        list.settingChanged("runtime", "sideScanTvgSpreading", v)
+                        list.settingChanged("runtime", "sideScanTvgSpreadingOverride", v)
                     }
                 },
 

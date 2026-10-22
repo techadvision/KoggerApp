@@ -138,6 +138,11 @@ Settings {
     //Its own key, so a red's 2D speed and a blue's down scan speed never overwrite each other.
     property double echogramSpeedDown:          1.0
     property double echogramWidth:              25
+    //SIDE SCAN TVG FOR EVERY USER, 22 Oct 2026 (2.0). The switch and the level are two keys,
+    //so switching the TVG back on returns the level the user had. Off is the old AGC picture,
+    //waterfall and mosaic both; the level is one of pulseRuntimeSettings.sideScanTvgPresets.
+    property bool   sideScanTvgOn:              true
+    property string sideScanTvgLevel:           "medium"
     //PERFORMANCE MODE (Task 2a, 2 Oct 2026) - the expert's limits, persistent by design: they
     //are what the expert has cleared for his hardware (the prototype's 15 mm, for example),
     //not experiments. The engine only ever tightens the hardware's own limits with them, and
