@@ -91,7 +91,7 @@ Item {
             : ""
     readonly property string swapFrom:
         (pulseRuntimeSettings && swapPending)
-            ? pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.pendingSwapFromModel)
+            ? pulseRuntimeSettings.liveModelDisplayName(pulseRuntimeSettings.pendingSwapFromModel)
             : ""
 
     readonly property bool chooserAsking:
@@ -331,6 +331,9 @@ Item {
         pulseRuntimeSettings.swapDeviceNow = false
 
         console.log("CONN_SCREEN: card", card.id, "-> committing", card.profile)
+        // The card's name is the device's name from here on (liveModelDisplayName) - noted
+        // BEFORE the commit, so the commit's own handler sees the match and keeps it.
+        pulseRuntimeSettings.noteChosenCard(card)
         pulseRuntimeSettings.userManualSetName = card.profile
         pulseRuntimeSettings.devManualSelected = true
     }
@@ -1021,7 +1024,7 @@ Item {
                                 text: "Keep " + (connectionScreen.swapPending
                                                  ? connectionScreen.swapFrom
                                                  : (pulseRuntimeSettings
-                                                    ? pulseRuntimeSettings.modelDisplayName(connectionScreen.lastCommittedModel)
+                                                    ? pulseRuntimeSettings.liveModelDisplayName(connectionScreen.lastCommittedModel)
                                                     : ""))
                                 color: "#dfe4ea"
                                 font.pixelSize: Math.round(15 * connectionScreen.uiScale)

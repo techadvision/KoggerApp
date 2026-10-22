@@ -64,9 +64,11 @@ Item {
 
     visible: showCard || showMarker
 
+    // "PULSE red/black" for a detected red or black - the app cannot tell them apart - and
+    // the card's own name when the user chose one (liveModelDisplayName).
     readonly property string deviceName:
         pulseRuntimeSettings
-            ? pulseRuntimeSettings.modelDisplayName(pulseRuntimeSettings.userManualSetName)
+            ? pulseRuntimeSettings.liveModelDisplayName(pulseRuntimeSettings.userManualSetName)
             : ""
 
     // ---- What it knows ------------------------------------------------------

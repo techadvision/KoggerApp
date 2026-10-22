@@ -144,6 +144,12 @@ QtObject {
         }
         if (userManualSetName !== "..." && userManualSetName !== "")
             lastKnownModel = userManualSetName
+        //A different model committed: the card the user tapped was for another transducer.
+        if (userManualSetName !== "..." && userManualSetName !== ""
+                && chosenCardModel !== "" && userManualSetName !== chosenCardModel) {
+            console.log("DEV_CHOICE: card", chosenCardName, "no longer applies ->", userManualSetName)
+            noteChosenCard(null)
+        }
     }
 
     //CHOOSE A DIFFERENT TRANSDUCER - the third of the three intents, and the only one that
@@ -368,12 +374,44 @@ QtObject {
 
     //For anything that shows a model to a human. Falls back to the raw string so an
     //unrecognised device is named rather than hidden.
+    //
+    //RED AND BLACK ARE ONE ANSWER. They report the same hardware ID and share the PULSEred
+    //profile (see the two cards in pulseRed.ui.cards), so nothing the app can read tells
+    //them apart. A detected PULSEred is therefore named "PULSE red/black" - naming one of
+    //the two told every black owner he had a red. The single exception is the user's own
+    //card, and that lives in liveModelDisplayName() below, not here: this function names a
+    //MODEL, and a model cannot know which card was tapped.
     function modelDisplayName(m) {
-        if (m === modelPulseRed)  return "PULSE red"
+        if (m === modelPulseRed)  return "PULSE red/black"
         if (m === modelPulseBlue) return "PULSE blue"
         if (m === modelPulseBlueIp) return "PULSE blue (IP)"
         if (m === "" || m === "...") return "no device"
         return m
+    }
+
+    //THE CARD THE USER TAPPED, for this run. Where the user has chosen the model himself his
+    //choice is the name - "PULSE black" when he tapped black - and nowhere else does a name
+    //narrower than "PULSE red/black" come from. Written by the connection screen's
+    //commitCard() BEFORE it commits, so onUserManualSetNameChanged sees a match; cleared there
+    //when a DIFFERENT model is committed (a swap, detection of a blue), and deliberately NOT
+    //on "..." - a dropped link that re-detects the same PULSEred is the same transducer.
+    //Not persisted: userManualSetName is not either, and a choice outliving the device it
+    //was made for would be the wrong name with the user's authority behind it.
+    property string chosenCardModel: ""
+    property string chosenCardName:  ""
+
+    function noteChosenCard(card) {
+        chosenCardModel = card ? card.profile : ""
+        chosenCardName  = card ? card.name    : ""
+    }
+
+    //The name of the device THIS RUN is set up for or was talking to. Use it for the live
+    //transducer (the setup card, the connection strip, Keep); use modelDisplayName() for a
+    //log, a demo or a model detection is offering - none of those was chosen by a card.
+    function liveModelDisplayName(m) {
+        if (m !== "" && m === chosenCardModel && chosenCardName !== "")
+            return chosenCardName
+        return modelDisplayName(m)
     }
 
     //CONFIGURATION STATES
@@ -1283,16 +1321,16 @@ QtObject {
         : linkState === "wasConnected" ? "#6d7480"
         :                           "#3d7fd0"
 
-    // modelDisplayName, not the raw devName: it turns PULSEred into "PULSE red" and falls
-    // back to the raw string for anything this build does not recognise, so an unknown
-    // device is still named rather than hidden.
+    // liveModelDisplayName, not the raw devName: it turns PULSEred into "PULSE red/black"
+    // (or the card the user tapped) and falls back to the raw string for anything this
+    // build does not recognise, so an unknown device is still named rather than hidden.
     readonly property string linkHeadline:
           linkState === "talking"      ? "Connected to "
-                                         + modelDisplayName(devName)
+                                         + liveModelDisplayName(devName)
         : linkState === "identifying"  ? "Connected, identifying the transducer"
         : linkState === "lost"         ? "Connection lost"
         : linkState === "wasConnected" ? "Was connected to "
-                                         + modelDisplayName(lastKnownModel)
+                                         + liveModelDisplayName(lastKnownModel)
         : linkState === "found"        ? "Transducer found, nothing open on it yet"
         :                                "Not connected"
 
