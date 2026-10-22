@@ -1010,7 +1010,7 @@ Flickable {
                 //PULSE 2026-08-29: never write on the programmatic seed or re-sync,
                 //only on a real user step. See HorizontalControllerDoubleSettings.
                 emitOnUserActionOnly: true
-                values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5]
+                values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5, 1.8, 2.0]
 
                 onPulsePreferenceValueChanged: function(newValue) {
                     pulseRuntimeSettings.sideScanTvgBoost = newValue

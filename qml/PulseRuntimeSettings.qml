@@ -801,7 +801,7 @@ QtObject {
     property double sideScanTvgAbsorption:   0.0    // a in dB/m (unchanged)
     property double sideScanTvgRefRange:     10     // gain = 1 at this range (m) (was 15)
     property double sideScanTvgNoiseFloor:   0.0    // noise-floor subtraction strength 0..1, 0 = off (was 0.1)
-    property double sideScanTvgBoost:        0.9    // detail boost beta (was 1.2)
+    property double sideScanTvgBoost:        1.5    // detail boost beta (22 Oct, 2.0; 0.9 from 28 Sept, 1.2 before)
     //THE MOSAIC'S GAIN LAW, and it is PROFILE DATA for the same reason the waterfall's is.
     //
     //It was a bare `false`, buried in the expert tier, and that is the whole of the defect

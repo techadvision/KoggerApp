@@ -35,7 +35,8 @@
 //      because in shallow water the window overlaps ring-down/first
 //      returns and full subtraction eats real signal.
 //      ("variant 4" of the offline comparison strips.)
-//   2. Detail boost (default 1.2, field-tuned): unsharp mask along range,
+//   2. Detail boost (default 1.5 from 2.0; offline 22 Oct: +27% bottom detail for +8-22%
+//      water-column speckle against 0.9): unsharp mask along range,
 //      out = v + beta * (v - boxblur(v, kBoostWinM)). Gradually restores the
 //      local-contrast crispness of the AGC on top of level-correct data
 //      ("variant 5"). beta is an expert stepper.
@@ -67,7 +68,7 @@ public:
     static constexpr float kNoiseWinHiM           = 2.5f;   //   (water column, past ring-down)
     static constexpr float kNoiseFloorMax         = 80.0f;  // never subtract more than this (8-bit)
     static constexpr float kDefaultNoiseFloorStrength = 0.0f; // fraction of the floor subtracted - RELEASE DEFAULT off (Olav 2026-09-28; was 0.1)
-    static constexpr float kDefaultBoostBeta      = 0.9f;   // RELEASE DEFAULT (Olav 2026-09-28; was 1.2); 0 = "beautify" smear
+    static constexpr float kDefaultBoostBeta      = 1.5f;   // 2.0 DEFAULT (Olav 2026-10-22; 0.9 from 2026-09-28, 1.2 before); 0 = "beautify" smear
     static constexpr float kMaxBoostBeta          = 2.0f;
     static constexpr float kBoostWinM             = 0.4f;   // unsharp window along range
 

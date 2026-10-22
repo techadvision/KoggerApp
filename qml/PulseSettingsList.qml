@@ -1836,7 +1836,7 @@ Item {
 
                     label: qsTr("Detail boost")
                     decimals: 1
-                    values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5]
+                    values: [0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.5, 1.8, 2.0]
                     value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgBoost : 0
 
                     onStepped: function (v) {
