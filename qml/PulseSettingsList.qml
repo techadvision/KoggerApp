@@ -164,6 +164,15 @@ Item {
     readonly property bool offersDownBlend:
         pulseRuntimeSettings ? !pulseRuntimeSettings.displayIs2DTransducer : false
 
+    // THE SIDE SCAN TVG CHOOSER - every user, 2.0. Asks the picture, like the blend: a side
+    // scan on screen, and a profile whose side scan HAS the TVG (the switch would otherwise
+    // switch nothing). Absent on a 2D picture, never greyed.
+    readonly property bool offersSideScanTvg:
+        pulseRuntimeSettings ? (!pulseRuntimeSettings.displayIs2DTransducer
+                                && pulseRuntimeSettings.activeProfile !== undefined
+                                && pulseRuntimeSettings.activeProfile.sideScanTvgEnabled === true)
+                             : false
+
     // WHAT THE CODE BOUGHT, said in the row rather than left to two small badges. Classic
     // shows a beta icon and a guru icon beside the field; a word is unambiguous at arm's
     // length on a boat, and it answers the question the field actually raises - not "is
@@ -326,6 +335,48 @@ Item {
 
                 onChosen: function (v) {
                     list.settingChanged("persistent", "echogramWidth", v)
+                }
+            },
+
+            // SIDE SCAN TVG FOR EVERY USER (22 Oct 2026, 2.0) - the switch and the level, the
+            // temperature rows' pair. Both persistent. Each also clears the expert override it
+            // would otherwise lose to: the switch the 0/1/2 waterfall and mosaic overrides, the
+            // level the Spreading override - a user who chooses wants what he chose.
+            PulseSwitchRow {
+                width: screenGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offersSideScanTvg
+                uiScale: list.uiScale
+
+                label: qsTr("Side scan TVG")
+                hint:  qsTr("evens out brightness from near to far")
+                checked: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : true
+
+                onToggled: function (v) {
+                    list.settingChanged("runtime", "sideScanTvgOverride", 0)
+                    list.settingChanged("runtime", "sideScanTvgMosaicOverride", 0)
+                    list.settingChanged("persistent", "sideScanTvgOn", v)
+                }
+            },
+
+            // Under the switch it depends on, and gone with it.
+            PulseSegmentRow {
+                width: screenGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offersSideScanTvg
+                         && (pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : false)
+                uiScale: list.uiScale
+
+                label: qsTr("Far-field gain")
+                hint:  qsTr("how much the far side is lifted against the near")
+                options: [ { value: "low",    title: list.tvgLevelName("low") },
+                           { value: "medium", title: list.tvgLevelName("medium") },
+                           { value: "bright", title: list.tvgLevelName("bright") } ]
+                current: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgActiveLevel : "medium"
+
+                onChosen: function (v) {
+                    list.settingChanged("runtime", "sideScanTvgSpreadingOverride", -1)
+                    list.settingChanged("persistent", "sideScanTvgLevel", v)
                 }
             },
 
