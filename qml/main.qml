@@ -2783,10 +2783,10 @@ ApplicationWindow  {
                 speedIsSideScan:  pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTrueProportions : false
                 boatSpeedKmh:     pulseSettings ? pulseSettings.boatSpeedKmh : 3.0
                 boatSpeedKmhMin:  pulseRuntimeSettings ? pulseRuntimeSettings.boatSpeedKmhMin : 1.0
-                boatSpeedKmhMax:  pulseRuntimeSettings ? pulseRuntimeSettings.boatSpeedKmhMax : 5.0
+                boatSpeedKmhMax:  pulseRuntimeSettings ? pulseRuntimeSettings.boatSpeedKmhMax : 8.0
                 speedUnit:        pulseSettings ? pulseSettings.speedUnit : "kmh"
                 echogramSpeed:    pulseSettings ? pulseSettings.echogramSpeed : 1.0
-                echogramSpeedMax: pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeedMax : 2.5
+                echogramSpeedMax: pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeedMax : 3.5
                 downScanSpeed:    pulseSettings ? pulseSettings.echogramSpeedDown : 1.0
 
                 onCloseRequested: openGroup = ""

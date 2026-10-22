@@ -130,7 +130,7 @@ Settings {
     property bool   doubleEchoOptimize:         false
     property double echogramSpeed:              1.0     //1.0 .. pulseRuntimeSettings.echogramSpeedMax
     //BOAT SPEED FOR THE SIDE SCAN'S TRUE PROPORTIONS (session 7, 30 Sept). Stored in km/h,
-    //1.0 .. 5.0 with one decimal, whatever unit the user reads it in (the speed gauge's
+    //pulseRuntimeSettings.boatSpeedKmhMin .. Max with one decimal, whatever unit the user reads it in (the speed gauge's
     //speedUnit). The speed the user drives: at that speed shapes on the side scan are true.
     property double boatSpeedKmh:               3.0
     //THE DOWN SCAN'S OWN SPEED (session 7, 30 Sept): a blue's down pane, full screen or split,
@@ -370,14 +370,14 @@ Settings {
             if (filterDisplayValueSideScan < 0) filterDisplayValueSideScan = filterDisplayValue
         }
 
-        //THE SPEED CEILING, 27 Sept. A value stored by an earlier build may be anything up
-        //to 5.0; it is brought down to the ceiling and written back, so it is persistent
+        //THE SPEED CEILING, 27 Sept (raised to 3.5 on 22 Oct). A value stored by an earlier
+        //build may be anything up to 5.0; it is brought down to the ceiling and written back, so it is persistent
         //from the first start of this build and the user never sees the old number again.
         //Safe on every start: it writes only while the value is above the ceiling.
         //The ceiling is pulseRuntimeSettings' (published before this object), not a
         //property here: everything declared on a Settings object is persisted.
         var speedMax = (typeof pulseRuntimeSettings !== "undefined" && pulseRuntimeSettings)
-                       ? pulseRuntimeSettings.echogramSpeedMax : 2.5
+                       ? pulseRuntimeSettings.echogramSpeedMax : 3.5
         if (echogramSpeed > speedMax) {
             console.log("SETTINGS: echogram speed", echogramSpeed, "is above the ceiling - set to",
                         speedMax)

@@ -96,10 +96,10 @@ Item {
     property bool   speedIsSideScan:   false
     property real   boatSpeedKmh:      3.0
     property real   boatSpeedKmhMin:   1.0
-    property real   boatSpeedKmhMax:   5.0
+    property real   boatSpeedKmhMax:   8.0     // bound from pulseRuntimeSettings in main.qml
     property string speedUnit:         "kmh"
     property real   echogramSpeed:     1.0
-    property real   echogramSpeedMax:  2.5
+    property real   echogramSpeedMax:  3.5     // bound from pulseRuntimeSettings in main.qml
     property real   downScanSpeed:     1.0
 
     readonly property real   _speedFactor:

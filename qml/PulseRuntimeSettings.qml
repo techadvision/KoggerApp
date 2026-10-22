@@ -506,21 +506,25 @@ QtObject {
     property double hysterisisThreshold:    0.1     // resolution hysterisis for dynamic resolution
     property int    requiredStableReading:  3       // resolution shift count threshold
     property int    scrollingSpeed:         50      // Phased out - previous solution: Initial value for scrolling speed
-    //THE 2D ECHOGRAM SPEED CEILING, named once (Olav, 27 Sept: 2.5). Above it a screen
-    //holds too little history to read. The pinch, the settings row, the classic selector
-    //and PulseSettings' start-up clamp all read this. Here and not on PulseSettings,
-    //because every property of a Settings object is persisted.
-    readonly property double echogramSpeedMax: 2.5
+    //THE 2D ECHOGRAM SPEED CEILING, named once (Olav, 27 Sept: 2.5; 22 Oct, for 2.0: 3.5).
+    //Above it a screen holds too little history to read. The pinch, the settings row, the
+    //panel's two speed sliders, the classic selector (its list is built from this since
+    //22 Oct - it was a literal list that only claimed to read it) and PulseSettings'
+    //start-up clamp all read this. Here and not on PulseSettings, because every property
+    //of a Settings object is persisted.
+    readonly property double echogramSpeedMax: 3.5
     //THE SIDE SCAN'S TRUE PROPORTIONS, the three inputs Plot2D needs (session 7, slice B).
     //Readonly bindings, published on the bus and listed in main.qml's runtimeKeysQmlOwns, so
     //the echo is skipped instead of freezing them (the 3ef7249a lesson).
     //
     //  - on for a side scan picture in v2 (Olav: the side scan is always a true render)
-    //  - boat speed from the stored km/h, 1.0 .. 5.0
+    //  - boat speed from the stored km/h, boatSpeedKmhMin .. boatSpeedKmhMax (1.0 .. 8.0;
+    //    the ceiling was 5.0 until 22 Oct). Named once like echogramSpeedMax: the pinch and
+    //    the panel's slider read it, and the knots / mph / m/s ends are derived from it.
     //  - the ping period the ECHOSOUNDER CONFIRMED (Device parameters -> ping period), then
     //    the profile's value when nothing has been confirmed (a recording, before setup)
     readonly property double boatSpeedKmhMin: 1.0
-    readonly property double boatSpeedKmhMax: 5.0
+    readonly property double boatSpeedKmhMax: 8.0
     readonly property bool   sideScanTrueProportions:
         pulseSettings ? (pulseSettings.uiVariant === "v2" && !displayIs2DTransducer) : false
     readonly property double boatSpeedMps:
