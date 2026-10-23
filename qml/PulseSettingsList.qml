@@ -787,8 +787,13 @@ Item {
                 // Q_INVOKABLEs have been in Core since the log handler was installed and
                 // NOTHING has ever called either of them, so the logs have been written to
                 // the device and then hunted for by hand every time.
+                //
+                // EXPERT-ONLY, the file's name and place (Olav, 23 Oct): a customer's way to
+                // the log is "Send the log to Techadvision" below, and a path is noise to him.
                 PulseReadOnlyRow {
                     width: troubleGroup.contentWidth
+                    height: visible ? implicitHeight : 0
+                    visible: list.expertOnly
                     uiScale: list.uiScale
 
                     label: qsTr("App log")
@@ -804,7 +809,7 @@ Item {
                 PulseActionRow {
                     width: troubleGroup.contentWidth
                     height: visible ? implicitHeight : 0
-                    visible: Qt.platform.os !== "android"
+                    visible: list.expertOnly && Qt.platform.os !== "android"
                     uiScale: list.uiScale
 
                     label: qsTr("Show the log folder")
