@@ -142,7 +142,6 @@ Item {
 
     readonly property var offers: pulseRuntimeSettings ? pulseRuntimeSettings.uiOffers : ({})
 
-    readonly property bool offersSpeed:      offers && offers.screenSpeed2D === true
     readonly property bool offersSecondEcho: offers && offers.doubleEchoOptimize === true
     readonly property bool offersWidth:      offers && offers.scanWidthMeters === true
     readonly property bool offersTemp:       pulseRuntimeSettings ? pulseRuntimeSettings.useTemperature : false
@@ -247,33 +246,9 @@ Item {
                 }
             },
 
-            // THE SPEED IS CARRIED AS TENTHS. The slider row is integer by design - a
-            // stepped control with a named step is easier to hit than a continuous one -
-            // and the echogram speed is 1.0 to echogramSpeedMax in tenths. Ten to 10 x max here, divided
-            // on the way out, so the row needs no float mode it would use exactly once.
-            //
-            // AND IT WRITES THE PERSISTENT KEY, like the pinch in Plot2D does.
-            // pulseRuntimeSettings.echogramSpeed is what reaches C++, but main.qml mirrors
-            // the persistent one into it; writing the runtime key here would change the
-            // picture and lose the setting on restart.
-            PulseSliderRow {
-                width: screenGroup.contentWidth
-                height: visible ? implicitHeight : 0
-                visible: list.offersSpeed
-                uiScale: list.uiScale
-
-                label: qsTr("2D echogram speed")
-                hint:  qsTr("stretches the picture, it does not ping faster")
-                minValue: 10
-                maxValue: Math.round((pulseRuntimeSettings ? pulseRuntimeSettings.echogramSpeedMax : 3.5) * 10)
-                stepSize: 1
-                value: Math.round((pulseSettings ? pulseSettings.echogramSpeed : 1) * 10)
-                valueText: ((pulseSettings ? pulseSettings.echogramSpeed : 1)).toFixed(1) + "\u00D7"
-
-                onMoved: function (v) {
-                    list.settingChanged("persistent", "echogramSpeed", Math.round(v) / 10)
-                }
-            },
+            // THE 2D ECHOGRAM SPEED HAS NO ROW HERE (23 Oct 2026). It lives behind the rail's
+            // Speed button with the boat and down scan speeds, and in the pinch; a second
+            // control for the same key in a settings list read as a different setting.
 
             // SPEED OF SOUND, 27 Sept - for everybody, not only experts, on Olav's call. The
             // machinery was built on 14 Sept (soundSpeedOverride in PulseRuntimeSettings) and
