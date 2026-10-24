@@ -1352,6 +1352,8 @@ void Dataset::resetDataset()
     _shoreState = false;
     _rfRingdown = false;
     _rfSteady = NAN;
+    _choiceRaw = NAN;
+    _btAtFloor = false;
 
     setState(DatasetState::kUndefined);
 
@@ -1849,6 +1851,17 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
         return NAN;
     }
 
+    // The tracker's floor (24 Oct 2026, Max's bank): a value at or under minDistance + floorMargin is what the tracker
+    // reports for anything nearer than it can resolve - 0.34 / 0.40 shown as a depth for 100 s in 20-30 cm of water.
+    // Not a measurement, not a bottom: stored as none, kept out of the filter's reference (and so out of P11's).
+    // The choice still sees the raw value (publishPass) and lets a steady rangefinder take over.
+    if (dist <= bottomTrackParam_.minDistance + depthgates::ChoiceParams().floorMargin) {
+        v.floor = true;
+        _gateBVoter.set(epochIndex, false, false);
+        _outlierFilter.noBottom(epochIndex);
+        return NAN;
+    }
+
     // The rangefinder's veto (21 Oct 2026, chooseDepth computes _rfSteady): a 2D's steady reading in the rangefinder's
     // own zone (<= 0.25: the red in 20 cm of water, the black in the air - the app cannot tell which) means too shallow
     // or out of the water, and a steady reading of the real bottom makes a bottom track at 4 x it a false one (the
@@ -1899,7 +1912,8 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
         // reflection is the bottom, and it goes to the filter in the value's place
         if (trace) {
             const float ref  = _outlierFilter.reference(epochIndex, epochsPerSecond());
-            const float half = depthgates::secondEchoHalf(trace, traceN, c0->resolution, c0->offset, dist, ref);
+            const float half = depthgates::secondEchoHalf(trace, traceN, c0->resolution, c0->offset, dist, ref,
+                                                          bottomTrackParam_.minDistance + depthgates::ChoiceParams().floorMargin);
             if (std::isfinite(half)) {
                 v.secondEcho = true;
                 v.secondEchoFrom = dist;
@@ -1946,6 +1960,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
 
     const bool shore    = v.shore;
     const bool veto     = v.rfVeto;
+    const bool floor    = v.floor;
     const bool second   = v.secondEcho;
     const bool farEnd   = v.gateA;
     const bool noEcho   = v.gateB;
@@ -1961,6 +1976,7 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
     if (shore)    ++_btShore;
     if (veto)     ++_btVeto;
+    if (floor)    ++_btFloor;
     if (second)   ++_btSecond;
     if (farEnd)   ++_btFar;
     if (noEcho)   ++_btGateB;
@@ -1980,11 +1996,12 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     const auto f2 = [](float v) { return std::isfinite(v) ? QString::number(v, 'f', 2) : QStringLiteral("-"); };
 
     // 'disagree' is counted, not printed: a blue's rangefinder at its ringdown disagrees with every pass
-    if ((shore || veto || second || farEnd || noEcho || outlier || none) && now - _btLastLineMs >= 1000) {
+    if ((shore || veto || floor || second || farEnd || noEcho || outlier || none) && now - _btLastLineMs >= 1000) {
         _btLastLineMs = now;
         ++_btLines;
         QStringList why;
         if (shore)    why << QStringLiteral("shore: rangefinder at its ringdown, trace quiet / bottom track at its floor or frozen");
+        if (floor)    why << QStringLiteral("at its floor (<= %1 m): nearer than the tracker resolves, not a measurement").arg(f2(bottomTrackParam_.minDistance + depthgates::ChoiceParams().floorMargin));
         if (veto)     why << QStringLiteral("rangefinder veto: steady at %1 (%2)").arg(f2(_rfSteady), _rfSteady <= depthgates::ChoiceParams().ringdownM ? QStringLiteral("its own zone: too shallow or out of the water") : QStringLiteral("the bottom track at over 4 x it"));
         if (farEnd)   why << QStringLiteral("gate A rejected: far end (> 0.75 of the reachable range)");
         if (noEcho)   why << QStringLiteral("gate B rejected: no echo (contrast %1)").arg(f2(v.contrast));
@@ -1999,13 +2016,13 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
 
     if (now - _btWindowStartMs >= 10000) {
-        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | shore %15 | rangefinder veto %16 | gate A rejected %2 | gate B rejected %11 | second echo %17 | outlier held %12 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | trace p95 %13-%14 | %10 lines")
+        qDebug().noquote() << QStringLiteral("BT: last 10 s | %1 epochs | shore %15 | at floor %18 | rangefinder veto %16 | gate A rejected %2 | gate B rejected %11 | second echo %17 | outlier held %12 | disagree %3 | no bottom %4 | ratio max %5 | bottom track raw %6-%7 m | rangefinder live %8-%9 m | trace p95 %13-%14 | %10 lines")
                               .arg(_btN).arg(_btFar).arg(_btDisagree).arg(_btNone)
                               .arg(f2(_btRatioMax), f2(_btMin), f2(_btMax), f2(_rfMin), f2(_rfMax))
-                              .arg(_btLines).arg(_btGateB).arg(_btOutlier).arg(_btP95Min).arg(_btP95Max).arg(_btShore).arg(_btVeto).arg(_btSecond);
+                              .arg(_btLines).arg(_btGateB).arg(_btOutlier).arg(_btP95Min).arg(_btP95Max).arg(_btShore).arg(_btVeto).arg(_btSecond).arg(_btFloor);
         _btP95Min = _btP95Max = -1;
         _btWindowStartMs = now;
-        _btN = _btShore = _btVeto = _btSecond = _btFar = _btGateB = _btOutlier = _btDisagree = _btNone = _btLines = 0;
+        _btN = _btShore = _btVeto = _btFloor = _btSecond = _btFar = _btGateB = _btOutlier = _btDisagree = _btNone = _btLines = 0;
         _btRatioMax = 0;
         _btMin = _btMax = _rfMin = _rfMax = NAN;
     }
@@ -2065,6 +2082,7 @@ void Dataset::publishPass()
         return;
     const float raw = _passNewestValue;
     _lastTraceP95 = _passNewestP95;
+    _choiceRaw = _passNewestRaw;     // the RAW newest value: the floor and the second echo are the bottom track agreeing it is shallow
     {
         // the shore vote: this pass's newest epoch had a quiet trace, or its bottom track sat at the floor
         const depthgates::ChoiceParams cp;
@@ -2141,7 +2159,12 @@ void Dataset::chooseDepth()
             _rfSteady = rfFresh ? depthgates::rfSteadyReading(std::move(last), std::isfinite(_rfSteady), cp) : NAN;
         }
 
-        _shallowMode = depthgates::shallowMode(_shallowMode, rfFresh, rf, _rfSteady, btRaw, bottomTrackParam_.minDistance, cp);
+        // the agreement is judged on the RAW bottom track (24 Oct 2026): the floor is stored as none since then, and a
+        // floor is exactly the tracker saying "nearer than I resolve" - the rangefinder's cue. A gated-out real bottom
+        // (ANDY, 3.5 m over a 0.23 rangefinder) is 15 x the reading and agrees with nothing, as before.
+        const float agreeRaw = std::isfinite(_choiceRaw) ? _choiceRaw : btRaw;
+        _btAtFloor = std::isfinite(_choiceRaw) && _choiceRaw <= bottomTrackParam_.minDistance + cp.floorMargin;
+        _shallowMode = depthgates::shallowMode(_shallowMode, rfFresh, rf, _rfSteady, agreeRaw, bottomTrackParam_.minDistance, cp);
 
         // the rangefinder at its ringdown for the last ~1.5 s - two thirds of its readings, because the red's
         // rangefinder spikes to 40 m on the shore now and then (analysis 1.4). A 0.00 is no reading.

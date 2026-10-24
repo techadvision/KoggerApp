@@ -147,7 +147,8 @@ int main()
     // rf 0.3 -> NOT shallow: no bottom is not agreement.
     // shallowMode(wasShallow, rfFresh, rf, rfSteady, btRaw, minDistance): rfSteady is the steady reading (NaN = not
     // steady); since 21 Oct entering needs it, above ringdownM (0.25).
-    CHECK(!shallowMode(false, true, 0.37f, 0.37f, 0.39f, 0.25f));
+    CHECK(shallowMode(false, true, 0.37f, 0.37f, 0.39f, 0.25f));    // 0.39 is inside the floor zone (<= 0.43 since 24 Oct): the steady rangefinder takes over (both read the same)
+    CHECK(!shallowMode(false, true, 0.47f, 0.47f, 0.46f, 0.25f));   // 0.46 is a reading above the zone, not a second echo: the bottom track keeps it
     CHECK(!shallowMode(false, true, 0.12f, 0.12f, 0.32f, 0.25f));   // 0.12 is the rangefinder's ringdown, not water: never a depth
     CHECK(!shallowMode(false, true, 0.30f, NAN,   0.32f, 0.25f));   // 0.30 toggling with the ringdown (10-20 cm of water): not steady, not yet
     CHECK(shallowMode(false, true, 0.30f, 0.30f, 0.32f, 0.25f));    // 0.30 steady for a second, the bottom track at its floor: the rangefinder takes over
@@ -220,6 +221,16 @@ int main()
         // the echo at the half must be at least as loud: a 7 m value whose half is quieter than it is a bottom
         std::vector<uint8_t> t2(2500, 30); t2[350] = 35; t2[700] = 60;
         CHECK(!std::isfinite(secondEchoHalf(t2.data(), int(t2.size()), 0.01f, 0.0f, 7.0f, 3.46f)));
+        // Max's bank (24 Oct): reference 0.43 (the floor zone), value 1.21, a loud echo at 0.60 - no second echo:
+        // the reference is the floor; and with a reference of 0.50 the half 0.60 is 20% off - no
+        std::vector<uint8_t> t3(2500, 60); t3[60] = 90; t3[121] = 80;
+        CHECK(!std::isfinite(secondEchoHalf(t3.data(), int(t3.size()), 0.01f, 0.0f, 1.21f, 0.43f, 0.43f)));
+        CHECK(!std::isfinite(secondEchoHalf(t3.data(), int(t3.size()), 0.01f, 0.0f, 1.21f, 0.50f, 0.43f)));
+        // ... and a half at the floor is no bottom either: value 0.79, reference 0.45, loud echo at 0.40
+        std::vector<uint8_t> t4(2500, 60); t4[40] = 90; t4[79] = 80;
+        CHECK(!std::isfinite(secondEchoHalf(t4.data(), int(t4.size()), 0.01f, 0.0f, 0.79f, 0.45f, 0.43f)));
+        // the genuine case keeps working with the floor passed: 7.0 over 3.46, floor 0.43
+        CHECK(std::fabs(secondEchoHalf(t.data(), int(t.size()), 0.01f, 0.0f, 7.0f, 3.46f, 0.43f) - 3.5f) < 0.02f);
     }
 
     // The veto. The red in 20 cm of water (steady 0.22, bottom track 0.55 - and a black in the air reads the same):

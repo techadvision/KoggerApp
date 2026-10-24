@@ -1055,5 +1055,39 @@ the 2 s hold. The readout and the rangefinder agreed within 5% throughout the op
    changes; the 18 Oct firings in 10-40 cm of water (11.7) were from floor references too and would go - rightly,
    on reflection: a second echo of a floor is not a measurement either.
 
-Neither is coded. Both are a dozen lines in `depth_gates.h` / `Dataset::chooseDepth`, bench-checkable on every
-recording we have (the floor rule against the 21 Oct positions and Max's two runs, P11 against ANDY and 18 Oct).
+### 13.1 Verified on the bench, then built (`floor` and P11 guards)
+
+**The theory checked first.** (a) Where do floor values (<= 0.43) occur? In every recording of 18-24 Oct - ANDY,
+18 Oct blue and red, 19 Oct blue / black / red, Max 22 and 24 Oct - **no epoch under 0.43 lies in water deeper than
+a metre** (runs of floor epochs between >1 m water on both sides: none, except the 19 Oct blue's 10-20 cm approaches
+between 13-19 m false bottoms and the black's own shore stretch). (b) Which seconds would change on the readout?
+From the app logs' `SHALLOW:` lines, every second where the readout showed a bottom track value <= 0.43: Max 24 Oct
+121 s, all at the bank (13:04:25-13:06:29, 13:19:03-13) - 119 become a dash, 2 the rangefinder (0.48 at 13:14:24, rf
+steady); Max 22 Oct 48 s, the launch; 21 Oct 19 s - the 60 cm blue position goes to the rangefinder 0.50 (9 s, bt 0.41),
+the black's 30 cm position to a dash (its rangefinder toggled), the rest the 15-20 cm positions; 20 Oct 68 s, the
+shore approaches and the black in the air (bt 0.32-0.42 shown with the rangefinder at 43 m - a dash is overdue);
+19 Oct 22 s, the approaches. Nothing in open water. (c) P11 with the new guards: ANDY 47 -> 43 (the four lost had the
+half 15-25% off the reference), 18 Oct blue 18 -> 4 and red 85 -> 9 (what remains sits in 10-40 cm of water on
+1.1-1.2 m values over a 0.45-0.55 reference - the 15:03 second echo of 6.1), 19 Oct 0, Max 22 Oct 147 -> 0, Max 24 Oct
+15 -> 1 (3.13 over 1.60 at 13:12:43, with the rangefinder at 0.45-1.1: plausible). Through the whole pipeline the 18 Oct
+slopes stay at 0 held / 0 dashed, ANDY is unchanged, and the dashes in "water" rise exactly by the floor epochs.
+
+**Built** (`depth_gates.h`, `dataset.cpp/.h`, `PulseDepthEngine.qml`, `gates.py`):
+
+- `floorMargin` 0.12 -> **0.18** (zone <= 0.43 at minDistance 0.25: the blue's 0.40-0.43 included).
+- **At the epoch write**, after the shore state: a value in the floor zone is stored as none, kept out of the filter
+  (so out of P11's reference), counted as `at floor n` in the `BT: last 10 s` line, named in the epoch line
+  (`at its floor (<= 0.43 m): nearer than the tracker resolves, not a measurement`).
+- **At the choice**, the agreement is judged on the pass's **raw** newest value (`_choiceRaw`): a floor is the bottom
+  track saying "nearer than I resolve", so a steady rangefinder takes over; otherwise no bottom - the 2 s hold, then
+  the dash. `bottomTrackAtFloor` is published and the P9 search never runs while it holds (nearer than reach is the
+  opposite of out of reach).
+- **P11**: no reference and no half at or under the floor zone; the half must match the reference within
+  **max(0.05 m, 15%)** (was the filter's 0.5 m / 30%). Unit tests for Max's two log lines.
+
+**What changes on the device.** At a bank in 20-40 cm: the readout dashes (or shows the rangefinder when it reads
+steadily) instead of 0.34 / 0.40; the 2D line and the record carry a gap there instead of a floor line. The black at
+30 cm dashes unless its rangefinder is steady: its practical minimum is 0.4 m, as 11.4 said it measures. Leaving a
+bank, a real 1.2 m bottom is shown as 1.2 m, not halved. Lines to look for on a replay of Max's file: `BT: last 10 s
+| ... at floor n` with n close to the epoch count at 13:04:30-13:06:10 and `second echo 0` at 13:05:47; `DEPTH: chosen
+source bottom track -> none (no bottom)` at the bank rather than 0.34 shown; no `DYNAMIC: search` there.

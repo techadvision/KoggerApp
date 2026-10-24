@@ -54,8 +54,13 @@ struct Params {
     // second echo. Then the half is the bottom.
     float secondEchoMin = 1.7f;
     float secondEchoMax = 3.3f;
-    float secondEchoHalfAbsM = 0.5f;   // = OutlierParams absM / rel
-    float secondEchoHalfRel  = 0.3f;
+    // The half must be the reference's bottom within a tolerance of its own, not the filter's 0.5 m: in the shallows
+    // 0.5 m is everything (Max, 24 Oct: "1.21 m is a reflection of the 0.60 m bottom" with the reference at the 0.4
+    // floor and the rangefinder at 1.6). And neither the reference nor the half may sit at the tracker's floor: a
+    // second echo of a floor is not a measurement either (the floor values no longer reach the filter, so the
+    // reference cannot be one; the guard stays as a belt).
+    float secondEchoHalfAbsM = 0.05f;  // a few samples of the trace
+    float secondEchoHalfRel  = 0.15f;
 };
 
 inline float reachableEnd(float maxDistance, float rangeM, const Params& p = Params())
@@ -105,9 +110,10 @@ inline float echoContrast(const uint8_t* amp, int n, float resolution, float off
 
 // P11: the refined position of the bottom's first echo when bt is a second echo of the reference, else NaN.
 // amp is the trace the bottom track saw (a blue's two sides merged), ref the outlier filter's reference (NaN = none).
-inline float secondEchoHalf(const uint8_t* amp, int n, float resolution, float offsetM, float bt, float ref, const Params& p = Params())
+// floorM = minDistance + ChoiceParams::floorMargin: a reference or a half at or under it is the tracker's floor, not a bottom.
+inline float secondEchoHalf(const uint8_t* amp, int n, float resolution, float offsetM, float bt, float ref, float floorM = 0.0f, const Params& p = Params())
 {
-    if (!amp || n <= 0 || !(resolution > 0.0f) || !std::isfinite(bt) || !std::isfinite(ref) || !(ref > 0.0f))
+    if (!amp || n <= 0 || !(resolution > 0.0f) || !std::isfinite(bt) || !std::isfinite(ref) || !(ref > 0.0f) || ref <= floorM)
         return NAN;
     const float k = bt / ref;
     if (k < p.secondEchoMin || k > p.secondEchoMax)
@@ -127,7 +133,7 @@ inline float secondEchoHalf(const uint8_t* amp, int n, float resolution, float o
     if (full < 0 || half < 0 || half < full)
         return NAN;
     const float h = offsetM + atHalf * resolution;
-    if (std::fabs(h - ref) > std::max(p.secondEchoHalfAbsM, p.secondEchoHalfRel * ref))
+    if (h <= floorM || std::fabs(h - ref) > std::max(p.secondEchoHalfAbsM, p.secondEchoHalfRel * ref))
         return NAN;
     return h;
 }
@@ -195,7 +201,13 @@ private:
 struct ChoiceParams {
     float rfEnter = 0.5f;       // the rangefinder takes over under this
     float rfLeave = 0.7f;       // and hands back over this
-    float floorMargin = 0.12f;  // "at its floor": bottom track <= minDistance + this
+    // "AT ITS FLOOR": bottom track <= minDistance + floorMargin. The tracker reports its floor for anything nearer
+    // than it can resolve - 0.32-0.35 on a 2D, 0.34-0.43 on a blue (Max's bank, 24 Oct 2026: 0.34 and 0.40 for 100 s
+    // in 20-30 cm of water, shown as a depth). A floor value is never a measurement: at the epoch write it is "no
+    // bottom" (gateBottomTrackLocked), at the choice it is the bottom track AGREEING that it is shallow (the raw
+    // value), so a steady rangefinder takes over and otherwise the readout dashes. 0.18 (was 0.12) takes in the
+    // blue's 0.40-0.43; in every recording of 18-24 Oct no epoch under 0.43 lies in water deeper than a metre.
+    float floorMargin = 0.18f;
     float secondEchoMin = 1.7f; // "a second echo": bottom track / rangefinder within this band
     float secondEchoMax = 3.3f;
     // THE RANGEFINDER'S OWN ZONE (21 Oct 2026, the stationary shallow test). Up to ringdownM a reading is unusable: the

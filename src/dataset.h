@@ -74,6 +74,7 @@ public:
     Q_PROPERTY(bool    onShore              READ onShore            NOTIFY chosenDepthChanged)
     Q_PROPERTY(bool    rangefinderAtRingdown READ rangefinderAtRingdown NOTIFY chosenDepthChanged)   // hears nothing: ringdown or far-end noise
     Q_PROPERTY(bool    rangefinderSteady    READ rangefinderSteady  NOTIFY chosenDepthChanged)   // a steady reading under 1 m: the shallows are known, no search
+    Q_PROPERTY(bool    bottomTrackAtFloor   READ bottomTrackAtFloor NOTIFY chosenDepthChanged)   // the raw bottom track at the tracker's floor: nearer than it resolves, no search
 
     Q_PROPERTY(float boatLatitude             READ getBoatLatitude          NOTIFY lastPositionChanged)
     Q_PROPERTY(float boatLongitude            READ getBoatLongitude         NOTIFY lastPositionChanged)
@@ -164,6 +165,7 @@ public:
     bool    onShore() const { return _onShore; }
     bool    rangefinderAtRingdown() const { return _rfRingdown; }
     bool    rangefinderSteady() const { return std::isfinite(_rfSteady); }
+    bool    bottomTrackAtFloor() const { return _btAtFloor; }
     double smallAgreeMargin() const { return _kSmallAgreeMargin; }
     double largeJumpThreshold() const { return _kLargeJumpThreshold; }
     int consistNeeded() const { return _kConsistNeeded; }
@@ -193,11 +195,12 @@ public:
         int   traceP95 = -1;     // 95th percentile of the trace past 0.4 m (in air there is no return: the shore test)
         bool  shore = false;     // the shore state (rangefinder at its ringdown + quiet trace / floor): nothing is a bottom
         bool  rfVeto = false;    // the rangefinder steady in its own zone, or at less than a quarter of this value: not a bottom
+        bool  floor = false;     // the tracker's floor (<= minDistance + floorMargin): nearer than it can resolve, not a measurement
         bool  secondEcho = false;  // P11: the value was the bottom's second reflection; the half was stored (not a rejection)
         float secondEchoFrom = NAN;   // the value as the bottom track delivered it
         float secondEchoHalf = NAN;   // what was stored in its place
         std::vector<std::pair<int, float>> released;   // earlier epochs the filter released (a confirmed jump): rewrite them
-        bool  rejected() const { return shore || rfVeto || gateA || gateB || outlier; }
+        bool  rejected() const { return shore || floor || rfVeto || gateA || gateB || outlier; }
     };
     float gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v);
     void logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v);   // the BT: line, live only
@@ -840,8 +843,11 @@ private:
     bool   _shoreState = false;      // see chooseDepth(); gates every epoch while true
     bool   _rfRingdown = false;
     float  _rfSteady = NAN;          // depthgates::rfSteadyReading() of the last second, computed per pass; the veto's witness
+    float  _choiceRaw = NAN;         // this pass's newest RAW bottom track, for the choice's "agrees it is shallow"
+    bool   _btAtFloor = false;
     int    _btShore = 0;             // the BT: 10 s count
     int    _btVeto = 0;              // the BT: 10 s count
+    int    _btFloor = 0;             // the BT: 10 s count
     int    _btSecond = 0;            // the BT: 10 s count
     int    _btP95Min = -1, _btP95Max = -1;   // the BT: 10 s count
     void   notePassEpoch(int epochIndex, float stored, int traceP95, float raw);

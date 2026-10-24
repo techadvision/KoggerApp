@@ -426,12 +426,13 @@ Item {
 
     function searchOnNoBottom() {
         const now = Date.now()
-        if (dataset && (dataset.onShore || dataset.rangefinderAtRingdown || dataset.rangefinderSteady)) {
+        if (dataset && (dataset.onShore || dataset.rangefinderAtRingdown || dataset.rangefinderSteady || dataset.bottomTrackAtFloor)) {
             // the range holds; nothing to look for on the shore - and not while the rangefinder hears only itself:
             // on 19 Oct the red's shore state flickered, the search took the range from 3 to 14 m and the far-end
             // noise followed it (no runaway, but no business searching with the rangefinder at 0.12 either).
             // Nor while the rangefinder reads the bottom steadily under 1 m (21 Oct): the shallows are known, and the
-            // bottom track's "no bottom" there is the veto at work, not a bottom out of reach
+            // bottom track's "no bottom" there is the veto at work, not a bottom out of reach. Nor while the bottom
+            // track sits at its floor (24 Oct): nearer than it resolves is the opposite of out of reach
             schemeNoBottomSinceMs = -1
             if (schemeSearching) {
                 console.log("DYNAMIC: search stopped - on the shore, the range holds at " + (lastPlanRangeMm / 1000).toFixed(1) + " m")

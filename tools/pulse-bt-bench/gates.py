@@ -89,10 +89,14 @@ SLOPES = {
 }
 
 SECOND_ECHO_MIN, SECOND_ECHO_MAX = 1.7, 3.3   # P11 (depth_gates.h Params)
+SECOND_ECHO_HALF_ABS_M, SECOND_ECHO_HALF_REL = 0.05, 0.15   # the half must be the reference's bottom (24 Oct)
+FLOOR_M = 0.25 + 0.18        # minDistance + ChoiceParams::floorMargin: the tracker's floor is no bottom (24 Oct)
 
-def second_echo_half(d, res, off, bt, ref):
-    """P11 (depth_gates.h secondEchoHalf): the refined half position when bt is a second echo of ref, else NaN."""
-    if not (np.isfinite(bt) and np.isfinite(ref) and ref > 0): return np.nan
+def second_echo_half(d, res, off, bt, ref, floor=FLOOR_M):
+    """P11 (depth_gates.h secondEchoHalf): the refined half position when bt is a second echo of ref, else NaN.
+    Neither the reference nor the half may sit at the floor; the half must match the reference within
+    max(SECOND_ECHO_HALF_ABS_M, SECOND_ECHO_HALF_REL x ref)."""
+    if not (np.isfinite(bt) and np.isfinite(ref) and ref > floor): return np.nan
     k = bt / ref
     if k < SECOND_ECHO_MIN or k > SECOND_ECHO_MAX: return np.nan
     n = len(d); w = int(GATE_B_PEAK_M / res)
@@ -103,13 +107,14 @@ def second_echo_half(d, res, off, bt, ref):
     full, _ = peak(bt); half, at = peak(bt * 0.5)
     if full < 0 or half < 0 or half < full: return np.nan
     h = off + at * res
-    if abs(h - ref) > max(outlier.ABS_M, outlier.REL * ref): return np.nan   # the half must BE the reference's bottom
+    if h <= floor or abs(h - ref) > max(SECOND_ECHO_HALF_ABS_M, SECOND_ECHO_HALF_REL * ref): return np.nan
     return h
 
-def run_outlier(gated, times, eps=None):
+def run_outlier(gated, times, eps=None, floor=FLOOR_M):
     """The filter over the gated per-epoch values in epoch order, the window = the epochs of the last second
-    (time, not samples, as Dataset counts them). With eps (the traces, as sweep.load gives them) P11 runs before the
-    filter. Returns stored values, held mask, released count (and the second-echo mask when eps is given)."""
+    (time, not samples, as Dataset counts them). A value at or under `floor` is the tracker's floor: stored as none,
+    kept out of the filter (gateBottomTrackLocked, 24 Oct). With eps (the traces, as sweep.load gives them) P11 runs
+    before the filter. Returns stored values, held mask, released count (and the second-echo mask when eps is given)."""
     f = outlier.OutlierFilter()
     stored = np.full(len(gated), np.nan); held = np.zeros(len(gated), bool); released = 0
     second = np.zeros(len(gated), bool)
@@ -117,7 +122,7 @@ def run_outlier(gated, times, eps=None):
     for i, v in enumerate(gated):
         while times[i] - times[j] > 1.0: j += 1
         w = i - j + 1
-        if not np.isfinite(v):
+        if not np.isfinite(v) or v <= floor:
             f.no_bottom(i); continue
         if eps is not None:
             d, res, off = eps[i]
