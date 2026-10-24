@@ -1019,3 +1019,41 @@ shallows (0.12 / 0.7 / 0.2 within a second), so no veto and no rangefinder shown
 the return rule would shorten the 282 held epochs of the glide where a step came back; P11 would not fire (the steps
 are real). The far-noise rule is moot (no 30 m+ readings). The parameters are the lever here as on ANDY: W 15 for the
 jitter and the 2.9 m, the gain for the false rate.
+
+---
+
+## 13. Max's second run, 24 Oct 2026 - blue (IP), build 2.00 (`ef8c915b` depth code), the bank at both ends
+
+`SS_pulse_log_2026.10.24_13.07.09.plog`, `pulse log max 2026.10.24.log`, session 13:04-13:19. Max: "great", with
+"some minor shallow water or on-bank issues". The BT: lines now carry `rangefinder veto` and `second echo`, so this
+is the first water for the 21-22 Oct rules. In the water (13:06:40-13:18:50, 0.4-8 m, a weedy shallow area at
+13:12-13:16): nothing vetoed, nothing gated, the holds all 1-2 s on real steps or on 6-7.6 m false bottoms over
+0.4-0.9 m of water (`7.60 m raw | rangefinder 0.44 | held`), three `none (no bottom)` blips of 0.1-0.7 s absorbed by
+the 2 s hold. The readout and the rangefinder agreed within 5% throughout the open water.
+
+**Two faults, both at the bank, both ours.**
+
+1. **The floor shown as a depth** (13:04:30-13:06:10, ~100 s; again 13:19:00-10): the boat at the bank, bottom track
+   at its floor 0.34-0.43 the whole time, rangefinder 0.12-0.52 - and the readout showed **0.34 / 0.40 m from the
+   bottom track**. The shore state held only for the first seconds (`shore 253`, then `0`): the blue's rangefinder read
+   0.3-0.5 for more than a third of its readings in that water, so "hears nothing" (two thirds <= 0.25) failed, and
+   with it the whole state. The floor vote was unanimous, the trace loud (p95 71-134). A floor value is never a
+   measurement - it is what the tracker reports for anything nearer than ~0.37 m - and it should not reach the
+   readout as one. Proposed: **a bottom track at its floor is "no bottom" at the choice** unless a steady rangefinder
+   reading takes over (shallow mode). Cost to weigh: the black at 30 cm shows 0.33 today from exactly this floor
+   (11.4); with the rule it dashes there unless its rangefinder is steady (it toggled 0.18 / 0.33 on 21 Oct) - the
+   black's stated minimum would become 0.4 m in practice, which is where it measures anyway.
+
+2. **P11 fired from a floor reference** (13:05:42-47: 359 epochs; 13:14:36: 188; 13:12:48: 13): leaving the bank, the
+   filter's reference was the floor (0.34-0.43), the real bottom at 1.2-1.5 m sat at 2.8-4 x it - in the band - the
+   half (0.6) "matched" the reference because the filter's **0.5 m absolute tolerance** covers everything under a metre,
+   and the loud shallow trace passed the half-echo test. `second echo: 1.21 m is a reflection of the 0.60 m bottom`
+   while the rangefinder read 1.63-1.88; `0.79 m is a reflection of the 0.28 m bottom` (below the floor) while it read
+   1.17. The readout showed 0.57 m where the water was about 1.2 m, for a few seconds. Proposed: P11 **never from a
+   reference at the floor** (<= minDistance + floorMargin), the half **never below the floor**, and the half-to-reference
+   match **relative** - max(0.1 m, 15%) - instead of the filter's 0.5 m. On ANDY (reference 3.46, half 3.53) nothing
+   changes; the 18 Oct firings in 10-40 cm of water (11.7) were from floor references too and would go - rightly,
+   on reflection: a second echo of a floor is not a measurement either.
+
+Neither is coded. Both are a dozen lines in `depth_gates.h` / `Dataset::chooseDepth`, bench-checkable on every
+recording we have (the floor rule against the 21 Oct positions and Max's two runs, P11 against ANDY and 18 Oct).
