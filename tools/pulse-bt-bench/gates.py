@@ -122,8 +122,14 @@ def run_outlier(gated, times, eps=None, floor=FLOOR_M):
     for i, v in enumerate(gated):
         while times[i] - times[j] > 1.0: j += 1
         w = i - j + 1
-        if not np.isfinite(v) or v <= floor:
+        if not np.isfinite(v):
             f.no_bottom(i); continue
+        if v <= floor:
+            # the floor: never stored, but judged and accepted by the filter so it stays the reference (25 Oct)
+            s, h, c, rel = f.apply(i, float(v), w)
+            for k, x in rel:
+                if x > floor: stored[k] = x; held[k] = False; released += 1
+            continue
         if eps is not None:
             d, res, off = eps[i]
             half = second_echo_half(d, res, off, float(v), f.reference(i, w))

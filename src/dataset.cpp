@@ -1853,12 +1853,25 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
 
     // The tracker's floor (24 Oct 2026, Max's bank): a value at or under minDistance + floorMargin is what the tracker
     // reports for anything nearer than it can resolve - 0.34 / 0.40 shown as a depth for 100 s in 20-30 cm of water.
-    // Not a measurement, not a bottom: stored as none, kept out of the filter's reference (and so out of P11's).
-    // The choice still sees the raw value (publishPass) and lets a steady rangefinder take over.
-    if (dist <= bottomTrackParam_.minDistance + depthgates::ChoiceParams().floorMargin) {
+    // Not a measurement, not a bottom: stored as none. BUT IT STAYS THE FILTER'S REFERENCE (25 Oct, Olav's side-by-side
+    // replay): kept out of the filter, a floor stretch left the filter with nothing to compare against, and the
+    // tracker's 6-7.6 m false bottoms over 0.45 m of water - held on 24 Oct against the 0.40 reference - were accepted
+    // at once and shown. So the floor value is judged and accepted like any other (it IS where the bottom is, to within
+    // the tracker's resolution), only never stored and never released into the record. P11 refuses a floor reference
+    // by itself. The choice still sees the raw value (publishPass) and lets a steady rangefinder take over.
+    const float floorZone = bottomTrackParam_.minDistance + depthgates::ChoiceParams().floorMargin;
+    if (dist <= floorZone) {
         v.floor = true;
         _gateBVoter.set(epochIndex, false, false);
-        _outlierFilter.noBottom(epochIndex);
+        if (_useDepthFilterWithBottomTrack) {
+            const double rfAge = rangefinderLiveAgeS();
+            const float witness = (depthgates::rfIsReading(_rangefinderLiveRaw) && rfAge >= 0.0 && rfAge < 1.5) ? _rangefinderLiveRaw : NAN;
+            depthgates::OutlierFilter::Result r = _outlierFilter.apply(epochIndex, dist, epochsPerSecond(), witness);
+            // a confirmed return to the floor releases the held floor epochs: they stay out of the record
+            for (const auto& e : r.released)
+                if (e.second > floorZone)
+                    v.released.push_back(e);
+        }
         return NAN;
     }
 

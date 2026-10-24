@@ -1091,3 +1091,28 @@ steadily) instead of 0.34 / 0.40; the 2D line and the record carry a gap there i
 bank, a real 1.2 m bottom is shown as 1.2 m, not halved. Lines to look for on a replay of Max's file: `BT: last 10 s
 | ... at floor n` with n close to the epoch count at 13:04:30-13:06:10 and `second echo 0` at 13:05:47; `DEPTH: chosen
 source bottom track -> none (no bottom)` at the bank rather than 0.34 shown; no `DYNAMIC: search` there.
+
+### 13.2 The reference repair (25 Oct) - Olav's side-by-side replay found 6-7 m in 0.45 m of water
+
+Olav replayed Max's file on the new build and recorded the screen; against the old recording, at 13:40 into the
+video (5:12 into the replay's second pass = live 13:14:20-13:14:36, the shallowest real water of the run, ~0.45 m)
+the readout showed **6 and 7 m**. The playback log of the first pass has it: the bottom track at its floor 0.40 for 15 s,
+stored as none *and kept out of the filter*, so the filter had nothing to compare against when the tracker threw its
+far false bottoms - `7.60 m raw` at epoch 6325, `6.16 m raw` at 6396 - and with fewer than three accepted epochs it
+accepted them at once ("nothing to compare with, accept", P5b) and the readout showed them; the real 0.79 that
+followed was held as an outlier against the 6.16. On the old build Max's live log shows the same values **held**
+(`7.60 m raw | rangefinder 0.44 | held by the outlier filter`) - against the 0.40-0.43 floor values that were then the
+reference. 13.1 took the floor out of the record and took its protection with it.
+
+**The repair** (`gateBottomTrackLocked`, `gates.py`): a floor value is still never stored and never released into the
+record, but it is **judged and accepted by the filter like any other value** - it is where the bottom is, to the
+tracker's resolution - so it stays the reference, the far false bottom is held against it as before, and the
+rangefinder witness (0.44 agreeing with 0.40, not with 7.6) vetoes its confirmation as before. P11 refuses a floor
+reference by its own guard. Bench, every recording: held, P11 and false-shown counts **identical to before the floor
+rule**; Max's 30 epochs over 5 m in that stretch: 30 held, 0 shown; the 18 Oct slopes 0 / 0; only the floor epochs
+themselves are dashes in the record.
+
+What remains at that spot is the readout dashing where the water was 0.45 m and the rangefinder read 0.42-0.49 with
+0.12 dropouts - not steady within 3 cm, so it could not take over. A steadiness test that tolerates a stray reading
+(two thirds of the last second within +-3 cm of the median) would show 0.45 there; to be benched on every recording
+before it goes in (the red's 0.18 / 0.30 toggling must still fail it).
