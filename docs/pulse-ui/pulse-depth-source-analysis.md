@@ -1,10 +1,12 @@
 # The depth source on the shore and in the shallows - analysis and plan (18 Oct 2026)
 
-> **Status, 22 Oct 2026 (read this first).** Sections 1-5 are the 18 Oct analysis and plan; 6-12 are what was built
-> and learned, one dated section per round, in order. The newest code is `ef8c915b` (section 11.8) on
-> `feature/pulse-depth-source`; 1.45 on Google Play is `c563a7f1` (up to 9.5). The blue profile is now **15 / 0.5 / 0**
-> (Olav, 22 Oct, `distProcPulseBlue`; the red/black profile unchanged). Minimum depth to state: **red 0.3 m, black 0.3 m
-> (accurate from 0.4), blue 0.3 m** once the ten-line change of 11.4 is in, 0.5 m without it. Where a later section
+> **Status, 25 Oct 2026 (read this first).** Sections 1-5 are the 18 Oct analysis and plan; 6-13 are what was built
+> and learned, one dated section per round, in order. The newest code is `5f6cf95c` (section 13.2), **the 2.01 release**
+> (2.00 on Google Play is `ef8c915b`, section 11.8; 1.45 was `c563a7f1`). The blue profile is **15 / 0.5 / 0** (Olav,
+> 22 Oct, `distProcPulseBlue`; the red/black profile unchanged). Minimum depth to state: **red 0.3 m, black 0.4 m
+> (the floor is no longer shown: 13.1), blue 0.5 m** (0.3 with the ten-line change of 11.4, not built). Known and
+> accepted in 2.01: in 0.4-0.5 m with a jittery blue rangefinder the readout dashes for a few seconds where 2.00 showed
+> the floor value (13.2); the tolerant steadiness rule that would show the rangefinder there is not benched. Where a later section
 > corrects an earlier one, the later one is right - in particular: the rangefinder is **not** silent in a replay (6.2,
 > 7.2 wrong; 11.3), the ANDY residue after the gates is 4.6% / 3.6% with P11, not 1.8% (7.4 wrong; 11.7), and "keep gain
 > 2" (7.4 item 2) is superseded by 11.8. Still open: the blue in 15-20 cm showing a far false bottom (11.6, a rule

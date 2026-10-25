@@ -7723,3 +7723,22 @@ selector" among its readers, and the classic selector was a literal list; raisin
 And **a knob's name is not its effect** - "reference range" sounds like a shape control; in this law it is a level.
 
 Next: Olav builds, checks the five, decides the blue's 0.3 m; then the version bump to 200 is the last commit.
+
+## 25 Oct 2026 - 2.01: Max's second run, two faults at the bank, one regression of my own, all closed
+
+Max's 24 Oct run on 2.00 (`pulse-depth-source-analysis.md` section 13): at the bank the tracker's floor (0.34 / 0.40)
+was shown as a depth for 100 s, and leaving the bank P11 took a real 1.2 m bottom for a second echo of the floor and
+showed 0.57. Both fixed in `a17281b8` (the floor is no bottom at the write and the choice; P11 refuses a floor
+reference and matches the half within 15%). Olav's side-by-side screen recording of the replay then found 6 and 7 m in
+0.45 m of water: my floor rule had taken the floor out of the outlier filter's reference, so the far false bottoms the
+old build held against it were accepted with nothing to compare to. Repaired in `5f6cf95c` - the floor is judged and
+accepted by the filter, never stored - and confirmed on the device log (`7.60 m raw ... held`, `6.16 ... held`) and on
+the bench (every count identical to before the floor rule, the 18 Oct slopes untouched). **2.01 ships on `5f6cf95c`.**
+
+Two lessons for the standing list. **A fix that removes data from one consumer removes it from every consumer** - the
+floor was the record's garbage and the filter's reference at the same time, and the bench had measured the first and
+not the second until the screen recording did. And **the user's side-by-side recording was the instrument**: the fault
+sat at 13:40 of a video, found by eye, and the log confirmed it afterwards - the order the standing lesson predicts.
+
+Still open after 2.01 (depth): the tolerant steadiness rule (13.2, benches first); the blue's own 15-20 cm case (11.6);
+the pill (7.2); the "Depth gates" expert toggle (8.4); the CSV logger (6.3); P10 / Q3; the red profile.
