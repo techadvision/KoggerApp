@@ -3033,11 +3033,11 @@ QtObject {
 
     property var    distProcPulseBlue: [
         2,
-        5,
-        4,
+        15,
+        0,
         0.25,
         35,
-        2,
+        0.5,
         0,
         0,
         0,

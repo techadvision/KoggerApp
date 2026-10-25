@@ -4023,6 +4023,79 @@ rail). Note the clock time of each step.
 **Bring back to `testlogs/depth-source/`:** the `.plog`, `pulse.log` (or the grep), the clock times; and, if you have
 them, a `.plog` with the old rangefinder spikes and a 1-minute desk `.plog` in air (for the bench).
 
+### Performance mode in the field - Max's log, 5 Oct 2026 (1.44, PULSE blue SN 46, HM30 + self-built IP connector) - read 6 Oct
+
+Full report with the tables: project doc `claude/pulse-perf-field-report-2026-10-05.md`. The short of it:
+
+**What killed the stream, three times, each within ~1 s of a chart send, each total silence (no poll answers, no bytes,
+across app restarts):** `16 mm x 5000` (83%, Max range side dragged to 40 m, 13:48:01); `13 mm x 3850` (67%, Min spacing
+dragged to 13, 15:29:55); and `13 mm x 3850` **again** at 15:38:47, sent by the engine 10 s after the transducer came back,
+because `perfModeEnabled` and `perfMinSpacingBlueMm = 13` had survived. distMax stayed 25000 at every death (the dist step
+follows the chart step), so the lethal combination is spacing x samples alone.
+
+**What Max's chain carries** (LINK lines, 921600 reported and plausible): 2000 x 25 (34%) full at best, 7-9% loss at
+times; 2800 x 25 (47%) ~85% arrives; 3150 x 29 (54%) ~80%; **15 x 3350 (57%) only ~45-50%, 8-17% loss, every ping ends
+at 1200-2600 samples**; 25 x 3600 at 45 m (60%) collapsed to 7 kB/s and 6.9 pings/s; 67% and 83% kill it. Olav's G30 +
+prototype carried 84% for 10+ min at 0.1-0.3% loss (9a). The knee at ~40-45 kB/s with tail-truncated pings is the
+signature of a UART -> UDP bridge falling behind: the self-built connector, not the HM30 radio (0.75 Mbit/s is nothing
+to it), not the transducer's UART. The deaths have the shape of the 55 ms overload death of 9a (silence, power cycle),
+NOT of the prototype's 15 mm floor (0 mm reported, polls keep answering) - so this log shows no 13 mm floor on a production
+blue; 14 mm was never sent. Whether the transducer or the connector locks up cannot be read from the app log.
+
+**Olav, 6 Oct - the recovery rule:** a setting the transducer has accepted stays in the transducer until the *transducer*
+is power cycled. So when a chart setup overloads it and it stops sending, restarting the app does nothing: the app comes
+up, finds no transducer, and nothing happens (15:31-15:36: five app starts, not one byte). The user has to power cycle the
+transducer (and the connector, until we know which one locks up). The app should say so instead of "nothing is answering".
+
+**The loss counter under-reads this loss.** A ping whose tail never arrives is closed short by the next ping's first
+fragment (`IDBinChart::parsePayload`, first-frame branch) and its missing bytes are not counted. `stream N x M` and the
+B/s against the nominal rate are what show it.
+
+**Also in the log:** the 12:40-13:05 run was on the **wifi AP** (gateway 192.168.10.1), not the HM30 - and there too the
+2000 x 25 pings arrive at 60% (1200 samples, 18.7 kB/s of 31). The AP is a UART bridge as well.
+
+#### Bugs the log revealed - the engine (`PulsePerformanceEngine.qml`)
+
+1. **Persistent settings re-arm the kill.** The floor and the enable survive a death; on the next good connection the
+   engine waits its 10 s and sends the same lethal chart again (15:38:47). Fix: if `dataFlowing` drops within ~3 s of a
+   chart send, treat the send as lethal - raise `perfMinSpacingBlueMm` / lower `perfMaxSamples` to the last *confirmed*
+   chart, switch `perfModeEnabled` off, say so in the Engine row and the log ("the last send stopped the stream; power
+   cycle the transducer").
+2. **`stalled` is never cleared when a hand-back is abandoned.** `reconsider()`'s `wantsHold && handingBack` branch resets
+   `handingBack` and the queue, not `stalled`. 12:52-13:05 on the AP: plans logged down to 10 mm x 5000, nothing sent -
+   lucky there, but the status "toggle performance mode to retry" is false. Clear `stalled` in that branch.
+3. **Chart confirmation cannot succeed on a link that truncates pings.** `s >= chartSamples - 200` fails when every tail
+   is lost, so even handing the shipped 2000 x 25 back "stalls" while the transducer is fine (12:45:59, 12:51:29 on the
+   AP; 13:57:57 on the HM30). Confirm on the header's spacing plus `samples <= asked` (or on the device's chart read-back);
+   keep the stream length for the LINK line.
+4. **The 10 s measurement looks only at baud plausibility.** 8-17% loss and short pings at 15 x 3350 were there before
+   every finer step. Do not go finer / larger while the last 10 s show truncated pings or loss above a few percent at the
+   current setting.
+5. **The lost-connection path should name the cure.** When the stream stops right after a send and nothing answers,
+   "nothing is answering - telling the transducer to send the echogram, and repeating until it does" is wrong twice: it
+   will not come back, and only a power cycle of the transducer helps. Say that.
+
+#### Also in Max's log - the MAVLink peer flaps (log noise, 6 Oct)
+
+9 906 `AddWaypoint: setMavlinkPeer change:` lines, 127.0.0.1 <-> 192.168.144.117, ~5 flips/s (peaks 23/s), only in the
+sessions where POSITION was available (12:40 on the wifi AP, 15:22, 15:38) - none in 13:47/13:49 where no position
+source ran. The proxy link on 14569 receives the same MAVLink feed from two sender addresses, interleaved;
+`Link::updateMavlinkPeer` emits on *every* address change (its 1 s rate limit only covers an unchanged address), the
+LinkManager forwards each as a queued signal and `UdpBroadcaster::setMavlinkPeer` logs each. .117 appearing while the
+sonar came from the wifi AP (192.168.10.1) says the phone is multi-homed and .117 is most likely the phone itself on
+the HM30 ground network - i.e. Seascape on the same phone reaches the proxy both via loopback and via its own
+interface (broadcast or unicast to its own IP). `broadcastWaypoint` already maps a self address to localhost, so
+waypoints are not affected; the cost is log volume and a cross-thread signal per datagram. Fix: in
+`Link::updateMavlinkPeer` normalise the phone's own addresses to loopback before the change test (reuse
+`selfUnicastIPv4s()`), and/or only log a change once the new address has held for >1 s. Confirm with Max what .117 is.
+
+#### Recommended to Max for 1.44 (until the connector is sorted)
+
+Performance mode off; or Min spacing blue >= 20 mm, Max samples <= 3000, Max range side <= 35 m - what his chain carried
+with <= 8% loss. 15 mm x 3350 already loses half of every ping on his link. When it goes silent: before any power cycle,
+check whether the connector still answers on the network (it is the sender at 192.168.144.31); connector up but no bytes
+-> the transducer locked up; connector gone -> the connector did. Then power cycle only one of them and tell us which.
+
 ### THE PROMPTS FOR THE NEXT SESSIONS
 
 **Status, 3 Oct 2026 (evening):** performance mode is ready for the testers and pushed. Verified on a live production blue:
