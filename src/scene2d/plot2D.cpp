@@ -796,6 +796,23 @@ void Plot2D::setDataChannel(bool fromGui, const ChannelId& channel, uint8_t subC
         datasetPtr_->getMaxDistanceRange(&from, &to, channel, subChannel1, channel2, subChannel2);
 
         if (isfinite(from) && isfinite(to) && (to - from) > 0) {
+            // A DOWN PANE NEVER TAKES A RANGE THAT CROSSES ZERO (2.01, Andy, 25 Oct). The
+            // dataset's range for two channels is the side scan's -R..+R, and the blend in
+            // plot2D_echogram.cpp is chosen by "a two-channel range that does not cross
+            // zero" - so writing it here turned the down pane of the split back into the
+            // upstream two-channel horizontal view. conformDownRange cannot repair it: a
+            // range crossing zero is, by its own rule, a side scan range and left alone.
+            // So it is folded to 0..R first, and conformDownRange then points it at the half
+            // the flip wants. The QML re-applies the stored range afterwards; this is the
+            // belt that holds for any caller of setDataChannel, present or future.
+            const bool twoChannels = (channel2 != channelNone());
+            if (isSideScan2DView_ && twoChannels && from < 0.0f && to > 0.0f) {
+                const float r = std::max(std::fabs(from), std::fabs(to));
+                qDebug().noquote() << QStringLiteral("RANGE: down pane given %1 .. %2 by setDataChannel -> folded to 0 .. %3")
+                                          .arg(from).arg(to).arg(r);
+                from = 0.0f;
+                to = r;
+            }
             cursor_.distance.set(from, to);
             conformDownRange("the channels were set");
         }

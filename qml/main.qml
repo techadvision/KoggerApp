@@ -4378,6 +4378,27 @@ ApplicationWindow  {
 
         function onScreenViewIdChanged() { mainview.applyScreenId(pulseSettings.screenViewId) }
         function onEcoConeIdChanged() { mainview.applyConeId(pulseSettings.ecoConeId) }
+
+        // THE CABLE-FACING SWAP RE-DERIVES THE RANGE, and nothing put it back (2.01, Andy,
+        // 25 Oct). Plot2D.qml answers this setting by swapping the two side scan channels
+        // through setChannelNamesToBackend -> setDataChannel, and setDataChannel writes the
+        // dataset's FULL range (-25..+25 m on a blue) into every pane. The channel-list
+        // rebuild already repairs this with applyMaxRange (see CHANNELS above); this path
+        // never got the same line. Andy's log: isSideScanCableFacingFront -> false at
+        // 12:13:19, the side pane went from 20.0 m to 50.2 m across, and the down pane of
+        // the split was left with a range crossing zero - so it drew both channels, the
+        // upstream horizontal side scan, instead of the blend.
+        //
+        // CALLED LATER, NOT HERE: this Connections is created before the panes' own, so
+        // calling now would range the panes and then watch their handlers overwrite it -
+        // the same ordering trap as item 10.
+        function onIsSideScanCableFacingFrontChanged() {
+            if (pulseSettings.uiVariant !== "v2")
+                return
+            console.log("RANGE: the side scan channels were swapped (cable facing front",
+                        pulseSettings.isSideScanCableFacingFront, ") - re-applying the stored ranges")
+            Qt.callLater(mainview.applyMaxRange)
+        }
     }
 
     // THE RANGE FOLLOWS ITS STORED VALUE, whichever of the three keys the picture is using -
