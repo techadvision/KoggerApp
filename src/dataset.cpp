@@ -1664,22 +1664,15 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
             Epoch& rep = pool_[rel.first];
             const int subs = rep.getChartsSizeByChannelId(channelId);
             for (int s = 0; s < subs; ++s) {
-                if (Epoch::Echogram* chart = rep.chartAvail(channelId, s) ? rep.chart(channelId, s) : nullptr)
+                if (Epoch::Echogram* chart = rep.chartAvail(channelId, s) ? rep.chart(channelId, s) : nullptr) {
                     chart->bottomProcessing.setDistance(rel.second, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
-            }
-        }
-
-        // for all sub ch
-        const int numSubChs = ep.getChartsSizeByChannelId(channelId);
-        for (int subChId = 0; subChId < numSubChs; ++subChId) {
-            if (ep.chartAvail(channelId, subChId)) {
-                Epoch::Echogram* chart = ep.chart(channelId, subChId);
-                if (chart) {
-                    chart->bottomProcessing.setDistance(dist, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
-                    settedChart = true;
+                    chart->bottomProcessing.displayReference = rel.second;   // P1b: the record's value is the filter's too
                 }
             }
         }
+
+        // for all sub ch - the gated value, and beside it the filter's reference (P1b)
+        writeBottomTrackLocked(ep, channelId, dist, rawDist, displayReferenceLocked(epIndx, channelId, dist, rawDist), settedChart);
     }
 
     if (settedChart) {
@@ -1759,8 +1752,10 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
             for (const auto& update : updates) {
                 const int subs = rep.getChartsSizeByChannelId(update.channelId);
                 for (int s = 0; s < subs; ++s) {
-                    if (Epoch::Echogram* chart = rep.chartAvail(update.channelId, s) ? rep.chart(update.channelId, s) : nullptr)
+                    if (Epoch::Echogram* chart = rep.chartAvail(update.channelId, s) ? rep.chart(update.channelId, s) : nullptr) {
                         chart->bottomProcessing.setDistance(it.value(), Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
+                        chart->bottomProcessing.displayReference = it.value();   // P1b: the record's value is the filter's too
+                    }
                 }
             }
         }
@@ -1772,18 +1767,13 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
 
             Epoch& ep = pool_[update.epochIndex];
             const float stored = gatedByEpoch.value(update.epochIndex, update.distance);
+            // a pending epoch has no tracker value yet (the window has not reached it): raw is none, and
+            // the reference is the hold from the epochs before it
+            const float raw = update.pending ? NAN : update.distance;
 
             bool settedChart = false;
-            const int numSubChs = ep.getChartsSizeByChannelId(update.channelId);
-            for (int subChId = 0; subChId < numSubChs; ++subChId) {
-                if (ep.chartAvail(update.channelId, subChId)) {
-                    Epoch::Echogram* chart = ep.chart(update.channelId, subChId);
-                    if (chart) {
-                        chart->bottomProcessing.setDistance(stored, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
-                        settedChart = true;
-                    }
-                }
-            }
+            writeBottomTrackLocked(ep, update.channelId, stored, raw,
+                                   displayReferenceLocked(update.epochIndex, update.channelId, stored, raw), settedChart);
 
             if (!settedChart) {
                 continue;
@@ -1819,6 +1809,57 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
 
     if (maxCompIndx >= 0) {
         emit bottomTrackAdded(maxCompIndx);
+    }
+}
+
+// THE WATER-BODY FILTER'S REFERENCE (P1b of the motor-noise plan, 6 Nov 2026). Called under the pool lock
+// with what the epoch stores and what the tracker delivered. The filter dims the column above a bottom,
+// and a gate-blanked NaN must never be that bottom: the gates stored whole stretches as NaN when the
+// planner's own range put the real bottom past gate A, and the filter's render-side fallback then dimmed
+// a slope against the last ACCEPTED bottom, metres from the real one - the stairs along the contour
+// (analysis section 10). The reference is therefore:
+//   1. the stored value when there is one (the second echo's half, a released hold - what the record says);
+//   2. else the tracker's raw value - at gate A the bottom the gate was wrong about, at the shore / the
+//      floor / an outlier hold the value the filter dimmed against before the gates existed (P3, 18 Oct);
+//   3. else the nearest earlier epoch's own value (1 or 2) within the readout's 2 s hold, 2 x the epochs
+//      per second - a lost window or a tracker that found nothing;
+//   4. else NaN, and the filter leaves the epoch alone.
+// Deterministic per epoch: it reads this epoch and the epochs before it, never "the last good value",
+// so the ~6 re-publishes of an epoch as the window slides all land on the same answer.
+float Dataset::displayReferenceLocked(int epochIndex, const ChannelId& channelId, float stored, float raw)
+{
+    if (std::isfinite(stored))
+        return stored;
+    if (std::isfinite(raw))
+        return raw;
+    const int holdEpochs = 2 * epochsPerSecond();
+    for (int i = epochIndex - 1; i >= 0 && i >= epochIndex - holdEpochs; --i) {
+        Epoch& prev = pool_[i];
+        const Epoch::Echogram* c = prev.chartAvail(channelId, 0) ? prev.chart(channelId, 0) : nullptr;
+        if (!c)
+            continue;
+        const float own = std::isfinite(c->bottomProcessing.getDistance()) ? c->bottomProcessing.getDistance()
+                                                                            : c->bottomProcessing.rawDistance;
+        if (std::isfinite(own))
+            return own;
+    }
+    return NAN;
+}
+
+// the gated value and, beside it, the raw value and the filter's reference - on every sub channel of the epoch
+void Dataset::writeBottomTrackLocked(Epoch& ep, const ChannelId& channelId, float stored, float raw, float reference, bool& settedChart)
+{
+    const int numSubChs = ep.getChartsSizeByChannelId(channelId);
+    for (int subChId = 0; subChId < numSubChs; ++subChId) {
+        if (!ep.chartAvail(channelId, subChId))
+            continue;
+        Epoch::Echogram* chart = ep.chart(channelId, subChId);
+        if (!chart)
+            continue;
+        chart->bottomProcessing.setDistance(stored, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
+        chart->bottomProcessing.rawDistance      = raw;
+        chart->bottomProcessing.displayReference = reference;
+        settedChart = true;
     }
 }
 

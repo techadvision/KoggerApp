@@ -203,6 +203,9 @@ public:
         bool  rejected() const { return shore || floor || rfVeto || gateA || gateB || outlier; }
     };
     float gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int epochIndex, float dist, float maxDistance, GateVerdict& v);
+    // P1b: the water-body filter's bottom reference for an epoch, written beside the gated value (never a gate-blanked NaN)
+    float displayReferenceLocked(int epochIndex, const ChannelId& channelId, float stored, float raw);
+    void  writeBottomTrackLocked(Epoch& ep, const ChannelId& channelId, float stored, float raw, float reference, bool& settedChart);
     void logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v);   // the BT: line, live only
     void logShallowInstrument(int epochIndex, float btRaw, float rangeM);       // the SHALLOW: line, live only (P2)
     //Pulse setters

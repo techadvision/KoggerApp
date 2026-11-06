@@ -92,6 +92,8 @@ bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Dir
             chartParameters.errList.append(Segment(0, data.size()));
             epoch->setChartParameters(channelId, chartParameters);
             beenUpdated = true;
+            if (auto* built = epoch->chart(channelId, subChannelId))
+                built->stripePatched = true;   // P1b: a trace built from the reference
         }
 
         auto* echogram = epoch->chart(channelId, subChannelId);
@@ -134,6 +136,7 @@ bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Dir
         // counts - at most forward + backward epochs re-gained per ping.
         if (repairedSamples) {
             echogram->invalidateDerived();
+            echogram->stripePatched = true;   // P1b: the water-body filter may borrow a neighbour's bottom here
         }
     }
 

@@ -13,7 +13,9 @@ std::atomic<float> g_guardM{EchogramWaterColumn::kDefaultBottomGuardM};
 
 // Last valid bottom on this render thread — fallback for black-stripe-patched
 // epochs that carry interpolated amplitudes but no bottom-track distance.
+// P1b: spent after one use; re-armed by the next epoch with a reference.
 thread_local float t_lastBottomM = -1.0f;
+thread_local bool  t_lastBottomArmed = false;
 
 // Per-epoch surface band knee detection (single-ping variant of the
 // AnalyzeSuite median-row-profile method; the cross-ping robustness comes
@@ -125,17 +127,20 @@ float EchogramWaterColumn::bottomGuardM()
     return g_guardM.load();
 }
 
-const uint8_t* EchogramWaterColumn::apply(const uint8_t* src, int n, float resolution, float offsetM, float bottomM)
+const uint8_t* EchogramWaterColumn::apply(const uint8_t* src, int n, float resolution, float offsetM, float bottomM,
+                                          bool patched)
 {
     if (!src || n <= 0 || !(resolution > 0.0f) || !isActive()) {
         return src;
     }
     if (std::isfinite(bottomM) && bottomM > 0.0f) {
-        t_lastBottomM = bottomM; // remember for black-stripe-patched neighbours
-    } else if (t_lastBottomM > 0.0f) {
-        bottomM = t_lastBottomM; // patched epoch: filter like its neighbours
+        t_lastBottomM = bottomM; // remember for a black-stripe-patched neighbour
+        t_lastBottomArmed = true;
+    } else if (patched && t_lastBottomArmed && t_lastBottomM > 0.0f) {
+        bottomM = t_lastBottomM; // patched epoch without a reference: filter like its neighbour, once
+        t_lastBottomArmed = false;
     } else {
-        return src; // fail-safe: no bottom known at all -> no filtering
+        return src; // fail-safe: no reference for this epoch -> no filtering
     }
 
     // keep the band tracker fed while the filter is in use

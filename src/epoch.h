@@ -68,6 +68,21 @@ public:
         float max = NAN;
         DistanceSource source = DistanceSource::DistanceSourceNone;
 
+        // P1b (motor-noise plan, 6 Nov 2026): what the water-body display filter dims above.
+        // `distance` is what the depth gates let the epoch STORE, and a gate stores NaN for a
+        // bottom the planner itself put past gate A (every real bottom beyond 4 m before P1),
+        // whole stretches at a time. The filter used to fall back to the last finite bottom
+        // the render thread had seen, so a slope inside such a stretch was filtered against a
+        // bottom metres away from the real one - the stairs along the contour in Olav's 6 Nov
+        // replay (analysis section 10). So the filter gets a reference of its own, written by
+        // Dataset beside the gated value and NEVER a gate-blanked NaN: the stored value when
+        // there is one, else the tracker's raw value before the gates, else the nearest earlier
+        // epoch's own value within the readout's 2 s hold, else NaN (no filtering). rawDistance
+        // is the tracker's value before the gates (NaN = it found nothing), kept so the hold
+        // can look back at what the tracker saw rather than at what the gates kept.
+        float rawDistance      = NAN;
+        float displayReference = NAN;
+
         Position bottomPoint;
 
         bool isDist() const { return isfinite(distance); }
@@ -237,6 +252,10 @@ public:
         }
 
         DistProcessing bottomProcessing;
+        // P1b: BlackStripesProcessor repaired samples of this trace (or built the whole trace
+        // from its reference). The water-body filter's thread-local "filter like the neighbour"
+        // fallback is for exactly these epochs and no others - see EchogramWaterColumn::apply.
+        bool stripePatched = false;
         Position sensorPosition;
         RecordParameters recordParameters_;
         ChartParameters chartParameters_;
@@ -680,9 +699,15 @@ public:
         // (decoupled from the TVG toggles, 2026-08-17). Off by default, so
         // the validated option-1 render is unchanged unless requested.
         // Fail-safe inside apply(): epochs without a bottom track render unfiltered.
+        // P1b (6 Nov 2026): the filter's reference is bottomProcessing.displayReference, which
+        // Dataset writes beside the gated value and which is never a gate-blanked NaN; an epoch
+        // that carries no reference of its own (a loaded or hand-set bottom) falls back to the
+        // stored distance, which no gate blanked either.
         if (EchogramWaterColumn::isActive()) {
-            src = EchogramWaterColumn::apply(src, rawSize, eg.resolution, eg.offset,
-                                             eg.bottomProcessing.getDistance());
+            const float ref = std::isfinite(eg.bottomProcessing.displayReference)
+                                  ? eg.bottomProcessing.displayReference
+                                  : eg.bottomProcessing.getDistance();
+            src = EchogramWaterColumn::apply(src, rawSize, eg.resolution, eg.offset, ref, eg.stripePatched);
         }
 
         start -= eg.offset;

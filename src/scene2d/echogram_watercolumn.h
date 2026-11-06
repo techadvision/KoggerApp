@@ -79,17 +79,25 @@ public:
 
     // Filters one epoch's amplitude vector (raw or TVG-compensated).
     //   src/n       amplitude samples, z(i) = offsetM + i*resolution
-    //   bottomM     per-epoch bottom-track distance in meters (NAN = none)
-    // Epochs without a finite bottom fall back to the last valid bottom seen
-    // on this thread — black-stripe-patched epochs (interpolated amplitudes,
-    // no bottom track) then filter like their neighbours instead of rendering
-    // as bright unfiltered stripes. Only when no bottom has been seen at all
-    // does the column render unfiltered (fail-safe: never dim a bottom we
-    // know nothing about).
+    //   bottomM     the epoch's display reference in meters (NAN = none) -
+    //               Epoch::DistProcessing::displayReference, never a gate-blanked value
+    //   patched     the black-stripes processor repaired or built this trace
+    // P1b (6 Nov 2026): the thread-local "last bottom seen" fallback is now
+    // ONLY for a patched epoch without a reference, and for ONE such epoch
+    // after each finite reference - the epochs it was written for (a trace
+    // built from the reference carries no bottom track of its own). It used
+    // to cover every epoch without a bottom, so a gate-blanked stretch was
+    // filtered against the last accepted bottom before it: the stairs along
+    // the contour on a slope. The 2 s hold across a stretch is Dataset's,
+    // written into displayReference per epoch, where there is a clock and an
+    // epoch order; the render thread has neither. Any other epoch without a
+    // reference renders unfiltered (fail-safe: never dim a bottom we know
+    // nothing about).
     // Returns a pointer to an internal thread-local buffer with the filtered
     // copy, or `src` itself when filtering is a no-op. The returned pointer
     // is valid until the next apply() call on the same thread.
-    static const uint8_t* apply(const uint8_t* src, int n, float resolution, float offsetM, float bottomM);
+    static const uint8_t* apply(const uint8_t* src, int n, float resolution, float offsetM, float bottomM,
+                                bool patched = false);
 
 private:
     EchogramWaterColumn() = delete;
