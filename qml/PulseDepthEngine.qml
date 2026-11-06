@@ -271,6 +271,44 @@ Item {
         pulseRuntimeSettings.forceUpdateResolution = false
     }
 
+    // ---- P1 (6 Nov 2026): the planner keeps the bottom under gate A ---------------
+    //
+    // THE RANGE THE SCHEME ASKS FOR, in half metres (500 x candidateRes mm). Gate A
+    // (src/depth_gates.h) stores a bottom beyond 0.75 x 0.9 = 0.675 of the ACQUIRED range as
+    // "no bottom", and the old rule here - depth + margin - put every real bottom past 4.15 m
+    // over that line (D / (D + 2) > 0.675 for D > 4.15): the readout dashed, the search
+    // doubled the range, the bottom was found, the planner shrank the range again and the
+    // bottom was rejected again. That lap, every ~4 s, is the "clockwork" of Andy's 3 Nov logs
+    // (docs/pulse-ui/pulse-motor-noise-depth-loss-analysis.md section 1) and of Olav's 6 Nov
+    // run on a clean device (section 10).
+    //
+    // So the range is the larger of depth + margin and depth / targetFraction. At the default
+    // 0.6 the bottom sits a tenth of the range under the gate, in this branch and after the
+    // +1 m deepening step in updateDynamicResolutionWithStep. The fraction's term is rounded
+    // UP to the half metre so the guarantee holds by construction whatever fraction an expert
+    // picks under 0.675; depth + margin keeps its Math.round, as before. The 2 x depth branch
+    // (second echo optimize on) is already under 0.5 and is left exactly as it was - that
+    // preference is a sampling/display choice and must not become what makes depth correct.
+    //
+    // What it costs is samples per metre in deeper water: a 4 m bottom gets 6.7 m instead of
+    // 6.0, an 8 m bottom 13.3 instead of 10. The display auto level still follows the depth.
+    // Past 18 m the deep branch's 600 x 50 mm cap (30 m) returns the ceiling - out of scope
+    // here, noted in the expert row's hint.
+    //
+    // A pure function of its arguments on purpose: tools/pulse-depth-plan-check.js lifts it
+    // out of this file and asserts the ratio under 0.675 from 0.3 to 18 m, both branches,
+    // with and without the deepening step, against the range PulsePerfEngine.redPlan then
+    // actually acquires. Change the rule and run the check.
+    function plannedRangeRes(depth, margin, targetFraction, doubleEcho) {
+        if (doubleEcho)
+            return Math.round((2 * depth + margin) * 2)
+        const byMargin = Math.round((depth + margin) * 2)
+        const fraction = (targetFraction > 0 && targetFraction < 1) ? targetFraction : 0.6
+        // -1e-6: 2.7 / 0.6 x 2 is 9.000000000000002 in floating point, and that is 9, not 10
+        const underGate = Math.ceil((depth / fraction) * 2 - 1e-6)
+        return Math.max(byMargin, underGate)
+    }
+
     function calculateDynamicResolution(depth) {
         //DEMO MODE: the resolution and period are already baked into the
         //recording. Recomputing them is at best a write to a null link and at
@@ -288,11 +326,9 @@ Item {
 
         const margin = pulseRuntimeSettings.dynamicResolutionMargin; // e.g., default 2 m.
 
-        let candidateRes = Math.round((depth + margin) * 2);
-
-        if (pulseSettings.doubleEchoOptimize) {
-            candidateRes = Math.round(( 2* depth + margin) * 2);
-        }
+        let candidateRes = plannedRangeRes(depth, margin,
+                                           pulseRuntimeSettings.dynamicResolutionTargetFraction,
+                                           pulseSettings.doubleEchoOptimize);
 
         if (candidateRes <= 50) {
             candidateRes = Math.max(candidateRes, pulseRuntimeSettings.dynamicResolutionMin);

@@ -1265,6 +1265,26 @@ Item {
                     }
                 },
 
+                // P1 (6 Nov 2026): the fraction of the range the planner keeps the bottom at.
+                // Gate A stores a bottom beyond 0.675 of the acquired range as "no bottom", so
+                // every value offered is under it; the default 0.6 leaves a tenth of the range
+                // in hand. Lower = coarser samples per metre, higher = closer to the gate.
+                // Past 18 m the 30 m cap (600 x 50 mm) decides the range, not this.
+                PulseStepperRow {
+                    width: transducerGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Bottom in range")
+                    hint:  qsTr("the bottom is kept at this fraction of the range - gate A rejects beyond 0.675; past 18 m the 30 m cap decides")
+                    decimals: 2
+                    values: [0.45, 0.5, 0.55, 0.6, 0.65]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.dynamicResolutionTargetFraction : 0.6
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "dynamicResolutionTargetFraction", v)
+                    }
+                },
+
                 PulseSliderRow {
                     width: transducerGroup.contentWidth
                     uiScale: list.uiScale

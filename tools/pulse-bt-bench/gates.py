@@ -1,7 +1,10 @@
 """Shore checks: the gates of the depth-source plan (P3 gate A, P4 gate B, P5b outlier filter) tried on a replayed
 recording, scored against hand labels (shore / water) taken from the app log of the same run.
 
-    python3 gates.py <plog> <npz from run2d.py> <pulse.log> [--labels NAME]
+    python3 gates.py <plog> <npz from run2d.py> <pulse.log> [fill]
+
+`fill` reads the traces as run2d.py's `fill` did (lost fragments filled from the previous ping, the black-stripe
+repair's one-step forward), so gate B's contrast is judged on the same trace the bottom track saw.
 
 Prints per gate: shore epochs removed (%), water epochs lost (%) - the two numbers the analysis quotes
 (docs/pulse-ui/pulse-depth-source-analysis.md 1.6). The constants here mirror the C++ (src/dataset.cpp, "DEPTH GATES");
@@ -9,7 +12,7 @@ change them together."""
 import os, re, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import feat, outlier
+import feat, outlier, plog
 
 # --- the constants, as in Dataset (keep in step with src/dataset.cpp) -------------------------------------------
 GATE_A_FRACTION = 0.75      # bottom track beyond this fraction of the reachable end is "no bottom"
@@ -29,6 +32,10 @@ SHORE = {
     '2D_pulse_log_2026.10.19_17.01.44.plog': ('17:01:44', '17:12:50', [('17:01:00', '17:02:22'), ('17:06:42', '17:07:12'), ('17:12:22', '17:13:00')]),
     'SS_pulse_log_2026.10.19_17.20.15.plog': ('17:20:15', '17:29:00', [('17:22:38', '17:23:33'), ('17:28:20', '17:29:00')]),
     '2D_pulse_log_2026.10.19_17.29.29.plog': ('17:29:29', '17:44:00', [('17:29:00', '17:29:50'), ('17:34:55', '17:35:40'), ('17:43:35', '17:44:00')]),
+    # 3 Nov 2026, Andy's Pulse Black under motor noise (pulse-andy_noise.log): one shore visit at 11:47-11:48
+    '2D_pulse_log_2026.11.03_11.42.57.plog': ('11:42:57', '11:56:12', [('11:47:00', '11:48:55')]),
+    # 6 Nov 2026, Olav's built-in red, 3-9 m, no shore (pulse06112026.log); second echo optimize on from 16:10:18
+    '2D_pulse_log_2026.11.06_16.06.15.plog': ('16:06:15', '16:17:21', []),
 }
 MARGIN_S = 5.0   # the clock is good to ~1-2 s; the transitions themselves are not scored
 
@@ -86,6 +93,7 @@ SLOPES = {
     'SS_pulse_log_2026.10.18_15.10.27.plog': [('15:15:21', '15:15:53')],   # blue 11 -> 2.5 m
     '2D_pulse_log_2026.10.19_17.01.44.plog': [('17:02:40', '17:03:10')], 'SS_pulse_log_2026.10.19_17.20.15.plog': [('17:24:00', '17:24:30')],
     '2D_pulse_log_2026.10.19_17.29.29.plog': [('17:30:15', '17:30:55')],
+    '2D_pulse_log_2026.11.03_11.42.57.plog': [], '2D_pulse_log_2026.11.06_16.06.15.plog': [],
 }
 
 SECOND_ECHO_MIN, SECOND_ECHO_MAX = 1.7, 3.3   # P11 (depth_gates.h Params)
@@ -143,6 +151,22 @@ def run_outlier(gated, times, eps=None, floor=FLOOR_M):
         return stored, held, released, second
     return stored, held, released
 
+# P1 (motor-noise plan, 6 Nov 2026): the planner now keeps the bottom at 0.6 of the range instead of depth + 2 m,
+# which is inside the zone gate B judges (beyond 0.5 of the reach = 0.45 of the range). This reports what B makes
+# of the water epochs that already sit there, 0.45-0.68 of the range (0.68: just over gate A's 0.675 ceiling, so the
+# bottoms the old rule put right at the edge are in). It must stay at zero on every recording.
+ZONE = (0.45, 0.68)
+
+def zone_report(bt, rng, water, B, con):
+    ratio = bt / rng
+    z = water & np.isfinite(bt) & (ratio >= ZONE[0]) & (ratio <= ZONE[1])
+    if not z.any():
+        print(f'  gate B in the 0.45-0.68 zone: no water epochs there'); return
+    c = con[z]; c = c[np.isfinite(c)]
+    print(f'  gate B in the 0.45-0.68 zone: {z.sum()} water epochs, B rejected {B[z].sum()} '
+          f'({100 * B[z].mean():.2f}%) | contrast min {c.min():.2f} p5 {np.percentile(c, 5):.2f} median {np.median(c):.2f} '
+          f'(B needs {GATE_B_CONTRAST}) | below {GATE_B_CONTRAST}: {(c < GATE_B_CONTRAST).sum()} epochs')
+
 def report(name, bt, shore, water, gates):
     print(f'{name}: {len(bt)} epochs, shore {shore.sum()} (with bottom {np.isfinite(bt[shore]).sum()}), water {water.sum()} (with bottom {np.isfinite(bt[water]).sum()})')
     hs = shore & np.isfinite(bt); hw = water & np.isfinite(bt)
@@ -151,6 +175,7 @@ def report(name, bt, shore, water, gates):
 
 def main():
     plog_path, npz_path, log_path = sys.argv[1:4]
+    plog.FILL_FROM_PREVIOUS = len(sys.argv) > 4 and sys.argv[4] == 'fill'
     name = os.path.basename(plog_path)
     z = np.load(npz_path); bt = z['final']; rng = z['rng']
     maxd = 35.0 if name.startswith('SS_') else 50.0
@@ -162,6 +187,7 @@ def main():
     f, r, con, lvl = feat.feats(plog_path, npz_path)
     A = gate_a(bt, rng, maxd); B = gate_b(con, bt, rng, maxd)
     report(name, bt, shore, water, {'A': A, 'B': B, 'A or B': A | B})
+    zone_report(bt, rng, water, B, con)
     gated = np.where(A | B, np.nan, bt)
     stored, held, released = run_outlier(gated, times)
     hw = water & np.isfinite(gated)

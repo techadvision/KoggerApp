@@ -1670,6 +1670,13 @@ QtObject {
     property int    dynamicResolutionMin:   (uiProfile && uiProfile.tunable && uiProfile.tunable.resolution) ? uiProfile.tunable.resolution.minMm   : 2
     property int    dynamicResolutionMax:   (uiProfile && uiProfile.tunable && uiProfile.tunable.resolution) ? uiProfile.tunable.resolution.maxMm   : 50
     property int    dynamicResolutionMargin:(uiProfile && uiProfile.tunable && uiProfile.tunable.resolution) ? uiProfile.tunable.resolution.marginM : 2
+    //P1 (6 Nov 2026): where the planner keeps the bottom in the range it asks for - range =
+    //max(depth + margin, depth / this). Gate A rejects a bottom beyond 0.675 of the acquired
+    //range (src/depth_gates.h), so this must stay under 0.675; 0.6 leaves the bottom a tenth
+    //of the range under the gate. A plain runtime value like echogramTvgDbPerMeter - not
+    //profile data, not persisted - so an expert can try another fraction on the water and
+    //every start returns to the recommendation. Read by PulseDepthEngine.plannedRangeRes.
+    property double dynamicResolutionTargetFraction: 0.6
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property bool   dynamicResolutionInit:  false   // The initial dynamic resolution was performed
     property int    dynamicSamplesMin:      600     // = the red profile's chartSamples (4 Oct 2026); past 600 x 50 mm (30 m) the samples grow with the range

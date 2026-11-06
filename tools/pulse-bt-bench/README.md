@@ -19,6 +19,10 @@ epoch per pass, the dataset running ~2 epochs ahead of the chart counter). Built
   run (the clock comes from the `LINK:` ping rates, see the docstring) and reports, per gate of the plan (A geometry,
   B echo contrast, the outlier filter), the shore epochs removed and the water epochs lost. The constants mirror
   `src/depth_gates.h`; change them together. Re-run on both 18 Oct recordings after every change to a gate.
+  A trailing `fill` reads the traces as `run2d.py ... fill` did, so gate B's contrast is judged on the trace the
+  bottom track saw. Since P1 of the motor-noise plan (6 Nov 2026) it also reports gate B's verdict on the water
+  epochs at 0.45-0.68 of their range - the zone the planner now keeps the bottom in - which must stay at zero on
+  real bottoms (Andy's 3 Nov 11:42 plog and Olav's 6 Nov 16:06 plog are labelled for it).
 - `sweep.py <plog> <preset> <min> <max> [fill] [pings/s]` - window / gain slope / vertical gap sweep of the bottom track on one
   recording, judged raw and after the gates against a +-3 s rolling median of the baseline run (analysis section 7.4).
 - `outlier.py` - a port of `depthgates::OutlierFilter` (P5b); gates.py runs it over the gated epochs and reports what it held
