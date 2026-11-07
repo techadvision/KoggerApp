@@ -772,7 +772,7 @@ QtObject {
     //The waterfall's law, same shape as the 2D one above - see the note there.
     property int    sideScanTvgOverride: 0
 
-    //THE USER'S SWITCH, 22 Oct 2026 (Settings -> Screen & echogram, every user). It joins the
+    //THE USER'S SWITCH, 22 Oct 2026 (Settings -> Echogram, every user). It joins the
     //profile in the binding and never replaces the expert's 0/1/2 override, which still wins:
     //the profile says whether this device HAS a side scan TVG, the user whether he wants it.
     readonly property bool sideScanTvgUserOn: pulseSettings ? pulseSettings.sideScanTvgOn !== false : true
@@ -798,7 +798,7 @@ QtObject {
             ? pulseSettings.sideScanTvgLevel : "medium"
     //ONE BINDING, ONE OVERRIDE (rule 2). The expert Spreading stepper writes the override,
     //never the value; -1 follows the preset. Runtime like every expert TVG tuning, so a fresh
-    //start is the preset again - and choosing a level in Screen & echogram clears it too.
+    //start is the preset again - and choosing a level in Settings -> Echogram clears it too.
     property double sideScanTvgSpreadingOverride: -1
     readonly property double sideScanTvgSpreading:   // S in dB/decade
         sideScanTvgSpreadingOverride >= 0 ? sideScanTvgSpreadingOverride

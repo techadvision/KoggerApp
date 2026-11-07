@@ -206,7 +206,12 @@ Item {
         width: parent.width
         spacing: 0
 
-        // ---- Screen & echogram ----------------------------------------------
+        // ---- Screen -----------------------------------------------------------
+        //
+        // SPLIT FROM "Screen & echogram" (filter-modes plan, step 1, 7 Nov 2026). The group
+        // had grown to twelve rows and two of them - speed of sound and the second echo -
+        // are measurement choices that have nothing to do with how the screen reads. Screen
+        // keeps what the person sees the numbers IN; Echogram takes what changes the picture.
 
         PulseSettingsGroup {
             id: screenGroup
@@ -217,7 +222,7 @@ Item {
             // category always has at least one row. The absent-rather-than-empty rule
             // still holds - it simply never bites here.
             uiScale: list.uiScale
-            title: qsTr("Screen & echogram")
+            title: qsTr("Screen")
             open: list.openId === "screen"
             onToggled: list.toggle("screen")
 
@@ -243,115 +248,6 @@ Item {
 
                 onChosen: function (v) {
                     list.settingChanged("persistent", "interfaceSize", v)
-                }
-            },
-
-            // THE 2D ECHOGRAM SPEED HAS NO ROW HERE (23 Oct 2026). It lives behind the rail's
-            // Speed button with the boat and down scan speeds, and in the pinch; a second
-            // control for the same key in a settings list read as a different setting.
-
-            // SPEED OF SOUND, 27 Sept - for everybody, not only experts, on Olav's call. The
-            // machinery was built on 14 Sept (soundSpeedOverride in PulseRuntimeSettings) and
-            // never given a row. RUNTIME by design: kept for the session, gone on restart,
-            // and it survives a device swap because it is a property of the water. It writes
-            // the override and never the bound value, so the profile keeps its say the moment
-            // the override is cleared.
-            //
-            // The transducer uses it for its own range calculation, so it reaches a LIVE
-            // device only; a recording carries the speed it was made with.
-            PulseSliderRow {
-                width: screenGroup.contentWidth
-                uiScale: list.uiScale
-                showNudges: true
-
-                label: qsTr("Speed of sound")
-                hint: (pulseRuntimeSettings && pulseRuntimeSettings.soundSpeedOverride > 0)
-                      ? qsTr("set by you for this session - the profile says %1 m/s")
-                            .arg(Math.round(pulseRuntimeSettings.committedProfile.soundSpeed / 1000))
-                      : qsTr("the profile's value - fresh water is about 1480, sea water about 1500 to 1540")
-                minValue: 1400
-                maxValue: 1600
-                stepSize: 1
-                value: pulseRuntimeSettings ? Math.round(pulseRuntimeSettings.soundSpeed / 1000) : 1480
-                valueText: (pulseRuntimeSettings ? Math.round(pulseRuntimeSettings.soundSpeed / 1000) : 1480)
-                           + " m/s"
-
-                onMoved: function (v) {
-                    list.settingChanged("runtime", "soundSpeedOverride", Math.round(v) * 1000)
-                }
-            },
-
-            PulseActionRow {
-                width: screenGroup.contentWidth
-                height: visible ? implicitHeight : 0
-                visible: pulseRuntimeSettings ? pulseRuntimeSettings.soundSpeedOverride > 0 : false
-                uiScale: list.uiScale
-
-                label: qsTr("Speed of sound back to the profile")
-                hint:  qsTr("forgets the value set above")
-                actionText: qsTr("Reset")
-
-                onActivated: list.settingChanged("runtime", "soundSpeedOverride", 0)
-            },
-
-            // THE SWATH, which is also the side scan's true range ceiling - backlog item
-            // 11 reads this same key for the max-range slider, so the two cannot drift.
-            PulseSegmentRow {
-                width: screenGroup.contentWidth
-                height: visible ? implicitHeight : 0
-                visible: list.offersWidth
-                uiScale: list.uiScale
-
-                label: qsTr("Side scan width")
-                hint:  qsTr("also the furthest the range slider will go")
-                options: [ { value: 25, title: qsTr("25 m") },
-                           { value: 35, title: qsTr("35 m") } ]
-                current: pulseSettings ? pulseSettings.echogramWidth : 25
-
-                onChosen: function (v) {
-                    list.settingChanged("persistent", "echogramWidth", v)
-                }
-            },
-
-            // SIDE SCAN TVG FOR EVERY USER (22 Oct 2026, 2.0) - the switch and the level, the
-            // temperature rows' pair. Both persistent. Each also clears the expert override it
-            // would otherwise lose to: the switch the 0/1/2 waterfall and mosaic overrides, the
-            // level the Spreading override - a user who chooses wants what he chose.
-            PulseSwitchRow {
-                width: screenGroup.contentWidth
-                height: visible ? implicitHeight : 0
-                visible: list.offersSideScanTvg
-                uiScale: list.uiScale
-
-                label: qsTr("Side scan TVG")
-                hint:  qsTr("evens out brightness from near to far")
-                checked: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : true
-
-                onToggled: function (v) {
-                    list.settingChanged("runtime", "sideScanTvgOverride", 0)
-                    list.settingChanged("runtime", "sideScanTvgMosaicOverride", 0)
-                    list.settingChanged("persistent", "sideScanTvgOn", v)
-                }
-            },
-
-            // Under the switch it depends on, and gone with it.
-            PulseSegmentRow {
-                width: screenGroup.contentWidth
-                height: visible ? implicitHeight : 0
-                visible: list.offersSideScanTvg
-                         && (pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : false)
-                uiScale: list.uiScale
-
-                label: qsTr("Far-field gain")
-                hint:  qsTr("how much the far side is lifted against the near")
-                options: [ { value: "low",    title: list.tvgLevelName("low") },
-                           { value: "medium", title: list.tvgLevelName("medium") },
-                           { value: "bright", title: list.tvgLevelName("bright") } ]
-                current: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgActiveLevel : "medium"
-
-                onChosen: function (v) {
-                    list.settingChanged("runtime", "sideScanTvgSpreadingOverride", -1)
-                    list.settingChanged("persistent", "sideScanTvgLevel", v)
                 }
             },
 
@@ -440,10 +336,79 @@ Item {
                 onChosen: function (v) {
                     list.settingChanged("persistent", "speedUnit", v)
                 }
+            }
+            ]
+        }
+
+        // ---- Echogram ---------------------------------------------------------
+        //
+        // The rows that change the picture or the measurement behind it. The FILTER is
+        // deliberately not here: it lives in the rail's Filter panel and only there, so the
+        // choice has one home (pulse-filter-modes-plan.md).
+
+        PulseSettingsGroup {
+            id: echogramGroup
+
+            width: parent.width
+
+            // No `visible` gate: speed of sound is unconditional.
+            uiScale: list.uiScale
+            title: qsTr("Echogram")
+            open: list.openId === "echogram"
+            onToggled: list.toggle("echogram")
+
+            content: [
+
+            // THE 2D ECHOGRAM SPEED HAS NO ROW HERE (23 Oct 2026). It lives behind the rail's
+            // Speed button with the boat and down scan speeds, and in the pinch; a second
+            // control for the same key in a settings list read as a different setting.
+
+            // SPEED OF SOUND, 27 Sept - for everybody, not only experts, on Olav's call. The
+            // machinery was built on 14 Sept (soundSpeedOverride in PulseRuntimeSettings) and
+            // never given a row. RUNTIME by design: kept for the session, gone on restart,
+            // and it survives a device swap because it is a property of the water. It writes
+            // the override and never the bound value, so the profile keeps its say the moment
+            // the override is cleared.
+            //
+            // The transducer uses it for its own range calculation, so it reaches a LIVE
+            // device only; a recording carries the speed it was made with.
+            PulseSliderRow {
+                width: echogramGroup.contentWidth
+                uiScale: list.uiScale
+                showNudges: true
+
+                label: qsTr("Speed of sound")
+                hint: (pulseRuntimeSettings && pulseRuntimeSettings.soundSpeedOverride > 0)
+                      ? qsTr("set by you for this session - the profile says %1 m/s")
+                            .arg(Math.round(pulseRuntimeSettings.committedProfile.soundSpeed / 1000))
+                      : qsTr("the profile's value - fresh water is about 1480, sea water about 1500 to 1540")
+                minValue: 1400
+                maxValue: 1600
+                stepSize: 1
+                value: pulseRuntimeSettings ? Math.round(pulseRuntimeSettings.soundSpeed / 1000) : 1480
+                valueText: (pulseRuntimeSettings ? Math.round(pulseRuntimeSettings.soundSpeed / 1000) : 1480)
+                           + " m/s"
+
+                onMoved: function (v) {
+                    list.settingChanged("runtime", "soundSpeedOverride", Math.round(v) * 1000)
+                }
+            },
+
+            PulseActionRow {
+                width: echogramGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: pulseRuntimeSettings ? pulseRuntimeSettings.soundSpeedOverride > 0 : false
+                uiScale: list.uiScale
+
+                label: qsTr("Speed of sound back to the profile")
+                hint:  qsTr("forgets the value set above")
+                actionText: qsTr("Reset")
+
+                onActivated: list.settingChanged("runtime", "soundSpeedOverride", 0)
             },
 
             PulseSwitchRow {
-                width: screenGroup.contentWidth
+                width: echogramGroup.contentWidth
                 height: visible ? implicitHeight : 0
                 visible: list.offersSecondEcho
                 uiScale: list.uiScale
@@ -454,6 +419,67 @@ Item {
 
                 onToggled: function (v) {
                     list.settingChanged("persistent", "doubleEchoOptimize", v)
+                }
+            },
+
+            // THE SWATH, which is also the side scan's true range ceiling - backlog item
+            // 11 reads this same key for the max-range slider, so the two cannot drift.
+            PulseSegmentRow {
+                width: echogramGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offersWidth
+                uiScale: list.uiScale
+
+                label: qsTr("Side scan width")
+                hint:  qsTr("also the furthest the range slider will go")
+                options: [ { value: 25, title: qsTr("25 m") },
+                           { value: 35, title: qsTr("35 m") } ]
+                current: pulseSettings ? pulseSettings.echogramWidth : 25
+
+                onChosen: function (v) {
+                    list.settingChanged("persistent", "echogramWidth", v)
+                }
+            },
+
+            // SIDE SCAN TVG FOR EVERY USER (22 Oct 2026, 2.0) - the switch and the level, the
+            // temperature rows' pair. Both persistent. Each also clears the expert override it
+            // would otherwise lose to: the switch the 0/1/2 waterfall and mosaic overrides, the
+            // level the Spreading override - a user who chooses wants what he chose.
+            PulseSwitchRow {
+                width: echogramGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offersSideScanTvg
+                uiScale: list.uiScale
+
+                label: qsTr("Side scan TVG")
+                hint:  qsTr("evens out brightness from near to far")
+                checked: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : true
+
+                onToggled: function (v) {
+                    list.settingChanged("runtime", "sideScanTvgOverride", 0)
+                    list.settingChanged("runtime", "sideScanTvgMosaicOverride", 0)
+                    list.settingChanged("persistent", "sideScanTvgOn", v)
+                }
+            },
+
+            // Under the switch it depends on, and gone with it.
+            PulseSegmentRow {
+                width: echogramGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offersSideScanTvg
+                         && (pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgEnabled : false)
+                uiScale: list.uiScale
+
+                label: qsTr("Far-field gain")
+                hint:  qsTr("how much the far side is lifted against the near")
+                options: [ { value: "low",    title: list.tvgLevelName("low") },
+                           { value: "medium", title: list.tvgLevelName("medium") },
+                           { value: "bright", title: list.tvgLevelName("bright") } ]
+                current: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgActiveLevel : "medium"
+
+                onChosen: function (v) {
+                    list.settingChanged("runtime", "sideScanTvgSpreadingOverride", -1)
+                    list.settingChanged("persistent", "sideScanTvgLevel", v)
                 }
             }
             ]

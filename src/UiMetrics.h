@@ -15,7 +15,7 @@ class UiMetrics : public QObject
     // Overall scaling factor derived from window size, times userScale
     Q_PROPERTY(qreal scale READ scale NOTIFY metricsChanged)
 
-    // THE USER'S "Interface size" (Screen & echogram), as a factor: 0.9, 1.0, 1.15, 1.3.
+    // THE USER'S "Interface size" (Settings -> Screen), as a factor: 0.9, 1.0, 1.15, 1.3.
     // Written from QML (main.qml binds it to pulseSettings.interfaceSize); multiplies scale()
     // AFTER the window-size clamp, and the v2 roots multiply their own uiScale by it too.
     Q_PROPERTY(qreal userScale READ userScale WRITE setUserScale NOTIFY metricsChanged)
