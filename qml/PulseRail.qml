@@ -328,16 +328,16 @@ Item {
             uiScale: rail.uiScale
             buttonId: "filter"
             label: "Filter"
-            // THE ICON SAYS WHICH FILTER, THE BORDER SAYS WHETHER IT DOES ANYTHING - both
-            // read from the picture on screen (filter-modes plan, "The rail icon follows
-            // the mode"). Water body at strength 0 keeps its waves and loses the border.
+            // THE ICON SAYS WHICH FILTER, read from the picture on screen (filter-modes plan,
+            // "The rail icon follows the mode"). NO `active` BORDER (Olav, 7 Nov): with the
+            // default mode it was on from the first start and read as "selected" beside the
+            // other buttons, which mark selection only by the open panel's fill. The icon
+            // already carries the state.
             readonly property string mode:
                 pulseRuntimeSettings ? pulseRuntimeSettings.displayFilterMode : "water"
             iconSource: mode === "off"   ? "./icons/ui/pulse_filter_off.svg"
                       : mode === "whole" ? "./icons/ui/pulse_filter_whole.svg"
                       :                    "./icons/ui/pulse_filter_water.svg"
-            active: mode !== "off" && pulseRuntimeSettings !== null
-                    && pulseRuntimeSettings.displayFilter > 0
             onActivated: rail.buttonActivated(buttonId)
         }
     }
