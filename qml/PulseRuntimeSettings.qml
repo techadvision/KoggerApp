@@ -959,6 +959,15 @@ QtObject {
                                                : (sideScanTvgEnabled ? 3 : 1)
     }
 
+    // DOES A PULSE GAIN LAW RENDER THE PICTURE? The filter's "Whole picture" is the noise floor,
+    // and the noise floor lives INSIDE EchogramTvg (2) and EchogramSideScanTvg (3) - with raw (0),
+    // the upstream ramp (4) or the side scan AGC (1) it has nothing to run in. Same keying as
+    // resolveEchogramCompensation() above, so the two cannot disagree.
+    readonly property bool pulseTvgRenders:
+        activeModel === "" ? false
+        : (activeModel === modelPulseRed) ? (echogramTvgEnabled && echogram2DGainId === 2)
+        :                                   sideScanTvgEnabled
+
     //DEMO MODE: put the CONFIGURATION STATES block into "nothing left to do".
     //
     //The guards in DeviceItem stop the configuration machinery from running, but

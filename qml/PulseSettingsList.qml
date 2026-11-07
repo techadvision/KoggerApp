@@ -445,8 +445,8 @@ Item {
                 hint: (pulseRuntimeSettings && pulseRuntimeSettings.echogramTvgEnabled)
                       ? qsTr("lifts deeper echoes to match the shallow ones")
                       : (pulseSettings && pulseSettings.doubleEchoOptimize)
-                        ? qsTr("off - the second echo will be hard to see, and the filter's Whole picture needs the TVG")
-                        : qsTr("off - the filter's Whole picture needs the TVG")
+                        ? qsTr("off - the second echo will be hard to see, and the filter's Whole picture becomes a fixed low cut")
+                        : qsTr("off - the filter's Whole picture becomes a fixed low cut")
                 checked: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgEnabled : true
 
                 onToggled: function (v) {

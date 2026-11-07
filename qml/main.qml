@@ -3023,9 +3023,13 @@ ApplicationWindow  {
                 filterMode: pulseRuntimeSettings ? pulseRuntimeSettings.displayFilterMode : "water"
                 filterHint: !pulseRuntimeSettings ? ""
                     : pulseRuntimeSettings.displayFilterMode === "off"
-                      ? qsTr("the picture as measured - the TVG still applies")
+                      ? (pulseRuntimeSettings.pulseTvgRenders
+                         ? qsTr("the picture as measured - the TVG still applies")
+                         : qsTr("the picture as measured"))
                     : pulseRuntimeSettings.displayFilterMode === "whole"
-                      ? (pulseRuntimeSettings.displayIs2DTransducer
+                      ? (!pulseRuntimeSettings.pulseTvgRenders
+                         ? qsTr("without the TVG: a fixed low cut - everything under one level goes black")
+                         : pulseRuntimeSettings.displayIs2DTransducer
                          ? qsTr("removes the noise floor everywhere - thermoclines and weak echoes stay; for motor noise")
                          : qsTr("removes the noise floor everywhere, the mosaic too - weak echoes stay; for motor noise"))
                     :   qsTr("dims the water column, never the bottom - keeps the second echo for reading hardness")
@@ -4546,6 +4550,8 @@ ApplicationWindow  {
         enabled: pulseSettings.uiVariant === "v2"
         function onDisplayFilterModeChanged() { mainview.applyFilter() }
         function onFilterWholeUsesLowCutChanged() { mainview.applyFilter() }
+        // ...and whether a PULSE gain law renders at all, which decides noise floor or low cut.
+        function onPulseTvgRendersChanged() { mainview.applyFilter() }
     }
 
     // A SOURCE HAS BEEN CHOSEN - APPLY EVERYTHING THE PICTURE NEEDS (Group B).
@@ -4686,13 +4692,19 @@ ApplicationWindow  {
         var mode    = pulseRuntimeSettings.displayFilterMode
         var display = pulseRuntimeSettings.displayFilter
         var wbf     = mode === "water" ? pulseRuntimeSettings.displayFilterReal / 50.0 : 0.0
-        var lowCut  = mode === "whole" && pulseRuntimeSettings.filterWholeUsesLowCut
+        // WITHOUT A PULSE TVG, "Whole picture" IS THE FIXED LOW CUT (Olav, 7 Nov 2026, after
+        // switching the 2D TVG off left the slider doing nothing). The noise floor needs the gain
+        // law to run in; the low cut works on any picture, and it is what the slider did before
+        // the modes whenever the expert water body switch was off. Same fallback as the compare
+        // switch, so one branch serves both.
+        var noTvg   = !pulseRuntimeSettings.pulseTvgRenders
+        var lowCut  = mode === "whole" && (pulseRuntimeSettings.filterWholeUsesLowCut || noTvg)
         var floor   = mode === "whole" && !lowCut ? Math.max(0, Math.min(20, display)) / 20.0 : 0.0
         var cut     = lowCut ? pulseRuntimeSettings.displayFilterReal : 0
         pulseSettings.filterRealValue = cut
         pulseRuntimeSettings.echogramTvgNoiseFloor = floor
         pulseRuntimeSettings.sideScanTvgNoiseFloor = floor
-        console.log("FILTER: mode", mode + (lowCut ? " (fixed low cut)" : ""), "|",
+        console.log("FILTER: mode", mode + (lowCut ? (noTvg ? " (fixed low cut - no PULSE TVG)" : " (fixed low cut)") : ""), "|",
                     pulseRuntimeSettings.displayIs2DTransducer ? "2D" : "side scan",
                     "| display", display, "-> wbf", wbf.toFixed(2),
                     "floor", floor.toFixed(2), "cut", cut)
