@@ -64,10 +64,17 @@ Item {
         height: Math.max(labelText.implicitHeight,
                          sliderRow.showNudges ? sliderRow.nudgeSize : 0)
 
+        // THE LABEL STOPS WHERE THE VALUE STARTS and wraps to a second line rather than
+        // running under it (Olav, 7 Nov: "Speed of sound" with its nudges on a tablet panel).
         Text {
             id: labelText
             anchors.left: parent.left
+            anchors.right: sliderRow.showNudges ? minusNudge.left : valueLabel.left
+            anchors.rightMargin: Math.round(8 * sliderRow.uiScale)
             anchors.verticalCenter: parent.verticalCenter
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
             text: sliderRow.label
             color: "#eaf1f8"
             font.pixelSize: Math.round(17 * sliderRow.uiScale)
@@ -146,11 +153,18 @@ Item {
         }
     }
 
+    // THE HINT GETS THE ROW'S WIDTH AND UP TO TWO LINES (7 Nov 2026). It had no width at all, so a long one - the speed of sound's
+    // "fresh water is about 1480, sea water about 1500 to 1540" - ran off the panel's edge.
+    // The track hangs under it, so a second line pushes the track down instead of into it.
     Text {
         id: rangeText
         anchors.left: parent.left
+        anchors.right: parent.right
         anchors.top: header.bottom
         anchors.topMargin: Math.round(2 * sliderRow.uiScale)
+        wrapMode: Text.WordWrap
+        maximumLineCount: 2
+        elide: Text.ElideRight
         text: sliderRow.hint !== "" ? sliderRow.hint
                                     : sliderRow.minValue + " – " + sliderRow.maxValue
         color: "#8a929c"
