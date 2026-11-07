@@ -447,8 +447,10 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
                     if (firstChannelId_.channelId_ == channelId) {
                         const auto& st = bSProc_->lastUpdateStats();
                         const int sizeAfter = iEpoch.chartAvail(channelId, subChannelId) ? iEpoch.chartSize(channelId, subChannelId) : 0;
-                        const bool stillDamaged = (st.masked > st.repaired) || (expectedCount > 0 && sizeAfter < expectedCount);
-                        noteStripesEpoch(shortOnArrival || gapsOnArrival, shortOnArrival, gapsOnArrival, stillDamaged, resolutionChanged);
+                        const bool gapsLeft  = st.masked > st.repaired;
+                        const bool shortLeft = expectedCount > 0 && sizeAfter < expectedCount;
+                        noteStripesEpoch(shortOnArrival || gapsOnArrival, shortOnArrival, gapsOnArrival, gapsLeft || shortLeft, resolutionChanged,
+                                         gapsLeft, shortLeft, expectedCount, sizeAfter);
                     }
                 }
             }
@@ -1853,7 +1855,8 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
 // how many of those sit in the first three epochs after a resolution change - which is where the repair has no
 // reference because the change clears it (analysis section 2). The backward pass may still fix some of them
 // later; this counts what the picture shows at the leading edge.
-void Dataset::noteStripesEpoch(bool damagedOnArrival, bool shortOnArrival, bool hadGaps, bool stillDamaged, bool resolutionChanged)
+void Dataset::noteStripesEpoch(bool damagedOnArrival, bool shortOnArrival, bool hadGaps, bool stillDamaged, bool resolutionChanged,
+                               bool gapsLeft, bool shortLeft, int setupCount, int sizeAfter)
 {
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (_stripesWindowStartMs == 0)
@@ -1874,17 +1877,28 @@ void Dataset::noteStripesEpoch(bool damagedOnArrival, bool shortOnArrival, bool 
     if (stillDamaged) {
         ++_stripesStill;
         if (afterChange) ++_stripesStillAfterChange;
+        if (gapsLeft)    ++_stripesGapsLeft;
+        if (shortLeft)   ++_stripesShortLeft;
     }
+    _stripesSetupCount = setupCount;
+    _stripesSizeMin = _stripesN == 1 ? sizeAfter : std::min(_stripesSizeMin, sizeAfter);
+    _stripesSizeMax = std::max(_stripesSizeMax, sizeAfter);
 
     if (now - _stripesWindowStartMs >= 10000) {
+        // what "still damaged" is made of: a gap the reference could not fill, or a trace shorter than the
+        // configured count - the latter can be a stale setup count rather than a lost frame, so the count
+        // and the trace lengths of the window are printed with it
         qDebug().noquote() << QString("STRIPES: last 10 s | %1 epochs | damaged on arrival %2 (short %3, gaps %4) | still damaged after the forward pass %5"
+                                      " (gaps left %11, short of the setup count %12; setup count %13, trace lengths %14-%15)"
                                       " | in the first 3 epochs after a resolution change %6 of %7 (changes %8) | steps %9 fwd / %10 back")
                               .arg(_stripesN).arg(_stripesDamaged).arg(_stripesShort).arg(_stripesGaps).arg(_stripesStill)
                               .arg(_stripesStillAfterChange).arg(_stripesAfterChangeN).arg(_stripesChanges)
-                              .arg(bSProc_->getForwardSteps()).arg(bSProc_->getBackwardSteps());
+                              .arg(bSProc_->getForwardSteps()).arg(bSProc_->getBackwardSteps())
+                              .arg(_stripesGapsLeft).arg(_stripesShortLeft).arg(_stripesSetupCount).arg(_stripesSizeMin).arg(_stripesSizeMax);
         _stripesWindowStartMs = now;
         _stripesN = _stripesDamaged = _stripesShort = _stripesGaps = _stripesStill = 0;
         _stripesStillAfterChange = _stripesChanges = _stripesAfterChangeN = 0;
+        _stripesGapsLeft = _stripesShortLeft = _stripesSizeMin = _stripesSizeMax = 0;
     }
 }
 
