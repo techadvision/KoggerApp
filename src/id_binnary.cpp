@@ -214,7 +214,23 @@ Resp IDBinChart::parsePayload(FrameParser &proto) {
         U2 sampleResol = proto.read<U2>();
         U2 absOffset = proto.read<U2>();
 
-        if((m_seqOffset == 0 && m_chartSizeIncr != 0) || (m_sampleResol != sampleResol || m_absOffset != absOffset)) {
+        // P3b (motor-noise plan, 7 Nov 2026): A PING BOUNDARY IS A CHANGE SINCE THE PREVIOUS FRAME.
+        //
+        // This used to compare the frame's resolution and offset with m_sampleResol / m_absOffset,
+        // which hold the values of the last COMPLETED ping. At a resolution change the first frame
+        // (seq 0) flushes the old ping correctly and the completed ping keeps the OLD resolution -
+        // so the second frame of the new ping (seq 200, new resolution) still looked like a change,
+        // flushed a 200-sample stub as a ping of its own, and the parser then found itself at
+        // offset 0 facing a frame at offset 200: a 0-200 "gap", zero-filled, and the rest of the
+        // ping delivered with a hole in its first third. Two malformed pings per resolution change,
+        // on every transducer, on a perfect link (Olav's 6 Nov 16:06 file: 119 stubs for 118
+        // changes; the file itself holds 79 damaged pings). The black-stripes processor was
+        // repairing a hole the link never made, and the dark column at every resolution step was
+        // this. Hence sampleResolLast_ / absOffsetLast_ - the previous FRAME - and a flush only
+        // when there is something to flush. A ping that really changes mid-flight still completes
+        // short, as before.
+        const bool paramsChanged = (sampleResolLast_ != sampleResol || absOffsetLast_ != absOffset);
+        if(m_chartSizeIncr != 0 && (m_seqOffset == 0 || paramsChanged)) {
             if(proto.ver() == v0) {
                 memcpy(m_completeChart, m_fillChart, m_chartSizeIncr);
                 m_chartSize = m_chartSizeIncr;
@@ -284,7 +300,8 @@ Resp IDBinChart::parsePayload(FrameParser &proto) {
         }
         else { // first frame loss
             statMissingBytes_.fetch_add(m_seqOffset, std::memory_order_relaxed);
-            if ((m_chartSizeIncr != 0) || (m_sampleResol != sampleResol || m_absOffset != absOffset)) {
+            // P3b: the same rule - flush the ping in progress, if there is one (see above)
+            if (m_chartSizeIncr != 0) {
                 if(proto.ver() == v0) {
                     memcpy(m_completeChart, m_fillChart, m_chartSizeIncr);
                     m_chartSize = m_chartSizeIncr;
