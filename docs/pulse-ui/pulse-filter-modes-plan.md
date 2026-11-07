@@ -142,6 +142,10 @@ margin" and the compare switch. Settings groups "Screen" and "Echogram".
     arrived with it on - which is exactly "water". There is no stored switch state to carry over.
   - The noise floor steppers are removed rather than shown read-only; the `FILTER:` log line gives the applied
     numbers (`FILTER: mode whole | 2D | display 9 -> wbf 0.00 floor 0.45 cut 0`).
+- RESOLVED by `2043d535` after Olav's device check of step 5 ("Whole picture needs to work when no TVG is applied,
+  like it used to"): where no PULSE gain law renders (`pulseTvgRenders` false - 2D TVG off or the upstream ramp, side
+  scan AGC), Whole picture is the fixed low cut at the slider's real value; the hints say so. The caveat as first
+  written:
 - Caveat for the device pass: "Whole picture" drives the noise floor INSIDE the PULSE gain laws, so it does nothing
   where no PULSE TVG runs - a 2D picture with the expert TVG off or on the upstream ramp, and a side scan with the
   user's "Side scan TVG" switched off (AGC). Worth deciding whether the hint should say so, or the mode be offered
