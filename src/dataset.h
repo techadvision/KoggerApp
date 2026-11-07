@@ -207,6 +207,13 @@ public:
     float displayReferenceLocked(int epochIndex, const ChannelId& channelId, float stored, float raw);
     void  writeBottomTrackLocked(Epoch& ep, const ChannelId& channelId, float stored, float raw, float reference, bool& settedChart);
     void logBottomTrackInstrument(int epochIndex, float btRaw, const GateVerdict& v);   // the BT: line, live only
+    // the STRIPES: instrument (P3 of the motor-noise plan): what the black-stripes forward pass left unrepaired,
+    // per 10 s, and how much of it sits in the first three epochs after a resolution change. Live and replay.
+    void noteStripesEpoch(bool damagedOnArrival, bool shortOnArrival, bool hadGaps, bool stillDamaged, bool resolutionChanged);
+    qint64 _stripesWindowStartMs = 0;
+    int    _stripesN = 0, _stripesDamaged = 0, _stripesShort = 0, _stripesGaps = 0, _stripesStill = 0;
+    int    _stripesStillAfterChange = 0, _stripesChanges = 0, _stripesAfterChangeN = 0;
+    int    _stripesSinceChange = 1 << 20;   // epochs since the last resolution change on the first channel
     void logShallowInstrument(int epochIndex, float btRaw, float rangeM);       // the SHALLOW: line, live only (P2)
     //Pulse setters
     Q_INVOKABLE void setSmallAgreeMargin(double margin);

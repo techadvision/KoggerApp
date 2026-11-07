@@ -10,6 +10,7 @@ BlackStripesProcessor::BlackStripesProcessor() :
 bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Direction direction, float resolution, float offset)
 {
     bool beenUpdated = false;
+    lastStats_ = UpdateStats();
 
     if (!epoch) {
         return beenUpdated;
@@ -57,8 +58,10 @@ bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Dir
         if (epoch->chartAvail(channelId, subChannelId)) {
             auto& amplitude = epoch->chart(channelId, subChannelId)->amplitude;
             auto chartParameters = epoch->getChartParameters(channelId);
+            lastStats_.hadErrors = lastStats_.hadErrors || !chartParameters.errList.isEmpty();
 
             if (dataSize < newDataSize) {
+                lastStats_.grown = true;
                 chartParameters.errList.append(Segment(dataSize, newDataSize));
                 epoch->setChartParameters(channelId, chartParameters);
                 amplitude.resize(newDataSize);
@@ -107,9 +110,11 @@ bool BlackStripesProcessor::update(const ChannelId& channelId, Epoch* epoch, Dir
 
         for (int i = 0; i < newDataSize; ++i) {
             if (isMaskAvailable && errorMask[i]) {
+                ++lastStats_.masked;
                 if (ethalonVector[i].first) {
                     beenUpdated = true;
                     repairedSamples = true;
+                    ++lastStats_.repaired;
                     amplitude[i] = ethalonVector[i].second;
                     --ethalonVector[i].first;
                 }

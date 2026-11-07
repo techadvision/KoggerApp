@@ -415,14 +415,29 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
                         iOffset = preChart->offset;
                     }
 
+                    bool resolutionChanged = false;
                     if (const auto* preChart = getPreChart(i, subChannelId); preChart) {
                         if (!qFuzzyCompare(preChart->resolution, iResolution) || !qFuzzyCompare(preChart->offset, iOffset)) {
+                            resolutionChanged = i > 0;
                             bSProc_->clearEthalonData(channelId, BlackStripesProcessor::Direction::kForward);
                         }
                     }
 
+                    // the STRIPES: instrument reads the epoch as it arrived - before the forward pass grows or fills it
+                    const int expectedCount = usingRecordParameters_.contains(channelId) ? usingRecordParameters_[channelId].count : 0;
+                    const int sizeOnArrival = iEpoch.chartAvail(channelId, subChannelId) ? iEpoch.chartSize(channelId, subChannelId) : 0;
+                    const bool shortOnArrival = expectedCount > 0 && sizeOnArrival > 0 && sizeOnArrival < expectedCount;
+                    const bool gapsOnArrival  = !iEpoch.getChartParameters(channelId).errList.isEmpty();
+
                     if (bSProc_->update(channelId, &iEpoch, BlackStripesProcessor::Direction::kForward, iResolution, iOffset)) {
                         updatedIndxs.insert(i);
+                    }
+
+                    if (firstChannelId_.channelId_ == channelId) {
+                        const auto& st = bSProc_->lastUpdateStats();
+                        const int sizeAfter = iEpoch.chartAvail(channelId, subChannelId) ? iEpoch.chartSize(channelId, subChannelId) : 0;
+                        const bool stillDamaged = (st.masked > st.repaired) || (expectedCount > 0 && sizeAfter < expectedCount);
+                        noteStripesEpoch(shortOnArrival || gapsOnArrival, shortOnArrival, gapsOnArrival, stillDamaged, resolutionChanged);
                     }
                 }
             }
@@ -1809,6 +1824,47 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
 
     if (maxCompIndx >= 0) {
         emit bottomTrackAdded(maxCompIndx);
+    }
+}
+
+// THE STRIPES: INSTRUMENT (P3 of the motor-noise plan, 7 Nov 2026). One line per 10 s while the black-stripes
+// repair is on, live and in a replay alike (the replay is where it is read): how many epochs arrived damaged
+// (short - a lost tail frame - or with gaps - a lost middle frame), how many the forward pass left damaged, and
+// how many of those sit in the first three epochs after a resolution change - which is where the repair has no
+// reference because the change clears it (analysis section 2). The backward pass may still fix some of them
+// later; this counts what the picture shows at the leading edge.
+void Dataset::noteStripesEpoch(bool damagedOnArrival, bool shortOnArrival, bool hadGaps, bool stillDamaged, bool resolutionChanged)
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (_stripesWindowStartMs == 0)
+        _stripesWindowStartMs = now;
+
+    if (resolutionChanged) {
+        ++_stripesChanges;
+        _stripesSinceChange = 0;
+    }
+    const bool afterChange = _stripesSinceChange < 3;
+    ++_stripesSinceChange;
+
+    ++_stripesN;
+    if (damagedOnArrival) ++_stripesDamaged;
+    if (shortOnArrival)   ++_stripesShort;
+    if (hadGaps)          ++_stripesGaps;
+    if (afterChange)      ++_stripesAfterChangeN;
+    if (stillDamaged) {
+        ++_stripesStill;
+        if (afterChange) ++_stripesStillAfterChange;
+    }
+
+    if (now - _stripesWindowStartMs >= 10000) {
+        qDebug().noquote() << QString("STRIPES: last 10 s | %1 epochs | damaged on arrival %2 (short %3, gaps %4) | still damaged after the forward pass %5"
+                                      " | in the first 3 epochs after a resolution change %6 of %7 (changes %8) | steps %9 fwd / %10 back")
+                              .arg(_stripesN).arg(_stripesDamaged).arg(_stripesShort).arg(_stripesGaps).arg(_stripesStill)
+                              .arg(_stripesStillAfterChange).arg(_stripesAfterChangeN).arg(_stripesChanges)
+                              .arg(bSProc_->getForwardSteps()).arg(bSProc_->getBackwardSteps());
+        _stripesWindowStartMs = now;
+        _stripesN = _stripesDamaged = _stripesShort = _stripesGaps = _stripesStill = 0;
+        _stripesStillAfterChange = _stripesChanges = _stripesAfterChangeN = 0;
     }
 }
 
