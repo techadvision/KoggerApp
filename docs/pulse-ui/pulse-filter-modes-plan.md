@@ -124,6 +124,32 @@ margin" and the compare switch. Settings groups "Screen" and "Echogram".
 - Step 1 (the Screen / Echogram split) is committed as 369ea8f6 on `feature/pulse-filter-modes`, cut from
   `feature/pulse-depth-source` at 59762417.
 
+## Closed - 7 Nov 2026, late evening: "Works"
+
+Olav's device verdict on the whole set, built and run on the tablet: **works**. Branch `feature/pulse-filter-modes`
+(cut from `feature/pulse-depth-source` at 59762417), not yet pushed. The code commits, in order:
+
+| commit     | what                                                                                         |
+|------------|----------------------------------------------------------------------------------------------|
+| `369ea8f6` | Settings: "Screen & echogram" split into Screen and Echogram                                 |
+| `2fda60b2` | the low cut no longer rides along with the water body filter through the settings bus        |
+| `75aa85a4` | the filter as a user choice: Off / Water body / Whole picture, rail icon follows the mode    |
+| `ccb7f21b` | expert compare switch: Whole picture as the old fixed low cut                                |
+| `8031faed` | Settings > Echogram: 2D TVG switch + Depth gain Low / Medium / Bright (0.4 / 0.7 / 1.0 dB/m) |
+| `2043d535` | Whole picture falls back to the fixed low cut where no PULSE TVG renders                     |
+| `4544dc07` | slider rows: hint and label wrap to two lines (the speed of sound hint ran off the panel)     |
+| `e29876ef` | rail: the Filter button no longer wears the active border - selection is the panel's fill    |
+
+Settled by Olav on the way: Water body is the default on a new install; the three mode hints are OK as written; the
+row names "2D TVG" / "Depth gain"; 2D TVG Off is offered with a warning, not hidden or blocked; the 2D presets start
+at 0.4 / 0.7 / 1.0 to be judged on the water (Medium 0.7 is darker than the 0.9 shipped before - his call); Whole
+picture must work without a TVG, as the low cut did.
+
+Still open, not blocking:
+- the 2D presets are a starting set - Olav judges them on the water and they move if the picture says so;
+- the compare switch goes again if nobody uses it in a season;
+- PulseSegmentRow could carry the mode glyphs beside the words, if wanted later.
+
 ## Status (7 Nov 2026, evening)
 
 - Step 1 `369ea8f6` - the Screen / Echogram split. **Verified by Olav on the device.**
