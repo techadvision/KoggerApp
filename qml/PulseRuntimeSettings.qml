@@ -744,11 +744,31 @@ QtObject {
     //runtimeKeysQmlOwns for the same reason, so a bus echo is skipped rather than thrown.
     property int    echogramTvgOverride: 0
 
+    //THE USER'S SWITCH for the 2D TVG (filter-modes plan, step 5, 7 Nov 2026), the side scan
+    //one's twin: the profile says whether this device HAS the 2D TVG, the user whether he wants
+    //it, and the expert's 0/1/2 override above still wins over both.
+    readonly property bool echogramTvgUserOn: pulseSettings ? pulseSettings.echogramTvgOn !== false : true
+
     readonly property bool echogramTvgEnabled:
           echogramTvgOverride === 1 ? true
         : echogramTvgOverride === 2 ? false
-        : (activeProfile !== undefined ? activeProfile.echogramTvgEnabled : false)
-    property double echogramTvgDbPerMeter:  0.9     // Net decay constant in dB/m (Dreamlake harvest: 0.66-1.11, mean ~0.9)
+        : (activeProfile !== undefined ? (activeProfile.echogramTvgEnabled && echogramTvgUserOn) : false)
+
+    //THE 2D PRESETS - the decay constant k in gain = 10^(k * depth / 20), dB/m. Olav's starting
+    //set (7 Nov 2026), to be judged on the water: the offline strips (strips2d_gain.py) found a
+    //strong signal reads the second echo best around 0.5-0.6 and saturates from 0.9 up, a weak
+    //one gains up to 1.2. NOTE Medium 0.7 is BELOW the 0.9 the app shipped with, so the default
+    //2D picture is darker than before this build - deliberate, his call.
+    readonly property var    echogramTvgPresets: ({ "low": 0.4, "medium": 0.7, "bright": 1.0 })
+    readonly property string echogramTvgActiveLevel:
+        (pulseSettings && echogramTvgPresets[pulseSettings.echogramTvgLevel] !== undefined)
+            ? pulseSettings.echogramTvgLevel : "medium"
+    //ONE BINDING, ONE OVERRIDE (rule 2), as sideScanTvgSpreading. The expert Gain stepper writes
+    //the override; -1 follows the preset; runtime, and choosing a level clears it.
+    property double echogramTvgDbPerMeterOverride: -1
+    readonly property double echogramTvgDbPerMeter:   // net decay constant k, dB/m
+        echogramTvgDbPerMeterOverride >= 0 ? echogramTvgDbPerMeterOverride
+                                           : echogramTvgPresets[echogramTvgActiveLevel]
     //P5 of the motor-noise plan (7 Nov 2026): the per-ping noise floor subtracted before the
     //2D gain, strength 0..1, 0 = off. Side scan has had the same step since August; this is
     //its 2D port for motor noise on the transducer cable (the law and its estimator are in

@@ -346,6 +346,7 @@ ApplicationWindow  {
                                                "truePingPeriodMs",
                                                "downScanSpeed",
                                                "echogramTvgEnabled",
+                                               "echogramTvgDbPerMeter",
                                                "sideScanTvgEnabled",
                                                "sideScanTvgMosaicEnabled"]
 

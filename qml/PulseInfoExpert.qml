@@ -753,7 +753,7 @@ Flickable {
                 values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
 
                 onPulsePreferenceValueChanged: function(newValue) {
-                    pulseRuntimeSettings.echogramTvgDbPerMeter = newValue
+                    pulseRuntimeSettings.echogramTvgDbPerMeterOverride = newValue  // readonly since step 5 of the filter-modes plan
                 }
                 height: 80
                 Layout.preferredWidth: 280

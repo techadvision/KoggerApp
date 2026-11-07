@@ -143,6 +143,14 @@ Item {
     readonly property var offers: pulseRuntimeSettings ? pulseRuntimeSettings.uiOffers : ({})
 
     readonly property bool offersSecondEcho: offers && offers.doubleEchoOptimize === true
+
+    // THE 2D TVG CHOOSER - every user (filter-modes plan, step 5). A 2D picture on screen and a
+    // profile whose 2D picture HAS the TVG; absent otherwise, never greyed - offersSideScanTvg's twin.
+    readonly property bool offers2DTvg:
+        pulseRuntimeSettings ? (pulseRuntimeSettings.displayIs2DTransducer
+                                && pulseRuntimeSettings.activeProfile !== undefined
+                                && pulseRuntimeSettings.activeProfile.echogramTvgEnabled === true)
+                             : false
     readonly property bool offersWidth:      offers && offers.scanWidthMeters === true
     readonly property bool offersTemp:       pulseRuntimeSettings ? pulseRuntimeSettings.useTemperature : false
     // ABSENT, not dashed, without an autopilot - the list's own rule. The speed comes from
@@ -419,6 +427,51 @@ Item {
 
                 onToggled: function (v) {
                     list.settingChanged("persistent", "doubleEchoOptimize", v)
+                }
+            },
+
+            // THE 2D TVG FOR EVERY USER (filter-modes plan, step 5) - the side scan pair's twin.
+            // Off IS offered, on Olav's call, and WARNED rather than hidden or blocked: without
+            // the gain the echo at twice the depth is not lifted, and the filter's Whole picture
+            // lives inside the TVG. Both persistent; each clears the expert override it would
+            // otherwise lose to.
+            PulseSwitchRow {
+                width: echogramGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offers2DTvg
+                uiScale: list.uiScale
+
+                label: qsTr("2D TVG")
+                hint: (pulseRuntimeSettings && pulseRuntimeSettings.echogramTvgEnabled)
+                      ? qsTr("lifts deeper echoes to match the shallow ones")
+                      : (pulseSettings && pulseSettings.doubleEchoOptimize)
+                        ? qsTr("off - the second echo will be hard to see, and the filter's Whole picture needs the TVG")
+                        : qsTr("off - the filter's Whole picture needs the TVG")
+                checked: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgEnabled : true
+
+                onToggled: function (v) {
+                    list.settingChanged("runtime", "echogramTvgOverride", 0)
+                    list.settingChanged("persistent", "echogramTvgOn", v)
+                }
+            },
+
+            PulseSegmentRow {
+                width: echogramGroup.contentWidth
+                height: visible ? implicitHeight : 0
+                visible: list.offers2DTvg
+                         && (pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgEnabled : false)
+                uiScale: list.uiScale
+
+                label: qsTr("Depth gain")
+                hint:  qsTr("how much deeper echoes are lifted - Low suits the second echo on a strong signal")
+                options: [ { value: "low",    title: list.tvgLevelName("low") },
+                           { value: "medium", title: list.tvgLevelName("medium") },
+                           { value: "bright", title: list.tvgLevelName("bright") } ]
+                current: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgActiveLevel : "medium"
+
+                onChosen: function (v) {
+                    list.settingChanged("runtime", "echogramTvgDbPerMeterOverride", -1)
+                    list.settingChanged("persistent", "echogramTvgLevel", v)
                 }
             },
 
@@ -1724,12 +1777,21 @@ Item {
                     label: qsTr("Gain")
                     unit:  qsTr("dB/m")
                     decimals: 1
-                    values: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
+                    values: [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
                              1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
-                    value: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgDbPerMeter : 1.0
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgDbPerMeter : 0.7
+                    // The level it stands on, named - the user's Depth gain in Settings >
+                    // Echogram is the same number, and an override is easy to forget.
+                    hint: !pulseRuntimeSettings ? ""
+                        : pulseRuntimeSettings.echogramTvgDbPerMeterOverride >= 0
+                          ? qsTr("overrides %1 (%2) until the next start or a new level")
+                                .arg(list.tvgLevelName(pulseRuntimeSettings.echogramTvgActiveLevel))
+                                .arg(pulseRuntimeSettings.echogramTvgPresets[pulseRuntimeSettings.echogramTvgActiveLevel])
+                          : qsTr("from the level %1").arg(list.tvgLevelName(pulseRuntimeSettings.echogramTvgActiveLevel))
 
                     onStepped: function (v) {
-                        list.settingChanged("runtime", "echogramTvgDbPerMeter", v)
+                        // The override, never the value: echogramTvgDbPerMeter is the preset's binding.
+                        list.settingChanged("runtime", "echogramTvgDbPerMeterOverride", v)
                     }
                 },
 

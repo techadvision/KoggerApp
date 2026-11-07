@@ -150,6 +150,10 @@ Settings {
     //waterfall and mosaic both; the level is one of pulseRuntimeSettings.sideScanTvgPresets.
     property bool   sideScanTvgOn:              true
     property string sideScanTvgLevel:           "medium"
+    //THE 2D TVG FOR EVERY USER, 7 Nov 2026 (filter-modes plan, step 5) - the side scan pair's
+    //twin. Off is the raw 2D picture; the level is one of pulseRuntimeSettings.echogramTvgPresets.
+    property bool   echogramTvgOn:              true
+    property string echogramTvgLevel:           "medium"
     //PERFORMANCE MODE (Task 2a, 2 Oct 2026) - the expert's limits, persistent by design: they
     //are what the expert has cleared for his hardware (the prototype's 15 mm, for example),
     //not experiments. The engine only ever tightens the hardware's own limits with them, and
