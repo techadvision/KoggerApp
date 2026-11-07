@@ -50,7 +50,7 @@ Settings {
     property int    filterDisplayValue:         8       //LEGACY + classic; migration source
     property int    filterDisplayValue2D:       -1      //red
     property int    filterDisplayValueSideScan: -1      //blue
-    property int    filterRealValue:            20      //SHARED applied value, written by the applier
+    property int    filterRealValue:            20      //the APPLIED LOW CUT (bus -> Plot2DEchogram low level); v2's applier writes 0 unless the low cut is the chosen filter
     //THE VIEW AND CONE PREFERENCES, as stable entry ids (step 4, 2026-09-12).
     //
     //ecoViewIndex / ecoConeIndex stored a POSITION in the profile's ui.views / ui.cones

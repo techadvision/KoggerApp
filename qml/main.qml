@@ -4652,21 +4652,31 @@ ApplicationWindow  {
     // into the default-on build can arrive with the slider at 0, which would leave the
     // filter inactive while the switch reads "on" - and the old global low cut is set to
     // zero. With it disabled the two swap over.
+    //
+    // THE LOW CUT HAS TWO ROADS INTO THE PLOT, AND BOTH MUST CARRY THE SAME NUMBER (7 Nov
+    // 2026, found while building the filter modes). setFilteringValue() sets the echogram's
+    // low level directly; pulseSettings.filterRealValue reaches the SAME level through the
+    // settings bus (onFilterRealValueChanged -> Plot2DEchogram::applyPersistent -> setLevels),
+    // and the bus is coalesced on a timer and delivered queued. So this function used to set
+    // the low cut to 0 and the bus then set it back to the slider's real value a tick later:
+    // with the water body filter on, the global low cut was ALSO applied all along, at
+    // display x 2.5 (20 at the default 8). That is what darkened and re-scaled the bottom
+    // area under the water body filter. filterRealValue is now the low cut actually wanted,
+    // not the slider's real value, so the two roads agree.
     function applyWaterBodyFilter() {
         if (pulseSettings.uiVariant !== "v2")
             return
         var real = pulseRuntimeSettings.displayFilterReal
-        pulseSettings.filterRealValue = real
+        var wbOn = pulseRuntimeSettings.echogramWaterBodyFilterEnabled
+        var wbf  = wbOn ? Math.max(real, pulseRuntimeSettings.echogramWaterBodyMinRealValue) : 0
+        var cut  = wbOn ? 0 : real
+        pulseSettings.filterRealValue = cut
+        console.log("FILTER:", wbOn ? "water body" : "low cut", "| display",
+                    pulseRuntimeSettings.displayFilter, "-> wbf", (wbf / 50.0).toFixed(2), "cut", cut)
         var panes = waterViewSecond.enabled ? [waterViewFirst, waterViewSecond] : [waterViewFirst]
         for (var i = 0; i < panes.length; ++i) {
-            if (pulseRuntimeSettings.echogramWaterBodyFilterEnabled) {
-                var wbf = Math.max(real, pulseRuntimeSettings.echogramWaterBodyMinRealValue)
-                panes[i].setFilteringValue(0)
-                panes[i].setWaterBodyFilter(wbf / 50.0)
-            } else {
-                panes[i].setWaterBodyFilter(0.0)
-                panes[i].setFilteringValue(real)
-            }
+            panes[i].setFilteringValue(cut)
+            panes[i].setWaterBodyFilter(wbf / 50.0)
         }
         // AND THE MOSAIC IS NOT TOLD, which is the point rather than an omission. The
         // mosaic's levels follow intensity and nothing else now, so this applier has no
