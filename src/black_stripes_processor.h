@@ -37,6 +37,10 @@ public:
     const UpdateStats& lastUpdateStats() const { return lastStats_; }
     void clear();
     void clearEthalonData(const ChannelId& channelId, Direction direction);
+    // P3 (motor-noise plan, 7 Nov 2026): carry the reference across a resolution change instead of clearing it.
+    // Every kept sample moves to the index that holds the same depth under the new spacing (nearest sample, its
+    // step count carried over); the reference is cut at maxLength samples (the new range) when that is > 0.
+    void rescaleEthalonData(const ChannelId& channelId, Direction direction, float fromResolution, float toResolution, int maxLength);
     void tryResizeEthalonData(const ChannelId& channelId, uint8_t numSubChannels, Direction direction, int size);
 
     void setState(bool state);

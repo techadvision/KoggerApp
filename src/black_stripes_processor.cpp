@@ -1,4 +1,5 @@
 #include "black_stripes_processor.h"
+#include <utility>
 
 
 BlackStripesProcessor::BlackStripesProcessor() :
@@ -160,6 +161,32 @@ void BlackStripesProcessor::clearEthalonData(const ChannelId& channelId, Directi
 
     if (ethalonData.contains(channelId)) {
         ethalonData[channelId].clear();
+    }
+}
+
+void BlackStripesProcessor::rescaleEthalonData(const ChannelId& channelId, Direction direction, float fromResolution, float toResolution, int maxLength)
+{
+    if (!(fromResolution > 0.0f) || !(toResolution > 0.0f)) {
+        clearEthalonData(channelId, direction);
+        return;
+    }
+    auto& ethalonData = direction == Direction::kForward ? forwardEthalonData_ : backwardEthalonData_;
+    if (!ethalonData.contains(channelId)) {
+        return;
+    }
+    const float ratio = fromResolution / toResolution;   // new samples per old sample
+    for (auto& v : ethalonData[channelId]) {
+        const int oldLen = v.size();
+        int newLen = static_cast<int>(oldLen * ratio + 0.5f);
+        if (maxLength > 0 && newLen > maxLength) {
+            newLen = maxLength;
+        }
+        VecCntAndBrightness out(newLen);
+        for (int j = 0; j < newLen; ++j) {
+            const int i = static_cast<int>(j / ratio + 0.5f);   // the old sample at the same depth
+            out[j] = (i < oldLen) ? v[i] : qMakePair(uint8_t(0), uint8_t(0));
+        }
+        v = std::move(out);
     }
 }
 

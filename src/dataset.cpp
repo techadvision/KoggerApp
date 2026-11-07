@@ -415,17 +415,28 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
                         iOffset = preChart->offset;
                     }
 
-                    bool resolutionChanged = false;
-                    if (const auto* preChart = getPreChart(i, subChannelId); preChart) {
-                        if (!qFuzzyCompare(preChart->resolution, iResolution) || !qFuzzyCompare(preChart->offset, iOffset)) {
-                            resolutionChanged = i > 0;
-                            bSProc_->clearEthalonData(channelId, BlackStripesProcessor::Direction::kForward);
-                        }
-                    }
-
                     // the STRIPES: instrument reads the epoch as it arrived - before the forward pass grows or fills it
                     const int expectedCount = usingRecordParameters_.contains(channelId) ? usingRecordParameters_[channelId].count : 0;
                     const int sizeOnArrival = iEpoch.chartAvail(channelId, subChannelId) ? iEpoch.chartSize(channelId, subChannelId) : 0;
+
+                    // P3 (motor-noise plan, 7 Nov 2026): a different window start is a different trace and the
+                    // reference is cleared; a different SPACING is the same water at a different sample pitch,
+                    // and the reference is rescaled to it instead - so the first damaged pings after a
+                    // resolution change are repaired like any other, where they used to render dark (Andy's
+                    // "long line down" at the switch, analysis section 2). Cut at the new range: the configured
+                    // count, or this epoch's own length when the setup is not known.
+                    bool resolutionChanged = false;
+                    if (const auto* preChart = getPreChart(i, subChannelId); preChart) {
+                        if (!qFuzzyCompare(preChart->offset, iOffset)) {
+                            resolutionChanged = i > 0;
+                            bSProc_->clearEthalonData(channelId, BlackStripesProcessor::Direction::kForward);
+                        } else if (!qFuzzyCompare(preChart->resolution, iResolution)) {
+                            resolutionChanged = i > 0;
+                            bSProc_->rescaleEthalonData(channelId, BlackStripesProcessor::Direction::kForward,
+                                                        preChart->resolution, iResolution,
+                                                        expectedCount > 0 ? expectedCount : sizeOnArrival);
+                        }
+                    }
                     const bool shortOnArrival = expectedCount > 0 && sizeOnArrival > 0 && sizeOnArrival < expectedCount;
                     const bool gapsOnArrival  = !iEpoch.getChartParameters(channelId).errList.isEmpty();
 
@@ -447,6 +458,8 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
                 bSProc_->clearEthalonData(channelId, BlackStripesProcessor::Direction::kBackward);
 
                 const int startIndx = std::max(0, endIndx - backSteps);
+                float curResolution = resolution;   // the spacing the backward reference currently holds (P3)
+                float curOffset = offset;
                 for (int i = endIndx; i >= startIndx; --i) {
                     Epoch& iEpoch = pool_[i];
                     float iResolution = resolution;
@@ -454,9 +467,16 @@ void Dataset::addChart(const ChannelId& channelId, const ChartParameters& chartP
                     if (const auto* iChart = iEpoch.chart(channelId); iChart) {
                         iResolution = iChart->resolution;
                         iOffset = iChart->offset;
-                        if (!qFuzzyCompare(iChart->resolution, resolution) || !qFuzzyCompare(iChart->offset, offset)) {
+                        if (!qFuzzyCompare(iOffset, curOffset)) {
                             bSProc_->clearEthalonData(channelId, BlackStripesProcessor::Direction::kBackward);
+                        } else if (!qFuzzyCompare(iResolution, curResolution)) {
+                            // P3: across the change going back, the same rescale; cut at this epoch's own length
+                            // (the range of the older plan is not on record)
+                            bSProc_->rescaleEthalonData(channelId, BlackStripesProcessor::Direction::kBackward,
+                                                        curResolution, iResolution, iChart->amplitude.size());
                         }
+                        curResolution = iResolution;
+                        curOffset = iOffset;
                     }
 
                     if (bSProc_->update(channelId, &iEpoch, BlackStripesProcessor::Direction::kBackward, iResolution, iOffset)) {
