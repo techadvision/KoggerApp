@@ -11,11 +11,13 @@ std::atomic<float> g_strength{0.0f};
 std::atomic<float> g_bandM{0.30f}; // EMA of the detected ring-down band edge (Dreamlake: 0.26-0.30 m)
 std::atomic<float> g_guardM{EchogramWaterColumn::kDefaultBottomGuardM};
 
-// Last valid bottom on this render thread — fallback for black-stripe-patched
-// epochs that carry interpolated amplitudes but no bottom-track distance.
-// P1b: spent after one use; re-armed by the next epoch with a reference.
+// Last valid bottom on this render thread — fallback for epochs that cannot
+// carry a reference of their own (not yet visited by the bottom track, or
+// built by the black-stripes processor). P1b: never for an epoch the
+// tracker visited and left without one - Dataset's displayReference holds
+// the 2 s hold for those, and past it the column renders unfiltered.
 thread_local float t_lastBottomM = -1.0f;
-thread_local bool  t_lastBottomArmed = false;
+thread_local bool  t_lastBottomArmed = false;   // kBorrowOnce: spent after one use, re-armed by the next reference
 
 // Per-epoch surface band knee detection (single-ping variant of the
 // AnalyzeSuite median-row-profile method; the cross-ping robustness comes
@@ -128,16 +130,18 @@ float EchogramWaterColumn::bottomGuardM()
 }
 
 const uint8_t* EchogramWaterColumn::apply(const uint8_t* src, int n, float resolution, float offsetM, float bottomM,
-                                          bool patched)
+                                          Borrow borrow)
 {
     if (!src || n <= 0 || !(resolution > 0.0f) || !isActive()) {
         return src;
     }
     if (std::isfinite(bottomM) && bottomM > 0.0f) {
-        t_lastBottomM = bottomM; // remember for a black-stripe-patched neighbour
+        t_lastBottomM = bottomM; // remember for a neighbour that cannot have one of its own
         t_lastBottomArmed = true;
-    } else if (patched && t_lastBottomArmed && t_lastBottomM > 0.0f) {
-        bottomM = t_lastBottomM; // patched epoch without a reference: filter like its neighbour, once
+    } else if (borrow == kBorrowAlways && t_lastBottomM > 0.0f) {
+        bottomM = t_lastBottomM; // not yet tracked: filter like the neighbour
+    } else if (borrow == kBorrowOnce && t_lastBottomArmed && t_lastBottomM > 0.0f) {
+        bottomM = t_lastBottomM; // patched: filter like the neighbour, once
         t_lastBottomArmed = false;
     } else {
         return src; // fail-safe: no reference for this epoch -> no filtering

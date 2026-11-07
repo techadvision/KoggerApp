@@ -1859,6 +1859,7 @@ void Dataset::writeBottomTrackLocked(Epoch& ep, const ChannelId& channelId, floa
         chart->bottomProcessing.setDistance(stored, Epoch::DistProcessing::DistanceSource::DistanceSourceProcessing);
         chart->bottomProcessing.rawDistance      = raw;
         chart->bottomProcessing.displayReference = reference;
+        chart->bottomProcessing.trackerVisited   = true;
         settedChart = true;
     }
 }

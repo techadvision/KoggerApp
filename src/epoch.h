@@ -82,6 +82,12 @@ public:
         // can look back at what the tracker saw rather than at what the gates kept.
         float rawDistance      = NAN;
         float displayReference = NAN;
+        // true once the bottom track has written this epoch at all. The newest epochs of a live
+        // picture have not been visited yet (the tracker's window runs W/2 + lookahead behind the
+        // dataset, and a pass every few epochs), so they carry no reference of their own; the
+        // filter borrows the neighbour's bottom for those, as it always did, and refuses to for
+        // an epoch the tracker HAS visited and found nothing for (7 Nov 2026, P1b follow-up).
+        bool  trackerVisited   = false;
 
         Position bottomPoint;
 
@@ -707,7 +713,13 @@ public:
             const float ref = std::isfinite(eg.bottomProcessing.displayReference)
                                   ? eg.bottomProcessing.displayReference
                                   : eg.bottomProcessing.getDistance();
-            src = EchogramWaterColumn::apply(src, rawSize, eg.resolution, eg.offset, ref, eg.stripePatched);
+            // borrow a neighbour's bottom only where this epoch cannot have one of its own: the
+            // tracker has not reached it yet (the leading edge of a live picture, which rendered as
+            // an unfiltered bright strip without this), or the black-stripes processor built it
+            src = EchogramWaterColumn::apply(src, rawSize, eg.resolution, eg.offset, ref,
+                                             !eg.bottomProcessing.trackerVisited ? EchogramWaterColumn::kBorrowAlways
+                                             : eg.stripePatched                  ? EchogramWaterColumn::kBorrowOnce
+                                                                                 : EchogramWaterColumn::kBorrowNever);
         }
 
         start -= eg.offset;
