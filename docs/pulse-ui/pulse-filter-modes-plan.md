@@ -124,6 +124,30 @@ margin" and the compare switch. Settings groups "Screen" and "Echogram".
 - Step 1 (the Screen / Echogram split) is committed as 369ea8f6 on `feature/pulse-filter-modes`, cut from
   `feature/pulse-depth-source` at 59762417.
 
+## Status (7 Nov 2026, evening)
+
+- Step 1 `369ea8f6` - the Screen / Echogram split. **Verified by Olav on the device.**
+- Step 2a `2fda60b2` - a defect found while building step 2, committed alone so it can be judged alone. The applier
+  set the echogram's low level to 0 with `setFilteringValue(0)` and in the same breath wrote the slider's real value
+  to `pulseSettings.filterRealValue`, which reaches the SAME low level through the settings bus
+  (`Plot2DEchogram::applyPersistent -> setLevels`). The bus is coalesced on a timer and delivered queued, so it
+  landed a tick later and won: **with the water body filter on, the global low cut was applied as well**, at display
+  x 2.5 (20 at the default 8). The low level is the floor of the colour map, so it does not only blacken weak
+  returns - it re-scales every colour above it, the bottom included. That is the likely cause of Olav's 7 Nov
+  observation that the water body filter visibly changes the look of the bottom area too. `filterRealValue` now
+  carries the low cut actually wanted. **Expect the Water body picture to be lighter and the bottom to keep its
+  colours** - the plan's "Water at 10 = today's picture" check no longer holds as written; compare 2a against 59762417.
+- Step 2b `75aa85a4` - the mode itself, as planned, with two differences from the text above:
+  - **No migration.** `echogramWaterBodyFilterEnabled` was a RUNTIME property, default on, so every start already
+    arrived with it on - which is exactly "water". There is no stored switch state to carry over.
+  - The noise floor steppers are removed rather than shown read-only; the `FILTER:` log line gives the applied
+    numbers (`FILTER: mode whole | 2D | display 9 -> wbf 0.00 floor 0.45 cut 0`).
+- Caveat for the device pass: "Whole picture" drives the noise floor INSIDE the PULSE gain laws, so it does nothing
+  where no PULSE TVG runs - a 2D picture with the expert TVG off or on the upstream ramp, and a side scan with the
+  user's "Side scan TVG" switched off (AGC). Worth deciding whether the hint should say so, or the mode be offered
+  only where it works.
+- Step 3 (the low cut compare switch) is next, on Olav's go.
+
 ## The rail icon follows the mode
 
 **Three icons, one silhouette.** The funnel stays the button's identity - a user who has learned "the funnel is the
