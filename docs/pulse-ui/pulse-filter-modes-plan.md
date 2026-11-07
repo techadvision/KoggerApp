@@ -222,7 +222,7 @@ black on the rail - the Record-button lesson). At the rail's 34 px the corner ma
 the tablets; on a phone it is the funnel plus a smudge, and the slash and the border below still carry the difference
 that matters (filtering or not). The old `pulse_filter.svg` stays for PulseAppClassic, which is retired and not ported.
 
-**Two signals, not one.** The icon says WHICH filter; the button's existing `active` border (the 1 px blue frame
+**SUPERSEDED 7 Nov by `e29876ef` (Olav: it read as "selected" from the first start) - the border is gone, the icon alone carries the mode; selection is the open panel's fill as on every rail button.** The original text: **Two signals, not one.** The icon says WHICH filter; the button's existing `active` border (the 1 px blue frame
 PulseRailButton already draws, whose own comment names "the filter is not at zero" as the case it was made for, and
 which the filter button has never set) says WHETHER it is doing anything: `active` = mode is not "off" AND the
 strength is above 0. So Water body at slider 0 shows the waves without the border - honest, it dims nothing - and Off
