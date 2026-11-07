@@ -324,6 +324,15 @@ public slots:
         }
     }
     Q_INVOKABLE float getTvgDbPerMeter () const { return EchogramTvg::dbPerMeter(); }
+    // PULSE P5 (motor-noise plan): the 2D noise floor, strength [0..1] of the
+    // per-ping floor subtracted before the gain. Same refresh trick.
+    Q_INVOKABLE void setTvgNoiseFloor (float strength01) {
+        EchogramTvg::setNoiseFloorStrength(strength01);
+        if (Plot2D::getEchogramCompensation() == 2) {
+            setEchogramCompensation(2);
+        }
+    }
+    Q_INVOKABLE float getTvgNoiseFloor () const { return EchogramTvg::noiseFloorStrength(); }
     // PULSE water-body filter (Stage B): strength [0..1] from the Pulse filter
     // control. Additive Pulse-only path — the upstream low-level pipeline
     // (setEchogramLowLevel) is not involved. Re-applies the current

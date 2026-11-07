@@ -739,6 +739,11 @@ QtObject {
         : echogramTvgOverride === 2 ? false
         : (activeProfile !== undefined ? activeProfile.echogramTvgEnabled : false)
     property double echogramTvgDbPerMeter:  0.9     // Net decay constant in dB/m (Dreamlake harvest: 0.66-1.11, mean ~0.9)
+    //P5 of the motor-noise plan (7 Nov 2026): the per-ping noise floor subtracted before the
+    //2D gain, strength 0..1, 0 = off. Side scan has had the same step since August; this is
+    //its 2D port for motor noise on the transducer cable (the law and its estimator are in
+    //src/scene2d/echogram_tvg.h). Default 0 until the strips have been seen on the water.
+    property double echogramTvgNoiseFloor:  0.0
 
     //WHICH 2D GAIN LAW RENDERS — comparison switch, 2026-09-12.
     //

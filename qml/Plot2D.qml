@@ -225,6 +225,7 @@ WaterFall {
                                                                 : pulseRuntimeSettings.activeModel)
 
             plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+            plot.setTvgNoiseFloor(pulseRuntimeSettings.echogramTvgNoiseFloor)
             plot.setSsTvgSpreading(pulseRuntimeSettings.sideScanTvgSpreading)
             plot.setSsTvgAbsorption(pulseRuntimeSettings.sideScanTvgAbsorption)
             plot.setSsTvgRefRange(pulseRuntimeSettings.sideScanTvgRefRange)
@@ -262,6 +263,7 @@ WaterFall {
             if (pulseRuntimeSettings === null)
                 return
             plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+            plot.setTvgNoiseFloor(pulseRuntimeSettings.echogramTvgNoiseFloor)
             let cur = plot.getEchogramCompensation()
             // Ignore 3 as well as 1: with the TVG flags now driven by the device profile
             // this handler also fires on a device SWAP, and a Red->Blue swap would
@@ -309,6 +311,14 @@ WaterFall {
                 return
             console.log("EchogramCompensation: TVG dB/m ->", pulseRuntimeSettings.echogramTvgDbPerMeter)
             plot.setTvgDbPerMeter(pulseRuntimeSettings.echogramTvgDbPerMeter)
+        }
+
+        // PULSE P5 (motor-noise plan): the 2D noise floor strength, same refresh.
+        function onEchogramTvgNoiseFloorChanged () {
+            if (pulseRuntimeSettings === null)
+                return
+            console.log("EchogramCompensation: TVG noise floor ->", pulseRuntimeSettings.echogramTvgNoiseFloor)
+            plot.setTvgNoiseFloor(pulseRuntimeSettings.echogramTvgNoiseFloor)
         }
 
         // PULSE P3: the down scan blend - which of the two side scan channels the down

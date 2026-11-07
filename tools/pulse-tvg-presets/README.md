@@ -18,4 +18,21 @@ code. It reuses the bench's `.plog` reader (`tools/pulse-bt-bench/plog.py`). Dis
 
 `run_strips2.py` and `profile.py` name the recordings they expect in the cache directory (ANDY, 18 Oct, 19 Oct,
 Max 22 Oct). The findings are in `docs/pulse-ui/pulse-ui-strategy.md`, "22 Oct 2026 (evening) - the 2.0 run-up".
-The noise-floor step is not ported (0 at release).
+The side scan noise-floor step is not ported (0 at release).
+
+## The 2D noise floor - P5 of the motor-noise plan (7 Nov 2026)
+
+`tvg2d.py` is the port of `EchogramTvg::apply` (`src/scene2d/echogram_tvg.*`) with P5's floor step, `extract2d.py`
+the 2D extraction (one channel, plus the bench's bottom track so the strips can be judged against the bottom), and
+`strips2d.py` the strips: the same pings at strength 0 / 0.3 / 0.6 / 1.0, depth axis in metres, the bottom track in red,
+with the display mean 0.5-1.5 m under the bottom, in the water column and at the bottom peak per window.
+
+    python3 extract2d.py ../pulse-bt-bench "testlogs/Andy_noise/2D_pulse_log_2026.11.03_11.42.57.plog" ~/tvg2d/andy1142 fill
+    python3 strips2d.py ~/tvg2d testlogs/tvg2d-strips
+
+What the strips showed (Andy's three 3 Nov plogs, Olav's 6 Nov 16:06): the motor-noise fog in the water column goes
+cleanly (display 0.17-0.25 -> 0.03-0.05 at strength 1); the band under the bottom only thins (0.6 -> 0.35) because
+most of it is a bottom tail of ~70 raw that is there with the motor off too; the bottom peak loses some level on
+the black at strength 1 (0.82 -> 0.71), none on the built-in red. The estimator is the 30th percentile, not the
+plan's median, for the reason in `tvg2d.py`'s docstring. The C++ was checked against this port on five of Andy's
+pings (identical output).

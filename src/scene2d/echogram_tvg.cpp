@@ -1,12 +1,49 @@
 #include "echogram_tvg.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 namespace {
 std::atomic<float>    g_dbPerMeter{EchogramTvg::kDefaultDbPerMeter};
+std::atomic<float>    g_noiseFloor{EchogramTvg::kDefaultNoiseFloorStrength};
 std::atomic<uint32_t> g_version{1};
+
+// P5: the per-ping floor, in raw units. The kNoiseFloorPct-th percentile of
+// the non-zero samples from kSurfBandMaxM to the end of the trace, 0 when
+// the trace cannot be judged (see the header). Runs on the render thread
+// (chartTo) and the mosaic worker, hence the thread_local scratch.
+float noiseFloor(const uint8_t* src, int n, float resolution, float offsetM)
+{
+    const int i0 = std::max(0, int((EchogramTvg::kSurfBandMaxM - offsetM) / resolution + 0.5f));
+    const int span = n - i0;
+    if (span < EchogramTvg::kNoiseFloorMinSamples) {
+        return 0.0f;
+    }
+
+    thread_local std::vector<uint8_t> buf;
+    buf.clear();
+    buf.reserve(size_t(span));
+    for (int i = i0; i < n; ++i) {
+        if (src[i] != 0) {
+            buf.push_back(src[i]);
+        }
+    }
+    const int m = int(buf.size());
+    if (m < EchogramTvg::kNoiseFloorMinSamples || float(m) < EchogramTvg::kNoiseFloorMinShare * float(span)) {
+        return 0.0f;
+    }
+
+    const int k = (m - 1) * EchogramTvg::kNoiseFloorPct / 100;
+    std::nth_element(buf.begin(), buf.begin() + k, buf.end());
+    float floorV = float(buf[size_t(k)]);
+    if (floorV > EchogramTvg::kNoiseFloorMax) {
+        floorV = EchogramTvg::kNoiseFloorMax;
+    }
+    return floorV;
+}
 } // namespace
 
 void EchogramTvg::setDbPerMeter(float dbPerMeter)
@@ -28,6 +65,25 @@ float EchogramTvg::dbPerMeter()
     return g_dbPerMeter.load();
 }
 
+void EchogramTvg::setNoiseFloorStrength(float strength01)
+{
+    if (!(strength01 >= 0.0f)) { // also catches NaN
+        strength01 = 0.0f;
+    }
+    if (strength01 > 1.0f) {
+        strength01 = 1.0f;
+    }
+
+    if (g_noiseFloor.exchange(strength01) != strength01) {
+        g_version.fetch_add(1);
+    }
+}
+
+float EchogramTvg::noiseFloorStrength()
+{
+    return g_noiseFloor.load();
+}
+
 uint32_t EchogramTvg::version()
 {
     return g_version.load();
@@ -47,15 +103,26 @@ void EchogramTvg::apply(const QVector<uint8_t>& raw, float resolution, float off
     uint8_t* dst = out.data();
 
     const float k = dbPerMeter();
-    if (!(k > 0.0f) || !(resolution > 0.0f)) {
-        // neutral gain — plain copy (fail-safe)
+    if (!(resolution > 0.0f)) {
+        // neutral — plain copy (fail-safe)
+        std::memcpy(dst, src, size_t(n));
+        return;
+    }
+
+    // P5: the noise floor comes off before the gain multiplies it.
+    const float nfStrength = g_noiseFloor.load();
+    const double floorV = (nfStrength > 0.001f) ? double(nfStrength) * double(noiseFloor(src, n, resolution, offsetM)) : 0.0;
+
+    if (!(k > 0.0f) && floorV <= 0.0) {
+        // neutral gain, no floor — plain copy (fail-safe)
         std::memcpy(dst, src, size_t(n));
         return;
     }
 
     // gain(z) = 10^(k*z/20) = exp(g*z), g = k*ln(10)/20.
     // Computed incrementally: one multiply per sample instead of exp().
-    const double g = double(k) * 0.115129254649702287; // ln(10)/20
+    // With k <= 0 the gain stays 1 and only the floor applies.
+    const double g = (k > 0.0f) ? double(k) * 0.115129254649702287 : 0.0; // ln(10)/20
     const double stepFactor = std::exp(g * double(resolution));
     const double z0 = (offsetM > 0.0f) ? double(offsetM) : 0.0;
     double gain = std::exp(g * z0);
@@ -63,7 +130,8 @@ void EchogramTvg::apply(const QVector<uint8_t>& raw, float resolution, float off
     const double cap = double(kGainCap);
     for (int i = 0; i < n; ++i) {
         const double gEff = (gain < cap) ? gain : cap;
-        const int v = int(double(src[i]) * gEff + 0.5);
+        const double a = double(src[i]) - floorV;
+        const int v = (a > 0.0) ? int(a * gEff + 0.5) : 0;
         dst[i] = (v > 255) ? uint8_t(255) : uint8_t(v);
         gain *= stepFactor;
     }

@@ -1700,6 +1700,21 @@ Item {
                     }
                 },
 
+                PulseStepperRow {
+                    width: tvg2dGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Noise floor")
+                    hint:  qsTr("subtracts the per-ping noise floor before the gain - for motor noise")
+                    decimals: 2
+                    values: [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]
+                    value: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgNoiseFloor : 0
+
+                    onStepped: function (v) {
+                        list.settingChanged("runtime", "echogramTvgNoiseFloor", v)
+                    }
+                },
+
                 PulseSwitchRow {
                     width: tvg2dGroup.contentWidth
                     uiScale: list.uiScale
