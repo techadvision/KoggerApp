@@ -38,6 +38,20 @@
 // samples missing is not judged (floor 0, no subtraction), as side scan's
 // "window not usable" rule. Bottom-independent, so the per-epoch cache
 // stays valid under a live bottom track; the strength bumps version().
+//
+// P5b (7 Nov 2026, Olav's device check): the subtraction has a SOFT KNEE.
+// A plain subtraction takes the floor off every sample, the bottom
+// included, so the strength Andy's boat needs to clear its fog (1.0 on a
+// floor of ~50 raw) also took his bottom from red to green and washed the
+// band under it out - the thing he and the second-echo users care about.
+// The subtraction therefore fades with the sample's height above the
+// floor: full at the floor, none at (1 + kNoiseKnee) x floor. Noise lives
+// at the floor and is removed; the bottom, fish and the second echo sit
+// well above it and keep their level. Offline (tools/pulse-tvg-presets):
+// at strength 1 on Andy's 11:28 the water column reads 0.039 with the knee
+// against 0.026 without, the bottom peak 0.90 against 0.67, and the fish
+// school above the bottom stays crisp. The knee is a constant, not a
+// setting: the strength already says how much comes off.
 class EchogramTvg
 {
 public:
@@ -49,6 +63,7 @@ public:
     static constexpr int   kNoiseFloorPct     = 30;    // the percentile that reads as the floor (see above)
     static constexpr int   kNoiseFloorMinSamples = 16; // fewer usable samples than this: not judged
     static constexpr float kNoiseFloorMinShare = 0.6f; // usable (non-zero) share of the window below this: not judged
+    static constexpr float kNoiseKnee         = 2.0f;  // the subtraction fades out between floor and (1 + knee) x floor
     static constexpr float kDefaultNoiseFloorStrength = 0.0f; // release behaviour unchanged, as side scan's default
 
     // Global decay constant in dB/m. Clamped to [0, kMaxDbPerMeter].
@@ -67,7 +82,8 @@ public:
 
     // Fills out with the TVG-compensated copy of raw.
     // z(i) = offsetM + i * resolution (meters);
-    // out[i] = clamp(0..255, (raw[i] - strength * floor) * min(gain(z), kGainCap)).
+    // out[i] = clamp(0..255, (raw[i] - strength * floor * knee(raw[i])) * min(gain(z), kGainCap)),
+    // knee(v) = clamp(0..1, 1 - (v - floor) / (kNoiseKnee * floor)).
     // Fail-safe: with k <= 0 and the floor off, or a non-positive resolution,
     // the output is a plain copy of raw (neutral gain).
     static void apply(const QVector<uint8_t>& raw, float resolution, float offsetM, QVector<uint8_t>& out);

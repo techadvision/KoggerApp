@@ -109,9 +109,13 @@ void EchogramTvg::apply(const QVector<uint8_t>& raw, float resolution, float off
         return;
     }
 
-    // P5: the noise floor comes off before the gain multiplies it.
+    // P5: the noise floor comes off before the gain multiplies it, with a
+    // soft knee (P5b): fully at the floor, not at all from (1 + kNoiseKnee)
+    // x floor up, so echoes keep their level while the fog goes.
     const float nfStrength = g_noiseFloor.load();
-    const double floorV = (nfStrength > 0.001f) ? double(nfStrength) * double(noiseFloor(src, n, resolution, offsetM)) : 0.0;
+    const double floorRaw = (nfStrength > 0.001f) ? double(noiseFloor(src, n, resolution, offsetM)) : 0.0;
+    const double floorV = double(nfStrength) * floorRaw;
+    const double kneeInv = (floorRaw > 0.0) ? 1.0 / (double(kNoiseKnee) * floorRaw) : 0.0;
 
     if (!(k > 0.0f) && floorV <= 0.0) {
         // neutral gain, no floor — plain copy (fail-safe)
@@ -130,7 +134,10 @@ void EchogramTvg::apply(const QVector<uint8_t>& raw, float resolution, float off
     const double cap = double(kGainCap);
     for (int i = 0; i < n; ++i) {
         const double gEff = (gain < cap) ? gain : cap;
-        const double a = double(src[i]) - floorV;
+        const double s = double(src[i]);
+        double w = 1.0 - (s - floorRaw) * kneeInv; // 1 at the floor, 0 at (1 + knee) x floor
+        if (w > 1.0) w = 1.0; else if (w < 0.0) w = 0.0;
+        const double a = s - floorV * w;
         const int v = (a > 0.0) ? int(a * gEff + 0.5) : 0;
         dst[i] = (v > 255) ? uint8_t(255) : uint8_t(v);
         gain *= stepFactor;

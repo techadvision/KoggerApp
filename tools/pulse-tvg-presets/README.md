@@ -36,3 +36,9 @@ most of it is a bottom tail of ~70 raw that is there with the motor off too; the
 the black at strength 1 (0.82 -> 0.71), none on the built-in red. The estimator is the 30th percentile, not the
 plan's median, for the reason in `tvg2d.py`'s docstring. The C++ was checked against this port on five of Andy's
 pings (identical output).
+
+P5b, after Olav's device check of the first cut (screenshots in `testlogs/Screenshots of noise floor`): Andy's boat
+needed strength 1 to clear its fog and that took the bottom from red to green; the subtraction now has a soft knee
+(full at the floor, none from 3 x floor up). At strength 1 on Andy's 11:28 the water column reads 0.04 against 0.03
+without the knee, the bottom peak 0.90 against 0.67, and the band under the bottom keeps 0.49 against 0.34
+(`*_knee.png` in the strips folder shows plain against knee side by side).

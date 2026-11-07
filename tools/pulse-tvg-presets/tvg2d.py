@@ -6,9 +6,12 @@ The plan said median; the offline check (7 Nov 2026) showed the band under the b
 is there with the motor off too - takes 30-45% of a trace once the planner keeps the bottom at 0.6 of the range, so the
 median lands 10-50 raw units above the water column and the subtraction eats the water column's own texture and the
 weak features in it. The 30th percentile sits within a few units of the water column median on all four recordings
-(under it, never over, on Olav's)."""
+(under it, never over, on Olav's).
+P5b soft knee (7 Nov, after Olav's device check): the subtraction fades with the sample's height above the floor -
+full at the floor, none from (1 + KNEE) x floor up - so the strength that clears a noisy boat's fog no longer takes
+the bottom and the band under it with it."""
 import numpy as np
-GAIN_CAP, SURF_BAND_MAX_M, NOISE_FLOOR_MAX, MIN_SPAN, FLOOR_PCT, DAMAGED_SHARE = 30.0, 1.0, 80.0, 16, 30, 0.6
+GAIN_CAP, SURF_BAND_MAX_M, NOISE_FLOOR_MAX, MIN_SPAN, FLOOR_PCT, DAMAGED_SHARE, KNEE = 30.0, 1.0, 80.0, 16, 30, 0.6, 2.0
 
 def gain(n, res, off, k=0.9):
     z = max(off, 0.0) + np.arange(n) * res
@@ -37,7 +40,9 @@ def tvg(raw, res, off, k=0.9, nf=0.0, pct=None):
         return raw
     v = raw
     if nf > 0.001:
-        v = np.maximum(raw - (nf * floor(raw, res, off, pct))[..., None], 0.0)
+        f = floor(raw, res, off, pct)[..., None]
+        w = np.clip(1.0 - (raw - f) / np.where(f > 0, KNEE * f, 1.0), 0.0, 1.0)
+        v = np.maximum(raw - nf * f * w, 0.0)
     v = v * gain(n, res, off, k)
     return np.clip(np.floor(v + 0.5), 0, 255)
 
