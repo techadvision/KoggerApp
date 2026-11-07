@@ -577,6 +577,13 @@ QtObject {
     //5/50 = 0.10, the same gentle level the slider default (5) gives.
     property int    echogramWaterBodyMinRealValue:  5
 
+    //THE LOW CUT COMPARE SWITCH (filter-modes plan, step 3). Expert, runtime, default off.
+    //On, "Whole picture" is the old fixed global low cut (slider x 2.5 on the 0-50 scale)
+    //instead of the per-ping noise floor - so the two can be compared on the water on the
+    //same data, the pattern the TVG group uses for the upstream ramp. If nobody switches it
+    //on in a season it goes, with this property and its row.
+    property bool   filterWholeUsesLowCut:          false
+
     //Which device profile is actually rendering right now. "" = nothing committed yet.
     //
     //userManualSetName is the committed model and is set by BOTH selection paths

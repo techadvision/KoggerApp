@@ -4544,6 +4544,7 @@ ApplicationWindow  {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
         function onDisplayFilterModeChanged() { mainview.applyFilter() }
+        function onFilterWholeUsesLowCutChanged() { mainview.applyFilter() }
     }
 
     // A SOURCE HAS BEEN CHOSEN - APPLY EVERYTHING THE PICTURE NEEDS (Group B).
@@ -4671,8 +4672,9 @@ ApplicationWindow  {
     // THE LOW CUT HAS TWO ROADS INTO THE PLOT, AND BOTH MUST CARRY THE SAME NUMBER.
     // setFilteringValue() sets the echogram's low level directly; pulseSettings.filterRealValue
     // reaches the SAME level through the settings bus, coalesced and queued - so whatever is
-    // written there wins a tick later (step 2a, 2fda60b2). It is 0 in every mode today; the
-    // expert compare switch of step 3 is the only thing that will ever make it otherwise.
+    // written there wins a tick later (step 2a, 2fda60b2). It is 0 in every mode except one:
+    // "whole" with the expert compare switch (step 3) on, where the old fixed low cut takes
+    // the noise floor's place for a side-by-side on the water.
     //
     // The floors are written to pulseRuntimeSettings, not to the plots: Plot2D's own handlers
     // push echogramTvgNoiseFloor / sideScanTvgNoiseFloor to every pane, and onActiveModelChanged
@@ -4683,12 +4685,13 @@ ApplicationWindow  {
         var mode    = pulseRuntimeSettings.displayFilterMode
         var display = pulseRuntimeSettings.displayFilter
         var wbf     = mode === "water" ? pulseRuntimeSettings.displayFilterReal / 50.0 : 0.0
-        var floor   = mode === "whole" ? Math.max(0, Math.min(20, display)) / 20.0   : 0.0
-        var cut     = 0
+        var lowCut  = mode === "whole" && pulseRuntimeSettings.filterWholeUsesLowCut
+        var floor   = mode === "whole" && !lowCut ? Math.max(0, Math.min(20, display)) / 20.0 : 0.0
+        var cut     = lowCut ? pulseRuntimeSettings.displayFilterReal : 0
         pulseSettings.filterRealValue = cut
         pulseRuntimeSettings.echogramTvgNoiseFloor = floor
         pulseRuntimeSettings.sideScanTvgNoiseFloor = floor
-        console.log("FILTER: mode", mode, "|",
+        console.log("FILTER: mode", mode + (lowCut ? " (fixed low cut)" : ""), "|",
                     pulseRuntimeSettings.displayIs2DTransducer ? "2D" : "side scan",
                     "| display", display, "-> wbf", wbf.toFixed(2),
                     "floor", floor.toFixed(2), "cut", cut)

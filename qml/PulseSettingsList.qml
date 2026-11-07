@@ -1652,6 +1652,22 @@ Item {
             onToggled: list.toggle("waterbody")
 
             content: [
+                // THE COMPARE SWITCH (step 3) - the old fixed low cut as "Whole picture", for a
+                // side-by-side with the noise floor on the same data. Runtime: a restart is the
+                // noise floor again. Its own commit so it can go alone when it goes.
+                PulseSwitchRow {
+                    width: waterBodyGroup.contentWidth
+                    uiScale: list.uiScale
+
+                    label: qsTr("Whole picture uses the fixed low cut")
+                    hint:  qsTr("to compare with the noise floor - everything under one level goes black")
+                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.filterWholeUsesLowCut : false
+
+                    onToggled: function (v) {
+                        list.settingChanged("runtime", "filterWholeUsesLowCut", v)
+                    }
+                },
+
                 PulseStepperRow {
                     width: waterBodyGroup.contentWidth
                     uiScale: list.uiScale
