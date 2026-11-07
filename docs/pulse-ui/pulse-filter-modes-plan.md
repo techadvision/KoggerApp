@@ -146,7 +146,11 @@ margin" and the compare switch. Settings groups "Screen" and "Echogram".
   where no PULSE TVG runs - a 2D picture with the expert TVG off or on the upstream ramp, and a side scan with the
   user's "Side scan TVG" switched off (AGC). Worth deciding whether the hint should say so, or the mode be offered
   only where it works.
-- Step 3 (the low cut compare switch) is next, on Olav's go.
+- Step 3 `ccb7f21b` - the compare switch, Expert > Filter > "Whole picture uses the fixed low cut" (runtime
+  `filterWholeUsesLowCut`, default off). On: Whole picture = low cut at real (display x 2.5) on both roads, floor 0.
+  Log: `FILTER: mode whole (fixed low cut) | ...`.
+- Step 4 is the device pass below; the open items for Olav are the hint wording and whether Whole picture should be
+  offered (or explained) where no PULSE TVG runs.
 
 ## The rail icon follows the mode
 
