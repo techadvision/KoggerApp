@@ -117,6 +117,53 @@ margin" and the compare switch. Settings groups "Screen" and "Echogram".
    filter-off screenshots; Off = raw + TVG with the depth readout unchanged (the filter is display-only, the bottom
    track never sees it - worth one look at the `BT:` lines all the same).
 
-Open for Olav: whether the default mode on a NEW install should stay Water body (my recommendation: yes, it is the
-known picture and the second-echo users' picture) and whether the Filter rail button's icon should change with the
-mode.
+## Decided (7 Nov 2026)
+
+- **Default on a new install: Water body.** Olav: yes - the known picture, and the second-echo users' picture.
+- **The rail's Filter icon changes with the mode.** Olav: yes. How, below.
+- Step 1 (the Screen / Echogram split) is committed as 369ea8f6 on `feature/pulse-filter-modes`, cut from
+  `feature/pulse-depth-source` at 59762417.
+
+## The rail icon follows the mode
+
+**Three icons, one silhouette.** The funnel stays the button's identity - a user who has learned "the funnel is the
+filter" must not lose the button when the mode changes - and the mode is a small mark in the free bottom-right corner,
+where the funnel's stem leaves room (`resources/icons/ui/`):
+
+- `pulse_filter_off.svg` - the funnel at 45% white, struck through by a full white diagonal. The universal "off" mark;
+  no corner glyph, because there is nothing working to describe.
+- `pulse_filter_water.svg` - the funnel moved up-left 2.5/1.5 units, two small waves in the corner: the water.
+- `pulse_filter_whole.svg` - the same funnel, four full-frame corners in the corner: the whole picture.
+
+All white strokes stated in the file, so `tools/pulse-icon-check.js` covers them (an SVG that states no colour draws
+black on the rail - the Record-button lesson). At the rail's 34 px the corner mark is about 10 px, which is legible on
+the tablets; on a phone it is the funnel plus a smudge, and the slash and the border below still carry the difference
+that matters (filtering or not). The old `pulse_filter.svg` stays for PulseAppClassic, which is retired and not ported.
+
+**Two signals, not one.** The icon says WHICH filter; the button's existing `active` border (the 1 px blue frame
+PulseRailButton already draws, whose own comment names "the filter is not at zero" as the case it was made for, and
+which the filter button has never set) says WHETHER it is doing anything: `active` = mode is not "off" AND the
+strength is above 0. So Water body at slider 0 shows the waves without the border - honest, it dims nothing - and Off
+never has the border.
+
+**One binding, read from the display model** (rule 1: the user judges it by looking at it). In PulseRail.qml:
+
+```qml
+iconSource: pulseRuntimeSettings.displayFilterMode === "off"   ? "./icons/ui/pulse_filter_off.svg"
+          : pulseRuntimeSettings.displayFilterMode === "whole" ? "./icons/ui/pulse_filter_whole.svg"
+          :                                                      "./icons/ui/pulse_filter_water.svg"
+active: pulseRuntimeSettings.displayFilterMode !== "off" && pulseRuntimeSettings.displayFilterValue > 0
+```
+
+`displayFilterMode` resolves `filterMode2D` / `filterModeSideScan` from `displayIs2DTransducer`, so a blue showing its
+down view and a red showing 2D each get their own icon with no handler; the Record button's `iconSource` ternary is the
+precedent. The three strings are literals, so the icon checker's `"./icons/...svg"` scan finds all three. The three
+files are added to `resources/icons.qrc` in step 2, with the mode itself - an icon for a mode that does not exist yet
+would be a dead file in a build.
+
+The panel's segment row stays text ("Off" / "Water body" / "Whole picture") - in the panel there is room for the
+words, and the words are what the hints explain. If Olav wants the glyphs beside the words later, PulseSegmentRow
+gets an optional icon per option; not in this step.
+
+Preview rendered 7 Nov at rail size and enlarged; the icons are on disk in `resources/icons/ui/` uncommitted, to go
+into step 2's commit.
