@@ -183,7 +183,11 @@ What it says:
 - On a weak signal (Andy's black) contrast keeps rising to 1.2 and saturation stays low - Bright is for him.
 - 1.4 adds nothing over 1.2 on Andy and saturates more everywhere.
 
-**Recommendation: Low 0.6 / Medium 0.9 / Bright 1.2**, Medium the default (today's picture, nobody's changes). Low
+**Olav's decision (7 Nov 2026): start with Low 0.4 / Medium 0.7 / Bright 1.0** and judge them on the water ("I will
+need to experience the result"); row names "2D TVG" and "Depth gain" confirmed. Medium 0.7 is below the 0.9 shipped
+so far, so the default 2D picture is darker than before. Built as `8031faed`.
+
+The recommendation it replaced: **Low 0.6 / Medium 0.9 / Bright 1.2**, Medium the default (today's picture, nobody's changes). Low
 is the second-echo choice on a strong transducer in shallow water, Bright the weak-signal choice. The intensity slider
 moves the saturation too, so these are relative, not absolute.
 
