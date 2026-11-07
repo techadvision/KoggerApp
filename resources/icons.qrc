@@ -125,6 +125,9 @@
         <file>icons/ui/pulse_controls.svg</file>
         <file>icons/ui/pulse_edit.svg</file>
         <file>icons/ui/pulse_filter.svg</file>
+        <file>icons/ui/pulse_filter_off.svg</file>
+        <file>icons/ui/pulse_filter_water.svg</file>
+        <file>icons/ui/pulse_filter_whole.svg</file>
         <file>icons/ui/pulse_glasses.svg</file>
         <file>icons/ui/pulse_guru_user.svg</file>
         <file>icons/ui/pulse_info.svg</file>

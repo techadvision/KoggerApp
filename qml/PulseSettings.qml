@@ -51,6 +51,13 @@ Settings {
     property int    filterDisplayValue2D:       -1      //red
     property int    filterDisplayValueSideScan: -1      //blue
     property int    filterRealValue:            20      //the APPLIED LOW CUT (bus -> Plot2DEchogram low level); v2's applier writes 0 unless the low cut is the chosen filter
+    //THE FILTER MODE, per picture like the strength (filter-modes plan, 7 Nov 2026): "off",
+    //"water" (the water body filter) or "whole" (the TVG noise floor, both laws). Default
+    //"water" on Olav's call - the known picture and the second-echo users' picture. NO
+    //MIGRATION: the expert switch it replaces (echogramWaterBodyFilterEnabled) was runtime
+    //and default on, so every start arrived with it on, which is exactly "water".
+    property string filterMode2D:               "water"
+    property string filterModeSideScan:         "water"
     //THE VIEW AND CONE PREFERENCES, as stable entry ids (step 4, 2026-09-12).
     //
     //ecoViewIndex / ecoConeIndex stored a POSITION in the profile's ui.views / ui.cones

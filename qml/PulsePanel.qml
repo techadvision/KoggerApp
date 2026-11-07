@@ -52,9 +52,11 @@ Item {
     property int intensityValue: 0
     property int filterValue:    0
     property string filterHint:  ""
+    property string filterMode:  "water"     // "off" / "water" / "whole"
 
     signal intensityMoved(int v)
     signal filterMoved(int v)
+    signal filterModeChosen(string m)
 
     // ---- The view / cone chooser --------------------------------------------
     property var    choiceEntries:   []
@@ -156,7 +158,7 @@ Item {
     readonly property string title:
           openGroup === "colours"   ? qsTr("Colours")
         : openGroup === "intensity" ? qsTr("Intensity")
-        : openGroup === "filter"    ? qsTr("Water body filter")
+        : openGroup === "filter"    ? qsTr("Filter")
         : openGroup === "range"     ? qsTr("Max range")
         : openGroup === "speed"     ? qsTr("Speed")
         : openGroup === "screen"    ? qsTr("Screen")
@@ -348,14 +350,32 @@ Item {
             onMoved: function (v) { panel.intensityMoved(v) }
         }
 
-        PulseSliderRow {
+        // THE FILTER IS A CHOICE, THEN A STRENGTH (filter-modes plan). The mode row says
+        // what the slider under it drives; Off has nothing to drive, so the slider goes.
+        PulseSegmentRow {
             width: parent.width
             height: visible ? implicitHeight : 0
             visible: panel.openGroup === "filter"
             uiScale: panel.uiScale
 
-            label: qsTr("Water body filter")
+            label: qsTr("Filter")
             hint: panel.filterHint
+            options: [ { value: "off",   title: qsTr("Off") },
+                       { value: "water", title: qsTr("Water body") },
+                       { value: "whole", title: qsTr("Whole picture") } ]
+            current: panel.filterMode
+
+            onChosen: function (v) { panel.filterModeChosen(v) }
+        }
+
+        PulseSliderRow {
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            visible: panel.openGroup === "filter" && panel.filterMode !== "off"
+            uiScale: panel.uiScale
+
+            label: qsTr("Strength")
+            hint: qsTr("0 – 20")
             minValue: 0
             maxValue: 20
             value: panel.filterValue

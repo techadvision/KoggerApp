@@ -1633,7 +1633,11 @@ Item {
             ]
         }
 
-        // ---- Water body filter ------------------------------------------------
+        // ---- Filter (expert) ---------------------------------------------------
+        //
+        // The expert-only numbers behind the rail's Filter (filter-modes plan). The CHOICE is
+        // not here - it lives in the rail's Filter panel and only there. The "Water body
+        // filtering" switch that was here is retired: its two states are the modes now.
 
         PulseSettingsGroup {
             id: waterBodyGroup
@@ -1643,24 +1647,11 @@ Item {
             visible: list.expertOnly
 
             uiScale: list.uiScale
-            title: qsTr("Water body filter")
+            title: qsTr("Filter")
             open: list.openId === "waterbody"
             onToggled: list.toggle("waterbody")
 
             content: [
-                PulseSwitchRow {
-                    width: waterBodyGroup.contentWidth
-                    uiScale: list.uiScale
-
-                    label: qsTr("Water body filtering")
-                    hint:  qsTr("the rail's filter drives this instead of the global low cut")
-                    checked: pulseRuntimeSettings ? pulseRuntimeSettings.echogramWaterBodyFilterEnabled : false
-
-                    onToggled: function (v) {
-                        list.settingChanged("runtime", "echogramWaterBodyFilterEnabled", v)
-                    }
-                },
-
                 PulseStepperRow {
                     width: waterBodyGroup.contentWidth
                     uiScale: list.uiScale
@@ -1726,20 +1717,9 @@ Item {
                     }
                 },
 
-                PulseStepperRow {
-                    width: tvg2dGroup.contentWidth
-                    uiScale: list.uiScale
-
-                    label: qsTr("Noise floor")
-                    hint:  qsTr("subtracts the per-ping noise floor before the gain - for motor noise")
-                    decimals: 2
-                    values: [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]
-                    value: pulseRuntimeSettings ? pulseRuntimeSettings.echogramTvgNoiseFloor : 0
-
-                    onStepped: function (v) {
-                        list.settingChanged("runtime", "echogramTvgNoiseFloor", v)
-                    }
-                },
+                // THE NOISE FLOOR STEPPER (P5) IS RETIRED: the rail's Filter "Whole picture"
+                // drives echogramTvgNoiseFloor now (strength / 20), and a second writer here
+                // would be overwritten on the next apply.
 
                 PulseSwitchRow {
                     width: tvg2dGroup.contentWidth
@@ -1803,19 +1783,8 @@ Item {
                     }
                 },
 
-                PulseStepperRow {
-                    width: tvgSideGroup.contentWidth
-                    uiScale: list.uiScale
-
-                    label: qsTr("Noise floor subtraction")
-                    decimals: 2
-                    values: [0, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.75, 1.0]
-                    value: pulseRuntimeSettings ? pulseRuntimeSettings.sideScanTvgNoiseFloor : 0
-
-                    onStepped: function (v) {
-                        list.settingChanged("runtime", "sideScanTvgNoiseFloor", v)
-                    }
-                },
+                // THE NOISE FLOOR STEPPER IS RETIRED, like the 2D one: the rail's Filter
+                // "Whole picture" drives sideScanTvgNoiseFloor now.
 
                 PulseStepperRow {
                     width: tvgSideGroup.contentWidth

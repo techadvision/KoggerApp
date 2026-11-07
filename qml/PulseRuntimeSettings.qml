@@ -559,6 +559,9 @@ QtObject {
     property bool   echogramPause:          false   // Pause the echogram, also to enable/disable clicking functions in the echogram
     property int    echogramCompensationFile:0      // 0 raw, 1 side scan AGC, 2 PULSE 2D TVG, 3 side scan TVG, 4 upstream TGC ramp
 
+    //RETIRED IN v2 (filter-modes plan, 7 Nov 2026): the rail's Filter mode replaces this
+    //switch and echogramWaterBodyMinRealValue below. Kept only for PulseAppClassic, which
+    //is retired and not ported.
     //Water-body filter — Stage B (display-only). When enabled the Pulse
     //filter control drives the new water-column/surface filter instead of the upstream
     //global low-cut (which is then pinned to 0; the upstream method itself is untouched).
@@ -743,6 +746,8 @@ QtObject {
     //2D gain, strength 0..1, 0 = off. Side scan has had the same step since August; this is
     //its 2D port for motor noise on the transducer cable (the law and its estimator are in
     //src/scene2d/echogram_tvg.h). Default 0 until the strips have been seen on the water.
+    //Since the filter modes (7 Nov 2026) this and sideScanTvgNoiseFloor are WRITTEN BY main.qml's
+    //applyFilter() - the rail's "Whole picture" strength / 20 - and no longer by a stepper.
     property double echogramTvgNoiseFloor:  0.0
 
     //WHICH 2D GAIN LAW RENDERS — comparison switch, 2026-09-12.
@@ -1575,6 +1580,27 @@ QtObject {
             return
         console.log("FILTER: storing", v, "in", displayFilterKey)
         pulseSettings[displayFilterKey] = v
+    }
+
+    // THE FILTER MODE - which filter the strength above drives. Same keying, same guard, one
+    // writer. An unknown stored string reads as "water", never as nothing: a value written by
+    // a future build must not leave the picture unfiltered without the user having chosen it.
+    readonly property string displayFilterModeKey:
+        displayIs2DTransducer ? "filterMode2D" : "filterModeSideScan"
+    readonly property string displayFilterMode: {
+        var m = pulseSettings ? pulseSettings[displayFilterModeKey] : "water"
+        return (m === "off" || m === "whole") ? m : "water"
+    }
+
+    function storeDisplayFilterMode(m) {
+        if (presentedModel === "..." || presentedModel === "")
+            return
+        if (m !== "off" && m !== "water" && m !== "whole")
+            return
+        if (pulseSettings[displayFilterModeKey] === m)
+            return
+        console.log("FILTER: storing mode", m, "in", displayFilterModeKey)
+        pulseSettings[displayFilterModeKey] = m
     }
 
     // THE CEILING, as backlog item 11 says it should be.

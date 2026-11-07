@@ -2534,7 +2534,7 @@ ApplicationWindow  {
                             //
                             // This handler already knew the hazard and repaired one symptom
                             // of it. FOUR appliers reach this pane - applyDisplayTheme,
-                            // applyIntensity, applyWaterBodyFilter and applyMaxRange - and
+                            // applyIntensity, applyFilter and applyMaxRange - and
                             // every one gates on waterViewSecond.enabled, which ends a
                             // binding chain hanging off displayIs2DTransducer. applyForSource
                             // runs from a handler on that same source, and QML does not order
@@ -3015,11 +3015,23 @@ ApplicationWindow  {
                 intensityValue: pulseRuntimeSettings ? pulseRuntimeSettings.displayIntensity : 10
                 filterValue:    pulseRuntimeSettings ? pulseRuntimeSettings.displayFilter    : 8
 
-                // What the filter is currently doing, since the same slider means two
-                // different things depending on the expert switch beside it.
-                filterHint: pulseRuntimeSettings && pulseRuntimeSettings.echogramWaterBodyFilterEnabled
-                            ? qsTr("0 – 20   ·   water column only")
-                            : qsTr("0 – 20   ·   whole picture")
+                // THE MODE AND WHAT IT DOES, in the panel and only there (filter-modes
+                // plan): the choice has one home. Hints are Olav's to confirm. "Whole
+                // picture" on a side scan reaches the mosaic too, which the water body filter
+                // never did - said, because it is a visible change on a blue.
+                filterMode: pulseRuntimeSettings ? pulseRuntimeSettings.displayFilterMode : "water"
+                filterHint: !pulseRuntimeSettings ? ""
+                    : pulseRuntimeSettings.displayFilterMode === "off"
+                      ? qsTr("the picture as measured - the TVG still applies")
+                    : pulseRuntimeSettings.displayFilterMode === "whole"
+                      ? (pulseRuntimeSettings.displayIs2DTransducer
+                         ? qsTr("removes the noise floor everywhere - thermoclines and weak echoes stay; for motor noise")
+                         : qsTr("removes the noise floor everywhere, the mosaic too - weak echoes stay; for motor noise"))
+                    :   qsTr("dims the water column, never the bottom - keeps the second echo for reading hardness")
+
+                onFilterModeChosen: function (m) {
+                    pulseRuntimeSettings.storeDisplayFilterMode(m)
+                }
 
                 onIntensityMoved: function (v) {
                     if (v === pulseRuntimeSettings.displayIntensity)
@@ -4373,7 +4385,7 @@ ApplicationWindow  {
                 return
             mainview.applyDisplayTheme()
             mainview.applyIntensity()
-            mainview.applyWaterBodyFilter()
+            mainview.applyFilter()
         }
 
         function onScreenViewIdChanged() { mainview.applyScreenId(pulseSettings.screenViewId) }
@@ -4436,7 +4448,7 @@ ApplicationWindow  {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
         function onDisplayIntensityChanged() { mainview.applyIntensity() }
-        function onDisplayFilterChanged()    { mainview.applyWaterBodyFilter() }
+        function onDisplayFilterChanged()    { mainview.applyFilter() }
     }
 
     // AND WHEN THE DEVICE CHANGES UNDER THE PREFERENCE. The stored id has not moved, so
@@ -4525,20 +4537,20 @@ ApplicationWindow  {
         }
     }
 
-    // The filter's OTHER input. Turning the water body filter on or off changes which of the
-    // two calls carries the value, so the same function has to run again - the value did not
-    // move, the meaning of it did.
+    // The filter's OTHER input, the mode. Changing it changes which call carries the value,
+    // so the same function runs again - the value did not move, the meaning of it did. (It
+    // was the expert water body switch until the filter modes; that switch is retired.)
     Connections {
         target: pulseRuntimeSettings ? pulseRuntimeSettings : undefined
         enabled: pulseSettings.uiVariant === "v2"
-        function onEchogramWaterBodyFilterEnabledChanged() { mainview.applyWaterBodyFilter() }
+        function onDisplayFilterModeChanged() { mainview.applyFilter() }
     }
 
     // A SOURCE HAS BEEN CHOSEN - APPLY EVERYTHING THE PICTURE NEEDS (Group B).
     //
     // THE ONE LIST, and the reason it exists is that there were two partial ones. Committing
     // a card ran applyScreenId and applyConeId; the colour block's Component.onCompleted ran
-    // applyIntensity, applyWaterBodyFilter, applyMaxRange and applyScreenId, once, at
+    // applyIntensity, applyFilter, applyMaxRange and applyScreenId, once, at
     // startup. Nothing ran the whole set, and a demo or a file opened after startup ran none
     // of it - which is every symptom in Group B of the backlog in one sentence.
     //
@@ -4584,7 +4596,7 @@ ApplicationWindow  {
 
         applyDisplayTheme()
         applyIntensity()
-        applyWaterBodyFilter()
+        applyFilter()
         applyScreenId(pulseSettings.screenViewId)
         applyMaxRange()
     }
@@ -4647,36 +4659,43 @@ ApplicationWindow  {
         MosaicViewControlMenuController.onLevelChanged(mainview.mosaicBlackPoint, real)
     }
 
-    // THE BRANCH IS THE CLASSIC ONE, not a simplification of it. With the water body filter
-    // enabled the strength is floored at echogramWaterBodyMinRealValue - a tester upgrading
-    // into the default-on build can arrive with the slider at 0, which would leave the
-    // filter inactive while the switch reads "on" - and the old global low cut is set to
-    // zero. With it disabled the two swap over.
+    // THE FILTER, applied (filter-modes plan, step 2). One mode at a time, the strength
+    // under it; the mode and the strength are both the DISPLAY picture's own preference.
     //
-    // THE LOW CUT HAS TWO ROADS INTO THE PLOT, AND BOTH MUST CARRY THE SAME NUMBER (7 Nov
-    // 2026, found while building the filter modes). setFilteringValue() sets the echogram's
-    // low level directly; pulseSettings.filterRealValue reaches the SAME level through the
-    // settings bus (onFilterRealValueChanged -> Plot2DEchogram::applyPersistent -> setLevels),
-    // and the bus is coalesced on a timer and delivered queued. So this function used to set
-    // the low cut to 0 and the bus then set it back to the slider's real value a tick later:
-    // with the water body filter on, the global low cut was ALSO applied all along, at
-    // display x 2.5 (20 at the default 8). That is what darkened and re-scaled the bottom
-    // area under the water body filter. filterRealValue is now the low cut actually wanted,
-    // not the slider's real value, so the two roads agree.
-    function applyWaterBodyFilter() {
+    //   off   - water body 0, noise floor 0, low cut 0: the picture as measured, TVG applied
+    //   water - water body real/50, nothing else. No minimum any more: the mode is the switch
+    //           now, so slider 0 under Water means "no dimming", which is honest
+    //   whole - the TVG noise floor (with its knee) at display/20 on BOTH gain laws, 2D and
+    //           side scan, so the choice means the same thing on either picture; nothing else
+    //
+    // THE LOW CUT HAS TWO ROADS INTO THE PLOT, AND BOTH MUST CARRY THE SAME NUMBER.
+    // setFilteringValue() sets the echogram's low level directly; pulseSettings.filterRealValue
+    // reaches the SAME level through the settings bus, coalesced and queued - so whatever is
+    // written there wins a tick later (step 2a, 2fda60b2). It is 0 in every mode today; the
+    // expert compare switch of step 3 is the only thing that will ever make it otherwise.
+    //
+    // The floors are written to pulseRuntimeSettings, not to the plots: Plot2D's own handlers
+    // push echogramTvgNoiseFloor / sideScanTvgNoiseFloor to every pane, and onActiveModelChanged
+    // pushes them again on a swap. The expert steppers that used to write them are retired.
+    function applyFilter() {
         if (pulseSettings.uiVariant !== "v2")
             return
-        var real = pulseRuntimeSettings.displayFilterReal
-        var wbOn = pulseRuntimeSettings.echogramWaterBodyFilterEnabled
-        var wbf  = wbOn ? Math.max(real, pulseRuntimeSettings.echogramWaterBodyMinRealValue) : 0
-        var cut  = wbOn ? 0 : real
+        var mode    = pulseRuntimeSettings.displayFilterMode
+        var display = pulseRuntimeSettings.displayFilter
+        var wbf     = mode === "water" ? pulseRuntimeSettings.displayFilterReal / 50.0 : 0.0
+        var floor   = mode === "whole" ? Math.max(0, Math.min(20, display)) / 20.0   : 0.0
+        var cut     = 0
         pulseSettings.filterRealValue = cut
-        console.log("FILTER:", wbOn ? "water body" : "low cut", "| display",
-                    pulseRuntimeSettings.displayFilter, "-> wbf", (wbf / 50.0).toFixed(2), "cut", cut)
+        pulseRuntimeSettings.echogramTvgNoiseFloor = floor
+        pulseRuntimeSettings.sideScanTvgNoiseFloor = floor
+        console.log("FILTER: mode", mode, "|",
+                    pulseRuntimeSettings.displayIs2DTransducer ? "2D" : "side scan",
+                    "| display", display, "-> wbf", wbf.toFixed(2),
+                    "floor", floor.toFixed(2), "cut", cut)
         var panes = waterViewSecond.enabled ? [waterViewFirst, waterViewSecond] : [waterViewFirst]
         for (var i = 0; i < panes.length; ++i) {
             panes[i].setFilteringValue(cut)
-            panes[i].setWaterBodyFilter(wbf / 50.0)
+            panes[i].setWaterBodyFilter(wbf)
         }
         // AND THE MOSAIC IS NOT TOLD, which is the point rather than an omission. The
         // mosaic's levels follow intensity and nothing else now, so this applier has no

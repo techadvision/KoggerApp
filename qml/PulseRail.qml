@@ -327,8 +327,17 @@ Item {
         PulseRailButton {
             uiScale: rail.uiScale
             buttonId: "filter"
-            label: "Water body filter"
-            iconSource: "./icons/ui/pulse_filter.svg"
+            label: "Filter"
+            // THE ICON SAYS WHICH FILTER, THE BORDER SAYS WHETHER IT DOES ANYTHING - both
+            // read from the picture on screen (filter-modes plan, "The rail icon follows
+            // the mode"). Water body at strength 0 keeps its waves and loses the border.
+            readonly property string mode:
+                pulseRuntimeSettings ? pulseRuntimeSettings.displayFilterMode : "water"
+            iconSource: mode === "off"   ? "./icons/ui/pulse_filter_off.svg"
+                      : mode === "whole" ? "./icons/ui/pulse_filter_whole.svg"
+                      :                    "./icons/ui/pulse_filter_water.svg"
+            active: mode !== "off" && pulseRuntimeSettings !== null
+                    && pulseRuntimeSettings.displayFilter > 0
             onActivated: rail.buttonActivated(buttonId)
         }
     }
