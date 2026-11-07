@@ -12,6 +12,9 @@ epoch per pass, the dataset running ~2 epochs ahead of the chart counter). Built
   over the raw file, position-mapped to the epochs.
 - `bt.py` - the port (presets 0/1/2, window, vertical gap, min/max distance, gain slope, threshold; int32 semantics) and
   `realtime()`, which returns the final value per epoch and every publish in order (what the readout and NMEA see).
+  Since P4 of the motor-noise plan (7 Nov 2026) it drains the old window at a resolution change (the last W/2 epochs of
+  the old resolution, which never reached their publication point - two "no bottom" epochs before every change) and
+  scales the threshold with the epochs in the sum; both mirror `bottom_track_processor.cpp`.
 - `run2d.py <plog> "<preset,W,vgap,min,max,gain,thr>" <out.npz> [fill]` - runs it and saves values, ranges and the
   per-epoch peak score, mean and 95th percentile of the trace.
 - `feat.py` - per-epoch echo contrast (the trace peak within 0.1 m of the found bottom / the trace median past 0.4 m).

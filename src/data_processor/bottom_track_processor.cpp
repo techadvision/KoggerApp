@@ -277,6 +277,81 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
 
         const bool resolution_changed = !coeffs_initialized || std::fabs(resolution - active_resolution) > 1e-6f;
         if (resolution_changed) {
+            // P4 (motor-noise plan, 7 Nov 2026): DRAIN THE OLD WINDOW BEFORE IT IS CLEARED. The window is
+            // centred - epoch j is published when epoch j + windowSize/2 has been summed - and the reset
+            // below restarts the counter, so the last windowSize/2 epochs of the old resolution never
+            // reached their publication point, in this pass or any later one (every pass meets the same
+            // boundary): two "no bottom" epochs before every resolution change, 236 of the 238 in Olav's
+            // 6 Nov 16:06 recording, 70 of 72 in Andy's 3 Nov 11:42. The threshold was never the cause
+            // (both profiles run it at 0). So those epochs are searched now, on the old sum as it stands,
+            // the way the partial window is searched while it fills at the start - with the old
+            // resolution's coefficients, which is why this sits before they are recomputed. Only an
+            // epoch still without a value is written; tools/pulse-bt-bench/bt.py mirrors this.
+            if (coeffs_initialized && epoch_counter > 0) {
+                const int32_t* old_summ = summ.constData();
+                const int old_summ_size = summ.size();
+                for (int jepoch = std::max(epoch_min_index, iepoch - btP.windowSize / 2); jepoch < iepoch; ++jepoch) {
+                    const int jcounter = epoch_counter - (iepoch - 1 - jepoch);   // the counter when jepoch was summed
+                    if (jcounter < 1) {
+                        continue;
+                    }
+                    const int jslot = (jcounter - 1) % btP.windowSize;
+
+                    float search_from_distance = btP.minDistance;
+                    float search_to_distance = btP.maxDistance;
+                    if (search_from_distance < constr[jslot].min) { search_from_distance = constr[jslot].min; }
+                    if (search_to_distance > constr[jslot].max) { search_to_distance = constr[jslot].max; }
+
+                    int start_search_index = search_from_distance/t1/active_resolution;
+                    int end_search_index = search_to_distance/t1/active_resolution;
+                    if(start_search_index < 0) { start_search_index = 0; }
+                    if(start_search_index > old_summ_size) { start_search_index = old_summ_size; }
+                    if(end_search_index < 0) { end_search_index = 0; }
+                    if(end_search_index > old_summ_size) { end_search_index = old_summ_size; }
+
+                    int max_val = threshold_int * std::min(epoch_counter, btP.windowSize);
+                    int max_ind = -1;
+                    for(int i = start_search_index; i < end_search_index ; i++) {
+                        if(max_val < old_summ[i]) {
+                            max_val = old_summ[i];
+                            max_ind = i;
+                        }
+                    }
+                    if (max_ind <= 0) {
+                        continue;
+                    }
+
+                    float distance = ((max_ind + init_win_scaled + 1.0f) * t1) * active_resolution;
+                    if(epoch_counter >= btP.windowSize && btP.verticalGap > 0) {
+                        const int32_t* center_cash_data = cash[jslot].constData();
+                        const int center_cash_size = cash[jslot].size();
+                        int start_gap_index = max_ind*(1.0f-btP.verticalGap);
+                        int end_gap_index = max_ind*(1.0f+btP.verticalGap);
+                        if(start_gap_index < start_search_index) { start_gap_index = start_search_index; }
+                        if(start_gap_index > center_cash_size) { start_gap_index = center_cash_size; }
+                        if(end_gap_index < 0) { end_gap_index = 0; }
+                        if(end_gap_index > center_cash_size) { end_gap_index = center_cash_size; }
+                        if(end_gap_index > end_search_index) { end_gap_index = end_search_index; }
+                        int max_gap_val = 0;
+                        int max_gap_ind = -1;
+                        for(int i = start_gap_index; i < end_gap_index ; i++) {
+                            if(max_gap_val < center_cash_data[i]) {
+                                max_gap_val = center_cash_data[i];
+                                max_gap_ind = i;
+                            }
+                        }
+                        if(max_gap_ind > 0) {
+                            distance = ((max_gap_ind + init_win_scaled + 1.0f) * t1) * active_resolution;
+                        }
+                    }
+
+                    const int btIndex = jepoch - epoch_min_index;
+                    if (btIndex >= 0 && btIndex < bottom_track.size() && !std::isfinite(bottom_track[btIndex])) {
+                        bottom_track[btIndex] = distance;
+                    }
+                }
+            }
+
             const float samples_scale = kBottomTrackRefResolution / resolution;
 
             istart = std::max(0, static_cast<int>(std::lround(static_cast<float>(istart_ref) * samples_scale)));
@@ -402,7 +477,10 @@ void BottomTrackProcessor::bottomTrackProcessing(const DatasetChannel &channel1,
         if(end_search_index > summ.size()) { end_search_index = summ.size(); }
 
 
-        int max_val = threshold_int*btP.windowSize;
+        // P4: the threshold scales with the epochs actually in the sum, so the first epochs after a reset
+        // are judged like the partial window they are, not against a full one (a no-op at the profiles'
+        // threshold 0; right for an expert who sets one)
+        int max_val = threshold_int*std::min(epoch_counter, btP.windowSize);
         int max_ind = -1;
         for(int i = start_search_index; i < end_search_index ; i++) {
             if(max_val < summ_data[i]) {

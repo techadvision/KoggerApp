@@ -79,6 +79,33 @@ class Pass:
             if data is None or not res > 0:
                 continue
             if active_res is None or abs(res - active_res) > 1e-6:
+                if active_res is not None and counter > 0:
+                    # P4 (7 Nov 2026): drain the old window before it is cleared. Epoch j publishes when j + W//2 is
+                    # summed; the reset restarts the counter, so the last W//2 epochs of the old resolution never
+                    # get there. Searched now on the old sum, as the partial window is at the start, with the OLD
+                    # coefficients (before they are recomputed below). Mirrors bottom_track_processor.cpp.
+                    for j in range(max(emin, ie - W // 2), ie):
+                        cj = counter - (ie - 1 - j)
+                        if cj < 1: continue
+                        jslot = (cj - 1) % W
+                        ssi = int(np.float32(self.mind) / np.float32(t1) / np.float32(active_res)); esi = int(np.float32(self.maxd) / np.float32(t1) / np.float32(active_res))
+                        ssi = min(max(ssi, 0), len(summ)); esi = min(max(esi, 0), len(summ))
+                        mv = self.thr_int * min(counter, W); mi = -1
+                        if esi > ssi:
+                            seg = summ[ssi:esi]; q = int(np.argmax(seg))
+                            if seg[q] > mv: mi = ssi + q
+                        if mi <= 0: continue
+                        dist = (mi + init_win_scaled + 1.0) * t1 * active_res
+                        if counter >= W and self.vgap > 0:
+                            cc = cash[jslot]
+                            sg = max(int(mi * (1.0 - self.vgap)), ssi); sg = min(sg, len(cc))
+                            eg = min(max(int(mi * (1.0 + self.vgap)), 0), len(cc), esi)
+                            if eg > sg:
+                                seg = cc[sg:eg]; q = int(np.argmax(seg))
+                                if seg[q] > 0: dist = (sg + q + init_win_scaled + 1.0) * t1 * active_res
+                        k = j - emin
+                        if 0 <= k < len(bt) and not np.isfinite(bt[k]):
+                            bt[k] = dist; sc[k] = float(summ[mi]) / W
                 ss = np.float32(0.01) / np.float32(res)
                 istart = max(0, lround(float(istart_ref * ss)))
                 init_win_scaled = float(np.float32(init_win_ref) * ss)
@@ -111,7 +138,7 @@ class Pass:
             sf = self.mind; st = self.maxd
             ssi = int(np.float32(sf) / np.float32(t1) / np.float32(res)); esi = int(np.float32(st) / np.float32(t1) / np.float32(res))
             ssi = min(max(ssi, 0), len(summ)); esi = min(max(esi, 0), len(summ))
-            max_val = self.thr_int * W; max_ind = -1
+            max_val = self.thr_int * min(counter, W); max_ind = -1   # P4: the epochs actually in the sum
             if esi > ssi:
                 seg = summ[ssi:esi]
                 j = int(np.argmax(seg))
