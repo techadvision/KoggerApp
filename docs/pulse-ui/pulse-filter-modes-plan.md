@@ -152,6 +152,52 @@ margin" and the compare switch. Settings groups "Screen" and "Echogram".
 - Step 4 is the device pass below; the open items for Olav are the hint wording and whether Whole picture should be
   offered (or explained) where no PULSE TVG runs.
 
+## Step 5 - the 2D TVG for every user (added 7 Nov 2026, Olav)
+
+Missing from the plan until Olav pointed it out: a 2D user has no TVG control at all, while a side scan user has
+"Side scan TVG" + "Far-field gain" in Settings > Echogram. The same pair is to come for 2D. Olav's constraint: a user
+who switches the 2D TVG off while "Optimise for a second echo" is on loses the second echo - the gain is what lifts the
+echo at twice the depth. And the filter's "Whole picture" lives inside the TVG, so it does nothing with the TVG off.
+
+**Olav's decision: Off is offered, with a warning** - not hidden, not blocked. The switch's hint says, while
+"Optimise for a second echo" is on, that the second echo will be hard to see without the TVG (wording to confirm), and
+in either case that the filter's Whole picture needs the TVG.
+
+**The presets: checked offline first, on Olav's call.** `tools/pulse-tvg-presets/strips2d_gain.py` renders the same
+pings at TVG off and k = 0.5 / 0.6 / 0.75 / 0.9 / 1.05 / 1.2 / 1.4 dB/m (grey levels 0..80, i.e. intensity 10), with
+the bottom and twice the bottom marked, and measures the second echo's peak and its contrast against the band above
+it (1.5-1.8 x bottom). Strips and numbers in `testlogs/tvg2d-gain-strips/` (not in git). Second-echo contrast:
+
+| window                               | off  | 0.6  | 0.9  | 1.2  | saturated at 0.6 / 0.9 / 1.2 |
+|--------------------------------------|------|------|------|------|------------------------------|
+| Olav 15:42 (red, 2nd echo on), 3 m   | 0.32 | 0.47 | 0.37 | 0.26 | 7% / 14% / 29%               |
+| Olav 15:42, 5.7 m                    | 0.20 | 0.45 | 0.25 | 0.09 | 5% / 21% / 41%               |
+| Olav 16:06 (2nd echo on), 4 m        | 0.33 | 0.60 | 0.51 | 0.38 | 3% / 6% / 18%                |
+| Olav 16:06, 12 m                     | 0.03 | 0.28 | 0.33 | 0.03 | 1% / 24% / 44%               |
+| Andy 11:28 (black, noisy), 3.5 m     | 0.03 | 0.08 | 0.11 | 0.14 | 1% / 1% / 6%                 |
+
+What it says:
+- **TVG off is the worst for the second echo in every window** - Olav's concern confirmed by numbers.
+- On a strong signal (Olav's red) the second echo is clearest at 0.5-0.6 in shallow water; at 0.9 and above the
+  band under the bottom saturates and the second echo drowns in white, not in black. At 12 m the best is ~0.75-0.9.
+- On a weak signal (Andy's black) contrast keeps rising to 1.2 and saturation stays low - Bright is for him.
+- 1.4 adds nothing over 1.2 on Andy and saturates more everywhere.
+
+**Recommendation: Low 0.6 / Medium 0.9 / Bright 1.2**, Medium the default (today's picture, nobody's changes). Low
+is the second-echo choice on a strong transducer in shallow water, Bright the weak-signal choice. The intensity slider
+moves the saturation too, so these are relative, not absolute.
+
+**The shape**, the side scan pair's twin (`sideScanTvgOn` / `sideScanTvgLevel` / `sideScanTvgPresets`):
+- PulseSettings `echogramTvgOn` (bool, true) and `echogramTvgLevel` ("medium"), persistent.
+- PulseRuntimeSettings `echogramTvgPresets` {low 0.6, medium 0.9, high 1.2}; `echogramTvgDbPerMeter` becomes a
+  readonly binding: the expert `echogramTvgDbPerMeterOverride` when >= 0, else the preset. `echogramTvgEnabled`
+  gains the user switch exactly as `sideScanTvgEnabled` has `sideScanTvgUserOn`. The expert TVG 2D group's Gain
+  stepper writes the override and names the level it overrides, as the side scan Spreading stepper does; choosing a
+  level clears it.
+- Settings > Echogram, only on a 2D picture whose profile has the 2D TVG: "2D TVG" switch and "Depth gain" Low /
+  Medium / Bright under it (names to confirm).
+- PulseInfoExpert (classic) assigns `echogramTvgDbPerMeter` directly; classic is retired and not ported.
+
 ## The rail icon follows the mode
 
 **Three icons, one silhouette.** The funnel stays the button's identity - a user who has learned "the funnel is the

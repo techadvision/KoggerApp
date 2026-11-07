@@ -42,3 +42,14 @@ needed strength 1 to clear its fog and that took the bottom from red to green; t
 (full at the floor, none from 3 x floor up). At strength 1 on Andy's 11:28 the water column reads 0.04 against 0.03
 without the knee, the bottom peak 0.90 against 0.67, and the band under the bottom keeps 0.49 against 0.34
 (`*_knee.png` in the strips folder shows plain against knee side by side).
+
+## The 2D TVG levels - step 5 of the filter-modes plan (7 Nov 2026)
+
+`strips2d_gain.py` renders the same 2D pings at TVG off and k = 0.5 ... 1.4 dB/m, the bottom in red and twice the
+bottom in orange, and prints the second echo's peak and contrast (against 1.5-1.8 x bottom) and the saturated share.
+
+    python3 extract2d.py ../pulse-bt-bench "testlogs/plogs 061126/2D_pulse_log_2026.11.06_15.42.13.plog" ~/tvg2d/olav1542 fill
+    python3 strips2d_gain.py ~/tvg2d testlogs/tvg2d-gain-strips
+
+Caches it expects: olav1542, olav1606, andy1128, andy1142. Findings in `docs/pulse-ui/pulse-filter-modes-plan.md`,
+"Step 5".
