@@ -248,6 +248,25 @@ int main()
     CHECK(!rfVeto(NAN, 10.4f));
     CHECK(!rfVeto(0.32f, NAN));
 
+    // The held bottom (7 Nov 2026). The black at 810 kHz over 11.3 m, contrast 76, the last second within centimetres:
+    // held. The same with one 11.5 m jump in it (a harder layer for a ping): still held. The 30 Oct desk run, 32-35 m
+    // wandering by metres at a 50 m range: not held whatever its contrast. The 18 Oct red shore, steady at 7 m but
+    // contrast 1.4: not held. Too shallow (1.2 m - the rangefinder's business), no contrast, too few passes: not held.
+    {
+        const std::vector<float> deep = {11.30f, 11.32f, 11.29f, 11.31f, 11.30f, 11.33f, 11.30f, 11.28f, 11.31f, 11.30f};
+        CHECK(bottomHeld(11.30f, 76.0f, deep));
+        std::vector<float> jump = deep; jump[3] = 11.51f; jump[4] = 11.51f;
+        CHECK(bottomHeld(11.30f, 76.0f, jump));
+        const std::vector<float> desk = {35.04f, 34.99f, 34.73f, 34.01f, 34.25f, 32.28f, 35.06f, 33.67f, 34.61f, 32.9f};
+        CHECK(!bottomHeld(32.90f, 40.0f, desk));
+        const std::vector<float> redShore = {7.02f, 7.05f, 7.01f, 7.03f, 7.04f};
+        CHECK(!bottomHeld(7.03f, 1.4f, redShore));
+        CHECK(!bottomHeld(1.20f, 76.0f, std::vector<float>(5, 1.2f)));
+        CHECK(!bottomHeld(11.30f, NAN, deep));
+        CHECK(!bottomHeld(NAN, 76.0f, deep));
+        CHECK(!bottomHeld(11.30f, 76.0f, std::vector<float>{11.30f, 11.31f}));
+    }
+
     std::printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails ? 1 : 0;
 }

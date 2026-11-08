@@ -850,6 +850,8 @@ private:
     int    _passNewestP95 = -1;      // 95th percentile of the newest epoch's trace past 0.4 m (the quiet-trace test)
     int    _lastTraceP95 = -1;
     float  _passNewestRaw = NAN;     // the newest epoch's RAW bottom track (before the gates) - "at its floor"
+    float  _passNewestContrast = NAN;   // ... and its echo contrast (the held-bottom test)
+    bool   _lastBottomHeld = false;  // depthgates::bottomHeld() of the last pass: a quiet trace with a real bottom is not the shore
     std::deque<std::pair<qint64, bool>> _passQuietOrFloor;   // per pass: quiet trace, bottom track at its floor, or frozen
     std::deque<std::pair<qint64, float>> _passRawRecent;     // per pass: the newest epoch's raw bottom track, last ~1 s
     bool   _shoreState = false;      // see chooseDepth(); gates every epoch while true
@@ -862,7 +864,7 @@ private:
     int    _btFloor = 0;             // the BT: 10 s count
     int    _btSecond = 0;            // the BT: 10 s count
     int    _btP95Min = -1, _btP95Max = -1;   // the BT: 10 s count
-    void   notePassEpoch(int epochIndex, float stored, int traceP95, float raw);
+    void   notePassEpoch(int epochIndex, float stored, int traceP95, float raw, float contrast);
     void   publishPass();
     // THE CHOICE (P7) and the shore (P8)
     void   chooseDepth();

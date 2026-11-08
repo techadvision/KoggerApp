@@ -263,11 +263,39 @@ struct ChoiceParams {
     // frozenSpreadM over the last second, under frozenMaxM, votes for the shore like a floored one does.
     float frozenSpreadM = 0.03f;
     float frozenMaxM = 1.0f;
+    // THE HELD BOTTOM (7 Nov 2026, Olav's black at 710/810 kHz over 9-12 m). The black's own rangefinder gives up below
+    // ~9.3 m at 710/810 (it drops to its ringdown, 0.13-0.22) while the bottom track holds the bottom cleanly - and the
+    // black's deep trace is QUIET (p95 11-66: nothing past its ringdown but the bottom echo). Ringdown + quiet is the
+    // shore state's signature, so the depth went to a dash for minutes at a time in stable deep water. A quiet trace
+    // with a held bottom in it is not the shore: the quiet vote is withdrawn when the newest raw bottom track is at
+    // least heldMinM deep, its echo contrast is at least heldContrast, AND it agrees within max(heldSpreadAbsM,
+    // heldSpreadRel x depth) with two thirds of the last second's raw values. Bench (tools/pulse-bt-bench/shore.py,
+    // 16 recordings): the black's 3039 deep shore epochs (9.3-12.2 m, contrast median 76, 1st pct 52) all leave the shore
+    // state; every real shore stretch stays (18 Oct red: contrast <= 2.5 though often steady; Andy's black, 3 Nov:
+    // contrast up to 22 but never steady; 7 Nov red and black). The two tests guard each other. The floor and frozen
+    // votes are untouched, so the black lifted out of the water (frozen at 0.41-0.53) is the shore as before.
+    float heldMinM = 1.5f;
+    float heldContrast = 10.0f;
+    float heldSpreadAbsM = 0.3f;
+    float heldSpreadRel = 0.05f;
     float rfFreshS = 1.5f;      // a rangefinder older than this is silent
 };
 
 // a rangefinder reading that is a reading: the device sends 0.00 when it has none (the blue from 15:25 on 18 Oct)
 inline bool rfIsReading(float rf) { return std::isfinite(rf) && rf > 0.0f; }
+
+// THE HELD BOTTOM: a real bottom in the trace - deep enough, with an echo, and holding (see ChoiceParams). `lastSecond`
+// is the newest raw value of each pass of the last second (the frozen test's window), `raw` the newest of them.
+inline bool bottomHeld(float raw, float contrast, const std::vector<float>& lastSecond, const ChoiceParams& p = ChoiceParams())
+{
+    if (!std::isfinite(raw) || raw < p.heldMinM || !(contrast >= p.heldContrast) || lastSecond.size() < 3)
+        return false;
+    const float tol = std::max(p.heldSpreadAbsM, p.heldSpreadRel * raw);
+    int agree = 0;
+    for (float v : lastSecond)
+        if (std::fabs(v - raw) <= tol) ++agree;
+    return 3 * agree >= 2 * int(lastSecond.size());
+}
 
 // THE STEADY READING: the median of the last rfSteadySeconds of readings when they hold together, else NaN.
 // `readings` are the readings (rfIsReading) of that window, any order; `wasSteady` selects the hysteresis band.

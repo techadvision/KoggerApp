@@ -1386,6 +1386,8 @@ void Dataset::resetDataset()
     _shallowMode = false;
     _passQuietOrFloor.clear();
     _passRawRecent.clear();
+    _lastBottomHeld = false;
+    _passNewestContrast = NAN;
     _shoreState = false;
     _rfRingdown = false;
     _rfSteady = NAN;
@@ -1722,7 +1724,7 @@ void Dataset::onDistCompleted(int epIndx, const ChannelId& channelId, float dist
 
         int guardInterval = bottomTrackParam_.windowSize; // bottomTrack will proceed epIndx - guardInterval in next iteration
         int compIndx = epIndx > guardInterval ? epIndx - guardInterval : epIndx;
-        notePassEpoch(epIndx, dist, verdict.traceP95, rawDist);   // published once, at the end of the pass (P5)
+        notePassEpoch(epIndx, dist, verdict.traceP95, rawDist, verdict.contrast);   // published once, at the end of the pass (P5)
 
         emit bottomTrackAdded(compIndx);
     }
@@ -1750,6 +1752,7 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
         // a bottom on one side and none on the other.
         QHash<int, float> gatedByEpoch;
         QHash<int, int>   gatedP95;
+        QHash<int, float> gatedContrast;   // the held-bottom test reads it at the end of the pass (7 Nov 2026)
         for (const auto& update : updates) {
             if (update.epochIndex < 0 || update.epochIndex >= poolSize || gatedByEpoch.contains(update.epochIndex)) {
                 continue;
@@ -1769,6 +1772,7 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
             const float gated = gateBottomTrackLocked(ep, update.channelId, update.epochIndex, update.distance, maxD, verdict);
             gatedByEpoch.insert(update.epochIndex, gated);
             gatedP95.insert(update.epochIndex, verdict.traceP95);
+            gatedContrast.insert(update.epochIndex, verdict.contrast);
             for (const auto& rel : verdict.released) {   // a confirmed jump: the held epochs get their real value back
                 if (!gatedByEpoch.contains(rel.first))
                     gatedByEpoch.insert(rel.first, rel.second);
@@ -1823,7 +1827,8 @@ void Dataset::onDistCompletedBatch(const QVector<BottomTrackUpdate>& updates)
                 continue;
             }
 
-            notePassEpoch(update.epochIndex, stored, gatedP95.value(update.epochIndex, -1), update.distance);
+            notePassEpoch(update.epochIndex, stored, gatedP95.value(update.epochIndex, -1), update.distance,
+                          gatedContrast.value(update.epochIndex, NAN));
 
             const int guardInterval = bottomTrackParam_.windowSize;
             const int compIndx = update.epochIndex > guardInterval ? update.epochIndex - guardInterval : update.epochIndex;
@@ -1969,6 +1974,26 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
         v.traceP95 = depthgates::tracePercentile(reinterpret_cast<const uint8_t*>(c0->amplitude.constData()),
                                                  c0->amplitude.size(), c0->resolution, c0->offset, 95);
     }
+
+    // The echo contrast, on the trace the bottom track itself saw: a blue's two sides merged as (a + b) >> 2
+    // (bottom_track_processor.cpp), a red's single channel as is. Gate B reads it below; it is taken before the
+    // shore state and the floor return because the shore vote reads it too (the held bottom, 7 Nov 2026).
+    const uint8_t* trace = nullptr;
+    int traceN = 0;
+    if (c0 && c0->resolution > 0.0f && !c0->amplitude.isEmpty()) {
+        trace = reinterpret_cast<const uint8_t*>(c0->amplitude.constData());
+        traceN = c0->amplitude.size();
+        const Epoch::Echogram* c1 = ep.chartAvail(channelId, 1) ? ep.chart(channelId, 1) : nullptr;
+        if (c1 && c1->amplitude.size() == traceN && c1->resolution == c0->resolution) {
+            _gateTraceBuf.resize(traceN);
+            const uint8_t* b = reinterpret_cast<const uint8_t*>(c1->amplitude.constData());
+            for (int i = 0; i < traceN; ++i)
+                _gateTraceBuf[i] = uint8_t((uint16_t(trace[i]) + uint16_t(b[i])) >> 2);
+            trace = _gateTraceBuf.data();
+        }
+        v.contrast = depthgates::echoContrast(trace, traceN, c0->resolution, c0->offset, dist);
+    }
+
     if (!std::isfinite(dist)) {
         _gateBVoter.set(epochIndex, false, false);
         return NAN;
@@ -2021,24 +2046,8 @@ float Dataset::gateBottomTrackLocked(Epoch& ep, const ChannelId& channelId, int 
     // Gate A - geometry: the far end of what the search could reach is the search edge, not a bottom
     v.gateA = depthgates::gateA(dist, maxDistance, v.rangeM);
 
-    // Gate B - echo contrast, on the trace the bottom track itself saw: a blue's two sides merged as
-    // (a + b) >> 2 (bottom_track_processor.cpp), a red's single channel as is. A bottom with no echo over the
-    // trace's own noise floor is the search edge too - blue's 35 m cap, which A cannot see at 50 m per side.
-    const uint8_t* trace = nullptr;
-    int traceN = 0;
-    if (c0 && c0->resolution > 0.0f && !c0->amplitude.isEmpty()) {
-        trace = reinterpret_cast<const uint8_t*>(c0->amplitude.constData());
-        traceN = c0->amplitude.size();
-        const Epoch::Echogram* c1 = ep.chartAvail(channelId, 1) ? ep.chart(channelId, 1) : nullptr;
-        if (c1 && c1->amplitude.size() == traceN && c1->resolution == c0->resolution) {
-            _gateTraceBuf.resize(traceN);
-            const uint8_t* b = reinterpret_cast<const uint8_t*>(c1->amplitude.constData());
-            for (int i = 0; i < traceN; ++i)
-                _gateTraceBuf[i] = uint8_t((uint16_t(trace[i]) + uint16_t(b[i])) >> 2);
-            trace = _gateTraceBuf.data();
-        }
-        v.contrast = depthgates::echoContrast(trace, traceN, c0->resolution, c0->offset, dist);
-    }
+    // Gate B - echo contrast (v.contrast, taken above on the trace the bottom track saw). A bottom with no echo
+    // over the trace's own noise floor is the search edge too - blue's 35 m cap, which A cannot see at 50 m per side.
     const depthgates::Params gp;
     const bool farHalf = dist > gp.gateBFromFraction * depthgates::reachableEnd(maxDistance, v.rangeM, gp);
     _gateBVoter.set(epochIndex, true, farHalf && !(v.contrast >= gp.gateBContrast));
@@ -2209,12 +2218,13 @@ void Dataset::logShallowInstrument(int epochIndex, float btRaw, float rangeM)
 // ONE VALUE PER PASS (P5, 18 Oct 2026). A pass publishes epochs oldest to newest; the newest one that holds a
 // bottom (after the gates) is the pass's value. The gates make NaN common on purpose, so a pass whose every
 // epoch is NaN publishes NaN - "no bottom" - instead of being skipped.
-void Dataset::notePassEpoch(int epochIndex, float stored, int traceP95, float raw)
+void Dataset::notePassEpoch(int epochIndex, float stored, int traceP95, float raw, float contrast)
 {
     _passSeen = true;
     if (traceP95 >= 0)
         _passNewestP95 = traceP95;   // epochs arrive oldest to newest: the last one wins
     _passNewestRaw = raw;
+    _passNewestContrast = contrast;
     if (std::isfinite(stored) && epochIndex >= _passNewestEpoch) {
         _passNewestEpoch = epochIndex;
         _passNewestValue = stored;
@@ -2232,7 +2242,7 @@ void Dataset::publishPass()
         // the shore vote: this pass's newest epoch had a quiet trace, or its bottom track sat at the floor
         const depthgates::ChoiceParams cp;
         const int quietP95 = bottomTrackParam_.preset == BottomTrackPreset::BottomTrackSideScan ? cp.quietP95Blue : cp.quietP95Red;
-        const bool quiet = _passNewestP95 >= 0 && _passNewestP95 <= quietP95;
+        bool quiet = _passNewestP95 >= 0 && _passNewestP95 <= quietP95;
         const bool floor = std::isfinite(_passNewestRaw) && _passNewestRaw <= bottomTrackParam_.minDistance + cp.floorMargin;
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         // frozen: the raw bottom track has not moved over the last second (the black's ringdown, wherever it ends)
@@ -2246,6 +2256,19 @@ void Dataset::publishPass()
             for (const auto& s : _passRawRecent) { lo = std::min(lo, s.second); hi = std::max(hi, s.second); }
             frozen = hi - lo <= cp.frozenSpreadM && hi < cp.frozenMaxM;
         }
+        // the held bottom (7 Nov 2026): a quiet trace with a real bottom in it - deep, with an echo, holding - is deep
+        // water whose rangefinder has given up (the black at 710/810 kHz past ~9.3 m), not the shore. 2D only: the
+        // side scan path is unchanged.
+        _lastBottomHeld = false;
+        if (bottomTrackParam_.preset != BottomTrackPreset::BottomTrackSideScan && std::isfinite(_passNewestRaw)) {
+            std::vector<float> lastSecond;
+            lastSecond.reserve(_passRawRecent.size());
+            for (const auto& s : _passRawRecent)
+                lastSecond.push_back(s.second);
+            _lastBottomHeld = depthgates::bottomHeld(_passNewestRaw, _passNewestContrast, lastSecond, cp);
+        }
+        if (_lastBottomHeld)
+            quiet = false;
         _passQuietOrFloor.emplace_back(now, quiet || floor || frozen);
         while (!_passQuietOrFloor.empty() && now - _passQuietOrFloor.front().first > qint64(cp.shoreSeconds * 1000))
             _passQuietOrFloor.pop_front();
@@ -2255,6 +2278,7 @@ void Dataset::publishPass()
     _passNewestValue = NAN;
     _passNewestP95 = -1;
     _passNewestRaw = NAN;
+    _passNewestContrast = NAN;
 
     // The epochs are already gated and outlier-filtered (P3-P5b, at the write); the published value only
     // adds the mount offset (transducer below surface - the same convention as addRangefinder).
@@ -2343,7 +2367,7 @@ void Dataset::chooseDepth()
         // ... and the older rule for a silent rangefinder (a replay): no bottom, a quiet trace. The ANDY replay with
         // a desk device's 0.23 and the far features gated for 4 s over 3.5 m is neither: its trace is not quiet.
         const int quietP95 = bottomTrackParam_.preset == BottomTrackPreset::BottomTrackSideScan ? cp.quietP95Blue : cp.quietP95Red;
-        const bool quiet = _lastTraceP95 >= 0 && _lastTraceP95 <= quietP95;
+        const bool quiet = _lastTraceP95 >= 0 && _lastTraceP95 <= quietP95 && !_lastBottomHeld;
         onShore = _shoreState || (noBottom && quiet && (ringdown || !rfFresh));
         if (_shoreState)
             noBottom = true;

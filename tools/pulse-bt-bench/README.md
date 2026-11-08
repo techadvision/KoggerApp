@@ -33,6 +33,10 @@ epoch per pass, the dataset running ~2 epochs ahead of the chart counter). Built
 - `match.py` - checks the bench against the app's own `BT: epoch` lines in `pulse.log` (finds the epoch offset).
 - `rfsim.py <app log> <date> [HH:MM:SS-HH:MM:SS] [blue]` - the rangefinder's steady reading and its veto (analysis 11.3),
   replayed from an app log's `SHALLOW:` lines; `blue` switches the blue's own-zone floor.
+- `shore.py <plog...> [--rate 13] [--runs]` - the shore state (rangefinder at its ringdown + the quiet / floor / frozen vote)
+  and the held bottom (7 Nov 2026), from the `.plog` alone: per file the shore epochs without and with the held bottom.
+  The black at 810 kHz over 9.3-12.2 m (7 Nov 15:55 / 16:00): 3039 deep shore epochs, all taken out; every real shore
+  stretch of the 18 Oct, 3 Nov, 6 Nov and 7 Nov recordings stays. Re-run on those after any change to the shore state.
 - `benchb.py <bench dir> <testlogs dir>` - gate B's floor tried at several values on every blue recording (11.6).
 - `benchp11.py <bench dir>` - P11, the second echo, with and without, on every recording (11.7).
 - `sweep3a.py` / `sweep3b.py <sets...>` - the blue's parameter sets on ANDY through the whole pipeline (11.8).
