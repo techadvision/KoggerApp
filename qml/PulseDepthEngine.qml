@@ -462,7 +462,12 @@ Item {
 
     function searchOnNoBottom() {
         const now = Date.now()
-        if (dataset && (dataset.onShore || dataset.rangefinderAtRingdown || dataset.rangefinderSteady || dataset.bottomTrackAtFloor)) {
+        // 8 Nov 2026: the black at 710/810 kHz keeps its rangefinder at the ringdown in all water past ~9.3 m, so the
+        // ringdown alone must not hold the range there. A held bottom (deep, with an echo, holding - the same test that keeps
+        // the shore state out) that gate A rejects as the far end is a bottom out of reach: let the search widen the range.
+        // Seen in the 7 Nov 15:55 recording - 11.39 m in a 16.8 m range (0.68 > 0.675), the range never widened.
+        const ringdownHolds = dataset && dataset.rangefinderAtRingdown && !dataset.bottomHeld
+        if (dataset && (dataset.onShore || ringdownHolds || dataset.rangefinderSteady || dataset.bottomTrackAtFloor)) {
             // the range holds; nothing to look for on the shore - and not while the rangefinder hears only itself:
             // on 19 Oct the red's shore state flickered, the search took the range from 3 to 14 m and the far-end
             // noise followed it (no runaway, but no business searching with the rangefinder at 0.12 either).

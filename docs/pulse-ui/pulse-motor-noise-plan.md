@@ -117,3 +117,51 @@ Open from the set: the black-stripes expert setters (forward/backward steps) are
   supply ripple is unlikely to be the cause; Olav's view is that data loss on his link is, not motor ripple. To be
   taken up in a thread of its own (P6's territory - the link that cannot carry the plan), not in this one.
 
+
+## Status, 8 Nov 2026 (night) - the black past 9.3 m
+
+Found in Olav's 7 Nov field test with app 2.03 (`testlogs/Olav_071126`: plogs 15.45.27, 15.55.30, 16.00.56, app logs
+`pulse_07112026.log` and `pulse_fallout_troubleshooting.log` - the replays of 8 Nov 01:06-01:15). Not part of P1-P6, but
+on the same branch and found by P1's field test.
+
+- THE PROBLEM. The black at 710/810 kHz loses its rangefinder past ~9.3 m (it drops to its ringdown, 0.13-0.22) while
+  its deep trace is quiet (p95 11-66). Ringdown + quiet trace is the shore state's signature, so in stable 9-12 m water
+  with a clean bottom track the readout went to "-.-" for minutes (live 15:56:36 onwards). And with the depth dashed the
+  planner held the range: 16.8 m, asked at 9.1 m, never widened while the boat went to 11.4 m.
+- FIX 1 - THE HELD BOTTOM (`depth_gates.h` `bottomHeld()` + `ChoiceParams.held*`, `Dataset::publishPass` / `chooseDepth`,
+  2D presets only). The quiet vote is withdrawn when the newest raw bottom track is >= 1.5 m, its echo contrast >= 10, and
+  it agrees (within max(0.3 m, 5%)) with two thirds of the last second's passes. Floor and frozen votes untouched (the
+  black lifted out of the water, frozen at 0.41-0.53, is the shore as before); side scan untouched. Bench
+  `tools/pulse-bt-bench/shore.py` (new), 16 recordings: 3039 deep shore epochs out, every real shore stretch unchanged.
+  Unit cases in `tests/depth_gates_test.cpp`. The contrast reaches both `notePassEpoch` call sites - the single-epoch path
+  and the processor's batch path (the batch path first missed it: a build error, fixed by carrying the contrast per epoch
+  like the p95).
+- FIX 2 - THE SEARCH UNDER A RINGDOWN (`Dataset.bottomHeld` Q_PROPERTY, `PulseDepthEngine.searchOnNoBottom`). The search
+  for a bottom out of reach was blocked whenever the rangefinder sits at its ringdown - which the black does in ALL water
+  past 9.3 m. So a gate A rejection there (bottom past 0.675 of the range) could never widen the range: a permanent dash.
+  Now the ringdown blocks the search only when the bottom is not held. The shore, the steady shallow rangefinder and the
+  floor still hold the range. Worst case on the water: ~3 s of dash, then the range doubles.
+- WHAT A REPLAY SHOWS AND WHAT IT CANNOT. Fix 1 is visible in a replay: the 16.00.56 replay runs steady to 12.2 m. The
+  15.55.30 replay still has one ~6-10 s gap at 11.39 m (from ~1:06 in): gate A, not the shore and not the bottom track -
+  11.39 m in the 16.8 m range the OLD build left baked into that recording (0.68 > 0.675). That gap is correct behaviour
+  on a range the new build would not ask for, and it stays in that file. Fix 2, and the planner widening the range past
+  9.3 m, act only live (the planner is skipped in demo mode) - Olav's field test is the check. The bottom track
+  parameters are not involved: no dash in either file came from the bottom track.
+- MARGINS, measured on the two black plogs (`shore.py` features, contrast = bottom peak / trace median, median and 1st
+  percentile per metre): 3-5 m 3-5 (2); 6-7 m 37-48 (14-26); 9-12 m 75-98 (32-58). Contrast RISES with depth because the
+  water column gets quieter; the real shore stretches are <= 2.5 (Andy's black <= 22, never steady). The planner keeps
+  the bottom at ~0.58 of the range to 30 m (25 m -> 43 m, 860 x 50 mm @ 119 ms); the 1020 x 50 mm cap (51 m) lets gate A
+  reject real bottoms from ~34 m.
+- OPEN (Olav's question, 8 Nov: are the gates being fitted to the logs we have?). Gate A, gate B and the planner are
+  geometry; the held bottom's contrast floor was chosen from the recordings, with a wide gap (shore <= 2.5 / 22 unsteady,
+  deep water >= 14 at the 1st percentile). Untested past 12.2 m. The residual risk at ~25 m: a weak 800 kHz echo makes
+  the bottom track wander, the held test fails, and quiet trace + ringdown puts the black in the shore state again - which
+  also freezes the range. The principled fix is a step of its own, not done: the quiet vote counts only after the boat
+  was recently shallow (or at startup) - a boat cannot reach the shore from 11 m without passing the shallows, and a black
+  lifted out in deep water is caught by the frozen vote. Bench it on all 16 recordings before it goes in.
+- NEXT - Olav's field test (8 Nov): the black past 10 m with this build - the readout steady, the planner's range
+  following the depth (`DYNAMIC: plan` lines), no shore state in the `BT: last 10 s` lines. Deeper water (20-25 m) if he
+  finds it: bring the plog and the app log, run `shore.py` for the contrast at that depth.
+- In the working tree but NOT part of this fix: the 2.03 version bump (manifest, `version.txt`; the manifest has gained a
+  fourth identical `splash_screen_drawable` line) and the RED_HEADROOM switch (`PulsePerfEngine.js`, the red profile's
+  500 samples, the two check scripts). Commit them separately.

@@ -75,6 +75,7 @@ public:
     Q_PROPERTY(bool    rangefinderAtRingdown READ rangefinderAtRingdown NOTIFY chosenDepthChanged)   // hears nothing: ringdown or far-end noise
     Q_PROPERTY(bool    rangefinderSteady    READ rangefinderSteady  NOTIFY chosenDepthChanged)   // a steady reading under 1 m: the shallows are known, no search
     Q_PROPERTY(bool    bottomTrackAtFloor   READ bottomTrackAtFloor NOTIFY chosenDepthChanged)   // the raw bottom track at the tracker's floor: nearer than it resolves, no search
+    Q_PROPERTY(bool    bottomHeld           READ bottomHeld         NOTIFY chosenDepthChanged)   // a deep, echoing, holding raw bottom (depthgates::bottomHeld): water, so the search may run
 
     Q_PROPERTY(float boatLatitude             READ getBoatLatitude          NOTIFY lastPositionChanged)
     Q_PROPERTY(float boatLongitude            READ getBoatLongitude         NOTIFY lastPositionChanged)
@@ -166,6 +167,7 @@ public:
     bool    rangefinderAtRingdown() const { return _rfRingdown; }
     bool    rangefinderSteady() const { return std::isfinite(_rfSteady); }
     bool    bottomTrackAtFloor() const { return _btAtFloor; }
+    bool    bottomHeld() const { return _lastBottomHeld; }
     double smallAgreeMargin() const { return _kSmallAgreeMargin; }
     double largeJumpThreshold() const { return _kLargeJumpThreshold; }
     int consistNeeded() const { return _kConsistNeeded; }
