@@ -22,6 +22,19 @@ var LISTEN_MARGIN_MS = 3        // the firmware holds 2R/c + ~3 ms (9a, rows 2-3
 var HW_MAX_SAMPLES   = 5000     // the firmware's maximum (27 Sept)
 var SAMPLE_STEP      = 50
 
+// RED/BLACK LINK HEADROOM (7 Nov 2026) - ONE SWITCH. The 4 Oct link-fit plan fills the 115200
+// line to ~82% (600 samples at the 72 ms floor, deeper ranges up to 85%). That is clean on a
+// direct link (Olav, 7 Nov: 0.1% lost over the standard 2.4 GHz AP through a floor), but
+// boats with a wifi booster and/or a land station bridging the AP may need more forgiveness.
+// RED_HEADROOM true = the pre-4-Oct load: 500 samples at the floor (~69%) and every deeper
+// plan held to RED_BUDGET (72%). false = the 4 Oct link-fit (600 at ~82%, BUDGET 85%).
+// To re-introduce the 600: set false here AND set the red profile's chartSamples and
+// PulseRuntimeSettings.dynamicSamplesMin back to 600 - tools/pulse-perf-check.js fails
+// until the three agree. The blue's plan is untouched (it uses BUDGET).
+var RED_HEADROOM     = true
+var RED_BUDGET       = RED_HEADROOM ? 0.72 : BUDGET
+var RED_FLOOR_SAMPLES = RED_HEADROOM ? 500 : 600
+
 // What one ping of S samples (both channels counted) costs on the wire.
 function bytesPerPing(samples) {
     return Math.ceil(samples / FRAGMENT_SAMPLES) * FRAGMENT_BYTES + TEMP_FRAME_BYTES
@@ -170,7 +183,7 @@ function redPlan(p) {
     var sMax    = p.samplesMax > 0 ? p.samplesMax : 1020
     var poll    = p.pollBytesPerS >= 0 ? p.pollBytesPerS : POLL_BYTES_PER_S
     var rMm     = Math.max(1, p.rangeMm)
-    var budget  = BUDGET * wireBytesPerSecond(baud) - poll        // bytes/s for the pings
+    var budget  = RED_BUDGET * wireBytesPerSecond(baud) - poll    // bytes/s for the pings (RED_HEADROOM)
 
     // THE SAMPLES AT THE FLOOR ARE THE PROFILE'S (Olav, 4 Oct: "if we want 600 samples for
     // the red it should be in the profile"): p.floorSamples is the profile's chartSamples, so

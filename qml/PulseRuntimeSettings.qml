@@ -1746,7 +1746,7 @@ QtObject {
     property double dynamicResolutionTargetFraction: 0.6
     property int    dynamicResolution:      30      // Initial value for resolution in mm, this value is possible to manipulate to alter resolution based on conditions
     property bool   dynamicResolutionInit:  false   // The initial dynamic resolution was performed
-    property int    dynamicSamplesMin:      600     // = the red profile's chartSamples (4 Oct 2026); past 600 x 50 mm (30 m) the samples grow with the range
+    property int    dynamicSamplesMin:      500     // = the red profile's chartSamples; 500 while PulsePerfEngine.RED_HEADROOM is on (7 Nov 2026), 600 without it (4 Oct 2026)
     property int    dynamicSamplesMax:      1020
     property int    dynamicSamplesStep:     20
     property int    dynamicPeriodMin:       72      // The red/black ping floor, measured 4 Oct 2026 (~71.4 ms whatever is asked); the dynamic scheme never asks less
@@ -2814,7 +2814,9 @@ QtObject {
         // the profile"). At the 72 ms ping floor 600 samples load the 115200 link to ~82%
         // (measured 81.4-82.0%, 0.00% lost); 650 would be ~90%. The setup sends it and the
         // dynamic scheme spends it on detail - PulsePerfEngine.redPlan reads it from here.
-        "chartSamples":                 600,
+        // 500 (7 Nov 2026): PulsePerfEngine.RED_HEADROOM is on - ~69% of the link, for boats
+        // with a booster / land station. Back to 600 together with RED_HEADROOM = false.
+        "chartSamples":                 500,
         "chartOffset":                  0,
         "distMax":                      50000,
         "distDeadZone":                 0,

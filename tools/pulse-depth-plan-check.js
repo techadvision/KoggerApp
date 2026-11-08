@@ -52,7 +52,10 @@ const perf = fs.readFileSync(path.join(repo, "qml", "PulsePerfEngine.js"), "utf8
 const E = new Function(perf + "\nreturn { redPlan };")();
 
 // the runtime values as PulseRuntimeSettings.qml declares them for red/black
-const MARGIN_M = 2, RES_MIN = 2, RES_MAX = 50, SAMPLES_MIN = 600, SAMPLES_MAX = 1020, SAMPLES_STEP = 20;
+// SAMPLES_MIN is read from the QML (500 while PulsePerfEngine.RED_HEADROOM is on, 600 without)
+const RTS_QML = fs.readFileSync(path.join(repo, "qml", "PulseRuntimeSettings.qml"), "utf8");
+const SAMPLES_MIN = parseInt(RTS_QML.match(/property int\s+dynamicSamplesMin:\s*(\d+)/)[1], 10);
+const MARGIN_M = 2, RES_MIN = 2, RES_MAX = 50, SAMPLES_MAX = 1020, SAMPLES_STEP = 20;
 const GATE_A = 0.75 * 0.9;
 
 // the range the scheme asks for (what the DYNAMIC: plan line calls "range wanted"), in metres
@@ -78,7 +81,7 @@ function acquiredRangeM(depth, fraction, doubleEcho, deepening) {
         rangeMm = samples * RES_MAX;
     }
     const p = E.redPlan({ rangeMm, baud: 115200, floorMs: 72, periodMaxMs: 154, coarsestMm: RES_MAX,
-                          finestMm: RES_MIN, samplesMax: SAMPLES_MAX, floorSamples: 600, soundSpeed: 1480 });
+                          finestMm: RES_MIN, samplesMax: SAMPLES_MAX, floorSamples: SAMPLES_MIN, soundSpeed: 1480 });
     return p.rangeMm / 1000;
 }
 

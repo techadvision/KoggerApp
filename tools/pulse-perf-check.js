@@ -28,7 +28,7 @@ const path = require("path");
 const repo = path.resolve(__dirname, "..");
 const src = fs.readFileSync(path.join(repo, "qml", "PulsePerfEngine.js"), "utf8")
     .replace(/^\.pragma library\s*$/m, "");
-const E = new Function(src + "\nreturn { bytesPerPing, loadPercent, listenTimeMs, realPeriodMs, rangePerSideM, plan, chooseBaud, pulseCycles, BUDGET, bytesPerPingExact, loadPercentExact, redPlan, RED_PING_FLOOR_MS };")();
+const E = new Function(src + "\nreturn { bytesPerPing, loadPercent, listenTimeMs, realPeriodMs, rangePerSideM, plan, chooseBaud, pulseCycles, BUDGET, bytesPerPingExact, loadPercentExact, redPlan, RED_PING_FLOOR_MS, RED_HEADROOM, RED_BUDGET, RED_FLOOR_SAMPLES };")();
 
 let failures = 0;
 function check(cond, what) {
@@ -146,26 +146,32 @@ for (const [smp, t, meas] of desk) {
     check(near(pred, meas, 2.0), smp + " samples at " + t.toFixed(1) + " ms: predicted " + pred.toFixed(1) + "%, measured " + meas + "%");
 }
 
-console.log("red and black - the profile's samples at the floor");
+console.log("red and black - the profile's samples at the floor (RED_HEADROOM " + E.RED_HEADROOM + ", budget " + (E.RED_BUDGET * 100) + "%)");
+const RB = E.RED_BUDGET * 100;
 const rts = fs.readFileSync(path.join(repo, "qml", "PulseRuntimeSettings.qml"), "utf8");
 const redBlock = rts.slice(rts.indexOf("property var pulseRed:"), rts.indexOf("property var pulseRed:") + 2500);
 const profSamples = parseInt((redBlock.match(/"chartSamples":\s*(\d+)/) || [])[1], 10);
 const profPeriod  = parseInt((redBlock.match(/"ch1Period":\s*(\d+)/) || [])[1], 10);
 check(profPeriod === E.RED_PING_FLOOR_MS, "the red profile asks the ping floor: ch1Period " + profPeriod + " ms");
-check(E.loadPercentExact(profSamples, profPeriod, RED, 330) <= 85.0,
-      "the red profile's " + profSamples + " samples at " + profPeriod + " ms fit the 85% budget ("
+check(profSamples === E.RED_FLOOR_SAMPLES, "the red profile's chartSamples (" + profSamples + ") is RED_FLOOR_SAMPLES (" + E.RED_FLOOR_SAMPLES + ") - the switch and the profile agree");
+const dynMin = parseInt((rts.match(/property int\s+dynamicSamplesMin:\s*(\d+)/) || [])[1], 10);
+check(dynMin === profSamples, "dynamicSamplesMin (" + dynMin + ") is the profile's chartSamples");
+check(E.loadPercentExact(profSamples, profPeriod, RED, 330) <= RB,
+      "the red profile's " + profSamples + " samples at " + profPeriod + " ms fit the " + RB + "% budget ("
       + E.loadPercentExact(profSamples, profPeriod, RED, 330).toFixed(1) + "%)");
-check(E.loadPercentExact(profSamples + 50, profPeriod, RED, 330) > 85.0,
+check(E.loadPercentExact(profSamples + 50, profPeriod, RED, 330) > RB,
       "and 50 more would not - the profile spends what the link has (" + (profSamples + 50) + ": "
       + E.loadPercentExact(profSamples + 50, profPeriod, RED, 330).toFixed(1) + "%)");
 const pp = E.redPlan({ rangeMm: 5000, baud: RED, floorSamples: profSamples, finestMm: 2 });
 check(pp.samples === profSamples && pp.periodMs === 72, "the plan carries the profile's samples at the floor: " + pp.samples + " @ " + pp.periodMs);
 const big = E.redPlan({ rangeMm: 5000, baud: RED, floorSamples: 800, finestMm: 2 });
-check(big.periodMs > 72 && big.loadPercent <= 85.0, "a profile asking too many samples gets a longer period, not an overload (" + big.periodMs + " ms, " + big.loadPercent.toFixed(1) + "%)");
+check(big.periodMs > 72 && big.loadPercent <= RB, "a profile asking too many samples gets a longer period, not an overload (" + big.periodMs + " ms, " + big.loadPercent.toFixed(1) + "%)");
 
 console.log("red and black - the link-fit plan");
 const P = (r) => E.redPlan({ rangeMm: r, baud: RED, finestMm: 2, coarsestMm: 50, samplesMax: 1020, periodMaxMs: 154, floorMs: 72 });
-let p2 = P(25000);
+let p2;
+if (!E.RED_HEADROOM) {
+p2 = P(25000);
 check(p2.samples === 600 && p2.spacingMm === 42 && p2.periodMs === 72, "25 m (the shallow scheme's deepest): 600 x 42 mm at 72 ms (today 500 x 50 asked at 50, run at 71.4)");
 p2 = P(5000);
 check(p2.samples === 600 && p2.spacingMm === 9 && p2.periodMs === 72, "5 m: 600 x 9 mm at 72 ms (today 500 x 10)");
@@ -173,6 +179,17 @@ p2 = P(40000);
 check(p2.samples === 800 && p2.spacingMm === 50 && p2.periodMs === 92, "40 m: 800 x 50 mm at 92 ms - 10.9 pings/s, today 9.1 at 110");
 p2 = P(50000);
 check(p2.samples === 1000 && p2.periodMs === 115, "50 m: 1000 x 50 mm at 115 ms - 8.7 pings/s, today 6.7 at 150");
+} else {
+// RED_HEADROOM (7 Nov 2026): the pre-4-Oct shallow scheme, the deeper plans held to 72%
+p2 = P(25000);
+check(p2.samples === 500 && p2.spacingMm === 50 && p2.periodMs === 72, "headroom, 25 m: 500 x 50 mm at 72 ms (as before 4 Oct)");
+p2 = P(5000);
+check(p2.samples === 500 && p2.spacingMm === 10 && p2.periodMs === 72, "headroom, 5 m: 500 x 10 mm at 72 ms (as before 4 Oct)");
+p2 = P(40000);
+check(p2.samples === 800 && p2.periodMs === 109, "headroom, 40 m: 800 x 50 mm at 109 ms (before 4 Oct 110)");
+p2 = P(50000);
+check(p2.samples === 1000 && p2.periodMs === 136, "headroom, 50 m: 1000 x 50 mm at 136 ms (before 4 Oct 150)");
+}
 p2 = P(60000);
 check(p2.samples === 1020, "beyond 51 m the samples stop at 1020, as today");
 let redWorst = 0, everBelowFloor = false, everCoarse = false, everFewer = false, shrinks = false;
@@ -186,11 +203,12 @@ for (let r = 1000; r <= 60000; r += 250) {
     const todayT = r <= 25000 ? 1000 / 14.0 : Math.min(154, Math.max(72, 2 * Math.ceil(r / 500) - 50));
     if (q.periodMs > todayT + 1) everFewer = true;
 }
-check(redWorst <= 85.0, "nothing the plan can produce is above 85% of 115200 (worst " + redWorst.toFixed(1) + "%)");
+check(redWorst <= RB, "nothing the plan can produce is above " + RB + "% of 115200 (worst " + redWorst.toFixed(1) + "%)");
 check(!everBelowFloor, "never below the 72 ms floor");
 check(!everCoarse, "never coarser than 50 mm");
 check(!shrinks, "always acquires at least the range the scheme asked for");
-check(!everFewer, "never fewer pings than today at the same range");
+if (!E.RED_HEADROOM) check(!everFewer, "never fewer pings than today at the same range");
+else console.log("  --   headroom: 25-35 m may ping slower than before 4 Oct (that scheme ran 600 x 50 at ~82%) - by design");
 
 console.log(failures === 0 ? "\nAll performance arithmetic checks passed." : "\n" + failures + " check(s) FAILED.");
 process.exit(failures === 0 ? 0 : 1);
