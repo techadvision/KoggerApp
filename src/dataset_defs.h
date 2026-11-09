@@ -507,6 +507,29 @@ struct BottomTrackParam {
     } offset;
 };
 
+// THE TUNING of a bottom-track pass - everything in BottomTrackParam except the epoch range (indexFrom/indexTo).
+// BT_PARAM fix (9 Nov 2026, Lennard's live blue): a pass carries a COPY of the parameters it was started with,
+// and the Dataset used to write that copy back as the active parameters when the pass ended. A pass started
+// before the profile's values arrived (the code defaults: threshold 1.0, window 1) therefore wrote the defaults
+// back over the profile, and with threshold 1.0 no epoch ever had a bottom again. The tuning is now owned by
+// whoever SETS it (doDistProcessing / refreshDistParams / the setters); a pass only reports what it ran with.
+inline bool sameBottomTrackTuning(const BottomTrackParam& a, const BottomTrackParam& b)
+{
+    return a.preset == b.preset && a.windowSize == b.windowSize
+        && a.gainSlope == b.gainSlope && a.threshold == b.threshold && a.verticalGap == b.verticalGap
+        && a.minDistance == b.minDistance && a.maxDistance == b.maxDistance
+        && a.offset.x == b.offset.x && a.offset.y == b.offset.y && a.offset.z == b.offset.z;
+}
+
+inline QString bottomTrackTuningText(const BottomTrackParam& p)
+{
+    return QStringLiteral("preset %1 | window %2 | gain slope %3 | threshold %4 | vertical gap %5 | min %6 m | max %7 m")
+        .arg(int(p.preset)).arg(p.windowSize)
+        .arg(QString::number(p.gainSlope, 'f', 2), QString::number(p.threshold, 'f', 2),
+             QString::number(p.verticalGap, 'f', 2), QString::number(p.minDistance, 'f', 2),
+             QString::number(p.maxDistance, 'f', 1));
+}
+
 struct BottomTrackUpdate {
     int       epochIndex = -1;
     ChannelId channelId;

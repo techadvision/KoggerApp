@@ -861,10 +861,38 @@ void DataProcessor::bottomTrackProcessing(const DatasetChannel &ch1, const Datas
     }
 
     if (btBusy_) {
-        //qDebug() << "bt skip - busy";
+        // BT_PARAM fix (9 Nov 2026): DEFERRED, NOT DROPPED. Upstream returned here, so a doDistProcessing that met
+        // a running pass (a blue streaming before its setup is applied, an expert stepper moved while live or in a
+        // replay) never recalculated with the new tuning. The request is kept - several merge into one - and
+        // launched by onBottomTrackFinished() with the tuning active at THAT moment.
+        if (!btDeferred_.valid) {
+            btDeferred_.valid     = true;
+            btDeferred_.ch1       = ch1;
+            btDeferred_.ch2       = ch2;
+            btDeferred_.indexFrom = p.indexFrom;
+            btDeferred_.indexTo   = p.indexTo;
+            btDeferred_.manual    = manual;
+            btDeferred_.redrawAll = redrawAll;
+        } else {
+            btDeferred_.ch1       = ch1;   // the newest request's channels
+            btDeferred_.ch2       = ch2;
+            btDeferred_.indexFrom = std::min(btDeferred_.indexFrom, p.indexFrom);
+            btDeferred_.indexTo   = std::max(btDeferred_.indexTo, p.indexTo);
+            btDeferred_.manual    = btDeferred_.manual || manual;
+            btDeferred_.redrawAll = btDeferred_.redrawAll || redrawAll;
+        }
+        qDebug().noquote() << QStringLiteral("BT_PARAM: recalculation deferred, a pass is running | %1 | epochs %2..%3 | manual %4 | redraw all %5")
+                              .arg(bottomTrackTuningText(p)).arg(btDeferred_.indexFrom).arg(btDeferred_.indexTo)
+                              .arg(btDeferred_.manual ? QStringLiteral("true") : QStringLiteral("false"),
+                                   btDeferred_.redrawAll ? QStringLiteral("true") : QStringLiteral("false"));
         return;
     }
 
+    launchBottomTrackProcessing(ch1, ch2, p, manual, redrawAll);
+}
+
+void DataProcessor::launchBottomTrackProcessing(const DatasetChannel &ch1, const DatasetChannel &ch2, const BottomTrackParam &p, bool manual, bool redrawAll)
+{
     if (redrawAll) {
         bottomTrackFullRecalcPending_ = true;
     }
@@ -878,6 +906,36 @@ void DataProcessor::bottomTrackProcessing(const DatasetChannel &ch1, const Datas
                               Q_ARG(BottomTrackParam, p),
                               Q_ARG(bool, manual),
                               Q_ARG(bool, redrawAll));
+}
+
+// The deferred request, once the running pass has finished. The TUNING is read from the Dataset now - it is the
+// active one, and the reason for the request - and a redraw-all covers every epoch that exists by now.
+bool DataProcessor::launchDeferredBottomTrack()
+{
+    if (!btDeferred_.valid || !datasetPtr_) {
+        btDeferred_ = DeferredBottomTrack();
+        return false;
+    }
+    const DeferredBottomTrack req = btDeferred_;
+    btDeferred_ = DeferredBottomTrack();
+
+    BottomTrackParam p = datasetPtr_->getBottomTrackParam();
+    if (req.redrawAll) {
+        p.indexFrom = 0;
+        p.indexTo   = datasetPtr_->sizeThreadSafe();
+    } else {
+        p.indexFrom = req.indexFrom;
+        p.indexTo   = req.indexTo;
+    }
+
+    qDebug().noquote() << QStringLiteral("BT_PARAM: launching the deferred recalculation | %1 | epochs %2..%3 | manual %4 | redraw all %5")
+                          .arg(bottomTrackTuningText(p)).arg(p.indexFrom).arg(p.indexTo)
+                          .arg(req.manual ? QStringLiteral("true") : QStringLiteral("false"),
+                               req.redrawAll ? QStringLiteral("true") : QStringLiteral("false"));
+
+    btBusy_ = true;   // the auto scheduler waits for it (onBottomTrackStarted/Finished take over from here)
+    launchBottomTrackProcessing(req.ch1, req.ch2, p, req.manual, req.redrawAll);
+    return true;
 }
 
 void DataProcessor::setBottomTrackZeroDepth(bool state)
@@ -1620,11 +1678,14 @@ void DataProcessor::onBottomTrackFinished()
     btBusy_ = false;
 
     if (resetInProgress_.load()) {
+        btDeferred_ = DeferredBottomTrack();
         tryFinalizeResetProcessing();
         return;
     }
 
-    tryScheduleAutoBottomTrack(epochCounter_);
+    if (!launchDeferredBottomTrack()) {
+        tryScheduleAutoBottomTrack(epochCounter_);
+    }
 
     if (!forceVisibleRefreshAfterBottomTrack_) {
         return;
@@ -1814,6 +1875,7 @@ void DataProcessor::clearBottomTrackProcessing()
 {
     bottomTrackWindowCounter_ = 0;
     btBusy_ = false;
+    btDeferred_ = DeferredBottomTrack();
     forceVisibleRefreshAfterBottomTrack_ = false;
 
     QMetaObject::invokeMethod(btWorker_, "clearBottomTrack", Qt::QueuedConnection);
@@ -1866,6 +1928,7 @@ void DataProcessor::clearAllProcessings()
     epochToBottomTrackVertIndx_.clear();
     bottomTrackWindowCounter_ = 0;
     btBusy_ = false;
+    btDeferred_ = DeferredBottomTrack();
     forceVisibleRefreshAfterBottomTrack_ = false;
 
     QMetaObject::invokeMethod(worker_, "clearAll", Qt::QueuedConnection);

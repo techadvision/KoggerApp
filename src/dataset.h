@@ -832,6 +832,12 @@ private:
     qint64 _rangefinderLiveMs       = 0;
     // the BT: instrument (logBottomTrackInstrument)
     qint64 _btLastLineMs = 0, _btWindowStartMs = 0;
+    // the BT_PARAM: instrument (9 Nov 2026) - the tuning a pass ran with against the active one
+    void   logBottomTrackParamInstrument(const BottomTrackParam& passParam, bool stale);
+    qint64 _btParamWindowStartMs = 0, _btParamStaleLastMs = 0;
+    int    _btParamPasses = 0, _btParamStale = 0;
+    BottomTrackParam _btParamLogged;
+    bool   _btParamLoggedValid = false;
     int    _btN = 0, _btFar = 0, _btDisagree = 0, _btNone = 0, _btLines = 0;
     float  _btRatioMax = 0, _btMin = NAN, _btMax = NAN, _rfMin = NAN, _rfMax = NAN;
     qint64 _shallowLastLineMs = 0;   // the SHALLOW: instrument

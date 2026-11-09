@@ -224,6 +224,8 @@ private:
     // this
     void changeState(const DataProcessorType& state);
     void clearBottomTrackProcessing();
+    void launchBottomTrackProcessing(const DatasetChannel& ch1, const DatasetChannel& ch2, const BottomTrackParam& p, bool manual, bool redrawAll);
+    bool launchDeferredBottomTrack();
     void clearIsobathsProcessing();
     void clearMosaicProcessing();
     void clearSurfaceProcessing();
@@ -333,6 +335,17 @@ private:
     std::atomic_bool       nextRunPending_;
     std::atomic<uint32_t>  requestedMask_;
     bool                   btBusy_;
+    // BT_PARAM fix (9 Nov 2026): a bottomTrackProcessing() request that met a running pass, launched when it ends
+    struct DeferredBottomTrack {
+        bool           valid = false;
+        DatasetChannel ch1;
+        DatasetChannel ch2;
+        int            indexFrom = 0;
+        int            indexTo = 0;
+        bool           manual = false;
+        bool           redrawAll = false;
+    };
+    DeferredBottomTrack    btDeferred_;
     bool                   forceVisibleRefreshAfterBottomTrack_ = false;
     // hot cache/db
     HotTileCache           hotCache_; // LRU

@@ -2182,6 +2182,44 @@ void Dataset::logBottomTrackInstrument(int epochIndex, float btRaw, const GateVe
     }
 }
 
+// THE BT_PARAM: INSTRUMENT (9 Nov 2026, the stale-tuning fix). Live and in a replay alike, per finished pass:
+//  - "BT_PARAM: active tuning -> ..." whenever the tuning the next passes will use changes (and once at the start),
+//  - "BT_PARAM: stale pass ..." when a pass ran with a tuning other than the active one (it was started before
+//    the tuning changed); its tuning is reported and NOT adopted - at most one line a second,
+//  - "BT_PARAM: last 10 s | passes N | stale M | active ..." every 10 s while passes run.
+// What to read: the active line must show the profile's values (blue: window 15, gain slope 0.50, threshold 0.00,
+// min 0.25 m) for the whole session; a stale pass is expected right after a connect or an expert change and must
+// never be followed by an active line with the code defaults (window 1, threshold 1.00, min 0.00 m).
+void Dataset::logBottomTrackParamInstrument(const BottomTrackParam& passParam, bool stale)
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (_btParamWindowStartMs == 0)
+        _btParamWindowStartMs = now;
+
+    ++_btParamPasses;
+    if (stale) {
+        ++_btParamStale;
+        if (now - _btParamStaleLastMs >= 1000) {
+            _btParamStaleLastMs = now;
+            qDebug().noquote() << QStringLiteral("BT_PARAM: stale pass | it ran with %1 | kept active %2 (not overwritten)")
+                                  .arg(bottomTrackTuningText(passParam), bottomTrackTuningText(bottomTrackParam_));
+        }
+    }
+
+    if (!_btParamLoggedValid || !sameBottomTrackTuning(_btParamLogged, bottomTrackParam_)) {
+        qDebug().noquote() << QStringLiteral("BT_PARAM: active tuning -> %1").arg(bottomTrackTuningText(bottomTrackParam_));
+        _btParamLogged = bottomTrackParam_;
+        _btParamLoggedValid = true;
+    }
+
+    if (now - _btParamWindowStartMs >= 10000) {
+        qDebug().noquote() << QStringLiteral("BT_PARAM: last 10 s | passes %1 | stale %2 | active %3")
+                              .arg(_btParamPasses).arg(_btParamStale).arg(bottomTrackTuningText(bottomTrackParam_));
+        _btParamWindowStartMs = now;
+        _btParamPasses = _btParamStale = 0;
+    }
+}
+
 // THE SHALLOW: INSTRUMENT (P2 of the depth-source plan, 18 Oct 2026) - no behaviour change. The BT: line
 // prints at most once a second and only on a would-be rejection, so the 18 Oct run left ~85 shallow lines:
 // not enough to set the crossover between the rangefinder and the bottom track (analysis 1.7, 4.1). This
@@ -2397,7 +2435,14 @@ void Dataset::chooseDepth()
 
 void Dataset::onLastBottomTrackEpochChanged(const ChannelId& channelId, int val, const BottomTrackParam& btP, bool manual, bool redrawAll)
 {
-    bottomTrackParam_ = btP;
+    // BT_PARAM fix (9 Nov 2026): the pass reports its epoch range, NOT the tuning. btP is the copy the pass was
+    // started with; writing it back whole (upstream's bottomTrackParam_ = btP) let a pass that started before
+    // doDistProcessing put the code defaults back over the profile for the rest of the session (Lennard's
+    // 2.03 live blue: threshold 1.0, no bottom on any ping, the readout at "-.-" and the water body filter idle).
+    const bool stale = !sameBottomTrackTuning(btP, bottomTrackParam_);
+    bottomTrackParam_.indexFrom = btP.indexFrom;
+    bottomTrackParam_.indexTo   = btP.indexTo;
+    logBottomTrackParamInstrument(btP, stale);
     lastBottomTrackEpoch_ = val;
     publishPass();
 
