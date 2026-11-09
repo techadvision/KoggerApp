@@ -1697,10 +1697,17 @@ QtObject {
     }
 
     // THE PINCH'S CLAMP, published to the C++ as maximumDepth (Plot2D's zoomDistance) and read
-    // by Plot2D.qml's pinch: the device's maximumDepth, raised to the side scan's ceiling
-    // whenever that is raised - live in performance mode and during playback alike.
+    // by Plot2D.qml's pinch. A 2D picture keeps the device's maximumDepth. A side scan picture
+    // (both its panes) takes the SAME ceiling the Max range sliders use - displayMaxRangeCeiling:
+    // the Side scan width, or the raised ceiling in performance mode and its playback.
+    //
+    // FIXED 9 Nov 2026: the side scan used to clamp to maximumDepth, which is assigned the
+    // Side scan width only at setup (DeviceItem, the connection screen) and holds the profile's
+    // 25 otherwise - choosing 35 m in Settings moved the sliders to 35 but left the pinch
+    // stopped at 25. Reading the live width here is backlog item 11's rule applied to the
+    // pinch: one binding, no assignment to keep in step.
     readonly property int rangeClampM:
-        (!displayIs2DTransducer && maxRangeCeilingOverride > maximumDepth) ? maxRangeCeilingOverride : maximumDepth
+        (!displayIs2DTransducer && displayMaxRangeCeiling > 0) ? displayMaxRangeCeiling : maximumDepth
 
     readonly property int displayMaxRangeCeiling:
           displayIs2DTransducer       ? committedProfile.maximumDepth
