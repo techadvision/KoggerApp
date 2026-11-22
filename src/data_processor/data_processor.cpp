@@ -1243,11 +1243,19 @@ void DataProcessor::onMosaicEpochsProcessed(const QVector<int>& indxs, int zoom)
         zoom = zoomFromMpp(tileResolution_);
     }
 
+    // PULSE (22 Nov 2026): A REPORT FOR ANOTHER ZOOM TAKES NOTHING OUT OF THIS ZOOM'S QUEUE.
+    // A bundle that was being painted when the zoom changed reports its epochs afterwards, for
+    // the OLD zoom. They have just been queued again for the new one, and removing them here
+    // left them unpainted at the new zoom - a hole in the mosaic that nothing repaired.
+    const bool forCurrentZoom = !isValidZoomIndx(lastDataZoomIndx_) || zoom == lastDataZoomIndx_;
+
     auto& processed = mosaicTaskEpochIndxsByZoom_[zoom];
     for (int idx : indxs) {
         processed.insert(idx);
-        pendingMosaicIndxs_.remove(idx);
-        mosaicInFlightIndxs_.remove(idx);
+        if (forCurrentZoom) {
+            pendingMosaicIndxs_.remove(idx);
+            mosaicInFlightIndxs_.remove(idx);
+        }
     }
 }
 
@@ -2362,6 +2370,11 @@ void DataProcessor::onUpdateDataZoom(int zoom) // calc or db
     pendingMosaicIndxs_.clear();
     mosaicInFlightIndxs_.clear();
     pendingSurfaceIndxs_.clear();
+    // PULSE (22 Nov 2026): the queue was just emptied, so "what was visible before has been
+    // painted or is queued" no longer holds. The next camera pass queues EVERYTHING visible,
+    // also when the zoom came back to where it was (3 -> 4 -> 3 inside one pinch) and the
+    // visible tiles look unchanged.
+    mosaicRequeueVisiblePending_ = true;
 
     lastDataZoomIndx_ = zoom;
 
@@ -2452,7 +2465,7 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
 
     // rect
     const QRectF viewRect(QPointF(minX, minY), QPointF(maxX, maxY));
-    if (viewRect == lastViewRect_) {
+    if (viewRect == lastViewRect_ && !mosaicRequeueVisiblePending_) {
         return;
     }
 
@@ -2462,6 +2475,12 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
     const auto tiles = mosaicIndexProvider_.tilesInQuadNed(visQuad, reqZoom, 1); // new
     if (tiles == lastVisTileKeys_) {
         lastViewRect_ = viewRect;
+        if (mosaicRequeueVisiblePending_ && (updateMosaic_ || updateSurface_)) {
+            mosaicRequeueVisiblePending_ = false;
+            qInfo().noquote() << "MOSAIC: everything visible is queued again | after a zoom change | zoom" << reqZoom;
+            pumpVisible();
+            onCameraMoved();
+        }
         return;
     }
 
@@ -2520,10 +2539,14 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
 
     // PULSE (22 Nov 2026): at an unchanged zoom, only the tiles that came into view need epochs
     // queued for them. See onCameraMoved.
-    if (lastVisTilesZoomBeforeMove == reqZoom) {
+    if (lastVisTilesZoomBeforeMove == reqZoom && !mosaicRequeueVisiblePending_) {
         cameraAddedTileKeys_ = reopenTiles;
         cameraAddedTilesValid_ = true;
     }
+    else {
+        qInfo().noquote() << "MOSAIC: everything visible is queued again | after a zoom change | zoom" << reqZoom;
+    }
+    mosaicRequeueVisiblePending_ = false;
     onCameraMoved();
     cameraAddedTilesValid_ = false;
     cameraAddedTileKeys_.clear();

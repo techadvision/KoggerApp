@@ -384,6 +384,8 @@ private:
     // Valid for the one onCameraMoved() call onSendDataRectRequest makes right after setting it.
     QSet<TileKey> cameraAddedTileKeys_;
     bool cameraAddedTilesValid_ = false;
+    // PULSE: the mosaic queue was emptied (zoom change) - the next camera pass queues all that is visible.
+    bool mosaicRequeueVisiblePending_ = false;
     // PULSE: the backlog log - one line when old mosaic epochs pile up, one when they are gone.
     bool mosaicBacklogActive_ = false;
     int  mosaicBacklogPeak_ = 0;
