@@ -242,6 +242,8 @@ public:
     DatasetState getState() const;
     LLARef getLlaRef() const;
     void setLlaRef(const LLARef& val, LlaRefState state);
+    // PULSE: the origin the last session ended on. Kept for the log line only, never applied.
+    void notePreviousSessionOrigin(const LLARef& val) { previousSessionOrigin_ = val; }
 
     inline int size() const {
         return pool_.size();
@@ -732,6 +734,7 @@ private:
     mutable QReadWriteLock tileEpochIdxMtx_;
 
     LLARef _llaRef;
+    LLARef previousSessionOrigin_;
     LlaRefState llaRefState_ = LlaRefState::kUndefined;
     DatasetState state_ = DatasetState::kUndefined;
     DataInterpolator interpolator_;

@@ -138,6 +138,21 @@ void Dataset::setLlaRef(const LLARef &val, LlaRefState state)
 
         emit updatedLlaRef();
         //qDebug() << "Dataset::setLlaRef setted" << _llaRef.refLla.latitude << _llaRef.refLla.longitude << static_cast<int>(llaRefState_);
+
+        // PULSE (22 Nov 2026): the map origin, said once per change. The mosaic and the camera are
+        // both placed against it, so this line is where "the map is on the wrong water" is read.
+        if (_llaRef.isInit) {
+            const char* src = state == LlaRefState::kConnection ? "live" : (state == LlaRefState::kFile ? "file" : "other");
+            QString fromSaved = QStringLiteral("no saved origin");
+            if (previousSessionOrigin_.isInit) {
+                const double d = distanceMetersLLA(previousSessionOrigin_.refLla.latitude, previousSessionOrigin_.refLla.longitude,
+                                                   _llaRef.refLla.latitude, _llaRef.refLla.longitude);
+                fromSaved = QStringLiteral("%1 m from the last session's origin").arg(d, 0, 'f', 0);
+            }
+            qInfo().noquote() << "MOSAIC: origin | set from the first" << src << "fix |"
+                              << QString::number(_llaRef.refLla.latitude, 'f', 6) << QString::number(_llaRef.refLla.longitude, 'f', 6)
+                              << "|" << fromSaved;
+        }
     }
 }
 

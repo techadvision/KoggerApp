@@ -3839,7 +3839,20 @@ void Core::loadLLARefFromSettings()
             ref.isInit = false;
         }
 
-        datasetPtr_->setLlaRef(ref, Dataset::LlaRefState::kUndefined/*kSettings*/); // TODO!!!
+        // PULSE (22 Nov 2026): THE SAVED ORIGIN IS NOT RESTORED. Restored, it counts as valid, and
+        // Dataset::addPosition only sets an origin when there is none - so a session on another
+        // water kept the last one's origin, the camera stayed on it and the mosaic was drawn
+        // kilometres off screen. Upstream is rescued by tryResetDataset firing on the first fix
+        // (the step from 0/0), which Pulse skips so the live echogram is not wiped. Pulse always
+        // has its own position, so the first fix sets the origin. The saved one is only logged.
+        //datasetPtr_->setLlaRef(ref, Dataset::LlaRefState::kUndefined/*kSettings*/); // TODO!!!
+        datasetPtr_->notePreviousSessionOrigin(ref);
+        if (ref.isInit) {
+            qInfo().noquote() << "MOSAIC: origin | saved origin ignored |"
+                              << QString::number(ref.refLla.latitude, 'f', 6) << QString::number(ref.refLla.longitude, 'f', 6);
+        } else {
+            qInfo().noquote() << "MOSAIC: origin | no saved origin";
+        }
 
         //qDebug() << "loaded: " << ref.refLla.latitude << ref.refLla.longitude;
     }
