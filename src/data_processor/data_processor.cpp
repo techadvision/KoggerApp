@@ -627,8 +627,20 @@ void DataProcessor::onCameraMoved()
         }
     }
 
+    // PULSE (22 Nov 2026): A PAN QUEUES THE EPOCHS OF THE TILES IT BROUGHT INTO VIEW, NOT OF
+    // EVERY VISIBLE TILE. An epoch whose swath reaches outside the visible tiles is never
+    // reported as processed (MosaicProcessor blocks it, so that its hidden part is painted
+    // when that part comes into view). Zoomed in, that is nearly every epoch - so each change
+    // of the visible tiles queued the whole visible history again, oldest first, and the scan
+    // line waited behind it (log: "MOSAIC: backlog | 2090 epochs | 5 .. 3744"). With Centre on
+    // boat the tiles change all the time. What was visible before the move has had its visible
+    // part painted already; only the tiles that came in have anything new to paint.
+    const QSet<int> addedTilesMosaicEpochs = (updateMosaic_ && cameraAddedTilesValid_)
+        ? collectEpochsForTilesSet(zoom, cameraAddedTileKeys_) : QSet<int>();
+    const QSet<int>& mosaicEpochsToQueue = cameraAddedTilesValid_ ? addedTilesMosaicEpochs : visibleMosaicEpochs;
+
     if (updateMosaic_) {
-        for (int itm : std::as_const(visibleMosaicEpochs)) {
+        for (int itm : std::as_const(mosaicEpochsToQueue)) {
             if (itm < mosaicLowAllowed) {
                 continue;
             }
@@ -2415,6 +2427,7 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
         return;
     }
 
+    const int lastVisTilesZoomBeforeMove = lastVisTilesZoom_;
     QSet<TileKey> addedTiles;
     if (lastVisTilesZoom_ == reqZoom) {
         addedTiles = tiles;
@@ -2467,7 +2480,15 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
 
     pumpVisible();
 
+    // PULSE (22 Nov 2026): at an unchanged zoom, only the tiles that came into view need epochs
+    // queued for them. See onCameraMoved.
+    if (lastVisTilesZoomBeforeMove == reqZoom) {
+        cameraAddedTileKeys_ = reopenTiles;
+        cameraAddedTilesValid_ = true;
+    }
     onCameraMoved();
+    cameraAddedTilesValid_ = false;
+    cameraAddedTileKeys_.clear();
 }
 
 void DataProcessor::tryCalcTiles()

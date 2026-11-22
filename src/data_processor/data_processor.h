@@ -379,6 +379,10 @@ private:
     QVector<QHash<TileKey, QVector<int>>> tileEpochIndxsByZoom_;
 
     QSet<TileKey> lastVisTileKeys_;
+    // PULSE: the tiles the last camera move brought into view (plus their visible neighbours).
+    // Valid for the one onCameraMoved() call onSendDataRectRequest makes right after setting it.
+    QSet<TileKey> cameraAddedTileKeys_;
+    bool cameraAddedTilesValid_ = false;
     int lastVisTilesZoom_;
     int lastDataZoomIndx_;
 
