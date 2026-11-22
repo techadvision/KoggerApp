@@ -1395,6 +1395,18 @@ void DataProcessor::runCoalescedWork()
         }
         if (!wb.mosaicVec.isEmpty()) {
             std::sort(wb.mosaicVec.begin(), wb.mosaicVec.end());
+
+            // PULSE (22 Nov 2026), DIAGNOSTIC: a bundle that carries a backlog. The epochs are
+            // painted oldest first and the scan line only moves forward, so while a backlog is
+            // painted the line waits. Suspected cause of the scan line pausing with Centre on
+            // boat on: the map pans into tiles not yet painted at this zoom. Said only for
+            // bundles reaching more than 100 epochs behind the newest ping.
+            const int oldest = wb.mosaicVec.first();
+            if (mosaicCounter_ - oldest > 100) {
+                qInfo().noquote() << "MOSAIC: backlog |" << wb.mosaicVec.size() << "epochs |"
+                                  << oldest << ".." << wb.mosaicVec.last()
+                                  << "| newest ping" << mosaicCounter_ << "| zoom" << mosaicZoom;
+            }
         }
     }
 
