@@ -969,12 +969,21 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
             return nullptr;
         }
 
-        if (headIndx > t->getHeadIndx()) {
-            const int tileX = x % tileSidePixelSize_;
-            const int tileY = y % tileSidePixelSize_;
+        // PULSE (22 Nov 2026): AN OLDER EPOCH MAY FILL AN EMPTY PIXEL. Upstream paints a pixel
+        // only when the epoch is newer than the newest one the TILE has seen (its head). That
+        // keeps a newer pass on top, but it also means that once a newer ping has touched a
+        // tile, nothing older can ever be painted into it - not even where the tile is still
+        // empty. The live pings now go first and the old epochs follow in portions, so after a
+        // zoom change (blank tiles) every tile near the boat refused the whole repaint: the
+        // wedges and the missing mid section in Olav's screenshots of 22 Nov. An older epoch
+        // still never paints OVER anything; 0 is the empty index (mosaic.fsh discards it).
+        const int tileX = x % tileSidePixelSize_;
+        const int tileY = y % tileSidePixelSize_;
+        auto& img = t->getMosaicImageDataRef();
+        uint8_t& px = img.data()[tileY * tileSidePixelSize_ + tileX];
 
-            auto& img = t->getMosaicImageDataRef();
-            img.data()[tileY * tileSidePixelSize_ + tileX] = color;
+        if (headIndx > t->getHeadIndx() || px == 0) {
+            px = color;
             t->setIsUpdated(true);
             traceCnt++;
 
@@ -1379,7 +1388,9 @@ void MosaicProcessor::updateData(const QVector<int>& indxs, QSet<int>& usedEpoch
     if (lastHead != -1) {
         for (auto it = usedTiles.cbegin(); it != usedTiles.cend(); ++it) {
             auto* t = *it;
-            t->setHeadIndx(lastHead);
+            // PULSE: never lowered - an older epoch that filled empty pixels must not make the
+            // tile forget the newer one it already holds.
+            t->setHeadIndx(std::max(t->getHeadIndx(), lastHead));
         }
     }
 

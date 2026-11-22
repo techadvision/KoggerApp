@@ -1425,7 +1425,7 @@ void DataProcessor::runCoalescedWork()
             // on a small water driven back and forth that was up to 5287 old epochs in one
             // bundle (Olav's live log, 22 Nov), and the scan line stood still for seconds while
             // they were painted. So a bundle now takes ALL the live epochs and only a PORTION
-            // of the old ones (the oldest of them); the rest stay pending and go out with the
+            // of the old ones (the newest of them); the rest stay pending and go out with the
             // next bundles, a portion at a time. Realtime only: defProcType_ is the file-open
             // path, which has no live pings to keep moving.
             constexpr int kLiveWindowEpochs    = 100; // newer than this many behind the newest ping = live
@@ -1434,10 +1434,12 @@ void DataProcessor::runCoalescedWork()
             const auto firstLive = std::lower_bound(wb.mosaicVec.begin(), wb.mosaicVec.end(), liveFrom);
             const int backlogTotal = static_cast<int>(std::distance(wb.mosaicVec.begin(), firstLive));
 
-            // The OLDEST of the old epochs go first, so that a repaint lays the passes down in
-            // the order they were driven and a newer pass ends up on top of an older one.
+            // The NEWEST of the old epochs go first. In a tile a newer ping has touched, an
+            // older epoch only fills pixels that are still empty (MosaicProcessor putPixel), so
+            // painting from the newest pass back to the oldest is what leaves the newer pass on
+            // top where two of them overlap.
             if (!defProcType_ && backlogTotal > kBacklogPortionEpochs) {
-                wb.mosaicVec.erase(wb.mosaicVec.begin() + kBacklogPortionEpochs, firstLive);
+                wb.mosaicVec.erase(wb.mosaicVec.begin(), firstLive - kBacklogPortionEpochs);
                 mosaicBacklogLeft = true;
             }
 
