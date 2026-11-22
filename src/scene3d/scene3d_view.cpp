@@ -1063,7 +1063,11 @@ void GraphicsScene3dView::pinchTrigger(const QPointF& prevCenter, const QPointF&
         updateAxesRotation = true;
     }
     if (canRotateOrTilt && rotateWeight > 0.08 && absAngle > 0.05) {
-        m_camera->rotate(currCenter, currCenter, -angleDelta * rotateWeight, height());
+        // PULSE (22 Nov 2026): THE MAP TURNS WITH THE FINGERS. Upstream turns the camera with
+        // them (-angleDelta), so the map went the other way - the opposite of every map app,
+        // Seascape and the angling app included. Olav: "map rotation should follow the way I
+        // rotate my fingers."
+        m_camera->rotate(currCenter, currCenter, angleDelta * rotateWeight, height());
         updateAxesRotation = true;
     }
     if (updateAxesRotation) {
