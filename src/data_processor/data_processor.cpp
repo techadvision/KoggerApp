@@ -644,16 +644,13 @@ void DataProcessor::onCameraMoved()
             if (itm < mosaicLowAllowed) {
                 continue;
             }
-            // PULSE (22 Nov 2026): NOT WHAT IS BEING PAINTED RIGHT NOW. Without the in-flight
-            // test every epoch of the running job counted as "visible and not processed", so a
-            // camera move that changed the visible tiles queued them again and scheduleLatest
-            // cancelled the job to start over from its oldest epoch. With Centre on boat the
-            // map pans all the time, so the job was cancelled again and again, its backlog grew
-            // (log: "MOSAIC: backlog | 1711 epochs | 5 .. 4015") and the scan line, which only
-            // moves forward, waited behind it. The two other places that queue visible epochs
-            // (onBottomTrack3DAdded, onSendTilesByZoom) already make this test.
-            if (!processedMosaic.contains(itm) && !pendingMosaicIndxs_.contains(itm)
-                    && !mosaicInFlightIndxs_.contains(itm)) {
+            // PULSE (22 Nov 2026): WHAT IS BEING PAINTED RIGHT NOW IS QUEUED AGAIN, as upstream
+            // does. The running bundle paints with the visible tiles it was started with; a tile
+            // that comes into view while it runs gets nothing from it. An in-flight test here
+            // (tried, 8f532966) left exactly those epochs out for good: wedge-shaped gaps in the
+            // mosaic after zooming, one bundle wide. Queued again, they wait in the pending set
+            // until the bundle is done and are painted with the next one.
+            if (!processedMosaic.contains(itm) && !pendingMosaicIndxs_.contains(itm)) {
                 pendingMosaicIndxs_.insert(itm);
                 addedMosaic = true;
             }
