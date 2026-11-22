@@ -1428,7 +1428,7 @@ void DataProcessor::runCoalescedWork()
             // on a small water driven back and forth that was up to 5287 old epochs in one
             // bundle (Olav's live log, 22 Nov), and the scan line stood still for seconds while
             // they were painted. So a bundle now takes ALL the live epochs and only a PORTION
-            // of the old ones (the newest of them); the rest stay pending and go out with the
+            // of the old ones (the oldest of them); the rest stay pending and go out with the
             // next bundles, a portion at a time. Realtime only: defProcType_ is the file-open
             // path, which has no live pings to keep moving.
             constexpr int kLiveWindowEpochs    = 100; // newer than this many behind the newest ping = live
@@ -1437,8 +1437,10 @@ void DataProcessor::runCoalescedWork()
             const auto firstLive = std::lower_bound(wb.mosaicVec.begin(), wb.mosaicVec.end(), liveFrom);
             const int backlogTotal = static_cast<int>(std::distance(wb.mosaicVec.begin(), firstLive));
 
+            // The OLDEST of the old epochs go first, so that a repaint lays the passes down in
+            // the order they were driven and a newer pass ends up on top of an older one.
             if (!defProcType_ && backlogTotal > kBacklogPortionEpochs) {
-                wb.mosaicVec.erase(wb.mosaicVec.begin(), firstLive - kBacklogPortionEpochs);
+                wb.mosaicVec.erase(wb.mosaicVec.begin() + kBacklogPortionEpochs, firstLive);
                 mosaicBacklogLeft = true;
             }
 
@@ -2385,6 +2387,12 @@ void DataProcessor::onUpdateDataZoom(int zoom) // calc or db
     // also when the zoom came back to where it was (3 -> 4 -> 3 inside one pinch) and the
     // visible tiles look unchanged.
     mosaicRequeueVisiblePending_ = true;
+    // PULSE (22 Nov 2026): A ZOOM CHANGE REPAINTS WHAT IS VISIBLE AT THE NEW ZOOM, ALL OF IT.
+    // The "already painted at this zoom" marks of an earlier visit are forgotten, so that a
+    // part that was left unpainted then (Olav: "occasional missing parts of the bottom render
+    // when I play around zooming in and out") is painted now. It costs a repaint of what is in
+    // view, which runs in portions behind the live pings.
+    mosaicTaskEpochIndxsByZoom_[zoom].clear();
 
     lastDataZoomIndx_ = zoom;
 
@@ -2487,9 +2495,10 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
         lastViewRect_ = viewRect;
         if (mosaicRequeueVisiblePending_ && (updateMosaic_ || updateSurface_)) {
             mosaicRequeueVisiblePending_ = false;
-            qInfo().noquote() << "MOSAIC: everything visible is queued again | after a zoom change | zoom" << reqZoom;
             pumpVisible();
             onCameraMoved();
+            qInfo().noquote() << "MOSAIC: everything visible is queued again | after a zoom change | zoom" << reqZoom
+                              << "|" << tiles.size() << "tiles |" << pendingMosaicIndxs_.size() << "epochs queued";
         }
         return;
     }
@@ -2553,11 +2562,13 @@ void DataProcessor::onSendDataRectRequest(float minX, float minY, float maxX, fl
         cameraAddedTileKeys_ = reopenTiles;
         cameraAddedTilesValid_ = true;
     }
-    else {
-        qInfo().noquote() << "MOSAIC: everything visible is queued again | after a zoom change | zoom" << reqZoom;
-    }
+    const bool mosaicQueuedAllVisible = !cameraAddedTilesValid_;
     mosaicRequeueVisiblePending_ = false;
     onCameraMoved();
+    if (mosaicQueuedAllVisible) {
+        qInfo().noquote() << "MOSAIC: everything visible is queued again | after a zoom change | zoom" << reqZoom
+                          << "|" << tiles.size() << "tiles |" << pendingMosaicIndxs_.size() << "epochs queued";
+    }
     cameraAddedTilesValid_ = false;
     cameraAddedTileKeys_.clear();
 }
