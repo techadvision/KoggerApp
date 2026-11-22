@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <atomic>
 #include <list>
 #include <QHash>
@@ -383,6 +384,11 @@ private:
     // Valid for the one onCameraMoved() call onSendDataRectRequest makes right after setting it.
     QSet<TileKey> cameraAddedTileKeys_;
     bool cameraAddedTilesValid_ = false;
+    // PULSE: the backlog log - one line when old mosaic epochs pile up, one when they are gone.
+    bool mosaicBacklogActive_ = false;
+    int  mosaicBacklogPeak_ = 0;
+    int  mosaicBacklogBundles_ = 0;
+    QElapsedTimer mosaicBacklogTimer_;
     int lastVisTilesZoom_;
     int lastDataZoomIndx_;
 

@@ -1281,6 +1281,7 @@ void DataProcessor::runCoalescedWork()
     const bool wantIsobaths = maskNow & WF_Isobaths;
 
     WorkBundle wb;
+    bool mosaicBacklogLeft = false; // PULSE: old mosaic epochs held back for the next bundles
 
     if (wantSurface && updateSurface_) {
         int zoom = lastDataZoomIndx_;
@@ -1407,26 +1408,56 @@ void DataProcessor::runCoalescedWork()
             }
             if (idx <= mosaicCounter_) {
                 wb.mosaicVec.append(idx);
-                mosaicInFlightIndxs_.insert(idx);
-                it = pendingMosaicIndxs_.erase(it);
             }
-            else {
-                ++it;
-            }
+            ++it;
         }
         if (!wb.mosaicVec.isEmpty()) {
             std::sort(wb.mosaicVec.begin(), wb.mosaicVec.end());
 
-            // PULSE (22 Nov 2026), DIAGNOSTIC: a bundle that carries a backlog. The epochs are
-            // painted oldest first and the scan line only moves forward, so while a backlog is
-            // painted the line waits. Suspected cause of the scan line pausing with Centre on
-            // boat on: the map pans into tiles not yet painted at this zoom. Said only for
-            // bundles reaching more than 100 epochs behind the newest ping.
-            const int oldest = wb.mosaicVec.first();
-            if (mosaicCounter_ - oldest > 100) {
-                qInfo().noquote() << "MOSAIC: backlog |" << wb.mosaicVec.size() << "epochs |"
-                                  << oldest << ".." << wb.mosaicVec.last()
-                                  << "| newest ping" << mosaicCounter_ << "| zoom" << mosaicZoom;
+            // PULSE (22 Nov 2026): THE LIVE PINGS NEVER WAIT BEHIND A BACKLOG. A bundle is
+            // painted oldest epoch first and to the end, and the scan line only moves forward.
+            // A pan that brings tiles into view queues every earlier pass that crosses them -
+            // on a small water driven back and forth that was up to 5287 old epochs in one
+            // bundle (Olav's live log, 22 Nov), and the scan line stood still for seconds while
+            // they were painted. So a bundle now takes ALL the live epochs and only a PORTION
+            // of the old ones (the newest of them); the rest stay pending and go out with the
+            // next bundles, a portion at a time. Realtime only: defProcType_ is the file-open
+            // path, which has no live pings to keep moving.
+            constexpr int kLiveWindowEpochs    = 100; // newer than this many behind the newest ping = live
+            constexpr int kBacklogPortionEpochs = 150; // old epochs painted per bundle
+            const int liveFrom = mosaicCounter_ - kLiveWindowEpochs;
+            const auto firstLive = std::lower_bound(wb.mosaicVec.begin(), wb.mosaicVec.end(), liveFrom);
+            const int backlogTotal = static_cast<int>(std::distance(wb.mosaicVec.begin(), firstLive));
+
+            if (!defProcType_ && backlogTotal > kBacklogPortionEpochs) {
+                wb.mosaicVec.erase(wb.mosaicVec.begin(), firstLive - kBacklogPortionEpochs);
+                mosaicBacklogLeft = true;
+            }
+
+            for (int idx : std::as_const(wb.mosaicVec)) {
+                mosaicInFlightIndxs_.insert(idx);
+                pendingMosaicIndxs_.remove(idx);
+            }
+
+            // Said once when a backlog appears and once when it is gone, with how long it took.
+            if (backlogTotal > kBacklogPortionEpochs && !mosaicBacklogActive_) {
+                mosaicBacklogActive_ = true;
+                mosaicBacklogPeak_ = backlogTotal;
+                mosaicBacklogBundles_ = 0;
+                mosaicBacklogTimer_.start();
+                qInfo().noquote() << "MOSAIC: backlog starts |" << backlogTotal << "old epochs | newest ping"
+                                  << mosaicCounter_ << "| zoom" << mosaicZoom
+                                  << (defProcType_ ? "| painted in one bundle" : "| painted in portions");
+            }
+            if (mosaicBacklogActive_) {
+                mosaicBacklogPeak_ = std::max(mosaicBacklogPeak_, backlogTotal);
+                ++mosaicBacklogBundles_;
+                if (!mosaicBacklogLeft) {
+                    mosaicBacklogActive_ = false;
+                    qInfo().noquote() << "MOSAIC: backlog cleared | last portion sent after"
+                                      << mosaicBacklogTimer_.elapsed() << "ms |" << mosaicBacklogBundles_
+                                      << "bundles | peak" << mosaicBacklogPeak_ << "old epochs | newest ping" << mosaicCounter_;
+                }
             }
         }
     }
@@ -1461,6 +1492,13 @@ void DataProcessor::runCoalescedWork()
     nextRunPending_.store(false);
     cancelRequested_.store(false);
     jobRunning_.store(true);
+
+    // PULSE: old mosaic epochs were held back - ask for the next bundle when this one is done,
+    // whether or not anything new arrives in between.
+    if (mosaicBacklogLeft) {
+        requestedMask_.fetch_or(WF_Mosaic);
+        nextRunPending_.store(true);
+    }
 
     // queue в воркер в его поток
     QMetaObject::invokeMethod(worker_, "processBundle", Qt::QueuedConnection, Q_ARG(WorkBundle, wb));
