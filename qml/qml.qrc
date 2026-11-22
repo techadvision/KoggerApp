@@ -110,6 +110,7 @@
         <file>PulseRailButton.qml</file>
         <file>PulsePillColumn.qml</file>
         <file>PulseMosaicPill.qml</file>
+        <file>PulseMosaicFollowPill.qml</file>
         <file>PulsePanel.qml</file>
         <file>PulseColourGroup.qml</file>
         <file>PulseSliderRow.qml</file>

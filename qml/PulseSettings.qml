@@ -83,6 +83,10 @@ Settings {
     //find again next season - the opposite of an expert's sample-count experiment, which is
     //meant to be forgotten at every app start.
     property string screenViewId:               ""      //"" = not migrated yet
+    //THE MOSAIC FOLLOWS THE BOAT (22 Nov 2026) - the "Centre on boat" pill on the mosaic pane.
+    //Persisted for the same reason as the screen: it is how somebody works. Off by default,
+    //which is how the mosaic behaved before the pill existed.
+    property bool   mosaicFollowBoat:           false
     property bool   useMetricValues:            true  //Not used anymore
     property bool   useMetricDepth:             true  //Metric split for depth and temperature
     property bool   useMetricTemperature:       true  //Metric split for depth and temperature

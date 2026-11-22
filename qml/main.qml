@@ -3238,7 +3238,13 @@ ApplicationWindow  {
 
                 readonly property real topInset: Math.max(mainview.insetTop(),
                                                           Qt.platform.os === "android" ? Math.round(34 * mainview.s) : 0)
-                x: renderer.x + Math.round((renderer.width - width) / 2)
+                // The two pills are centred as a pair while the pane has room for both side by
+                // side; on a narrow pane this one keeps the centre and the other goes under it.
+                readonly property real pairGap: Math.round(10 * mainview.s)
+                readonly property bool pairFits:
+                    width + pairGap + pulseMosaicFollowPill.width <= renderer.width - 2 * pairGap
+                x: renderer.x + Math.round((renderer.width
+                                            - (pairFits ? width + pairGap + pulseMosaicFollowPill.width : width)) / 2)
                 y: renderer.y + topInset + Math.round(10 * mainview.s)
                 width:  implicitWidth
                 height: implicitHeight
@@ -3248,6 +3254,43 @@ ApplicationWindow  {
 
                 onWipeRequested: core.mosaicWipe()
                 onPauseRequested: function (p) { core.mosaicSetPaused(p) }
+            }
+
+            // THE CENTRE-ON-BOAT PILL (22 Nov 2026). See PulseMosaicFollowPill.qml. One writer
+            // of the view's follow state in v2: applyFollow, from the stored preference.
+            PulseMosaicFollowPill {
+                id: pulseMosaicFollowPill
+
+                visible: pulseMosaicPill.visible
+                enabled: visible
+
+                x: pulseMosaicPill.pairFits
+                   ? pulseMosaicPill.x + pulseMosaicPill.width + pulseMosaicPill.pairGap
+                   : renderer.x + Math.round((renderer.width - width) / 2)
+                y: pulseMosaicPill.pairFits
+                   ? pulseMosaicPill.y
+                   : pulseMosaicPill.y + pulseMosaicPill.height + Math.round(8 * mainview.s)
+                width:  implicitWidth
+                height: implicitHeight
+
+                uiScale:   mainview.s
+                following: pulseSettings.mosaicFollowBoat
+
+                function applyFollow(reason) {
+                    if (pulseSettings.uiVariant !== "v2")
+                        return
+                    var on = pulseSettings.mosaicFollowBoat
+                    Scene3dToolBarController.onTrackLastDataCheckButtonCheckedChanged(on)
+                    // Switching it on goes to the boat at once, from wherever the map is.
+                    if (on)
+                        renderer.flyToLastPosition()
+                    console.log("MOSAIC: centre on boat ->", on ? "on" : "off", "|", reason)
+                }
+
+                onFollowRequested: function (follow) { pulseSettings.mosaicFollowBoat = follow }
+                onFollowingChanged: applyFollow("the pill")
+                // After the hidden 3D toolbar's own start-up call, which switches follow off.
+                Component.onCompleted: Qt.callLater(function () { applyFollow("startup") })
             }
 
             // THE INDICATOR PILLS (Stage 4 a). Beside the rail and for the same reason:
