@@ -1481,12 +1481,17 @@ void GraphicsScene3dView::beginFollowReturn()
     // Keep the user's zoom, but descend when zoomed out past the dataset, and
     // stay inside the perspective range so per-position follow can run (handles
     // returning from the ortho map view too).
-    const float maxSize = std::max(m_bounds.width(), std::max(m_bounds.height(), m_bounds.length()));
-    const float fitDist = (maxSize / 2.0f) / std::tan(m_camera->fov() / 2.0f) * 2.0f;
+    // PULSE (22 Nov 2026): THE RETURN KEEPS THE USER'S ZOOM. Upstream descends to "fit the
+    // dataset" here, and the dataset is whatever has been drawn so far. In the first seconds of
+    // a session that is a few metres of track, so the return zoomed in as far as it goes - and
+    // did it again five seconds after every pinch, so the zoom could not be changed while
+    // Centre on boat was on. Only the perspective limit stays, which follow needs to run.
+    //const float maxSize = std::max(m_bounds.width(), std::max(m_bounds.height(), m_bounds.length()));
+    //const float fitDist = (maxSize / 2.0f) / std::tan(m_camera->fov() / 2.0f) * 2.0f;
     float targetDist = startDist;
-    if (fitDist > 0.0f && targetDist > fitDist) {
-        targetDist = fitDist;
-    }
+    //if (fitDist > 0.0f && targetDist > fitDist) {
+    //    targetDist = fitDist;
+    //}
     targetDist = std::min(targetDist, perspectiveEdge_ * 0.9f);
 
     const float targetRotX = startRot.x();
