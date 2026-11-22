@@ -1503,6 +1503,7 @@ void DataProcessor::runCoalescedWork()
 
     // PULSE: old mosaic epochs were held back - ask for the next bundle when this one is done,
     // whether or not anything new arrives in between.
+    mosaicBacklogDrain_ = mosaicBacklogLeft;
     if (mosaicBacklogLeft) {
         requestedMask_.fetch_or(WF_Mosaic);
         nextRunPending_.store(true);
@@ -1565,6 +1566,15 @@ void DataProcessor::onWorkerFinished()
             && !suppressResults_.load()) {
         requestedMask_.fetch_or(WF_Mosaic);
         nextRunPending_.store(true);
+    }
+
+    // PULSE (22 Nov 2026): while old mosaic epochs are waiting, the next bundle goes out at
+    // once rather than after the 333 ms pause - the portions are small so that the live pings
+    // keep moving, and the pause between them only made a repaint (a zoom change) slow.
+    if (mosaicBacklogDrain_ && nextRunPending_.load() && !shuttingDown_.load() && !defProcType_) {
+        mosaicBacklogDrain_ = false;
+        QMetaObject::invokeMethod(this, &DataProcessor::runCoalescedWork, Qt::QueuedConnection);
+        return;
     }
 
     if (nextRunPending_.load() && !shuttingDown_.load()) {

@@ -386,6 +386,7 @@ private:
     bool cameraAddedTilesValid_ = false;
     // PULSE: the mosaic queue was emptied (zoom change) - the next camera pass queues all that is visible.
     bool mosaicRequeueVisiblePending_ = false;
+    bool mosaicBacklogDrain_ = false; // PULSE: old epochs were held back by the bundle that is running
     // PULSE: the backlog log - one line when old mosaic epochs pile up, one when they are gone.
     bool mosaicBacklogActive_ = false;
     int  mosaicBacklogPeak_ = 0;
